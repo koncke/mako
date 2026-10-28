@@ -701,6 +701,32 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   el inicio del clip. La caché se indexa por lo que cambia el SONIDO, se descarta lo que nadie usa, y
   durante una vista previa (un arrastre) no se reinicia nada.
 
+## «Eliminar ruido» NO se copió de ningún repo: la distancia con CapCut es de método (27/10/2026, Cerebro)
+
+**Vive en:** `audio/dsp/ruido.ts` · `audio/cadena.ts` (`INTENSIDAD_RUIDO`) · `tests/video-editor-audio.test.ts`
+
+- **El síntoma:** Leila (ws11): «no funciona tan eficientemente como en CapCut». Martín: «lo copiamos de un repo, revisá si
+  lo copiamos bien o nos faltan cosas».
+- ⚠️ **La pregunta era la equivocada.** `ruido.ts` es propio (commit 7e4fb076e, 12/10): una compuerta espectral con un
+  perfil fijo del percentil 15. OpenCut no trae reducción de ruido (ni el classic ni la reescritura) y CapCut usa RNNoise, una
+  red neuronal. No hay constantes «mal copiadas» que volver al original. Corre igual en la vista previa
+  (`audio-manager.ts:663`) y en el export (`media/audio.ts:707`).
+- **Medido** con voz sintética a 48 kHz y la función real:
+  - con ruido rosa, las pausas bajan −11,5 dB contra un piso configurado de −27; deja «ruido musical» del 8 % (0,2 % en la
+    entrada), porque el 5,5 % de los bins de ruido pasa el umbral por azar;
+  - en estéreo, el perfil sale de la mezcla L+R: con ruido independiente por canal, −8,1 dB, y con el micrófono en un solo
+    canal, −4,9;
+  - con un ruido que cambia, casi nada (un perfil por clip); con las pausas en cero digital, nada (el percentil da 0);
+  - la intensidad no es la palanca: de 0,85 a 1 cambia ≤1,2 dB.
+- ⚠️ **El arreglo obvio rompe el audio limpio:** saltear los cuadros de menos de −80 dBFS para sacar el perfil lleva una
+  voz limpia de una SNR de 73,6 a 15,4 dB, porque el perfil sale de los cuadros con voz.
+- **La regla:** el perfil va POR CANAL con la ganancia enlazada, y un canal sin señal no vota en el máximo (si vota, la
+  ganancia queda en 1 y no reduce nada). Lo que acerca a CapCut es RNNoise en WASM, servido desde la app y con el retardo
+  MEDIDO (el worklet junta bloques de 128 en cuadros de 480). Un test de ruido tiene que probar también que una voz LIMPIA
+  queda intacta: el test 5 usa un seno de 440 Hz y no ve nada de esto.
+- **Quién:** el chat de la nube «Motion, Video e Image Editor» (etiquetas `nube/motion-2710-*`). Diagnóstico: workflow
+  `wf_80b91164-275` del Cerebro.
+
 ## El DSP de audio propio: cada fórmula de libro se midió, y estaba corrida
 
 **Vive en:** `audio/dsp/{ruido,intensidad,ritmos,tono}.ts` · `tests/video-editor-audio.test.ts`
@@ -1733,3 +1759,23 @@ La propuesta va en el hueco `enMensaje`, y ahí también el `data-mensaje` que b
 - El rótulo del alcance ya no va en la burbuja de la persona (sigue en los chips), y el tope del pedido lo pone `enviar`.
 
 **Vive en:** app/video-editor/_opencut/chat/PanelChat.tsx · tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## «No se pudo importar» con sólo el nombre: el reporte iba SIN la causa (ticket #15, Leila, 27/10/2026)
+
+Leila reportó «No se pudo importar. ESP_Fabi sentada_limpio.mp4» desde el aviso, y el ticket llegó sin ningún error
+técnico. **La causa de SU archivo no se puede saber sin el archivo**; lo que sí estaba mal, y se arregló:
+
+- **El «Reportar a Soporte» del Toaster (`components/ui/sonner.tsx`) manda sólo el título y la descripción del aviso.** El
+  error real se iba a la consola. Un aviso que puede necesitar la causa trae su PROPIA acción con el detalle técnico
+  (`avisar` en `media/processing.ts`: el error, el tipo y el peso), nunca un texto que la persona tenga que leer.
+- **Una lectura fallida igual sumaba el clip a la biblioteca**, sin duración ni tamaño: roto en la línea de tiempo.
+  Ahora un video que mediabunny no puede leer NO se importa, y el aviso dice por qué y qué hacer
+  (`media/importar-motivo.ts`, puro y con test).
+- **La miniatura (decodificar el primer cuadro) tumbaba la importación entera** aunque el resto se hubiera leído. Ahora es
+  como un códec sin decodificador: se importa avisando que puede verse mal.
+- **Un archivo de OneDrive / Google Drive sin descargar** se lee como `NotReadableError` (o pesa 0): el porqué lo dice y
+  pide «Mantener siempre en este dispositivo». Se reconoce por el NOMBRE del error: el texto cambia con la versión y el
+  idioma de Chrome.
+
+**Vive en:** `media/importar-motivo.ts` · `media/processing.ts` · `media/mediabunny.ts` (`SinPistaDeVideo`,
+`errorDecodificar`) · tests/video-editor-importar-motivo.test.ts (6 roturas) · *27/10/2026, chat «Motion / Imagen» (claude5).*

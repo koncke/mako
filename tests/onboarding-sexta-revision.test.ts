@@ -137,7 +137,7 @@ test('9. «Sí, no» con la persona como nombre del negocio esperando no guarda 
 
 test('10. la caja: sin nada que ofrecer el «+» queda apagado, y lo pegado cuando no se puede sumar se dice', () => {
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(caja, /<MasCaja a=\{p\.adjuntos\} apagado=\{quieto \|\| \(!p\.adjuntos\?\.puede && !p\.mas\)\}/);
+  assert.match(caja, /<MasCaja a=\{adjuntos\} apagado=\{quieto \|\| \(!adjuntos\?\.puede && !p\.mas\)\}/);
   const offer = sinComentarios(leer('app/offer/OfferApp.tsx'));
   assert.match(offer, /onNoPuede: \(\) => setErrorChat\(ocupado \? 'Espera a que MaKo conteste para sumar archivos\.'/);
 });

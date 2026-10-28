@@ -20,7 +20,9 @@
 //
 // Los mensajes de TEXTO del grupo sí se pudieron leer (234, del 21/08 al 01/09):
 // ésos viven en el store de Evolution y no dependen de ningún CDN. Lo que se
-// evapora a los ~30 días es la media.
+// evapora es la media: a los ~15-17 días, no a los ~30 que se creyó (medido el
+// 27/10/2026 con los 21 audios de Makito recuperados). Por eso el webhook la baja
+// EN EL MOMENTO (lib/grupos-guardados-media.ts).
 //
 // La diferencia con un chat 1-a-1, que es lo que hace que esto se sienta como un
 // bug: en un 1-a-1 el webhook baja los bytes y los sube a NUESTRO bucket
@@ -37,7 +39,7 @@ export const GRUPOS_GUARDADOS: ReadonlyArray<{ jid: string; nombre: string; porq
   {
     jid: '120363411300409914@g.us',
     nombre: 'Makito',
-    porque: 'Es donde Joan Dowd y Juan Francisco dejan el feedback de MaKo, y la mitad llega en audios que caducan a los ~30 días. Pedido de Martín el 27/09/2026: «guarda todo lo del grupo de Makito siempre, porque es un grupo donde me pasan feedback».',
+    porque: 'Es donde Joan Dowd y Juan Francisco dejan el feedback de MaKo, y la mitad llega en audios que caducan a los ~15-17 días. Pedido de Martín el 27/09/2026: «guarda todo lo del grupo de Makito siempre, porque es un grupo donde me pasan feedback».',
   },
 ];
 

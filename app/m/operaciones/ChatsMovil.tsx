@@ -39,7 +39,8 @@ import { BloqueDePreguntas } from '@/app/admin/operaciones/PreguntasDelChat';
 import { BloqueCompletado } from '@/app/admin/operaciones/BloqueCompletado';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
-import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
+import { CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
+import { CajaChatNuevo } from '@/app/admin/operaciones/CajaChatNuevo';
 import { Hilo, TANDA_HILO } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
@@ -334,7 +335,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   } : undefined;
 
   // Mandar es el del motor (useCentro.ts → mandar): el mismo de la computadora, con la cita si responde a un mensaje.
-  const mandar = () => { if (elegido) void centro.mandar(elegido); };
+  const mandar = () => { if (elegido) centro.mandar(elegido); };
   const enviando = centro.enviando;
   const copiarClave = async () => {
     if (!firma.clave) return;
@@ -370,7 +371,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       <div className="m-operaciones-caja">
         {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026), la misma de la computadora: en el teléfono Enter baja de
             renglón y se manda con el botón. Arriba, la cita del mensaje que se responde; en el «+», con qué corre. */}
-        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} onNota={(n) => centro?.notaGrabada(elegido.clave, n)} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
+        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} onGrabada={(g) => centro?.mandarNota(elegido, g.audio, g.segundos)} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
           adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila"
           arriba={cita ? <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} /> : null}
           mas={centro ? (cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></> : undefined} />

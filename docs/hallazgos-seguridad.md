@@ -33,6 +33,23 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## «Se puso todo difuminado y MaKo me pide un código» (Leandro, 24/10): NO es el 2FA de MaKo (27/10/2026, sin reproducir)
+
+**Vive en:** `app/login/2fa/page.tsx` y `app/login/page.tsx` (fondo liso) · `app/perfil/seguridad/SeguridadCuenta.tsx` (en la
+página, sin modal) · `lib/mfa-obligatorio.ts` · `app/integraciones/TusCuentasIA.tsx` (el tutorial de MaKo Desktop).
+
+- **El síntoma** (docs/feedback-24-10.md, f24, min 33:28 y 35:12): «envié algo y se me puso todo difuminado y me quedé solo en la
+  pantalla (...) MaKo me está pidiendo un código». Le estaba escribiendo a MaKo en el chat. Martín lo dio por bueno como seguridad.
+- **⚠️ El obvio («es el 2FA: que el modal diga por qué pide el código») no cierra con el código.** Ninguna pantalla de MaKo que
+  pide el código del 2FA difumina: el segundo paso y el login son una página entera de fondo liso (`#14161B`), y Seguridad lo pide
+  en la misma página. Ningún negocio exige el 2FA por fecha (`mfa_obligatorio_desde` vacío en todos, leído el 27/10, sólo esa
+  columna). No hay bloqueo por inactividad ni nada que pida el código a mitad del uso: el 2FA sólo aparece al ENTRAR.
+- **Lo que sí difumina o pide un código alrededor del chat:** el modal «Tus cuentas de IA» (`mk-modal__fondo`, `blur(2px)`) con el
+  tutorial de MaKo Desktop (en Windows el código de emparejar viaja solo por `mako://`; no se escribe); ya en la computadora, el
+  login de Claude muestra un código que se pega en la página de MaKo; y, fuera de MaKo, el permiso de Windows (UAC) oscurece
+  toda la pantalla al instalar.
+- **SIN HACER:** saber cuál fue pide ver la grabación en esos minutos. No se cambió código por una causa sin confirmar.
+
 ## «La app de escritorio entró a la cuenta de Mauricio sin login»: era el perfil de Chrome de Mauricio, no el emparejamiento (25/10/2026)
 
 Martín, 25/10 ~12:00: «la app de desktop jamás me pidió login, eso esta muy mal, entró directo a la cuenta de Mauricio cuando
@@ -2317,6 +2334,35 @@ foto). Las 106 copias viejas (cinco negocios) las muda el mismo cron diario, en 
 la foto está a la vista igual—. No hizo falta un script contra producción: **mudar antes del deploy habría roto la foto
 con el código viejo**, y el cron corre recién con el nuevo. Un objeto que NO es de este lead y este negocio no se borra
 nunca (`rutaDeFotoGuardada` exige el prefijo).
+
+### 27/10: ningún bucket se LISTA con la clave pública, y lo que todavía se puede adivinar
+
+Aaron (llamada del 26/10) marcó los buckets públicos. Medido en producción en **sólo lectura**:
+- **La lista que circulaba estaba mal.** Los públicos son CINCO: `avatars`, `portadas`, `landing-imagenes`, `image-editor` y
+  **`video-clips`** (que no estaba). `graficos` y `stock` no son buckets: los gráficos del Dashboard van a `portadas`
+  (`app/api/graficos/imagen/route.ts:33`) y las fotos del buscador al bucket de quien las pide (`lib/imagenes-stock.ts`).
+- **Listar con la clave anon devuelve 0 en los 20 buckets**, también dentro de una carpeta, contra 1-22 entradas con la
+  service role en los mismos. La causa: `storage.objects` y `storage.buckets` tienen RLS prendido y **cero políticas**. Sólo
+  la service role (el servidor) lista. Un `[]` no prueba nada solo; el control con la service role es lo que lo vuelve dato.
+- Entonces el riesgo de un bucket público es **adivinar el nombre**, no enumerarlo. Formas medidas (con los dígitos tapados):
+  `landing-imagenes` e `image-editor` llevan UUID; `video-clips`, UUID salvo 4 tomas de prueba `prueba-montaje-ws<N>-<N>/`;
+  `portadas`, `ws<N>/<milisegundos>-<6 al azar>`; `avatars`, 147 fotos de leads con 128 bits al azar, 4 fotos del equipo
+  `avatar-<milisegundos>.png` y **UNA foto de un lead con la ruta vieja, adivinable**.
+- ⚠️ **Esa foto es huérfana: la mudanza no la va a tocar nunca.** Es de un lead del ws 13 que ya no existe (subida el 13/10,
+  ninguna fila la apunta). El cron muda lo que una fila apunta, así que una foto de un lead borrado se queda en la ruta
+  adivinable para siempre. Borrarla es escritura en producción: pide el sí de Martín.
+
+**Qué debe seguir público:** `landing-imagenes` (la ven las landings publicadas, sin login) y `video-clips` (el worker de
+montaje no tiene credencial y baja las tomas por su URL pública: `app/api/montaje/worker/route.ts`). `portadas` (tapas de
+1600×420 e imágenes de gráficos del Dashboard) e `image-editor` se dibujan dentro de la app y podrían ir por URL firmada,
+pero antes hay que mirar si algo compartido por link las usa. Para `avatars`, la decisión (c) de arriba ya cerró lo que
+importaba.
+
+**Sin hacer:** borrar la foto huérfana; ver si borrar un lead borra su foto (si no, cada lead borrado deja la suya, ahora
+con nombre al azar); pasar `image-editor` a privado si se decide.
+
+**Vive en:** `app/api/perfil/avatar/route.ts:47` · `app/api/portadas/route.ts:130` · `app/api/graficos/imagen/route.ts:86` ·
+`lib/imagenes-stock.ts:506` · `lib/fotos-contacto-ruta.ts` · *27/10/2026, chat «Infra» (claude5)*
 
 ### El tope de pedidos: lo que un 429 rompe
 

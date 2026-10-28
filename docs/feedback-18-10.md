@@ -47,7 +47,9 @@
     - «Programá un mensaje por privado a un número»: capacidad nueva, choca con «a terceros sale el número del usuario».
     - Los carteles de IA (Gemini 503 y timeout, con una sola key): falta la cascada, o sea gasto de IA.
 
-**Por llamadas (estado del TABLERO del Plan del ws9; no se cruzó con commits):**
+**Por llamadas (estado del TABLERO del Plan del ws9; no se cruzó con commits):** ⚠️ Cruzado el 27/10 en
+[codigo-inmobiliario-revision-16-10.md](codigo-inmobiliario-revision-16-10.md): los cuatro «por hacer» de la «Revisión
+de MaKo» ya tenían su commit el 17/10.
 - **Leila (847861420):** por hacer, vincular varias líneas de WhatsApp.
 - **Mau <> Martin (863534245):** por hacer:
   - la API key restringida al conectar el dominio de email;

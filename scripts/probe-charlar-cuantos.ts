@@ -19,10 +19,11 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { clasificarIntencion, CONTRATO } from '../lib/mako-intencion';
 
 const DIAS = Number(process.argv[2] || 60);
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 async function main() {
   const filas = await sql`

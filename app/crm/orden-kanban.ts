@@ -88,8 +88,10 @@ export function ordenarColumna<T>(cs: readonly T[], criterio: Exclude<OrdenKanba
       // Al revés de la llegada: el más viejo arriba. Sin fecha, al final; entre dos iguales, el de más abajo primero.
       case 'antiguos': return conHuecoAlFinal(ms(a.d.creado), ms(b.d.creado), true) || b.i - a.i;
       case 'nombre': {
-        const na = a.d.nombre.trim();
-        const nb = b.d.nombre.trim();
+        // `?? ''` (ticket #14, 27/10/2026): un lead que entró sin nombre (los traídos de un grupo, sólo con teléfono) rompía
+        // la columna ordenada por nombre al abrir el CRM.
+        const na = (a.d.nombre ?? '').trim();
+        const nb = (b.d.nombre ?? '').trim();
         return (na ? (nb ? nombres.compare(na, nb) : -1) : nb ? 1 : 0) || a.i - b.i;
       }
       case 'respondio': return a.d.respondio - b.d.respondio || a.i - b.i;

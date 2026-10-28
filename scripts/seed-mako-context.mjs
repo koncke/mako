@@ -9,9 +9,10 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { createHash } from 'node:crypto';
 
-const DB = process.env.DATABASE_URL;
+const DB = urlDeLaBase();
 const OAI_KEY = process.env.OPENAI_API_KEY;
 if (!DB) { console.error('Falta DATABASE_URL en .env.local'); process.exit(1); }
 

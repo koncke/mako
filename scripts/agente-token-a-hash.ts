@@ -22,6 +22,7 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { AGENTE_SERVICIO, AGENTE_TOKEN_KEY } from '../lib/agente-token-nucleo';
 import { convertirAgenteTokens, type IoConversion } from '../lib/agente-token-conversion';
 
@@ -32,7 +33,7 @@ async function main() {
     console.error('⛔ falta DATABASE_URL (se lee de .env.local, en la carpeta desde donde se corre el script)');
     process.exit(1);
   }
-  const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
+  const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
   // app_settings.value es TEXT (mig 0016): se compara y se escribe como texto.
   const io: IoConversion = {
     leerSettings: async () => {

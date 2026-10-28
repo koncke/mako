@@ -2782,3 +2782,74 @@ Auditado en el código de c8f1c4a57 (chat «MaKo recomienda», cuenta 5); la tab
 
 **Sin hacer:** el recolector de Fathom (las objeciones de las llamadas a la memoria, con la cuenta de cada negocio: el diseño del
 recolector §5) y el de los chats con MaKo (lo que el dueño cuenta). Los dos con el molde de lib/recolector.ts.
+
+## Los íconos de verdad cuando MaKo nombra un botón, en todos los chats (27/10/2026, claude5)
+
+**Síntoma:** Leandro (ticket 874749710-12): MaKo le decía «tocá Configuraciones» y no se sabía cuál era. Automations dibujaba
+la tuerca en su globo (8ed7f23aa); los demás chats, nada.
+
+**La regla:** el ícono no lo elige el modelo ni un chat: sale de la BARRA. app/_chat/iconos-de-botones.ts arma «nombre visible →
+ícono» con los `label` e `icon` de app/_components/nav.ts, más los botones que no son tab (la tuerca de Configuraciones), y el
+renderizador compartido (`Markdown` con `iconos`) dibuja el ícono cuando MaKo NOMBRA el botón entre «». Una palabra suelta no es
+un botón. Lo piden los mensajes de MaKo de `HiloMako` (los chats de la caja única) y el hilo de Offer en el teléfono.
+
+**Trampa:** hay dos «Ops Center» en la barra (el del negocio, con el cerebro, y el del super admin, con otro ícono). El catálogo
+toma lo que ve el NEGOCIO primero: MaKo le habla a él.
+
+Todos los chats de MaKo de la app dibujan con `HiloMako` (Ops Center, Automations, Offer, Web Generator, Image y Video Editor).
+**Sin hacer:** no se vio en pantalla.
+
+## «No me deja adjuntar un documento»: el inventario de las cajas de chat (27/10/2026, claude5, ticket #16 de Leila)
+
+**Síntoma:** Leila (ws11): «No me deja adjuntar un documento ni por arrastrar, ni por adjuntar», siempre. Martín, el mismo día:
+«revisa que todos los chats acepten todos los formatos».
+
+**Lo que había, caja por caja** (el «+» y lo arrastrado, antes de este cambio):
+
+| Caja | Tomaba | Arrastrar |
+| --- | --- | --- |
+| Second Brain del negocio (`useChatCliente`) | sólo fotos y PDF (`ACCEPT_ADJUNTOS_CHAT`, y el servidor valida por firma) | a la pantalla: un Word rebotaba callado |
+| MaKo Analyst del lead | sólo fotos y PDF | a la pantalla |
+| Automations | texto, Word, PDF, Excel, PowerPoint, OpenDocument, imágenes (sin audio) | a la pantalla |
+| Web Generator (agente) | texto, Word, PDF, Excel, PowerPoint, OpenDocument, audio, video, imágenes | a la pantalla |
+| Offer (escritorio y teléfono) | todo lo que se lee (`ACCEPT_IMPORTAR`) y .zip | sí |
+| Ops Center de la plataforma (Runner) | fotos, PDF, Word, Excel, PowerPoint, texto, CSV, Markdown | sí |
+| Media Buyer (2), Dashboard, Image Editor, Video Editor, Soporte, asesor de WhatsApp, `MakoChat` | **nada** | «Este chat no recibe archivos» |
+
+**La causa no era una caja: era que adjuntar dependía de que cada PANTALLA lo armara** (y el servidor del Second Brain sólo deja
+pasar fotos y PDF, porque los manda al modelo como bloques nativos). **La regla:** la caja única adjunta SOLA. Lo que la
+pantalla toma (su `accept`) va a SUS adjuntos; lo demás la caja lo sube y lo LEE al mandar (app/api/chat/leer-archivo →
+`archivoATexto`: Word, Excel, PowerPoint, PDF, texto, imágenes por visión y audio transcripto, con la IA del negocio) y sale con
+el mensaje como un texto pegado con su nombre (el hilo lo dibuja como documento). `juntarAdjuntos` reparte; el panel de la
+conversación suelta en los adjuntos de la caja (`ContextoSoltar`), y la caja misma toma lo arrastrado.
+
+- **Chats** (lo que se le manda a un LEAD) va con `sinAdjuntos`: ahí un documento viaja como archivo, nunca leído y pegado.
+- **Sin el límite de Vercel:** se sube con una URL firmada (el molde de Offer) y se borra después de leer.
+- tests/chat-formatos.test.ts recorre TODAS las cajas de app/ y falla si una apaga los adjuntos sin estar en la lista con su
+  porqué, o si el `accept` deja afuera algo requerido (docx, xlsx, pptx, pdf, csv, txt, md, imágenes y audio).
+- **Trampa (27/10, claude4): el rojo parecía un anclaje viejo y era una regresión.** tests/offer-hilo-unico (el 4) caía en la
+  fila de la caja (un `data-caja-adjunta` nuevo) y, corregido eso, en «el teléfono no deja elegir el .zip de la landing»:
+  `juntarAdjuntos` PISABA el `accept` de la pantalla con `ACCEPT_CHAT`, y el «+» de Offer perdió el .zip de la carpeta de una
+  landing. **La regla:** el `accept` de la caja es la UNIÓN (lo que MaKo lee primero, lo que sólo toma la pantalla al final). En un
+  test de forma que cae, mirar la SEGUNDA aserción antes de decir «anclaje viejo».
+
+**Sin hacer:** no se probó en pantalla (arrastrar un .docx y un .pdf en cada caja); el Ops Center de la plataforma manda los
+archivos al Runner como siempre (un audio adjunto lo lee la caja como texto). WhatsApp (no ve fotos ni PDF) es de
+mako-wa-conexiones.
+
+## La caja que adjunta sola, revisada contra producción (27/10/2026, claude4, la revisión del Cerebro)
+
+**Lo que se cortaba callado:** el Video Editor y el Image Editor mandan hasta 2.000 caracteres (`TOPES_CHAT.instruccion`) y la
+caja ahora les pega lo LEÍDO de un adjunto (hasta 40.000). Se cortaba a 2.000 sin aviso y sin la marca de cierre: el hilo ya no
+encontraba el pegado y MaKo trabajaba sobre un pedazo como si fuera el documento. **La regla:** una pantalla cuyo motor tiene
+tope se lo pasa a la caja (`topeTexto`); lo leído entra hasta ahí con su marca de cierre y la línea `SIGUE_CORTADO`
+(`conPegadosHasta`, lib/chat-pegado.ts), y la caja DICE cuánto quedó afuera. Un audio igual se transcribe entero.
+
+**De paso:** el arranque de Offer (sólo texto) adjuntaba solo: `sinAdjuntos` también va a la caja, no sólo `adjuntos: undefined`.
+leer-archivo mira el tamaño y el tipo de lo que BAJÓ (en «subir-url» los declara el navegador) y anota el gasto como del chat
+(`feature: 'mako-chat'`, no «Importar al plan»). El cartel «Suelta para adjuntar» quedaba pegado si se soltaba sobre la caja (que
+corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjuntos-revision.test.ts.
+
+**Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
+de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
+chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.

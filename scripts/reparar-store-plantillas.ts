@@ -24,12 +24,13 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const WS = Number(process.argv[2] || 1);
 const ESCRIBIR = process.argv.includes('--escribir');
 const CLAVE = 'mako.plantillas.store';
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 /** Un store sano es un objeto cuyas claves son ids de plantilla, nunca `0,1,2…`. */
 function esStoreSano(x: unknown): x is Record<string, unknown> {

@@ -124,7 +124,7 @@ function MenuDelMensaje({ onCitar, children }: { onCitar?: (m: MensajeWA) => voi
   );
 }
 
-function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
+function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onDescartar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -136,6 +136,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
   onTarjeta: (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => void;
   /** Mandar otra vez lo que NO llegó (un 4xx). */
   onReintentar: (id: string) => void;
+  /** Sacar del hilo una nota de voz que no se entendió (`descartable`): la nota en el acto, app/_chat/useNotaEnElActo.ts. */
+  onDescartar?: (id: string) => void;
   /** Lo que no se sabe si llegó: se recarga y se mira, nunca se reintenta a ciegas. */
   onRecargar: () => void;
   /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. `false` = no salió. */
@@ -172,7 +174,9 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
         <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={<>
           {x.estado === 'error' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
-              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button><ReportarASoporte /></p>
+              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button>
+              {x.descartable && onDescartar && <>{' · '}<button type="button" className="ch-enlace" onClick={() => onDescartar(x.id)}>Descartar</button></>}
+              <ReportarASoporte /></p>
           )}
           {x.estado === 'incierto' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error ?? ERROR_INCIERTO}{' '}
@@ -201,7 +205,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       filas.push(
         <DeMako key={x.id} quien={quien} hora={hora(x.at) || null} m={wa(x)} marcas={marcas}>
           {suyo?.arriba}
-          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} /></div>}
+          {/* `iconos` (27/10/2026, ticket 874749710-12): el botón o la tab que MaKo nombra entre «» sale con su ícono de verdad. */}
+          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} iconos /></div>}
           {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
           {!!x.irA?.length && (
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>

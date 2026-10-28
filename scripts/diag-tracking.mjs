@@ -1,11 +1,12 @@
 // Forense del tracking de VSL: por qué muchos leads no traen el % visto.
 // Solo LEE. node scripts/diag-tracking.mjs
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 const p = (label, v) => console.log(label.padEnd(52), v);
 try {
   const [{ n: totalLeads }] = await sql`select count(*)::int n from leads`;

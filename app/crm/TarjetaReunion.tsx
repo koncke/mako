@@ -138,13 +138,13 @@ export function TarjetaReunion({ r, ahora, ctx, onVerDetalle }: {
         {ctx === 'cargando'
           ? <><dt>Lo último</dt><dd className="crm-reu__cargando">Leyendo…</dd></>
           : ultimo ? <><dt>Lo último</dt><dd>{ultimo}</dd></> : null}
-        {r.cual === 'R2' && (deLaR1 || r1?.objeciones.length || r1?.grabacion) && (
+        {r.cual === 'R2' && (deLaR1 || r1?.objeciones?.length || r1?.grabacion) && (
           <>
             <dt>En la R1</dt>
             <dd>
               {deLaR1}
-              {!!r1?.objeciones.length && (
-                <span className="crm-reu__chips">{r1.objeciones.map((o, i) => <span key={i} className="crm-reu__chip" title={o}>{o.length > 60 ? `«${o.slice(0, 57)}…»` : `«${o}»`}</span>)}</span>
+              {!!r1?.objeciones?.length && (
+                <span className="crm-reu__chips">{(r1.objeciones ?? []).map((o, i) => <span key={i} className="crm-reu__chip" title={o}>{o.length > 60 ? `«${o.slice(0, 57)}…»` : `«${o}»`}</span>)}</span>
               )}
               {r1?.grabacion && <><br /><a className="crm-reu__link" href={r1.grabacion} target="_blank" rel="noopener noreferrer">Ver la grabación</a></>}
             </dd>

@@ -232,7 +232,7 @@ test('la ruta: gate del admin del negocio, path de ESTE workspace, el binario se
   // Un turno que falla no guarda un mensaje de MaKo: devuelve el error con la sesión. La única excepción es
   // la pregunta OBLIGATORIA del diagnóstico, que sale ORIGINAL (mensajeDeMako con turno null).
   assert.match(RUTA, /if \(!ia\.ok && plan\.modo !== 'forzar'\) return no\(502, ia\.error, \{ sesion: await vistaSesion\(fila\) \}\);/);
-  assert.match(RUTA, /const turnoIA = ia\.ok \? ia\.valor : null;/);
+  assert.match(RUTA, /let turnoIA = ia\.ok \? ia\.valor : null;/);
 });
 
 /** El cuerpo de una función de la ruta, hasta la próxima función de primer nivel. */

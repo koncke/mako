@@ -1310,7 +1310,9 @@ function CodigoLanding({ snippet, cargador, pixel, elegida, onElegir }: {
           landings={landings} onLandings={setLandings} rechazos={pixel?.gracias ?? []} />
       </Paso>
 
-      <Paso n={3} titulo={cargador ? 'Copia esta línea y pégala en tu página' : 'Copia el código y pégalo en tu página'}>
+      {/* «En CADA página» (27/10/2026, MAU-14): la línea es la MISMA para todas las páginas del negocio (un token por negocio), y
+          Mauricio no entendió que iba también en la de gracias. */}
+      <Paso n={3} titulo={cargador ? 'Copia esta línea y pégala en cada página: la de venta y la de gracias' : 'Copia el código y pégalo en cada página: la de venta y la de gracias'}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* ⚠️ LO PRIMERO ES LA LÍNEA DEL CARGADOR (09/10/2026, decisión de Martín). Una línea

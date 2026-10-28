@@ -1,5 +1,5 @@
 // =============================================================================
-// api-mako / curso — el curso de cada producto (Clients › Classroom; antes Customer Success › Curso), por la API
+// api-mako / curso — el curso de cada producto (Classroom; antes Customer Success › Curso), por la API
 // =============================================================================
 // Pedido de Martín (08/10/2026, audio de feedback del curso, ~05:30): alguien con su curso en
 // Panda preguntó «si esto lo puedo conectar por medio de API para que mi Claude lo pueda subir de
@@ -139,7 +139,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_cursos', area: 'curso', tipo: 'lectura',
     titulo: 'Listar los cursos',
-    descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Clients › Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
+    descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
     parametros: [],
     salida: 'json', canales: LECTURA_APP, costo: 'gratis', gating: GATING,
   },

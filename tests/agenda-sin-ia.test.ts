@@ -532,7 +532,7 @@ test('los invitados que vienen de Google Calendar no entran al prompt de la extr
   const nucleo = cuerpoDe(src, 'export async function extraerTareasDeTexto(');
   assert.match(nucleo, /const paraElPrompt = participantes\.filter\(\(p\) => !p\.delCalendario\);/);
   assert.match(nucleo, /const listaParticipantes = paraElPrompt\.length\s*\?\s*paraElPrompt\.map/);
-  assert.match(nucleo, /coerceCandidatas\(obj, proyectos, yo, participantes(, dicho)?(, control)?\)/);
+  assert.match(nucleo, /coerceCandidatas\(obj, proyectos, yo, participantes(, dicho)?(, control)?(, hablantes)?\)/);
   assert.match(src, /delCal\.map\(\(i\) => \(\{ nombre: i\.nombre, email: i\.email, delCalendario: true as const \}\)\)/);
 });
 

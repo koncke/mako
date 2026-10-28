@@ -34,9 +34,10 @@ import { etiquetasDeLead, type EtiquetaDelLead } from './etiquetas';
 import { listarLineas, type LineaRow } from './evolution';
 import { getConversacionesNoOficial, getMensajesDeChat, type WaConversacion, type WaMensaje } from './evolution-mensajes';
 import { telefonosBloqueados, telefonosOcultos } from './evolution-block';
+import { getNombreContacto } from './evolution-contactos';
 import { TelefonosDe } from './numero-whatsapp';
 import { instanceNameDeWs, lineaPorDefault, rotuloLinea } from './lineas-whatsapp';
-import { getFunnelDefault, getFunnelDe, idDelFunnelDefault } from './funnels';
+import { getFunnelDefault, getFunnelDe, idDelFunnelDefault, leerFunnels } from './funnels';
 import { etapaVigenteDe } from './funnel-etapas';
 import type { Stage, StageDerivable } from './pipeline';
 import { leerTodo } from './supabase-paginado';
@@ -54,7 +55,7 @@ import {
   type FuenteChat, type LeadDelChat, type FilaEstadoChat, type ContextoContactos, type TipoEventoChat, LINEA_CANAL_MAKO,
 } from './chats-reglas';
 import type {
-  BorradorChat, CanalChat, ChatResumen, CuentaSocial, EtapaChat, IdentidadCanal, LineaChat, MensajeChat,
+  BorradorChat, CanalChat, ChatResumen, CuentaSocial, EtapaChat, EtapaEnFunnel, FunnelChat, IdentidadCanal, LineaChat, MensajeChat,
 } from './chats-tipos';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -152,6 +153,55 @@ async function leerLeads(ids: readonly number[]): Promise<FilaLeadChat[]> {
     const { data, error } = await db.from('leads').select(COLS_LEAD_CHAT).in('id', tanda);
     if (error) throw new Error(`leads: ${error.message}`);
     out.push(...((data ?? []) as unknown as FilaLeadChat[]));
+  }
+  return out;
+}
+
+/** Las filas de `lead_funnel` de esos leads (los funnels a los que se los agregó, con su etapa ahí), de a 200. Tira si no pudo leer. */
+async function leerAgregados(ids: readonly number[]): Promise<Array<{ lead_id: number; funnel_id: number; etapa: string }>> {
+  const unicos = [...new Set(ids.filter((n) => Number.isSafeInteger(n) && n > 0))];
+  if (!unicos.length) return [];
+  const db = await getTenantDb();
+  const out: Array<{ lead_id: number; funnel_id: number; etapa: string }> = [];
+  for (const tanda of enTandas(unicos, 200)) {
+    const { data, error } = await db.from('lead_funnel').select('lead_id, funnel_id, etapa').in('lead_id', tanda);
+    if (error) throw new Error(`lead_funnel: ${error.message}`);
+    out.push(...((data ?? []) as Array<{ lead_id: number; funnel_id: number; etapa: string }>));
+  }
+  return out;
+}
+
+/**
+ * LOS FUNNELS DEL NEGOCIO CON SUS ETAPAS, para el filtro de Chats (27/10/2026, Mauricio: «sólo muestra el funnel
+ * principal»; el del Sprint no se podía elegir). El principal va con las etapas ya leídas (`etapas`); cada otro, con las
+ * suyas (`getFunnelDe`). Uno cuyas etapas no se pudieron leer no se ofrece: elegirlo filtraría con etapas que no son las
+ * suyas. null = la lista de funnels no se pudo leer (el filtro queda con el principal, como antes).
+ */
+async function funnelsDelNegocio(etapas: EtapaChat[]): Promise<{ funnels: FunnelChat[]; principal: number | null } | null> {
+  const lista = await leerFunnels();
+  if (!lista) return null;
+  const principal = lista.find((f) => f.esDefault)?.id ?? null;
+  const funnels = await Promise.all(lista.map(async (f): Promise<FunnelChat | null> => {
+    if (f.esDefault) return { id: f.id, nombre: f.nombre, esDefault: true, etapas };
+    try {
+      const d = await getFunnelDe(f.id);
+      if (d.origen === 'error' || d.origen === 'sin-fila') return null;
+      return { id: f.id, nombre: f.nombre, esDefault: false, etapas: d.stages.map((st) => ({ key: st.key, label: st.label, color: st.dot })) };
+    } catch { return null; }
+  }));
+  return { funnels: funnels.filter((x): x is FunnelChat => x != null), principal };
+}
+
+/**
+ * Dónde está cada lead: su casa (`funnel_id`, null = el principal) con la etapa que pinta su tablero, y cada funnel al que
+ * se lo agregó con la etapa de ESA fila. Lo que lee el filtro «Funnel» (`enFunnelYEtapa`, lib/chats-reglas.ts).
+ */
+function funnelsDelLead(l: FilaLeadChat, etapaCasa: string, principal: number | null, agregados: ReadonlyArray<{ lead_id: number; funnel_id: number; etapa: string }>): EtapaEnFunnel[] {
+  const casa = l.funnel_id != null ? Number(l.funnel_id) : principal;
+  const out: EtapaEnFunnel[] = casa != null ? [{ funnelId: casa, etapaKey: etapaCasa }] : [];
+  for (const a of agregados) {
+    if (Number(a.lead_id) !== Number(l.id) || Number(a.funnel_id) === casa || !a.etapa) continue;
+    out.push({ funnelId: Number(a.funnel_id), etapaKey: a.etapa });
   }
   return out;
 }
@@ -396,6 +446,10 @@ export type ListaChats = {
   lineas: LineaChat[];
   cuentasSociales: CuentaSocial[];
   etapas: EtapaChat[];
+  /** Los funnels del negocio con sus etapas (el filtro «Funnel»). Ausente o vacío = sólo el principal (`etapas`). */
+  funnels?: FunnelChat[];
+  /** El id del funnel principal (null si no se pudo leer). */
+  funnelPrincipal?: number | null;
   /** Las fuentes que NO se pudieron leer: 'whatsapp', 'whatsapp:<linea>', 'instagram', 'messenger', 'crm', 'etapas', 'estado', 'leidos', 'borradores'. */
   fallas: string[];
 };
@@ -465,9 +519,18 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats; p
 
   // Los leads de todas las fuentes, en una lectura (el nombre, el asignado, el closer y la etapa del CRM).
   const leadIds = fuentes.map((f) => f.leadId).filter((x): x is number => x != null);
-  const filasLead = await leerLeads(leadIds).catch(falla('crm'));
+  const [filasLead, agregados, delNegocio] = await Promise.all([
+    leerLeads(leadIds).catch(falla('crm')),
+    leerAgregados(leadIds).catch(falla('crm')),
+    funnelsDelNegocio(embudo.etapas).catch(falla('etapas')),
+  ]);
   const embudoDe = await embudosDeLeads(filasLead ?? [], embudo);
-  const leads = new Map((filasLead ?? []).map((l) => [Number(l.id), leadDelChat(l, embudoDe(l).stages, embudoDe(l).labels)]));
+  const principal = delNegocio?.principal ?? null;
+  const leads = new Map((filasLead ?? []).map((l) => {
+    const d = leadDelChat(l, embudoDe(l).stages, embudoDe(l).labels);
+    // Sin poder leer los agregados no se afirma dónde está: el filtro cae a la etapa de su casa (`etapaKey`).
+    return [Number(l.id), agregados ? { ...d, funnels: funnelsDelLead(l, d.etapaKey ?? '', principal, agregados) } : d];
+  }));
 
   const ctx: ContextoContactos = {
     leads,
@@ -477,7 +540,10 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats; p
     lineaDefault: lns?.porDefault ?? instanceNameDeWs(ws),
     ahoraMs: Date.now(),
   };
-  return { chats: agruparPorContacto(fuentes, ctx), lineas, cuentasSociales: rs.cuentas, etapas: embudo.etapas, fallas: [...new Set(fallas)] };
+  return {
+    chats: agruparPorContacto(fuentes, ctx), lineas, cuentasSociales: rs.cuentas, etapas: embudo.etapas,
+    funnels: delNegocio?.funnels ?? [], funnelPrincipal: principal, fallas: [...new Set(fallas)],
+  };
 }
 
 /**
@@ -729,7 +795,7 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
       telefonosBloqueados().catch(() => new TelefonosDe([])),
       telefonosOcultos().catch(falla('ocultos')),
     ]);
-    let pedidos: Array<{ l: LineaLeida; jid: string; tel: string | null; nombreWa?: string | null }> = [];
+    let pedidos: Array<{ l: LineaLeida; jid: string; tel: string | null; nombreWa?: string | null; agenda?: string | null }> = [];
     if (p.tipo === 'whatsapp') {
       // La línea de la clave TIENE que ser del negocio (la clave viene del navegador).
       const l = todas.find((x) => x.linea === p.linea);
@@ -745,8 +811,12 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
     pedidos = await Promise.all(pedidos.map(async (x) => {
       const t10 = x.tel ? ultimos10(x.tel) : '';
       if (t10.length < 8) return x;
-      const real = await contactoWhatsappReal(lns.leidas.length ? x.l.linea : null, t10).catch(falla(`whatsapp:${x.l.linea}`));
-      return real ? { ...x, jid: real.jid, tel: real.tel, nombreWa: real.nombre } : x;
+      // Y como lo tiene AGENDADO (27/10/2026): le gana al que el contacto se puso en WhatsApp. Sin poder leerlo, sin él.
+      const [real, agenda] = await Promise.all([
+        contactoWhatsappReal(lns.leidas.length ? x.l.linea : null, t10).catch(falla(`whatsapp:${x.l.linea}`)),
+        getNombreContacto(t10).catch(() => null),
+      ]);
+      return real ? { ...x, jid: real.jid, tel: real.tel, nombreWa: real.nombre, agenda } : { ...x, agenda };
     }));
     // ⚠️ UN CHAT OCULTO NO SE LEE (verificado el 15/10/2026). Es un chat personal que el dueño sacó de la bandeja:
     // /whatsapp no lo muestra y MaKo no lo lee. Sin poder leer la lista de ocultos, tampoco se lee ninguno.
@@ -764,7 +834,7 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
     for (const x of leidas) {
       for (const m of x.ms) mensajes.push(mensajeWhatsapp(m, x.l.linea));
       const bloqueado = !!x.tel && bloqueados.has(x.tel);
-      fuentes.push(fuenteDeHilo(x.ms, x.l, varias, { jid: x.jid, tel: x.tel, leadId, nombre: lead?.nombre || x.nombreWa || (x.tel ?? x.jid), bloqueado }));
+      fuentes.push(fuenteDeHilo(x.ms, x.l, varias, { jid: x.jid, tel: x.tel, leadId, nombre: lead?.nombre?.trim() || x.agenda || x.nombreWa || (x.tel ?? x.jid), bloqueado }));
     }
   }
 

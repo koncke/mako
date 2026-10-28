@@ -49,8 +49,9 @@ export const EXTENSION_ID = 'gapbemdaaghomjbnggechglkpmbgplle';
  *
  * Medido el 02/09/2026: la ficha declara «Versión 0.5.0 · Fecha de actualización:
  * 28 de agosto de 2026», y el manifest que trae embebido dice lo mismo.
+ * Medido otra vez el 27/10/2026 (`node scripts/version-en-tienda.mjs`): publica la 0.39.1.
  */
-export const VERSION_EN_TIENDA = '0.5.0';
+export const VERSION_EN_TIENDA = '0.39.1';
 
 /**
  * ¿Se le puede ofrecer la tienda a alguien que instala hoy?

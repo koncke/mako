@@ -30,6 +30,7 @@ import { tarjetasDe, tituloDeTarjeta } from '@/lib/editor-landing/doc';
 import { EstilosPanelesB, Ico, pedirDocs } from './PanelAgente';
 import { idDe, recortar } from '../diff-tarjetas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const rtf = typeof Intl !== 'undefined' && 'RelativeTimeFormat' in Intl ? new Intl.RelativeTimeFormat('es', { numeric: 'auto' }) : null;
 function hace(iso: string): string {
@@ -42,8 +43,6 @@ function hace(iso: string): string {
   if (s < 7 * 86_400) return rtf.format(-Math.round(s / 86_400), 'day');
   return new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' });
 }
-
-const inicial = (nombre: string) => (nombre.trim()[0] ?? '?').toUpperCase();
 
 type HiloC = { raiz: Comentario; respuestas: Comentario[] };
 type Seccion = { titulo: string; paginaId: string; orden: number };
@@ -166,7 +165,7 @@ export function PanelComentarios({ onCerrar }: { onCerrar?: () => void } = {}) {
 
   const burbuja = (c: Comentario, acciones: ReactNode) => (
     <div className="gma-cm-com">
-      <span className="gma-cm-avatar" aria-hidden>{inicial(c.autor || '?')}</span>
+      <span className="gma-cm-avatar" aria-hidden>{iniciales(c.autor, 1)}</span>
       <div className="gma-cm-cuerpo">
         <div className="gma-cm-meta"><b>{c.autor || 'Alguien'}</b><span>{hace(c.creado)}</span></div>
         <p className="gma-cm-texto">{c.texto}</p>

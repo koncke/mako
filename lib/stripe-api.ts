@@ -279,6 +279,10 @@ export type SesionStripe = {
   id: string; estado: string | null; pagoEstado: string | null; paymentIntent: string | null;
   subscription: string | null; invoice: string | null; email: string | null; monto: number | null;
   moneda: string | null; metadata: Record<string, string>; modo: 'real' | 'prueba'; referencia: string | null;
+  /** El Payment Link del que salió la sesión (`plink_…`): una venta armada en el Stripe del negocio, no por MaKo (27/10/2026). */
+  paymentLink?: string | null;
+  /** El teléfono que dejó el comprador (`customer_details.phone`), si Stripe lo pidió. */
+  telefono?: string | null;
 };
 
 const metadataDe = (v: unknown): Record<string, string> => {
@@ -302,6 +306,8 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
     subscription: idDe(b.subscription),
     invoice: idDe(b.invoice),
     email: str(obj(b.customer_details).email) ?? str(b.customer_email),
+    telefono: str(obj(b.customer_details).phone),
+    paymentLink: idDe(b.payment_link),
     monto: moneda && Number.isFinite(total) ? deUnidadMinima(total, moneda) : null,
     moneda,
     metadata: metadataDe(b.metadata),

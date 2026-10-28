@@ -4457,12 +4457,37 @@ clientes nuevos (ws20 Sergio Arriata, ws21 Florencia Ayelen Carballo, ws22 Patri
   le fallara, no se lleva la lista de cuentas). Cada cuenta nueva se prueba con un GET antes de ofrecerla. Medido con
   los tokens reales: ws20 suma `act_702839088096495` y ws22 `act_351188227049325`; ws1 y ws13, nada.
 
-**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta). **Verlo dibujado** con un negocio con Meta:
-el Chrome de esta PC está logueado como ws10 (sin Meta, muestra el onboarding) y no puede entrar a otro negocio; el
-bundle de producción sí trae los textos nuevos. Lo mira un super admin en `/ads-manager` del ws20.
+- **27/10, MK-03: volvió el «no las veo», y esta vez la causa SÍ era de MaKo.** Son clientes de Joan (el pedido del 23/10
+  se anotó como de Mauricio), en el grupo Makito. **El diagnóstico obvio era el equivocado: «ya lo explicó la medición del
+  23/10».** El 25/10 el Media Buyer reemplazó /ads-manager y se borró `CampanasBrowser.tsx`, que era donde se decía la
+  cuenta: la pestaña Campañas (`Lienzo.tsx`) volvió a dibujar el árbol sin decir QUÉ cuenta leía ni la frase de «sin
+  campañas nuevas», y con la cuenta vacía el pie decía «Toca una campaña…». Sólo el selector del CRM lo conservó. Ahora el
+  pie dice «Cuenta Nombre · número» (`etiquetaCuentaMeta`), la frase cuando no hay campañas nuevas (sólo con el árbol
+  ENTERO: con `parcial` no se sabe si hay) y «Revisar y publicar en Meta ↗» a las campañas de ESA cuenta
+  (`linkCampanasEnMeta`). MaKo en el chat (`ver_campanas_media_buyer`) recibe lo mismo.
+- **Borradores: no se puede mostrar uno por nombre.** El pedido del Cerebro (Natalia, ws19: «Revisar y publicar (19)» en
+  su Administrador) era dibujarlos como «Borrador en Meta: falta publicar». Un borrador del Administrador no existe para la
+  API (el 23/10, `addrafts` dio #100 con el token de cada cliente en v24.0; la doc de Meta lista `act_<id>/addrafts` en
+  v25.0, sin campos y sin decir si son los del Administrador: **sin medir con v25**). Lo que Meta SÍ devuelve sin publicar
+  es lo RETENIDO por la aprobación de pares (`issues_info` 2446984, ver «Retiene anuncios»): esa campaña dice «Retenida en
+  Meta: falta publicar» con «Publicar ↗» a su fila del Administrador, y gana a los cambios de MaKo (no entrega). Sólo por
+  el token: por Zernio no llegan los `issues_info`.
+- **Trampa del entorno:** re-medir por negocio desde una sesión de Claude (la base o la Graph con el token del cliente,
+  aunque sea sólo lectura) lo frena el clasificador como «Production Reads». No se esquiva: la medición la corre quien
+  tenga el permiso, en el orden de arriba. Lo que se necesita de Joan para cerrar sin medir: el número de cuenta que ve
+  arriba a la izquierda en esas campañas y si están publicadas (o en «Revisar y publicar»).
+
+**Sin hacer:** conectar Meta en ws21 (paso de Martín o de la clienta). Re-medir ws20 y ws22 al 27/10 (bloqueado arriba).
+Probar `addrafts` con v25.0 en sólo lectura con un token permitido: si trae los del Administrador, el borrador SÍ se puede
+dibujar por nombre (lib/meta-cuenta-leida.ts). **Verlo dibujado** con un negocio con Meta: el Chrome de esta PC está
+logueado como ws10 (sin Meta, muestra el onboarding) y no puede entrar a otro negocio; lo mira un super admin en la
+pestaña Campañas de `/ads-manager` del ws20.
 
 **Vive en:** lib/meta-health.ts (`edgeUrl`, `campanasYConjuntos`, `_getMetaHealth`) · lib/credenciales.ts (`credWs`) ·
-lib/meta-cuenta-leida.ts · app/ads-manager/CampanasBrowser.tsx (`matchEstado`, `cuentaLeida`) ·
+lib/meta-cuenta-leida.ts (`linkCampanasEnMeta`) · app/ads-manager/Lienzo.tsx (el pie y la tarjeta retenida) ·
+lib/media-buyer/vista.ts (`lienzoMediaBuyer`: `cuenta`, `aviso`) · lib/media-buyer/productos.ts (`campanasRetenidas`) ·
+lib/media-buyer/datos.ts (`arbolDeMeta`: `retenido`, `cuentaNombre`) · tests/media-buyer-borradores.test.ts ·
+app/ads-manager/CampanasBrowser.tsx (borrado el 25/10) ·
 app/crm/CampanasModal.tsx · app/crm/campanas-actions.ts (`cuentaMeta`) · tests/meta-cuenta-leida.test.ts
 
 ## Meta mientras se aprueba la app de MaKo: qué puentes existen y cuáles no (23/10/2026)

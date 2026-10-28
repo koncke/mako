@@ -33,7 +33,8 @@ test('1. el catálogo tiene toda tarjeta y lo que no es tarjeta, con rutas de co
   for (const d of DEFS) {
     const c = conexion(d.key);
     assert.ok(c, `la tarjeta «${d.key}» no está en el catálogo de conexiones`);
-    assert.equal(c!.ruta, `/integraciones?abrir=${d.key}`, `la ruta de «${d.key}» no abre su modal`);
+    // Meta se conecta en la tarjeta de Zernio (27/10/2026, tests/meta-sin-token.test.ts): es la única que abre OTRO modal.
+    assert.equal(c!.ruta, `/integraciones?abrir=${d.key === 'meta' ? 'zernio' : d.key}`, `la ruta de «${d.key}» no abre su modal`);
     assert.equal(c!.nombre, d.nombre);
   }
   assert.equal(conexion('pc')?.ruta, '/perfil/ia?computadora=1', 'la computadora no abre «Conecta MaKo»');
@@ -154,8 +155,9 @@ test('7. `ver_ia_del_negocio` y `como_conectar` existen y salen por los tres can
   }
   assert.ok(leer('./api-mako-http.snapshot.txt').split('\n').includes('como_conectar'), 'el snapshot de HTTP no se regeneró');
   const run = sinComentarios(leer('../lib/api-mako/areas/integraciones.run.ts'));
-  assert.match(run, /pasos: s\.tutorial\.pasos,/, 'ver_integracion no trae los pasos del tutorial');
-  assert.match(run, /pasos: tarjeta\?\.tutorial\.pasos \?\? c\.pasos \?\? \[\],/, 'como_conectar no trae los pasos');
+  // Los de la conexión ganan (27/10/2026: Meta se conecta en la tarjeta de Zernio, tests/meta-sin-token.test.ts).
+  assert.match(run, /pasos: cx\?\.pasos \?\? s\.tutorial\.pasos,/, 'ver_integracion no trae los pasos del tutorial');
+  assert.match(run, /pasos: c\.pasos \?\? tarjeta\?\.tutorial\.pasos \?\? \[\],/, 'como_conectar no trae los pasos');
   // ver_ia_del_negocio: nunca una clave, y no le ofrece Gemini.
   const via = run.slice(run.indexOf('ver_ia_del_negocio: {'), run.indexOf('como_conectar: {'));
   assert.doesNotMatch(via, /valor|descifrar|valor_enc/, 'ver_ia_del_negocio lee el valor de una clave');

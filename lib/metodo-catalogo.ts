@@ -68,6 +68,14 @@ export type CampoCredencial = {
    *  sus 6 credenciales, 5 salen del access token (ver lib/meta-descubrir.ts). */
   auto?: boolean;
   /**
+   * true → la pantalla ya NO lo pide: se ve sólo si el negocio lo tenía cargado (para verlo, cambiarlo o quitarlo). Va con
+   * `opcional`. Existe por la clave de YouTube (27/10/2026): las vistas del VSL son públicas y MaKo las lee con su clave, y
+   * el canal se conecta con el login de Zernio; pedirle a cada negocio una clave de Google Cloud era el laberinto. El token de
+   * Meta también lo es (la misma tarde) y NO es `opcional`, a propósito: `opcional` lo leen los lectores de «conectado», y
+   * Meta ya cuenta conectada con la conexión de Zernio (`metaConectadaConCampos`). La API de MaKo tampoco lo lista si falta.
+   */
+  retirado?: boolean;
+  /**
    * true → lo escribe SÓLO el servidor, derivado de otro campo, y NINGÚN «guardar» lo acepta
    * tipeado: ni el de /integraciones, ni el de /metodo, ni detrás de «Prefiero cargarlos a mano».
    * Va siempre junto con `auto` (que es lo que leen la pantalla y el guard de ruteo).
@@ -199,7 +207,10 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     core: true,
     paraQue: 'Campañas, gasto, resultados y salud de la cuenta publicitaria. Sin esto no hay métricas de ads ni Ads Manager.',
     campos: [
-      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Lo único que pegas: el token de un "usuario del sistema", vencimiento "Nunca" y los 8 permisos. MaKo completa el resto.' },
+      // El token de Meta se RETIRA (27/10/2026, corte `CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts): con Zernio prendido no se pide, y
+      // sólo lo ve el negocio que ya lo tenía («Ver la conexión anterior»). La nota y el tutorial ya no enseñan a sacarlo.
+      // `retirado` (27/10/2026): la API de MaKo tampoco lo lista como «falta» (ver_integracion), y el modal ya lo escondía.
+      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'Se retira el lunes 03/11. Conecta con Facebook (Zernio) arriba: hasta ese día queda de respaldo.' },
       { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token; si tienes varias cuentas, eliges una. A mano, va con act_ adelante.' },
       { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Lo saca MaKo del "Access token". Trae los contactos de tus formularios de Facebook e Instagram.' },
       { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Si tienes más de un píxel, te pregunta cuál.' },
@@ -229,21 +240,21 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       { env: 'META_ZERNIO_CUENTA', label: 'Conexión de Facebook (Zernio)', opcional: true, auto: true, derivado: true, nota: 'La completa MaKo al conectar con Facebook. Con esto MaKo lee y publica en Meta por tu Zernio.' },
     ],
     tutorial: {
-      url: 'https://business.facebook.com/settings',
-      urlLabel: 'Configuración del negocio en Meta',
-      // El camino que YA ANDA hoy, mientras la app de MaKo espera la revisión de Meta (23/10/2026): cada negocio
-      // conecta con SU app. Medido ese día en los 10 negocios conectados así (docs/hallazgos-ads.md, «Conectar con
-      // tu propia app»): métricas y leads andan en todos; publicar anuncios con creativo NUEVO anduvo sólo con una
-      // app activa (ws1), y la de ws13, en desarrollo, rebotó 14 de 14 con el 1885183.
-      // ⚠️ Y AUN ASÍ EL TUTORIAL NO PIDE PUBLICAR LA APP: es la regla de Martín del 16/09 («no me menciones más que el
-      // cliente tenga que publicar su app, esa no es opción», lib/meta-publicar-errores.ts). Un paso así entró y salió
-      // el mismo 23/10. Publicar con creativo nuevo va a ir por la Zernio del negocio (en construcción, 23/10).
-      // Estructura copiada de la guía de n8n para Facebook Lead Ads («Create the app»).
+      url: 'https://zernio.com',
+      urlLabel: 'Zernio',
+      // El token SE VA (27/10/2026, pedido del Cerebro tras el alta de los negocios de Joan, que se perdió en el tutorial del
+      // token: «tenía 45 pasos pero estaba muy resumido»). Ya no se enseña a sacarlo: el tutorial avisa el corte
+      // (`CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts; tests/meta-tutorial-app-propia.test.ts fija que la fecha sea la misma)
+      // y lleva a «Conectar con Facebook», que pide la key de Zernio si falta. El de antes (crear la app, el usuario del
+      // sistema, el token con 8 permisos) está en el historial de git.
+      // ⚠️ Sigue valiendo la regla de Martín del 16/09: ningún paso pide publicar ni activar una app.
+      // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». El tutorial ya no nombra
+      // el token (el corte del 03/11 lo dice sólo la nota del campo, que ve quien lo tenía): conectar es con Facebook.
       pasos: [
-        'En developers.facebook.com/apps toca "Crear app", tipo "Negocio", con los casos de uso de anuncios y de leads.',
-        'En business.facebook.com/settings → "Usuarios del sistema" crea un "Administrador" con "Control total" de tus activos.',
-        'Toca "Generar nuevo token": tu app, vencimiento "Nunca" y los 8 permisos: ads_read, ads_management, business_management, pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval, pages_manage_metadata.',
-        'Copia el token (empieza con EAA, se ve UNA vez) y pégalo en "Access token". MaKo completa el resto.',
+        'Meta se conecta con tu Facebook, por Zernio: no hay que crear ninguna app ni copiar nada de Meta.',
+        'Arriba, en esta misma ventana, toca "Conectar con Facebook".',
+        'Si te pide tu API key de Zernio: sácala en zernio.com → "Settings" → "API Keys" y pégala.',
+        'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
       ],
     },
   },
@@ -700,20 +711,22 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     categoria: 'Datos',
     paraQue: 'Views del VSL alojado en YouTube (si tu VSL vive ahí).',
     campos: [
-      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…', nota: 'Empieza con AIza. Sale de console.cloud.google.com → "Credenciales" → "Clave de API", con "YouTube Data API v3".' },
-      { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', opcional: true, placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
+      // La clave ya NO se pide (27/10/2026, pedido del Cerebro, feedback 876470842-22): las vistas de un video son públicas y
+      // MaKo las lee con la suya (`claveDeYoutube`, lib/youtube.ts), y el canal se conecta con el login de Zernio
+      // (lib/zernio-redes.ts). «Conectado» pasa a ser tener el video del VSL; quien ya tenía su clave la sigue usando.
+      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'Ya no hace falta: MaKo lee las vistas con su clave. Déjala sólo si quieres usar tu propia cuota.' },
+      { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'OAuth Client ID', opcional: true, placeholder: '…apps.googleusercontent.com', nota: 'Opcional: déjalo vacío. Solo hace falta para la retención y las vistas diarias de TU canal.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'OAuth Client secret', secreto: true, opcional: true, placeholder: 'GOCSPX-…', nota: 'Opcional. Va de a pares con el "OAuth Client ID". Empieza con GOCSPX- y se ve UNA sola vez.' },
       { env: 'YOUTUBE_OAUTH_REFRESH_TOKEN', label: 'OAuth Refresh token', secreto: true, opcional: true, nota: 'Opcional: el permiso para leer las estadísticas de tu canal, del OAuth Playground de Google. Si no, vacío.' },
     ],
     tutorial: {
-      url: 'https://console.cloud.google.com/apis/credentials',
-      urlLabel: 'Google Cloud Console → Credenciales',
+      url: 'https://studio.youtube.com',
+      urlLabel: 'YouTube Studio',
       pasos: [
-        'En console.cloud.google.com, con tu cuenta de YouTube, crea un proyecto nuevo (selector de proyecto, arriba).',
-        'En "APIs y servicios" → "Biblioteca" busca "YouTube Data API v3" y toca "Habilitar" (es gratis).',
-        'En "APIs y servicios" → "Credenciales" → "Crear credenciales" → "Clave de API", copia la key (AIza…).',
-        'Pégala en "API key". En "ID del video del VSL" va lo que sigue a v= en la dirección de tu video.',
+        'Abre tu video del VSL en YouTube y copia lo que sigue a v= en su dirección.',
+        'Pégalo en "ID del video del VSL" y guarda: MaKo lee sus vistas cada día, sin claves.',
+        'Para conectar tu canal: en la tarjeta de Zernio, en "YouTube", toca "Conectar" y entra con Google.',
         'Los tres campos "OAuth" son opcionales: solo dan la retención de tu canal. Déjalos vacíos.',
       ],
     },

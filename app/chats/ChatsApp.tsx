@@ -27,14 +27,15 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import type { ChatResumen, CuentaSocial, EtapaChat, LineaChat } from '@/lib/chats-tipos';
-import { FILTRO_INICIAL, LINEA_CANAL_MAKO, coincideBusqueda, contarBandejas, filtrarChats, parsearClave, rotuloWhatsapp, type FiltroChats } from '@/lib/chats-reglas';
+import type { ChatResumen, CuentaSocial, EtapaChat, FunnelChat, LineaChat } from '@/lib/chats-tipos';
+import { FILTRO_INICIAL, LINEA_CANAL_MAKO, claveLead, coincideBusqueda, contarBandejas, filtrarChats, parsearClave, rotuloWhatsapp, type FiltroChats } from '@/lib/chats-reglas';
 import { RUTA_CHATS, PARAM_CHATS, rutaChatsDeClave, vistaDeLink } from '@/lib/chats-links';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import {
-  almacenLocal, claveDelLink, filtroRecordado, fusionarRecientes, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
+  almacenLocal, cambiarClaveEnLista, claveDelLink, filtroRecordado, fusionarRecientes, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
   type LinkProfundo,
 } from './lista-reglas';
+import { agregarChatAlCrm } from './agregar-al-crm';
 import { FuenteChats } from './fuente';
 import { ID_PORTAL_RIO } from './portal';
 import { FiltrosChats, type CanalConectable } from './FiltrosChats';
@@ -59,6 +60,9 @@ type DatosLista = {
   lineas: LineaChat[];
   cuentasSociales: CuentaSocial[];
   etapas: EtapaChat[];
+  /** Los funnels con sus etapas (el filtro «Funnel», 27/10/2026). Vacío = sólo el principal. */
+  funnels: FunnelChat[];
+  funnelPrincipal: number | null;
   yo: { id: number; nombre: string };
   equipo: { nombre: string; foto_url: string | null }[];
   fallas: string[];
@@ -92,10 +96,8 @@ const SIN_YO = { id: 0, nombre: '' };
 const TEXTO_ACCION: Record<AccionFila['tipo'], { ok: string; error: string }> = {
   // Las mismas palabras que la cabecera de la ventana (VentanaChat.tsx): la misma acción no se dice de
   // dos formas según dónde se tocó.
-  cerrar: { ok: 'Conversación cerrada', error: 'No se pudo cerrar' },
-  reabrir: { ok: 'Conversación reabierta', error: 'No se pudo reabrir' },
-  posponer: { ok: 'Conversación pospuesta', error: 'No se pudo posponer' },
-  reanudar: { ok: 'Conversación reanudada', error: 'No se pudo reanudar' },
+  agregar: { ok: 'Agregado al CRM', error: 'No se pudo agregar' },
+  ficha: { ok: '', error: '' },
   asignar: { ok: 'Asignación guardada', error: 'No se pudo asignar' },
 };
 
@@ -134,6 +136,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
       }
       const nuevos: DatosLista = {
         chats: j.chats ?? [], lineas: j.lineas ?? [], cuentasSociales: j.cuentasSociales ?? [], etapas: j.etapas ?? [],
+        funnels: j.funnels ?? [], funnelPrincipal: j.funnelPrincipal ?? null,
         yo: j.yo ?? SIN_YO, equipo: j.equipo ?? [], fallas: j.fallas ?? [],
       };
       setDatos((d) => (modo === 'rapida' && d ? { ...nuevos, chats: fusionarRecientes(d.chats, nuevos.chats) } : nuevos));
@@ -239,7 +242,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
 
   // ── Lo que se ve ──────────────────────────────────────────────────────────────────────────
   const yo = datos?.yo ?? SIN_YO;
-  const visibles = useMemo(() => (datos ? filtrarChats(datos.chats, filtro, yo) : []), [datos, filtro, yo]);
+  const visibles = useMemo(() => (datos ? filtrarChats(datos.chats, filtro, yo, datos.funnelPrincipal) : []), [datos, filtro, yo]);
   const conteos = useMemo(() => contarBandejas(datos?.chats ?? [], yo), [datos, yo]);
 
   // ── La selección (en la URL) y los links profundos ───────────────────────────────────────
@@ -336,28 +339,52 @@ export function ChatsApp({ ws, esAdmin, productos }: {
   const [version, setVersion] = useState(0);
   const alCambiar = useCallback(() => { setVersion((v) => v + 1); void cargarLista('rapida'); }, [cargarLista]);
 
-  const alCambiarClave = useCallback((nueva: string) => {
-    // Se agregó al CRM: la conversación pasa a `lead:<id>`. La ventana se vuelve a montar (su `key` es
-    // la clave), y la lista trae el contacto nuevo en la próxima lectura.
+  /**
+   * Se agregó al CRM: la conversación pasa a `lead:<id>`. La ventana se vuelve a montar (su `key` es la clave).
+   * ⚠️ LA FILA DE LA LISTA CAMBIA DE CLAVE EN EL ACTO (27/10/2026, Martín: «se duplica en CHATS hasta que doy refresh»). La
+   * lectura rápida trae el contacto como `lead:<id>` y deja la fila `wa:…` de pantalla (no la trajo, y lo rápido no borra):
+   * dos filas de la misma persona hasta la lectura completa. `cambiarClaveEnLista` la renombra y la rápida la reemplaza.
+   */
+  const alCambiarClave = useCallback((nueva: string, vieja?: string) => {
     const p = parsearClave(nueva);
-    setSeleccion((s) => (s ? { ...s, clave: nueva, leadId: p?.tipo === 'lead' ? p.leadId : s.leadId } : s));
-    router.replace(rutaChatsDeClave(nueva), { scroll: false });
+    const leadId = p?.tipo === 'lead' ? p.leadId : null;
+    setDatos((d) => (d && vieja ? { ...d, chats: cambiarClaveEnLista(d.chats, vieja, nueva, leadId) } : d));
+    setSeleccion((s) => {
+      if (!s || (vieja && s.clave !== vieja)) return s;
+      return { ...s, clave: nueva, leadId: leadId ?? s.leadId };
+    });
+    if (!vieja || seleccion?.clave === vieja) router.replace(rutaChatsDeClave(nueva), { scroll: false });
     alCambiar();
-  }, [router, alCambiar]);
+  }, [router, alCambiar, seleccion]);
 
   const [fichaId, setFichaId] = useState<number | null>(null);
   const abrirFicha = useCallback((leadId: number) => setFichaId(leadId), []);
   const cerrarFicha = useCallback(() => { setFichaId(null); alCambiar(); }, [alCambiar]);
 
   const accionFila = useCallback(async (c: ChatResumen, a: AccionFila) => {
-    const r = a.tipo === 'asignar'
-      ? (c.leadId != null ? await postJson<{ ok: boolean; error?: string }>('/api/chats/asignar', { leadId: c.leadId, setter: a.setter }) : { ok: false, error: 'Sin lead' })
-      : await postJson<{ ok: boolean; error?: string }>('/api/chats/estado', { clave: c.clave, accion: a.tipo, ...(a.tipo === 'posponer' ? { hasta: a.hasta } : {}) });
+    if (a.tipo === 'ficha') { if (c.leadId != null) abrirFicha(c.leadId); return; }
+    if (a.tipo === 'agregar') {
+      // El mismo alta que la cabecera del chat (./agregar-al-crm.ts): el nombre de la agenda, nunca el teléfono.
+      try {
+        const r = await agregarChatAlCrm(c, a.funnelId);
+        if (!r.ok) { aviso.error(TEXTO_ACCION.agregar.error, 'elegir' in r ? 'Elige el funnel.' : r.error); return; }
+        if (r.aviso) aviso.error(r.aviso.titulo, r.aviso.detalle);
+        aviso.ok(TEXTO_ACCION.agregar.ok);
+        alCambiarClave(claveLead(r.leadId), c.clave);
+        abrirFicha(r.leadId);
+      } catch (e) {
+        aviso.error(TEXTO_ACCION.agregar.error, e instanceof Error ? e.message : null);
+      }
+      return;
+    }
+    const r = c.leadId != null
+      ? await postJson<{ ok: boolean; error?: string }>('/api/chats/asignar', { leadId: c.leadId, setter: a.setter })
+      : { ok: false, error: 'Sin lead' };
     const txt = TEXTO_ACCION[a.tipo];
     if (r.ok) aviso.ok(a.tipo === 'asignar' && a.setter == null ? 'Asignación quitada' : txt.ok);
     else aviso.error(txt.error, r.error ?? null);
     alCambiar();
-  }, [aviso, alCambiar]);
+  }, [aviso, alCambiar, alCambiarClave, abrirFicha]);
 
   // ── Conectar y administrar un canal, sin salir de Chats (24/10/2026, docs/diseno-chats.md §8.4) ─────────────────
   // Antes WhatsApp iba a /whatsapp y el email a /email: la pantalla entera de otra tab («salta el diseño de la tab vieja de
@@ -434,6 +461,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
         filtros={(
           <FiltrosChats filtro={filtro} onFiltro={cambiarFiltro} verOcultos={verOcultos} onVerOcultos={setVerOcultos} conteos={conteos}
             lineas={lineas} cuentasSociales={datos?.cuentasSociales ?? []} etapas={datos?.etapas ?? []} chats={datos?.chats ?? []}
+            funnels={datos?.funnels ?? []} funnelPrincipal={datos?.funnelPrincipal ?? null}
             esAdmin={esAdmin} onConectar={conectarCanal.elegir} onAdministrar={(l) => abrirAdministrar(l)} />
         )}
         arriba={caida && !verOcultos ? (
@@ -455,6 +483,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
         onElegir={elegir}
         etapas={datos?.etapas ?? []}
         equipo={datos?.equipo ?? []}
+        productos={productos}
         onAccion={(c, a) => void accionFila(c, a)}
       />
       <section className="rio-ventana" aria-label="Conversación">

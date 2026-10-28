@@ -7,7 +7,7 @@
 // (_plan-kanban-hijo, _fathom-carga-hijo, _cobros-conexion-hijo). Ésas siguen como están; el próximo
 // hijo usa éste.
 //
-// Entiende lo que usan esas funciones: `eq.`, `neq.`, `in.(…)`, `is.null`, `not.is.null`,
+// Entiende lo que usan esas funciones: `eq.`, `neq.`, `in.(…)`, `is.null`, `not.is.null`, `like.`/`not.like.` sueltos,
 // `gte./lte./gt./lt.` (numérico si los dos lados son números: «1009» > «999»), `order` (varias
 // columnas), `limit`, GET / HEAD (`count`) / POST (insert o upsert con `on_conflict` y
 // `resolution=ignore-duplicates`) / PATCH / DELETE, y `Accept: application/vnd.pgrst.object+json`
@@ -69,6 +69,13 @@ export function crearPostgrest(o: {
           const c = comparar(val(f), x);
           return op === 'gte' ? c >= 0 : op === 'lte' ? c <= 0 : op === 'gt' ? c > 0 : c < 0;
         });
+      }
+      // `.like('ref', 'np:11:%')` suelto (27/10/2026, los tickets automáticos y el tope del tercero): `%` y `*` son el comodín.
+      else if (v.startsWith('like.') || v.startsWith('not.like.')) {
+        const no = v.startsWith('not.');
+        const patron = v.slice(no ? 9 : 5);
+        const re = new RegExp(`^${patron.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`);
+        out.push((f) => (val(f) != null && re.test(String(val(f)))) !== no);
       }
       // `.or('clave.like.STRIPE_SECRET_KEY*,…')` (22/10/2026, las cuentas de una pasarela): `*` es el `%` de PostgREST.
       else if (k === 'or' && /^\(.+\)$/.test(v)) {

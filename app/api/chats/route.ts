@@ -1,7 +1,7 @@
 // =============================================================================
 // /api/chats — la lista de la tab Chats (la bandeja unificada copiada de respond.io)
 // =============================================================================
-// GET               → { ok, chats, lineas, cuentasSociales, etapas, yo, equipo, fallas }
+// GET               → { ok, chats, lineas, cuentasSociales, etapas, funnels, funnelPrincipal, yo, equipo, fallas }
 // GET ?buscar=<q>   → { ok, chats, fallas } — lo que matchea en el servidor (leads del CRM y personas de
 //                     Instagram/Messenger), aunque no tenga mensajes. La pantalla lo SUMA (por clave) a lo que
 //                     ya filtró en memoria. Con menos de 2 caracteres, `chats: []`.
@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
       lineas: r.lineas,
       cuentasSociales: r.cuentasSociales,
       etapas: r.etapas,
+      funnels: r.funnels ?? [],
+      funnelPrincipal: r.funnelPrincipal ?? null,
       yo: puerta.yo,
       equipo: equipo.map((m) => ({ nombre: m.nombre, foto_url: m.foto_url })),
       fallas: r.fallas,

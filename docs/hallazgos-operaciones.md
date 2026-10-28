@@ -7,6 +7,103 @@ del código.
 
 ---
 
+## «No me responde, dice trabajando»: el Runner en OTRO modo de permisos retiene los mensajes, y el acuse dice ok (27/10/2026, Cerebro)
+
+**Vive en:** el modo de la sesión «Runner» (no en el código) · `scripts/operaciones/cartero.mjs` (`acuse`) · `lib/runner.ts`
+
+- **El síntoma:** Martín escribió tres veces desde el Ops Center (23:07, 23:09 y 23:18) y el Cerebro no contestó. El chat
+  quedó en «Trabajando». El cartero anotó BUZON y ACUSE ok de los tres, y también del ticket #17.
+- ⚠️ **El diagnóstico obvio era el equivocado.** No era el ciclo del Runner (andaba: latidos cada 2 minutos), ni la
+  dirección `uds:` vieja de antes del reinicio. El Cerebro abrió el Runner nuevo en modo **auto** para no mostrarle a
+  Martín una tarjeta de permiso, y los chats están en **bypass**. Entre dos sesiones con modos distintos, la app
+  RETIENE el mensaje hasta que alguien lo apruebe (`SendMessage` contesta «holding it» y que espera la aprobación de
+  su usuario), y el Runner lo daba por entregado igual. Los mensajes del Runner viejo, que estaba en bypass, entraban
+  sin problema.
+- **La regla:** el Runner va en el MISMO modo que los chats a los que entrega (bypass). Un acuse `ok` sólo vale si el
+  resultado de `SendMessage` dice que el turno arrancó o quedó en cola; «holding it» es un `acuse … error`.
+- **Lo recuperado:** los textos estaban en el transcript del Runner (sus `SendMessage`). El buzón local ya no los tenía.
+- **SIN HACER:** que el paso b de `INSTRUCCIONES_RUNNER` (`lib/runner.ts`) diga lo de «holding it», y que el ritual
+  de la cuenta nueva abra el Runner en bypass.
+
+## El chat en el acto: el audio y los mensajes salen sin esperar, y el «Completado» dice qué se hizo (27/10/2026)
+
+Martín por el Ops Center (27/10, 21:53 a 21:58), cinco pedidos. Rama `chat-en-el-acto-2810`; tests/chat-en-el-acto.test.ts,
+probado rompiéndolo (13 roturas, cada una atrapada).
+
+- **«Acabo de enviar un audio... me dijo un unexpected error JSON».** `transcribirNota` hacía `r.json()` sin mirar qué volvía.
+  Lo que corta Vercel ANTES de la ruta no es JSON: el 413 de un cuerpo de más de 4,5 MB («Request Entity Too Large») y el 504
+  de una función que pasó su tiempo («FUNCTION_INVOCATION_TIMEOUT»; /api/plan-dictado tenía `maxDuration = 60` y una nota de
+  varios minutos tarda más). La persona leía el error del parser. Ahora se lee como texto y se dice qué pasó
+  (`porQueNoSeTranscribio`), y la ruta tiene 300 s. ⚠️ No se pudo confirmar cuál de los dos fue: los logs de runtime de Vercel
+  (`/v1/projects/…/runtime-logs`) sólo transmiten en vivo, no traen esa hora. Regla: **un `fetch` a una ruta propia se lee como
+  texto y después se parsea**; una página de Vercel o del login no es JSON.
+- **La nota y los mensajes tardaban en verse, y una nota se perdía al cambiar de chat.** `mandar` (useCentro.ts) subía los
+  adjuntos, firmaba, esperaba al servidor y RECIÉN AHÍ dibujaba el mensaje. La nota, además, se transcribía adentro de la caja
+  y se mandaba por el estado de la pantalla (`onTexto` → efecto → `onMandar`): si la caja se desmontaba (volver a la lista,
+  otro chat), la transcripción terminaba y no había quién la mandara. Ahora (app/admin/operaciones/envios-en-curso.ts) el
+  mensaje se dibuja en el acto con su reloj, y subir, transcribir y firmar corren FUERA de React, en una cola por chat (lo
+  mandado primero sale primero). Si no sale, la burbuja dice por qué, con «Reintentar» y «Descartar». La caja le da la nota a
+  la pantalla apenas se grabó (`onGrabada`), sin transcribir. Regla: **lo que tarda no vive en el componente que lo dispara**:
+  vive en un módulo, y la pantalla lo mira. `firma.mandar` guarda la clave en su closure: sigue firmando aunque la pantalla se
+  desmonte.
+- ⚠️ **Lo que importa un módulo sin 'use client' (el motor, useCentro.ts) tiene que estar en otro sin 'use client'**:
+  `prepararNota` y `transcribirNota` salieron a app/_chat/preparar-nota.ts y app/_components/transcribir-nota.ts
+  (tests/frontera-use-client.test.ts lo frena: importar un VALOR de un 'use client' falla al usarlo, no al importarlo).
+- **Los tres puntos de «escribiendo»:** eran puntos de 4 px pegados a la palabra «Trabajando». Ahora son la burbuja de WhatsApp,
+  en la pieza compartida (Trabajando.tsx): la usan el Ops Center y los chats de MaKo de cada tab.
+- **«Yo NO envié ese mensaje confuso y largo».** El chat que el Cerebro abre con `start_session` arranca con un mensaje que en
+  el transcript es del USUARIO («Background (from the session that started this one): … Task: …»), y el cartero lo subía como
+  `yo`: se dibujaba con la foto de Martín. `sanearTurnos` lo vuelve un `otro` del Cerebro con `encargo` (al subir Y al leer:
+  lo ya guardado se corrige solo), y se dibuja plegado en su «Task:». Precedente: el resumen de compactación, que se saca igual.
+- **El «Completado» que no decía nada.** ⚠️ El diagnóstico obvio («el cartero sube el último renglón suelto») era el
+  equivocado: medido en la base, el cartero subió bien los dos textos del CRM del 26/10 — a las 13:59 «Ya está probado: … Ahora
+  dejo escrito lo aprendido en los documentos del repo» y a las 14:01 el cierre («**Punta: ca01d4c82** …»). El Centro reconoce
+  un «Ya está» por cómo EMPIEZA el texto, así que el Completado era el de las 13:59, y el cierre de verdad quedaba plegado como
+  «Avance» (venía después de un mensaje del Cerebro, `turnosParaOtro`). Desde el cartero 1.21.0 cada texto del chat dice de qué
+  RONDA es (`inicio`) y el que la cierra lleva `fin`: un «Ya está» que no cierra su ronda cede el Completado al cierre de ESA
+  ronda (`completadosDelChat`). ⚠️ Sólo de esa ronda: una regla «lo último del tramo» le sacaba el lugar a un «Ya está» de
+  verdad con un «Recibido, sigo con…» posterior, contra la regla del 18/10 (espera su ✓ aunque el chat haya escrito después).
+  Y el cierre sube el `resumen` de su wrap_up (la app pide escribir el cierre DESPUÉS del wrap_up, así que el resumen se perdía):
+  la tarjeta lo muestra primero, en llano, con la respuesta entera plegada abajo.
+
+- **tests/ops-center-voz-chat estaba ROJO en main** (df08aa5f9): fijaba `const aGuardar = voz ? [...bloques, voz] : bloques;`, y el 24/10 esa
+  const pasó a llamarse `conElPedido` porque TAPABA la función `aGuardar` importada de lib/chat-bloques (la respuesta reventaba
+  en ejecución). Un test que fija un NOMBRE fija también el error que el nombre causaba: ahora fija lo que cuida (la nota al final,
+  con el mensaje, y borrada si el mensaje no quedó) y que ninguna const local vuelva a llamarse `aGuardar`.
+
+- **«No me pongas "cosas en marcha"... El cuadro de COMPLETADO debe ser dopamínico»** (Martín, 27/10 23:07, con un COMPLETADO del
+  Cerebro que decía «Hay cuatro cosas en marcha» debajo de un «Trabajando ••• Workflow»). Un turno que termina con trabajo de
+  FONDO vivo no terminó: el cartero 1.21.0 anota las tareas que abre un resultado («running in background with ID», «moved to
+  the background», «Monitor started») y las saca con su `<task-notification>` o «Successfully stopped task»; si al cerrar el turno
+  queda alguna viva (de menos de 3 h), el cierre sube con `fondo`: no es Completado y el chat sigue «Trabajando». La tarjeta dice
+  lo terminado: el resumen del wrap_up o, sin él, el «hecho» del cierre del trabajo que respondía (`hechoDelCompletado`).
+  ⚠️ Lo de fondo vive en el `pendiente` del cartero, que pasa de un turno al siguiente: una tarea lanzada en un turno termina
+  en otro.
+
+- **La revisión de 928bdde0d (dos medios):** (1) los RECORTES de la fila y de la conversación (`resumirTurnos`,
+  `turnosDeLaConversacion`) guardaban el «Ya está» por su texto y no el cierre de su ronda: con 3 turnos después, la fila, el
+  globito y la API perdían el Completado que el chat abierto mostraba. Ahora traen también el cierre (`cierreDeLaRonda`). Regla:
+  **un recorte que alimenta una decisión tiene que traer todo lo que esa decisión mira**. (2) El borrador GUARDADO se borraba al
+  mandar, y lo que está en camino vive en memoria: con una recarga o una falla el texto se perdía. Ahora la caja se vacía a la
+  vista y lo guardado se borra recién cuando el envío quedó firmado (`vaciarCajaHastaQueSalga`). Una nota de voz en camino sí
+  se pierde con una recarga (el audio no se guarda): queda SIN hacer.
+
+**Lo que quedó SIN hacer:**
+- **Instalar el cartero 1.21.0 en cada PC** (después de desplegar el servidor que acepta `resumen`, `inicio` y `fin`). Sin él, el
+  Completado es como antes. Lo ya guardado no tiene rondas: el del CRM del 26/10 sigue mostrando el de las 13:59.
+- **Las otras cajas que transcriben adentro** (sin `voz` ni `onGrabada`): la nueva-chat del Ops Center (ChatNuevoPiezas.tsx: el
+  texto decide a qué chat va, así que espera la transcripción), Offer, el editor de Automations, el Dashboard, el Web Generator,
+  el chat de Soporte y los del Video y el Image Editor. Ahí la nota todavía espera a transcribirse y se pierde si se cambia de
+  tab. Cada pantalla necesita su `onGrabada` con su propio camino de mandar. El chat de MaKo de cada tab (useChatCliente) ya
+  mandaba en el acto.
+- **Nada se probó en el navegador con datos de verdad:** se miró una maqueta con los componentes y el CSS reales (375 px y
+  escritorio), no la app. Mandar desde una app local firma y encola un pedido REAL a un chat de verdad.
+
+**Vive en:** app/admin/operaciones/envios-en-curso.ts · useCentro.ts (`mandar`, `mandarNota`) · Hilo.tsx (`TickLocal`,
+`EncargoPlegado`) · Trabajando.tsx · BloqueCompletado.tsx (`Respuesta`) · app/_chat/nota-que-se-manda.ts · preparar-nota.ts ·
+app/_components/transcribir-nota.ts · lib/centro-chats.ts (`completadosDelChat`, `nodoDeCompletado`) · lib/operaciones-reglas.ts
+(`esEncargoDeOtraSesion`, `sanearTurnos`) · scripts/operaciones/cartero.mjs (1.21.0)
+
 ## El «Completado» se perdía en el scroll: va en un bloque arriba de la caja, como las preguntas (25/10/2026)
 
 - Martín (25/10, 09:32): «Hay muchos chats que dicen "completado", pero no veo el mensaje... Tal vez sería bueno hacerlo como
@@ -3130,3 +3227,90 @@ más de 1 mensaje mio, para que se entienda el contexto, hazlo... varias cajitas
 
 **Vive en:** `lib/centro-chats.ts` (`pedidosDelCompletado`) · `app/admin/operaciones/BloqueCompletado.tsx` · `Avance.tsx` ·
 `Conversacion.tsx` y `app/m/operaciones/ChatsMovil.tsx` (`responderSobre` / `feedback`) · `tests/completado-responder-y-contexto.test.ts`
+
+## Los adjuntos que fallan dicen qué falló, y cómo lo prueba Martín en su Android (27/10/2026, ticket #8)
+
+**Lo que no era obvio:** el arreglo del 25/10 (13afc5c29: leer el archivo al elegirlo, no al mandar) separó leer, la red y el
+servidor, pero dejó cinco salidas al «No pude subir los adjuntos: vuelve a mandarlo» de siempre: un `catch` general en cada
+subida, un no de MaKo sin su porqué, y una respuesta con otra cantidad de archivos. La causa de Android sigue siendo una
+hipótesis, y con ese mensaje no se puede confirmar desde el teléfono.
+
+**La regla:** ninguna falla dice «no pude» a secas. `porQueFallo` (leer-adjunto.ts) la nombra: un archivo que ya no se lee
+(`NotReadableError`, el `content://` que se soltó), la red, o lo demás con el NOMBRE del error, que es lo que hay que mandar.
+
+**Cómo probarlo en el Android de Martín** (Chrome, el Ops Center abierto en un chat):
+1. «+» › una foto de la galería.
+2. Ir a otra app unos minutos (WhatsApp, la cámara).
+3. Volver y tocar «Firmar y mandar».
+4. Si falla, el aviso dice cuál de las cuatro fue; si es «(NombreDelError)», ése es el dato.
+
+**Vive en:** `app/admin/operaciones/leer-adjunto.ts` (`ERROR_SUBIDA`, `porQueFallo`) · `mandar.ts` · `tests/feedback-2710-tanda1.test.ts`
+
+## Una pregunta contestada en la app siguió un día en el Ops Center: el Runner volvió y subió sólo lo último (27/10/2026)
+
+**El síntoma:** Martín: «Creo que esta pregunta era vieja, y sigue apareciendo. La respondi desde claude app». Era el `ask` de un
+wrap_up del Cerebro del 26/10, contestado en la app ese día.
+
+**La causa:** el Runner de esa cuenta estuvo parado 27 horas (el corte del 97%). Al volver, `turnosDeLaVuelta` (cartero.mjs) toma
+de cada chat sus turnos nuevos con `ultimosQueEntran`: si no entran todos en la vuelta, se queda con los ÚLTIMOS y la marca avanza
+igual. Los de antes no suben nunca. La respuesta de Martín (un `yo`) era de los de antes, y la regla de wrap_up pedía un `yo` u
+`otro` para superarla.
+
+**El diagnóstico obvio era el equivocado:** «falta que suba el turno de Martín». Aunque suba, un hueco largo lo puede volver a
+perder. La regla no puede depender de eso.
+
+**La regla:** una pregunta de wrap_up la supera también un turno del PROPIO chat de después (`superarPreguntas`), pasado el margen de
+su mensaje de cierre (`MARGEN_CIERRE_WRAP_UP_MS`, 5 minutos: el cierre llega segundos después del wrap_up, en el mismo turno). Un
+chat sólo vuelve a escribir después de recibir algo, y la app de Claude también saca el recuadro de próximo paso cuando el chat
+escribe de nuevo. Las de `preguntar` no cambian: se contestan en el Ops Center, o el chat las retira (`cartero retirar <id>`, desde
+la 1.17.4).
+
+**Lo que quedó SIN hacer:** que la vuelta no pierda turnos. Con un hueco largo, `ultimosQueEntran` deja afuera los más viejos de un
+chat y avanza la marca: tendría que subir de lo más viejo a lo más nuevo y avanzar sólo hasta lo que subió. Es un cambio del cartero
+(una instalación). Vive en `scripts/operaciones/cartero.mjs` (`turnosDeLaVuelta`, `ultimosQueEntran`).
+
+**Vive en:** `lib/centro-preguntas-chat.ts` (`superarPreguntas`) · `lib/centro-preguntas-chat-db.ts` (`superarConTurnos`) ·
+`tests/preguntas-superadas-hueco.test.ts`
+
+## El chat nuevo lleva sus archivos: el «no lleva adjuntos» era del trabajo firmado, no de la PC (28/10/2026)
+
+**El síntoma.** El chat nuevo del Ops Center era la única caja de MaKo que no adjuntaba (`lib/cajas-de-chat.ts`, «pendiente»), y
+tenía una caja propia (el campo, los emojis y el micrófono), no la única.
+
+**La causa.** El texto firmado de un trabajo `nuevo` no podía llevar adjuntos: los dos `leerFirmable` (el servidor y la PC) lo
+rechazaban con «un chat nuevo no lleva adjuntos». Los adjuntos bajan en `ciclo`, justo antes de dejar el trabajo en el buzón de
+un chat vivo, y un chat nuevo no va al buzón: `ciclo` lo deja en la cola y lo abre `abrir`, después.
+
+**El diagnóstico obvio era el equivocado:** «mandar los archivos en un segundo mensaje cuando el chat aparezca en la lista». El
+chat arranca con el primer mensaje y lo trabaja sin los archivos (tarda unos 2 minutos en aparecer). Y lo que espera a que
+aparezca vive en la pantalla: si Martín sale del chat nuevo antes, se pierden.
+
+**La regla.** Los adjuntos de un chat nuevo bajan en `ciclo` (cartero 1.22.0), con las tres llaves de siempre: tamaño, sha256
+firmado y tipo por los bytes. MaKo los da mientras el trabajo está `tomado` (15 minutos), y el nuevo se toma en la misma vuelta.
+`abrir` es sincrónico y no baja nada: vuelve a mirar cada archivo contra lo FIRMADO (tamaño y sha256, `adjuntosEnLaPc`), como
+vuelve a verificar la firma, y nombra sus rutas debajo del texto de Martín en el `.txt` del primer mensaje (`primerMensaje`).
+La pantalla los ofrece y los firma sólo con un cartero que los lleva (`aceptaAdjuntosEnNuevo`): uno de antes rechaza el trabajo.
+A un chat que ya existe salen como desde su caja (`mandarTextoA`, con los topes de SU Runner).
+
+**Trampa del entorno.** Las piezas del chat nuevo (`ChatNuevoPiezas.tsx`) se dibujan en un test con node, y `CajaChat` trae CSS
+por `AdjuntosCaja.tsx` (`import '@/app/_chat/chat.css'`): en node un `.css` no carga y el test entero se cae al importar. La caja
+vive en su archivo (`CajaChatNuevo.tsx`), las piezas importan de `AdjuntosCaja` sólo TIPOS, y `etiquetaDoc` pasó a
+`lib/centro-caja.ts`.
+
+**La revisión de 0453923ab (el Cerebro): la nota de voz se llevaba los archivos TARDE.** `mandarNota` los tomaba de la caja
+después del `await prepararNota` (hasta 300 s), con el `enLaCaja` del dibujo en que arrancó: lo que Martín quitaba en esos
+segundos salía firmado igual, y lo que soltaba lo borraba `vaciarAdjuntos` sin mandarlo. La regla: lo que sale con un envío se
+toma de la caja AL EMPEZAR, antes de cualquier `await`, como `mandar()`; si el envío no sigue (la nota no se entendió), vuelve a
+la caja tal cual (`devolverAdjuntos`, useCentro.ts). Y la caja QUIETA (saliendo, apagada o bloqueada) no quita ni toma lo
+soltado (`adjuntosQuietos`, app/_chat/juntar-adjuntos.ts): vale para las 17 cajas, no sólo para el chat nuevo (Soporte también
+se apaga mientras manda).
+
+**Lo que quedó SIN hacer:**
+- Instalar el cartero 1.22.0 en la PC, DESPUÉS de desplegar el servidor que acepta el trabajo. Hasta entonces la caja del chat
+  nuevo no ofrece adjuntar.
+- El servidor le da un chat nuevo con adjuntos a cualquier cartero que abre, sin mirar su versión (`lib/operaciones.ts`, los
+  nuevos de la vuelta). Con uno de antes, el trabajo vuelve rechazado en vez de esperar al nuevo. La pantalla ya no lo manda.
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`ciclo` → `DESTINO_NUEVO`, `abrir`, `adjuntosEnLaPc`, `primerMensaje`) ·
+`lib/operaciones-reglas.ts` (`aceptaAdjuntosEnNuevo`) · `app/admin/operaciones/useCentro.ts` (`abrirChat`, `mandarTextoA`) ·
+`ChatNuevo.tsx` · `CajaChatNuevo.tsx` · `tests/centro-nuevo-con-adjuntos.test.ts`

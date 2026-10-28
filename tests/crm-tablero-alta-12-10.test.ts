@@ -28,8 +28,8 @@ const codigo = (rel: string) => sinComentarios(leer(rel));
 
 // ── 21 · el total de plata de cada columna ───────────────────────────────────
 
-const t = (o: { monto?: number; ingresoEstimado?: number | null; ventaTipo?: string | null }) =>
-  ({ monto: o.monto ?? 0, ingresoEstimado: o.ingresoEstimado ?? null, ventaTipo: o.ventaTipo ?? null });
+const t = (o: { monto?: number; ingresoEstimado?: number | null; ventaTipo?: string | null; suscripcionMonto?: number | null }) =>
+  ({ monto: o.monto ?? 0, ingresoEstimado: o.ingresoEstimado ?? null, ventaTipo: o.ventaTipo ?? null, suscripcionMonto: o.suscripcionMonto ?? null });
 
 test('una columna ABIERTA suma el ingreso estimado, con la marca de estimado', () => {
   const r = totalDeColumna('agenda', [t({ ingresoEstimado: 1500 }), t({ ingresoEstimado: null }), t({ ingresoEstimado: 2500 }), t({ ingresoEstimado: -10 })]);
@@ -44,21 +44,29 @@ test('una columna ABIERTA suma el ingreso estimado, con la marca de estimado', (
   assert.equal(totalDeColumna('agenda', [t({ monto: 900 })]), null);
 });
 
-test('Ganado suma lo VENDIDO: sin los «sin cobro», sin las suscripciones y sin el estimado', () => {
+test('Ganado suma lo VENDIDO, con la mensualidad de las suscripciones: sin los «sin cobro» y sin el estimado', () => {
+  // 27/10/2026, Martín: «No se cargan tampoco el $ en el total de la columna cuando es suscripción». Hasta acá la
+  // suscripción no sumaba (su plata es mensual); ahora suma su mensualidad, la misma «/mes» de su tarjeta.
   const r = totalDeColumna('ganado', [
     t({ monto: 1000, ventaTipo: 'unico' }),
     t({ monto: 3000 }),                                  // sin tipo: cuenta como venta, como en Revenue
     t({ monto: 500, ventaTipo: 'sin_cobro' }),           // un becado no es una venta
-    t({ monto: 0, ventaTipo: 'suscripcion' }),           // su plata es mensual: no suma acá
+    t({ monto: 0, ventaTipo: 'suscripcion', suscripcionMonto: 444 }), // su mensualidad suma
+    t({ monto: 0, ventaTipo: 'suscripcion' }),           // una suscripción sin mensualidad cargada no suma nada
     t({ monto: 0, ingresoEstimado: 99999 }),             // el estimado no es lo vendido
   ]);
   assert.ok(r);
   assert.equal(r.clase, 'vendido');
-  assert.equal(r.valor, 4000);
-  assert.equal(r.cuantos, 2);
+  assert.equal(r.valor, 4444);
+  assert.equal(r.cuantos, 3);
   assert.equal(r.suscripciones, 1);
-  assert.equal(textoDelTotal(r), '$4K', 'lo vendido va sin «≈»');
-  assert.match(ayudaDelTotal(r), /suscripciones \(1\)/);
+  assert.equal(r.mensual, 444);
+  assert.equal(textoDelTotal(r), '$4.4K', 'lo vendido va sin «≈»');
+  assert.match(ayudaDelTotal(r), /Incluye 1 suscripción: \$444 por mes\./);
+  // Sólo suscripciones: el total dice «/mes», como la tarjeta.
+  const s = totalDeColumna('ganado', [t({ ventaTipo: 'suscripcion', suscripcionMonto: 444 }), t({ ventaTipo: 'suscripcion', suscripcionMonto: 56 })]);
+  assert.ok(s);
+  assert.equal(textoDelTotal(s), '$500/mes');
 });
 
 test('las otras terminales no tienen total, y un 0 no se dibuja', () => {

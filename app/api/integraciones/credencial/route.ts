@@ -198,6 +198,8 @@ async function estadoServicio(servicioKey: string, ctx: Contexto) {
       auto: !!c.auto,
       // true → ni «Prefiero cargarlos a mano» lo vuelve editable (ver CampoCredencial.derivado).
       derivado: !!c.derivado,
+      // true → la pantalla ya no lo pide: sólo se ve si estaba cargado (ver CampoCredencial.retirado).
+      retirado: !!c.retirado,
       // Nº de cuenta de una key que admite varias (1 = la de siempre). La UI pliega
       // las de la 2 en adelante: tres inputs de entrada convertían "pegá tu key" en
       // un formulario.

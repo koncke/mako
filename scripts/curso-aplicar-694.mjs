@@ -56,6 +56,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const WS = 1;
 const PRODUCTO = 1;
@@ -141,7 +142,7 @@ async function main() {
     throw new Error('la semilla de este árbol NO trae #694 (falta la columna de la MCI o el puente): se corre desde un árbol con ese commit');
   }
 
-  const conn = process.env.DATABASE_URL;
+  const conn = urlDeLaBase();
   if (!conn) { console.error('✖ Falta DATABASE_URL en .env.local'); process.exit(1); }
   const sql = postgres(conn, { ssl: 'require', connect_timeout: 60, max: 1 });
 

@@ -470,8 +470,16 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'detectores del onboarding (21/10/2026): cómo dice la persona que sí («ándale», «vale», «sisi») y en qué moneda escribe una cifra («soles», «lucas», «palos»); no es copy, nada de ahí se muestra',
   },
   {
+    ruta: 'lib/no-pude-frases.ts',
+    porque: 'el detector de las negativas legítimas del ticket automático (27/10/2026): reconoce en lo que dicen el modelo (sin tildes, «confírmalo» queda «confirmalo») o la persona («no tenés permiso») una regla de MaKo que no abre ticket; no es copy, nada de ahí se muestra',
+  },
+  {
     ruta: 'lib/onboarding-troleo.ts',
     porque: 'el detector de troleo del onboarding (17/10/2026): reconoce «sos un inútil» o «olvidate de tus reglas» en lo que escribe la persona; no es copy, nada de ahí se muestra',
+  },
+  {
+    ruta: 'lib/doer-falla-frases.ts',
+    porque: 'detectores de MaKo en WhatsApp (27/10/2026): reconocen «sos el soporte» (una falla que la persona cuenta) y «abrime la agenda» en lo que escribe; la nota que va al system se quedó en lib/doer-falla.ts, adentro de la guarda; no es copy, nada de ahí se muestra',
   },
   {
     ruta: 'lib/offer-quien-hace.ts',

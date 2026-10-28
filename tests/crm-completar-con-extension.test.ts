@@ -41,7 +41,7 @@ test('2. sin la extensión (o vieja), «Extraer» NO arranca: salta el pop-up de
   const p = sinComentarios(leer('app/crm/TraerDeGrupoWA.tsx'));
   assert.doesNotMatch(p, /completarNombresDeGrupoAction/, 'volvió el camino que completaba «algunos o ninguno» sin decir por qué');
   const cuerpo = p.slice(p.indexOf('const extraer = async'));
-  assert.match(cuerpo, /^const extraer = async \(soloNombres = false\) => \{\n\s+if \(!grupo \|\| trayendo \|\| !entrada\) return;\n\s+if \(extWa !== 'si'\) \{ setPideExt\(true\); return; \}/, 'sin la extensión, «Extraer» trae leads sin nombres');
+  assert.match(cuerpo, /^const extraer = async \(soloNombres = false(?:, o\?: \{ todosLosPerfiles\?: boolean \})?\) => \{\n\s+if \(!grupo \|\| trayendo \|\| !entrada\) return;\n\s+if \(extWa !== 'si'\) \{ setPideExt\(true\); return; \}/, 'sin la extensión, «Extraer» trae leads sin nombres');
   assert.match(p, /\{pideExt && \(\n\s+<Confirm tone="primary" title=\{extWa === 'vieja' \? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'\}/, 'sin el pop-up');
   assert.match(p, /window\.open\('\/extension\/instalar', '_blank', 'noopener'\)/);
   assert.match(p, /window\.dispatchEvent\(new CustomEvent\('MAKO_EXTENSION_REVISAR'\)\);/, 'una vieja con la nueva en su carpeta no se pone al día');

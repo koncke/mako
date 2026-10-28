@@ -186,6 +186,8 @@ import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
 import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
 import type { InformeMovimiento } from '@/lib/reentrada';
+import { getNombreContacto } from '@/lib/evolution-contactos';
+import { nombreParaAlta } from '@/lib/contacto-lead';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -1238,10 +1240,13 @@ export async function createLeadAction(formData: FormData): Promise<void> {
  */
 export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string, funnelId?: number | null): Promise<AltaDesdeWhatsapp> {
   await exigirSesion();
-  const n = (nombre ?? '').trim();
   const t = (telefono ?? '').trim();
-  if (!n) return { error: 'Falta el nombre del contacto.', coincidencias: [] };
   if (!t) return { error: 'Falta el teléfono del contacto.', coincidencias: [] };
+  // ⚠️ EL NOMBRE ES EL DE LA AGENDA (27/10/2026, Martín: «no se agrega con el NOMBRE que lo tenía agendado» y «en NOMBRE se
+  // pone el teléfono»). La pantalla mandaba el que el contacto se puso en WhatsApp o, sin ése, sus dígitos. Ahora: el de la
+  // agenda del negocio, si no el de la pantalla, y si no ninguno (nace vacío, «Sin nombre»): nunca el número.
+  const agenda = await getNombreContacto(t).catch(() => null);
+  const n = nombreParaAlta({ agenda, pantalla: nombre, telefono: t });
   const destino = destinoDelAlta(await leerFunnels(), funnelId);
   if ('error' in destino) return { error: destino.error, coincidencias: [], elegir: destino.elegir };
   // De dónde vino: de una conversación del inbox, o sea que ya hay un hilo abierto
@@ -1254,7 +1259,7 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
     if (wsAlta != null) await frenarAltaPorTope(wsAlta, 'crm.leads');
     // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
     // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
-    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
+    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa, nombreOpcional: true });
     bust(TAG.leads);
     revalidatePath('/crm');
     revalidatePath('/whatsapp');
@@ -3079,7 +3084,8 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   const desenlaceExacto = lineasTocanElDesenlace(grupo)
     ? desenlaceAntesDelMovimiento(desenlaceDe(actual), grupo, new Date().toISOString().slice(0, 10), createdAt)
     : undefined;
-  if (Object.keys(upd).length || desenlaceExacto) await updateLead(leadId, upd, { desenlaceExacto });
+  // Con la Etapa en el grupo, la columna la escribe el paso 3 (la de antes del movimiento), no la derivación.
+  if (Object.keys(upd).length || desenlaceExacto) await updateLead(leadId, upd, { desenlaceExacto, etapaAparte: etapa.set });
   // 2) Meta (closer/setter/contacto).
   if (Object.keys(meta).length) await saveLeadMeta(leadId, meta);
   // 2b) La mensualidad / el plazo de una suscripción.

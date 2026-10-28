@@ -95,7 +95,7 @@ test('configurar_boton_landing: un botón de diseño por su texto; varios iguale
   // Un ancla del diseño (#beta) también es un destino; un cobro, no; el estilo es parte del diseño.
   assert.equal(typeof ok(planConfigurarBoton(c, { boton: 'Agenda tu llamada', destino: '#otra', todos: true }) as Plan).contenido, 'object');
   assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda tu llamada', destino: 'pago:3', todos: true }) as Plan).error, /no cobra/);
-  assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda tu llamada', estilo: 'primario', todos: true }) as Plan).error, /parte del diseño/);
+  assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda tu llamada', estilo: 'primario', todos: true }) as Plan).error, /no tiene estilos de bloque/);
   // El texto, con la sección.
   const uno = ok(planConfigurarBoton(c, { boton: 'Agenda tu llamada', texto: 'Habla con nosotros', todos: true }) as Plan);
   assert.equal((htmlDe(uno.contenido, 1).match(/>Habla con nosotros</g) ?? []).length, 2);
@@ -202,4 +202,80 @@ test('cambiar_icono_landing y ver_secciones_landing: los íconos de un diseño y
   assert.ok(iconosDeBibliotecaParaApi('cohete').iconos.some((x) => x.nombre === 'cohete'));
   assert.ok(iconosDeBibliotecaParaApi('dinero').iconos.length >= 2);
   assert.match(String(iconosDeBibliotecaParaApi('zzzz').nota), /Ningún ícono/);
+});
+
+// ── El formato de un texto y los colores de un botón, por la API (27/10/2026) ──────────────────────────────────────────
+// Martín (27/10): «Y asegurate de que funcione bien la API con todos los comandos, si una persona quiere editar lo que
+// sea debería poder. Con prompts en mako». La barra «Texto» del editor (negrita, cursiva, subrayado, tachado, color,
+// tamaño, alineación) y los colores de «Botón» en una sección de diseño no tenían comando: no se podían pedir.
+
+test('dar_formato_texto_landing en un diseño: la frase en un span con su formato, y el resto del HTML igual', async () => {
+  const { planFormatoTexto } = await import('../lib/api-mako/areas/landing-contenido.helpers');
+  const c = contenido();
+  const r = ok(planFormatoTexto(c, { buscar: 'Del primer clic', negrita: true, color: '#e11d48' }) as Plan);
+  const html = htmlDe(r.contenido, 0);
+  assert.ok(html.includes('<p><span style="font-weight:700;color:#e11d48">Del primer clic</span> al cliente &amp; más.</p>'), html);
+  assert.equal(html.replace(/<span style="[^"]*">Del primer clic<\/span>/, 'Del primer clic'), HERO, 'lo demás, byte por byte');
+  assert.equal(htmlDe(r.contenido, 1), PARA, 'la otra sección vuelve idéntica');
+  // Cursiva, subrayado y tachado juntos, con una entidad; el tamaño en el escalón de la barra del diseño.
+  const t = htmlDe(ok(planFormatoTexto(c, { buscar: 'cliente & más', cursiva: true, subrayado: true, tachado: true, tamano: 'xl' }) as Plan).contenido, 0);
+  assert.ok(t.includes('<span style="font-style:italic;text-decoration-line:underline line-through;font-size:1.375em">cliente &amp; más</span>'), t);
+  // Alinear va a la caja de texto que la contiene, sumado a su estilo (no lo pisa); sin otro formato no hay span.
+  const a = htmlDe(ok(planFormatoTexto(c, { buscar: '¿Para quién es esto?', alinea: 'centro' }) as Plan).contenido, 1);
+  assert.ok(a.includes('<h2 style="margin:0;text-align:center">¿Para quién es esto?</h2>'), a);
+  assert.doesNotMatch(a, /<span/);
+  // Dos veces: pide la sección o todas; con todas, las dos.
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Solo 5 cupos', negrita: true }) as Plan).error, /aparece 2 veces/);
+  const todas = ok(planFormatoTexto(c, { buscar: 'Solo 5 cupos', negrita: true, todas: true }) as Plan);
+  assert.ok(htmlDe(todas.contenido, 0).includes('<span style="font-weight:700">Solo 5 cupos</span>') && htmlDe(todas.contenido, 1).includes('<span style="font-weight:700">Solo 5 cupos</span>'));
+  assert.equal(htmlDe(ok(planFormatoTexto(c, { buscar: 'Solo 5 cupos', negrita: true, seccion: 'tPara' }) as Plan).contenido, 0), HERO);
+  // Un color del tema no existe en un diseño (su hoja es la suya); lo de un <style> no es texto; una frase partida se dice.
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Del primer clic', color: 'acento' }) as Plan).error, /en hex/);
+  assert.match(falla(planFormatoTexto(c, { buscar: '.t{color', negrita: true }) as Plan).error, /No encontré/);
+  assert.match(falla(planFormatoTexto(c, { buscar: 'vender High Ticket', negrita: true }) as Plan).error, /formatos distintos/);
+});
+
+test('configurar_boton_landing en un diseño: su fondo y el color de su texto, en hex, sin apilar estilos', async () => {
+  const { planConfigurarBoton } = await import('../lib/api-mako/areas/landing-contenido.helpers');
+  const c = conVsl();
+  const r = ok(planConfigurarBoton(c, { boton: 'Agenda tu llamada', color: '#111111', colorTexto: '#ffffff', todos: true }) as Plan);
+  const html = htmlDe(r.contenido, 1);
+  assert.equal((html.match(/<a class="btn" href="#beta" style="background:#111111 !important;color:#ffffff !important">/g) ?? []).length, 2, html);
+  assert.equal(esqueleto(html).replace(/<a [^>]*>/g, '<a>'), esqueleto(VSL).replace(/<a [^>]*>/g, '<a>'), 'el resto del diseño, igual');
+  // Otra vez: el color se cambia, no se suma otro.
+  const otra = htmlDe(ok(planConfigurarBoton(r.contenido, { boton: 'Agenda tu llamada', color: '#222222', todos: true }) as Plan).contenido, 1);
+  assert.equal((otra.match(/style="color:#ffffff !important;background:#222222 !important"/g) ?? []).length, 2, otra);
+  assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda tu llamada', color: 'rojo', todos: true }) as Plan).error, /hex/);
+  assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda tu llamada', todos: true }) as Plan).error, /color o colorTexto/);
+});
+
+test('cambiar_imagen_landing: también la imagen de un bloque y la de un ítem de un diseño optimizado (27/10/2026)', async () => {
+  // El editor las cambia a mano; por la API sólo se podía agregar otra imagen y borrar la vieja.
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://proyecto.supabase.co';
+  const { planCambiarImagen, estructuraParaApi } = await import('../lib/api-mako/areas/landing-contenido.helpers');
+  const vieja = `${BUCKET}9/vieja.jpg`;
+  const nueva = `${BUCKET}9/nueva.jpg`;
+  const img: JsonNodo = { type: NODO.imagen, attrs: { src: vieja, alt: 'El equipo', ancho: 100, alinea: 'centro', href: null, forma: 'redondeada' } };
+  const item: JsonNodo = { type: NODO.optimizadoItem, attrs: { icono: null, imagenSrc: `${BUCKET}9/item.png`, valor: '', destacado: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rápido' }] }] };
+  const c = { v: 1, paginas: [{ id: 'p1', titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: [
+    { type: NODO.tarjeta, attrs: { id: 'tFoto' }, content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Quiénes somos' }] }, img] },
+    { type: NODO.tarjeta, attrs: { id: 'tLista' }, content: [{ type: NODO.optimizado, attrs: { variante: 'imagenes-texto', mostrarIconos: false }, content: [item] }] },
+    seccion('tVsl', VSL),
+  ] } }] } as LandingContenido;
+  // Leer: la imagen de un bloque sale con su dirección, para nombrarla.
+  const e = estructuraParaApi(7, c) as { paginas: Array<{ secciones: Array<{ bloques: Array<{ tipo: string; imagen?: string }> }> }> };
+  assert.equal(e.paginas[0].secciones[0].bloques[1].imagen, vieja);
+  // Por su dirección o por su alt: cambia la dirección y nada más del bloque.
+  const r = ok(planCambiarImagen(c, { actual: 'vieja.jpg', imagen: nueva }) as Plan);
+  assert.deepEqual(r.contenido.paginas[0].doc.content![0].content![1], { ...img, attrs: { ...img.attrs, src: nueva } });
+  assert.deepEqual(r.contenido.paginas[0].doc.content!.slice(1), c.paginas[0].doc.content.slice(1), 'las otras secciones, iguales');
+  assert.match(r.resumen, /vieja\.jpg de la sección «Quiénes somos»/);
+  assert.equal(typeof ok(planCambiarImagen(c, { actual: 'El equipo', imagen: nueva }) as Plan).contenido, 'object', 'por su alt');
+  // La de un ítem de un diseño optimizado.
+  const r2 = ok(planCambiarImagen(c, { actual: 'item.png', imagen: nueva }) as Plan);
+  assert.equal(r2.contenido.paginas[0].doc.content![1].content![0].content![0].attrs!.imagenSrc, nueva);
+  // Lo que no está dice cuáles hay: las de los diseños y las de los bloques.
+  const no = falla(planCambiarImagen(c, { actual: 'no-esta.png', imagen: nueva }) as Plan) as { disponibles?: string[] };
+  assert.deepEqual(no.disponibles, ['caso-martin.jpg', 'caso-equipo.jpg', 'vieja.jpg', 'item.png']);
+  assert.equal((falla(planCambiarImagen(c, { actual: 'vieja.jpg', imagen: vieja }) as Plan) as { yaEstaba?: boolean }).yaEstaba, true);
 });

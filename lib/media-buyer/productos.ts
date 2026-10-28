@@ -13,6 +13,7 @@
 // =============================================================================
 
 import type { KpiMediaBuyer } from './tipos';
+import type { NodoMB } from './motor';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 
 export type SenalDeProducto = { campana: string | null; adset_name: string | null; spend_usd: number; leads_crm: number; agendas: number; cierres: number };
@@ -42,7 +43,11 @@ export function mapaDeProductos(asignadas: readonly AsignadaDeProducto[], funnel
 
 // ── El lienzo (la pestaña Campañas): cada producto con SUS campañas ─────────────────────────────────────────────────
 
-export type CampanaEnVivo = { id: string; nombre: string; prendida: boolean; presupuestoDia: number | null; conjuntos: number };
+export type CampanaEnVivo = {
+  id: string; nombre: string; prendida: boolean; presupuestoDia: number | null; conjuntos: number;
+  /** Algún anuncio suyo quedó RETENIDO en Meta (`campanasRetenidas`): no entrega hasta que lo publiquen ahí. */
+  retenida?: boolean;
+};
 export type CampanaDeLienzo = CampanaEnVivo & { gasto: number; resultados: number; costo: number | null; tono: 'bien' | 'mal' | null };
 export type ProductoDeLienzo = { id: string; nombre: string; gasto: number; resultados: number; costo: number | null; tono: 'bien' | 'mal' | null; campanas: CampanaDeLienzo[] };
 
@@ -91,6 +96,23 @@ export function lienzo(campanas: readonly CampanaEnVivo[], senales: readonly Sen
     return { id: String(f.id), nombre: etiquetaDeFunnel(f), gasto, resultados, costo, tono: tonoDe(costo, objetivo), campanas: cs };
   }).sort((a, b) => b.campanas.length - a.campanas.length || b.gasto - a.gasto);
   return { productos, sinProducto: sinProducto.sort(orden) };
+}
+
+/**
+ * Las campañas con algo que Meta RETUVO hasta que un admin lo apruebe (la «aprobación de pares», 2446984): en el
+ * Administrador de anuncios queda esperando «Revisar y publicar», y no entrega. Es lo único sin publicar que devuelve la
+ * API; un borrador del Administrador no existe para ella (lib/meta-cuenta-leida.ts → `linkCampanasEnMeta`). Lo borrado
+ * no cuenta: no hay nada que publicar.
+ */
+export function campanasRetenidas(arbol: readonly Pick<NodoMB, 'id' | 'nivel' | 'parentId' | 'configurado' | 'retenido'>[]): Set<string> {
+  const campanaDeConjunto = new Map(arbol.filter((n) => n.nivel === 'adset').map((n) => [n.id, n.parentId] as const));
+  const out = new Set<string>();
+  for (const n of arbol) {
+    if (!n.retenido || n.configurado === 'DELETED') continue;
+    const c = n.nivel === 'campaign' ? n.id : n.nivel === 'adset' ? n.parentId : campanaDeConjunto.get(n.parentId ?? '') ?? null;
+    if (c) out.add(c);
+  }
+  return out;
 }
 
 // ── La Biblioteca: los mejores anuncios del mes, por lo que trajeron al CRM ─────────────────────────────────────────

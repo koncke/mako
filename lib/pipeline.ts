@@ -1559,7 +1559,34 @@ export function problemasDePipeline(guardado: Stage[]): string[] {
   //    armar es legítimo— pero se dice, porque el que mira el embudo no lo deduce.
   if (!cierres.length) out.push('Ninguna etapa está tipada como cierre: no vas a poder anotar el monto de una venta.');
 
+  // 6) ⚠️ LA ETAPA DE GANADO USADA COMO UN PASO DEL MEDIO (grupo Makito, MK-19, 27/10/2026): la renombraron «Calificado» y
+  //    la usaban para los que pasaban el filtro. Su clave sigue siendo `ganado`, así que marcarla escribe
+  //    `estado_lead='ganado'` (`terminalEstadoFor`) y el lead aparece como CLIENTE (lib/clientes-ganados.ts) y como venta en
+  //    los números. Los avisos de arriba lo cubrían a medias (el tipo, el orden) sin decir esa consecuencia. Dos señales:
+  //    hay etapas ABIERTAS después de ella en el recorrido, o su nombre es el de un paso y no el de una venta.
+  if (ganado) {
+    const i = pipeline.indexOf(ganado);
+    const abiertasDespues = pipeline.slice(i + 1).filter((s) => terminalEstadoFor(s.key) === 'abierto');
+    if (abiertasDespues.length || nombreDePasoIntermedio(nombre(ganado))) {
+      out.push(
+        `«${nombre(ganado)}» es la etapa de Ganado: cada lead que pongas ahí cuenta como cliente y como venta`
+        + (abiertasDespues.length ? `, y después vienen ${abiertasDespues.map(nombre).map((n) => `«${n}»`).join(', ')}` : '')
+        + '. Si es un paso del medio, crea otra etapa para eso y deja Ganado para la venta.',
+      );
+    }
+  }
+
   return out;
+}
+
+/**
+ * ¿El nombre de la etapa de Ganado es el de un PASO y no el de una venta? («Calificado», «Agendado», «Interesado»…). Sólo
+ * cuenta si no dice nada de venta («Ganado», «Venta», «Cliente», «Cerrado», «Pagó»): «Cliente calificado» es una venta.
+ */
+export function nombreDePasoIntermedio(nombre: string): boolean {
+  const n = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/gan|vent|vendi|client|cerrad|cierre|pag|compr|inscript|alumn|won|sale|closed|paid/.test(n)) return false;
+  return /calificad|agend|interesad|contactad|reuni|seguimiento|propuesta|en proceso|prospect|evaluacion|revision|negociacion|qualified|booked|contacted/.test(n);
 }
 /** Enriquece una etapa con su layout por defecto (banda/col/colores) si no lo trae. */
 export function withLayout(s: Stage): Stage {
@@ -1694,6 +1721,25 @@ export function terminalEstadoFor(stageKey: string): EstadoLead {
     case 'noresp': return 'no_responde';
     default: return 'abierto';
   }
+}
+
+/**
+ * ¿La columna guardada del tablero (`pipeline_stage`) dice OTRO desenlace que `estado_lead`? (27/10/2026, el lead 2371 de
+ * Mauricio: «ganado» con la tarjeta en «Perdido», y Customer Success lo contaba como cliente.)
+ *
+ * ⚠️ HAY CAMINOS QUE CAMBIAN EL ESTADO SIN MOVER LA TARJETA: guardar el plan de pagos (`saveLeadPlanManual`, gana), el alta
+ * de un alumno con «usar ese» (lib/curso-alta-alumno.ts) y cualquier `updateLead` con `estado_lead`. Si la tarjeta tenía su
+ * columna guardada (la de Perdido, la de una etapa abierta), quedaba ahí: el tablero leía la columna y Customer Success,
+ * Revenue y las métricas leían el estado. Quien cambia el estado sin elegir columna vuelve la tarjeta a la derivación
+ * (`deriveStageKey`, que sale del estado): lo que se decidió último es lo que manda.
+ *
+ * Contradice cuando la columna es un desenlace distinto (Perdido con el lead ganado), una etapa abierta con el lead
+ * cerrado, o un cierre con el lead reabierto. Sin columna guardada, nunca: la derivación ya sale del estado.
+ */
+export function etapaContradiceElEstado(pipelineStage: string | null | undefined, estado: EstadoLead | null | undefined): boolean {
+  const columna = String(pipelineStage ?? '').trim();
+  if (!columna) return false;
+  return terminalEstadoFor(columna) !== (estado ?? 'abierto');
 }
 
 /**

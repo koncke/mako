@@ -313,9 +313,12 @@ test('la etapa: la flecha pasa a la siguiente, y sin etapa a la primera', () => 
 });
 
 test('la ventana usa los endpoints del plano (§2.2 y §2.3) y no inventa otros', () => {
-  for (const ruta of ['/api/chats/hilo?clave=', '/api/chats/estado', '/api/chats/asignar', '/api/chats/etapa', '/api/chats/lead', '/api/whatsapp/evolution/block']) {
+  for (const ruta of ['/api/chats/hilo?clave=', '/api/chats/estado', '/api/chats/asignar', '/api/chats/etapa', '/api/whatsapp/evolution/block']) {
     assert.ok(VENTANA.includes(ruta), `VentanaChat no usa ${ruta}`);
   }
+  // El alta al CRM (27/10/2026): un módulo para las dos puertas, la cabecera y el «⋯» de la fila (app/chats/agregar-al-crm.ts).
+  assert.ok(sinComentarios(leer('app/chats/agregar-al-crm.ts')).includes('/api/chats/lead'), 'el alta de Instagram/Messenger no usa /api/chats/lead');
+  assert.match(VENTANA, /await agregarChatAlCrm\(chat, funnelId\)/, 'la cabecera no usa el alta compartida');
   for (const ruta of ['/api/chats/social', '/api/chats/comentario', '/api/whatsapp/evolution/borradores', '/api/whatsapp/advisor']) {
     assert.ok(COMPOSER.includes(ruta), `Composer no usa ${ruta}`);
   }

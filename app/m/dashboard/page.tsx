@@ -30,7 +30,9 @@ import { DashboardM } from './DashboardM';
 import { entraEnTelefono, esHojaInicial, hojaComercial, hojaMarketing, hojaPropia, periodoPropio } from './datos';
 import { PERIODOS_MOVIL, PERIODO_DEFAULT, periodoDeParam, periodosParaHoja } from './modelo';
 import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
-import { avisoDeClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
+import { avisoDeLaHojaClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
+import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
+import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
 import './dashboard.css';
 
 export const dynamic = 'force-dynamic';
@@ -58,12 +60,14 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
     const def = periodoPropio(h);
     const periodos = def ? periodosParaHoja(def) : [];
     const periodo = def ? periodoDeParam(uno(p.periodo), periodos, def) : null;
-    const [hoja, closing] = await Promise.all([
+    const [hoja, closing, caida] = await Promise.all([
       hojaPropia(h, periodo, hoy),
       // La hoja Closing sin con qué analizar (IA12, app/dashboard/aviso-closing.ts). El closer no conecta nada: sólo lo lee.
       esHojaClosing(h) ? conQueAnalizaElClosing().catch(() => 'no-se' as const) : null,
+      // Y con su clave caída, la causa (27/10/2026, lib/closing-ia-caida.ts).
+      esHojaClosing(h) ? iaCaidaParaLaHoja() : null,
     ]);
-    const aviso = avisoDeClosing(closing, CONECTA_TU_CLAUDE_CLOSING);
+    const aviso = avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida));
     return (
       <PantallaM>
         {aviso && <p className="m-dash-aviso" role="status">{aviso}</p>}

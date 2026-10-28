@@ -482,8 +482,8 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   for (const [pieza, re] of DEL_BUNDLE) if (bundle && re.test(bundle)) add(pieza);
 
   // ── Lo que la página le manda a Meta (24/10/2026) ─────────────────────────────
-  // Sobre el HTML CRUDO + los bundles, no sobre el limpio: el `init` va inline. El snippet de MaKo no tiene `fbq`, así
-  // que no se puede leer a sí mismo acá.
+  // Sobre el HTML CRUDO + los bundles, no sobre el limpio: el `init` va inline. El snippet de MaKo llama a `fbq` sólo con
+  // 'Purchase' (v28, la compra de la página de gracias) y nunca con `init`: no se lee a sí mismo acá.
   const crudo = bundle ? `${h}\n${bundle}` : h;
   const sched = scheduleDelNavegador(crudo);
   if (sched.sinId) add('meta-schedule');

@@ -17,6 +17,10 @@
 // del 20/10). Sin pasos todavía lo dice, no se queda callada.
 // ⚠️ Es un archivo aparte de Hilo.tsx a propósito: el hilo no lleva hooks (lo usa el teléfono sin llevarse la pantalla de
 // escritorio) y éste necesita su estado.
+// ⚠️ LOS TRES PUNTOS VAN EN UNA BURBUJA, COMO «ESCRIBIENDO…» DE WHATSAPP (27/10/2026, Martín: «la animación de MaKo
+//    escribiendo, de los 3 puntos»). Eran tres puntos de 4 px pegados a la palabra «Trabajando», que en el teléfono no se
+//    leían como «está escribiendo». Ahora la burbuja del chat late con sus puntos; la palabra queda para el lector de
+//    pantalla y el paso de ahora sigue al lado, en chico.
 
 import { useId, useState } from 'react';
 import { Icon } from '@/app/_components/icons';
@@ -44,7 +48,8 @@ export function Trabajando({ titulo, aspecto, pasos = [], abierto: abiertoAlMont
       <div className="co-trabajando__cuerpo">
         <button type="button" className="co-trabajando__boton" aria-expanded={abierto} aria-controls={id}
           title={abierto ? 'Ocultar lo que está haciendo' : 'Ver lo que está haciendo'} onClick={() => setAbierto((a) => !a)}>
-          <span className="co-trabajando__texto">Trabajando<Puntos /></span>
+          <span className="co-trabajando__texto co-oculto">Trabajando</span>
+          <span className="co-escribiendo" aria-hidden><Puntos /></span>
           {ahora && !abierto && <span className="co-trabajando__paso">{ahora}</span>}
           <span className={`co-chev${abierto ? '' : ' co-chev--cerrado'}`} aria-hidden><Icon name="chevron" size={13} /></span>
         </button>
