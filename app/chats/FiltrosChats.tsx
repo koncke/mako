@@ -10,7 +10,9 @@
 //     «Sólo sin responder» (lo que era la barra «Abiertas, Más recientes» + el interruptor);
 //   · «Canales»: cada número de WhatsApp, Instagram, Messenger y Email; para el admin, «Conectar un canal» y
 //     «Administrar <número>» (lo que era el «+» de Canales y el botón «Tu número» de la tab vieja);
-//   · «Etapa»: las etapas con su punto.
+//   · «Funnel» (27/10/2026, Mauricio: «sólo muestra el funnel principal»): con dos o más funnels, cuál se mira (el del
+//     Sprint, por ejemplo), con cuántos chats tiene cada uno. Sin elegir, el principal;
+//   · «Etapa»: las etapas DEL FUNNEL ELEGIDO con su punto y sus números (abiertas · sin leer).
 // El chip dice lo elegido; uno con filtro puesto se ve azul (respond.io pinta igual la bandeja elegida).
 //
 // ⚠️ LOS NÚMEROS SALEN DE `contarBandejas` (lib/chats-reglas.ts), el mismo módulo que filtra: el «2 sin leer» de un
@@ -21,9 +23,9 @@
 import type { CSSProperties } from 'react';
 import { Mail } from 'lucide-react';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
-import type { CanalChat, ChatResumen, CuentaSocial, EtapaChat, LineaChat } from '@/lib/chats-tipos';
+import type { CanalChat, ChatResumen, CuentaSocial, EtapaChat, FunnelChat, LineaChat } from '@/lib/chats-tipos';
 import {
-  claveCuenta, rotuloWhatsapp, type Conteo, type ConteosBandeja, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats,
+  claveCuenta, claveEtapaEnFunnel, rotuloWhatsapp, type Conteo, type ConteosBandeja, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats,
 } from '@/lib/chats-reglas';
 import { IconoCanal } from './iconos-canal';
 import { portalRio } from './portal';
@@ -54,6 +56,9 @@ const SIN_RESPONDER = 's:1';
 
 /** «2 sin leer» debajo del renglón: lo único que pide mirar (las abiertas ya se ven en la lista). */
 const sinLeer = (c: Conteo | null | undefined): string | undefined => (c && c.nuevos > 0 ? `${c.nuevos > 99 ? '99+' : c.nuevos} sin leer` : undefined);
+/** «12 abiertas · 2 sin leer»: los números de un funnel o de una etapa (Mauricio, 27/10/2026: «con conteos»). */
+const conConteo = (c: Conteo | null | undefined): string | undefined =>
+  [c && c.abiertas > 0 ? `${c.abiertas} ${c.abiertas === 1 ? 'abierta' : 'abiertas'}` : null, sinLeer(c)].filter(Boolean).join(' · ') || undefined;
 
 /** El chip: chico, redondo; con un filtro puesto, azul suave (lo elegido se ve sin abrirlo). */
 const chip = (activo: boolean): CSSProperties => ({
@@ -65,7 +70,7 @@ const chip = (activo: boolean): CSSProperties => ({
 });
 
 export function FiltrosChats({
-  filtro, onFiltro, verOcultos, onVerOcultos, conteos, lineas, cuentasSociales, etapas, chats, esAdmin, onConectar, onAdministrar,
+  filtro, onFiltro, verOcultos, onVerOcultos, conteos, lineas, cuentasSociales, etapas, chats, funnels = [], funnelPrincipal = null, esAdmin, onConectar, onAdministrar,
 }: {
   filtro: FiltroChats;
   onFiltro: (f: FiltroChats) => void;
@@ -77,6 +82,9 @@ export function FiltrosChats({
   etapas: EtapaChat[];
   /** Para saber qué canales tienen conversaciones aunque su cuenta no se haya podido leer. */
   chats: ChatResumen[];
+  /** Los funnels del negocio con sus etapas. Con uno solo (o ninguno leído) no hay chip «Funnel». */
+  funnels?: FunnelChat[];
+  funnelPrincipal?: number | null;
   esAdmin: boolean;
   onConectar: () => void;
   onAdministrar: (l: LineaChat) => void;
@@ -149,12 +157,19 @@ export function FiltrosChats({
     if (c) onFiltro({ ...filtro, canal: c.canal, cuenta: c.cuenta });
   };
 
-  // ── «Etapa» ──
+  // ── «Funnel» y «Etapa» ──
+  // Las etapas son las del funnel que se mira (el elegido, o el principal): la misma clave es otra etapa en otro funnel.
+  const funnelVisto = funnels.find((f) => f.id === (filtro.funnel ?? funnelPrincipal)) ?? null;
+  const etapasVistas = funnelVisto?.etapas ?? etapas;
+  const conteoEtapa = (key: string): Conteo | undefined =>
+    (funnelVisto ? conteos.porEtapaEnFunnel[claveEtapaEnFunnel(funnelVisto.id, key)] : conteos.porEtapa[key]);
+  const opcionesFunnel: DropdownOption[] = funnels.map((f) => ({ value: String(f.id), label: f.nombre, sub: conConteo(conteos.porFunnel[f.id]) }));
+  const funnelElegido = filtro.funnel != null ? funnels.find((f) => f.id === filtro.funnel) ?? null : null;
   const opcionesEtapa: DropdownOption[] = [
     { value: '', label: 'Todas las etapas' },
-    ...etapas.map((e) => ({ value: e.key, label: e.label, color: e.color, sub: sinLeer(conteos.porEtapa[e.key]) })),
+    ...etapasVistas.map((e) => ({ value: e.key, label: e.label, color: e.color, sub: conConteo(conteoEtapa(e.key)) })),
   ];
-  const etapaActual = etapas.find((e) => e.key === filtro.etapa) ?? null;
+  const etapaActual = etapasVistas.find((e) => e.key === filtro.etapa) ?? null;
 
   return (
     <div className="rio-filtros" role="group" aria-label="Filtros">
@@ -188,10 +203,25 @@ export function FiltrosChats({
             onChange={elegirCanal}
             buttonStyle={chip(!!canalActual.canal)}
           />
+          {funnels.length > 1 && (
+            <Dropdown
+              value={funnelVisto ? String(funnelVisto.id) : ''}
+              options={opcionesFunnel}
+              search={funnels.length > 8}
+              alContenido
+              portalTo={portalRio()}
+              ariaLabel="Funnel"
+              menuMinAncho={220}
+              botonLabel={<span className="rio-chip-txt">{funnelElegido?.nombre ?? 'Funnel'}</span>}
+              // Otro funnel, otras etapas: la elegida no sigue (su clave sería otra etapa).
+              onChange={(v) => { const id = Number(v); onFiltro({ ...filtro, funnel: Number.isSafeInteger(id) && id !== funnelPrincipal ? id : null, etapa: null }); }}
+              buttonStyle={chip(!!funnelElegido)}
+            />
+          )}
           <Dropdown
             value={filtro.etapa ?? ''}
             options={opcionesEtapa}
-            search={etapas.length > 8}
+            search={etapasVistas.length > 8}
             alContenido
             portalTo={portalRio()}
             ariaLabel="Etapa"

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MaKo",
   "version": "0.74.3",
-  "description": "Genera los anuncios de MaKo con tu cuenta de Google Flow y completa tus contactos con lo que ya ves en tu WhatsApp Web.",
+  "description": "Conecta tu navegador con MaKo: lleva a tu CRM los contactos de tus grupos de WhatsApp y genera anuncios con tu Google Flow.",
   "permissions": [
     "storage",
     "alarms",

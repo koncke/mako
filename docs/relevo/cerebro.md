@@ -3,50 +3,51 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 27/10/2026 ~18:00, cuenta 5 «Ananda» (claude5)
+## ⏩ LEER PRIMERO — 28/10/2026 ~01:00, cuenta 4 (claude4)
 
-**Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta, la voy a llamar X. Continúa con todo» y con eso
-alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
+**Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta… Continúa con todo» y con eso alcanza. No
+preguntes: hacé esto en orden.
 
-1. **La cuenta:** `claude<N>` en `~/.claude/cuenta-activa.txt`; su línea en `~/.claude/cuentas.tsv` (sin gmail declarado,
-   el alias); `get_usage` → `uso-semanal.txt` y `uso-cinco.txt` con la cuenta en el 4º campo. El reset semanal es la
-   prueba barata de que es otra cuenta.
-2. **El Runner:** `node ~/.claude/operaciones/cartero.mjs cartero claude<N> app ~/.claude` y `… carpeta <uuid> claude<N>`
-   (la carpeta NUEVA de `%APPDATA%/Claude/claude-code-sessions`); sumala también a `C:/dev/cerebro-herramientas/listar.cjs`.
-   Después `start_session` «Runner», `claude-haiku-5-5`, esfuerzo bajo, `INSTRUCCIONES_RUNNER` (lib/runner.ts) + «hacé una
-   vuelta ya». A los 3 minutos existe `~/.claude/operaciones/uso/claude<N>.json`: `detach_session` y al grupo «Cerebro».
-   ⚠️ **Una cuenta recién comprada no tiene el modo bypass** (se prende en sus Settings y es de Martín). La sesión está en
-   **auto** aunque `get_session` diga «default»: los chats se abren con `permission_mode: 'auto'` y andan.
-3. **Este chat se llama «Cerebro» y se fija.** Los de área se abren EN EL TURNO de Martín, cada uno con su brief y su
-   worktree propio (`C:/dev/wt-<área>-<fecha>`). Anidados bajo el Cerebro; sólo el Runner va suelto.
-4. **El estado de la cuenta anterior se VERIFICA con git, no se copia.** Un Workflow con un lector Sonnet por chat sobre su
-   cronología (`cola.cjs`) + git. El de la cuenta 5 (8 lectores, 18 minutos) encontró 4 puntas listas sin subir, 6 pedidos
-   de Martín sin ejecutar, una cosecha equivocada (la de Vercel) y las capturas que sólo vivían en el transcript. Lo que
-   corrige se les manda a los chats nuevos por mensaje.
-5. **`/admin/dev`:** sumá la cuenta a `CUENTAS` (`app/admin/dev/_registro/tipos.ts`): sin la fila, un hito firmado por
-   ella rompe la pantalla.
+1. **La cuenta:** `claude<N>` en `~/.claude/cuenta-activa.txt`; su línea en `~/.claude/cuentas.tsv`; `get_usage` →
+   `uso-semanal.txt` y `uso-cinco.txt` con la cuenta en el 4º campo. El reset semanal prueba que es otra cuenta.
+2. **El Runner, y probado de punta a punta** (Martín, 27/10: «siempre, al abrir una cuenta nueva, asegurate de que esté
+   bien la conexión con el Ops Center»):
+   - `node ~/.claude/operaciones/cartero.mjs cartero claude<N> app ~/.claude` y `… carpeta <uuid> claude<N>`;
+   - `start_session` «Runner», `claude-haiku-5-5`, esfuerzo bajo, con `INSTRUCCIONES_RUNNER` (lib/runner.ts) como
+     encargo + «hacé una vuelta ya»; después `detach_session`;
+   - ⚠️ **EN BYPASS, como los chats.** En «auto», la app RETIENE los mensajes entre sesiones de modos distintos y el
+     cartero los acusa «ok» igual: el 27/10 Martín escribió tres veces y nadie contestó (docs/hallazgos-operaciones.md).
+     Si lo abrís en auto para no mostrar una tarjeta, subilo con `set_session_permission_mode` (desde bypass no pide nada);
+   - **El ciclo se prueba con el reloj:** `medido` de `~/.claude/operaciones/uso/<cuenta>.json` cambia DOS veces seguidas
+     (cada 2 min). Después, un mensaje de prueba de Martín desde el Ops Center tiene que llegar al Cerebro.
+   - ⚠️ Un reinicio de la app se lleva el CronCreate del Runner, y el Runner NO lo re-arma si se lo pide el Cerebro
+     (es config persistente): se abre uno nuevo en un turno de Martín.
+3. **Este chat se llama «Cerebro».** Los de área se abren EN EL TURNO de Martín (un turno que arrancó con el mensaje de
+   otra sesión no puede abrir chats), cada uno con su worktree `C:/dev/wt-<área>-<fecha>`.
+4. **El estado de la cuenta anterior se VERIFICA con git, no se copia** (lectores Sonnet sobre la cronología + git).
 
-## Estado al escribir (27/10 ~18:00)
+## Estado al escribir (28/10 ~01:00)
 
-- **`main` = `bbb459f33` (tren-n), desplegado el 26/10 15:27.** Trae el login de Google con la agenda (Google aprobó la
-  app; `GOOGLE_LOGIN_CON_AGENDA=1` en Production, verificado), los tickets de Leandro sin aprobación, Customers, el
-  Scraper que vuelve a la pestaña de origen. `tren-o` (este commit) = sólo cosecha.
-- **27/10, después del reset semanal:** Martín pidió revisar sus 3 últimas llamadas (Leandro 874749710, Leila 876470842,
-  Aaron 876825880), el grupo Makito, la Ticketera, los grupos de MaKo en WhatsApp y sus chats con Leila y Mauricio. La
-  lectura (workflow `wf_1f30be35-c5e`, reparto en el scratchpad de la sesión `0ee425c6`) se repartió por mensaje a
-  mako-wa-conexiones, crm, automations, media-buyer, zernio-capi, agencias-clientes, mako-inteligente, ops-center,
-  landings y settings. **No salieron por el tope de 10 mensajes:** grabadores (Closing de Leila con 193 sin analizar;
-  dueños mal puestos por Fathom) y motion-imagen (Submagic + VidIQ, compromiso al 09/11). Lo de Leila y Mauricio
-  (workflow `wf_b6c3975a-bec`) estaba corriendo.
-- **Chats propuestos como tarjeta** (el turno era de un evento): «Planes, pagos y Partners», «Classroom y Calendario:
-  iniciales y soporte», «Infra: Evolution con todos los números y buckets».
-- **Video e Image Editor con el chat de MaKo al costado** (proyectos en la barra, sin cambiar de ruta, colores de MaKo, y
-  TODO editable por prompt): en motion-imagen, rama `motion-imagen-2610` con main mergeado. Landings hace el mismo
-  inventario «todo editable por prompt» en Web Generator, y le prometió a Leila «Replicar y adaptar» para el 27/10.
-- **21 audios de Makito** (12 al 23/10) a salvo fuera del repo en `feedback/makito-audios-2026-10/` de la carpeta de la
-  sesión; los demás (28/09 al 10/10) ya no están en el CDN.
-- **El aviso Meta → Zernio** de las 10:00 corrió a las 16:38 (la app estaba cerrada); su resultado va al Centro.
-- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat.
+- **`main` = `fd0d6fcbd` (tren-p), Ready 00:58.** Trae el chat en el acto del Ops Center (audio, mensajes y capturas al
+  instante, los 3 puntos, el encargo del Cerebro plegado, el COMPLETADO que dice lo hecho y no sale con trabajo de fondo
+  vivo), la extensión con la tienda al día y las cosechas. **Cartero 1.21.0 instalado en la PC** (después del servidor).
+  tren-o (`df08aa5f9`, Ready 27/10 22:18) trajo MaKo Desktop 0.4.3 y 14 puntas más.
+- **`tren-q` en chequeo en `C:/dev/wt-push-q`:** MaKo en WhatsApp `4d1d0a010` (que trae adentro la rama c4 de MaKo
+  inteligente `aec4ed0d9`: los «no puedo» falsos de Leila, el ticket automático ante cada «no pude», MaKo no
+  descalifica) y los pagos del CRM `12fe516b8` (el plan quincenal de Leila, ticket #13). Revisadas y verificadas.
+  Quedan medios no-regresión para tren-r (C:/dev/revisiones/2810-verificacion-mi-wa.md).
+- **Revisiones:** cada informe está en `C:/dev/revisiones/` (fuera del repo). Las puntas pasan por revisión adversarial
+  + refutador antes del tren si tocan plata, privacidad, sesión o infra compartida; los arreglos se VERIFICAN.
+- **Chats vivos (claude4, bypass):** CRM y Chats (la Ticketera con adjuntos `046d9e028` espera dos medios; después las
+  22 cajas de chat unificadas), MaKo en WhatsApp y MaKo inteligente (lo de tren-r), «Web Generator: replicar landings»
+  (toda la noche: replicar por partes con las 5 landings de Martín, en el ws9 sólo borradores «[PRUEBA réplica]»), Runner
+  `local_84a12d47`. **Nube** (koncke/mako, entregan por etiqueta `nube/<área>-2710-<k>`, ninguna entregó todavía):
+  Zernio, Planes, Automations (+ ticket #17 de Leandro), Landings, Motion (+ silencios y ruido de Leila).
+- **Reglas nuevas del 27-28/10** (AGENTS.md): todo «no pude» abre ticket solo; en todo chat lo que se manda se ve en el
+  acto; el COMPLETADO dice lo terminado, nunca «en marcha»; **lo que MaKo construye se ve construyéndose, con un pequeño
+  delay** (Martín, 28/10).
+- **Hecho con el sí de Martín:** MK-02 (942/942 mensajes y 21 audios de Makito en el ws 9). MK-06 no probó nada: el ws3
+  no tiene Google (OAuth de Martín); el mensaje a Joan NO se mandó.
 
 ## Lo que NO se vuelve a discutir
 

@@ -30,6 +30,20 @@ export type VisitasMap = Map<string, { total_visitas: number; dias_distintos: nu
  */
 export type EtapasDelTablero = Set<string> & { entrada?: string | null };
 
+/** Los links de Fathom de un lead como los dibuja el CRM: siempre `{ label, url }` de texto; lo que no tiene ni uno, afuera. */
+export function fathomDeFila(v: unknown): { label: string; url: string }[] {
+  if (!Array.isArray(v)) return [];
+  const out: { label: string; url: string }[] = [];
+  for (const x of v) {
+    const o = typeof x === 'string' ? { url: x } : x && typeof x === 'object' ? (x as Record<string, unknown>) : null;
+    if (!o) continue;
+    const url = typeof o.url === 'string' ? o.url : '';
+    const label = typeof o.label === 'string' ? o.label : '';
+    if (url.trim() || label.trim()) out.push({ label, url });
+  }
+  return out;
+}
+
 export function etapasDelTablero(stages: readonly { key: string; kind?: string | null }[]): EtapasDelTablero {
   return Object.assign(new Set(stages.map((s) => s.key)), { entrada: etapaDeEntrada(stages) });
 }
@@ -128,7 +142,8 @@ export function mapToCrmLead(
      * tablero que miente y uno que avisa.
      */
     stageFuera: huerfano ? override : null,
-    name: l.nombre,
+    // Un lead puede nacer SIN nombre desde un chat (27/10/2026: nunca con el teléfono de nombre): la tarjeta lo dice.
+    name: l.nombre?.trim() || 'Sin nombre',
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',
     origin: origenLegible(l, campMap),
@@ -174,7 +189,9 @@ export function mapToCrmLead(
     calificado: l.calificado,
     closer: l.closer ?? '',
     setter: l.setter ?? '',
-    fathom: (l.fathom_links as { label: string; url: string }[] | null) ?? [],
+    // Normalizado (ticket #14, 27/10/2026): un link guardado con otra forma (sin `url`, sólo el rótulo, un texto suelto)
+    // llegaba tal cual y el asistente de mover hacía `f.url.trim()`: la pantalla del CRM entera se caía.
+    fathom: fathomDeFila(l.fathom_links),
     motivo: l.motivo_perdida ?? '',
     calendly: calendlyDe(l),
     confirmacion: fmtDay(l.fecha_confirmacion),

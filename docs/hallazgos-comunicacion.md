@@ -315,6 +315,41 @@ un contacto compartido, contestar acuses y charlas entre personas, y agendar en 
 
 ---
 
+## Chats, 27/10/2026: el nombre de la agenda, el duplicado, los «⋯», la foto y el filtro por funnel
+
+Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`; los pedidos textuales en `tests/crm-feedback-27-10.test.ts`.
+
+- **El nombre de la agenda no se usaba nunca para el alta, y a veces el nombre era el teléfono.** El diagnóstico obvio era «el
+  alta no lee la agenda»; era eso y dos más: (1) la pantalla mandaba `chat.nombre || telefono`, y el `chat.nombre` del hilo era
+  el `push_name` (el que el contacto se puso) o los dígitos; (2) `sincronizarDesdeEvolution` guardaba la agenda
+  (findContacts) y, en el mismo recorrido, la PISABA con el `pushName` de findChats (el que el contacto se puso), porque
+  `upsertContacto` escribe siempre; (3) Evolution le pone su propio número de «nombre» a un contacto sin nombre, y eso se
+  guardaba como nombre. **Reglas:** el alta resuelve el nombre en el SERVER (`nombreParaAlta`: agenda → pantalla → el de
+  WhatsApp → vacío; nunca dígitos, `esNombreDeTelefono`, lib/contacto-lead.ts) y un lead de chat puede nacer sin nombre
+  (`createLead({ nombreOpcional })`, la ficha dice «Sin nombre»); el nombre de findChats sólo LLENA (`nombreSiFalta`); y en la
+  lista la agenda le gana al `push_name` (el del lead sigue ganando en Chats).
+- **«Se duplica en CHATS hasta que doy refresh».** La lectura rápida (cada 15 s) fusiona: reemplaza lo que trae y DEJA lo que
+  no trae (`fusionarRecientes`). Al agregarlo, el contacto vuelve como `lead:<id>` y la fila `wa:…` no vino (cambió de clave):
+  quedaban las dos hasta la lectura completa (~5 min) o un F5. Ahora la fila se renombra en el acto (`cambiarClaveEnLista`,
+  también cuando el hilo descubre el lead) y la rápida se lleva la fila sin lead cuyas identidades ya vinieron adentro de un
+  lead.
+- **Los «⋯».** El de cada fila era la copia del de respond.io (Cerrar · Posponer · Asignar); ahora es lo del CRM: «Agregar al
+  CRM» (con 2+ funnels, en cuál), «Abrir ficha» y Asignar. En la cabecera del chat, Posponer y «Cerrar con nota» pasaron a la
+  flechita de «Cerrar». Un solo alta para las dos puertas (`app/chats/agregar-al-crm.ts`). El test del 24/10 que fijaba
+  «Agregar al CRM en un solo lugar» se actualizó: el BOTÓN sigue en un lugar; los menús lo ofrecen como opción (pedido
+  posterior).
+- **La foto: el CRM mostraba sólo la copia del cron diario** (`leads.foto_auto_url`, 150 por negocio y por día, nunca para los
+  traídos de un grupo); Chats la pide en vivo por el proxy (`?avatarimg=`). La tarjeta y la ficha rápida del CRM ahora piden la
+  misma, cuando no hay copia (`fotoDeTarjeta`, con 10 dígitos o más: los últimos dígitos de un número corto chocan con otro).
+- **El filtro sólo con el funnel principal.** `etapasDelNegocio` leía el funnel default y la fila comparaba la etapa POR CLAVE,
+  y las claves propias se numeran por funnel (`st0`…): la st2 del Sprint caía en la st2 del principal. Ahora la lista trae los
+  funnels con sus etapas y, por lead, su casa y sus filas de `lead_funnel`; el filtro es funnel + etapa EN ese funnel
+  (`enFunnelYEtapa`), con números por funnel y por etapa.
+
+**Sin hacer:** el nombre de relleno `'+' + teléfono` de los traídos de un grupo (`app/crm/grupo-wa-server.ts`, del chat CRM:
+«Completar nombres» lo cambia después) · el CRM del teléfono (`app/m/crm`) sigue sin la foto en vivo · cambiar de etapa desde
+la cabecera de Chats sigue siendo sólo del funnel principal (`/api/chats/etapa`).
+
 ## ⚠️ Nueve avisos de Notificaciones no le salen a nadie: el interruptor de la pantalla y el del store son dos cortes distintos (26/10/2026)
 
 **La trampa.** Un aviso pasa por DOS cortes, y la pantalla sólo muestra uno:

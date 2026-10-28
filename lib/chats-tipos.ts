@@ -66,7 +66,19 @@ export type ChatResumen = {
   /** Hay un borrador de MaKo pendiente de enviar para este contacto. */
   borrador: boolean;
   bloqueado: boolean;
+  /**
+   * Dónde está su lead: su funnel (la casa) y cada funnel al que se lo agregó, con la etapa EN ESE funnel (27/10/2026,
+   * Mauricio: el filtro sólo mostraba el funnel principal, y el Sprint no se podía elegir). Sin lead, vacío. Opcional: una
+   * respuesta vieja no lo trae, y entonces el filtro cae a `etapaKey` (la etapa en su casa).
+   */
+  funnels?: EtapaEnFunnel[];
 };
+
+/** La etapa de un lead en UN funnel (su casa, o uno agregado por `lead_funnel`). */
+export type EtapaEnFunnel = { funnelId: number; etapaKey: string };
+
+/** Un funnel del negocio con sus etapas, para el filtro «Funnel» y «Etapa» de Chats. */
+export type FunnelChat = { id: number; nombre: string; esDefault: boolean; etapas: EtapaChat[] };
 
 export type ParteTexto = { t: string; b?: boolean };
 

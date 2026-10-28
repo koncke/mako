@@ -442,6 +442,28 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-trabajando__puntos i:nth-child(3) { animation-delay: .3s; }
 @keyframes co-late { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .co-trabajando__puntos i { animation: none; opacity: .6; } }
+/* «Escribiendo…» de WhatsApp (27/10/2026, Martín: «la animación de MaKo escribiendo, de los 3 puntos»): la burbuja del chat
+   con sus tres puntos que saltan, en lugar de la palabra con puntos de 4 px. La palabra queda para el lector (`co-oculto`). */
+.co-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.co-escribiendo {
+  display: inline-flex; align-items: center; padding: 11px 14px; border-radius: 18px 18px 18px 6px;
+  background: var(--surface-2, var(--surface)); border: 1px solid var(--border); color: var(--dim);
+}
+.co-escribiendo .co-trabajando__puntos { gap: 5px; margin-left: 0; }
+.co-escribiendo .co-trabajando__puntos i { width: 7px; height: 7px; animation: co-salta 1.3s ease-in-out infinite; }
+.co-escribiendo .co-trabajando__puntos i:nth-child(2) { animation-delay: .16s; }
+.co-escribiendo .co-trabajando__puntos i:nth-child(3) { animation-delay: .32s; }
+@keyframes co-salta { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .co-escribiendo .co-trabajando__puntos i { animation: none; opacity: .6; } }
+/* Lo que todavía está saliendo de este navegador (envios-en-curso.ts): el reloj gris, y si falló, Reintentar en el lugar. */
+.co-tick--saliendo { color: var(--faint); }
+.co-envio-fallo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.co-envio-fallo > span { min-width: 0; }
+.co-chip--quieto { border-color: transparent; color: var(--dim); }
+/* El encargo del Cerebro (Hilo.tsx → EncargoPlegado): una línea que se abre tocándola. */
+.co-burbuja--encargo .co-avance { margin-top: 2px; }
+/* El «Completado» con el resumen del wrap_up arriba (BloqueCompletado.tsx): lo que hizo, y abajo la respuesta plegada. */
+.co-ya__resumen { margin-bottom: 8px; color: var(--ink); }
 
 /* Lo del chat: a la izquierda, sin burbuja, como el asistente en Claude y ChatGPT. */
 .co-el { align-self: stretch; display: flex; gap: 10px; }

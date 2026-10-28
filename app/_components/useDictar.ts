@@ -21,34 +21,9 @@ import { useRef, useState } from 'react';
 import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { useDictadoVivo, unirDictado } from '@/app/plan/board/dictado-vivo';
 
-export type ResultadoTranscripcion = { ok: true; texto: string } | { ok: false; error: string };
-
-/**
- * Sube una nota de voz a /api/plan-dictado y devuelve el texto. No tira: todo fallo vuelve
- * como `{ ok:false, error }` con una frase para la persona. `para`: 'chat' es la nota de voz de una caja de chat
- * (app/_chat/nota-que-se-manda.ts), que el gasto de IA anota aparte del dictado de una tarea.
- */
-export async function transcribirNota(blob: Blob, timeoutMs = 90_000, para?: 'chat'): Promise<ResultadoTranscripcion> {
-  try {
-    const fd = new FormData();
-    fd.append('audio', blob, blob.type.includes('mpeg') ? 'nota.mp3' : blob.type.includes('mp4') ? 'nota.mp4' : 'nota.webm');
-    if (para) fd.append('para', para);
-    // ⚠️ CON SEÑAL DE CORTE (AGENTS.md): un `fetch` sin `signal` con la conexión caída no
-    // resuelve NUNCA, y el botón quedaba deshabilitado para siempre.
-    const j = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: AbortSignal.timeout(timeoutMs) })
-      .then((r) => r.json())
-      .catch((e: unknown) => { throw e; });
-    if (!j?.ok) return { ok: false, error: String(j?.error || 'No pude transcribir el audio.') };
-    return { ok: true, texto: String(j.texto ?? '') };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error && e.name === 'TimeoutError'
-        ? 'La transcripción tardó demasiado. Escríbelo a mano o prueba de nuevo.'
-        : e instanceof Error ? e.message : String(e),
-    };
-  }
-}
+// Transcribir vive en ./transcribir-nota.ts (sin 'use client', 27/10/2026): lo usa también el motor del Ops Center.
+import { transcribirNota } from './transcribir-nota';
+export { transcribirNota, porQueNoSeTranscribio, type ResultadoTranscripcion } from './transcribir-nota';
 
 export type Dictar = {
   /** ¿dicta en vivo? false = el camino de grabar y transcribir. */

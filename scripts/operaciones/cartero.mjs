@@ -100,7 +100,16 @@ import { spawnSync } from 'node:child_process';
 //         que lo ejecute sea bug, pedido o pregunta, sin devolvérselo a Martín. La regla viene de MaKo como un NOMBRE, y sólo se
 //         usa si está en `REGLAS_CONOCIDAS`: de MaKo no se toma texto para el mensaje. Un servidor de antes no la manda (el
 //         texto de siempre).
-export const VERSION = '1.20.0';
+// 1.21.0: el cierre de un turno sube el RESUMEN de su `wrap_up` (27/10/2026, Martín: «Esa tarjeta de completado, la info no me
+//         dice nada... sin rodeos»). La app pide escribir el cierre DESPUÉS del wrap_up, así que el último texto del turno era el
+//         cierre y su resumen se perdía. Ahora `pendiente` se guarda el último `recap` del turno y `cierreDe` lo manda como
+//         `resumen` si el texto no lo trae. Y cada texto del chat dice de qué RONDA es (`inicio`: el uuid del primero) y el que
+//         la cierra lleva `fin`: un «Ya está probado…» de a mitad de la ronda ya no es el «Completado» (lo es el cierre). Un
+//         servidor de antes los ignora (`sanearTurnos` no los conoce).
+//         Y un turno que termina con TRABAJO DE FONDO VIVO (una tarea en segundo plano, un Monitor, un Workflow que todavía
+//         no avisó que terminó) sube su cierre con `fondo`: el Centro no lo dibuja como «Completado», sigue «Trabajando»
+//         (Martín, 27/10 23:07: «No me pongas "cosas en marcha"... El cuadro de COMPLETADO debe ser dopamínico»).
+export const VERSION = '1.21.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -645,7 +654,8 @@ export function turnosDeLineas(lineas, pendiente = null) {
   /** Las preguntas de los cierres con `wrap_up` (1.17.2): van con la vuelta, como las de `preguntar`. */
   const preguntas = [];
   let p = pendiente;
-  const cerrar = () => { const t = cierreDe(p); if (t) turnos.push(t); p = null; };
+  // 1.21.0: lo de fondo que sigue vivo pasa al turno siguiente (no termina con el turno que lo lanzó).
+  const cerrar = () => { const t = cierreDe(p); if (t) turnos.push(t); p = p?.fondo?.length ? { primero: null, ultimo: null, fondo: p.fondo } : null; };
   for (const l of lineas) {
     let o;
     try { o = JSON.parse(l); } catch { continue; }
@@ -664,15 +674,19 @@ export function turnosDeLineas(lineas, pendiente = null) {
       if (!t || typeof o.uuid !== 'string') continue;
       const ultimo = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
       // El primer texto del turno sale ya: «Voy a trabajar en…».
-      if (!p?.primero) turnos.push({ uuid: o.uuid, rol: 'el', de: null, texto: ultimo.texto, at: ultimo.at, trabajo: null });
-      p = { primero: p?.primero ?? o.uuid, ultimo };
+      if (!p?.primero) turnos.push({ uuid: o.uuid, rol: 'el', de: null, texto: ultimo.texto, at: ultimo.at, trabajo: null, inicio: o.uuid });
+      // 1.21.0: el último resumen de un `wrap_up` del turno viaja con él hasta el cierre.
+      const recap = w?.recap || p?.recap || null;
+      p = { primero: p?.primero ?? o.uuid, ultimo, ...(recap ? { recap } : {}), ...(p?.fondo?.length ? { fondo: p.fondo } : {}) };
       continue;
     }
     if (o.type === 'system' && o.subtype === 'stop_hook_summary') { cerrar(); continue; }
     if (o.type !== 'user' || o.isMeta || typeof o.uuid !== 'string') continue;
     const c = o.message?.content;
-    if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) continue;
+    if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) { p = conFondo(p, c, o.timestamp); continue; }
     const t = textoDe(c).replace(RECORDATORIO_RE, '').trim();
+    // 1.21.0: el aviso de que una tarea de fondo terminó la saca de las vivas (antes de saltearlo por automático).
+    if (t && /^<task-notification>/.test(t)) p = sinFondo(p, t);
     // 1.17.0 (20/10/2026): lo que Martín pegó o adjuntó en la app (una captura, un PDF), aunque no haya escrito nada.
     const crudos = crudosDe(c);
     if ((!t && !crudos.length) || (t && AUTOMATICO_RE.test(t))) continue;
@@ -913,8 +927,43 @@ export async function subirAdjuntosDeTurnos(url, token, turnos) {
 /** El cierre de un turno: su último texto, si no es el mismo que ya salió como el primero. null = nada que sumar. */
 export function cierreDe(p) {
   const u = p?.ultimo;
-  return u && u.uuid !== p.primero ? { uuid: u.uuid, rol: 'el', de: null, texto: u.texto, at: u.at, trabajo: null } : null;
+  if (!u || u.uuid === p.primero) return null;
+  // 1.21.0: el resumen del `wrap_up` del turno, si el cierre no lo trae adentro (se escribió después del wrap_up).
+  const resumen = typeof p.recap === 'string' && p.recap.trim() && !u.texto.includes(p.recap.trim()) ? p.recap.trim().slice(0, TOPE_RESUMEN) : null;
+  // 1.21.0: ¿quedó trabajo de fondo vivo? Entonces el turno no terminó de verdad: no es un «Completado».
+  const fin = Date.parse(u.at);
+  const fondo = (p.fondo ?? []).some((x) => !Number.isFinite(fin) || !Number.isFinite(Date.parse(x.at)) || fin - Date.parse(x.at) < FONDO_VIVO_MS);
+  return { uuid: u.uuid, rol: 'el', de: null, texto: u.texto, at: u.at, trabajo: null, inicio: p.primero, fin: true, ...(resumen ? { resumen } : {}), ...(fondo ? { fondo: true } : {}) };
 }
+/** 1.21.0: cómo arranca una tarea de FONDO en el resultado de una herramienta, y cómo avisa que terminó (o que se la cortó). */
+const FONDO_ABRE = [/running in background with ID: ([\w-]+)/, /moved to the background \(ID: ([\w-]+)\)/, /Monitor started \(task ([\w-]+)/, /\btask[_ ]?id[:=]\s*"?([\w-]{6,})/i];
+const FONDO_CIERRA = [/<task-id>([\w-]+)<\/task-id>/g, /Successfully stopped task: ([\w-]+)/g];
+/** Una tarea de fondo que no avisó en tantas horas ya no cuenta como viva (un aviso que nunca llegó no traba el Completado). */
+export const FONDO_VIVO_MS = 3 * 60 * 60 * 1000;
+const textoDeResultado = (b) => (typeof b?.content === 'string' ? b.content : Array.isArray(b?.content) ? b.content.map((x) => (x && typeof x.text === 'string' ? x.text : '')).join('\n') : '');
+/** Las tareas de fondo que abren los resultados de este mensaje, sumadas a las vivas del turno (`p.fondo`). */
+function conFondo(p, content, at) {
+  const ids = [];
+  for (const b of content) {
+    if (!b || b.type !== 'tool_result') continue;
+    const t = textoDeResultado(b);
+    for (const re of FONDO_ABRE) { const m = re.exec(t); if (m) { ids.push(m[1]); break; } }
+    for (const re of FONDO_CIERRA) for (const m of t.matchAll(re)) p = sinFondo(p, `<task-id>${m[1]}</task-id>`);
+  }
+  if (!ids.length) return p;
+  const antes = (p?.fondo ?? []).filter((x) => !ids.includes(x.id));
+  return { ...(p ?? { primero: null, ultimo: null }), fondo: [...antes, ...ids.map((id) => ({ id, at: String(at ?? '') }))] };
+}
+/** Saca de las vivas las tareas que nombra un aviso de que terminaron. */
+function sinFondo(p, texto) {
+  if (!p?.fondo?.length) return p;
+  const fin = new Set([...String(texto).matchAll(/<task-id>([\w-]+)<\/task-id>/g)].map((m) => m[1]));
+  return fin.size ? { ...p, fondo: p.fondo.filter((x) => !fin.has(x.id)) } : p;
+}
+
+/** Lo que mide un `recap` de wrap_up, como mucho (la app le pide ~300 caracteres; esto es un tope técnico). Copia de
+ *  `TOPE_RESUMEN` de lib/operaciones-reglas.ts. */
+export const TOPE_RESUMEN = 2000;
 
 /** Lo nuevo del transcript de un chat desde la vuelta anterior. Devuelve los turnos y la marca nueva (se guarda sólo si
  *  MaKo dice que entraron: `guardarMarcas`). Sin transcript, o sin nada nuevo, nada. */

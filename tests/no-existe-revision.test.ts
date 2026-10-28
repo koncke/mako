@@ -23,7 +23,7 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 });
 type Fila = { ws: number; estado: string; despacho: string | null; regla: string | null };
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as {
-  error?: string; uno: Fila[]; tres: { aMano: boolean; error: string | null };
+  error?: string; uno: Fila[]; tres: { aMano: boolean; error: string | null; automaticos: number; otros: number };
   ruteo: { causa?: string | null; tipo?: string | null; titulo?: string | null; respuestaMako?: string | null; error?: string };
 };
 
@@ -40,7 +40,7 @@ test('2. un fallo de ruteo sale como ruteo, con la respuesta de MaKo, y no como 
   assert.match(String(R.ruteo.titulo), /la operación existe «Editar una cuota»/);
   assert.match(String(R.ruteo.respuestaMako), /todavía no existe/, 'el ticket no guarda lo que contestó MaKo');
   const turno = fuente('lib/mako-turno-app.ts');
-  assert.match(turno, /conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: registroConTicket \}/, 'el turno de la app no le pasa el ruteo al ticket');
+  assert.match(turno, /conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: registroConTicket, /, 'el turno de la app no le pasa el ruteo al ticket');
   assert.match(fuente('lib/offer-ia.ts'), /\$\{p\.arranque \? '' : `\\n\\n\$\{reglaNoExisteEn\('respuesta'\)\}`\}`;/, 'el arranque de Offer, sin el catálogo de MaKo, marca «no existe»');
 });
 

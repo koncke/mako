@@ -12,6 +12,7 @@ import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { Tono } from '@/app/_ui/tokens';
 import type { Borrador } from '@/lib/soporte-chat';
 import type { EstadoCliente, TicketCliente } from '@/lib/tickets-reglas';
+import type { AdjuntoTicket } from '@/lib/tickets-adjuntos';
 
 export type Turno = {
   id: string;
@@ -25,6 +26,11 @@ export type Turno = {
   /** Lo de la persona mientras sale, o si no salió (un 4xx: se puede mandar otra vez). */
   estado?: 'enviando' | 'error';
   error?: string;
+  /** Para mandarlo otra vez tal cual (revisión de 046d9e028): lo que escribió (sin la línea «📎», que es de la vista), sus archivos
+   *  y, si ya subieron, sus referencias (no se suben dos veces). */
+  dicho?: string;
+  archivos?: readonly File[];
+  subidos?: readonly AdjuntoTicket[];
 };
 
 export function itemsDeCharla(turnos: readonly Turno[]): ItemHilo[] {
