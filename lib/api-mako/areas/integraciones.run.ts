@@ -351,7 +351,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx): Promise<Preparado> => {
       const id = Number(input.id);
       const pcs = await listarPcDelNegocio(ctx.ws).catch(() => null);
-      if (!pcs) return { error: 'No pude leer las computadoras. Prueba de nuevo en un momento.' };
+      if (!pcs) return { error: 'No pude leer las computadoras. Prueba de nuevo en un momento.', falla: true };
       const yo = personaDelCtx(ctx);
       const suyas = pcs.filter((p) => puedeVerLaPc(p.persona, yo, ctx));
       const pc = suyas.find((p) => p.id === id);

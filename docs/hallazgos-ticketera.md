@@ -795,6 +795,9 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
   **La regla:** es guarda sólo lo que MARCA quien lo produce, `{ ok:false, error, guarda:true }` (lib/api-mako/ejecutar.ts y el
   runner del doer lo ponen, lo hace el chat de WhatsApp); `esGuardaDeHerramienta` no mira el texto. Sin la marca, lo peor es un
   ticket de más. Lo tragado sí se sigue leyendo por el texto: nadie lo marca.
+  ⚠️ **«Un ticket de más» eran cientos** (la verificación de 692368a60): ninguna área marcaba sus reglas, y «Quedó el ticket
+  #N» salía en el grupo del cliente por «Sólo se reembolsa un cobro pagado». Desde el 28/10 el productor marca al revés: el
+  error de un preparar ES guarda, y la falla lleva `falla: true` (docs/hallazgos-api-mako.md).
 **Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) todavía no pasa la señal (va
 con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
 Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda

@@ -1144,6 +1144,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **El `error` de un `preparar` (o de un `proponer`) es una REGLA, y una falla NUESTRA lleva `falla: true`**: «No pude leer
+  las pasarelas conectadas», un `catch` que vuelve `error` lo que reventó. Sin la marca, el «no pude» de MaKo después de esa
+  falla no abre ticket; con la marca en una regla, abre uno y sale «Quedó el ticket #N» en el grupo del cliente (28/10/2026,
+  tests/guarda-por-defecto.test.ts pide la marca en todo `return { error: 'No pude…' }`; docs/hallazgos-api-mako.md).
 - **`reversible: true` exige el camino de vuelta EN la API.** Si la descripción dice «se deshace desde el
   historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
   el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y

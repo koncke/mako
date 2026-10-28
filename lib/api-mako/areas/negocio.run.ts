@@ -87,7 +87,7 @@ const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 /** preparar() de la pantalla genérica no puede lanzar: se envuelve. */
 const seguro = (fn: (input: Record<string, unknown>, ctx: Ctx) => Promise<Preparado>) =>
   async (input: Record<string, unknown>, ctx: Ctx): Promise<Preparado> => {
-    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar la propuesta contra la base (${msg(e)}).` }; }
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar la propuesta contra la base (${msg(e)}).`, falla: true }; }
   };
 
 /** ejecutar() nunca lanza: si algo falla, ok:false con el motivo. */

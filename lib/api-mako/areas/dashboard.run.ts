@@ -235,7 +235,7 @@ async function proponer(input: In, ctx: Ctx, armar: (r: Resuelto) => Armado | Pr
     };
   } catch (e) {
     console.error(`[api-mako dashboard] preparar: ${msg(e)}`);
-    return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+    return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.', falla: true };
   }
 }
 
@@ -834,7 +834,7 @@ export const RUNNERS: Runners = {
         };
       } catch (e) {
         console.error(`[api-mako dashboard] compartir: ${msg(e)}`);
-        return { error: 'No pude leer tu informe del Dashboard. Reintenta en un momento.' };
+        return { error: 'No pude leer tu informe del Dashboard. Reintenta en un momento.', falla: true };
       }
     },
     ejecutar: async (payload, ctx) => {
@@ -874,7 +874,7 @@ export const RUNNERS: Runners = {
         };
       } catch (e) {
         console.error(`[api-mako dashboard] copiar: ${msg(e)}`);
-        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.', falla: true };
       }
     },
     ejecutar: async (payload, ctx) => {
@@ -1234,7 +1234,7 @@ export const RUNNERS: Runners = {
         };
       } catch (e) {
         console.error(`[api-mako dashboard] analizar: ${msg(e)}`);
-        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.', falla: true };
       }
     },
     ejecutar: async (payload, ctx) => {
@@ -1304,7 +1304,7 @@ export const RUNNERS: Runners = {
         };
       } catch (e) {
         console.error(`[api-mako dashboard] programar: ${msg(e)}`);
-        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.', falla: true };
       }
     },
     ejecutar: async (payload, ctx) => {
@@ -1346,7 +1346,7 @@ export const RUNNERS: Runners = {
         return { payload: { sub: r.sub, hojaId: h.id }, resumen: `Cortar el análisis de la hoja ${comillas(h.nombre)} que está corriendo, en ${r.etiqueta}. El último análisis bueno queda.` };
       } catch (e) {
         console.error(`[api-mako dashboard] cancelar: ${msg(e)}`);
-        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.', falla: true };
       }
     },
     ejecutar: async (payload) => {
@@ -1472,7 +1472,7 @@ export const RUNNERS: Runners = {
         };
       } catch (e) {
         console.error(`[api-mako dashboard] conclusiones: ${msg(e)}`);
-        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.', falla: true };
       }
     },
     ejecutar: async (payload, ctx) => {
