@@ -71,7 +71,8 @@ export function sinElLlamadoAMaKo(texto: string, numeroLinea: string | null): st
       r = r.replace(/^mako[\s,:.!¡]+/iu, '').trim();
       if (r === antes) break;
     }
-    return r !== resto.trim() && (confirmacionPura(r) || /^(?:no|nop|mejor no|todav[ií]a no)[\s.!]*$/iu.test(r)) ? `${numero}${r}` : renglon;
+    // También un acuse que confirma solo («@MaKo ok», «mako listo»): la puerta de plata y terceros lo repregunta igual (no es puro).
+    return r !== resto.trim() && (confirmacionPura(r) || /^(?:no|nop|mejor no|todav[ií]a no|ok(?:ey)?|listo|perfecto|claro|obvio|va|vale|bueno|de una)[\s.!]*$/iu.test(r)) ? `${numero}${r}` : renglon;
   }).join('\n');
 }
 
@@ -153,6 +154,10 @@ const CONFIRMA = String.raw`(?:s[ií]+|sip|sep|no|nop|dale|ok(?:ey|is)?|oka|list
 const DEL_QUE_CONTESTA = String.raw`(?:(?:ya|ahora|ah[ií]|enseguida|en un rato|despu[eé]s|ma[nñ]ana)\s+)?(?:(?:te|se|les?)\s+)?(?:(?:lo|la|los|las)\s+)?(?:mando|paso|env[ií]o|hago|confirmo|reviso|miro|veo|subo|cargo|llamo|escribo|vi|hice|mand[eé]|pas[eé]|envi[eé]|confirm[eé]|revis[eé]|cargu[eé])`;
 /** «sí Pedro», «dale Ana»: la confirmación con el nombre de la persona a la que le contesta (con mayúscula: sin `i`). */
 const CON_SU_NOMBRE = /^(?:[Ss][IiÍí]+|[Dd]ale|[Oo][Kk]|[Ll]isto)[\s,]+\p{Lu}\p{Ll}+[\s.!]*$/u;
+/** Lo que con mayúscula NO es el nombre de una persona (la verificación de 991abd4af): un imperativo con su pronombre («Ok
+ *  Borralo», «Si Pausala»), a MaKo por su apodo («Dale Makito»), o algo de MaKo («Dale Meta», «Ok Calendly», «Sí, Leads»). */
+// (Por la raíz del verbo y no por la terminación: «Leila», «Paola» o «Marcela» terminan igual que «pausala».)
+const NO_ES_UN_NOMBRE = /(?<!\p{L})(?:borr|paus|cancel|carg|mand|pas|confirm|agend|activ|apag|prend|envi|hac|haz|pon|elimin|sac|cobr|mov|public|guard|cre|arm|edit|cambi|actualiz|agreg|anot|registr|mostr|abr|reprogram|resolv)\p{L}*(?:lo|la|los|las|le|les|me|nos)[\s.!]*$|(?<!\p{L})(?:mak\p{L}*|meta|calendly|leads?|google|zernio|whatsapp|instagram|facebook|stripe|fathom|zoom|drive|gmail|excel|crm|plan|ads|agenda|campañas?|landing)[\s.!]*$/iu;
 const RESPUESTA_CORTA = new RegExp(String.raw`^${CONFIRMA}(?:[\s,.!¡;:]+(?:${CONFIRMA}|${DEL_QUE_CONTESTA}))*[\s,.!¡]*(?:\p{Extended_Pictographic}\uFE0F?\s*)*$`, 'iu');
 /**
  * Una RESPUESTA corta: pegada a un mensaje para otra persona, le contesta a esa persona. Es un acuse o una confirmación ENTERA
@@ -164,7 +169,7 @@ export function esRespuestaCorta(texto: string): boolean {
   const t = (texto || '').trim();
   // Y las confirmaciones CON VERBO («sí, hacelo», «dale, confirmalo», `confirmaAOtro`; la verificación de 9cef25dba): sin ellas,
   // detrás de «@Pedro ¿lo confirmo?» entraban al turno y ejecutaban lo que le llega a un tercero.
-  return t.length <= 60 && !t.includes('?') && !/mako/i.test(t) && (esAcusePuro(t) || RESPUESTA_CORTA.test(t) || CON_SU_NOMBRE.test(t) || confirmaAOtro(t));
+  return t.length <= 60 && !t.includes('?') && !/mako/i.test(t) && (esAcusePuro(t) || RESPUESTA_CORTA.test(t) || (CON_SU_NOMBRE.test(t) && !NO_ES_UN_NOMBRE.test(t)) || confirmaAOtro(t));
 }
 
 /** El arranque de un «sí» a MaKo («sí», «dale», «ok», «listo», «confirmo», «adelante»). */

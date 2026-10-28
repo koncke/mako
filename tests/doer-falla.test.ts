@@ -169,10 +169,11 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   const doer = leer('lib/mako-doer-in.ts');
   const iSaneo = doer.indexOf('const saneo = sanearSalida(');
   // Con un error de herramienta ya registrado (la huella), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
-  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0 }, dondeDelGrupo(texto), {});');
+  // (Y con una guarda de herramienta, la regla: test 12.)
+  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno.length }, dondeDelGrupo(texto), {});');
   assert.ok(iSaneo > 0 && iMarcas > iSaneo, 'las marcas se sacan antes del saneo, o no se sacan');
-  assert.match(doer.slice(iMarcas - 200, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
-  assert.match(doer.slice(iMarcas, iMarcas + 200), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
+  assert.match(doer.slice(iMarcas - 500, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
+  assert.match(doer.slice(iMarcas, iMarcas + 300), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
   assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
   assert.match(doer, /respuesta = conLaLineaDelTicket\(respuesta, await lineaDelCartel\(cartel, dondeDelGrupo\(texto\), errsIA\.join\(' · '\), 'responder'\), causaDelCartel\(cartel\)\);/);
@@ -217,4 +218,11 @@ test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la co
   assert.ok(corrigeUnMonto('la cuota es $2024 no $2026', '', HOY));
   // Dos años sin moneda siguen siendo años.
   assert.ok(!corrigeUnMonto('la cuota vence en 2026 no 2025', '', HOY));
+});
+
+test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pude», como en el turno de la app (base 7)', () => {
+  // MaKo inteligente, e6f58be78: un 400 de una herramienta (`esGuardaDeHerramienta`) cuenta como regla cuando nada falló de verdad.
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /memo\.anotar\(name, out\);\n\s*if \(esGuardaDeHerramienta\(out\)\) guardasDelTurno\+\+;/);
+  assert.match(doer, /conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno\.length \}, dondeDelGrupo\(texto\), \{\}\)/);
 });

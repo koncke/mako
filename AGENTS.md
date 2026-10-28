@@ -2237,6 +2237,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
   con su test, no como un `enviarAGrupoJid` suelto. `tests/doer-acuse.test.ts` frena el acuse de texto que vuelva.
+- **Todo lo que MaKo manda a un grupo sale por `lib/mako-grupo.ts`** (`enviarAGrupoJid`, `enviarAlGrupoMaKo`, `enviarPartesAJid`),
+  que lo anota en el anillo anti-eco (`anotarEnviadosAlGrupo`). Un envío por otro lado vuelve como un `fromMe` que nadie mandó: el
+  doer lo toma por el dueño escribiendo desde la línea (`esLineaDelDueno`) y «@MaKo sí» deja de confirmar (28/10/2026).
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 

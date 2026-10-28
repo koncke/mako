@@ -200,3 +200,36 @@ test('10. la respuesta a otro también es la confirmación CON VERBO; y el llama
   assert.equal(sinElLlamadoAMaKo('sí @5493764002605', LINEA), 'sí');
   assert.equal(sinElLlamadoAMaKo('MaKo, no', LINEA), 'no');
 });
+
+test('11. con mayúscula no siempre es un nombre; y «@MaKo ok» / «mako listo» vuelven a ser un «ok»', () => {
+  // La verificación de 991abd4af: «Dale Makito», «Ok Borralo» o «Dale Meta» detrás de un @ a otro quedaban mudos.
+  for (const t of ['Dale Makito', 'Sí Makito', 'Si Pausala', 'Ok Borralo', 'Dale Cancelalo', 'Si Cargala', 'Dale Meta', 'Ok Calendly', 'Sí, Leads'])
+    assert.ok(!esRespuestaCorta(t), `«${t}» se toma como respuesta a otro`);
+  for (const t of ['sí Pedro', 'dale Ana', 'sí Leila', 'ok Paola', 'dale Marcela']) assert.ok(esRespuestaCorta(t), `«${t}» no es una respuesta`);
+  // Un «ok» o un «listo» a MaKo es un «ok» para el clasificador (la puerta de plata y terceros lo repregunta: no es puro).
+  for (const [t, limpio] of [['@5493764002605 ok', 'ok'], ['@5493764002605 listo', 'listo'], ['MaKo, ok', 'ok'], ['mako listo', 'listo']] as const) {
+    assert.equal(sinElLlamadoAMaKo(t, LINEA), limpio, t);
+    assert.equal(clasificarIntencion(limpio, { hayPendientes: true }).intencion, 'confirmar', t);
+    assert.ok(!confirmacionPura(limpio), `«${limpio}» confirmaría plata`);
+  }
+  // Un pedido sigue entero (test 10).
+  assert.equal(sinElLlamadoAMaKo('mako listo el reporte?', LINEA), 'mako listo el reporte?');
+});
+
+test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y su línea nunca es «la del dueño»', () => {
+  // La verificación de 991abd4af: los avisos, las insistencias, los flujos y el cierre de tickets salían sin anotarse; su eco volvía
+  // `fromMe` y marcaba la línea de MaKo como del dueño 7 días, y desde ahí «@MaKo sí» no confirmaba.
+  const grupo = leer('lib/mako-grupo.ts');
+  const jid = grupo.slice(grupo.indexOf('export async function enviarAGrupoJid('), grupo.indexOf('/** `sinGrupo`'));
+  assert.match(jid, /if \(r\.ok\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[r\.id\]\)\.catch\(\(\) => \{\}\);/);
+  const maKo = grupo.slice(grupo.indexOf('export async function enviarAlGrupoMaKo('), grupo.indexOf('export async function enviarPartesAlGrupoMaKo('));
+  assert.match(maKo, /if \(id\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[id\]\)\.catch\(\(\) => \{\}\);/);
+  assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, r\.ids\)\.catch\(\(\) => \{\}\);/);
+  assert.match(grupo, /const KEY_ENVIADOS = \(jid: string\) => `mako\.doer\.sent\.\$\{jid\}`;/, 'el anillo cambió de clave: el doer ya no ve lo anotado antes');
+  // El doer usa ESE anillo (uno solo) y nunca toma la línea de MaKo por la del dueño.
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n\s*const registrarEnviados = anotarEnviadosAlGrupo;/);
+  assert.doesNotMatch(doer, /KEY_SENT/);
+  assert.match(doer, /const deMaKo = \(await instanciaVoz\(\)\.catch\(\(\) => ''\)\) === instance;\n\s*const visto = deMaKo \? NaN :/);
+  assert.match(doer, /if \(!instance \|\| \(await esLineaDelDueno\(instance\)\) \|\| \(await instanciaVoz\(\)\.catch\(\(\) => ''\)\) === instance\) return;/);
+});

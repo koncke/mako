@@ -34,7 +34,7 @@ import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/ma
 import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
-import { lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
+import { esGuardaDeHerramienta, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude, type TicketNoPude } from '@/lib/no-pude-server';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
@@ -60,7 +60,7 @@ import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, aviso
 import { sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
-import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
+import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosAlGrupo, instanciaVoz } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia, numeroDeInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
@@ -95,7 +95,6 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 const KEY_ACTIVO = 'mako.doer.activo';        // interruptor general (default: ON)
 const KEY_GRUPOS = 'mako.doer.grupos';        // allowlist de JIDs donde MaKo escucha
 const KEY_LAST = (jid: string) => `mako.doer.last.${jid}`;     // dedup del último msg
-const KEY_SENT = (jid: string) => `mako.doer.sent.${jid}`;     // ids que MANDÓ MaKo (anti-eco)
 const KEY_MODO = (jid: string) => `mako.doer.modo.${jid}`;     // 'libre' | 'ventana'
 const KEY_VENTANA = (jid: string) => `mako.doer.ventana.${jid}`; // ISO de vencimiento
 const VENTANA_MIN = 15;                       // duración de la ventana de charla libre
@@ -111,25 +110,12 @@ const CORRECCION_TOOLS = HERRAMIENTAS_CORRECCION.flatMap((id) => { const d = por
 // La línea de voz de MaKo suele ser el número PROPIO del dueño: sus mensajes y los
 // de MaKo llegan los dos como fromMe. Guardamos los ids que enviamos para poder
 // distinguir "el dueño escribe" (procesar) del "eco de mi propia respuesta" (saltar).
-async function idsEnviados(ws: number, jid: string): Promise<string[]> {
-  return runWithWorkspace(ws, async () => {
-    const raw = await getSetting(KEY_SENT(jid));
-    if (!raw) return [];
-    try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }
-  });
-}
+// El anillo vive en lib/mako-grupo.ts desde el 28/10/2026 (`anotarEnviadosAlGrupo`): ahí se anota todo lo que sale por la línea
+// de MaKo, también los avisos y las insistencias, que no pasan por acá.
+const idsEnviados = idsEnviadosAlGrupo;
+const registrarEnviados = anotarEnviadosAlGrupo;
 async function registrarEnviado(ws: number, jid: string, id: string): Promise<void> {
   return registrarEnviados(ws, jid, [id]);
-}
-// Registra VARIOS ids en UN solo read-modify-write. Importante con los mensajes
-// separados (punto 10): antes eran N escrituras concurrentes sobre la misma key
-// (lost-update → MaKo procesaba su propio eco); ahora la respuesta se registra de una.
-async function registrarEnviados(ws: number, jid: string, ids: string[]): Promise<void> {
-  const nuevos = ids.filter(Boolean);
-  if (!nuevos.length) return;
-  const prev = await idsEnviados(ws, jid);
-  const next = [...prev.filter((x) => !nuevos.includes(x)), ...nuevos].slice(-40); // ring buffer
-  await runWithWorkspace(ws, () => setSetting(KEY_SENT(jid), JSON.stringify(next)));
 }
 
 /**
@@ -641,13 +627,15 @@ async function esLineaDelDueno(instance: string): Promise<boolean> {
   if (!instance) return false;
   const ya = LINEA_DEL_DUENO.get(instance);
   if (ya && ya.hasta > Date.now()) return ya.es;
-  const visto = Date.parse((await runWithWorkspace(OWNER_WS, () => getSetting(KEY_LINEA_DEL_DUENO(instance))).catch(() => null)) ?? '');
+  // La línea PROPIA de MaKo (`instanciaVoz`) nunca (la verificación de 991abd4af): el eco de un aviso que no se anotaba la marcaba.
+  const deMaKo = (await instanciaVoz().catch(() => '')) === instance;
+  const visto = deMaKo ? NaN : Date.parse((await runWithWorkspace(OWNER_WS, () => getSetting(KEY_LINEA_DEL_DUENO(instance))).catch(() => null)) ?? '');
   const es = Number.isFinite(visto) && Date.now() - visto < LINEA_DEL_DUENO_MS;
   LINEA_DEL_DUENO.set(instance, { es, hasta: Date.now() + 10 * 60_000 });
   return es;
 }
 async function anotarLineaDelDueno(instance: string): Promise<void> {
-  if (!instance || (await esLineaDelDueno(instance))) return;
+  if (!instance || (await esLineaDelDueno(instance)) || (await instanciaVoz().catch(() => '')) === instance) return;
   LINEA_DEL_DUENO.set(instance, { es: true, hasta: Date.now() + 10 * 60_000 });
   await runWithWorkspace(OWNER_WS, () => setSetting(KEY_LINEA_DEL_DUENO(instance), new Date().toISOString())).catch(() => {});
 }
@@ -1613,6 +1601,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
      */
     const propuestasDelTurno = new Map<number, PropuestaDelTurno>();
+    /** Cuántas herramientas del turno devolvieron una GUARDA de MaKo (un 400, `esGuardaDeHerramienta`): el «no pude» es su regla
+     *  (base 7 de MaKo inteligente, el mismo conteo que el turno de la app, lib/mako-turno-app.ts). */
+    let guardasDelTurno = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       corridasDelTurno++;
       const previo = memo.previo(name);
@@ -1625,6 +1616,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       memo.anotar(name, out);
+      if (esGuardaDeHerramienta(out)) guardasDelTurno++;
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
@@ -2447,7 +2439,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // conversación, nada. Los errores de las herramientas ya fueron por la huella global (arriba).
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
       // Si un error de herramienta ya dejó su ticket (registrarError, arriba), sólo se sacan las marcas: un ticket, una línea.
-      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0 }, dondeDelGrupo(texto), {});
+      // Si una herramienta devolvió una GUARDA y nada falló de verdad, el «no pude» es esa regla, la diga o no el modelo (base 7).
+      // (El ruteo todavía no se arma en el grupo: docs/hallazgos-comunicacion.md, «Sin hacer».)
+      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno.length }, dondeDelGrupo(texto), {});
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n');
     }
 

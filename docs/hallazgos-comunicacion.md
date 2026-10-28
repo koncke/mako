@@ -226,6 +226,13 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     · ⚠️ **En la línea del dueño, la línea ES el dueño** (la verificación de 9cef25dba): «@Dueño sí» o citar un mensaje suyo
       contaban como «sí a MaKo» y ejecutaban la de plata. Ahora la línea se anota como del dueño al ver un `fromMe` que no es
       eco (`esLineaDelDueno`, 7 días), y ahí la @ no se saca ni le habla a MaKo; la cita cuenta sólo por su id (`idsEnviados`).
+    · ⚠️ **Y «un `fromMe` que no mandamos» sólo prueba algo si el anillo anti-eco ve TODO lo que sale** (la verificación de
+      991abd4af): los avisos, las insistencias, los flujos, el cierre de tickets y `enviarGrupoMaKo` salían por la línea de MaKo
+      sin anotarse, y el eco del primer aviso la marcaba «del dueño» en todos los grupos. El anillo pasó a lib/mako-grupo.ts y
+      se anota en cada envío; la línea de MaKo (`instanciaVoz`) nunca es la del dueño. La regla quedó en AGENTS.md.
+    · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
+      nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
+      ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
     · Sacar el llamado («MaKo,», la @) sólo si lo que queda es una confirmación: de «mako listo el reporte?» quedaba «listo…»,
       que con una pendiente viva es un «sí».
     · En un lote, «le habla a MaKo» es el ÚLTIMO de lo que queda (`leHabla`): con «alguno», el «mako, ¿cuántos leads?» de Ana le
@@ -246,6 +253,8 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
 - **Un ticket, una línea** (la revisión de la base, 28/10): con un error de herramienta ya registrado en el turno, la marca
   sólo se saca (`yaRegistrado`). El ticket de configuración anota qué faltaba (`ia:ninguna` o el cupo de `ia:auto`), y el
   cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
+- **Una guarda de herramienta es una regla** (base 7 de MaKo inteligente, e6f58be78): el grupo cuenta `esGuardaDeHerramienta` como el
+  turno de la app, y con una guarda y nada fallado de verdad, el «no pude» es esa regla y no abre ticket.
 
 **Sin hacer:**
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
