@@ -53,6 +53,15 @@ probado rompiéndolo (13 roturas, cada una atrapada).
   en ejecución). Un test que fija un NOMBRE fija también el error que el nombre causaba: ahora fija lo que cuida (la nota al final,
   con el mensaje, y borrada si el mensaje no quedó) y que ninguna const local vuelva a llamarse `aGuardar`.
 
+- **«No me pongas "cosas en marcha"... El cuadro de COMPLETADO debe ser dopamínico»** (Martín, 27/10 23:07, con un COMPLETADO del
+  Cerebro que decía «Hay cuatro cosas en marcha» debajo de un «Trabajando ••• Workflow»). Un turno que termina con trabajo de
+  FONDO vivo no terminó: el cartero 1.21.0 anota las tareas que abre un resultado («running in background with ID», «moved to
+  the background», «Monitor started») y las saca con su `<task-notification>` o «Successfully stopped task»; si al cerrar el turno
+  queda alguna viva (de menos de 3 h), el cierre sube con `fondo`: no es Completado y el chat sigue «Trabajando». La tarjeta dice
+  lo terminado: el resumen del wrap_up o, sin él, el «hecho» del cierre del trabajo que respondía (`hechoDelCompletado`).
+  ⚠️ Lo de fondo vive en el `pendiente` del cartero, que pasa de un turno al siguiente: una tarea lanzada en un turno termina
+  en otro.
+
 **Lo que quedó SIN hacer:**
 - **Instalar el cartero 1.21.0 en cada PC** (después de desplegar el servidor que acepta `resumen`, `inicio` y `fin`). Sin él, el
   Completado es como antes. Lo ya guardado no tiene rondas: el del CRM del 26/10 sigue mostrando el de las 13:59.

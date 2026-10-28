@@ -599,6 +599,9 @@ export type TurnoChat = {
    *  completadosDelChat). */
   inicio?: string;
   fin?: true;
+  /** El turno terminó con trabajo de FONDO vivo (cartero 1.21.0: una tarea en segundo plano, un Monitor, un Workflow): no es un
+   *  «Completado» y el chat sigue «Trabajando» (Martín, 27/10 23:07: «El cuadro de COMPLETADO debe ser dopamínico»). */
+  fondo?: true;
 };
 /** Copia de `TOPE_RESUMEN` del cartero: un tope técnico, no de lectura. */
 export const TOPE_RESUMEN = 2000;
@@ -713,6 +716,7 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
       ...(o.rol === 'el' && typeof o.resumen === 'string' && o.resumen.trim() ? { resumen: o.resumen.trim().slice(0, TOPE_RESUMEN) } : {}),
       ...(o.rol === 'el' && typeof o.inicio === 'string' && /^[\w-]{8,64}$/.test(o.inicio) ? { inicio: o.inicio } : {}),
       ...(o.rol === 'el' && o.fin === true ? { fin: true as const } : {}),
+      ...(o.rol === 'el' && o.fondo === true ? { fondo: true as const } : {}),
     });
   }
   return out;

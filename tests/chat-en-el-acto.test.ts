@@ -18,6 +18,9 @@
 //   · Trabajando sin la burbuja → 3 · el encargo como de Martín → 4 · el «Ya está» que no cede al cierre de su ronda → 5a
 //   · el cierre de CUALQUIER ronda le saca el lugar → 5a (la primera vez no falló: faltaba la ronda de un solo texto)
 //   · el cierre plegado como «Avance» → 5a · el cartero sin la ronda → 5b · sin el resumen → 5b · el servidor lo tira → 5b
+//   · (27/10 23:07, 5c) el cartero sin anotar lo de fondo · el aviso que no la saca de las vivas (la primera vez no falló: la
+//     ronda de después no tenía cierre) · el Completado con fondo vivo · sin «Trabajando» con fondo vivo → 5c · la tarjeta sin
+//     el «hecho» del cierre → 5b
 // =============================================================================
 
 import test from 'node:test';
@@ -30,7 +33,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { porQueNoSeTranscribio } from '../app/_components/useDictar';
 import { conLoQueSale, descartarEnvio, enviosEnCurso, escucharEnvios, esEnvioLocal, ponerEnCamino, reintentarEnvio, type EnvioLocal } from '../app/admin/operaciones/envios-en-curso';
 import { esEncargoDeOtraSesion, esParaMartin, sanearTurnos, type TurnoChat } from '../lib/operaciones-reglas';
-import { completadoSinVer, completadosDelChat, lineasDeConversacion, nodoDeCompletado, turnosParaOtro, type LineaChat, type TrabajoP } from '../lib/centro-chats';
+import { chatTrabajando, completadoSinVer, completadosDelChat, hechoDelCompletado, lineasDeConversacion, nodoDeCompletado, turnosParaOtro, type LineaChat, type TrabajoP } from '../lib/centro-chats';
 import { Trabajando } from '../app/admin/operaciones/Trabajando';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -235,5 +238,40 @@ test('5b. el cartero 1.21.0 sube el resumen del wrap_up con el cierre, y el serv
   const [deMartin] = sanearTurnos([{ local: LOCAL, uuid: 'u-yo-00000002', rol: 'yo', texto: 'hola', at: at(0), resumen: 'x' }]);
   assert.equal(deMartin.resumen, undefined, 'un turno de Martín no lleva resumen');
   const b = leer('app/admin/operaciones/BloqueCompletado.tsx');
-  assert.match(bloque(b, 'function Respuesta({ t }: { t: TurnoChat }) {'), /if \(t\.resumen\) \{/, 'el Completado no muestra el resumen');
+  assert.match(bloque(b, 'function Respuesta({ t, hecho }: { t: TurnoChat; hecho?: string | null }) {'), /const terminado = t\.resumen \|\| hecho;\n\s*if \(terminado\) \{/, 'el Completado no muestra el resumen');
+});
+
+// ── 5c · con trabajo de fondo vivo no hay «Completado» (Martín, 27/10 23:07) ─────────────────────────────────────────
+// «No me pongas "cosas en marcha" ni nada de eso en el mensaje de COMPLETADO, literalmente pierde su funcionalidad... El cuadro
+// de COMPLETADO debe ser dopamínico: se completó una funcionalidad, se debuggeó A, B, C». Su captura: un COMPLETADO del
+// Cerebro con «Hay cuatro cosas en marcha: …» debajo de un «Trabajando ••• Workflow».
+
+test('5c. un turno que termina con trabajo de fondo vivo no es Completado: sigue «Trabajando»; la tarjeta dice lo terminado', async () => {
+  const c = await import('../scripts/operaciones/cartero.mjs');
+  const at = (m: number) => `2026-10-27T23:${String(m).padStart(2, '0')}:00Z`;
+  const yo = JSON.stringify({ type: 'user', uuid: 'u-yo-fondo-1', timestamp: at(0), message: { role: 'user', content: 'Corré los tests' } });
+  const txt = (uuid: string, m: number, t: string) => JSON.stringify({ type: 'assistant', uuid, timestamp: at(m), message: { role: 'assistant', content: [{ type: 'text', text: t }] } });
+  const lanzo = JSON.stringify({ type: 'user', uuid: 'u-res-fondo-1', timestamp: at(2), message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_x', content: 'Command running in background with ID: bgx123456. Output is being written to: C:/x.output' }] } });
+  const fin = (m: number) => JSON.stringify({ type: 'system', subtype: 'stop_hook_summary', uuid: `fin-${m}`, timestamp: at(m) });
+  const aviso = JSON.stringify({ type: 'user', uuid: 'u-aviso-fondo', timestamp: at(20), message: { role: 'user', content: '<task-notification>\n<task-id>bgx123456</task-id>\n<status>completed</status>\n</task-notification>' } });
+  const r = c.turnosDeLineas([yo, txt('u-el-fondo-01', 1, 'Voy a correr los tests.'), lanzo, txt('u-el-fondo-02', 3, 'Ya está: los tests corren por detrás.'), fin(4),
+    aviso, txt('u-el-fondo-03', 21, 'Miro cómo salieron.'), txt('u-el-fondo-04', 22, 'Ya está: los tests dieron verde.'), fin(23)]);
+  const cierre = r.turnos.find((t: { uuid: string }) => t.uuid === 'u-el-fondo-02');
+  assert.equal(cierre?.fondo, true, 'el turno que terminó con la tarea de fondo viva no lo dice');
+  const despues = r.turnos.find((t: { uuid: string }) => t.uuid === 'u-el-fondo-04');
+  assert.ok(despues, 'la ronda de después no cerró');
+  assert.equal(despues?.fondo, undefined, 'el aviso de que terminó no la saca de las vivas');
+  // El servidor la guarda, y el Centro: el de las 23:03 no es Completado (sigue «Trabajando»); el de las 23:22, sí.
+  const guardados = sanearTurnos(r.turnos.map((t: object) => ({ ...t, local: LOCAL })));
+  const lineas: LineaChat[] = guardados.map((t) => ({ tipo: 'turno', instante: Date.parse(t.at), turno: t }));
+  assert.equal(guardados.find((t) => t.uuid === 'u-el-fondo-02')?.fondo, true, 'el servidor tira `fondo`');
+  assert.deepEqual(completadosDelChat(lineas).map((x) => x.turno.uuid), ['u-el-fondo-04'], 'un turno con trabajo de fondo vivo se dibuja como Completado');
+  const hastaElFondo = lineas.filter((l) => l.instante <= Date.parse(at(3)));
+  assert.equal(chatTrabajando({ estado: 'quieto' as never, viejo: false }, hastaElFondo, Date.parse(at(10))), true, 'con trabajo de fondo vivo el chat no dice «Trabajando»');
+  assert.equal(completadoSinVer(hastaElFondo, null), null);
+  // Lo terminado, sin resumen: el «hecho» del cierre de su trabajo.
+  const trabajo: LineaChat = { tipo: 'trabajo', instante: Date.parse(at(0)), trabajo: { id: 'w-1', destino: LOCAL, destino_titulo: 'Prueba', destino_cuenta: 'claude4', created_at: at(0), texto: 'Corré los tests', estado: 'hecho', motivo: null, cerrado_at: at(21),
+    cierre: { decidido: '', hecho: 'Se arregló A, se debuggeó B y quedó C.', comprobado: '', sigue: '', prueba: null } } };
+  assert.equal(hechoDelCompletado([trabajo, ...lineas], { at: at(21) }), 'Se arregló A, se debuggeó B y quedó C.');
+  assert.match(leer('app/admin/operaciones/BloqueCompletado.tsx'), /<Respuesta key=\{t\.uuid\} t=\{t\} hecho=\{hechoDelCompletado\(lineas, t\)\} \/>/);
 });

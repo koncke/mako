@@ -903,6 +903,8 @@ export function completadosDelChat(lineas: readonly LineaChat[]): Array<{ instan
     if (!esYaEsta(l.turno.texto)) continue;
     const c = l.turno.fin ? null : cierres.get(l.turno.inicio ?? l.turno.uuid);
     const x = c && c.instante >= l.instante ? c : l;
+    // Con trabajo de fondo vivo la ronda no terminó (cartero 1.21.0, 27/10 23:07): sigue «Trabajando», no es un Completado.
+    if (x.turno.fondo) continue;
     out.set(x.turno.uuid, { instante: x.instante, turno: x.turno });
   }
   return [...out.values()].sort((a, b) => a.instante - b.instante);
@@ -1182,12 +1184,38 @@ export function estadoDelEnvio(
  */
 export function chatTrabajando(chat: Pick<ChatCentro, 'estado' | 'viejo'>, lineas: readonly LineaChat[], ahora: number): boolean {
   if (chat.estado === 'trabajando' && !chat.viejo) return true;
+  // Terminó su turno con trabajo de FONDO vivo (cartero 1.21.0, `fondo`) y nadie le escribió después: sigue trabajando.
+  const ultima = [...lineas].sort((a, b) => a.instante - b.instante).at(-1);
+  if (ultima?.tipo === 'turno' && ultima.turno.rol === 'el' && ultima.turno.fondo && ahora - ultima.instante < FONDO_VIVO_MS) return true;
   const trabajos = lineas.filter((l): l is Extract<LineaChat, { tipo: 'trabajo' }> => l.tipo === 'trabajo');
   const ultimo = trabajos[trabajos.length - 1]?.trabajo;
   if (!ultimo || ultimo.estado !== 'entregado' || ultimo.cierre) return false;
   const entregado = fecha(ultimo.entregado_at ?? null);
   if (entregado == null || ahora - entregado > RECIEN_ENTREGADO_MS) return false;
   return !lineas.some((l) => l.tipo === 'turno' && l.turno.rol === 'el' && l.instante > entregado);
+}
+
+/** Copia de `FONDO_VIVO_MS` del cartero: una tarea de fondo que no avisó en tantas horas ya no cuenta. */
+export const FONDO_VIVO_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Lo TERMINADO que dice un «Completado» cuando el turno no trae el resumen de su wrap_up (27/10/2026, Martín: «El cuadro de
+ * COMPLETADO debe ser dopamínico: se completó una funcionalidad, se debuggeó A, B, C»): el «hecho» del cierre del trabajo que
+ * respondía (`cartero cierre --hecho`), si se cerró en ese tramo. null = no hay.
+ */
+export function hechoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): string | null {
+  const hasta = Date.parse(ya.at);
+  const desde = desdeDelTramo(lineas, hasta);
+  let mejor: { t: number; hecho: string } | null = null;
+  for (const l of lineas) {
+    if (l.tipo !== 'trabajo' || !l.trabajo.cierre) continue;
+    const t = fecha(l.trabajo.cerrado_at ?? null);
+    const hecho = (l.trabajo.cierre.hecho || '').trim();
+    // Cerrado en el tramo: después del Completado de antes, y hasta 10 minutos después de éste (el cierre llega por otro camino).
+    if (t == null || !hecho || t <= desde || t > hasta + 10 * 60_000) continue;
+    if (!mejor || t > mejor.t) mejor = { t, hecho };
+  }
+  return mejor?.hecho ?? null;
 }
 
 /** ¿Hay algo en camino (escrito o tomado, de hace poco)? Mientras tanto la pantalla se refresca más seguido. */
