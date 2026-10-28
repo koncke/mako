@@ -47,9 +47,9 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
     archivo: 'app/tickets/soporte/PiezasSoporte.tsx', chat: 'Soporte (la Ticketera), computadora y teléfono',
     falta: { puntos: 'no corresponde: en un ticket contesta el equipo, horas después (en la conversación nueva, MaKo escribe sus 3 puntos)' },
   },
-  { archivo: 'app/_components/MakoChat.tsx', chat: 'MaKo con sesiones (ChartIA, Diagnóstico)', falta: { adjuntos: PENDIENTE_SERVIDOR } },
-  { archivo: 'app/whatsapp/WhatsAppAdvisor.tsx', chat: 'el asesor de WhatsApp de un lead', falta: { adjuntos: PENDIENTE_SERVIDOR } },
-  { archivo: 'app/dashboard/PanelEditarMako.tsx', chat: 'Editar con MaKo (Dashboard)', falta: { adjuntos: PENDIENTE_SERVIDOR } },
+  { archivo: 'app/_components/MakoChat.tsx', chat: 'MaKo con sesiones (ChartIA, Diagnóstico; los archivos los lee /api/chart-insights)' },
+  { archivo: 'app/whatsapp/WhatsAppAdvisor.tsx', chat: 'el asesor de WhatsApp de un lead (los archivos los lee el servidor: lib/adjuntos-del-chat.ts)' },
+  { archivo: 'app/dashboard/PanelEditarMako.tsx', chat: 'Editar con MaKo (Dashboard; la lectura de los archivos va al prompt como dato)' },
   { archivo: 'app/image-editor/mako/chat/PanelMakoIA.tsx', chat: 'Image Editor', falta: { adjuntos: PENDIENTE_SERVIDOR } },
   { archivo: 'app/video-editor/_opencut/chat/PanelChat.tsx', chat: 'Video Editor', falta: { adjuntos: PENDIENTE_SERVIDOR } },
   {

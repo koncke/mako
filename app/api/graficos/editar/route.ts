@@ -24,11 +24,16 @@ import { sanearHoja } from '@/lib/graficos-catalogo';
 import { ALCANCE_GENERAL, TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { TURNOS_IA, permisoEdicionMako, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { editarHojaIA } from '@/lib/graficos-ia-editar';
+import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos-del-chat';
+import { lecturaDeArchivos, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-/** Lo mismo que «Pídeselo»: la cascada, la copia como JSON, un reintento y la red. El panel corta a 120 + margen. */
-export const maxDuration = 120;
+/** Lo mismo que «Pídeselo»: la cascada, la copia como JSON, un reintento y la red; el panel corta a 120 + margen. Con fotos o
+ *  PDF (28/10/2026) primero se leen (una foto con la visión tardó 52 s medidos): 300, y el panel espera más (TOPE_CON_ARCHIVOS_MS). */
+export const maxDuration = 300;
+/** Lo que entra de la lectura de los archivos al prompt de la edición (la hoja y el catálogo ya son largos). */
+const TOPE_LECTURA_EDICION = 8_000;
 
 const err = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });
 
@@ -50,7 +55,15 @@ export async function POST(req: Request) {
   if (rol !== 'admin') return err(403, 'Sólo el admin de la cuenta');
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
+  let adjuntos: AdjuntoListo[] = [];
+  if (traeArchivos(req)) {
+    const p = await pedidoConArchivos(req);
+    if (!p.ok) return err(p.status, p.error);
+    try { body = JSON.parse(p.campos.datos ?? '{}'); } catch { return err(400, 'JSON inválido'); }
+    adjuntos = p.adjuntos;
+  } else {
+    try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
+  }
   const general = body?.informe === 'general';
   if (!tabEnCapa(general ? 'general' : 'graphics', await getCapaActual())) return err(404, 'No existe');
 
@@ -60,12 +73,18 @@ export async function POST(req: Request) {
   // (`permisoEdicionMako`): lo decide acá el server, antes de gastar un token, no el modelo ni el botón.
   const permiso = permisoEdicionMako(body, hoja.id);
   if (!permiso.ok) return NextResponse.json({ ok: false, error: permiso.error, analizar: true }, { status: 409 });
-  const pedido = typeof body?.pedido === 'string' ? body.pedido.trim().slice(0, TOPE_PEDIDO_IA) : '';
-  if (!pedido) return err(400, 'Escribe qué quieres cambiar.');
+  const escrito = typeof body?.pedido === 'string' ? body.pedido.trim().slice(0, TOPE_PEDIDO_IA) : '';
+  if (!escrito && !adjuntos.length) return err(400, 'Escribe qué quieres cambiar.');
+  // Los archivos se leen ANTES (lib/adjuntos-del-chat.ts); la cascada arranca su plazo después de leerlos.
+  const { lecturas, noLeidos } = await leerLosArchivos(adjuntos, 'graficos-editar');
+  if (adjuntos.length && !lecturas.length && !escrito) return err(422, `No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`);
+  const pedido = escrito || 'Usa lo que traen estos archivos para esta hoja.';
+  const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDICION) : undefined;
 
-  const r = await editarHojaIA({ hoja, pedido, historial: historialDe(body?.historial), alcance: general ? ALCANCE_GENERAL : undefined, inicio });
+  const r = await editarHojaIA({ hoja, pedido, historial: historialDe(body?.historial), alcance: general ? ALCANCE_GENERAL : undefined, inicio: adjuntos.length ? Date.now() : inicio, archivos });
   if ('error' in r) return NextResponse.json({ ok: false, error: r.error, ...(r.link ? { link: r.link } : {}) }, { status: 502 });
   if (r.correcciones.length) console.log('[graficos/editar] aceptada con correcciones:', r.correcciones.join(' | '));
   // `analizar` (#862): pidió un análisis, no un cambio; la hoja no se tocó y el panel ofrece pasar a «Analizar».
-  return NextResponse.json({ ok: true, respuesta: r.respuesta, cambios: r.cambios, avisos: r.avisos, analizar: r.analizar, ...(r.cambios.length ? { hoja: r.hoja } : {}) });
+  const avisos = noLeidos.length ? [...r.avisos, `No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}.`] : r.avisos;
+  return NextResponse.json({ ok: true, respuesta: r.respuesta, cambios: r.cambios, avisos, analizar: r.analizar, ...(r.cambios.length ? { hoja: r.hoja } : {}) });
 }

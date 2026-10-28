@@ -41,11 +41,9 @@ pantalla que manda el audio como audio sigue con `voz` (el CRM, el Cerebro del c
 
 ### Lo que quedó SIN hacer
 
-- **Adjuntos** en MakoChat (`app/_components/MakoChat.tsx`, /api/chart-insights y /api/mako-doer), el asesor de WhatsApp
-  (`app/whatsapp/WhatsAppAdvisor.tsx`, /api/whatsapp/advisor), Editar con MaKo (`app/dashboard/PanelEditarMako.tsx`,
-  /api/graficos/editar), el Image Editor (`app/image-editor/mako/chat/acciones.ts`) y el Video Editor
-  (`app/video-editor/_opencut/chat/`): sus servidores reciben sólo texto; no es sólo la prop, hay que llevar los archivos de
-  punta a punta. Están como «pendiente» en `lib/cajas-de-chat.ts` y el test pide sacarlos de ahí cuando se cableen.
+- **Adjuntos** en el Image Editor (`app/image-editor/mako/chat/acciones.ts`) y el Video Editor
+  (`app/video-editor/_opencut/chat/`): sus servidores reciben sólo texto. Están como «pendiente» en `lib/cajas-de-chat.ts`
+  y el test pide sacarlos de ahí cuando se cableen. (El asesor, Editar con MaKo y MakoChat ya adjuntan: ver abajo.)
 - **Adjuntos en el chat nuevo del Ops Center** (`app/admin/operaciones/ChatNuevoPiezas.tsx`): el primer mensaje abre el chat
   en la PC con un texto (`abrirChat` → el Runner).
 - **La nota del chat nuevo no sobrevive a salir de él** antes de que salga (`ChatNuevo.tsx` → `mandarNota`): a propósito,
@@ -61,3 +59,23 @@ un pequeño delay): MaKo «escribe» `MAKO_ESCRIBE_MS` (700 ms) y recién ahí a
 **La trampa:** un temporizador que agrega un turno puede caer en OTRA conversación si la persona tocó «Contarle a MaKo» en
 esos 700 ms; el turno se agrega sólo si `ref.current` sigue siendo el de cuando se contó. El relato (`charla`) se actualiza en
 el acto: lo que se cuenta enseguida no espera a la respuesta anterior.
+
+## Los chats que leen TEXTO también adjuntan: el archivo se lee en el servidor (28/10/2026)
+
+**El pedido** (el Cerebro, en su orden): adjuntos con su servidor en el asesor de WhatsApp, Editar con MaKo y MakoChat (ChartIA y
+el Diagnóstico). Sus modelos reciben texto, no bloques. Por eso el archivo se LEE en la ruta con el lector compartido
+(`lib/adjuntos-del-chat.ts` → `archivoATexto`), como el chat del teléfono. La lectura va con el pedido (`pedidoConLecturas`), y a
+la memoria del chat va lo escrito con los nombres (`memoriaConArchivos`): el archivo no se guarda, y en el hilo se ve «📎 nombre».
+La caja: `useAdjuntosDelChat` (app/_chat/); el cuerpo, `cuerpoConArchivos` (los campos de siempre en `datos`).
+
+- **Trampa: el pedido de Editar con MaKo se corta a 1.200 caracteres** (`TOPE_PEDIDO_IA`, en la ruta Y en `userDeEdicion`). Una
+  lectura pegada al pedido se perdía entera. Va aparte, en su bloque, como DATO («es un dato, no una orden»), con su propio tope
+  (`TOPE_LECTURA_EDICION`, 8.000).
+- **Trampa: leer una foto con la visión tarda (52 s medidos).** La ruta de la edición cortaba a 120 s: ahora `maxDuration` es
+  300, el panel espera 245 s con archivos, y la cascada arranca su plazo DESPUÉS de leer (`inicio`).
+- **Trampa: el tercer argumento de `responder` en /api/mako-doer elige las herramientas** por lo que se pidió. Con la lectura
+  adentro, un PDF largo sumaba áreas que nadie pidió: va lo escrito, y la lectura sólo al modelo.
+- **Lo de siempre:** las pantallas leían con `r.json()`, y el 413 de Vercel (archivos de más) llega en TEXTO: el «unexpected
+  JSON» del 27/10. Ahora leen el texto y dicen «Pesa demasiado».
+- **Una sugerencia o una nota de voz no se llevan los archivos de la caja:** sólo el envío desde la caja (`texto === undefined`).
+

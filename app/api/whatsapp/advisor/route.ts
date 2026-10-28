@@ -2,7 +2,8 @@
 // /api/whatsapp/advisor — MaKo asesora qué escribirle a un lead (metodología LM)
 // =============================================================================
 // action='recommend'      → analiza la conversación y devuelve 2-3 mensajes listos.
-// action='chat'           → conversa sobre el lead; guarda historial POR contacto.
+// action='chat'           → conversa sobre el lead; guarda historial POR contacto. Con fotos o PDF (multipart, 28/10/2026): se
+//                            leen acá (lib/adjuntos-del-chat.ts) y su lectura va con el pedido; al historial, lo escrito y los nombres.
 // action='history'        → historial del chat de asesoría de ese contacto.
 // action='draft_template' → redacta una plantilla de Meta con la metodología.
 // La conversación del lead la manda el cliente (ya la tiene cargada en pantalla);
@@ -13,6 +14,8 @@ import type { NextRequest } from 'next/server';
 import { recomendarMensajes, chatAdvisor, redactarTemplate, type WaMsg, type AdvisorLead } from '@/lib/whatsapp-advisor';
 import { listSessions, createSession, getSessionMessages, appendMessage } from '@/lib/chart-chats';
 import { getInstanciaRow } from '@/lib/evolution';
+import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos-del-chat';
+import { memoriaConArchivos, pedidoConLecturas, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,7 +72,15 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conecta tu número en la tab WhatsApp.' }, { status: 403 });
   }
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
+  let adjuntos: AdjuntoListo[] = [];
+  if (traeArchivos(req)) {
+    const p = await pedidoConArchivos(req);
+    if (!p.ok) return Response.json({ ok: false, error: p.error }, { status: p.status });
+    try { body = JSON.parse(p.campos.datos ?? '{}'); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
+    adjuntos = p.adjuntos;
+  } else {
+    try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
+  }
 
   try {
     switch (body.action) {
@@ -87,16 +98,20 @@ export async function POST(req: NextRequest) {
       case 'chat': {
         const groupId = typeof body.groupId === 'string' ? body.groupId : '';
         const mensaje = typeof body.mensaje === 'string' ? body.mensaje.trim() : '';
-        if (!groupId || !mensaje) return Response.json({ ok: false, error: 'falta groupId o mensaje' }, { status: 400 });
+        if (!groupId || (!mensaje && !adjuntos.length)) return Response.json({ ok: false, error: 'falta groupId o mensaje' }, { status: 400 });
+        const { lecturas, noLeidos } = await leerLosArchivos(adjuntos, 'wa-advisor-chat');
+        const noPude = noLeidos.length ? `No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escríbeme lo que dice.` : '';
+        // Con archivos y nada legible ni escrito, no hay pedido: no se gasta el modelo.
+        if (adjuntos.length && !lecturas.length && !mensaje) return Response.json({ ok: false, error: noPude }, { status: 422 });
         const lead = await conFormulario(leadDe(body), body);
         const s = await sesionDeContacto(groupId, lead.contacto, true);
         if (!s) return Response.json({ ok: false, error: 'no se pudo abrir la sesión' }, { status: 500 });
         const historial = (await getSessionMessages(s.id)).map((m) => ({ role: m.role, content: m.content }));
-        const reply = await chatAdvisor(lead, historial, mensaje);
-        await appendMessage(s.id, 'user', mensaje);
+        const reply = await chatAdvisor(lead, historial, pedidoConLecturas(mensaje, lecturas, adjuntos[0]?.tipo));
+        await appendMessage(s.id, 'user', memoriaConArchivos(mensaje, adjuntos.map((a) => a.nombre)));
         await appendMessage(s.id, 'assistant', reply);
         const messages = await getSessionMessages(s.id);
-        return Response.json({ ok: true, messages });
+        return Response.json({ ok: true, messages, ...(noPude ? { aviso: noPude } : {}) });
       }
       case 'draft_template': {
         const objetivo = typeof body.objetivo === 'string' ? body.objetivo : '';

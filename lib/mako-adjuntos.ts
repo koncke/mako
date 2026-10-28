@@ -139,3 +139,28 @@ export function bloquesDeAdjuntos(adjuntos: ReadonlyArray<{ tipo: TipoAdjunto; m
 export function placeholderDeAdjunto(tipo: TipoAdjunto, caption: string, textoDirecto: string): string {
   return `(envió ${tipo === 'image' ? 'una imagen' : 'un PDF'}${caption ? `: ${caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
 }
+
+// ── Los chats de MaKo que leen TEXTO (28/10/2026, las cajas unificadas): el asesor de WhatsApp, Editar con MaKo, ChartIA ──
+// Su modelo recibe texto, no bloques: el archivo se LEE antes en el servidor (lib/adjuntos-del-chat.ts, con el lector
+// compartido) y su lectura va con el pedido, con el mismo formato que el chat del teléfono (lib/mako-turno-app.ts).
+
+/** Hasta cuánto de lo leído va al modelo (el mismo tope del chat del teléfono). */
+export const TOPE_LECTURA_ADJUNTOS = 40_000;
+
+/** Lo que el sistema leyó de cada archivo, con su nombre, hasta `tope`. Pura. */
+export function lecturaDeArchivos(lecturas: ReadonlyArray<{ nombre: string; texto: string }>, tope = TOPE_LECTURA_ADJUNTOS): string {
+  const lectura = lecturas.map((l) => `[Lo que dice «${l.nombre}», leído por el sistema:]\n${l.texto}`).join('\n\n');
+  return lectura.length > tope ? `${lectura.slice(0, tope)}\n[…el archivo sigue; se cortó aquí por largo]` : lectura;
+}
+
+/** El pedido al modelo: lo escrito (o el pedido por defecto del primer archivo) y lo que el sistema leyó de cada uno. Pura. */
+export function pedidoConLecturas(texto: string, lecturas: ReadonlyArray<{ nombre: string; texto: string }>, primero?: TipoAdjunto): string {
+  const lectura = lecturaDeArchivos(lecturas);
+  const pedido = texto.trim() || (primero ? promptDeAdjunto(primero) : '');
+  return lectura ? `${pedido}\n\n${lectura}` : pedido;
+}
+
+/** Lo que queda en la memoria del chat y se ve en el hilo: lo escrito y, abajo, los nombres («📎 a.png, b.pdf»). Pura. */
+export function memoriaConArchivos(texto: string, nombres: readonly string[]): string {
+  return [texto.trim(), nombres.length ? `📎 ${nombres.join(', ')}` : ''].filter(Boolean).join('\n');
+}

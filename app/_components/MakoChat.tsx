@@ -26,6 +26,8 @@ import { ChatItemMenu } from './ChatItemMenu';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
+import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
+import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -84,6 +86,8 @@ export function MakoChat({
     return () => clearInterval(t);
   }, [pensando]);
   const items = useMemo(() => itemsDe(messages), [messages]);
+  // Fotos y PDF con la pregunta (28/10/2026, las cajas unificadas): la ruta los lee y su lectura va con el pedido.
+  const adj = useAdjuntosDelChat({ puede: !pensando && !!sessionId, onError: setErr });
   const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
   // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
@@ -149,16 +153,30 @@ export function MakoChat({
   };
 
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  // Lo de la caja sale con sus archivos; una sugerencia o una nota, sin ellos.
   const enviar = async (texto?: string, { dejarCaja = false } = {}) => {
     const txt = (texto ?? input).trim();
-    if (!txt || pensando || !sessionId || appEscritorio.bloqueada) return;
+    const conArchivos = texto === undefined && adj.hay;
+    if ((!txt && !conArchivos) || pensando || !sessionId || adj.preparando || appEscritorio.bloqueada) return;
+    const archivos = conArchivos ? adj.tomar() : [];
     if (!dejarCaja) setInput('');
-    setMessages((m) => [...m, { role: 'user', content: txt }]);
+    setMessages((m) => [...m, { role: 'user', content: memoriaConArchivos(txt, archivos.map((f) => f.name)) }]);
     setPensando(true); setErr(null);
     try {
-      const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', sessionId, mensaje: txt }) }).then((r) => r.json());
-      if (j.error) setErr(j.error); else { setMessages(j.messages ?? []); refrescarSesiones(); }
-    } catch (e) { setErr(String(e)); } finally { setPensando(false); }
+      const datos = { action: 'send', sessionId, mensaje: txt };
+      let status = 0; let cuerpo = '';
+      try {
+        const r = await fetch(endpoint, archivos.length
+          ? { method: 'POST', body: cuerpoConArchivos(datos, archivos) }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
+        status = r.status; cuerpo = await r.text();
+      } catch { /* red caída: status 0 */ }
+      // El cuerpo se lee como TEXTO: un corte de Vercel (413 con archivos de más, 504) llega en texto, no en JSON.
+      let j: { error?: string; messages?: Msg[]; aviso?: string } | null = null;
+      try { j = JSON.parse(cuerpo); } catch { /* no es JSON */ }
+      if (j && !j.error && Array.isArray(j.messages)) { setMessages(j.messages); refrescarSesiones(); if (j.aviso) setErr(j.aviso); }
+      else setErr(j?.error || (status === 413 ? ERROR_ADJUNTO.pesado : 'No llegó la respuesta: vuelve a intentarlo.'));
+    } finally { setPensando(false); }
   };
 
   // Una fila de sesión (clara para el dropdown de la tab; oscura para el sidebar del modal).
@@ -212,7 +230,8 @@ export function MakoChat({
         )}
         <div className="co-caja">
           <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando} apagado={!sessionId}
-            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} />
+            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+            adjuntos={adj.caja} />
         </div>
       </>}
       estado="">
