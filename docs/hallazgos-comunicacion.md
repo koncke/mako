@@ -179,7 +179,9 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
 
 **Sin hacer:**
 - **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.
-- **La guía de conexión** (lib/doer-ayuda.ts, `proponerTicket`) todavía PROPONE su ticket cuando la guía no alcanza.
+- ~~**La guía de conexión** todavía PROPONE su ticket~~: desde el 28/10/2026 lo abre sola cuando la guía no alcanza
+  (`abrirTicketDeLaGuia`, causa «texto», uno por conversación), y nada queda esperando un «sí». Una oferta guardada antes se
+  sigue confirmando con su «sí» mientras viva (30 minutos).
 - **La guarda de voseo, roja por la base:** `ES_REGLA` de lib/no-pude.ts nombra «confirmalo», «confirmala» y «tenes». Es de
   MaKo inteligente: se arregla allá y se vuelve a mergear.
 - **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.

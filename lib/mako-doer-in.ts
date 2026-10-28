@@ -21,7 +21,7 @@ import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos, conexionesDelPedido, motivoDelCartel, type ConexionDelCartel } from '@/lib/fallo-ia-texto';
 import { conexion, lineaParaConectar } from '@/lib/conexiones-catalogo';
-import { claveAyuda, leerEstadoAyuda, respuestaAyuda, ofertaDeAyuda, guiaEn, ticketOfrecido, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket, ticketMandado, OFERTA_AYUDA, NO_AHORA, ENTIENDO, TICKET_NO_SALIO, type EstadoAyuda, type TicketAOfrecer } from '@/lib/doer-ayuda';
+import { claveAyuda, leerEstadoAyuda, respuestaAyuda, ofertaDeAyuda, guiaEn, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket, ticketMandado, OFERTA_AYUDA, NO_AHORA, ENTIENDO, TICKET_NO_SALIO, type EstadoAyuda, type TicketAOfrecer } from '@/lib/doer-ayuda';
 import { conectadaProbando } from '@/lib/conexion-estado';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { PLAZO_REINTENTOS_TURNO_MS, hayTiempoParaOtroIntento } from '@/lib/ia-rotacion-modelo';
@@ -35,7 +35,7 @@ import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
 import { lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
-import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
+import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude, type TicketNoPude } from '@/lib/no-pude-server';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
 import { armarPrompt, esperaDelTurno, pcUsable, RESERVA_RESPALDO_MS } from '@/lib/ia-pc-reglas';
@@ -402,7 +402,8 @@ async function atenderAyuda(ws: number, jid: string, texto: string, actor: strin
   if (estado.tipo === 'ticket') {
     await guardar(null);
     if (r !== 'si') return null;
-    // El ticket ya quedó propuesto al ofrecerlo (`proponerTicket`): el «sí» de la persona, en este mensaje, lo confirma.
+    // Una oferta de ticket guardada antes del 28/10/2026 (desde entonces se abre solo, `abrirTicketDeLaGuia`): el ticket ya
+    // quedó propuesto, y el «sí» de la persona, en este mensaje, lo confirma.
     const ctxAyuda = ctxDeLaAyuda(ws, jid, texto, actor);
     const c = await confirmarPendiente(ctxAyuda, estado.pendienteId).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     if ('error' in c || !c.ok) {
@@ -418,9 +419,8 @@ async function atenderAyuda(ws: number, jid: string, texto: string, actor: strin
   const link = linkApp(c.ruta, ws);
   if (r === 'problema') {
     const t = ticketPorProblema(c, estado.tipo === 'guia' ? estado.paso : 0, texto);
-    const id = await proponerTicket(ws, jid, texto, actor, t);
-    await guardar(id ? ticketOfrecido(id, ahora) : null);
-    return conTicket(ENTIENDO, !!id);
+    await guardar(null);
+    return conTicket(ENTIENDO, await abrirTicketDeLaGuia(ws, jid, texto, actor, t));
   }
   // La oferta: «sí» arranca la guía; «listo» (ya lo hizo) va directo a verificar. En la guía, «sí» o «listo» es el siguiente.
   if (estado.tipo === 'oferta' && r === 'si') {
@@ -435,9 +435,8 @@ async function atenderAyuda(ws: number, jid: string, texto: string, actor: strin
   const v = await conectadaProbando(c, ws);
   const d = despuesDeVerificar(c, v.conectada, estado.servicios, link, ahora, v.motivo);
   if (!d.ticket) { await guardar(d.siguiente); return d.texto; }
-  const id = await proponerTicket(ws, jid, texto, actor, d.ticket);
-  await guardar(id ? ticketOfrecido(id, ahora) : null);
-  return conTicket(d.texto, !!id);
+  await guardar(null);
+  return conTicket(d.texto, await abrirTicketDeLaGuia(ws, jid, texto, actor, d.ticket));
 }
 
 /**
@@ -473,10 +472,6 @@ function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | un
 }
 
 /**
- * Propone el ticket por el registro (`levantar_ticket`), para que el «sí» del mensaje siguiente lo confirme. Devuelve el id
- * de la pendiente, o null si no entró (sin identidad, la base no contestó): entonces no se ofrece un «sí» que no confirma nada.
- */
-/**
  * LA LÍNEA DEL TICKET DE UN CARTEL (27/10/2026, Martín: «siempre que MaKo responda "No lo pude hacer" debe levantar
  * automáticamente un ticket»). Lo del negocio (su IA, su cupo, el proveedor) es UN ticket por negocio y causa, que se cierra
  * solo cuando vuelve a andar y nunca va al Runner (lib/no-pude-server.ts); lo nuestro va por la huella global
@@ -500,15 +495,15 @@ async function lineaDelCartel(cartel: string, d: DondeNoPude, error: string, ope
   }
 }
 
-async function proponerTicket(ws: number, jid: string, texto: string, actor: string | undefined, t: TicketAOfrecer): Promise<number | null> {
-  try {
-    const runRegistro = runnerDelRegistro(ctxDeLaAyuda(ws, jid, texto, actor));
-    const out = await runWithWorkspace(ws, () => runRegistro(LEVANTAR_TICKET, { tipo: 'bug', titulo: t.titulo, descripcion: t.descripcion }));
-    return propuestaDeLaSalida(out)?.id ?? null;
-  } catch (e) {
-    console.warn(`[mako-doer-in] ws=${ws} no pude proponer el ticket de la ayuda: ${e instanceof Error ? e.message : String(e)}`);
-    return null;
-  }
+/**
+ * El ticket de la guía de conexión, ABIERTO por el código (28/10/2026, la regla de Martín del 27/10): antes se proponía por
+ * el registro y esperaba un «sí». Uno por conversación (lib/no-pude-server.ts, causa «texto»: MaKo no pudo hacer lo que le
+ * pidieron), con lo que no le salió y en qué paso. null si no se pudo abrir: entonces va el camino a mano. Nunca tira.
+ */
+async function abrirTicketDeLaGuia(ws: number, jid: string, texto: string, actor: string | undefined, t: TicketAOfrecer): Promise<TicketNoPude | null> {
+  return ticketDeNoPude('texto', { ws, actor: actor ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido: texto }, {
+    operacion: t.titulo, queNoPudo: t.titulo, respuestaMako: t.descripcion,
+  });
 }
 
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
