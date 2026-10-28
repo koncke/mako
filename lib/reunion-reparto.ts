@@ -55,7 +55,7 @@ export type RepartoTarea = {
   /** ¿Se le puede mandar de verdad? Lo que el gate viejo confundía con `esDeOtro`. */
   repartible?: boolean;
   /** El dueño no es seguro: la pantalla lo pregunta y no deja mandarla hasta que se confirme (27/10/2026). */
-  duenoDudoso?: true;
+  duenoDudoso?: boolean;
 };
 
 const norm = (s: string | undefined | null): string => (s ?? '').trim().toLowerCase();

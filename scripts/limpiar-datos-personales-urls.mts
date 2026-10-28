@@ -35,7 +35,7 @@ const COLUMNAS = [['vsl_events', 'landing_url'], ['vsl_events', 'detalle'], ['la
 /** Un filtro AMPLIO en la base (que traiga de más es barato); la que decide es `urlSinDatosPersonales`. */
 const CANDIDATAS = String.raw`[?&#;][^=]*(name|nombre|nome|apellido|mail|correo|phone|tel|celular|movil|mobile|whats|wpp|dni|cuit|cuil|cpf|cnpj|cedula|curp|rfc|doc|rut|documento|invitee|answer|rescheduled|reminder|a[0-9])[^=]*=|%40|%2540|@`;
 
-const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 60, max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', connect_timeout: 60, max: 1 });
 try {
   for (const [t, col] of COLUMNAS) {
     const cols = (await sql`select column_name from information_schema.columns where table_schema = 'public' and table_name = ${t}`).map((c) => c.column_name as string);

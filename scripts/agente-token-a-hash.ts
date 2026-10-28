@@ -33,7 +33,7 @@ async function main() {
     console.error('⛔ falta DATABASE_URL (se lee de .env.local, en la carpeta desde donde se corre el script)');
     process.exit(1);
   }
-  const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
+  const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
   // app_settings.value es TEXT (mig 0016): se compara y se escribe como texto.
   const io: IoConversion = {
     leerSettings: async () => {

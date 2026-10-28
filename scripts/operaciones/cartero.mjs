@@ -1330,6 +1330,11 @@ export const REGLAS_CONOCIDAS = ['Mauricio', 'Leandro', 'Leila'];
 /** ¿Es el aviso de un ticket aprobado por regla (`mensajeTicket` con la regla)? Como el de siempre, no es lo que dijo un chat. */
 export const esAvisoDeRegla = (cuerpo) => REGLAS_CONOCIDAS.some((r) => cuerpo.startsWith(`${r} levantó el ticket #`) && cuerpo.includes('APROBADO POR REGLA'));
 
+/**
+ * @param {number} numero
+ * @param {string} repo
+ * @param {string | null} [regla]
+ */
 export function mensajeTicket(numero, repo, regla = null) {
   if (!Number.isInteger(numero) || numero <= 0 || numero > 1e9) throw new Error('número de ticket inválido');
   if (regla && REGLAS_CONOCIDAS.includes(regla)) {
