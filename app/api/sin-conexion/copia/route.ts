@@ -26,5 +26,5 @@ export async function GET() {
   if (await estaImpersonando()) return json({ ok: false, error: 'No se guarda una copia mientras miras la cuenta de otro.' }, 409);
   const ws = await getWorkspaceActual();
   if (ws == null) return json({ ok: false, error: 'Esta cuenta no tiene un negocio para guardar.' }, 409);
-  return json({ ok: true, copia: await armarCopia({ ws, persona: sesion.nombre?.trim() || sesion.email }) });
+  return json({ ok: true, copia: await armarCopia({ ws, persona: sesion.nombre?.trim() || sesion.email, email: sesion.email }) });
 }

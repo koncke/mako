@@ -128,8 +128,10 @@ entero en una ventana» (f04, docs/feedback-24-10.md), y como es el mismo perfil
   dispares ([Corbado](https://www.corbado.com/blog/passkeys-prf-webauthn)).
 
 **Una cuenta nunca ve lo de otra.**
-- La base de cada persona se nombra con un hash de su email más una sal. No hay una lista de quién guardó: otra cuenta no
-  ve ni que existe.
+- La base de cada persona se nombra con un hash de su email (`mako-sc-` + SHA-256 con un prefijo fijo). ⚠️ No lleva sal y
+  otra cuenta en el mismo perfil SÍ puede ver qué emails lo activaron (`indexedDB.databases()`): el cascarón tiene que
+  encontrar la base sin red, así que una sal viviría en el mismo perfil (verificación de 90d6410eb). Lo que no puede es
+  abrirla, y el cascarón tarda lo mismo con un email sin base que con una clave equivocada (un PBKDF2 de relleno).
 - Cada registro lleva como dato asociado (AAD) `persona:negocio`. Una copia pasada de una cuenta a otra no abre.
 - Sin la clave de esa persona no se descifra nada.
 - El cascarón pide el email y la clave, como el login.

@@ -13,7 +13,7 @@
 
 import { useEffect } from 'react';
 import { registrarServiceWorker } from '@/lib/push-cliente';
-import { estaActivado, guardarAhora, ultimaCopia } from '@/lib/sin-conexion/en-la-app';
+import { estaActivado, guardarAhora, tocaGuardar as toca } from '@/lib/sin-conexion/en-la-app';
 import { CADA_MS, EVENTO_ACTIVADO } from '@/lib/sin-conexion/reglas';
 
 export function CopiaSinConexion({ email }: { email: string }) {
@@ -23,11 +23,8 @@ export function CopiaSinConexion({ email }: { email: string }) {
     let activo = false;
     let reloj: ReturnType<typeof setInterval> | null = null;
 
-    const tocaGuardar = async () => {
-      const ultima = await ultimaCopia(email);
-      const t = ultima ? Date.parse(ultima) : NaN;
-      return !Number.isFinite(t) || Date.now() - t >= CADA_MS - 30_000;
-    };
+    // La hora de la última copia Y la del último intento fallido (después de un fallo se espera: en-la-app.ts).
+    const tocaGuardar = () => toca(email);
     const guardar = async () => {
       if (!vivo || !activo || !navigator.onLine || document.visibilityState === 'hidden' || !(await tocaGuardar())) return;
       const correr = async () => {

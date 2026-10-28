@@ -44,6 +44,12 @@ const ES_TELEFONO = /Android|iPhone|iPad|iPod|Mobile/i.test((self.navigator && s
 /** Lo que el cascarón dibuja según el motivo. Conjunto cerrado: va adentro del HTML. */
 const MOTIVOS = ['sin-red', 'no-responde'];
 
+/**
+ * Cuándo se bajó el cascarón por última vez. ⚠️ NO alcanza una variable: el navegador apaga el service worker a los ~30 s
+ * sin eventos y la variable vuelve a 0, así que se renovaba en cada arranque (4 pedidos por carga; verificación de
+ * 90d6410eb). La hora queda también en el caché, al lado de la lista (es un número, no un dato de nadie).
+ */
+const MARCA_RENOVADO = '/sin-conexion/.renovado';
 let ultimaRenovacion = 0;
 
 /** Baja la lista fija SIN cookies y la guarda. Lo que no llega bien (o llega redirigido, como un login) no se guarda. */
@@ -54,12 +60,19 @@ async function guardarCascaron() {
     if (r.ok && !r.redirected) await cache.put(url, r);
   }));
   ultimaRenovacion = Date.now();
+  await cache.put(MARCA_RENOVADO, new Response(String(ultimaRenovacion)));
 }
 
-function renovarSiToca() {
-  if (Date.now() - ultimaRenovacion < RENOVAR_CADA_MS) return Promise.resolve();
+async function renovarSiToca() {
+  // Sin el caché (nunca se activó, o «Borrar lo guardado» lo sacó), nada que renovar.
+  if (!(await caches.has(CASCARON))) return;
+  if (!ultimaRenovacion) {
+    const marca = await (await caches.open(CASCARON)).match(MARCA_RENOVADO);
+    ultimaRenovacion = Number(marca ? await marca.text() : 0) || 0;
+  }
+  if (Date.now() - ultimaRenovacion < RENOVAR_CADA_MS) return;
   ultimaRenovacion = Date.now();
-  return guardarCascaron().catch(() => undefined);
+  await guardarCascaron().catch(() => undefined);
 }
 
 /** El cascarón con su motivo, o null si nunca se guardó (el navegador muestra su página de sin conexión). */
@@ -91,7 +104,7 @@ async function navegar(event) {
       const c = await cascaron('no-responde');
       if (c) return c;
     }
-    event.waitUntil(renovarSiToca());
+    event.waitUntil(renovarSiToca().catch(() => undefined));
     return r;
   } catch (e) {
     const c = await cascaron(self.navigator && self.navigator.onLine === false ? 'sin-red' : 'no-responde');
@@ -102,10 +115,14 @@ async function navegar(event) {
   }
 }
 
-/** Un archivo del cascarón: la red primero (está al día), lo guardado si no hay red. Lo que viene de la red no se guarda acá. */
-async function archivoDelCascaron(req) {
+/**
+ * Un archivo del cascarón: la red primero (está al día), lo guardado si no hay red. Lo que viene de la red no se guarda acá.
+ * La página abierta a mano («Probar») es una navegación: con la precarga prendida, se usa ESA (si no, sale dos veces).
+ */
+async function archivoDelCascaron(event) {
+  const req = event.request;
   try {
-    const r = await fetch(req);
+    const r = (req.mode === 'navigate' && (await event.preloadResponse)) || (await fetch(req));
     if (r.ok) return r;
     const c = await caches.match(new URL(req.url).pathname, { cacheName: CASCARON });
     return c || r;
@@ -115,15 +132,19 @@ async function archivoDelCascaron(req) {
   }
 }
 
-self.addEventListener('fetch', (event) => {
-  if (ES_TELEFONO) return;
+/**
+ * ⚠️ En el TELÉFONO no hay escucha de pedidos: con sólo registrarla, el navegador despierta al service worker en CADA
+ * pedido y navegación aunque no los conteste (medido: 0 de 6 navegaciones antes, 6 de 6 con la escucha y un `return`
+ * adentro; verificación de 90d6410eb). El teléfono sigue sin tocar ningún pedido, como dice el diseño.
+ */
+function alPedir(event) {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   // Los archivos del cascarón, y la página misma abierta a mano («Probar», Perfil › Instalar la app).
   if (ARCHIVOS_CASCARON.includes(url.pathname)) {
-    event.respondWith(archivoDelCascaron(req));
+    event.respondWith(archivoDelCascaron(event));
     return;
   }
   if (req.mode !== 'navigate') return;
@@ -134,7 +155,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   event.respondWith(navegar(event));
-});
+}
+if (!ES_TELEFONO) self.addEventListener('fetch', alPedir);
 
 self.addEventListener('install', (event) => {
   // Un sw.js nuevo toma el control sin esperar a que se cierren las pestañas viejas.

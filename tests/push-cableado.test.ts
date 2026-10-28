@@ -139,10 +139,12 @@ test('5. public/sw.js: nunca guarda una respuesta del servidor, y todo push mues
   // Hasta el 28/10/2026 no había handler 'fetch'. MaKo sin conexión lo suma sin romper la regla («un caché sirve el HTML de
   // una cuenta a otra»): el ÚNICO cache.put es el de la lista fija del cascarón, pedida sin cookies. Lo corre de verdad
   // tests/sin-conexion.test.ts (5a-5d).
+  // Los DOS put viven en guardarCascaron: la lista fija y la hora en que se bajó (un número; la verificación de 90d6410eb).
   const puts = [...src.matchAll(/\.put\(/g)];
-  assert.equal(puts.length, 1, 'un caché offline sirve el HTML de una cuenta a otra');
+  assert.equal(puts.length, 2, 'un caché offline sirve el HTML de una cuenta a otra');
   const guardar = bloque(src, 'async function guardarCascaron', '\n}\n');
-  assert.ok(guardar.includes('.put('), 'el único put es el del cascarón');
+  assert.equal([...guardar.matchAll(/\.put\(/g)].length, 2, 'los únicos put son los del cascarón');
+  assert.match(guardar, /cache\.put\(MARCA_RENOVADO, new Response\(String\(ultimaRenovacion\)\)\)/);
   assert.match(guardar, /ARCHIVOS_CASCARON\.map/);
   assert.match(guardar, /credentials: 'omit'/);
   const push = bloque(src, "addEventListener('push'", "addEventListener('notificationclick'");

@@ -12,7 +12,7 @@
 
 import type { Almacen } from './almacen';
 import { aBase64url, alAzar, cifrarBytes, cifrarJson, deBase64url, descifrarBytes, descifrarJson, huellaDe, importarLlave, llaveDeLaClave } from './cifra';
-import { aadDeCopia, aadDeLlave, normalizarEmail, problemaDeClave, vencida, VERSION_COPIA, VUELTAS, type CopiaV1, type LlaveGuardada } from './reglas';
+import { aadDeCopia, aadDeLlave, conLoDeAntes, normalizarEmail, problemaDeClave, vencida, VERSION_COPIA, VUELTAS, type CopiaV1, type LlaveGuardada } from './reglas';
 
 /** Lo que contesta el servidor por la llave: la DEK, o que esta computadora ya no tiene permiso. */
 export type RespuestaLlave = { ok: true; llave: Uint8Array } | { ok: false; desconectada: boolean; error: string };
@@ -53,11 +53,23 @@ export async function guardarCopia(p: { email: string; almacen: Almacen; pedirLl
   if (guardada.huella !== (await huellaDe(r.llave))) return 'otra-llave';
   const copia = await p.pedirCopia();
   if (!copia || copia.version !== VERSION_COPIA) return 'sin-copia';
+  // La copia es de OTRA sesión (la cookie cambió de cuenta entre la llave y la copia): no se cifra en la base de ésta.
+  if (copia.persona.email && normalizarEmail(copia.persona.email) !== normalizarEmail(p.email)) return 'sin-copia';
   const dek = await importarLlave(r.llave);
-  const c = await cifrarJson(copia, dek, aadDeCopia(p.email, copia.negocio.id));
+  // Una renovación a medias no pisa lo bueno: lo que no se pudo leer sale de la copia anterior (`conLoDeAntes`).
+  const incompleta = !copia.crm || !copia.plan || !!copia.huecos;
+  const final = incompleta ? conLoDeAntes(copia, await copiaAnterior(p.almacen, dek, p.email, copia.negocio.id)) : copia;
+  const c = await cifrarJson(final, dek, aadDeCopia(p.email, copia.negocio.id));
   await p.almacen.guardarCopia({ ws: copia.negocio.id, iv: c.iv, datos: c.datos, version: VERSION_COPIA });
   await p.almacen.guardarLlave({ ...guardada, vistoServidor: new Date().toISOString() } satisfies LlaveGuardada);
   return 'guardada';
+}
+
+/** La copia guardada de ese negocio, abierta con la DEK; null si no hay o no abre. */
+async function copiaAnterior(almacen: Almacen, dek: CryptoKey, email: string, ws: number): Promise<CopiaV1 | null> {
+  const guardada = (await almacen.leerCopias().catch(() => [])).find((c) => c.ws === ws && c.version === VERSION_COPIA);
+  if (!guardada) return null;
+  try { return await descifrarJson<CopiaV1>({ iv: guardada.iv, datos: guardada.datos }, dek, aadDeCopia(email, ws)); } catch { return null; }
 }
 
 export type ResultadoAbrir =
@@ -81,7 +93,12 @@ export async function abrir(p: { email: string; clave: string; almacen: Almacen;
   for (const c of await p.almacen.leerCopias()) {
     // Una copia de un formato que este cascarón no conoce no se abre: se cuenta, y la pantalla pide abrir MaKo con conexión.
     if (c.version !== VERSION_COPIA) { viejas++; continue; }
-    try { copias.push(await descifrarJson<CopiaV1>({ iv: c.iv, datos: c.datos }, dek, aadDeCopia(p.email, c.ws))); } catch { viejas++; }
+    let copia: CopiaV1;
+    try { copia = await descifrarJson<CopiaV1>({ iv: c.iv, datos: c.datos }, dek, aadDeCopia(p.email, c.ws)); } catch { viejas++; continue; }
+    // Cada copia vence por SU fecha, no sólo por la última vez que el servidor dio la llave: quien dejó de tener un negocio y
+    // entra a diario por otro no puede seguir viendo el primero para siempre (verificación de 90d6410eb).
+    if (vencida(copia.hecha, p.ahora)) continue;
+    copias.push(copia);
   }
   copias.sort((a, b) => a.negocio.nombre.localeCompare(b.negocio.nombre));
   return { ok: true, copias, viejas };

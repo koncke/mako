@@ -90,6 +90,7 @@
     for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
     return out;
   }
+  var alAzar = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n));
   async function importarLlave(cruda) {
     if (cruda.length !== 32) throw new Error("La llave tiene que medir 32 bytes.");
     return subtle().importKey("raw", cruda, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
@@ -124,6 +125,7 @@
   var CADA_MS = 10 * 6e4;
   var VENCE_DIAS = 30;
   var BLOQUEO_INACTIVO_MS = 15 * 6e4;
+  var VUELTAS = 6e5;
   var normalizarEmail = (email) => email.trim().toLowerCase();
   var aadDeCopia = (email, ws) => `mako-sc:v1|${normalizarEmail(email)}|ws=${ws}`;
   var aadDeLlave = (email, dispositivo) => `mako-sc:v1|${normalizarEmail(email)}|llave|${dispositivo}`;
@@ -187,11 +189,15 @@
         viejas++;
         continue;
       }
+      let copia;
       try {
-        copias.push(await descifrarJson({ iv: c.iv, datos: c.datos }, dek, aadDeCopia(p.email, c.ws)));
+        copia = await descifrarJson({ iv: c.iv, datos: c.datos }, dek, aadDeCopia(p.email, c.ws));
       } catch {
         viejas++;
+        continue;
       }
+      if (vencida(copia.hecha, p.ahora)) continue;
+      copias.push(copia);
     }
     copias.sort((a, b) => a.negocio.nombre.localeCompare(b.negocio.nombre));
     return { ok: true, copias, viejas };
@@ -275,7 +281,10 @@
   async function entrar(emailCrudo, clave) {
     const email = normalizarEmail(emailCrudo);
     const nombre = await nombreDeBase(email);
-    if (!await existeBase(nombre)) return pantallaEntrar(NO_COINCIDE);
+    if (!await existeBase(nombre)) {
+      await llaveDeLaClave(clave, alAzar(16), VUELTAS).catch(() => void 0);
+      return pantallaEntrar(NO_COINCIDE);
+    }
     const r = await abrir({ email, clave, almacen: almacenIdb(nombre) });
     if (!r.ok) {
       if (r.motivo === "vencida") return pantallaEntrar("Lo guardado tenía más de 30 días sin conexión y se borró. Vuelve a activarlo con conexión.");
@@ -327,6 +336,7 @@
       h("button", { type: "button", class: "boton-texto salir", onclick: () => bloquear() }, "Salir")
     );
     const faltan = copia.faltan.length ? h("p", { class: "aviso" }, `No se pudo guardar ${copia.faltan.join(" ni ")} en la última copia.`) : null;
+    const deAntes = (copia.deAntes ?? []).map((d) => h("p", { class: "aviso" }, `No se pudo actualizar ${d.que}: lo que ves es ${deCuando(d.hecha, copia.tz)}.`));
     if (tab === "crm") cuerpo.append(vistaCrm(copia));
     else cuerpo.append(vistaPlan(copia));
     armarReloj();
@@ -334,6 +344,7 @@
       cinta(copia),
       cabecera,
       faltan,
+      ...deAntes,
       cuerpo,
       h("p", { class: "pie" }, `${NECESITA_CONEXION.escribir} WhatsApp, la IA y los cobros necesitan conexión.`)
     );
@@ -446,7 +457,7 @@
         ),
         h("p", { class: "nota" }, NECESITA_CONEXION.whatsapp),
         h("h3", {}, "Notas"),
-        notas.length ? h("ul", { class: "notas" }, ...notas.map((n) => h("li", {}, h("p", {}, n.texto), h("span", { class: "nota" }, `${n.autor} · ${fecha(n.cuando, copia.tz) ?? ""}`)))) : h("p", { class: "vacio" }, "Sin notas guardadas.")
+        notas.length ? h("ul", { class: "notas" }, ...notas.map((n) => h("li", {}, h("p", {}, n.texto), h("span", { class: "nota" }, `${n.autor} · ${fecha(n.cuando, copia.tz) ?? ""}`)))) : h("p", { class: "vacio" }, copia.crm?.notasRecortadas ? "Sin notas en la copia (guarda las más nuevas del negocio)." : "Sin notas guardadas.")
       )
     );
     raiz().append(capa);

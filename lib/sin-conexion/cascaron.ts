@@ -17,9 +17,9 @@
 // =============================================================================
 
 import { almacenIdb, existeBase } from './almacen';
-import { nombreDeBase } from './cifra';
+import { alAzar, llaveDeLaClave, nombreDeBase } from './cifra';
 import { abrir } from './local';
-import { BLOQUEO_INACTIVO_MS, deCuando, NECESITA_CONEXION, normalizarEmail, textoDeLaCinta, type CopiaV1, type MotivoSinConexion } from './reglas';
+import { BLOQUEO_INACTIVO_MS, deCuando, NECESITA_CONEXION, normalizarEmail, textoDeLaCinta, VUELTAS, type CopiaV1, type MotivoSinConexion } from './reglas';
 import type { TableroCrmM, TarjetaCrmM } from '@/app/m/crm/datos';
 
 type Hijo = Node | string | null | undefined | false;
@@ -104,7 +104,10 @@ const NO_COINCIDE = 'El email o la clave no coinciden con lo guardado en esta co
 async function entrar(emailCrudo: string, clave: string) {
   const email = normalizarEmail(emailCrudo);
   const nombre = await nombreDeBase(email);
-  if (!(await existeBase(nombre))) return pantallaEntrar(NO_COINCIDE);
+  // Sin base, la MISMA espera que con una clave equivocada (el PBKDF2 de relleno): contestar al instante decía que ese email
+  // no guardó nada en esta PC (verificación de 90d6410eb). El nombre de la base no lleva sal: el cascarón tiene que
+  // encontrarla sin red, así que cualquier sal viviría en el mismo perfil que quien mira.
+  if (!(await existeBase(nombre))) { await llaveDeLaClave(clave, alAzar(16), VUELTAS).catch(() => undefined); return pantallaEntrar(NO_COINCIDE); }
   const r = await abrir({ email, clave, almacen: almacenIdb(nombre) });
   if (!r.ok) {
     if (r.motivo === 'vencida') return pantallaEntrar('Lo guardado tenía más de 30 días sin conexión y se borró. Vuelve a activarlo con conexión.');
@@ -157,10 +160,12 @@ function pantallaNegocio(copia: CopiaV1, copias: CopiaV1[], tab: Tab = location.
     h('button', { type: 'button', class: 'boton-texto salir', onclick: () => bloquear() }, 'Salir'));
   const faltan = copia.faltan.length
     ? h('p', { class: 'aviso' }, `No se pudo guardar ${copia.faltan.join(' ni ')} en la última copia.`) : null;
+  // Lo que la última renovación no pudo leer y quedó de una copia anterior: con SU hora (no la de la cinta).
+  const deAntes = (copia.deAntes ?? []).map((d) => h('p', { class: 'aviso' }, `No se pudo actualizar ${d.que}: lo que ves es ${deCuando(d.hecha, copia.tz)}.`));
   if (tab === 'crm') cuerpo.append(vistaCrm(copia));
   else cuerpo.append(vistaPlan(copia));
   armarReloj();
-  pintar(cinta(copia), cabecera, faltan, cuerpo,
+  pintar(cinta(copia), cabecera, faltan, ...deAntes, cuerpo,
     h('p', { class: 'pie' }, `${NECESITA_CONEXION.escribir} WhatsApp, la IA y los cobros necesitan conexión.`));
 }
 
@@ -253,7 +258,8 @@ function ficha(copia: CopiaV1, t: TableroCrmM, c: TarjetaCrmM) {
       h('h3', {}, 'Notas'),
       notas.length
         ? h('ul', { class: 'notas' }, ...notas.map((n) => h('li', {}, h('p', {}, n.texto), h('span', { class: 'nota' }, `${n.autor} · ${fecha(n.cuando, copia.tz) ?? ''}`))))
-        : h('p', { class: 'vacio' }, 'Sin notas guardadas.')));
+        // Con el tope de filas de notas alcanzado, «sin notas» puede ser que las suyas eran viejas: se dice.
+        : h('p', { class: 'vacio' }, copia.crm?.notasRecortadas ? 'Sin notas en la copia (guarda las más nuevas del negocio).' : 'Sin notas guardadas.')));
   raiz().append(capa);
   (capa.querySelector('button') as HTMLButtonElement | null)?.focus();
 }

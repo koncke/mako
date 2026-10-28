@@ -8,9 +8,16 @@
 import { almacenIdb, existeBase } from './almacen';
 import { deBase64url, nombreDeBase } from './cifra';
 import { activar, guardarCopia, type PedirLlave, type ResultadoGuardar } from './local';
-import { normalizarEmail, type CopiaV1 } from './reglas';
+import { CADA_MS, normalizarEmail, type CopiaV1 } from './reglas';
 
 const ULTIMA = 'mako-sc-ultima:';
+/**
+ * La hora del último intento que NO guardó. Después de un fallo se espera `CADA_MS` (verificación de 90d6410eb: sin esto,
+ * cada vuelta a la pestaña volvía a pedir la llave y la copia entera, la lectura pesada, justo cuando el servidor anda mal).
+ */
+const INTENTO = 'mako-sc-intento:';
+/** El caché del service worker (public/sw.js): «Borrar lo guardado» también lo saca, y el cascarón deja de renovarse. */
+const CACHES_CASCARON = 'mako-sin-conexion-';
 /** El último resultado de guardar en este navegador: la fila de Perfil dice si la copia dejó de renovarse y por qué. */
 const ESTADO = 'mako-sc-estado:';
 
@@ -37,6 +44,16 @@ export async function estaActivado(email: string): Promise<boolean> {
   return existeBase(await baseDe(email));
 }
 
+/** ¿Toca guardar? Pasado `CADA_MS` (con 30 s de margen) de la última copia, y `CADA_MS` desde el último intento fallido. */
+export async function tocaGuardar(email: string, ahora: number = Date.now()): Promise<boolean> {
+  const nombre = await baseDe(email);
+  const hora = (k: string) => { try { return Date.parse(localStorage.getItem(k + nombre) ?? ''); } catch { return NaN; } };
+  const ultima = hora(ULTIMA);
+  const intento = hora(INTENTO);
+  if (Number.isFinite(ultima) && ahora - ultima < CADA_MS - 30_000) return false;
+  return !(Number.isFinite(intento) && ahora - intento < CADA_MS);
+}
+
 /** Cuándo se guardó la última copia en este navegador (ISO), o null. */
 export async function ultimaCopia(email: string): Promise<string | null> {
   try { return localStorage.getItem(ULTIMA + (await baseDe(email))); } catch { return null; }
@@ -52,8 +69,9 @@ export async function guardarAhora(email: string): Promise<ResultadoGuardar> {
   if (!(await existeBase(nombre))) return 'sin-activar';
   const r = await guardarCopia({ email: normalizarEmail(email), almacen: almacenIdb(nombre), pedirLlave, pedirCopia });
   try {
-    if (r === 'guardada') localStorage.setItem(ULTIMA + nombre, new Date().toISOString());
-    if (r === 'desconectada') { localStorage.removeItem(ULTIMA + nombre); localStorage.removeItem(ESTADO + nombre); }
+    if (r === 'guardada') { localStorage.setItem(ULTIMA + nombre, new Date().toISOString()); localStorage.removeItem(INTENTO + nombre); }
+    else if (r !== 'sin-activar') localStorage.setItem(INTENTO + nombre, new Date().toISOString());
+    if (r === 'desconectada') { localStorage.removeItem(ULTIMA + nombre); localStorage.removeItem(ESTADO + nombre); localStorage.removeItem(INTENTO + nombre); }
     else localStorage.setItem(ESTADO + nombre, r);
   } catch { /* sin localStorage: la copia igual quedó */ }
   return r;
@@ -67,5 +85,9 @@ export async function ultimoResultado(email: string): Promise<ResultadoGuardar |
 export async function borrarLoGuardado(email: string): Promise<void> {
   const nombre = await baseDe(email);
   await almacenIdb(nombre).borrar();
-  try { localStorage.removeItem(ULTIMA + nombre); localStorage.removeItem(ESTADO + nombre); } catch { /* nada */ }
+  try { localStorage.removeItem(ULTIMA + nombre); localStorage.removeItem(ESTADO + nombre); localStorage.removeItem(INTENTO + nombre); } catch { /* nada */ }
+  // El cascarón del service worker deja de renovarse (y de bajarse en cada arranque). El service worker queda: es el de los avisos.
+  try {
+    if (typeof caches !== 'undefined') for (const n of await caches.keys()) if (n.startsWith(CACHES_CASCARON)) await caches.delete(n);
+  } catch { /* sin caché: nada que sacar */ }
 }

@@ -2,7 +2,8 @@
 // MaKo sin conexión — dónde queda guardado: IndexedDB, una base por persona (28/10/2026)
 // =============================================================================
 // Sólo navegador. La base se llama con un hash del email (cifra.ts → nombreDeBase): no hay una lista de quién guardó, así que
-// otra cuenta en el mismo perfil del navegador no ve ni que existe. Adentro:
+// otra cuenta en el mismo perfil del navegador no la abre. ⚠️ SÍ puede ver que existe (`indexedDB.databases()` lista los
+// nombres, y el nombre es un hash del email sin sal: el cascarón la tiene que encontrar sin red). Adentro:
 //   · `meta`   → 'llave': la DEK envuelta con la clave de esta computadora (reglas.ts → LlaveGuardada);
 //   · `copias` → una por negocio, cifrada con la DEK y con el AAD persona:negocio (reglas.ts → CopiaGuardada).
 // La lógica (activar, guardar, abrir) vive en ./local.ts contra la interfaz `Almacen`: los tests le pasan uno en memoria.
