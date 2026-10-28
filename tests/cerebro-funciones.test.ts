@@ -1,0 +1,119 @@
+// =============================================================================
+// «Lo que hace MaKo» en el Second Brain de los chats (lib/cerebro-funciones.ts, lib/cerebro-para-chat.ts) — 28/10/2026
+// =============================================================================
+// Martín: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal... y que sea eficiente
+// justamente, por eso tenemos tipo grafo, sin gastar tantos tokens». Lo que fija:
+//   1. el grafo de las funciones tiene la forma de siempre: una raíz que es estructura, un nodo `fn:<key>` por función,
+//      sus áreas en la taxonomía y aristas que unen nodos que existen, sin repetir un par;
+//   2. la vista local encuentra la función por cómo se la nombra («la bandeja», «respond.io», «CapCut»), barata;
+//   3. pedida por id con profundidad 0 viaja ENTERA, con «Hace» y «No hace» (lo que va a leer el Web Generator);
+//   4. `conCapa` hace UN cerebro: la carpeta cuelga de la raíz del negocio, el índice muestra las dos, nada se pierde y un
+//      id que choca se prefija;
+//   5. las herramientas del Second Brain leen `grafoParaChat` (sin física, con caché y con las funciones en la plataforma),
+//      nunca `construirCerebro()` a secas.
+//
+// Probado rompiéndolo (28/10/2026): al pie del archivo.
+// =============================================================================
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { CAPA_FUNCIONES, funcionesDeMako, ID_RAIZ_FUNCIONES, idFuncion, PUENTE_FUNCIONES } from '../lib/cerebro-funciones';
+import { funcionesMako } from '../lib/funciones-mako';
+import { esEstructura } from '../lib/cerebro-areas';
+import { indiceDelCerebro, recuperar } from '../lib/cerebro-recuperar';
+import { conCapa } from '../lib/cerebro-union';
+import type { Cerebro } from '../lib/cerebro-modelo';
+
+const RAIZ = join(import.meta.dirname, '..');
+const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+
+test('1. una raíz que es estructura, un nodo por función, sus áreas en la taxonomía y aristas sanas', () => {
+  const g = funcionesDeMako();
+  const raiz = g.nodos.find((n) => n.id === ID_RAIZ_FUNCIONES);
+  assert.ok(raiz && esEstructura(raiz), 'la raíz de las funciones cuenta como un dato (el índice y la vista local la tomarían)');
+  const fs = funcionesMako();
+  assert.deepEqual(g.nodos.filter((n) => !esEstructura(n)).map((n) => n.id).sort(), fs.map((f) => idFuncion(f.key)).sort());
+  const areas = new Set(g.taxonomia!.areas.map((a) => a.id));
+  for (const n of g.nodos) assert.ok(areas.has(n.area), `${n.id}: su área ${n.area} no está en la taxonomía`);
+  const ids = new Set(g.nodos.map((n) => n.id));
+  const pares = new Set<string>();
+  for (const a of g.aristas) {
+    assert.ok(ids.has(a.de) && ids.has(a.a) && a.motivo.trim(), `arista rota ${a.de} → ${a.a}`);
+    const par = [a.de, a.a].sort().join('|');
+    assert.ok(!pares.has(par), `el par ${par} se repite`);
+    pares.add(par);
+  }
+  assert.equal(g.taxonomia!.capas?.[0]?.id, CAPA_FUNCIONES);
+});
+
+test('2. la vista local encuentra la función por cómo se la nombra, sin traer el catálogo entero', () => {
+  const g = funcionesDeMako();
+  for (const [pregunta, fn] of [
+    ['hacé de esta copia la landing de los Chats', 'fn:chats'], ['qué reemplaza a respond.io', 'fn:chats'], ['qué no hace la bandeja', 'fn:chats'],
+    ['el editor tipo CapCut', 'fn:video-editor'], ['cómo funciona el curso de mis alumnos', 'fn:customer-success'], ['quiero pautar en meta', 'fn:ads-manager'],
+  ] as const) {
+    const p = recuperar(g, { pregunta });
+    assert.equal(p.modo, 'vista-local', `«${pregunta}» no sembró nada`);
+    assert.equal(p.semillas[0], fn, `«${pregunta}» trajo primero ${p.semillas[0]}`);
+    assert.ok(p.nodos.length < g.nodos.length - 1, `«${pregunta}» trajo el catálogo entero`);
+  }
+  // Las claves de los datos no siembran todas las funciones a la vez: «reemplaza» no es una clave, «En vez de» sí.
+  assert.deepEqual(recuperar(g, { pregunta: 'qué reemplaza a respond.io' }).semillas, ['fn:chats']);
+});
+
+test('3. pedida por id con profundidad 0, la función viaja entera: qué hace y qué no hace', () => {
+  const p = recuperar(funcionesDeMako(), { ids: ['fn:chats'], profundidad: 0 });
+  assert.match(p.texto, /Hace:\n\s+- Una conversación por contacto/);
+  assert.match(p.texto, /No hace:\n\s+- Llamadas de voz/);
+  assert.match(p.texto, /En vez de: respond\.io/);
+  assert.ok(p.tokens <= 600, `la función entera pesa ${p.tokens} tokens`);
+});
+
+test('4. conCapa hace UN cerebro: la carpeta cuelga de la raíz, el índice muestra las dos y nada se pierde', () => {
+  const negocio: Cerebro<string> = {
+    negocio: 'Negocio de prueba',
+    nodos: [
+      { id: 'raiz', area: 'norte', etiqueta: 'Negocio de prueba', detalle: '', fuente: '', autoria: 'usuario' },
+      { id: 'prod:1', area: 'productos', etiqueta: 'Mentoría', detalle: 'La mentoría grupal', fuente: 'Offer', autoria: 'usuario' },
+      { id: 'fn:chats', area: 'norte', etiqueta: 'Un dato que se llama igual', detalle: '', fuente: '', autoria: 'usuario' },
+    ],
+    aristas: [{ de: 'raiz', a: 'prod:1', motivo: 'Lo que vende' }],
+    cuenta: { total: 2, mako: 0, usuario: 2, pendientes: 0 }, vacias: [], posiciones: {}, encuadre: { x: 0, y: 0, lado: 1 },
+  };
+  const fns = funcionesDeMako();
+  const u = conCapa(negocio, fns, { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES });
+  assert.equal(u.nodos.length, negocio.nodos.length + fns.nodos.length, 'se perdió un nodo');
+  assert.equal(new Set(u.nodos.map((n) => n.id)).size, u.nodos.length, 'hay ids repetidos');
+  assert.ok(u.nodos.some((n) => n.id === 'funciones:fn:chats'), 'el id que choca no se prefijó');
+  assert.ok(u.aristas.some((a) => a.de === 'raiz' && a.a === ID_RAIZ_FUNCIONES && a.motivo === PUENTE_FUNCIONES), 'las funciones quedaron sueltas: dos cerebros');
+  assert.equal(u.aristas.length, negocio.aristas.length + fns.aristas.length + 1);
+  assert.deepEqual(u.taxonomia!.capas!.map((c) => c.id), ['negocio', CAPA_FUNCIONES]);
+  const idx = indiceDelCerebro(u);
+  assert.match(idx, /## Lo que hace MaKo/);
+  assert.match(idx, /Mentoría|productos/i);
+});
+
+test('5. las herramientas del Second Brain leen grafoParaChat: sin física, con caché y con las funciones en la plataforma', () => {
+  const run = fuente('lib/api-mako/areas/negocio.run.ts');
+  const de = (op: string) => run.slice(run.indexOf(`${op}: {`), run.indexOf('\n  },', run.indexOf(`${op}: {`)));
+  for (const op of ['indice_segundo_cerebro', 'recuperar_del_segundo_cerebro', 'buscar_en_segundo_cerebro']) {
+    assert.match(de(op), /await grafoParaChat\(\)/, `${op} no lee el grafo de los chats`);
+    assert.doesNotMatch(de(op), /construirCerebro\(/, `${op} rearma el mapa entero con su física`);
+  }
+  const chat = fuente('lib/cerebro-para-chat.ts');
+  assert.match(chat, /construirCerebro\(\{ sinLayout: true \}\)/, 'el grafo de los chats corre la física');
+  assert.match(chat, /wsSuperAdmin\(\)\.then\(\(s\) => s === ws, \(\) => false\)/, 'las funciones no se limitan a la plataforma (o fallan abiertas)');
+  assert.match(chat, /cache\.set\(ws, \{ hasta: ahora \+ CACHE_MS, grafo \}\)/, 'sin caché: cada pedido rearma el grafo');
+  assert.doesNotMatch(chat, /construccionDeMako|cerebroUnido/, 'la capa Construcción no es para los chats');
+  assert.match(fuente('lib/cerebro-grafo.ts'), /opciones\.sinLayout \? \{ posiciones: \{\}, encuadre: \{ x: 0, y: 0, lado: 1 \} \} : layoutCerebro\(nodos, aristas\)/);
+});
+
+// ── Probado rompiéndolo (28/10/2026) ─────────────────────────────────────────────────────────────────────────────────
+// Cada cambio a mano, corrido y restaurado (sha1 igual):
+//   6. la raíz `fn:raiz` (cuenta como dato)                                → rojo el 1 y el 2.
+//   7. la clave «Reemplaza a» en los datos (siembra todas las funciones)    → rojo el 2 y el 3.
+//   8. el cuerpo sin «No hace»                                             → rojo el 3.
+//   9. `conCapa` sin la arista de la raíz (dos cerebros)                    → rojo el 4.
+//  10. el índice con `construirCerebro()`                                   → rojo el 5.
+//  11. el grafo de los chats con la física                                  → rojo el 5.

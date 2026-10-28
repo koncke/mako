@@ -318,7 +318,7 @@ async function leerLoVivo(chatsMako?: ChatMakoVivo[]): Promise<LecturasVivas> {
  *   son de la persona y no del negocio, así que el ZIP y la API —que no tienen persona— arman el grafo sin ellos, y
  *   eso es a propósito (no es el «parámetro opcional que sólo pasa uno» que se advierte abajo para el funnel).
  */
-export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } = {}): Promise<Cerebro> {
+export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[]; sinLayout?: boolean } = {}): Promise<Cerebro> {
   // ⚠️ El funnel se LEE ACÁ ADENTRO y no entra por parámetro, aunque la página ya lo
   // tenga a mano. `construirCerebro()` tiene DOS llamadores —la pantalla y la ruta que
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
@@ -1086,7 +1086,9 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   const reales = nodos.filter((n) => n.autoria !== 'pendiente' && !esArea(n));
   // UN cerebro, nunca dos: todo lo que quedó suelto cuelga de la raíz (ver arriba, 20/10/2026).
   aristas.push(...puentesARaiz(nodos, aristas, RAIZ));
-  const { posiciones, encuadre } = layoutCerebro(nodos, aristas);
+  // Un CHAT no usa posiciones (lib/cerebro-para-chat.ts): sin la física (400 ticks de d3) el grafo sale en lo que tardan
+  // las lecturas.
+  const { posiciones, encuadre } = opciones.sinLayout ? { posiciones: {}, encuadre: { x: 0, y: 0, lado: 1 } } : layoutCerebro(nodos, aristas);
   return {
     negocio: negocio || 'Tu negocio',
     nodos,

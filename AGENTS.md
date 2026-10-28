@@ -1767,6 +1767,12 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+    - **El grafo de un chat sale de `grafoParaChat()`** (lib/cerebro-para-chat.ts, 28/10/2026), nunca de `construirCerebro()` a
+      secas: sin física, en caché por workspace y, en la plataforma, con «Lo que hace MaKo» (lib/cerebro-funciones.ts).
+    - **Una tab o una capacidad nueva suma o cambia su entrada en lib/funciones-mako.ts en el MISMO commit** (28/10/2026,
+      Martín: «que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades»): qué hace, qué no hace
+      (lo que todavía no, como «Todavía no: …»), qué reemplaza y cómo le dice la gente. Es lo que un chat lee para no negar
+      una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada

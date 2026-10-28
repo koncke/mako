@@ -2853,3 +2853,31 @@ corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjunto
 **Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
 de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
 chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.
+
+## «Lo que hace MaKo» en el Second Brain de los chats (28/10/2026, claude4, el relevamiento del Cerebro)
+
+**Síntoma:** Martín: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal». El relevamiento
+(C:/dev/revisiones/2810-second-brain-relevamiento.md) encontró que ningún chat leía el grafo.
+- **El diagnóstico obvio era el equivocado.** Lo que los prompts llaman «Second Brain» es el RAG de `mako_knowledge`
+  (`buildSystemPrompt` → `searchKnowledge`), no el grafo. La recuperación barata (lib/cerebro-recuperar.ts) sólo la usaban
+  dos herramientas de la API, y rearmaban el mapa entero CON su física (400 ticks de d3) en cada pedido.
+- **Las funciones de MaKo sólo se dibujaban:** vivían en la capa Construcción, que es la OBRA (estado, partes, hitos) y no lo
+  que se vende. Lo bueno (qué reemplaza cada una, qué no hace Chats) estaba en AGENTS.md, areas.ts y los docs de diseño.
+- **Lo que quedó:** el catálogo (lib/funciones-mako.ts, sólo el contenido; nombre, ruta y familia salen del nav), la capa
+  (lib/cerebro-funciones.ts) y `grafoParaChat()` (lib/cerebro-para-chat.ts), que es lo que ahora leen el índice, la vista local
+  y la búsqueda del Second Brain.
+- **Trampas de la recuperación, medidas:**
+  - las CLAVES de los datos también siembran (`textoDe` busca `k` y `v`): con «Reemplaza» en todas las funciones, «qué
+    reemplaza a respond.io» sembraba todas. Las claves van hechas de palabras vacías («En vez de», «Cómo está», «Quién la
+    ve»); el tipo es «Función» y no «Función de MaKo», porque «mako» está en casi cualquier pregunta;
+  - la raíz de una capa es `n1:…`, nunca `fn:raiz`: `esEstructura` sólo reconoce `raiz`, `n1:` y `area:`, y otra raíz cuenta
+    como dato y entra como semilla;
+  - «Hace» y «No hace» van en el `cuerpo`, que viaja sólo pedido por id con profundidad 0: con profundidad 1 el detalle se
+    corta y el cuerpo no va. Para leer qué NO hace una función, se pide por id.
+- **Medido** (sin base): el índice de las 20 funciones pesa ~198 tokens; «qué no hace la bandeja» trae sólo Chats (273);
+  Chats entera, con lo que hace y lo que no, 350.
+
+**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); `listar_capacidades_mako`
+sigue leyendo CAPACIDADES y no el catálogo; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
+MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
+lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.

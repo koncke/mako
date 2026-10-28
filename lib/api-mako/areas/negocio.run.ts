@@ -56,6 +56,7 @@ import { cuantosEnEntrega } from '@/lib/entrega-servicio';
 import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
+import { grafoParaChat } from '@/lib/cerebro-para-chat';
 import { construirVault } from '@/lib/vault';
 import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
@@ -598,7 +599,8 @@ export const RUNNERS: Runners = {
 
   buscar_en_segundo_cerebro: {
     leer: async (input) => {
-      const cerebro = await construirCerebro();
+      // El grafo de los chats (lib/cerebro-para-chat.ts): sin física, en caché, y en la plataforma con sus funciones.
+      const cerebro = await grafoParaChat();
       const area = str(input, 'area') as AreaId | '';
       const nodos = nodosDeDatos(cerebro.nodos).filter((n) => !area || n.area === area);
       const texto = str(input, 'texto');
@@ -611,7 +613,7 @@ export const RUNNERS: Runners = {
       }
       const campos = (Array.isArray(input.campos) && input.campos.length ? input.campos : ['nombre']) as CampoCerebro[];
       const hallados = nodos.filter((n) => matchNodo(n, texto, campos));
-      const nombreArea = (id: string) => AREAS_CEREBRO.find((a) => a.id === id)?.nombre ?? id;
+      const nombreArea = (id: string) => (cerebro.taxonomia?.areas ?? AREAS_CEREBRO).find((a) => a.id === id)?.nombre ?? id;
       return json({
         resultados: hallados.slice(0, TOPE_RESULTADOS_CEREBRO).map((n) => ({
           id: n.id, area: nombreArea(n.area), etiqueta: n.etiqueta, detalle: recorte(n.detalle, 600), fuente: n.fuente || null,
@@ -645,12 +647,12 @@ export const RUNNERS: Runners = {
   },
 
   indice_segundo_cerebro: {
-    leer: async () => indiceDelCerebro(await construirCerebro()),
+    leer: async () => indiceDelCerebro(await grafoParaChat()),
   },
 
   recuperar_del_segundo_cerebro: {
     leer: async (input) => {
-      const p = recuperar(await construirCerebro(), {
+      const p = recuperar(await grafoParaChat(), {
         pregunta: str(input, 'pregunta'),
         ids: Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [],
         profundidad: typeof input.profundidad === 'number' ? input.profundidad : undefined,
