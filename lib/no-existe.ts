@@ -14,17 +14,22 @@
 // PURO y sin `server-only`: lo usan los chats, lib/no-existe-server.ts y tests/mako-no-existe.test.ts.
 // =============================================================================
 
-/** La regla que va en el system de TODO chat de MaKo (tests/mako-no-existe.test.ts lo exige en cada uno). */
+import { REGLA_NO_PUDE, lineaDelTicket } from './no-pude';
+
+/**
+ * La regla que va en el system de TODO chat de MaKo (tests/mako-no-existe.test.ts lo exige en cada uno). Desde el 27/10/2026
+ * lleva adentro la de lo que MaKo no pudo (`REGLA_NO_PUDE`, lib/no-pude.ts): así llega a todos los chats que ya la tenían.
+ */
 export const REGLA_NO_EXISTE = [
   'LO QUE NO EXISTE EN MaKo SE DICE, NO SE INVENTA:',
   '- Nombra sólo funciones, bloques, botones, secciones, pestañas e integraciones que estén en lo que sabes de MaKo (tus herramientas, la referencia y lo que dice esta pantalla). Nunca armes un camino con nombres que no viste.',
   '- Si lo que pide no existe todavía, dilo en una frase («Eso todavía no existe en MaKo») y, si con lo que existe se puede acercar, di cómo. No prometas fechas.',
   '- Y termina tu respuesta con una línea aparte, exactamente así: [[no-existe: lo que pidió, en una frase y con sus palabras]]. El sistema se lo pasa solo al equipo de MaKo: no le pidas que lo reporte ni le propongas un ticket.',
-].join('\n');
+].join('\n') + `\n${REGLA_NO_PUDE}`;
 
-/** La misma regla para un chat que contesta en JSON: la marca va al final del TEXTO que lee la persona (ese campo). */
+/** La misma regla para un chat que contesta en JSON: las marcas van al final del TEXTO que lee la persona (ese campo). */
 export const reglaNoExisteEn = (campo: string): string =>
-  REGLA_NO_EXISTE.replace('Y termina tu respuesta con una línea aparte', `Y termina el texto de "${campo}" con una línea aparte`);
+  REGLA_NO_EXISTE.replace(/([Yy]) termina tu respuesta con una línea aparte/g, (_m, y: string) => `${y} termina el texto de "${campo}" con una línea aparte`);
 
 /**
  * MaKo NUNCA descalifica lo que le piden (27/10/2026, la crítica de Leila): a «¿tenemos registro de cumpleaños de los
@@ -63,13 +68,7 @@ export function sacarNoExiste(texto: string): { texto: string; falta: string | n
   return { texto: limpio, falta };
 }
 
-/** La línea que escribe el CÓDIGO cuando el pedido ya está en la Ticketera (el número lo pone la base, no el modelo). */
-export const lineaDelPedido = (id: number): string => `Se lo pasé al equipo de MaKo como pedido (#${id}).`;
+/** La línea que escribe el CÓDIGO cuando el pedido ya está en la Ticketera (el número lo pone la base, no el modelo). Es la
+ *  de todo ticket automático (lib/no-pude.ts): «Quedó el ticket #N para el equipo de MaKo.» */
+export const lineaDelPedido = lineaDelTicket;
 
-/** La clave de idempotencia: el mismo pedido en el mismo chat del mismo negocio es UN ticket, aunque se repita. */
-export function refDeNoExiste(ws: number, chat: string, falta: string): string {
-  let h = 0;
-  const norm = falta.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  for (const c of norm) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
-  return `no-existe:${ws}:${chat}:${(h >>> 0).toString(36)}`;
-}

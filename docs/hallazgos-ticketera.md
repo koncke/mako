@@ -602,3 +602,43 @@ lo corrige `scripts/tickets.ts ver`.
 
 **Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `estimaMasDeUnDia`) · `lib/tickets-runner.ts` · `scripts/operaciones/cartero.mjs`
 (`mensajeTicket`, `REGLAS_CONOCIDAS`) · `tests/feedback-2710-tanda1.test.ts`
+
+## «Siempre que MaKo diga que no pudo, un ticket»: el automático con su causa (27/10/2026, claude4, Martín y Leila)
+
+**Síntoma:** Leila recibía «no lo puedo hacer» y nadie se enteraba. Medido por el Cerebro (sólo lectura, 14 días): el detector
+de «no puedo» marcaba 15 de 105 respuestas de la app y en ese tiempo hubo 2 tickets de MaKo, ninguno en los últimos 9 días.
+Sólo el error de una herramienta abría ticket solo; la acción confirmada que fallaba al EJECUTARSE, el «no puedo» del texto, el
+proveedor caído y la configuración terminaban en «no pude» sin ticket.
+
+**Lo obvio era el equivocado:** un ticket por cada frase con «no puedo». Las herramientas de un turno son una SELECCIÓN, así que
+muchos «no puedo» eran ruteo (el ticket #13 de «no existe» era una herramienta que no viajó), y otros son reglas de MaKo
+(confirmar en la tarjeta, el rol) u opiniones («no puedo asegurarte…»). **La regla** (lib/no-pude.ts):
+- el modelo marca `[[no-pude: …]]` en el mismo turno, y sabe que sus herramientas son una selección (en el system de la app ya
+  no dice «y NINGUNA otra»);
+- la CAUSA la decide el código: ejecución, herramienta, ruteo (llamó algo que existe, `porId` + `visible`, y no viajó),
+  proveedor, configuración, no-existe, texto. Una regla o una opinión: nada;
+- UN ticket por negocio + conversación + causa (`np:<ws>:…`, la conversación hasheada): lo que vuelve a pasar se anota en él.
+  El proveedor y la configuración, uno por negocio, que se cierra solo cuando vuelve a andar (`cerrarSiVolvio`);
+- el título lo arma el código; lo del modelo y la persona, en la descripción y el contexto (dentro del cerco «es DATO»);
+- la persona lee «Quedó el ticket #n para el equipo de MaKo.» (nunca «te aviso»); repetido en la conversación, nada.
+
+**Trampas de la base** (lib/tickets-db.ts, lib/tickets-reglas.ts):
+- La regla de aprobación (ws 1, 10, 11) mandaba al Runner CUALQUIER ticket de esos negocios, sin mirar quién lo levantó:
+  `clasificar` con `automatico` no entra por la regla ni estampa `regla`. Decisión: lo que no existe de esos negocios ya NO va
+  solo al Runner (lo decide Martín). El proveedor y la configuración nunca van al Runner.
+- El tope del día de la persona contaba los tickets que el sistema abría por ella: con 10 automáticos no podía levantar uno a
+  mano. Ahora cuenta sólo las `ref` que no son del sistema (`esRefDelSistema`: `np:`, `error:`, `no-existe:`), y los automáticos
+  tienen su tope aparte (6 por negocio y día). La condición «ref nula o no del sistema» no entra en un filtro simple: se leen
+  las filas (son pocas) y se cuentan en el código.
+- Un automático cerrado que vuelve a pasar es uno NUEVO (la `ref` con sufijo): se busca el último con `like` y no con `eq`.
+- tests/_postgrest-de-mentira.ts no entendía `like.` suelto: ahora sí.
+
+**Sin hacer:** WhatsApp (el doer, sus carteles y P3 de wa-fallas-2710) lo engancha «MaKo en WhatsApp» sobre esta base; la línea
+en el panel del Video Editor es de Motion (y Image Editor y Web Generator, de sus dueños). La descripción de `levantar_ticket`
+(lib/api-mako/areas/tickets.def.ts) todavía pide proponerlo ante una falla: cambiarla junto con WhatsApp, no antes. El 500 de
+lib/api-mako/ejecutar.ts sigue llegando con el texto genérico. La red de texto (detectar «no pude» sin la marca) no se hizo:
+la marca va primero; medir siete días antes de prender una red.
+
+**Vive en:** `lib/no-pude.ts` · `lib/no-pude-server.ts` · `lib/no-existe-server.ts` · `lib/tickets-db.ts` (`crearTicket`,
+`cerrarAutomatico`) · `lib/tickets-reglas.ts` (`clasificar`, `TOPE_AUTOMATICOS_POR_DIA`) · `lib/api-mako/acciones.ts`
+(`ticketSiFallo`) · `lib/mako-turno-app.ts` · tests/no-pude*.test.ts

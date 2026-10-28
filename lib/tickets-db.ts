@@ -20,7 +20,7 @@ import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import {
-  TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
+  TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
   ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
@@ -211,6 +211,14 @@ export type NuevoTicket = {
    * manda solo al arreglo (`deTercero`). Sin esto, un alumno gastaba el tope del dueño y entraba por la regla de su negocio.
    */
   tercero?: { clave: string };
+  /**
+   * Lo abrió MaKo SOLO (lib/no-pude.ts, 27/10/2026): `clave` es el comienzo de su `ref` (`np:<ws>`). Tiene su propio tope del día
+   * (`TOPE_AUTOMATICOS_POR_DIA`, por negocio), no gasta el de la persona, no entra por la regla de aprobación del negocio, y si
+   * ya hay uno ABIERTO con esa `ref` se anota ahí (`volvioAPasar`); si el que había está cerrado, abre uno nuevo.
+   */
+  automatico?: { clave: string };
+  /** Lo que se anota en el ticket automático que ya existía. */
+  volvioAPasar?: string;
 };
 export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triage; yaExistia: boolean } | { ok: false; error: string };
 
@@ -221,27 +229,49 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const titulo = taparClaves(n.titulo.trim()).texto.slice(0, TOPES.titulo);
   const descripcion = taparClaves(n.descripcion.trim()).texto.slice(0, TOPES.descripcion);
   if (!titulo) return { ok: false, error: 'Escribe qué pasó' };
-  if (n.ref) {
+  // AUTOMÁTICO: el último con esa `ref` (o con su sufijo, si el primero ya se cerró). Abierto → se anota ahí; cerrado → uno nuevo.
+  let ref = n.ref ?? null;
+  if (n.automatico && ref) {
+    if (!ref.startsWith(`${n.automatico.clave}:`)) return { ok: false, error: 'No pude guardarlo: vuelve a intentarlo' };
+    const { data: ultimo } = await db.from(T).select('id, estado, triage, ref').like('ref', `${ref}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+    if (ultimo && !CERRADOS.includes(ultimo.estado as EstadoTicket)) {
+      await anotar(Number(ultimo.id), 'sistema', 'nota', `Volvió a pasar: ${n.volvioAPasar ?? 'lo mismo, en la misma conversación'}`);
+      return { ok: true, id: Number(ultimo.id), estado: ultimo.estado as EstadoTicket, triage: leerTriage(ultimo.triage)!, yaExistia: true };
+    }
+    if (ultimo) ref = `${ref}:${Date.now().toString(36)}`;
+  } else if (n.ref) {
     const { data: ya } = await db.from(T).select('id, estado, triage').eq('ref', n.ref).maybeSingle();
     if (ya) return { ok: true, id: Number(ya.id), estado: ya.estado as EstadoTicket, triage: leerTriage(ya.triage)!, yaExistia: true };
   }
-  // El tope del día: más que esto es un bucle o un abuso, no soporte. El de un tercero se cuenta por el comienzo de su `ref`.
+  // El tope del día: más que esto es un bucle o un abuso, no soporte. El de un tercero se cuenta por el comienzo de su `ref`, y
+  // el de los AUTOMÁTICOS también (por negocio). El de la PERSONA no cuenta lo que abrió el sistema por ella (27/10/2026: con 10
+  // tickets automáticos, ya no podía levantar uno a mano): las `ref` de los automáticos, de los errores y de lo que no existe.
   const hace24 = new Date(Date.now() - 86_400_000).toISOString();
   const tercero = n.tercero ? `${n.tercero.clave}:` : null;
+  const automatico = n.automatico ? `${n.automatico.clave}:` : null;
   if (tercero && !n.ref?.startsWith(tercero)) return { ok: false, error: 'No pude guardarlo: vuelve a intentarlo' };
-  const delDia = db.from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', n.identidad.ws).gte('created_at', hace24);
-  const { count, error: eCount } = await (tercero ? delDia.like('ref', `${tercero}%`) : delDia.eq('usuario_email', n.identidad.email));
-  if (eCount) return { ok: false, error: faltaTabla(eCount) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
-  const tope = tercero ? TOPE_POR_DIA_TERCERO : TOPE_POR_DIA;
-  if (!n.sistema && (count ?? 0) >= tope) return { ok: false, error: `Ya mandaste ${tope} ${tercero ? 'reportes' : 'tickets'} hoy: el equipo los está viendo` };
+  let count: number;
+  if (tercero || automatico) {
+    const r = await db.from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', n.identidad.ws).gte('created_at', hace24).like('ref', `${tercero ?? automatico}%`);
+    if (r.error) return { ok: false, error: faltaTabla(r.error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
+    count = r.count ?? 0;
+  } else {
+    // Filas y no un `count`: la condición «ref nula o que no es del sistema» no entra en un filtro simple, y son pocas (el tope).
+    const r = await db.from(T).select('ref').eq('workspace_id', n.identidad.ws).eq('usuario_email', n.identidad.email).gte('created_at', hace24).limit(200);
+    if (r.error) return { ok: false, error: faltaTabla(r.error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
+    count = (r.data ?? []).filter((f) => !esRefDelSistema(f.ref as string | null)).length;
+  }
+  const tope = tercero ? TOPE_POR_DIA_TERCERO : automatico ? TOPE_AUTOMATICOS_POR_DIA : TOPE_POR_DIA;
+  if (automatico && count >= tope) return { ok: false, error: `ya hay ${tope} tickets automáticos hoy en este negocio` };
+  if (!n.sistema && count >= tope) return { ok: false, error: `Ya mandaste ${tope} ${tercero ? 'reportes' : 'tickets'} hoy: el equipo los está viendo` };
 
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy, deTercero: !!tercero, automatico: !!automatico, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
-    ref: n.ref ?? null,
+    ref,
     workspace_id: n.identidad.ws, usuario_id: n.identidad.usuarioId, usuario_email: n.identidad.email,
     usuario_nombre: n.identidad.nombre, rol: n.identidad.rol, plan: n.identidad.plan,
     tipo: triage.tipo, titulo, descripcion, canal: n.canal, contexto,
@@ -256,6 +286,28 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   await anotar(id, n.declaradoPor === 'sistema' ? 'sistema' : n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal });
   await anotar(id, 'triage', 'clasificado', triage.porque.join(' '), { tipo: triage.tipo, autoArreglo: triage.autoArreglo, confianza: triage.confianza });
   return { ok: true, id, estado, triage, yaExistia: false };
+}
+
+/** Los estados de un ticket cerrado (un automático cerrado abre uno nuevo si vuelve a pasar). */
+const CERRADOS: readonly EstadoTicket[] = ['resuelto', 'rechazado', 'duplicado'];
+
+/** ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona (un automático, un error, lo que no existe)? */
+export const esRefDelSistema = (ref: string | null | undefined): boolean => !!ref && /^(?:np|error|no-existe):/.test(ref);
+
+/**
+ * Cierra el ticket automático ABIERTO con esa `ref` (o su sufijo): lo del proveedor o la configuración, cuando vuelve a andar
+ * (lib/no-pude-server.ts, `cerrarSiVolvio`). Queda «resuelto» con el motivo, y el aviso al cliente sale como el de siempre.
+ * Devuelve su número, o null si no había ninguno abierto.
+ */
+export async function cerrarAutomatico(ref: string, motivo: string): Promise<number | null> {
+  const db = getSupabaseServer();
+  const { data: ultimo } = await db.from(T).select('id, estado').like('ref', `${ref}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+  if (!ultimo || CERRADOS.includes(ultimo.estado as EstadoTicket)) return null;
+  const ahora = new Date().toISOString();
+  const { error } = await db.from(T).update({ estado: 'resuelto', respuesta: motivo, resuelto_at: ahora, avisado_at: null, updated_at: ahora }).eq('id', ultimo.id);
+  if (error) { console.error(`[tickets] no pude cerrar el automático #${ultimo.id}: ${error.message}`); return null; }
+  await anotar(Number(ultimo.id), 'sistema', 'resuelto', motivo);
+  return Number(ultimo.id);
 }
 
 // ── Lo del CLIENTE: siempre su workspace y su email ───────────────────────────────────────────────────────────────

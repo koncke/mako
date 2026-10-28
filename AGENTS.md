@@ -10581,6 +10581,13 @@ ya está) lleva `REGLA_NO_EXISTE` en su system (o `reglaNoExisteEn(campo)` si co
 `[[no-existe: …]]` nunca le llega a la persona, el pedido entra a la Ticketera sin preguntar y la línea con el número la
 escribe el código. Súmalo a tests/mako-no-existe.test.ts. No se arregla con más frases en un detector de inventos.
 
+**Y lo que MaKo no pudo, también (27/10/2026, Martín: «siempre que MaKo responda algo como "No lo pude hacer" debe levantar
+automáticamente un ticket»).** `REGLA_NO_EXISTE` lleva adentro `REGLA_NO_PUDE` (lib/no-pude.ts): el modelo marca
+`[[no-pude: …]]`, y el código saca las dos marcas y levanta el ticket AUTOMÁTICO con su causa (`conTicketsDeMaKo`,
+lib/no-pude-server.ts). Un chat o un camino NUEVO que le dice a la persona «no se pudo» pasa por ahí (o por `ticketDeNoPude` con
+su causa): una acción que falla al ejecutarse, el proveedor, la configuración. Nunca un ticket con el texto del modelo de
+título, nunca por la regla de aprobación de un negocio, y una negativa legítima (una regla de MaKo, una opinión) no abre nada.
+
 ## Una recomendación de MaKo nace de una SEÑAL medida, y sin ninguna MaKo no dice nada (26/10/2026)
 
 Martín: «estas recomendaciones y MaKo "pensando" deben ser reales, no le presetees que cada ratito debe de hacer recomendaciones
