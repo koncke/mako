@@ -48,6 +48,9 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { Icon } from '@/app/_components/icons';
 import type { ComponentType } from 'react';
 import { Confirm } from '@/app/_ui/Confirm';
+// Leila 2 (28/10/2026): al activar una por etapa, los que YA están en la etapa y no entran solos.
+import { hayQuePreguntar, preguntaExistentes, textoAlActivar, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
+import { TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
 // El modal de Configuraciones NO se importa: arrastra acciones del servidor y lo pasa la tab como `Configuraciones`.
 import { cronDeProspeccion, AVISO_PROSPECCION, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { resumenAvisos, edicionVigente, edicionTocaPasos } from '@/lib/flujo-ia-cliente';
@@ -785,6 +788,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * sigue (`toggle` o `publicar`) lo lleva como `aunqueDuplique` y lo consume. Sin eso, el server vuelve a preguntar.
    */
   const respondioIgual = useRef(false);
+  /**
+   * LOS QUE YA ESTÁN EN LA ETAPA (Leila 2, 28/10/2026: «la activé para todos los que están en reactivación… todavía no pasa
+   * nada»). Al ACTIVAR una con un CRON «llega a etapa», se cuenta (`?existentes=`): los que entran solos y los que la ventana
+   * de 90 días deja afuera. Si quedan afuera algunos, se pregunta; «Incluirlas» viaja como `incluirExistentes` en el toggle.
+   */
+  const [avisoExistentes, setAvisoExistentes] = useState<{ texto: string; entran: number; seguir: () => void } | null>(null);
+  const incluirExistentes = useRef(false);
+  const entranAlActivar = useRef(0);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
   const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
   /**
@@ -984,14 +995,35 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     } catch { setLineaSec(antes); setErr('Sin conexión — prueba de nuevo.'); }
   };
 
+  /**
+   * Antes de ACTIVAR (Leila 2): cuenta a los que ya están en la etapa y, si la ventana deja afuera a algunos, pregunta. «No
+   * pude contar» no frena: se activa como siempre. Una con horario no se mira (la decide su ocurrencia).
+   */
+  const conExistentes = async (seguir: () => void) => {
+    incluirExistentes.current = false;
+    entranAlActivar.current = 0;
+    if (!rolAdmin || !crons.lista.some((d) => d.trigger_tipo === TRIGGER_ETAPA && !d.cron)) { seguir(); return; }
+    setBusy('toggle');
+    const e = await fetch(`/api/whatsapp/secuencias?existentes=${secuencia.id}`)
+      .then((r) => r.json())
+      .then((r: { ok?: boolean; existentes?: ExistentesEnEtapa | null }) => (r.ok ? r.existentes ?? null : null))
+      .catch(() => null);
+    setBusy(null);
+    entranAlActivar.current = e?.entran ?? 0;
+    if (!hayQuePreguntar(e)) { seguir(); return; }
+    setAvisoExistentes({ texto: preguntaExistentes(e, e.etapas.map(etiquetaEtapa)), entran: e.entran, seguir });
+  };
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
     // «Activar igual» (`conAvisoDuplicada`): se usa UNA vez.
     const aunqueDuplique = respondioIgual.current;
     respondioIgual.current = false;
+    // «Incluirlas» (Leila 2): sólo al prender. Se conserva si el server pregunta por una duplicada y se vuelve con «Activar igual».
+    const incluir = !activa && incluirExistentes.current;
     try {
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) }) })).json();
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa, ...(aunqueDuplique ? { aunqueDuplique: true } : {}), ...(incluir ? { incluirExistentes: true } : {}) }) })).json();
       if (r.ok) {
+        incluirExistentes.current = false;
         setActiva(!activa);
         // ⚠️ «Activada ✓» ES CIERTO SOBRE LA FILA Y FALSO SOBRE EL RESULTADO.
         // Prender una secuencia de WhatsApp con el número caído la deja en verde
@@ -1006,9 +1038,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           !activa
             // El toast dice QUÉ pasó, corto (AGENTS.md, el texto que se dibuja): el porqué
             // —que con el número caído no sale nada— es este comentario.
-            ? (caidaLaSec && soloWa ? 'Activada · WhatsApp desconectado' : 'Activada ✓')
+            // Y cuántos de los que ya estaban en la etapa entran (Leila 2: «la pantalla dice cuántos entran»).
+            ? (caidaLaSec && soloWa ? 'Activada · WhatsApp desconectado' : textoAlActivar(entranAlActivar.current, Number(r.incluidos) || 0))
             : 'Pausada ✓',
         );
+        // Activada, pero no se pudo sumar a los que ya estaban: se dice (la activación no se deshace).
+        if (r.aviso) setErr(String(r.aviso));
         // ⚠️ «ACTIVADA ✓» Y NO SALE NADA (20/10/2026, el Recurrente de Leila: 31 borradores esperando). A un lead que no
         // pagó, un mensaje de WhatsApp que no sale solo queda para que lo apruebes (lib/mensajes-por-aprobar.ts): el chat
         // lo dice al activarla, y la línea de al lado de «Activar» cuenta los que esperan.
@@ -1235,6 +1270,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); respondioIgual.current = true; s(); }}
                 onCancel={() => setAvisoDup(null)} />
             )}
+            {/* Leila 2: «Incluirlas» las suma al activar; la otra activa sólo con las que entran solas. */}
+            {avisoExistentes && (
+              <Confirm message={avisoExistentes.texto} confirmLabel="Incluirlas"
+                cancelLabel={avisoExistentes.entran ? `Sólo las ${avisoExistentes.entran}` : 'Activar sin ellas'} tone="primary"
+                onConfirm={() => { const s = avisoExistentes.seguir; setAvisoExistentes(null); incluirExistentes.current = true; s(); }}
+                onCancel={() => { const s = avisoExistentes.seguir; setAvisoExistentes(null); s(); }} />
+            )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
                 probar debería estar a la derecha del todo, no pegado a "Activar"»). El
@@ -1403,7 +1445,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle(), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void toggle()), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>

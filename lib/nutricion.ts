@@ -52,6 +52,8 @@ import {
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
 } from '@/lib/nutricion-etapa';
 import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA, RESIDUO_POR_DIA } from '@/lib/nutricion-residuo';
+// Los que YA están en la etapa al activar (Leila 2, 28/10/2026): la ventana de 90 días y lo que se cuenta.
+import { ultimoHitoMs, VENTANA_HITO_DIAS, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
@@ -516,7 +518,26 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null), 'getSecuenciasActivas');
-  return rows.map((r) => ({
+  return rows.map(filaASecuencia);
+}
+
+/**
+ * UNA AUTOMATIZACIÓN POR SU ID, activa o pausada (sin las archivadas), como la lee el motor. La usan los que tienen que
+ * mirarla ANTES de prenderla: contar a los que ya están en la etapa (`existentesEnEtapa`, Leila 2). null = no existe.
+ */
+async function secuenciaDeId(id: number): Promise<Secuencia | null> {
+  const supabase = (await getTenantDb());
+  const rows = await leerFilasDeSecuencias((cols) => supabase
+    .from('nutricion_secuencias')
+    .select(cols)
+    .eq('id', id)
+    .is('archivada_at', null), 'secuenciaDeId');
+  return rows[0] ? filaASecuencia(rows[0]) : null;
+}
+
+/** La fila de `nutricion_secuencias` como la lee el motor. UNA regla para las lecturas de arriba. */
+function filaASecuencia(r: FilaSecuencia): Secuencia {
+  return {
     id: r.id,
     clave: r.clave,
     nombre: r.nombre,
@@ -541,7 +562,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     ...listaDe(r),
     // La «Reentrada» guardada (mig 0279); sin guardar, null: la decide `reentradaDeSecuencia`.
     reentrada: esReentrada(r.reentrada) ? r.reentrada : null,
-  }));
+  };
 }
 
 export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: number; estrategia: unknown };
@@ -1278,6 +1299,8 @@ export async function leadsDeCohorte(
   funnelId?: number | null,
   productoId?: number | null,
   etiquetaId?: number | null,
+  /** `sinVentana`: los de la etapa SIN la ventana de 90 días (Leila 2: los que se ofrecen al activar). El barrido nunca. */
+  o: { sinVentana?: boolean } = {},
 ): Promise<number[]> {
   /**
    * La ENTREGA no pasa por el ámbito de embudo ni por las columnas del funnel: su
@@ -1326,7 +1349,7 @@ export async function leadsDeCohorte(
       throw new Error(`cohorte entrega_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null);
+  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null, o);
 }
 
 /**
@@ -1433,7 +1456,7 @@ async function agregadosEnEtapa(
 // sí misma con otro trigger— no vuelva a consultar `funnels`, y sobre todo para
 // que no pueda perderlo en el camino: el trigger hermano juntaría los leads de
 // todos los embudos y la exclusión de familia no se enteraría.
-async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambito: AmbitoFunnel, etiquetaId: number | null = null): Promise<number[]> {
+async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambito: AmbitoFunnel, etiquetaId: number | null = null, o: { sinVentana?: boolean } = {}): Promise<number[]> {
   const supabase = (await getTenantDb());
 
   if (triggerTipo === TRIGGER_ETIQUETA) return leadsConEtiqueta(supabase, etiquetaId, ambito);
@@ -1474,16 +1497,11 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       throw new Error(`cohorte etapa_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
     type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null; created_at: string };
-    const corte = Date.now() - 90 * 86400 * 1000;
-    const ultimoHito = (l: LeadEtapa): number => Math.max(
-      ...[l.created_at, l.fecha_agenda, l.fecha_junta_1, l.fecha_junta_2]
-        .filter((x): x is string => Boolean(x))
-        .map((x) => Date.parse(x))
-        .filter((ms) => Number.isFinite(ms)),
-      0,
-    );
+    // ⚠️ MOVER DE ETAPA NO ES UN HITO (Leila 2, 28/10/2026): `leads` no guarda cuándo cambió de etapa, así que un lead viejo
+    // que se pasó a mano a «reactivación» no entra solo. Al activar se ofrece (`existentesEnEtapa`), con `sinVentana`.
+    const corte = o.sinVentana ? -Infinity : Date.now() - VENTANA_HITO_DIAS * 86400 * 1000;
     const deLaCasa = (data as LeadEtapa[])
-      .filter((l) => ultimoHito(l) >= corte)
+      .filter((l) => ultimoHitoMs(l) >= corte)
       .filter((l) => keys.includes(pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined })))
       .map((l) => l.id);
     // ⚠️ Y LOS AGREGADOS A ESTE CRM (21/10/2026): la etapa que tienen EN ESTE CRM y, para la ventana, cuándo se los
@@ -1878,6 +1896,73 @@ async function aTiempo(
     for (const f of filas) creado.set(f.id, f.created_at);
   }
   return ids.filter((id) => dentroDeAntiguedad({ maxHoras, createdAt: creado.get(id) ?? null, ahoraMs }));
+}
+
+/**
+ * LOS QUE YA ESTÁN EN LA ETAPA (Leila 2, 28/10/2026: «la activé para todos los que están en reactivación… todavía no pasa
+ * nada»). Por cada CRON «llega a etapa» SIN horario, con la MISMA puerta que el barrido (`aTiempo` + `aInscribir`): los que
+ * entran solos en la próxima pasada (`recientes`) y los que están en la etapa pero quedan afuera por la ventana de 90 días
+ * (`viejos`). Sólo lee: es lo que la pantalla cuenta al activar. Un CRON con horario no se ofrece (lo decide su ocurrencia).
+ */
+type PlanDeInscripcion = Awaited<ReturnType<typeof aInscribir>>;
+async function existentesPorCron(sec: Secuencia): Promise<Array<{ vista: Secuencia; recientes: PlanDeInscripcion; viejos: PlanDeInscripcion }>> {
+  const supabase = (await getTenantDb());
+  const out: Array<{ vista: Secuencia; recientes: PlanDeInscripcion; viejos: PlanDeInscripcion }> = [];
+  const vistos = new Set<number>();
+  for (const vista of vistasPorDisparador(sec)) {
+    if (vista.trigger_tipo !== TRIGGER_ETAPA || vista.cron) continue;
+    const etapas = etapasDe(vista);
+    const pedir = (sinVentana: boolean) => leadsDeCohorte(vista.trigger_tipo, etapas, vista.funnel_id, vista.producto_id, vista.etiqueta_id, { sinVentana });
+    const recientes = (await aTiempo(supabase, vista, await pedir(false))).filter((id) => !vistos.has(id));
+    const conVentana = new Set(recientes);
+    const viejos = (await aTiempo(supabase, vista, await pedir(true))).filter((id) => !vistos.has(id) && !conVentana.has(id));
+    const planR = await aInscribir(supabase, vista, recientes);
+    const planV = await aInscribir(supabase, vista, viejos);
+    for (const x of [...planR.nuevas, ...planR.reusar, ...planV.nuevas, ...planV.reusar]) vistos.add(x.lead_id);
+    out.push({ vista, recientes: planR, viejos: planV });
+  }
+  return out;
+}
+
+/** Lo que cuenta la pantalla al ACTIVAR una automatización por etapa. null = no tiene un CRON «llega a etapa» sin horario. */
+export async function existentesEnEtapa(secuenciaId: number): Promise<ExistentesEnEtapa | null> {
+  const sec = await secuenciaDeId(secuenciaId);
+  if (!sec) return null;
+  const porCron = await existentesPorCron(sec);
+  if (!porCron.length) return null;
+  return {
+    etapas: [...new Set(porCron.flatMap((c) => etapasDe(c.vista)))],
+    entran: porCron.reduce((n, c) => n + c.recientes.nuevas.length + c.recientes.reusar.length, 0),
+    viejos: porCron.reduce((n, c) => n + c.viejos.nuevas.length + c.viejos.reusar.length, 0),
+  };
+}
+
+/**
+ * «INCLUIRLOS» (Leila 2): inscribe YA a los que están en la etapa y la ventana de 90 días dejaba afuera, como el barrido
+ * los inscribiría si se hubieran movido: misma fila, mismo `proximo_envio_at`, y salen con el goteo y los topes de la línea
+ * (eso lo decide el envío, no esto). Sólo una ACTIVA: pausada, se inscribirían leads que el motor congela. Devuelve cuántos.
+ */
+export async function incluirExistentes(secuenciaId: number): Promise<number> {
+  const sec = await secuenciaDeId(secuenciaId);
+  if (!sec?.activa) return 0;
+  const supabase = (await getTenantDb());
+  let creadas = 0;
+  for (const { vista, viejos } of await existentesPorCron(sec)) {
+    if (viejos.nuevas.length) {
+      const { error } = await supabase.from('nutricion_inscripciones').insert(viejos.nuevas.map((n) => ({
+        lead_id: n.lead_id,
+        secuencia_id: vista.id,
+        paso_actual: 0,
+        estado: 'activa',
+        proximo_envio_at: n.proximo_envio_at,
+        ...(preparaReunion(vista) ? { reunion_at: n.reunion_at } : {}),
+      })));
+      if (error) throw new Error(`incluirExistentes: ${error.message}`);
+      creadas += viejos.nuevas.length;
+    }
+    creadas += await reactivarReusables(supabase, vista, viejos.reusar);
+  }
+  return creadas;
 }
 
 export async function planificarInscripciones(): Promise<PlanInscripcion[]> {

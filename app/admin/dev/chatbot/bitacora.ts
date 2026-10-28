@@ -3025,4 +3025,23 @@ FEEDBACK PROBAR:
     revisar: "/automations",
     tickets: [17],
   },
+  {
+    fecha: "28 oct", hora: "11:20", chat: "Automations", cuenta: "claude4",
+    sesion: "local_ea2a6e6a-dd40-48a7-96c3-25bcbf003e41",
+    actor: "claude", tipo: "correccion",
+    titulo: "Al activar una automatización por etapa, se suman los que ya estaban",
+    puntos: [
+      "Leila la activó para los de «reactivación» y no salía nada.",
+      "No era la automatización: MaKo deja afuera a quien no tuvo movimiento en 90 días, y pasar a alguien de etapa no cuenta como movimiento.",
+      "Ahora, al tocar «Activar», MaKo dice cuántos entran y cuántos quedaban afuera, y pregunta si los incluye.",
+      "Los que se suman salen de a poco, como todos.",
+    ],
+    archivos: [
+      "lib/etapa-existentes.ts — la pregunta y la regla de los 90 días",
+      "lib/nutricion.ts — contar e incluir (existentesEnEtapa, incluirExistentes)",
+      "app/automations/SecuenciaPerfil.tsx — la pregunta al activar",
+      "tests/etapa-existentes.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

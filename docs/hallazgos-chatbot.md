@@ -27,6 +27,29 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «La activé para los que están en reactivación y no pasa nada»: mover de etapa NO es un hito (28/10/2026, Leila 2)
+
+**El síntoma** (Leila, ws11, 20/10 17:38): activó una automatización «llega a etapa» para los que ya estaban en
+«reactivación» y no salió nada.
+
+**Lo obvio era el equivocado:** «el CRON por etapa sólo agarra a los que ENTRAN después de activarla». No: el barrido SÍ
+mira a los que ya están parados en la etapa (`cohorteDeTrigger`, lib/nutricion.ts: «una secuencia que se crea HOY tiene que
+alcanzar a los que YA están»). Lo que los dejaba afuera es la ventana anti-revival de 90 días sobre el ÚLTIMO HITO del lead
+(el alta, la agenda, una reunión), y **la tabla `leads` no guarda cuándo cambió de etapa**: un lead de marzo pasado a mano a
+«reactivación» el 20/10 sigue siendo, para la ventana, de marzo. «Reactivación» es justo la etapa de los viejos. En los
+agregados a otro CRM (`lead_funnel`) sí cuenta `etapa_desde`; en la casa no hay de dónde leerlo.
+
+**La regla que queda:** la ventana no se toca (protege de escribirle por accidente a una base muerta). Al ACTIVAR una con un
+CRON «llega a etapa» sin horario, la pantalla cuenta (`existentesEnEtapa`, por la MISMA puerta que el barrido: `aTiempo` +
+`aInscribir`) y, si quedan afuera algunos, pregunta «¿Las incluyo?»; «Incluirlas» las inscribe ya (`incluirExistentes`, sólo
+en una activa) y salen con el goteo y los topes de siempre. El barrido nunca pide sin ventana (`sinVentana` es sólo de
+contar e incluir). tests/etapa-existentes.test.ts, 9 roturas en rojo.
+
+**Sin hacer:**
+- no se midió en la base de Leila cuántos de «reactivación» quedaban afuera (es leer producción de una clienta);
+- activar por otros caminos (la API, el teléfono) no pregunta: activa con la ventana, como antes;
+- un CRON con horario (Recurrente) no se ofrece: su ocurrencia decide, y la ventana sigue.
+
 ## Responder EN PÚBLICO un comentario no es otra «vía» del DM: se decide aparte y antes (28/10/2026, ticket #17 de Leandro)
 
 **El síntoma** (Leandro, Fiesta Music, ws10; el #12 es el mismo texto): con el disparador «El usuario comenta tu publicación
