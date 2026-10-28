@@ -68,13 +68,14 @@ test('2. el cuadro de crear: «Replica y adapta» en la pastilla del link, y via
   // 28/10/2026: el panel ya no tiene «Tal cual | Adaptada»: tiene QUÉ replicar por partes (replicar-partes.ts), y «adapta»
   // arranca con diseño + estructura + ángulos (el texto, escrito para la oferta).
   const panel = fuente('app/web-generator/crear/Replicar.tsx');
-  assert.match(panel, /useState<PartesReplica>\(\(\) => \{\s*if \(adaptarInicial\) return PARTES_ADAPTAR;/);
+  // (y desde el 28/10, ~09:40, sin «adapta» arranca en la copia idéntica: tests/web-generator-copia-identica.test.ts)
+  assert.match(panel, /useState<PartesReplica>\(\(\) => \(adaptarInicial \? PARTES_ADAPTAR : PARTES_TODAS\)\)/);
   assert.match(panel, /<SelectorPartes partes=\{partes\} onCambio=\{cambiarPartes\}/);
   assert.match(fuente('app/web-generator/Inicio.tsx'), /<ReplicarUnaPagina [^>]*adaptar=\{derecha\.adaptar\}/);
 });
 
 test('3. los enchufes: la ruta, replicar(), el pedido de la pantalla y la operación de MaKo llevan «adaptar»', () => {
-  assert.match(fuente('app/api/landing-generator/replicar/route.ts'), /replicar\(\{ [^}]*adaptar: body\.adaptar \}\)/);
+  assert.match(fuente('app/api/landing-generator/replicar/route.ts'), /replicar\(\{ [^}]*adaptar: body\.adaptar, foto: body\.foto \}\)/);
   const rep = fuente('lib/editor-landing/replicar.ts');
   assert.match(rep, /if \(p\.adaptar === true && formato === 'web'\) return falla\(ERROR_ADAPTAR_WEB, 400, 'landing'\);/);
   assert.match(rep, /configDeReplica\(formato, url, \{ adaptar: p\.adaptar === true \}\)/);
