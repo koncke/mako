@@ -519,9 +519,14 @@ const QUEJA_CUOTA = /\bno\s+(?:me\s+)?(?:deja(?:n)?|dejo|puedo|pude|logro|consig
 /** Las cuotas DE ALGUIEN («sus cuotas», «mis cuotas»): un plan de pago, no la cuota de uso del negocio. */
 const CUOTAS_DE_ALGUIEN = /\b(?:sus|mis|tus)\s+cuotas\b/;
 /** Lo que es de la VISTA de la ficha (un bloque, una hoja, su lugar), no un dato: «pon las cuotas arriba de todo». */
-const DE_LA_VISTA = /\b(?:bloques?|hojas?|vista|estilo|columnas?|seccion(?:es)?|disenos?|arriba|abajo|ficha|color(?:es)?|negrita|tamano|grandes?|chic[oa]s?|formato|costado|izquierda|derecha|orden|mostr\w*|ocult\w*|fuente|resalt\w*)\b/;
+const DE_LA_VISTA = /\b(?:bloques?|hojas?|vista|estilo|columnas?|seccion(?:es)?|disenos?|arriba|abajo|ficha)\b/;
+/**
+ * En «Editar», también el ESTILO de lo que se ve (la revisión del 28/10/2026): «el color de los montos», «en negrita», «más grande»,
+ * «al costado». Sólo acá: en el resto, «mostró», «la orden de compra» o «la más grande es de 500» son datos (la verificación).
+ */
+const ESTILO_DE_LA_VISTA = /\b(?:color(?:es)?|negrita|tamano|formato|costado|izquierda|derecha|fuente|resalt\w*|ocult\w*|mostrar)\b|\b(?:pon|pone|hace|hacelo|deja)\w*\s+(?:\S+\s+){0,4}mas (?:grande|chic[oa])\b/;
 /** ¿Nombra la VISTA de la ficha y no un dato? Lo usa el modo «Editar» del MaKo Analyst (lib/mako-analyst-lead-reglas.ts). */
-export const nombraLaVistaDeLaFicha = (texto: string): boolean => DE_LA_VISTA.test(norm(texto));
+export const nombraLaVistaDeLaFicha = (texto: string): boolean => { const n = norm(texto); return DE_LA_VISTA.test(n) || ESTILO_DE_LA_VISTA.test(n); };
 /**
  * EL PLAN DE PAGOS DE UN LEAD, sin la palabra «cuota» (27/10/2026, el ticket #13 de Leila): «las fechas y las cantidades de
  * pago están mal: 300 cada quincena», «corregí la mensualidad de Ana». No sumaban el área cobros y el presupuesto sólo dejaba
@@ -533,9 +538,14 @@ export const nombraLaVistaDeLaFicha = (texto: string): boolean => DE_LA_VISTA.te
 // Ana», «su mensualidad»): la de MaKo («me cobraron mal la mensualidad») no es el plan de un lead.
 const OBJETO_PLAN_DE_PAGOS = /\bplan(?:es)? de pagos?\b|\b(?:fechas?|montos?|cantidades?|importes?|valores?)(?:\s+y\s+(?:las?\s+|los?\s+)?(?:fechas?|montos?|cantidades?|importes?|valores?))?\s+del?\s+(?:los\s+|sus\s+|las\s+)?(?:pagos?|cobros?|cuotas?)\b|\b(?:cada|por)\s+quincena\b|\bquincenal(?:es|mente)?\b|\bsus?\s+mensualidad(?:es)?\b|\bmensualidad(?:es)?\s+del?\s+(?!mako\b)[a-z]/;
 const ESTA_MAL = /\b(?:esta|estan)\s+mal\b|\bno\s+(?:es|son)\s+(?:de\s+)?\d|\bson\s+\d/;
+/** Lo que dice que algo está MAL (no sólo un «son N»): con eso, el «¿me ayudas?» del final no lo vuelve una pregunta. */
+const ESTA_MAL_FUERTE = /\b(?:esta|estan)\s+mal\b|\bno\s+(?:es|son)\s+(?:de\s+)?\d/;
 const PLAN_DE_MAKO = /\bmako\b|\bmi\s+(?:plan|suscripcion|mensualidad)\b|\bme\s+cobraron\b/;
-/** Lo que nombra la agenda: un pedido de agenda le gana al plan de pagos («mové la reunión a la segunda quincena»). */
-const NOMBRA_AGENDA = /\b(?:reunion(?:es)?|citas?|llamadas?|visitas?|agenda|eventos?|turnos?)\b/;
+/**
+ * Un pedido de MOVER algo de la agenda le gana al plan de pagos («cambiá la llamada del cobro quincenal al martes»). La llamada o
+ * la cita como CONTEXTO no («lo vimos en la llamada: son 300 cada quincena»; la verificación del 28/10/2026).
+ */
+const MUEVE_AGENDA = /\b(?:mov|move|pas|cambi|reprogram|corr|posterg|adelant|agend)\w*\s+(?:\S+\s+){0,2}(?:reunion(?:es)?|citas?|llamadas?|visitas?|eventos?|turnos?)\b/;
 
 // ── UN PAGO QUE LLEGÓ (17/10/2026) ──────────────────────────────────────────────────────────────
 // «Juan me pagó 500 mil pesos», «ya me pagó la cuota 2», «registrá un pago de 500 de Ana» salían `capturar`, dudosas
@@ -602,9 +612,9 @@ export function esPedidoDeCobro(texto: string, opts: { delLead?: boolean } = {})
   const verboCuota = VERBO_CUOTA_PEGADO.test(n) || VERBO_CUOTA_TILDE.test(crudo) || VERBO_CUOTA_SUELTO.test(arranque) || MODAL_CUOTA.test(n) || QUEJA_CUOTA.test(n);
   const cuota = (OBJETO_CUOTA.test(n) || CUOTA_Y_SU_DATO.test(n) || (CUOTAS_DE_ALGUIEN.test(n) && !DE_LA_VISTA.test(n))) && !CUOTA_DE_USO.test(n) && verboCuota;
   // Una pregunta sin un verbo de cambiar no es un pedido («¿cuánto es la mensualidad de Ana?», «… son 12, ¿cómo vamos?»).
-  const preguntaSinVerbo = (/^[¿]/.test(crudo) || /\?\s*$/.test(crudo)) && !verboCuota;
+  const preguntaSinVerbo = (/^[¿]/.test(crudo) || /\?\s*$/.test(crudo)) && !verboCuota && !ESTA_MAL_FUERTE.test(n);
   // `delLead`: la ficha de UN lead («Editar» del MaKo Analyst): ahí «la mensualidad» sola es la de ese lead.
-  const plan = (OBJETO_PLAN_DE_PAGOS.test(n) || (!!opts.delLead && /\bmensualidad(?:es)?\b/.test(n))) && (verboCuota || ESTA_MAL.test(n)) && !preguntaSinVerbo && !PLAN_DE_MAKO.test(n) && !DE_LA_VISTA.test(n) && !CUOTA_DE_USO.test(n) && !NOMBRA_AGENDA.test(n);
+  const plan = (OBJETO_PLAN_DE_PAGOS.test(n) || (!!opts.delLead && /\bmensualidad(?:es)?\b/.test(n))) && (verboCuota || ESTA_MAL.test(n)) && !preguntaSinVerbo && !PLAN_DE_MAKO.test(n) && !DE_LA_VISTA.test(n) && !CUOTA_DE_USO.test(n) && !MUEVE_AGENDA.test(n);
   const verbo = VERBO_COBRO_PEGADO.test(n) || VERBO_COBRO_TILDE.test(crudo) || VERBO_COBRO_SUELTO.test(arranque) || MODAL_COBRO.test(n) || SEGUNDA_COBRO.test(n);
   // Un pago que llegó, dicho o pedido (no una pregunta): «Juan me pagó 500 mil pesos», «registrá un pago de 500».
   const esPregunta = /^[¿]/.test(crudo) || /\?\s*$/.test(crudo);
@@ -731,7 +741,7 @@ const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|p
  * hora», «no puedo» o «No consigo turno» con una reunión propuesta SON un «no» (la regla 1 los toma y viaja cancelar_accion;
  * lib/doer-hilo.ts cuenta con eso). Sólo «no (me) deja/puedo + editar, guardar, cambiar…» o «no funciona/anda/carga + el…».
  */
-const QUEJA_DE_LA_APP = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo)\s+(?:editar|guardar|cambiar|cargar|crear|subir|borrar|eliminar|mover|agregar|adjuntar|abrir|entrar|enviar|mandar|modificar|corregir|actualizar)\b|^[\s¡!¿?]*no\s+(?:me\s+)?(?:funciona|anda|carga|abre|guarda|aparece|sale)\s+(?:el|la|los|las|mi|su|tu|ese|esa|este|esta)\b/i;
+const QUEJA_DE_LA_APP = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo)\s+(?:editar|guardar|cambiar|cargar|crear|subir|borrar|eliminar|mover|agregar|adjuntar|abrir|entrar|enviar|mandar|modificar|corregir|actualizar)\b|^[\s¡!¿?]*no\s+(?:me\s+)?(?:funciona|anda|carga|abre|guarda|aparece|sale)\s+(?:el|la|los|las|mi|su|tu|ese|esa|este|esta)\b|^[\s¡!¿?]*no\s+(?:me\s+deja(?:n)?|funciona|anda|carga|abre|sale)[\s.!¡]*$/i;
 
 
 // ⚠️ La lista se AMPLÍA, no se reescribe. Le faltaban las aperturas rioplatenses

@@ -12,12 +12,15 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para-el-test';
 
 let n = 0;
+let romperTickets = false;
 const pg = crearPostgrest({
   tablas: ['tickets', 'ticket_eventos', 'workspaces', 'app_settings', 'usuarios'],
   defaults: (_t, f) => ({ id: ++n, created_at: new Date().toISOString(), ...f }),
 });
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
+  // La base que no deja crear un ticket (la verificación del 28/10: sin ticket no hay línea).
+  if (romperTickets && u.host === 'supa.test' && u.pathname.endsWith('/tickets') && (init.method ?? 'GET') === 'POST') return new Response(JSON.stringify({ message: 'caída' }), { status: 500 });
   if (u.host === 'supa.test') {
     try { return await pg.responder(u, init); } catch (e) { return new Response(JSON.stringify({ message: String(e) }), { status: 400 }); }
   }
@@ -98,6 +101,26 @@ async function main() {
   const fila = sis.ok ? pg.db.tickets.find((t) => t.id === sis.id) : null;
   r.sistemaRegla = (fila?.triage as { regla?: string } | null)?.regla ?? null;
   out.revision = r;
+
+  // ── La verificación del 28/10/2026 ───────────────────────────────────────────────────────────────────────────
+  const v: Record<string, unknown> = {};
+  pg.db.workspaces.push({ id: 15, capa: 'cliente', nombre: 'Negocio 15' }, { id: 16, capa: 'cliente', nombre: 'Negocio 16' });
+  const en15 = (conv: string) => ({ ws: 15, actor: 'dueno15@negocio-de-prueba.com', nombre: 'Dueño', superficie: 'ops-center' as const, conv, pedido: 'algo' });
+  // La regla sólo en la oración de la marca: una falla que nombra el token o «tu pantalla» abre ticket; la regla explicada, no.
+  v.token = await conTicketsDeMaKo('No pude guardar el anuncio: Meta devolvió un error de nuestro lado al leer el token.\n\n[[no-pude: guardar el anuncio]]', {}, en15('v1'));
+  v.pantalla = await conTicketsDeMaKo('No pude crear la tarea: el plan no respondió. La puedes crear en tu pantalla del Plan.\n\n[[no-pude: crear la tarea]]', {}, en15('v2'));
+  v.tarjeta = await conTicketsDeMaKo('Ese borrado se confirma en tu tarjeta.\n\n[[no-pude: eliminar la automatización]]', {}, en15('v3'));
+  // Una frase de regla al PRINCIPIO y la falla en la oración de la marca: es una falla.
+  v.reglaAntes = await conTicketsDeMaKo('Esto normalmente se confirma en tu tarjeta. Pero no pude crearla: el plan no respondió.\n\n[[no-pude: crear la tarea]]', {}, en15('v7'));
+  // Una regla y un «no existe» en la misma respuesta: el «no existe» sigue.
+  v.ambas = await conTicketsDeMaKo('Eso se confirma en tu tarjeta. Y lo otro no existe.\n\n[[no-pude: borrarlo]]\n[[no-existe: un tablero de comisiones]]', {}, en15('v4'));
+  // yaRegistrado sólo apaga el «no pude»: el «no existe» del mismo turno sigue.
+  v.yaRegNoExiste = await conTicketsDeMaKo('Falló algo y además eso no existe.\n\n[[no-pude: crear la tarea]]\n[[no-existe: un registro de cumpleaños]]', { yaRegistrado: true }, en15('v5'));
+  // base 9 (c): si la base no deja crear el ticket, no hay línea.
+  romperTickets = true;
+  v.sinTicket = await conTicketsDeMaKo('No pude.\n\n[[no-pude: una cosa nueva]]', {}, { ...en15('v6'), ws: 16, actor: 'dueno16@negocio-de-prueba.com' });
+  romperTickets = false;
+  out.verificacion = v;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

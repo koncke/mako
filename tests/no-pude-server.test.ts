@@ -32,6 +32,7 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
     yaRegistrado: Sale; yaRegistradoTickets: number; dos1: Sale; dos2: Sale; regla: Sale; confOtra: number | null; confMisma: number | null; confId: number | null;
     confDespacho: string | null; cerroProv: number | null; provId: number | null; textoEstado: string | null; topeLleno: Sale; sistemaRegla: string | null;
   };
+  verificacion: { token: Sale; pantalla: Sale; tarjeta: Sale; ambas: Sale; yaRegNoExiste: Sale; sinTicket: Sale; reglaAntes: Sale };
 };
 
 test('g. tres «no pude» en la misma conversación son UN ticket; la línea la escribe el código y sale una vez', () => {
@@ -95,6 +96,18 @@ test('revisión 28/10: la configuración se cierra sólo con la cuenta que fall�
   assert.equal(v.topeLleno.linea, null, 'con el tope lleno igual dijo «Quedó el ticket»');
   // base 10: un ticket del sistema en el ws 10 no entra por la regla de Leandro.
   assert.equal(v.sistemaRegla, null, 'un error de la app entró por la regla del negocio');
+});
+
+test('verificación 28/10: la regla sólo en la oración de la marca, yaRegistrado no apaga el «no existe», sin ticket no hay línea', () => {
+  const v = R.verificacion;
+  assert.ok(v.token.ticket?.nuevo, 'una falla que nombra el token no abrió ticket');
+  assert.ok(v.pantalla.ticket?.nuevo, 'una falla que sugiere hacerlo en tu pantalla no abrió ticket');
+  assert.equal(v.tarjeta.ticket, null, '«se confirma en tu tarjeta» abrió ticket');
+  assert.ok(v.reglaAntes.ticket?.nuevo, 'una regla al principio de la respuesta tapó la falla de la oración de la marca');
+  assert.equal(v.ambas.causa, 'no-existe', 'la regla se comió el «no existe» de la misma respuesta');
+  assert.equal(v.yaRegNoExiste.causa, 'no-existe', 'yaRegistrado se comió un pedido que no existe');
+  assert.equal(v.sinTicket.ticket, null);
+  assert.equal(v.sinTicket.linea, null, 'sin ticket igual dijo «Quedó el ticket»');
 });
 
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────

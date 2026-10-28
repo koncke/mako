@@ -120,7 +120,7 @@ const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar
 // Sin sujeto (la revisión del 28/10/2026): «La cuota 13 quedó registrada como cobrada» o «Actualizado al día de hoy, tienes 12
 // leads» son estados LEÍDOS de los datos, no lo que MaKo dice que hizo. Sólo «Anotado.», «¡Guardado!», «Anotado:»; «(Entendido,)
 // queda guardado» al ARRANQUE; y la promesa de recordar (no «lo recuerdo», que puede ser lo que tiene en el hilo).
-const HECHO_EN_MEMORIA = /^(?:¡\s*)?(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?\s*(?:[.!:]|$)|^(?:(?:entendido|listo|perfecto|ok|dale|bien|genial)[,.!]?\s+)?(?:ya\s+)?(?:te\s+|lo\s+|la\s+)?(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:lo|la|los|las)\s+(?:recordaré|tendré en cuenta|tengo en cuenta)(?!\p{L})/u;
+const HECHO_EN_MEMORIA = /^(?:¡\s*)?(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?:\s*[.!:,]|\s+y\s|\s*\p{Extended_Pictographic}|\s*$)|^(?:(?:entendido|listo|perfecto|ok|dale|bien|genial)[,.!]?\s+)?(?:ya\s+)?(?:te\s+|lo\s+|la\s+)?(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:lo|la|los|las)\s+(?:recordaré|tendré en cuenta|tengo en cuenta|recuerdo para (?:la próxima|después|mañana))(?!\p{L})/u;
 /** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
 const NIEGA = /(?<!\p{L})(?:no|nunca|tampoco|ni)(?!\p{L})/u;
 // «confírmala», «para confirmar», «revísala»: lo que habla de confirmar; «confirmé» y «revisé» dicen hecho, y no entran.
