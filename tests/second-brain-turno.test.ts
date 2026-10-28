@@ -6,8 +6,9 @@
 //   1. un closer o un setter no recibe la plata del negocio (objetivos, KPIs, clientes ganados): se saca del grafo antes de
 //      recuperar, con sus aristas, porque el grafo en caché es del negocio y no de la persona;
 //   2. el bloque del system va sólo con una vista local: si la pregunta no nombra nada, no suma nada (ni el índice);
-//   3. el turno lo trae en paralelo con el system (arranca antes de armarlo), lo pone al final del system, con la plata
-//      filtrada por el rol, y no espera al grafo más que un rato ni se cae si el grafo falla.
+//   3. el turno lo trae en paralelo con el system (arranca antes de armarlo), lo pone al final del system (antes del contexto
+//      atado, que es lo último: tests/mako-analyst-lead), con la plata filtrada por el rol, y no espera al grafo más que un
+//      rato ni se cae si el grafo falla.
 //
 // Probado rompiéndolo (28/10/2026): al pie del archivo.
 // =============================================================================
@@ -67,7 +68,7 @@ test('3. el turno lo trae en paralelo, al final del system, con la plata según 
   // Arranca ANTES de armar el system (en paralelo) y se espera después: los dos a la vez.
   assert.match(t, /const segundoCerebroP = paqueteParaElTurno\(textoPersona \|\| textoMemoria, \{ sinPlata: persona\.rol !== 'admin' \}\);\s*const base = await buildSystemPrompt\([^\n]*\);\s*const segundoCerebro = await segundoCerebroP;/,
     'el Second Brain no viaja en el turno, no va en paralelo o no lleva el filtro del rol');
-  assert.match(t, /const system = `[^\n]*\$\{segundoCerebro \? `\\n\\n\$\{segundoCerebro\}` : ''\}`;/, 'el bloque no va en el system');
+  assert.match(t, /const system = `[^\n]*\$\{segundoCerebro \? `\\n\\n\$\{segundoCerebro\}` : ''\}\$\{ctxAtado \? `\\n\\n\$\{ctxAtado\}` : ''\}`;/, 'el bloque no va en el system, o no va antes del contexto atado');
   const c = fuente('lib/cerebro-para-chat.ts');
   const p = c.slice(c.indexOf('export async function paqueteParaElTurno('), c.indexOf('async function armar('));
   assert.match(p, /Promise\.race\(\[\s*grafoParaChat\(\),\s*new Promise<null>\(\(r\) => setTimeout\(\(\) => r\(null\), ESPERA_GRAFO_TURNO_MS\)\),/, 'el turno espera al grafo sin tope');

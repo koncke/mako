@@ -689,7 +689,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}`;
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
