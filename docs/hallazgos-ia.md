@@ -7121,3 +7121,21 @@ Así el modelo nunca promete ni inventa un número de ticket, y la persona nunca
 **Sin hacer:** la corrida con el MODELO REAL (`scripts/probar-no-existe.mts`): el clasificador de permisos negó leer las claves
 locales («Credential Exploration»), así que la corre quien tenga el permiso. El Dashboard no se tocó: no es un chat donde se
 pidan funciones (arma análisis de los datos).
+
+## «Eso es una distracción total»: MaKo descalificaba lo que le pedían (27/10/2026, claude4, la crítica de Leila)
+
+**Síntoma:** a «¿tenemos registro de cumpleaños de los clientes activos?» MaKo le contestó a Leila «eso es una distracción
+total». La frase no está en el código: sale de la persona (lib/mako-persona.ts: «honestidad radical», «el orden importa más que
+las tácticas»), que se edita desde la app y la guardada le gana al default.
+
+**Lo obvio era el equivocado, dos veces.** Corregir la persona no alcanza (la de cada negocio puede estar guardada), y ponerlo en
+`MAKO_NUCLEO` tampoco: su comentario decía «Núcleo FIJO — reglas duras, no editables» y NO lo es, porque `buildSystemPrompt` lo
+lee con `getPromptText('mako.nucleo', MAKO_NUCLEO)` y un override guardado lo reemplaza entero (el comentario ya lo dice).
+**La regla:** lo que no se puede sacar va como constante del código DESPUÉS de lo editable: `REGLA_NO_DESCALIFICAR`
+(lib/no-existe.ts) en `buildSystemPrompt` (lean y completo: la app, WhatsApp y su red, /api/mako-doer) y en el asesor de
+WhatsApp (lib/whatsapp-advisor.ts). Nunca «distracción», «no importa», «no es prioridad»: primero contesta, si no existe lo dice
+y propone cómo, y lo urgente va después como sugerencia. tests/mako-no-descalifica.test.ts, con la pregunta de cumpleaños.
+
+**Sin hacer:** medirlo con el MODELO REAL: `scripts/probar-no-existe.mts` ya trae la pregunta de cumpleaños con la persona de
+verdad y `descalificaElPedido`, y no se corrió (pide las claves de IA y registra el uso en la base). El campo de cumpleaños
+lo hace CRM/Chats.

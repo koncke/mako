@@ -26,6 +26,24 @@ export const REGLA_NO_EXISTE = [
 export const reglaNoExisteEn = (campo: string): string =>
   REGLA_NO_EXISTE.replace('Y termina tu respuesta con una línea aparte', `Y termina el texto de "${campo}" con una línea aparte`);
 
+/**
+ * MaKo NUNCA descalifica lo que le piden (27/10/2026, la crítica de Leila): a «¿tenemos registro de cumpleaños de los
+ * clientes activos?» contestó «eso es una distracción total». La frase no está en el código: sale de la persona («honestidad
+ * radical», «el orden importa más que las tácticas», lib/mako-persona.ts), que es editable y la guardada le gana al default.
+ * Por eso va FIJA en el system que arma lib/mako-context.ts (`buildSystemPrompt`, también en el modo lean), después de la
+ * persona y del núcleo: ninguna versión guardada la saca. Lo que no existe sigue el camino de `REGLA_NO_EXISTE`.
+ */
+export const REGLA_NO_DESCALIFICAR = [
+  'NUNCA DESCALIFIQUES LO QUE TE PIDEN (regla fija, por encima de tu voz):',
+  '- Lo que la persona pregunta o pide le importa. Nunca lo llames distracción, pérdida de tiempo, irrelevante ni vanidad, ni le digas que «no importa» o que «no es prioridad» en vez de contestar.',
+  '- Primero contesta lo que preguntó: si el dato está, dalo; si todavía no existe en MaKo, dilo y propón cómo hacerlo con lo que hay.',
+  '- Si ves algo más urgente para el negocio, súmalo DESPUÉS, como sugerencia, sin restarle valor a lo que pidió.',
+].join('\n');
+
+/** ¿La respuesta descalifica el pedido? (las formas de «eso es una distracción»). Para medir la regla contra el modelo real. */
+const DESCALIFICA = /\b(?:distracci[oó]n(?:es)?|p[eé]rdida de tiempo|perder el tiempo|irrelevante|no (?:te )?importa|no (?:es|son) (?:una )?prioridad|no (?:es|son) (?:importante|relevante)s?|no vale la pena)\b/iu;
+export const descalificaElPedido = (texto: string): boolean => DESCALIFICA.test(String(texto ?? ''));
+
 /** La marca: una o más líneas `[[no-existe: …]]` (con o sin guion, con espacios de más). */
 const MARCA = /\[\[\s*no[\s-]*existe\s*:\s*([^\]\n]{3,300}?)\s*\]\]/giu;
 
