@@ -122,7 +122,7 @@ async function canalesConectados(): Promise<CanalesConectadosIA> {
  * DUODÉCIMA TANDA (12/10/2026, docs/diseno-duodecima-tanda.md §2.2 y §2.3): el CRON y las condiciones salen de las
  * MISMAS funciones que la pantalla (`opcionesCronIA`, `catalogosDe` + `catalogosRemotos`).
  */
-export async function armarContexto(ws: number, pedido: string): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
+export async function armarContexto(ws: number, pedido: string, o: { textos?: string; anuncio?: boolean } = {}): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
   const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, perfil, voz, conectados, remotos] = await Promise.all([
     listarEtiquetas({ incluirArchivadas: true }),
     productosConEtapas().catch(() => []),
@@ -162,7 +162,9 @@ export async function armarContexto(ws: number, pedido: string): Promise<{ ctx: 
   const disparadores = disparadoresParaIA(opcionesCronIA({
     productos: prods, etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre, archivada_at: e.archivada_at })), conectados,
     // El «clic en un anuncio» sólo si el pedido habla de anuncios (28/10/2026): el techo de Groq.
-    anuncio: PIDE_ANUNCIO.test(pedido),
+    // También si lo nombró en «Otra cosa» (`textos`) o si el CRON guardado ES el del anuncio (`anuncio`, la ruta al explicar o
+    // editar): sin eso «¿Qué hace esta automatización?» no encontraba su CRON y contestaba «no tiene CRON».
+    anuncio: o.anuncio === true || PIDE_ANUNCIO.test(o.textos ? `${pedido}\n${o.textos}` : pedido),
   }));
   // LAS CONDICIONES: el MISMO catálogo que arma el editor (`catalogosDe`), con las etapas y los productos como se los
   // pasa el lienzo (`etapasDeCondicion`).
@@ -434,7 +436,7 @@ function depsReales(ws: number): DepsCrearIA {
     return { pasos: Array.isArray(d.pasos) ? (d.pasos as PasoGrafo[]) : [], nombre: String(d.nombre ?? '') };
   };
   return {
-    contexto: (pedido) => armarContexto(ws, pedido),
+    contexto: (pedido, x) => armarContexto(ws, pedido, x),
     // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
     system: () => getPromptText('chatbot.crear-ia.system', CREAR_IA_SYSTEM_TEMPLATE),
     generar: (p) => generar(p),

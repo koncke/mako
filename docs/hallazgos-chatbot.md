@@ -85,8 +85,16 @@ como «envía un mensaje») y el referral en el mensaje que sigue: arranca con e
 contra 4.000, tests/crear-ia-tercera y editar-ia-cambiar-quitar). El «El usuario » ya lo sacaba `bloqueDisparadores`: no
 había de dónde recortar. La IA lo ve SÓLO si el pedido habla de anuncios (`PIDE_ANUNCIO`), como las reglas de los botones.
 
-**Sin hacer:** nunca se probó con un anuncio de verdad; editar una automatización que ya tiene ese CRON, con un pedido que
-no nombra anuncios, no lo ve en la lista.
+**⚠️ «Sólo si el pedido lo nombra» tenía tres agujeros (la revisión del Cerebro, 28/10):** (1) la pregunta «¿Qué hace la
+persona?» se arma ANTES del modelo y no tenía palabra para el anuncio (`PALABRAS_EVENTO`): preguntaba sin ofrecerlo; (2) lo
+que se contesta en «Otra cosa» no entraba al contexto (se armaba con el pedido de la primera vuelta); (3) «¿Qué hace esta
+automatización?» no nombra anuncios y el rótulo del CRON guardado no se encontraba: «no tiene CRON». Y de rebote Messenger
+perdió «enlace de referencia»: el anuncio, primero de su lista, ocupaba uno de los 3 lugares y después se filtraba. Ahora
+el contexto lo trae también con lo de «Otra cosa» y con el CRON guardado (`armarContexto(ws, pedido, { textos, anuncio })`),
+y la pregunta filtra antes de cortar. **La regla:** un recorte por tokens que depende del pedido tiene que mirar también lo
+que YA está guardado; si no, la IA no ve lo que la automatización es. tests/crear-ia-anuncio.test.ts.
+
+**Sin hacer:** nunca se probó con un anuncio de verdad.
 
 ## Las palabras clave del comentario: el PRIMER CRON se rearma de las columnas y perdía lo nuevo (28/10/2026, ticket #17)
 

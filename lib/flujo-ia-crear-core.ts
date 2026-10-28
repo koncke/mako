@@ -36,7 +36,7 @@ import {
 } from './flujo-ia';
 import { ordenarAvisos, type DetalleCreada } from './flujo-ia-cliente';
 import {
-  preguntaAntes, preguntaDeIA, aplicarRespuestas, sanearRespuestas, turnoDelUsuario, mensajeChat, textoDeCreada,
+  preguntaAntes, preguntaDeIA, aplicarRespuestas, sanearRespuestas, turnoDelUsuario, mensajeChat, textoDeCreada, textosDeRespuestas,
 } from './flujo-ia-preguntas';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from './automatizacion-chat';
 import {
@@ -103,7 +103,7 @@ type Traducido = { r: ResultadoConPregunta; errores: string[] };
 
 export type DepsCrearIA = {
   /** Lo que el negocio tiene configurado (`armarContexto`). */
-  contexto: (pedido: string) => Promise<{ ctx: CtxIA; perfil: string; voz: string | null }>;
+  contexto: (pedido: string, o?: { textos?: string }) => Promise<{ ctx: CtxIA; perfil: string; voz: string | null }>;
   /** El system prompt de crear (editable en /configuraciones). */
   system: () => Promise<string>;
   /** La cascada gratis con sus tres escalones (`generar`). */
@@ -167,7 +167,10 @@ export async function conConteos(p: PreguntaMako, contar?: DepsCrearIA['contar']
  */
 export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<ResultadoCrearIA> {
   const inicio = o.inicio ?? Date.now();
-  const leido = await deps.contexto(o.pedido);
+  // Con lo que escribió en «Otra cosa» (la revisión del Cerebro, 28/10/2026): «cuando hacen clic en mi anuncio» contestado
+  // ahí no traía el anuncio al catálogo, porque el contexto se armaba con el pedido de la primera vuelta.
+  const textos = textosDeRespuestas(sanearRespuestas(o.respuestas ?? []));
+  const leido = await deps.contexto(o.pedido, textos ? { textos } : undefined);
   const { perfil, voz } = leido;
   const leyendo = leyendoDe(leido.ctx, perfil);
   o.alFase?.({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });

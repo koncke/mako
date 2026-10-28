@@ -65,7 +65,7 @@ import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE 
 import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta, lugarInventado } from '@/lib/flujo-ia-intencion';
 import { revisarEdicion, etapaQueNoExiste, textoEtapaQueNoExiste } from '@/lib/flujo-ia-revision-editar';
 import {
-  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
+  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron, textosDeRespuestas,
 } from '@/lib/flujo-ia-preguntas';
 import { sanearChat, type EventoPreguntaIA, type MensajeChatMako, type PreguntaMako } from '@/lib/automatizacion-chat';
 import { leerChat, agregarAlChat } from '@/lib/automatizacion-chat-db';
@@ -277,7 +277,11 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const [leido, disparadorActual] = await Promise.all([armarContexto(ws, pedido), cronGuardado()]);
+        // ⚠️ CON EL CRON DEL ANUNCIO GUARDADO, EL CONTEXTO LO TRAE (la revisión del Cerebro, 28/10/2026): el anuncio entra al
+        // catálogo sólo si el pedido lo nombra (el techo de Groq), y «¿Qué hace esta automatización?» no lo nombra: el rótulo
+        // del CRON no se encontraba y MaKo contestaba «no tiene CRON».
+        const disparadorActual = await cronGuardado();
+        const leido = await armarContexto(ws, pedido, { anuncio: /:anuncio$/.test(disparadorActual ?? ''), textos: textosDeRespuestas(respuestas) });
         const { perfil, voz } = leido;
         const leyendo = leyendoDe(leido.ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
