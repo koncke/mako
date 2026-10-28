@@ -127,7 +127,7 @@ function CodigoEditable({ codigo, onCambio }: { codigo: string; onCambio: (r: { 
         <button type="submit" className="pp-copiar" disabled={guardando || !valor.trim()}>{guardando ? 'Guardando…' : 'Guardar'}</button>
         <button type="button" className="pp-texto" onClick={() => setEditando(false)} disabled={guardando}>Cancelar</button>
       </div>
-      {error ? <p className="pp-error" role="alert">{error}</p> : <p className="pp-nota" style={{ margin: '-4px 0 10px' }}>Tu link y tu código de antes siguen contando para ti.</p>}
+      {error ? <p className="pp-error" role="alert">{error} <ReportarASoporte /></p> :<p className="pp-nota" style={{ margin: '-4px 0 10px' }}>Tu link y tu código de antes siguen contando para ti.</p>}
     </form>
   );
 }

@@ -14,11 +14,10 @@
 --   · Un TRIGGER en `partner_codigos`: ningún código nuevo (el que nace del nombre, `codigoDe`) puede ser el anterior de otro
 --     negocio. Choca con 23505, el mismo error de «ocupado», y `codigoDe` prueba con sufijo como siempre.
 --
--- NO va en lib/tablas-de-inquilino.ts a propósito: el reset del cliente de prueba la recorrería y, sin esta migración, una
--- tabla que no existe le da error. Borrar un negocio se la lleva igual (on delete cascade).
+-- Va en lib/tablas-de-inquilino.ts (vaciar o borrar un negocio se lleva sus códigos viejos), y por eso:
 --
--- ORDEN: da igual. Sin la migración, el código nuevo no ofrece «Cambiar» con éxito (dice «todavía no se puede») y las lecturas
--- de los anteriores dan vacío. Con la migración y el código viejo, nada la usa.
+-- ORDEN: ANTES del deploy. Sin ella, el reset del cliente de prueba y el borrado de un negocio dan error en esta tabla. El resto
+-- del código la tolera: «Cambiar» dice «todavía no se puede» y las lecturas de los anteriores dan vacío.
 -- TODO ADITIVO: una tabla, una función y un trigger nuevos. Seguro de re-ejecutar.
 -- =============================================================================
 
@@ -41,6 +40,8 @@ begin
   end if;
   return new;
 end $$;
+
+revoke execute on function partner_codigo_no_es_de_otro() from public, anon, authenticated;
 
 drop trigger if exists partner_codigos_no_de_otro on partner_codigos;
 create trigger partner_codigos_no_de_otro before insert or update of codigo on partner_codigos

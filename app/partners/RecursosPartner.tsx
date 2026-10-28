@@ -9,6 +9,7 @@
 // Los audios y los videos todavía no existen: no se muestran (docs/hallazgos-partners.md, «Recursos para revender»).
 
 import { useState } from 'react';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { archivoDelPdf, mensajesParaCopiar, pdfDeVenta, type PdfDeVenta } from '@/lib/partners-recursos';
 
 export const CSS_RECURSOS = `
@@ -151,7 +152,7 @@ function BotonPdf({ link, codigo, nombreNegocio }: Props) {
   return (
     <>
       <button type="button" className="pr-pdf" onClick={bajar} disabled={armando}>{armando ? 'Armando…' : 'Descargar el PDF de venta'}</button>
-      {error && <p className="pr-error" role="alert">{error}</p>}
+      {error && <p className="pr-error" role="alert">{error} <ReportarASoporte /></p>}
     </>
   );
 }
