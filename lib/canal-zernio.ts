@@ -29,9 +29,9 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enviarDm, responderComentario, esLimiteDeMeta, estadosDeSeguimiento, ZernioError } from './zernio';
+import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoDelComentario, esLimiteDeMeta, estadosDeSeguimiento, ZernioError } from './zernio';
 import {
-  decidirSalida, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
+  decidirSalida, decidirRespuestaPublica, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
   conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento, canalDePlataforma, TOPE_TEXTO_SOCIAL,
   filasDeCharlaSocial, TOPE_CHARLA_SOCIAL,
   type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial, type EntranteSocial, type SalienteSocial,
@@ -191,6 +191,11 @@ export async function enviarPasoSocial(input: {
    * `payload` de cada uno. Van en la burbuja del ÚLTIMO texto: Meta los dibuja debajo de ese texto.
    */
   botones?: { lista: readonly BotonSocial[]; inscripcionId: number; nodoId: string };
+  /**
+   * La tarjeta RESPONDE EN PÚBLICO el comentario (`en_comentario`, ticket #17 de Leandro, 28/10/2026): su texto sale debajo
+   * del comentario que la persona dejó, no por DM (`decidirRespuestaPublica`, lib/canal-social.ts). Sólo texto y sin botones.
+   */
+  enComentario?: boolean;
 }): Promise<ResultadoSocial> {
   const { ws, leadId, canal, partes, vars, idempotencia } = input;
   const botones = input.botones?.lista.length ? aBotonesZernio(input.botones.lista, input.botones.inscripcionId, input.botones.nodoId) : [];
@@ -202,15 +207,30 @@ export async function enviarPasoSocial(input: {
   const destino = fila ? (fila.username ? `@${fila.username}` : fila.igsid) : null;
   // Con la cuenta de la tarjeta y sin conversación con ESA cuenta: el motivo nombra la cuenta elegida (no cae a otra).
   if (fila === null && cuenta) return { ok: false, salieron: desde, textos: [], destino: null, error: `el lead no le escribió a la cuenta de ${nombre} elegida en la tarjeta`, terminal: true, backoffHoras: 24 };
+
+  // ── La respuesta PÚBLICA al comentario (ticket #17): UNA, sólo texto, sin ventana y sin gastar la privada ──
+  if (input.enComentario) {
+    const pub = decidirRespuestaPublica(fila ? conversacionDeFila(fila) : null, canal);
+    if (pub.via === null) return { ok: false, salieron: 0, textos: [], destino, error: pub.motivo, terminal: true, backoffHoras: 24 };
+    const texto = textoDeLasPartes(partes, vars);
+    if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'una respuesta en el comentario es de texto, y este mensaje no tiene', terminal: true, backoffHoras: 24 };
+    const dejaAfuera = partes.some((p) => p.tipo !== 'texto') || botones.length > 0;
+    try {
+      await responderComentarioEnPublico(ws, { accountId: pub.cuentaId, postId: pub.postId, commentId: pub.comentarioId, texto, idempotencyKey: `${idempotencia}#publica` });
+      return { ok: true, salieron: partes.length, textos: [texto], destino, ...(dejaAfuera ? { nota: 'respuesta en el comentario: sólo el texto' } : {}) };
+    } catch (e) {
+      if (esRechazoDelComentario(e) || esLimiteDeMeta(e)) return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, terminal: true };
+      return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
+    }
+  }
+
   const salida = decidirSalida(fila ? conversacionDeFila(fila) : null, Date.now(), canal);
   if (salida.via === null) return { ok: false, salieron: desde, textos: [], destino, error: salida.motivo, terminal: salida.terminal, backoffHoras: 24 };
   if (!partes.length) return { ok: false, salieron: 0, textos: [], destino, error: 'el mensaje está vacío', backoffHoras: 24 };
 
   // ── La respuesta privada a un comentario: UNA, sólo texto ──
   if (salida.via === 'respuesta_privada') {
-    const textos = partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo?.trim() ? [p.cuerpo] : []))
-      .map((t) => aplicarVariables(t, vars).trim()).filter(Boolean);
-    const texto = textos.join('\n\n');
+    const texto = textoDeLasPartes(partes, vars);
     if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'a un comentario se le contesta con texto, y este mensaje no tiene', backoffHoras: 24 };
     const dejaAfuera = partes.some((p) => p.tipo !== 'texto');
     // Los botones de la tarjeta, salvo en una cuenta que ya los rechazó: ahí la línea «Escríbeme «…»», y escribir el
@@ -272,6 +292,12 @@ export async function enviarPasoSocial(input: {
     }
   }
   return { ok: true, salieron, textos, destino, ...(conBotones ? { botones: 'botones' as const } : botones.length ? { nota: 'los botones no salieron: el mensaje termina en un archivo' } : {}) };
+}
+
+/** El TEXTO de un mensaje que sale de una vez (la respuesta a un comentario): sus textos y los pies de sus archivos. */
+function textoDeLasPartes(partes: readonly ParteMensaje[], vars: Record<string, string>): string {
+  return partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo?.trim() ? [p.cuerpo] : []))
+    .map((t) => aplicarVariables(t, vars).trim()).filter(Boolean).join('\n\n');
 }
 
 /** La respuesta privada se usó (o Meta la dio por gastada): no se vuelve a intentar con ese comentario. */

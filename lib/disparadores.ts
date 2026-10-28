@@ -941,6 +941,21 @@ export function tieneRecurrenteAlGrupo(sec: SecuenciaConDisparo): boolean {
   return vistasPorDisparador(sec).some((v) => v.cron != null && v.disparador.grupo === true);
 }
 
+/**
+ * LOS CANALES EN LOS QUE LA AUTOMATIZACIÓN ARRANCA CON UN COMENTARIO a una publicación (ticket #17 de Leandro,
+ * 28/10/2026): ahí el editor del mensaje ofrece «Responder en público, debajo del comentario». El En vivo no: la
+ * respuesta pública es a una publicación o un Reel.
+ */
+export function canalesConComentario(lista: readonly Pick<Disparador, 'trigger_tipo' | 'subtipo'>[]): Array<'instagram' | 'messenger'> {
+  const out = new Set<'instagram' | 'messenger'>();
+  for (const d of lista) {
+    if (d.subtipo !== 'comentario') continue;
+    if (d.trigger_tipo === TRIGGER_INSTAGRAM) out.add('instagram');
+    else if (d.trigger_tipo === TRIGGER_MESSENGER) out.add('messenger');
+  }
+  return [...out];
+}
+
 // ── El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────────
 
 /** El valor de «El grupo de MaKo» en el desplegable de «A quién». */

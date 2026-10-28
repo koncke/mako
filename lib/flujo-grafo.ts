@@ -192,6 +192,8 @@ import type { ParteMensaje } from './mensaje-partes';
 // La LIBERTAD de un escenario del AI Step (undécima tanda). Puro: de acá importa sólo tipos (sin ciclo en runtime).
 import { contestaElCaso, avisaElCaso, libertadDeCaso, libertadesPermitidas, conLibertad } from './ai-step-libertad';
 import { botonDePuerto, botonesDe, botonesDeFlujo, problemasDeBotones, puertoDeBoton, PREFIJO_PUERTO_BOTON, type BotonSocial } from './botones-social';
+// La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): un dato del mensaje, como los botones. Puro.
+import { respondeEnComentario, problemasDeRespuestaPublica } from './canal-social';
 // `contestaElCaso` vivía acá: se re-exporta para los que ya la importaban de este módulo.
 export { contestaElCaso };
 
@@ -483,6 +485,12 @@ export type PasoGrafo = {
    * `siguiente`. Uno con `url` abre la página. Ausente = el mensaje de siempre.
    */
   botones?: BotonSocial[];
+  /**
+   * Sólo un mensaje de Instagram o Messenger (ticket #17 de Leandro, 28/10/2026, `respondeEnComentario` en
+   * lib/canal-social.ts): true = su texto se publica DEBAJO del comentario que disparó el flujo, a la vista de todos, y no
+   * por DM. Ausente = un DM, lo de siempre.
+   */
+  en_comentario?: boolean;
   // ── Lo de siempre, que el conversor y el motor leen ──
   orden?: number;
   canal?: string;
@@ -1102,6 +1110,9 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     } else {
       delete out.botones;
     }
+    // La respuesta en el comentario (ticket #17): sólo `true`, y sólo en un mensaje de Instagram o Messenger.
+    if (c === 'mensaje' && respondeEnComentario(p)) out.en_comentario = true;
+    else delete out.en_comentario;
     // «Si contesta» por camino del CRON (14/10/2026, a la mañana) se fue esa misma tarde: lo dice la CONDITION «No
     // contestó desde que entró» (`contesto`, lib/condiciones-catalogo.ts). La clave vieja se borra al normalizar.
     delete (out as Record<string, unknown>).si_contesta;
@@ -1280,6 +1291,7 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
     else if (publicar && c === 'respuesta') for (const x of p.casos ?? []) if (!x.titulo?.trim() || !x.cuando?.trim()) err.push('un caso de «Si responde» no tiene nombre o descripción');
     // Los BOTONES (24/10/2026): sólo Instagram y Messenger, hasta 3, cada uno con a dónde lleva, debajo de un texto de hasta 640.
     if (publicar && c === 'mensaje') err.push(...problemasDeBotones(p, textoFinalDe(p), `la tarjeta ${ids[i]}`));
+    if (publicar && c === 'mensaje') err.push(...problemasDeRespuestaPublica(p, `la tarjeta ${ids[i]}`));
     if (publicar && c === 'esperar') {
       const m = Number(p.espera?.minutos);
       if (!p.espera || !(m > 0)) err.push(`la espera ${ids[i]} no dice cuánto`);

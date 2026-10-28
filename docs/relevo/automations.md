@@ -4,7 +4,16 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 27/10/2026 tarde, cuenta 5 (claude5, «Ananda»), rama `aut-2510`: la tanda de 12 del Cerebro
+## LO ÚLTIMO: 28/10/2026, cuenta 4 (claude4), en la PC, rama `aut-2510` (con main mezclado)
+
+- **Ticket #17 de Leandro (el #12 es el mismo texto): responder EN PÚBLICO el comentario.** `en_comentario: true` en el
+  mensaje de Instagram o Messenger; el interruptor se ofrece con un CRON de comentario; la IA del lienzo y la API
+  (`cambiar_botones_mensaje`) lo prenden y apagan. Hito con `tickets: [17]`. Sin probar con un comentario de verdad. Cosecha
+  en docs/hallazgos-chatbot.md.
+- Sigue, en este orden: Leila 2 (incluir a los que ya están en la etapa), Leila 1 (el `?ws=`, ya en el commit WIP 922af2d5d)
+  y Mauricio (MAU-07 y MAU-08). El relevo de la nube (docs/relevo/automations-nube-2710.md) tiene el detalle.
+
+## 27/10/2026 tarde, cuenta 5 (claude5, «Ananda»), rama `aut-2510`: la tanda de 12 del Cerebro
 
 La tanda salió de las llamadas 874749710 (Leandro), 876470842 (Leila) y 876825880 (Aaron), del grupo Makito y de la
 Ticketera. Hechos, con test y probados rompiéndolos (la cosecha, en docs/hallazgos-chatbot.md, -ia, -comunicacion y -ui):
@@ -27,7 +36,7 @@ Ticketera. Hechos, con test y probados rompiéndolos (la cosecha, en docs/hallaz
 
 - **Ticket #12 de Leandro, los espacios en el nombre de un botón:** era el `trim` del saneo en cada tecla
   (`botonesDe(…, { comoSeEscribe: true })` en el editor). La otra mitad, responder en público el comentario, va aparte:
-  Zernio la tiene (`POST /v1/inbox/comments/{postId}` con `commentId`). El hito con `tickets: [12, 11]` sale cuando estén las dos.
+  Zernio la tiene (`POST /v1/inbox/comments/{postId}` con `commentId`). Hecha el 28/10 (ticket #17, arriba).
 - **MAU-33:** una cuenta de anuncios frenada varios días avisa una vez por día (56be0692d).
 
 **Medido, sin escribir (lo decide el Cerebro):**

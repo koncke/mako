@@ -24,6 +24,7 @@ import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPas
 import { detenerPruebaDeLaTarjeta, empezarPruebaDeLaTarjeta, estadoDeLaTarjeta } from '@/lib/pruebas/automatizacion';
 import { tarjetaABDe } from '@/lib/pruebas/tarjeta-ab';
 import { botonesDe } from '@/lib/botones-social';
+import { respondeEnComentario } from '@/lib/canal-social';
 import { botonesParaGuardar, textoParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
@@ -365,6 +366,8 @@ export const RUNNERS: Runners = {
           revisar: p.revisar ?? null, siguiente: siguienteDe(pasos, i),
           // LOS BOTONES de un DM (25/10/2026): «sigue» es la tarjeta a la que lleva el toque, por el puerto «btn:<id>».
           ...(botonesDe(p).length ? { botones: botonesDe(p).map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, puerto: `btn:${b.id}`, sigue: b.siguiente ?? null })) } : {}),
+          // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): se cambia con cambiar_botones_mensaje.
+          ...(respondeEnComentario(p) ? { en_comentario: true } : {}),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
@@ -1363,8 +1366,10 @@ export const RUNNERS: Runners = {
       // Sin «botones», se quedan los que hay ([] los saca); sin «texto», el texto (25/10: el texto de un DM, por la API).
       const lista = Array.isArray(input.botones) ? (input.botones as BotonPedido[]) : null;
       const nuevoTexto = typeof input.texto === 'string' ? input.texto : undefined;
-      if (!lista && nuevoTexto === undefined) return { error: 'Pasa los botones ([] los saca), el texto o los dos.', faltan: ['botones'] };
-      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto);
+      // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): true la prende, false la apaga.
+      const enComentario = typeof input.en_comentario === 'boolean' ? input.en_comentario : undefined;
+      if (!lista && nuevoTexto === undefined && enComentario === undefined) return { error: 'Pasa los botones ([] los saca), el texto o «en_comentario».', faltan: ['botones'] };
+      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto, enComentario);
       if (!r.ok) return { error: r.error };
       return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
     },

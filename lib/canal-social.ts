@@ -101,6 +101,59 @@ export function decidirSalida(c: ConversacionSocial | null, ahoraMs: number, can
   return { via: null, motivo: `el lead no le escribió a la cuenta de ${nombre}`, terminal: true };
 }
 
+/**
+ * LA RESPUESTA PÚBLICA AL COMENTARIO (ticket #17 de Leandro, 28/10/2026: «no hay forma de responder EN PÚBLICO el
+ * comentario»). Una tarjeta con `en_comentario: true` no manda un DM: publica su texto como respuesta debajo del
+ * comentario que la persona dejó (POST /v1/inbox/comments/{postId} con `commentId`, lib/zernio.ts). Pura y con test.
+ *
+ *   · NO depende de la ventana de 24 h ni de los 7 días: es un comentario, no un mensaje privado.
+ *   · NO GASTA la respuesta privada (Meta deja UNA por comentario): `comentarioRespondidoAt` no se mira ni se marca, así
+ *     el DM de la tarjeta siguiente sale igual.
+ *   · Sin un comentario guardado (la persona escribió por DM, no comentó), no sale y es terminal.
+ */
+export type SalidaPublica =
+  | { via: 'publica'; comentarioId: string; postId: string; cuentaId: string }
+  | { via: null; motivo: string; terminal: true };
+
+export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: CanalSocial = 'instagram'): SalidaPublica {
+  const nombre = NOMBRE_CANAL[canal];
+  if (!c) return { via: null, motivo: `el lead no tiene una conversación por ${nombre}`, terminal: true };
+  const cuenta = (c.cuentaId ?? '').trim();
+  if (!cuenta) return { via: null, motivo: `no sé desde qué cuenta de ${nombre} contestar`, terminal: true };
+  const coment = (c.comentarioId ?? '').trim();
+  const post = (c.comentarioPostId ?? '').trim();
+  if (!coment || !post) return { via: null, motivo: `el lead no comentó una publicación: no hay comentario que responder en ${nombre}`, terminal: true };
+  return { via: 'publica', comentarioId: coment, postId: post, cuentaId: cuenta };
+}
+
+/**
+ * ¿ESTA TARJETA RESPONDE EN PÚBLICO EL COMENTARIO? Un dato DENTRO del paso de mensaje (AGENTS.md: «si la capacidad sigue
+ * siendo "este nodo manda un mensaje", es un dato adentro del paso»): `en_comentario: true` en un mensaje de Instagram o
+ * Messenger. Ausente = un DM, lo de siempre; en otro canal no significa nada.
+ */
+export function respondeEnComentario(p: unknown): boolean {
+  if (!p || typeof p !== 'object') return false;
+  const o = p as { canal?: unknown; en_comentario?: unknown };
+  return esCanalSocial(o.canal) && o.en_comentario === true;
+}
+
+/**
+ * Lo que frena PUBLICAR en una tarjeta que responde en el comentario: un comentario no lleva botones (Zernio no los
+ * recibe en esa respuesta) y es sólo texto. `nombre`: «la tarjeta m3».
+ */
+export function problemasDeRespuestaPublica(p: unknown, nombre: string): string[] {
+  if (!respondeEnComentario(p)) return [];
+  const o = p as { botones?: unknown; partes?: unknown; cuerpo?: unknown; tipo?: unknown };
+  const err: string[] = [];
+  if (Array.isArray(o.botones) && o.botones.length) err.push(`${nombre}: una respuesta en el comentario no lleva botones`);
+  const partes = Array.isArray(o.partes) && o.partes.length ? (o.partes as Array<{ tipo?: unknown; cuerpo?: unknown }>) : null;
+  const hayTexto = partes
+    ? partes.some((x) => (x.tipo === 'texto' || x.tipo === 'media') && typeof x.cuerpo === 'string' && x.cuerpo.trim() !== '')
+    : o.tipo !== 'audio' && typeof o.cuerpo === 'string' && o.cuerpo.trim() !== '';
+  if (!hayTexto) err.push(`${nombre}: una respuesta en el comentario es de texto, y no tiene`);
+  return err;
+}
+
 /** Hasta cuándo se le puede escribir después de un mensaje suyo que llegó en `iso`. */
 export const ventanaDesde = (iso: string): string => new Date(ms(iso) + VENTANA_META_MS).toISOString();
 

@@ -3005,4 +3005,24 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "28 oct", hora: "10:30", chat: "Automations", cuenta: "claude4",
+    sesion: "local_ea2a6e6a-dd40-48a7-96c3-25bcbf003e41",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Instagram: responder en público el comentario",
+    puntos: [
+      "En una automatización que arranca cuando alguien comenta, el mensaje de Instagram tiene «Responder en público, debajo del comentario».",
+      "Prendido, ese texto sale como respuesta al comentario, a la vista de todos. El mensaje privado de después sale igual.",
+      "Va sólo texto, sin botones.",
+      "MaKo también lo sabe hacer: «respondé en público el comentario y mandale el recurso por privado».",
+    ],
+    archivos: [
+      "lib/canal-social.ts — cuándo sale la respuesta pública",
+      "lib/canal-zernio.ts y lib/zernio.ts — el envío por Zernio",
+      "app/automations/EditorMensajeSocial.tsx — el interruptor",
+      "tests/instagram-respuesta-publica.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+    tickets: [17],
+  },
 ];

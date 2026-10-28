@@ -139,7 +139,7 @@ import {
 // Y desde TikTok fase 0 (14/10/2026), el AI Step contesta por Instagram y Messenger: la charla de ese canal
 // (`charlaSocialDelLead`) y la respuesta por Zernio (`enviarPasoSocial`), en `asistirRespuesta` con su medio.
 import {
-  esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, NOMBRE_CANAL, TOPE_TEXTO_SOCIAL,
+  esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, respondeEnComentario, NOMBRE_CANAL, TOPE_TEXTO_SOCIAL,
   type CanalSocial, type ConversacionesPorLead,
 } from '@/lib/canal-social';
 import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram, charlaSocialDelLead } from '@/lib/canal-zernio';
@@ -297,6 +297,8 @@ export type PasoSecuencia = {
    * `enviarPasoSocial` y, si alguno sigue el flujo, el mensaje espera el toque (`esperaToque`, `tocarBoton`).
    */
   botones?: PasoGrafo['botones'];
+  /** La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): la guarda `camposDelFlujo`, la manda `enviarPasoSocial`. */
+  en_comentario?: PasoGrafo['en_comentario'];
   /** Las ramas de la tarjeta «A/B TEST» (tanda A3 de las pruebas A/B): las guarda `camposDelFlujo`, las sigue `resolverControl`. */
   ramas_ab?: PasoGrafo['ramas_ab'];
 };
@@ -5223,6 +5225,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
             // Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts): el `payload` de cada uno lleva ESTA inscripción y ESTA
             // tarjeta, y el toque vuelve por el webhook (`tocarBoton`).
             ...(botonesDe(paso).length ? { botones: { lista: botonesDe(paso), inscripcionId: insc.id, nodoId: idDe(paso, insc.paso_actual) } } : {}),
+            // La respuesta PÚBLICA al comentario (ticket #17): debajo del comentario, no por DM.
+            ...(respondeEnComentario(paso) ? { enComentario: true } : {}),
           });
           partesSalidas = r.salieron;
           destinoSocial = r.destino;
@@ -6815,6 +6819,7 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
       idempotencia: `si-responde:${inscId ?? `lead${leadId}`}:${idDe(p, i)}:${c.respondeA ?? Date.now()}`,
       // La cuenta que eligió la tarjeta; si no eligió, la que recibió el mensaje.
       cuenta: cuentaDelPaso(p) ?? c.social.cuenta,
+      ...(respondeEnComentario(p) ? { enComentario: true } : {}),
     });
     await anotar(r.ok ? 'enviado' : 'fallo', r.destino, r.ok ? (r.nota ?? null) : (r.error ?? 'no salió'), r.textos.join('\n\n') || null);
     return r.ok ? si(`Le contesté por ${nombre}: «${textoPartes.slice(0, 120)}».`) : no(`No salió la respuesta por ${nombre} (${(r.error ?? '').slice(0, 120)}).`);

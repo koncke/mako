@@ -51,20 +51,21 @@ const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
  * cuelga de «btn:<id>» de uno que se quedó sigue colgado). `lista` null deja los botones como están; `texto`, si viene,
  * es el texto nuevo del mensaje.
  */
-export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string, lista: readonly BotonPedido[] | null, nombre: string, texto?: string):
+export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string, lista: readonly BotonPedido[] | null, nombre: string, texto?: string, enComentario?: boolean):
   { ok: true; pasos: PasoGrafo[]; botones: BotonSocial[]; resumen: string } | { ok: false; error: string } {
   const i = pasos.findIndex((p, k) => idDe(p, k) === tarjeta);
   if (i < 0) return { ok: false, error: `«${nombre}» no tiene una tarjeta «${tarjeta}». Pide los ids con ficha_secuencia_mensajes.` };
   const p = pasos[i];
   if (claseDe(p) !== 'mensaje' || !esCanalSocial(p.canal)) return { ok: false, error: 'Por aquí se cambia un mensaje de Instagram o Messenger: esa tarjeta no lo es.' };
   const cuerpo = texto?.trim();
-  if (lista == null && texto === undefined) return { ok: false, error: 'Pasa los botones, el texto o los dos.' };
+  if (lista == null && texto === undefined && enComentario === undefined) return { ok: false, error: 'Pasa los botones, el texto o «en_comentario».' };
   if (texto !== undefined && !cuerpo) return { ok: false, error: 'El texto del mensaje no puede quedar vacío.' };
   if (cuerpo && partesExplicitas(p)) return { ok: false, error: `El mensaje ${tarjeta} son varios mensajes seguidos: su texto se edita en el lienzo de Automations.` };
   if (lista == null) {
     const botones = botonesDe(p);
-    const c = conCuerpo(p, cuerpo!);
-    return conTexto(pasos, i, c.paso, botones, `Texto del mensaje ${tarjeta} de «${nombre}»: «${corto(cuerpo!)}»${yVariantes(c.sueltas)}`);
+    const c = cuerpo ? conCuerpo(p, cuerpo) : { paso: p, sueltas: 0 };
+    const que = cuerpo ? `Texto del mensaje ${tarjeta} de «${nombre}»: «${corto(cuerpo)}»${yVariantes(c.sueltas)}` : `Mensaje ${tarjeta} de «${nombre}»`;
+    return conTexto(pasos, i, conComentario(c.paso, enComentario), botones, `${que}${yComentario(enComentario)}`);
   }
   if (lista.length > TOPE_BOTONES) return { ok: false, error: `Instagram muestra hasta ${TOPE_BOTONES} botones.` };
   const ids = new Set(pasos.map((q, k) => idDe(q, k)));
@@ -98,9 +99,22 @@ export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string,
     ? botones.map((b) => (b.url ? `«${b.titulo}» abre ${b.url}` : `«${b.titulo}» sigue en ${b.siguiente}`)).join(' · ')
     : 'sin botones';
   const c = cuerpo ? conCuerpo(paso, cuerpo) : { paso, sueltas: 0 };
-  return conTexto(pasos, i, c.paso, botones,
-    `${cuerpo ? `Texto («${corto(cuerpo)}») y botones` : 'Botones'} del mensaje ${tarjeta} de «${nombre}»: ${que}${yVariantes(c.sueltas)}`);
+  return conTexto(pasos, i, conComentario(c.paso, enComentario), botones,
+    `${cuerpo ? `Texto («${corto(cuerpo)}») y botones` : 'Botones'} del mensaje ${tarjeta} de «${nombre}»: ${que}${yVariantes(c.sueltas)}${yComentario(enComentario)}`);
 }
+
+/**
+ * LA RESPUESTA PÚBLICA AL COMENTARIO (ticket #17 de Leandro, 28/10/2026): true la prende, false la apaga, undefined la deja
+ * como está. Que no lleve botones y tenga texto lo frena `validarGrafo` (`problemasDeRespuestaPublica`), como en Publicar.
+ */
+function conComentario(p: PasoGrafo, enComentario: boolean | undefined): PasoGrafo {
+  if (enComentario === undefined) return p;
+  const { en_comentario: _antes, ...resto } = p;
+  void _antes;
+  return (enComentario ? { ...resto, en_comentario: true } : resto) as PasoGrafo;
+}
+const yComentario = (v: boolean | undefined): string =>
+  (v === true ? ' · responde en público, debajo del comentario' : v === false ? ' · va por mensaje privado' : '');
 
 /**
  * Los pasos con el texto (y/o el asunto, en un email) nuevo de UN mensaje de WhatsApp o email, o el error en palabras. Para

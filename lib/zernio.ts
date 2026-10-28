@@ -380,6 +380,26 @@ export async function responderComentario(ws: number, input: { accountId: string
   return { messageId: r.messageId ?? null };
 }
 
+/**
+ * LA RESPUESTA PÚBLICA a un comentario (ticket #17 de Leandro, 28/10/2026): POST /v1/inbox/comments/{postId} con
+ * `commentId`, medido en la OpenAPI de Zernio v1.394.0 (zernio.com/openapi.json, 28/10/2026). Sale DEBAJO del comentario,
+ * a la vista de todos; no gasta la respuesta privada ni mira la ventana de 24 h. Sólo texto (`attachmentUrl` es sólo de
+ * Facebook). 403 = falta el add-on Inbox o la cuenta no puede comentar ese post; 422 = Meta lo rechazó (post cerrado,
+ * comentario borrado) o la clave se reusó con otro texto. Las dos son terminales (`esRechazoDelComentario`).
+ */
+export async function responderComentarioEnPublico(ws: number, input: { accountId: string; postId: string; commentId: string; texto: string; idempotencyKey?: string }): Promise<{ commentId: string | null }> {
+  const c = await cfg(ws);
+  const r = await zFetch<{ data?: { commentId?: string }; commentId?: string }>(c.apiKey, `/inbox/comments/${encodeURIComponent(input.postId)}`, {
+    method: 'POST',
+    headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey.slice(0, 255) } : {},
+    body: JSON.stringify({ accountId: input.accountId, message: input.texto, commentId: input.commentId }),
+  });
+  return { commentId: r.data?.commentId ?? r.commentId ?? null };
+}
+
+/** ¿Zernio dijo que esa respuesta pública no va a salir nunca? (403: sin add-on o sin permiso; 422: Meta la rechazó.) */
+export const esRechazoDelComentario = (e: unknown): boolean => e instanceof ZernioError && (e.status === 403 || e.status === 422);
+
 // ── «¿Te sigue?» (duodécima tanda) ─────────────────────────────────────────────
 
 /** Cuánto se espera UN «¿te sigue?»: corre adentro del motor, por lead que escribió. */

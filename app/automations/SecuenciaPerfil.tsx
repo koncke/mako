@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
+import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, canalesConComentario, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
@@ -1037,6 +1037,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const textoDisparo = textosCron.texto(crons.primero);
   /** Las filas de la tarjeta CRON (las dibuja FlujoLienzo, parte «lienzo»): una por CRON, con su ícono. */
   const filasCron = crons.lista.map((d) => ({ id: d.id, texto: textosCron.texto(d), icono: iconoDeDisparador(d) }));
+  const comentarioEn = useMemo(() => canalesConComentario(crons.lista), [crons.lista]);
   // Cerrar el panel olvida qué CRON estaba abierto: el próximo clic en la tarjeta abre el primero.
   useEffect(() => { if (!tarjetaAbierta) setCronAbierto(null); }, [tarjetaAbierta]);
   /**
@@ -1425,6 +1426,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           </div>
         )}
         disparadores={filasCron}
+        // Ticket #17 (28/10/2026): con un CRON de comentario, el mensaje de ese canal ofrece responder en público.
+        comentarioEn={comentarioEn}
         // Un CRON del EMISOR (el recordatorio, un evento de MaKo) va SOLO: sin «＋ Nuevo CRON» en la tarjeta (11/10/2026).
         onNuevoDisparador={rolAdmin && !esDelEmisor(crons.primero) ? () => setCronAbierto('nuevo') : undefined}
         onAbrirDisparador={(id) => setCronAbierto(id)}

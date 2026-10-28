@@ -27,6 +27,34 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Responder EN PÚBLICO un comentario no es otra «vía» del DM: se decide aparte y antes (28/10/2026, ticket #17 de Leandro)
+
+**El síntoma** (Leandro, Fiesta Music, ws10; el #12 es el mismo texto): con el disparador «El usuario comenta tu publicación
+o Reel», el nodo de Instagram sólo mandaba la respuesta privada. No había forma de contestar debajo del comentario.
+
+**Lo obvio era el equivocado:** sumar una tercera `via` a `decidirSalida` (lib/canal-social.ts). Esa función decide un
+MENSAJE PRIVADO: mira la ventana de 24 h, los 7 días del comentario y si la respuesta privada ya se usó
+(`comentarioRespondidoAt`). Nada de eso rige para un comentario público, y metida ahí la pública habría heredado esos
+frenos o gastado la privada (Meta deja UNA por comentario: el DM que sigue no salía). Vive en `decidirRespuestaPublica`,
+y `enviarPasoSocial` (lib/canal-zernio.ts) la corre ANTES de `decidirSalida`, sin marcar `comentario_respondido_at`.
+
+**Zernio** (OpenAPI v1.394.0, medido el 28/10): `POST /v1/inbox/comments/{postId}` con `accountId`, `message` y
+`commentId` (sin `commentId` comenta el post, no responde). Sólo texto (`attachmentUrl` es sólo de Facebook). 403 = falta el
+add-on Inbox **o** la cuenta no puede comentar ese post; 422 = Meta lo rechazó (post cerrado, comentario borrado) **o** la
+`Idempotency-Key` se reusó con otro texto. Las dos son terminales (`esRechazoDelComentario`).
+
+**El dato** (la regla de AGENTS.md: un campo del nodo es UNA rama): `en_comentario: true` dentro del mensaje de Instagram o
+Messenger; ausente = un DM. Pasa por las mismas puertas que `botones`: `normalizar`, `camposDelFlujo` (sin esa línea el
+primer guardado lo borraba), Publicar (`problemasDeRespuestaPublica`: sin botones y con texto), la IA de crear y de editar
+(la regla al modelo va SÓLO si el pedido dice «público» o «responder el comentario»: el techo de Groq) y la API
+(`cambiar_botones_mensaje` con `en_comentario`). La pantalla ofrece el interruptor sólo con un CRON de comentario
+(`canalesConComentario`, lib/disparadores.ts). tests/instagram-respuesta-publica.test.ts, 11 roturas en rojo.
+
+**Sin hacer:**
+- no se probó con un comentario de verdad (es mandar en producción a la cuenta de Leandro);
+- la tarjeta del lienzo no dice «en el comentario» (el alto de la tarjeta es fijo: `altoDeMensaje`); se ve al abrirla;
+- «Probar» no la simula aparte: la muestra como un DM.
+
 ## El nombre de un botón perdía los espacios: no era la barra espaciadora, era el saneo en cada tecla (27/10/2026)
 
 Ticket #12 de Leandro (ws10): «Obtener recurso» quedaba «Obtenerrecurso» al tipear, y pegando sí andaba. **El obvio («el
