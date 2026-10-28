@@ -163,8 +163,14 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     423, no 4235», capturar dudosa) quedaba en el camino barato sin herramientas. La duda se saca, porque el detector ya pide
     plata a la vista, y la plata puede estar en lo de antes (la foto, la respuesta de MaKo). En ese caso las cifras tienen
     que ser de 3 dígitos o más y no un año, y el mensaje tiene que ser la corrección y nada más (`SOLO_LA_CORRECCION`: «son
-    120 no 150 leads» o «el código postal es 3300 no 3301» hablan de otra cosa). Con la plata en el mensaje, un 2000 es un
-    monto, salvo que se lo nombre como año («de 2026», «el año»).
+    120 no 150 leads» o «el código postal es 3300 no 3301» hablan de otra cosa).
+  · ⚠️ **La lista de lo que rodea la cifra tiene que traer cómo se PIDE corregir** (la verificación de 8cb034a18): sin
+    «corregilo», «por favor», «debería ser» ni «la de Nadia», «son 423, no 4235 por favor» volvía a capturar dudosa sin
+    `editar_cuota`. Ahora `SOLO_LA_CORRECCION` los admite (y los emojis), y en un lote mira renglón por renglón («ahí está» +
+    «son 423, no 4235»).
+  · ⚠️ **Por la palabra no se sabe si es un año**: «una cuota de 2000» lleva el mismo «de» que «vence en 2026», y mirar el
+    «de» (8cb034a18) volvía año a «la cuota es de 2000 no 1500». Ahora dos cifras son años sólo si las DOS están a ±5 del año
+    en curso (`sonAnios`), con la plata en el mensaje o antes. Las pruebas fijan la fecha (`corrigeUnMonto(t, antes, HOY)`).
   · Y cuando la corrección pasa a ACTUAR, no trae el plan ni lo que confirma o cancela lo pendiente (`sinEstas`):
     `cancelar_accion` actúa sin tarjeta.
 - **«He hecho», «he abierto» y «he escrito» dependen de QUÉ** (la revisión de 36e06b35f y sus dos verificaciones). Leer:
@@ -174,6 +180,12 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     a la foto de Leila. Ahora son dos listas, con plurales y artículos: lo que se HACE para leer (búsquedas, cuentas,
     cálculos, chequeos) y lo que se ABRE para leer (imagen, archivo, PDF, chat, panel, reporte, campañas, Google Calendar).
     «te/le abrí» nunca es leer; «te/le hice» sí.
+  · ⚠️ **Un reporte, una campaña, un chat o una planilla también se CREAN** (la verificación de 8cb034a18): sumarlos a lo que
+    se abre para leer perdonó «He abierto un reporte del error para el equipo», la misma mentira de Leila. Lo que distingue
+    es el determinante, no el sustantivo: con «un/una», «nuevo» o «para el equipo» (`LO_CREADO`) es escribir. Lo que MaKo
+    «dejó abierto» o «ya quedó abierto» nunca es lo que leyó. Y lo hecho PARA OTRO tampoco (`A_UN_TERCERO`): «Les hice un
+    resumen a todos por mail», «Le hice una consulta al equipo de soporte». «He hecho la verificación de tu número» es
+    escribir: «verificación» salió de la lista.
 - ⚠️ **El lote se decide MENSAJE POR MENSAJE, no con las menciones juntas.** Unir las menciones (36e06b35f) arregló el 👍 y
   el silencio en «ventana», pero una @mención a Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍: era una
   regresión contra producción.
@@ -183,6 +195,17 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     confirmo?» y Pedro «sí». Quedaba el «sí» solo, y con una pendiente se EJECUTABA, aunque fuera de plata.
   · **Regla: la respuesta corta a un mensaje para otro también es para otro, y lo que es para otro no lo vuelve para MaKo
     ni una pendiente ni su pregunta.** Sólo un acuse se lee como «sí».
+  · ⚠️ **«Respuesta corta» es el mensaje ENTERO, no el arranque** (la verificación de 8cb034a18): con sólo el «listo»,
+    «listo, agendá a Juan el lunes» o «si entra un lead nuevo avisame» (el «si» condicional) se volvían «a otro» detrás de
+    una mención, y quedaban con 👍 y silencio. Ahora es un acuse o una confirmación entera («sí», «dale, ya te lo mando»,
+    «ok 👍»), sin nombrar a MaKo ni preguntar (`esRespuestaCorta`).
+  · **Y la escribe OTRA persona** (`conLasRespuestas`): Ana «@Leila mirá» y después Ana «sí» no se contesta a sí misma, ese
+    «sí» es para MaKo. Lo que sigue a una respuesta va con ella aunque sea del mismo (Pedro «sí» y Pedro «dale»). Sin el
+    autor, se toma como respuesta: es lo que no ejecuta nada.
+  · **El 👍 sale antes del lote y mensaje por mensaje**, así que mira la cola con la misma regla (`contestaAOtroEnLaCola`): sin
+    eso, el «sí» de Pedro a Ana recibía el 👍 con una pendiente viva.
+  · «sí, y avísale a @Pedro», con una pendiente o una pregunta de MaKo, es para MaKo (`confirmaYNombraAOtro`: la @ va después
+    de «a», «con» o «para»). «@Pedro sí» y «sí @Pedro» siguen siendo para Pedro.
   · El sintético lleva el nombre y el autor del último mensaje que QUEDA, no del último de la cola.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
@@ -201,6 +224,14 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
 
 **Sin hacer:**
+- **⚠️ El «sí» a otro que llega solo confirma la pendiente** (límite que ya estaba en producción, anotado en la verificación de
+  8cb034a18). El lote junta lo que entra en `VENTANA_MS` (8 s, lib/mako-doer-buffer.ts): si Pedro contesta «sí» a «@Pedro ¿lo
+  confirmo?» de Ana más tarde, el «sí» llega solo, y `rechazoSiNoEsConfirmacionPura` (lib/confirmacion-pura.ts) deja pasar un
+  «sí» puro aunque la pendiente sea de plata. Lo de Ana se salteó sin guardarse en la memoria, así que el turno del «sí» no
+  sabe a quién respondía. **Decisión de producto pendiente** (propuesta al Cerebro el 28/10): que una pendiente de PLATA en un
+  grupo se confirme sólo con el «sí» de quien la pidió, un «sí, MaKo», o la respuesta citada a la propuesta. Hoy la pendiente
+  no guarda quién la pidió (`mako_acciones_pendientes`, el `payload` es jsonb). ⚠️ «@MaKo sí» hoy tampoco confirma: el número
+  de la mención cuenta como palabra en `confirmacionPura`.
 - **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.
 - ~~**La guía de conexión** todavía PROPONE su ticket~~: desde el 28/10/2026 lo abre sola cuando la guía no alcanza
   (`abrirTicketDeLaGuia`, causa «texto», uno por conversación), y nada queda esperando un «sí». Una oferta guardada antes se

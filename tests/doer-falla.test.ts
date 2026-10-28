@@ -16,6 +16,8 @@ import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencio
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const AHORA = Date.parse('2026-10-26T19:00:00Z');
+/** Los años se reconocen por cercanía al año en curso (`corrigeUnMonto`): las pruebas lo fijan. */
+const HOY = new Date(AHORA);
 
 test('1. las frases de Leila son un reporte de falla; un pedido o una pregunta, no', () => {
   for (const f of [
@@ -113,7 +115,7 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
     assert.deepEqual(laCorreccion(seguimiento, f).herramientas, [], `«${f}» sin nada antes se ve como corrección`);
   }
   // Con la plata sólo en lo de antes, más exigente: ni «10 no 12», ni un año.
-  for (const f of ['son 10 no 12 reuniones', 'el año es 2026, no 2025']) assert.ok(!corrigeUnMonto(f, antes), `«${f}» con plata antes`);
+  for (const f of ['son 10 no 12 reuniones', 'el año es 2026, no 2025']) assert.ok(!corrigeUnMonto(f, antes, HOY), `«${f}» con plata antes`);
   // La foto dentro de un lote, y un monto de 2000 con la plata en el mensaje (no es un año).
   assert.ok(corrigeUnMonto('(en este mensaje mandé una imagen, pero llegó junto a otros mensajes…)\nson 423, no 4235'));
   for (const f of ['la cuota es 2000 no 1500', 'la cuota es 1500 no 2000', 'cobrale 1990 no 1900 pesos']) assert.ok(corrigeUnMonto(f), `«${f}»`);
@@ -123,7 +125,7 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   for (const [f, a] of [['son 120 no 150 leads', antesLeads], ['el código postal es 3300 no 3301', antes], ['la reunión es en la oficina 302 no 303', antes], ['el lote 145 no 146', antes]])
     assert.ok(!corrigeUnMonto(f, a), `«${f}» con plata antes se ve como corrección`);
   for (const f of ['la cuota de 2026 no 2025', 'el pago de 2025 no 2026', 'la cuota vence en 2026 no 2025', '(envió una imagen: el año es 2026, no 2025)'])
-    assert.ok(!corrigeUnMonto(f), `«${f}» toma el año como monto`);
+    assert.ok(!corrigeUnMonto(f, '', HOY), `«${f}» toma el año como monto`);
   // Y la corrección que cambia la intención no trae el plan ni lo que confirma o cancela lo pendiente.
   assert.deepEqual([...laCorreccion(conFoto, '(envió una imagen) — no me deja editar que son 423, no 4235').sinEstas], [...FUERA_DE_LA_CORRECCION]);
   assert.deepEqual([...FUERA_DE_LA_CORRECCION], ['proponer_tareas_plan', 'confirmar_accion', 'cancelar_accion']);
@@ -182,4 +184,25 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   assert.match(doer, /const reglaDeLasMarcas = tools\.length \? `\\n\\n\$\{REGLA_NO_EXISTE\}` : '';/);
   // `levantar_ticket` es para cuando la persona lo pide: lo que falla sale solo.
   assert.match(leer('lib/api-mako/areas/tickets.def.ts'), /Úsala SÓLO cuando la persona lo pide/);
+});
+
+test('10. el seguimiento de Leila con una palabra más sigue siendo la corrección, y un monto 19xx/20xx después de «de» es un monto', () => {
+  // La verificación de 8cb034a18: SOLO_LA_CORRECCION no admitía el verbo de corregir, «por favor», «debería» ni «la de Nadia»,
+  // y en un lote miraba todo junto; y «de 2000» se leía como un año aunque fuera «una cuota de 2000».
+  const foto = '(en este mensaje mandé una imagen: la cuota de Nadia, USD 4235,29)';
+  for (const f of [
+    'es 423 no 4235, corregilo', 'son 423 no 4235, cambialo', 'son 423, no 4235 la de Nadia', 'la de Nadia es 423, no 4235',
+    'son 423, no 4235 por favor', 'en realidad son 423, no 4235 👍', 'son 423, no 4235. Arreglalo', 'debería ser 423 no 4235',
+    'ahí está\nson 423, no 4235', 'pero son 423, no 4235, corrígelo', 'son 2000, no 2500',
+  ]) assert.ok(corrigeUnMonto(f, foto, HOY), `«${f}» con la foto antes no se ve como corrección`);
+  // Lo que habla de otra cosa sigue sin serlo, con la foto antes.
+  for (const f of ['son 120 no 150 leads', 'el código postal es 3300 no 3301', 'oficina 302 no 303', 'vence en 2026 no 2025', 'son 10 no 12'])
+    assert.ok(!corrigeUnMonto(f, foto, HOY), `«${f}» con la foto antes se ve como corrección`);
+  for (const f of ['la cuota es de 2000 no 1500', 'la cuota es de 1500, no de 2000', 'cobrale una cuota de 2000 no de 2500', 'el monto para 2000 no 1500', 'el pago es de 2000 no 2099'])
+    assert.ok(corrigeUnMonto(f, '', HOY), `«${f}» toma el monto como año`);
+  // Dos años de verdad (cerca del año en curso) siguen sin ser un monto, con la plata en el mensaje o antes.
+  for (const f of ['la cuota vence en 2026 no 2025', 'el año es 2026, no 2025, de la cuota']) assert.ok(!corrigeUnMonto(f, '', HOY), `«${f}»`);
+  // Y el turno: con la foto antes, «son 423, no 4235 por favor» va a actuar con las cuatro.
+  const r = laCorreccion({ intencion: 'capturar', dudosa: true, porque: 'sin señal clara' }, 'son 423, no 4235 por favor', foto);
+  assert.deepEqual([r.veredicto.intencion, [...r.herramientas]], ['actuar', [...HERRAMIENTAS_CORRECCION]]);
 });

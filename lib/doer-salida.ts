@@ -125,15 +125,27 @@ const PARTICIPIO_ESCRITO = String.raw`(?:(?:mand|envi|agend|cre|arm|carg|public|
 const ARTICULO = String.raw`(?:(?:una|unas|un|unos|la|las|el|los|tu|tus|su|sus|mi|mis)\s+)?`;
 /** Lo que se HACE para leer («una búsqueda», «las cuentas», «los cálculos»): «hecho» o «hice» con esto es una lectura. Nunca
  *  lo que se crea (una campaña, una tarea): eso es escribir. */
-const LO_QUE_SE_HACE_PARA_LEER = String.raw`${ARTICULO}(?:b[uú]squedas?|cuentas?|revisi(?:ón|on|ones)|an[aá]lisis|consultas?|repasos?|res[uú]men(?:es)?|lecturas?|c[aá]lculos?|chequeos?|comparaci(?:ón|on|ones)|verificaci(?:ón|on|ones))(?!\p{L})`;
-/** Lo que se ABRE para leer («la imagen», «el PDF», «tus campañas», «Google Calendar»): «abierto» o «abrí» con esto es leer.
- *  La verificación de bb41ede4a: sin «imagen», la respuesta a la foto de Leila («He abierto la imagen y la cuota figura en USD
- *  4235,29») salía como «Eso no lo llegué a hacer». */
-const LO_QUE_SE_ABRE_PARA_LEER = String.raw`${ARTICULO}(?:agendas?|calendarios?|google\s+calendar|crm|fichas?|informes?|m[eé]tricas?|tableros?|im[aá]gen(?:es)?|imagen|fotos?|capturas?|archivos?|pdfs?|excels?|planillas?|documentos?|chats?|conversaci(?:ón|on|ones)|panel(?:es)?|reportes?|campañas?|campanas?)(?!\p{L})`;
+// Sin «verificación» (la verificación de 8cb034a18): «He hecho la verificación de tu número» es una escritura.
+const LO_QUE_SE_HACE_PARA_LEER = String.raw`${ARTICULO}(?:b[uú]squedas?|cuentas?|revisi(?:ón|on|ones)|an[aá]lisis|consultas?|repasos?|res[uú]men(?:es)?|lecturas?|c[aá]lculos?|chequeos?|comparaci(?:ón|on|ones))(?!\p{L})`;
+/** Lo que también se CREA, dicho como creado: «nueva», «para el equipo», hasta dos palabras después y sin pasar un «y»
+ *  («la campaña nueva», «el reporte del error para el equipo»; «el panel y hay 3 leads nuevos» no). */
+const LO_CREADO = String.raw`(?!(?:\s+(?!(?:y|e|o|que|pero)(?!\p{L}))[\p{L}\d]+){0,2}\s+(?:nuev[oa]s?|para\s+(?:el\s+equipo|soporte|el\s+cliente|tu\s+cliente|ti|todos))(?!\p{L}))`;
+/**
+ * Lo que se ABRE para leer («la imagen», «el PDF», «tus campañas», «Google Calendar»): «abierto» o «abrí» con esto es leer.
+ * La verificación de bb41ede4a: sin «imagen», la respuesta a la foto de Leila («He abierto la imagen y la cuota figura en USD
+ * 4235,29») salía como «Eso no lo llegué a hacer». Y la de 8cb034a18: campañas, reportes, chats o planillas también se CREAN.
+ * Con el artículo indefinido («He abierto un reporte del error para el equipo», «una campaña nueva en Meta», «una conversación
+ * con Juan») o lo creado (`LO_CREADO`), es escribir: sólo «el/la/tu…» o nada lee.
+ */
+const LO_QUE_SE_ABRE_PARA_LEER = String.raw`(?:(?:la|las|el|los|tu|tus|su|sus|mi|mis)\s+)?(?:agendas?|calendarios?|google\s+calendar|crm|fichas?|informes?|m[eé]tricas?|tableros?|im[aá]gen(?:es)?|imagen|fotos?|capturas?|archivos?|pdfs?|excels?|planillas?|documentos?|chats?|conversaci(?:ón|on|ones)|panel(?:es)?|reportes?|campañas?|campanas?)(?!\p{L})${LO_CREADO}`;
+const HECHO = String.raw`hech[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_HACE_PARA_LEER})`;
 /** «hecho» y «abierto», salvo sobre lo que se lee. */
-const HECHO_O_ABIERTO = String.raw`(?:hech[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_HACE_PARA_LEER})|abiert[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_ABRE_PARA_LEER}))`;
+const HECHO_O_ABIERTO = String.raw`(?:${HECHO}|abiert[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_ABRE_PARA_LEER}))`;
+/** Lo que MaKo DEJÓ abierto o que YA QUEDÓ abierto no es lo que leyó: «Te dejé abierta la planilla con los pagos cargados», «Ya
+ *  quedó abierta la campaña de Noviembre» (la verificación de 8cb034a18). El «abierto» ahí no tiene excepción. */
+const HECHO_O_DEJADO_ABIERTO = String.raw`(?:${HECHO}|abiert[oa]s?(?!\p{L}))`;
 /** «te lo dejo anotado», «te dejé agendada la reunión», «te dejé hecho el cambio». */
-const DEJE_ESCRITO = new RegExp(String.raw`(?<!\p{L})(?:dejé|dejo)(?:\s+\p{L}+){0,2}\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_ABIERTO})`, 'u');
+const DEJE_ESCRITO = new RegExp(String.raw`(?<!\p{L})(?:dejé|dejo)(?:\s+\p{L}+){0,2}\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_DEJADO_ABIERTO})`, 'u');
 /** «He reportado el error al equipo», «le he avisado» (Leila): el pretérito perfecto, en primera persona. «He hecho el cambio»,
  *  «He abierto un ticket», sí; «he hecho una búsqueda», no. */
 const HE_HECHO = new RegExp(String.raw`(?<!\p{L})he\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_ABIERTO})`, 'u');
@@ -146,7 +158,10 @@ const ESCRITO_A = /(?<!\p{L})(?:(?:le|les)\s+he\s+escrito|he\s+escrito\s+(?:a|al
 const PRETERITO_DE_LECTURA = new RegExp(String.raw`(?<!\p{L})(?:hice(?=\s+${LO_QUE_SE_HACE_PARA_LEER})|(?<!(?:te|le|les|me)\s)abrí(?=\s+${LO_QUE_SE_ABRE_PARA_LEER}))`, 'gu');
 /** «Ya quedó registrado que le escribiste», «ya quedó agendado el recordatorio», «ya quedó abierto el ticket»: con el «ya», MaKo
  *  lo da por hecho; sin él («quedó agendada para el lunes») puede ser lo que leyó, y se deja. */
-const YA_QUEDO = new RegExp(String.raw`(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_ABIERTO})`, 'u');
+const YA_QUEDO = new RegExp(String.raw`(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_DEJADO_ABIERTO})`, 'u');
+/** Lo que se HIZO PARA OTRO no es una lectura, aunque sea una consulta o un resumen (la verificación de 8cb034a18): «Le hice una
+ *  consulta al equipo de soporte», «Les hice un resumen a todos por mail». «Le hice una búsqueda a Juan» sí lee. */
+const A_UN_TERCERO = new RegExp(String.raw`(?<!\p{L})(?:les\s+(?:hice|he\s+hecho)|le\s+(?:hice|he\s+hecho)\s+${ARTICULO}consultas?)(?!\p{L})|(?<!\p{L})(?:hice|hech[oa]s?)(?!\p{L}).*(?<!\p{L})(?:a\s+todos|al\s+equipo|a\s+soporte|por\s+(?:mail|correo|e-?mail))(?!\p{L})`, 'u');
 /** «acabo de cargar las 3 tareas»: el pasado reciente, en primera persona. */
 const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar|publicar|cambiar|mover|borrar|guardar|programar|anotar|actualizar|subir|agregar|eliminar|activar|pausar|cancelar|confirmar|responder|escribir|marcar|reprogramar)(?!\p{L})/u;
 /**
@@ -244,7 +259,7 @@ export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false, enEl
     const preterito = enElGrupo?.leyo ? dicho.replace(PRETERITO_DE_LECTURA, '') : dicho;
     if (PRETERITO.test(preterito) || ACABO_DE.test(dicho) || enMemoria) return true;
     return enElGrupo
-      ? DEJE_ESCRITO.test(dicho) || HE_HECHO.test(dicho) || ESCRITO_A.test(dicho) || (!enElGrupo.leyo && YA_QUEDO.test(dicho))
+      ? DEJE_ESCRITO.test(dicho) || HE_HECHO.test(dicho) || ESCRITO_A.test(dicho) || A_UN_TERCERO.test(dicho) || (!enElGrupo.leyo && YA_QUEDO.test(dicho))
       : DEJE_HECHO.test(dicho);
   }).map((o) => o.tal.trim());
 }

@@ -48,7 +48,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, confirmaYNombraAOtro, conLasRespuestas, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -611,11 +611,47 @@ function conLaMarcaDelAdjunto(p: MsgIn, t: string): string {
 
 /** Para quién es UN mensaje del lote (lib/doer-para-quien.ts, `paraQuienDelLote`): el sintético es texto plano, así que la
  *  decisión se toma acá, mensaje por mensaje, con sus menciones y su texto. Un audio o un adjunto son deliberados: para MaKo. */
-async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string): Promise<ParaQuien> {
+async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, pideUnSi: () => Promise<boolean>): Promise<ParaQuien> {
   if (audioDe(p) || adjuntoDe(p)) return 'mako';
   const q = await mencionadosEn(instance, p);
   if (nombraAMaKo(texto) || q.aMaKo) return 'mako';
-  return noEsParaMaKo({ texto, menciones: q.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
+  // «sí, y avísale a @Pedro» con algo pendiente o una pregunta de MaKo es para MaKo (`confirmaYNombraAOtro`): sólo para eso se
+  // lee lo pendiente. Sin mención, la pendiente no cuenta acá: un acuse del lote no se vuelve «sí» (lo decide el turno).
+  const pide = q.aOtros.length > 0 && confirmaYNombraAOtro(texto) && (await pideUnSi());
+  return noEsParaMaKo({ texto, menciones: q.aOtros, nombraAMaKo: false, makoPregunto: pide, hayPendientes: pide });
+}
+
+/** ¿MaKo acaba de preguntar algo en el grupo? (el «ok» que sigue es un sí) */
+async function makoAcabaDePreguntar(wsData: number, jid: string): Promise<boolean> {
+  const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
+  return ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
+}
+
+/** ¿Hay algo que un «sí» confirmaría? Una pendiente o una pregunta de MaKo recién hecha. Se lee una vez, y sólo si hace falta. */
+function pideUnSiEn(wsData: number, jid: string): () => Promise<boolean> {
+  let hay: Promise<boolean> | null = null;
+  return () => (hay ??= (async () => (await pendientesVigentes(wsData, jid)).length > 0 || (await makoAcabaDePreguntar(wsData, jid)))().catch(() => false));
+}
+
+/**
+ * ¿Este mensaje le CONTESTA a otra persona de la cola? (`conLasRespuestas`, la misma regla del lote.) El 👍 se decide mensaje por
+ * mensaje y antes del lote: sin esto, el «sí» de Pedro a «@Pedro ¿lo confirmo?» de Ana recibía el 👍 con una pendiente viva, y
+ * Ana podía creer que se confirmó; después el lote lo callaba (la verificación de 8cb034a18). Sólo lee la cola con una respuesta
+ * corta. Si lo de Ana ya salió de la cola (más de `VENTANA_MS` antes), el «sí» llega solo: el límite que sigue anotado.
+ */
+async function contestaAOtroEnLaCola(wsData: number, instance: string, jid: string, msgId: string, texto: string): Promise<boolean> {
+  if (!msgId || !esRespuestaCorta(texto)) return false;
+  const cola = await pendientes(jid).catch(() => []);
+  const i = cola.findIndex((m) => m.wa_message_id === msgId);
+  if (i <= 0) return false;
+  const pideUnSi = pideUnSiEn(wsData, jid);
+  const textos: Array<{ texto: string; para: ParaQuien; autor: string | null }> = [];
+  for (const m of cola.slice(0, i + 1)) {
+    const p = (m.payload as MsgIn) ?? {};
+    const t = conLaMarcaDelAdjunto(p, m.texto.trim());
+    textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null });
+  }
+  return conLasRespuestas(textos)[i].para === 'a-otro';
 }
 
 /** A quién mencionan en el mensaje (lib/doer-para-quien.ts). Sin menciones, la línea no se lee. */
@@ -634,13 +670,11 @@ async function noEsParaMaKoAhora(wsData: number, jid: string, texto: string, qui
   // Un lote ya lo decidió mensaje por mensaje (`paraQuienDelLote`): su texto unido no es un acuse, y sus menciones no viajan.
   const candidato = delLote ? delLote.noEs : noEsParaMaKo({ texto, menciones: quien.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
   // Lo que es para otra persona no lo vuelve para MaKo ni una pendiente ni su pregunta (la verificación de bb41ede4a: un «sí»
-  // a otro confirmaba la pendiente). Sólo un acuse se lee como «sí».
+  // a otro confirmaba la pendiente). Sólo un acuse se lee como «sí», y el «sí, y avísale a @Pedro» suelto (`confirmaYNombraAOtro`).
   if (!candidato) return null;
-  if (candidato === 'a-otro') return candidato;
-  if (await hayPendientes()) return null;
-  const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
-  const pregunto = ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
-  return pregunto ? null : candidato;
+  const pideUnSi = async () => (await hayPendientes()) || (await makoAcabaDePreguntar(wsData, jid));
+  if (candidato === 'a-otro') return !delLote && confirmaYNombraAOtro(texto) && (await pideUnSi()) ? null : candidato;
+  return (await pideUnSi()) ? null : candidato;
 }
 
 /** ¿Un texto engancha a MaKo en este grupo? La regla de `procesarDoer` (`enganchaTexto` y lo que no es para MaKo), en orden
@@ -748,7 +782,9 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // siempre; el texto, por el modo, el nombre, la ventana o una pendiente), en orden de costo. Sale sin esperar: lo que
   // pase con él lo mira abajo, en paralelo, el que gana el candado (`acusarSiNoReacciono`).
   const activo = await doerActivo(OWNER_WS);
-  const engancha = activo && !soloClave && (!!audio || !!adjunto || (await enganchaElTexto(wsData, jid, texto, await mencionadosEn(instance, data))));
+  // Y no al «sí» que le contesta a otra persona de la cola (`contestaAOtroEnLaCola`): el lote lo va a callar.
+  const engancha = activo && !soloClave && (!!audio || !!adjunto || ((await enganchaElTexto(wsData, jid, texto, await mencionadosEn(instance, data)))
+    && !(await contestaAOtroEnLaCola(wsData, instance, jid, msgId, texto))));
   const reaccion = engancha ? reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO).catch(() => false) : null;
 
   // La clave tapada se le dice YA, con el link a su conexión (WA2). El mensaje con la clave sigue en el grupo (MaKo no borra
@@ -802,7 +838,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // VARIOS → un solo turno con todo junto. Los audios se transcriben ahora (uno por
     // uno) y el texto se arma numerado, para que el modelo entienda que fueron mensajes
     // separados y que el último puede corregir al primero.
-    const textos: Array<{ texto: string; para: ParaQuien; payload: MsgIn }> = [];
+    const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; payload: MsgIn }> = [];
+    const pideUnSi = pideUnSiEn(wsData, jid);
     for (const m of cola) {
       const p = (m.payload as MsgIn) ?? {};
       let t = m.texto.trim();
@@ -813,7 +850,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       const arch = await textoDeArchivo(instance, p);
       if (arch) t = arch.texto || arch.error || t;
       t = conLaMarcaDelAdjunto(p, t);
-      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t), payload: p });
+      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null, payload: p });
     }
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
     // Para quién era cada mensaje (lib/doer-para-quien.ts): lo que era para otra persona no entra si otro es para MaKo.
@@ -2503,13 +2540,14 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           // La instancia viene del webhook (`body.instance`): `bufferearYResponder` la guarda en el payload al encolar. Sin ella, la
           // línea de MaKo no se conocía y ninguna @mención contaba (la verificación de bb41ede4a; ya pasaba antes).
           const instancia = cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
-          const textos: Array<{ texto: string; para: ParaQuien; payload: MsgIn }> = [];
+          const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; payload: MsgIn }> = [];
+          const pideUnSi = pideUnSiEn(ws, jid);
           for (const m of cola) {
             const p = (m.payload as MsgIn) ?? {};
             let t = m.texto.trim();
             if (!t && audioDe(p)) t = await transcribirDeMensaje(instancia, p);
             t = conLaMarcaDelAdjunto(p, t);
-            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t), payload: p });
+            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, payload: p });
           }
           const lote = paraQuienDelLote(textos);
           const ultimo = lote.quedan[lote.quedan.length - 1]?.payload ?? ((cola[cola.length - 1].payload as MsgIn) ?? {});

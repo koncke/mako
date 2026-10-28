@@ -144,3 +144,24 @@ test('6. el doer: cuenta lo que se escribió de verdad (no lo propuesto) y le pa
   assert.match(doer, /else if \(!escribeDeVerdad\(name\)\) leyoDelTurno = true;/);
   assert.match(doer, /const memo = crearMemoDeAcciones\(escribeDeVerdad\);/);
 });
+
+test('9. lo que también se CREA (un reporte, una campaña, una planilla) con «un/una», «nuevo» o «para el equipo» es una escritura', () => {
+  // La verificación de 8cb034a18: LO_QUE_SE_ABRE_PARA_LEER sumó reportes, campañas, chats y planillas, y perdonaba «He abierto un
+  // reporte del error para el equipo»: la mentira de Leila que dio origen al saneo.
+  for (const f of [
+    'He abierto una campaña nueva en Meta con USD 10 por día.', 'He abierto un reporte del error para el equipo.', 'Te dejé abierto un reporte para el equipo.',
+    'He abierto una conversación con Juan por WhatsApp.', 'He abierto un chat con Juan para mandarle el precio.', 'He abierto una planilla nueva con tus leads.',
+    'Te dejé abierta la planilla con los pagos cargados.', 'He abierto un panel nuevo para el cliente.', 'He hecho la verificación de tu número.',
+    'He abierto la campaña nueva de Noviembre.', 'He abierto el reporte del error para el equipo.',
+  ]) for (const leyo of [false, true]) assert.ok(enElGrupo(f, false, false, leyo).texto.endsWith(SIN_HACER), `«${f}» (leyó: ${leyo}) salió igual`);
+  for (const f of ['Ya quedó abierta la campaña de Noviembre.', 'Ya quedó abierto el reporte para el equipo.'])
+    assert.ok(enElGrupo(f).texto.endsWith(SIN_HACER), `«${f}» salió igual`);
+  // Con una lectura en el turno: lo que se abrió nuevo, y lo que se hizo PARA OTRO.
+  for (const f of [
+    'Abrí una campaña nueva para Leads Noviembre.', 'Abrí un reporte con el error para soporte.', 'Abrí un archivo nuevo con las tareas de hoy.',
+    'Le hice una consulta al equipo de soporte.', 'Les hice un resumen a todos por mail.', 'Les he hecho un resumen.',
+  ]) assert.ok(enElGrupo(f, false, false, true).texto.endsWith(SIN_HACER), `«${f}» salió igual`);
+  // Las lecturas del test 8 siguen pasando: «el panel y hay 3 leads nuevos» no es un panel nuevo.
+  for (const f of ['He abierto el panel y hay 3 leads nuevos.', 'Abrí la conversación con Juan y pidió la propuesta.', 'Le hice una búsqueda a Juan y está en Seguimiento.'])
+    assert.equal(enElGrupo(f, false, false, true).texto, f, `«${f}»`);
+});
