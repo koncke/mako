@@ -32,6 +32,9 @@ import { Inicio } from './Inicio';
 import { EditorGuion } from './editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from './PanelMaKo';
 
+/** Debajo de este ancho la barra de guiones arranca plegada (con la de MaKo y el documento no entran las tres). */
+const ANCHO_ARBOL_PLEGADO = 1280;
+
 export type PropsCopywriter = {
   /** El negocio de la pestaña (del server): va en las claves del navegador. */
   ws: number | null;
@@ -48,6 +51,17 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const router = useRouter();
   const [paginas, setPaginas] = useState<PaginaCopy[]>(iniciales);
   const [plegado, setPlegado] = useState(false);
+  // En una ventana angosta la barra de guiones arranca plegada (Notion cierra su barra igual): MaKo y el documento no
+  // entran con las tres columnas. Si la persona la abre o la cierra a mano, manda ella.
+  const aMano = useRef(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${ANCHO_ARBOL_PLEGADO - 0.02}px)`);
+    const aplicar = () => { if (!aMano.current) setPlegado(mq.matches); };
+    aplicar();
+    mq.addEventListener('change', aplicar);
+    return () => mq.removeEventListener('change', aplicar);
+  }, []);
+  const plegar = useCallback((v: boolean) => { aMano.current = true; setPlegado(v); }, []);
   const [creando, setCreando] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [pausa, setPausa] = useState(false);
@@ -127,17 +141,17 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   return (
     <div className="nt">
       <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} campo={cajaMako} onPausa={setPausa} avisar={avisar} />
-      <Arbol paginas={paginas} abierta={abierta} plegado={plegado} onPlegar={() => setPlegado(true)} onAbrir={abrir}
+      <Arbol paginas={paginas} abierta={abierta} plegado={plegado} onPlegar={() => plegar(true)} onAbrir={abrir}
         onCrear={(t, padre) => void crear(t, padre)} onRenombrar={renombrar} onPapelera={(id) => void papelera(id)} onRestaurar={restaurar} onMover={mover} />
       {guion ? (
         <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
           onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
           onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} pausa={pausa}
-          arbolPlegado={plegado} onDesplegarArbol={() => setPlegado(false)} avisar={avisar} onVivo={ponerVivo} />
+          arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} avisar={avisar} onVivo={ponerVivo} />
       ) : error ? (
         <div className="nt-doc"><div className="nt-inicio"><div className="nt-aviso" role="alert">{error}<ReportarASoporte /></div></div></div>
       ) : (
-        <Inicio creando={creando} onCrear={(t, pedido) => void crear(t, null, pedido)} />
+        <Inicio creando={creando} onCrear={(t, pedido) => void crear(t, null, pedido)} arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} />
       )}
       <Toast state={toast} onClose={clear} />
     </div>

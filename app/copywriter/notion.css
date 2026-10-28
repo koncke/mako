@@ -93,17 +93,21 @@
 .nt-guardado { flex: none; font-size: 13px; color: var(--nt-suave); white-space: nowrap; }
 .nt-guardado[data-error] { color: var(--nt-texto); }
 .nt-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; }
-.nt-pagina { position: relative; width: 100%; max-width: calc(708px + 192px); margin: 0 auto; padding: 0 96px 30vh; box-sizing: border-box; }
+/* Los 96 px de aire de Notion en una ventana ancha; en una angosta se achican (Notion hace lo mismo), nunca menos de 24. */
+.nt-pagina { position: relative; width: 100%; max-width: calc(708px + 192px); margin: 0 auto; padding: 0 clamp(24px, 8%, 96px) 30vh; box-sizing: border-box; }
 .nt-portada { height: 80px; }
 .nt-icono { display: inline-flex; align-items: center; justify-content: center; width: 78px; height: 78px; margin: 0 0 4px -4px; border: 0; border-radius: 6px; background: transparent; font-size: 70px; line-height: 1; cursor: pointer; }
 .nt-icono:hover { background: var(--nt-hover); }
 .nt-titulo { display: block; width: 100%; margin: 0; padding: 3px 2px; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: var(--nt-texto); font: inherit; font-size: 40px; font-weight: 700; line-height: 1.2; field-sizing: content; }
 .nt-titulo::placeholder { color: var(--nt-suave); opacity: .55; }
-.nt-props { display: grid; gap: 2px; margin: 10px 0 0; }
+/* `minmax(0, 1fr)`: un item de grilla no se achica por debajo de su contenido sin esto, y un valor largo empujaba la fila. */
+.nt-props { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 10px 0 0; }
 .nt-prop { display: flex; align-items: center; min-height: 34px; font-size: 14px; }
 .nt-prop-nombre { display: flex; align-items: center; gap: 8px; width: 160px; flex: none; padding: 0 6px; color: var(--nt-tenue); }
 .nt-prop-nombre > span:first-child { width: 16px; text-align: center; color: var(--nt-suave); }
-.nt-prop-valor { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+/* Un valor largo («PAS (Problema → Agitación → Solución)») se corta con «…»: nunca empuja la página de costado. */
+.nt-prop-valor { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.nt-prop-valor select { min-width: 0; text-overflow: ellipsis; }
 .nt-prop-valor select, .nt-prop-valor input { max-width: 100%; height: 30px; padding: 0 6px; border: 0; border-radius: 4px; background: transparent; color: var(--nt-texto); font: inherit; font-size: 14px; cursor: pointer; }
 .nt-prop-valor select:hover, .nt-prop-valor input:hover, .nt-prop-valor select:focus-visible, .nt-prop-valor input:focus-visible { background: var(--nt-hover); outline: none; }
 .nt-prop-valor input { width: 90px; cursor: text; }
@@ -195,7 +199,10 @@
 .nt[data-movil] .nt-pagina { padding: 0 16px 40vh; }
 .nt[data-movil] .nt-portada { height: 12px; }
 .nt[data-movil] .nt-icono { width: 52px; height: 52px; font-size: 44px; }
-.nt[data-movil] .nt-titulo { font-size: 30px; }
+/* Más fuerte que el 16 px de los campos del teléfono (app/m/m.css, para que iOS no haga zoom): el título es un título.
+   ⚠️ Aquella regla es `[data-m] :is(input:not(…):not(…):not(…), textarea, select)`, y un `:is()` pesa lo que su argumento
+   MÁS fuerte, (0,4,1): con `.nt[data-movil] textarea.nt-titulo` (0,3,1) el título seguía en 16 px (medido en la maqueta). */
+.nt.nt[data-movil] .nt-pagina textarea.nt-titulo { font-size: 30px; }
 .nt[data-movil] .nt-prop-nombre { width: 110px; }
 .nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
 .nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }

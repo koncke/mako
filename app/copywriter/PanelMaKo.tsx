@@ -200,7 +200,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, campo, avisar 
         {mensajes.length === 0 && (
           <>
             <div className="nt-mako-bienvenida">
-              {id ? 'Pregúntame lo que quieras de este guion: te digo qué cambiaría, sin tocar nada.' : 'Elige un guion de la izquierda, o escribe arriba cuál quieres crear.'}
+              {id ? 'Pregúntame lo que quieras de este guion: te digo qué cambiaría, sin tocar nada.' : 'Elige un guion, o escribe en la caja grande cuál quieres crear.'}
             </div>
             {id && (
               <div className="nt-mako-pildoras">

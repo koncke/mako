@@ -12,12 +12,23 @@
 import { useState } from 'react';
 import { INFO_TIPO, TIPOS_GUION, type TipoGuion } from '@/lib/copywriter/tipos';
 
-export function Inicio({ onCrear, creando }: { onCrear: (tipo: TipoGuion, pedido: string) => void; creando: boolean }) {
+export function Inicio({ onCrear, creando, arbolPlegado = false, onDesplegarArbol }: {
+  onCrear: (tipo: TipoGuion, pedido: string) => void;
+  creando: boolean;
+  /** La barra de guiones plegada (ventana angosta): «»» la vuelve a abrir, como en las migas del documento. */
+  arbolPlegado?: boolean;
+  onDesplegarArbol?: () => void;
+}) {
   const [tipo, setTipo] = useState<TipoGuion>('ad');
   const [pedido, setPedido] = useState('');
   const ir = () => { if (!creando) onCrear(tipo, pedido.trim()); };
   return (
     <div className="nt-doc">
+      {arbolPlegado && (
+        <div className="nt-barra">
+          <button type="button" className="nt-boton-ico" onClick={onDesplegarArbol} title="Abrir la barra de guiones" aria-label="Abrir la barra de guiones">»</button>
+        </div>
+      )}
       <div className="nt-inicio">
         <div className="nt-inicio-caja">
           <h1 className="nt-inicio-titulo">¿Qué guion escribimos?</h1>
