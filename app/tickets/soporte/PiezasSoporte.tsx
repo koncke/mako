@@ -36,7 +36,7 @@ export function HiloSoporte({ s, hilo }: { s: Soporte; hilo: RefObject<HTMLEleme
   useEffect(() => { const h = hilo.current; if (h) h.scrollTop = h.scrollHeight; }, [s.items.length, s.abierto, hilo]);
   const enMensaje = (x: { id: string }): EnMensaje | null => (x.id === s.idTarjeta && !s.ticket ? { abajo: <TarjetaTicket s={s} /> } : null);
   return (
-    <HiloMako items={s.items} quien={QUIEN_SOPORTE} ahora={Date.now()} escribiendo={null} tarjeta={null} onTarjeta={() => {}}
+    <HiloMako items={s.items} quien={QUIEN_SOPORTE} ahora={Date.now()} escribiendo={s.escribiendo} tarjeta={null} onTarjeta={() => {}}
       onReintentar={s.reintentar} onDescartar={s.descartar} onRecargar={() => s.abrir(s.abierto)} onResponder={(t) => s.mandar(t)} enMensaje={enMensaje} />
   );
 }

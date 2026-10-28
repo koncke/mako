@@ -51,4 +51,13 @@ pantalla que manda el audio como audio sigue con `voz` (el CRM, el Cerebro del c
 - **La nota del chat nuevo no sobrevive a salir de él** antes de que salga (`ChatNuevo.tsx` → `mandarNota`): a propósito,
   como lo escrito (la decisión de dónde va se ve y se cambia sólo ahí).
 - **Los tres puntos** no se barren (los dibuja el hilo, no la caja): las excepciones están escritas en la lista (Offer y sus
-  «Analizando…», Chats con una persona del otro lado, Soporte que contesta en el acto con reglas o por el equipo).
+  «Analizando…», Chats con una persona del otro lado, un ticket de Soporte, que contesta el equipo horas después).
+
+### Soporte escribe sus 3 puntos aunque conteste en el acto (28/10/2026)
+
+En la conversación nueva de Soporte MaKo contesta con reglas, sin IA: la respuesta estaba lista en el mismo clic y el hilo no
+mostraba nunca «escribiendo». El Cerebro pidió los 3 puntos (y Martín, el 28/10, que lo que MaKo arma se vea armándose, con
+un pequeño delay): MaKo «escribe» `MAKO_ESCRIBE_MS` (700 ms) y recién ahí aparece su turno (app/tickets/soporte/useSoporte.ts).
+**La trampa:** un temporizador que agrega un turno puede caer en OTRA conversación si la persona tocó «Contarle a MaKo» en
+esos 700 ms; el turno se agrega sólo si `ref.current` sigue siendo el de cuando se contó. El relato (`charla`) se actualiza en
+el acto: lo que se cuenta enseguida no espera a la respuesta anterior.

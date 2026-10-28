@@ -45,7 +45,7 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
   { archivo: 'app/web-generator/editor/paneles/ChatAgente.tsx', props: 'app/web-generator/editor/paneles/PanelAgente.tsx', chat: 'Web Generator, el agente' },
   {
     archivo: 'app/tickets/soporte/PiezasSoporte.tsx', chat: 'Soporte (la Ticketera), computadora y teléfono',
-    falta: { puntos: 'no corresponde: MaKo contesta en el acto, con reglas y sin IA (lib/soporte-chat.ts), y en un ticket contesta el equipo, horas después' },
+    falta: { puntos: 'no corresponde: en un ticket contesta el equipo, horas después (en la conversación nueva, MaKo escribe sus 3 puntos)' },
   },
   { archivo: 'app/_components/MakoChat.tsx', chat: 'MaKo con sesiones (ChartIA, Diagnóstico)', falta: { adjuntos: PENDIENTE_SERVIDOR } },
   { archivo: 'app/whatsapp/WhatsAppAdvisor.tsx', chat: 'el asesor de WhatsApp de un lead', falta: { adjuntos: PENDIENTE_SERVIDOR } },

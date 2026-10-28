@@ -13,10 +13,10 @@
 // vuelve a subir lo ya subido · el tope por ticket sin contar lo que ya subió · la persona sin ver su archivo al responder.
 // =============================================================================
 
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { paraElCliente } from '../lib/tickets-reglas';
 import { TOPE_DIA_ARCHIVOS_TICKET, problemaDelDiaTicket } from '../lib/tickets-adjuntos';
@@ -33,6 +33,7 @@ const STUBS: Record<string, string> = {
     export function useRef(init) { const r = rt(); const i = r.idx++; if (!(i in r.hooks)) r.hooks[i] = { current: init }; return r.hooks[i]; }
     export const useCallback = (fn) => fn;
     export const useMemo = (fn) => fn();
+    export const useSyncExternalStore = (suscribir, leer) => leer();
     export function useEffect(fn, deps) { const r = rt(); const i = r.idx++; const antes = r.hooks[i];
       if (!antes || !deps || deps.some((d, k) => !Object.is(d, antes.deps[k]))) r.efectos.push(() => { antes?.limpiar?.(); r.hooks[i] = { deps, limpiar: fn() }; }); }`,
   acciones: `
@@ -49,6 +50,7 @@ type Estado = { rt: { hooks: unknown[]; idx: number; efectos: Array<() => void> 
 const g = globalThis as unknown as { __soporte: Estado };
 
 let hook: ((p: unknown) => any) | null = null; // eslint-disable-line @typescript-eslint/no-explicit-any
+let demora = 0;
 async function cargar() {
   if (hook) return hook;
   const { build } = createRequire(join(raiz, 'package.json'))('esbuild') as typeof import('esbuild');
@@ -58,17 +60,21 @@ async function cargar() {
       const virtual = (filter: RegExp, clave: string) => b.onResolve({ filter }, () => ({ path: clave, namespace: 'stub' }));
       virtual(/^react$/, 'react'); virtual(/^\.\.\/acciones$/, 'acciones'); virtual(/^\.\.\/navegador$/, 'navegador'); virtual(/^\.\/subir-adjuntos$/, 'subir');
       b.onLoad({ filter: /.*/, namespace: 'stub' }, (a) => ({ contents: STUBS[a.path], loader: 'js' }));
-      b.onResolve({ filter: /^@\// }, (a) => ({ path: join(raiz, `${a.path.slice(2)}.ts`) }));
+      b.onResolve({ filter: /^@\// }, (a) => ({ path: ['.ts', '.tsx'].map((x) => join(raiz, `${a.path.slice(2)}${x}`)).find((x) => existsSync(x)) ?? join(raiz, `${a.path.slice(2)}.ts`) }));
     } }],
   });
   const mod = await import(`data:text/javascript;base64,${Buffer.from(r.outputFiles[0].text).toString('base64')}`);
   hook = mod.useSoporte;
+  demora = mod.MAKO_ESCRIBE_MS;
   return hook!;
 }
 
-/** Una pantalla de Soporte: `r()` la dibuja (y corre sus efectos), como React después de cada cambio. */
-async function pantalla(props: Record<string, unknown> = { tickets: [], inicial: 'nuevo', movil: true }) {
+/** Una pantalla de Soporte: `r()` la dibuja (y corre sus efectos), como React después de cada cambio. Los temporizadores son del
+ *  test (MaKo «escribe» `MAKO_ESCRIBE_MS` antes de contestar); las promesas se sueltan con `setImmediate`. */
+const vuelta = () => new Promise((x) => setImmediate(x));
+async function pantalla(t: TestContext, props: Record<string, unknown> = { tickets: [], inicial: 'nuevo', movil: true }) {
   const useSoporte = await cargar();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   g.__soporte = { rt: { hooks: [], idx: 0, efectos: [] }, levantados: [], respuestas: [], pendientes: [], alContestar: [] };
   const r = () => {
     const rt = g.__soporte.rt;
@@ -78,10 +84,10 @@ async function pantalla(props: Record<string, unknown> = { tickets: [], inicial:
     for (const f of ef) f();
     return s;
   };
-  const decir = (t: string) => { r().setTexto(t); r().mandar(); return r(); };
+  const decir = (texto: string) => { r().setTexto(texto); r().mandar(); t.mock.timers.tick(demora); return r(); };
   /** Cuenta un problema hasta que aparece la tarjeta del ticket. */
-  const hastaLaTarjeta = (t: string) => {
-    let s = decir(t);
+  const hastaLaTarjeta = (texto: string) => {
+    let s = decir(texto);
     for (let i = 0; i < 4 && !s.borrador; i++) s = decir('Siempre, cada vez que lo intento, desde la computadora');
     assert.ok(s.borrador, 'MaKo no armó el ticket');
     return s;
@@ -98,15 +104,16 @@ async function pantalla(props: Record<string, unknown> = { tickets: [], inicial:
     p.resolve(como === 'bien'
       ? { ok: true, adjuntos: p.nombres.map((nombre, k) => ({ path: `3/tickets/0b6d5b75-4a1f-4c2d-9e3f-01234567890${k}`, nombre, mime: 'image/jpeg', bytes: 10 })) }
       : { ok: false, error: 'No hay conexión: los archivos no subieron.' });
-    await new Promise((x) => setTimeout(x, 0));
+    await vuelta();
+    t.mock.timers.tick(demora);
     return r();
   };
   const ultimoMio = (s: { items: Array<{ k: string; role?: string; texto?: string; estado?: string; id: string }> }) => [...s.items].reverse().find((x) => x.k === 'msg' && x.role === 'user')!;
-  return { r, decir, hastaLaTarjeta, adjuntarYMandar, soltar, ultimoMio, e: g.__soporte };
+  return { r, decir, hastaLaTarjeta, adjuntarYMandar, soltar, ultimoMio, e: g.__soporte, demora };
 }
 
-test('1: el ticket ESPERA a la foto que sube («Subiendo archivos…») y sale con ella; el «📎» entra al relato cuando subió', async () => {
-  const p = await pantalla();
+test('1: el ticket ESPERA a la foto que sube («Subiendo archivos…») y sale con ella; el «📎» entra al relato cuando subió', async (t) => {
+  const p = await pantalla(t);
   p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
   let s = p.adjuntarYMandar(['foto.jpg'], 'acá va la captura');
   assert.equal(p.ultimoMio(s).estado, 'enviando');
@@ -122,8 +129,8 @@ test('1: el ticket ESPERA a la foto que sube («Subiendo archivos…») y sale c
   assert.match(p.e.levantados[0].descripcion, /foto\.jpg/, 'la descripción no nombra lo que va con el ticket');
 });
 
-test('1b: una subida que termina en OTRA conversación no se suma a ella (la foto no se va con el próximo ticket)', async () => {
-  const p = await pantalla();
+test('1b: una subida que termina en OTRA conversación no se suma a ella (la foto no se va con el próximo ticket)', async (t) => {
+  const p = await pantalla(t);
   p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
   p.adjuntarYMandar(['foto.jpg']);
   p.r().nuevo();
@@ -134,8 +141,8 @@ test('1b: una subida que termina en OTRA conversación no se suma a ella (la fot
   assert.doesNotMatch(p.e.levantados[0].descripcion, /📎/);
 });
 
-test('1c: si la foto no subió, el ticket no dice «📎»; el turno lo dice y «Reintentar» la vuelve a subir', async () => {
-  const p = await pantalla();
+test('1c: si la foto no subió, el ticket no dice «📎»; el turno lo dice y «Reintentar» la vuelve a subir', async (t) => {
+  const p = await pantalla(t);
   p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
   p.adjuntarYMandar(['foto.jpg']);
   let s = await p.soltar(0, 'mal');
@@ -150,9 +157,9 @@ test('1c: si la foto no subió, el ticket no dice «📎»; el turno lo dice y �
   assert.deepEqual(p.e.levantados[0].adjuntos, ['foto.jpg']);
 });
 
-test('2: en un ticket, «Reintentar» manda lo escrito y SUS archivos, nunca «📎 captura.png» como texto; lo ya subido no se sube otra vez', async () => {
+test('2: en un ticket, «Reintentar» manda lo escrito y SUS archivos, nunca «📎 captura.png» como texto; lo ya subido no se sube otra vez', async (t) => {
   const ticket = { id: 7, titulo: 't', actualizado: new Date().toISOString(), puedeResponder: true, lineas: [], estado: 'tu_respuesta' };
-  const p = await pantalla({ tickets: [ticket], inicial: 7, movil: false });
+  const p = await pantalla(t, { tickets: [ticket], inicial: 7, movil: false });
   p.r();
   let s = p.adjuntarYMandar(['captura.png']);
   s = await p.soltar(0, 'mal');
@@ -167,20 +174,40 @@ test('2: en un ticket, «Reintentar» manda lo escrito y SUS archivos, nunca «�
   s = await p.soltar(2, 'bien');
   assert.equal(p.ultimoMio(s).estado, 'error');
   s.reintentar(p.ultimoMio(s).id);
-  await new Promise((x) => setTimeout(x, 0));
+  await vuelta();
   assert.equal(p.e.pendientes.length, 3, 'lo ya subido se subió otra vez (un huérfano más en el bucket)');
   assert.deepEqual(p.e.respuestas.at(-1), { texto: 'mira esto', adjuntos: ['otra.png'] });
   assert.ok(p.e.respuestas.every((x) => !/📎/.test(x.texto)), 'la línea «📎» salió como texto de la persona');
 });
 
-test('el tope es POR TICKET en la conversación nueva (el alta no recorta el sexto en silencio)', async () => {
-  const p = await pantalla();
+test('el tope es POR TICKET en la conversación nueva (el alta no recorta el sexto en silencio)', async (t) => {
+  const p = await pantalla(t);
   p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
   p.adjuntarYMandar(['1.png', '2.png', '3.png']);
   await p.soltar(0, 'bien');
   p.r().adjuntosCaja.onSumar(['4.png', '5.png', '6.png'].map((n) => new File([new Uint8Array(1)], n, { type: 'image/png' })));
   assert.match(p.r().errorAdjunto ?? '', /Hasta 5 archivos por ticket: ya van 3\./);
   assert.match(leer('app/tickets/acciones.ts'), /if \(deMas\(entrada\.adjuntos\)\) return \{ ok: false/, 'el alta recorta sin decirlo');
+});
+
+test('los 3 puntos: MaKo escribe antes de contestar, y su respuesta no cae en OTRA conversación', async (t) => {
+  const p = await pantalla(t);
+  p.r().setTexto('No me deja guardar el lead en el CRM, sale un error rojo');
+  p.r().mandar();
+  let s = p.r();
+  assert.deepEqual(s.escribiendo, { segs: 0 }, 'sin los 3 puntos');
+  const antes = s.items.length;
+  t.mock.timers.tick(p.demora);
+  s = p.r();
+  assert.equal(s.escribiendo, null);
+  assert.ok(s.items.length > antes, 'MaKo no contestó');
+  p.r().setTexto('Y el calendario tampoco anda');
+  p.r().mandar();
+  p.r().nuevo();
+  t.mock.timers.tick(p.demora);
+  s = p.r();
+  assert.equal(s.items.length, 1, 'la respuesta de la conversación anterior cayó en la nueva (sólo va el saludo)');
+  assert.match(leer('app/tickets/soporte/PiezasSoporte.tsx'), /escribiendo=\{s\.escribiendo\}/, 'el hilo de Soporte no muestra los puntos');
 });
 
 test('la persona ve sus archivos en el ticket aunque haya escrito algo (sólo los nombres, nunca un link)', () => {

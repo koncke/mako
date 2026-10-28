@@ -23,6 +23,10 @@ let secuencia = 0;
 const id = (pre: string) => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
 const uuid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 const saludo = (): Turno[] => [{ id: id('m'), de: 'mako', texto: SALUDO, at: new Date().toISOString() }];
+/** Lo que MaKo «escribe» antes de contestar en la conversación nueva (28/10/2026, el Cerebro: «Soporte: la voz en el acto y
+ *  los 3 puntos»). Contesta con reglas y en el acto, pero se lo ve escribir como en todo chat de MaKo, y lo que arma se ve
+ *  armándose, con un pequeño delay (Martín, 28/10). En un ticket contesta el equipo, horas después: ahí no hay puntos. */
+export const MAKO_ESCRIBE_MS = 700;
 
 export type Abierto = 'nuevo' | number;
 
@@ -53,6 +57,8 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   const [tipoElegido, setTipoElegido] = useState<TipoTicket | null>(null);
   const [mandando, setMandando] = useState(false);
   const [errorTarjeta, setErrorTarjeta] = useState<string | null>(null);
+  /** Las respuestas de MaKo que está «escribiendo» (los 3 puntos). */
+  const [escribiendo, setEscribiendo] = useState(0);
   const ref = useRef<string>(uuid());
   // ── Lo que se adjunta (28/10/2026, Martín: «no permite adjuntar ni archivos ni capturas ni documentos»): lib/tickets-adjuntos.ts.
   // `adjuntos`: lo elegido en la caja, antes de mandar. `delTicket`: lo que ya subió en la conversación NUEVA y viaja con el
@@ -96,7 +102,7 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
 
   /** Empieza otra conversación con MaKo. */
   const nuevo = useCallback(() => {
-    setCharla(CHARLA_VACIA); setTurnos(saludo()); setTipoElegido(null); setErrorTarjeta(null); ref.current = uuid(); delTicket.current = []; setAbierto('nuevo');
+    setCharla(CHARLA_VACIA); setTurnos(saludo()); setTipoElegido(null); setErrorTarjeta(null); ref.current = uuid(); delTicket.current = []; setEscribiendo(0); setAbierto('nuevo');
   }, []);
 
   /** Lo que escribe la persona en la conversación nueva: MaKo contesta en el acto (reglas, sin IA). `yaDibujado`: el turno de
@@ -108,16 +114,22 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     const c2 = paso?.k === 'pregunta' ? preguntar(c1, paso.clave) : c1;
     setCharla(c2);
     setErrorTarjeta(null);
-    setTurnos((xs) => [
-      ...(yaDibujado
-        ? xs.map((x) => (x.id === yaDibujado ? { id: x.id, de: x.de, texto: x.texto, at: x.at } : x))
-        : [...xs, { id: id('p'), de: 'persona' as const, texto: t, at }]),
-      ...(paso ? [{
-        id: id('m'), de: 'mako' as const, texto: paso.texto, at,
-        ...(paso.k === 'pregunta' && paso.opciones ? { opciones: paso.opciones } : {}),
-        ...(paso.k === 'ticket' ? { borrador: paso.borrador } : {}),
-      }] : []),
-    ]);
+    setTurnos((xs) => (yaDibujado
+      ? xs.map((x) => (x.id === yaDibujado ? { id: x.id, de: x.de, texto: x.texto, at: x.at } : x))
+      : [...xs, { id: id('p'), de: 'persona' as const, texto: t, at }]));
+    if (!paso) return;
+    const deMako: Turno = {
+      id: id('m'), de: 'mako', texto: paso.texto, at,
+      ...(paso.k === 'pregunta' && paso.opciones ? { opciones: paso.opciones } : {}),
+      ...(paso.k === 'ticket' ? { borrador: paso.borrador } : {}),
+    };
+    // MaKo escribe y contesta. Si mientras tanto la persona empezó otra conversación, la respuesta era de la anterior: no cae.
+    const conversacion = ref.current;
+    setEscribiendo((n) => n + 1);
+    setTimeout(() => {
+      setEscribiendo((n) => Math.max(0, n - 1));
+      if (ref.current === conversacion) setTurnos((xs) => [...xs, { ...deMako, at: new Date().toISOString() }]);
+    }, MAKO_ESCRIBE_MS);
   }, [charla]);
   // El `contar` de AHORA, para cuando termina una subida (el de su render ya no tiene lo que se contó después).
   const contarRef = useRef(contar);
@@ -251,6 +263,8 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   return {
     tickets, abierto, ticket, abrir, nuevo, items: nota.conNotas(items), texto, setTexto, mandar, reintentar: nota.reintentar(reintentar), enviando,
     onGrabada: nota.onGrabada, descartar: nota.descartar,
+    /** Los 3 puntos de MaKo, sólo en la conversación nueva. */
+    escribiendo: escribiendo > 0 && !ticket ? { segs: 0 } : null,
     /** La caja ofrece adjuntar: capturas, fotos, PDF y documentos (lib/tickets-adjuntos.ts). */
     adjuntosCaja: { items: adjuntos, puede: !(ticket && !ticket.puedeResponder), onSumar: sumarAdjuntos, onQuitar: quitarAdjunto, accept: ACCEPT_TICKET },
     errorAdjunto,
