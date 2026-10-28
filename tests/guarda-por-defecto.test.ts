@@ -82,7 +82,13 @@ test('3. todo «No pude…» de un preparar, un proponer o su envoltorio lleva `
   assert.deepEqual(sin, [], `una falla nuestra sin la marca: se tomaría por regla y no abriría ticket (${sin.join(', ')})`);
   // Las de D4 (la verificación de 2cb1cf67e), con su nombre.
   const cobros = leer('lib/api-mako/areas/cobros.run.ts');
-  assert.equal((cobros.match(/return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.', falla: true \};/g) ?? []).length, 2);
+  assert.equal((cobros.match(/return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.', falla: true \};/g) ?? []).length, 3, 'crear_link_pago, crear_link_cuota y `conPasarelaConectada`');
+  // Y las de los helpers de cobros, que el preparar devuelve enteras (la verificación de 692368a60, R6 y R7): las pasarelas
+  // ilegibles de reembolsar y cancelar, y la base caída al leer el cobro, que antes salía «No existe el cobro».
+  assert.match(cobros, /if \(!conectadas\) return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.', falla: true \};\n\s*return conectadas\.includes\(c\.proveedor\) \? null : \{ error:/);
+  assert.equal((cobros.match(/if \(sinPasarela\) return sinPasarela;/g) ?? []).length, 2);
+  assert.match(cobros, /try \{ return await getCobro\(ws, x\); \} catch \{ return \{ error: 'No pude leer el cobro\. Prueba de nuevo en un rato\.', falla: true \}; \}/, 'la base caída vuelve a ser «No existe el cobro»');
+  assert.equal((cobros.match(/if \(!c\) return \{ error: noExisteCobro\(input\.cobroId\) \};\n\s*if \('falla' in c\) return c;/g) ?? []).length, 3);
   // Una regla nunca lleva la marca de falla.
   for (const regla of ['Sólo se reembolsa un cobro pagado', 'es un pago único, no una suscripción']) {
     const l = cobros.split('\n').find((x) => x.includes(regla));

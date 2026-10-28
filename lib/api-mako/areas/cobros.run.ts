@@ -91,10 +91,15 @@ async function seguro(que: string, fn: () => Promise<Ejecutado>): Promise<Ejecut
   }
 }
 
-/** El cobro por id, en ESTE workspace, o null. No lanza (lo llama un preparar de pantalla). */
-async function cobroDe(ws: number, id: unknown): Promise<Cobro | null> {
+/**
+ * El cobro por id, en ESTE workspace: null si no existe, y su `error` con `falla` si la base no contestó. No lanza (lo llama un
+ * preparar de pantalla). Con el `.catch(() => null)` de antes, la base caída salía «No existe el cobro»: MaKo le decía al dueño
+ * que el cobro no estaba, y era una regla sin ticket (la verificación de 692368a60, R7).
+ */
+async function cobroDe(ws: number, id: unknown): Promise<Cobro | null | { error: string; falla: true }> {
   const x = n(id);
-  return x ? getCobro(ws, x).catch(() => null) : null;
+  if (!x) return null;
+  try { return await getCobro(ws, x); } catch { return { error: 'No pude leer el cobro. Prueba de nuevo en un rato.', falla: true }; }
 }
 
 /**
@@ -145,11 +150,11 @@ function vistaDe(c: Cobro) {
   };
 }
 
-/** El cobro, si su pasarela sigue conectada; si no, el error que lo dice. */
-async function conPasarelaConectada(ws: number, c: Cobro): Promise<string | null> {
+/** null si la pasarela del cobro sigue conectada; si no, el error que lo dice (con `falla` si no se pudieron leer: no es una regla). */
+async function conPasarelaConectada(ws: number, c: Cobro): Promise<{ error: string; falla?: true } | null> {
   const conectadas = await pasarelasConectadas(ws).catch(() => null);
-  if (!conectadas) return 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.';
-  return conectadas.includes(c.proveedor) ? null : `${NOMBRE_PASARELA[c.proveedor]} ya no está conectado en Integraciones: reconéctalo para seguir.`;
+  if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
+  return conectadas.includes(c.proveedor) ? null : { error: `${NOMBRE_PASARELA[c.proveedor]} ya no está conectado en Integraciones: reconéctalo para seguir.` };
 }
 
 // ── los runners ───────────────────────────────────────────────────────────────
@@ -173,6 +178,7 @@ export const RUNNERS: Runners = {
   ver_cobro: {
     leer: async (input, ctx): Promise<SalidaLectura> => {
       const c = await cobroDe(ctx.ws, input.cobroId);
+      if (c && 'falla' in c) return fallo(c.error);
       return c ? json(vistaDe(c)) : fallo(noExisteCobro(input.cobroId));
     },
   },
@@ -259,6 +265,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.estado === 'anulado') return { error: `El link del cobro #${c.id} ya estaba anulado.`, yaEstaba: true };
       if (c.estado !== 'pendiente' && c.estado !== 'fallido') {
         return { error: `Sólo se anula un link que todavía no se pagó: el cobro #${c.id} está ${rotuloEstado(c.estado).toLowerCase()}.${c.estado === 'pagado' ? ' Para devolverlo, reembolsar_cobro.' : ''}` };
@@ -276,12 +283,13 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.estado === 'reembolsado') return { error: `El cobro #${c.id} ya estaba reembolsado.`, yaEstaba: true };
       if (c.estado !== 'pagado' || !c.proveedor_pago_id) {
         return { error: `Sólo se reembolsa un cobro pagado: el cobro #${c.id} está ${rotuloEstado(c.estado).toLowerCase()}.${c.estado === 'pendiente' || c.estado === 'fallido' ? ' Para que no se pague, anular_link_pago.' : ''}` };
       }
       const sinPasarela = await conPasarelaConectada(ctx.ws, c);
-      if (sinPasarela) return { error: sinPasarela };
+      if (sinPasarela) return sinPasarela;
       const motivo = s(input.motivo);
       return {
         payload: { cobroId: c.id, ...(motivo ? { motivo } : {}) },
@@ -298,11 +306,12 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.tipo !== 'suscripcion') return { error: `El cobro #${c.id} es un pago único, no una suscripción.` };
       if (c.suscripcion_estado === 'cancelada') return { error: `La suscripción del cobro #${c.id} ya estaba cancelada.`, yaEstaba: true };
       if (!c.proveedor_suscripcion_id) return { error: `La suscripción del cobro #${c.id} todavía no arrancó (nadie pagó el link). Para que no se pague, anular_link_pago.` };
       const sinPasarela = await conPasarelaConectada(ctx.ws, c);
-      if (sinPasarela) return { error: sinPasarela };
+      if (sinPasarela) return sinPasarela;
       return {
         payload: { cobroId: c.id },
         resumen: `Cancelar la suscripción de ${quien(c)}: ${c.concepto}, ${plata(c)} por ${NOMBRE_PASARELA[c.proveedor]}. Deja de cobrarse en el acto y no se puede deshacer.`,
