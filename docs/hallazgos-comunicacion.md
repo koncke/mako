@@ -64,12 +64,17 @@ tests/links-con-ws.test.ts.
 
 **⚠️ Pero el diagnóstico obvio puede ser el equivocado:** `crm/482/resumen` sólo existe en los EJEMPLOS del catálogo de
 avisos (lib/avisos-catalogo.ts: la «REUNIÓN» con *Laura Gil*, ficticia por regla). El aviso de verdad arma el link con
-`linkResumenLead(leadId, ws)` (lib/lead-resumen.ts), con el `?ws=`. Si lo que Leila abrió fue un ejemplo (dibujado en la
-pantalla de los avisos, o una plantilla que nunca se editó y sale con el texto de fábrica), el lead 482 no es suyo y el
-`?ws=` no lo arregla. De dónde le salió ese texto no se midió: es leer su grupo en producción.
+`linkResumenLead(leadId, ws)` (lib/lead-resumen.ts), con el `?ws=`. **Medido el 28/10 (sólo lectura, `mako_doer_conv` del
+ws11):** MaKo le mandó a su grupo CUATRO veces, del 02 al 05/10 a las 16:01 UTC, «REUNIÓN · En 30 min tienes la R2 con
+Francisco Ramos (Dental Ramos) · https://hola-mako.com/crm/482/resumen»: el EJEMPLO de `reunion-recordatorio`, que entonces
+nombraba a un lead REAL de otro cliente, agendado «por tiempo». Es el incidente que cerró `motivoNoAgendable` el 06/10 (un
+ejemplo de fábrica no se agenda). Lo que reenvió el 27/10 era uno de esos. Ninguna automatización suya ni de la plataforma
+tiene el link, y ni la cola de avisos ni las notificaciones lo tienen.
 
-**La regla que queda:** lo que sale al grupo de un negocio pasa por `linksConWs` en la salida; y un ejemplo de catálogo no
-lleva un link que se pueda abrir como si fuera de verdad (pendiente: ver arriba).
+**La regla que queda:** lo que sale al grupo de un negocio pasa por `linksConWs` en la salida; un ejemplo de fábrica no se
+agenda (`motivoNoAgendable`). **Sin hacer:** el ejemplo de hoy («Laura Gil») sigue apuntando a `crm/482`, el id de aquel lead
+real; y si la IA del aviso falla, `generarMensajeAviso` devuelve la referencia tal cual (el ejemplo, con su link), para un
+aviso que se emite con `contexto` y una plantilla sin editar.
 
 ## MaKo en el grupo, fallas medidas del 20 al 27/10: decía hecho lo que no hizo, no veía fotos, no levantaba el ticket, no listaba y corría el modelo más flojo (27/10/2026)
 

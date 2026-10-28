@@ -107,8 +107,10 @@ g) Mensajes al Cerebro por mensaje cruzado, cortos: qué quedó, sha, cómo se p
   - **MAU-08, ws1: etiqueta «SPRINT 3 DÍAS».** Tampoco es código: una tarjeta TAG «Agregar SPRINT 3 DÍAS» justo después del
     CRON de la automatización del Sprint, y el lote para los que ya pasaron (los leads con inscripción en esa automatización,
     `inscripciones_lead` / `poner_etiqueta_lead`). Crear la etiqueta si no existe (`crear_etiqueta`). Escribir en el ws1: no lo hice.
-  - **Leila 1 (ws11):** el link que reenvió (`hola-mako.com/crm/482/resumen`) es el del EJEMPLO del catálogo de avisos (lead
-    ficticio «Laura Gil»); el aviso de verdad ya lleva el `?ws=`. De dónde le llegó ese texto no se midió: es leer su grupo.
+  - **Leila 1 (ws11), medido el 28/10 (sólo lectura):** el link venía de 4 avisos del 02 al 05/10 (el EJEMPLO de
+    `reunion-recordatorio`, agendado «por tiempo», con un lead real de otro cliente), el incidente que cerró
+    `motivoNoAgendable` el 06/10. Hoy no hay camino que lo mande. Queda: el ejemplo sigue apuntando a `crm/482`, y la caída
+    de la IA del aviso devuelve el ejemplo tal cual (`generarMensajeAviso`); propuesta para otra tanda.
   - **Leila 2 (ws11):** no medí en su base cuántos de «reactivación» quedaban afuera (es leer producción). Al desplegar, si
     ella pausa y vuelve a activar su automatización, MaKo le cuenta y le ofrece sumarlos.
   - **Ticket #17 (Leandro, ws10), su automatización 680 (leída en producción, sin escribir):** no arrancaba nunca: su filtro
