@@ -316,4 +316,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '28 oct', hora: '17:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_c698e704-db3d-44cd-b032-a6e23e88b79b', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Video Editor con el chat de MaKo al costado, sus proyectos en la barra y más cosas por prompt',
+    puntos: [
+      'El chat de MaKo queda fijo al costado, igual que en Web Generator: la estrella de MaKo, «en línea», y «Discutir | Editar» arriba de la caja. Los proyectos se abren desde la barra del costado sin cambiar de página, y la pantalla toma los colores de MaKo.',
+      '«Discutir» ahora sí llega a MaKo: antes el selector se veía pero MaKo igual armaba cambios. Con «Discutir» contesta y sugiere, sin tocar el video, y también dice lo que MaKo no tiene y lo anota como pedido.',
+      'Por prompt (y por la API) se suman siete cosas que antes sólo se hacían a mano: agregar y editar un motion graphic, duplicar un clip, quitarle el fondo, el fondo del lienzo (color o desenfoque), la relación (vertical, cuadrada o apaisada) y agregar un medio de Multimedia.',
+      'Se juntó con lo de hoy de Leila: las notas de voz, las fotos y PDF en el chat y el paso a paso de «Borrar silencios» siguen andando en el panel nuevo.',
+      'No se miró todavía en un navegador.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/chat/PanelChat.tsx — el panel único con «Discutir | Editar», las notas de voz y los adjuntos',
+      'lib/editor-video/ia.ts y app/api/video-editor/ia/route.ts — «Discutir», con la regla de lo que no existe',
+      'lib/editor-video/chat-api.ts, chat-catalogo.ts y lib/api-mako/areas/video.run.ts — las siete operaciones nuevas',
+      'tests/editores-por-prompt.test.ts, editores-chat-piezas.test.ts, video-editor-chat.test.ts, doer-recetas-video-imagen.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

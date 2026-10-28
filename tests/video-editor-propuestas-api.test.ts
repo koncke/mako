@@ -203,7 +203,7 @@ test('11: la base suma con compare-and-set dentro de la ventana, revisa contra l
   assert.match(sql, /revoke all on video_editor_propuestas from anon, authenticated;/);
   assert.match(leer('lib', 'workspace.ts'), /'video_editor_propuestas',/);
   assert.match(leer('lib', 'tablas-de-inquilino.ts'), /'video_editor_propuestas',/);
-  assert.match(leer('lib', 'api-mako', 'tipos.ts'), /\| '\/video-editor';/);
+  assert.match(leer('lib', 'api-mako', 'tipos.ts'), /export type RutaPantalla = [^;]*\| '\/video-editor'[^;]*;/);
 });
 
 test('12: el editor la muestra como un cambio más del chat, la acepta con el mismo «Aceptar» y la cierra en la base', () => {

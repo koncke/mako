@@ -130,4 +130,22 @@ export const BITACORA: Hito[] = [
       'Lo que no hace: dibujar ni descargar. Devuelve el link para abrirlo en el editor.',
     ],
   },
+  {
+    fecha: '28 oct', hora: '17:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_c698e704-db3d-44cd-b032-a6e23e88b79b', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Image Editor con el chat de MaKo al costado, y lo que MaKo propone por WhatsApp ya se ve en el editor',
+    puntos: [
+      'El chat de MaKo queda fijo al costado, como en Web Generator, con «Discutir | Editar»; los diseños se abren desde la tarjeta del costado sin cambiar de página, con los colores de MaKo.',
+      'Lo que MaKo propone en un diseño desde WhatsApp o la API ahora aparece en el chat del editor para aceptarlo, y el link «Aceptar en el editor» baja hasta esa propuesta. Antes se guardaba pero la pantalla nunca lo traía.',
+      'Descartar una propuesta que vino por WhatsApp la cierra también del otro lado (antes quedaba abierta hasta la próxima búsqueda).',
+      'Se juntó con lo de hoy: las notas de voz y las fotos o PDF en el chat siguen andando en el panel nuevo.',
+      'No se miró todavía en un navegador.',
+    ],
+    archivos: [
+      'app/image-editor/mako/chat/PanelMakoIA.tsx — el panel único, la búsqueda de propuestas y el foco del link',
+      'app/image-editor/mako/chat/acciones.ts y propuestas.ts — «Discutir», los adjuntos y cerrar lo descartado',
+      'lib/image-editor/chat/ia.ts y app/api/image-editor/ia/route.ts — «Discutir», con la regla de lo que no existe',
+      'tests/image-editor-chat.test.ts (42), editores-chat-piezas.test.ts',
+    ],
+    revisar: '/image-editor',
+  },
 ];

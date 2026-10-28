@@ -484,3 +484,16 @@ test('41: abrir el chat NO vuelve a guardar lo que ya está en la base (22/10/20
   await new Promise((r) => setTimeout(r, 800));
   assert.deepEqual(metodos, ['GET'], 'abrir no es un cambio');
 });
+
+test('42: la pantalla trae lo que propuso la API (con el foco del `?propuesta=`) y «Descartar» la cierra en la base (28/10/2026)', () => {
+  // Hasta el 28/10 `iniciarPropuestasImagen` no la llamaba nadie: la API del Image Editor proponía y la pantalla nunca lo mostraba.
+  const panel = leer('app', 'image-editor', 'mako', 'chat', 'PanelMakoIA.tsx');
+  assert.match(panel, /useEffect\(\(\) => iniciarPropuestasImagen\(editor, \{ foco: new URLSearchParams\(window\.location\.search\)\.get\('propuesta'\) \}\), \[editor\]\);/);
+  // El link baja hasta su mensaje: el hueco lleva su id y el foco se limpia después de mostrarlo.
+  assert.match(panel, /abajo: <div data-mensaje=\{m\.id\}/);
+  assert.match(panel, /querySelector<HTMLElement>\(`\[data-mensaje="\$\{CSS\.escape\(foco\)\}"\]`\)/);
+  assert.match(panel, /cambiarHilo\(disenoId, \(h\) => \(\{ \.\.\.h, foco: undefined \}\), \{ guardar: false \}\)/);
+  // «Descartar» por la función que también la cierra en la base, no sólo el estado del hilo.
+  assert.match(panel, /onDescartar=\{\(\) => descartarPropuesta\(editorRef\.current, m\)\}/);
+});
+

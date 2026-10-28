@@ -966,7 +966,9 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
   const def = DEFS_VIDEO.find((d) => d.id === 'borrar_silencios_video');
   assert.ok(def && def.tipo === 'accion', 'falta borrar_silencios_video en la API');
   assert.equal(def.confirmacion, 'pantalla');
-  assert.equal(DEFS_VIDEO.at(-1)!.id, 'borrar_silencios_video', 'una operación nueva va al final de su área');
+  // Entró al final del área (después de usar_plantilla_video, la última de entonces); las que vinieron después van detrás.
+  const ids = DEFS_VIDEO.map((d) => d.id);
+  assert.equal(ids.indexOf('borrar_silencios_video'), ids.indexOf('usar_plantilla_video') + 1, 'una operación nueva va al final de su área');
   assert.ok(sinComentarios(leer('lib/api-mako/areas/video.run.ts')).includes("borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },"));
 });
 

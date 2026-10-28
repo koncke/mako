@@ -766,6 +766,23 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   audio**, que congelaba la pantalla: relleno de silencio al final, recorte al largo original y ceder el
   hilo (`tono.ts`).
 
+## El panel único en el Video Editor: «Discutir» se veía y no llegaba (28/10/2026, al juntar el WIP con main)
+
+**Vive en:** `chat/PanelChat.tsx` · `lib/editor-video/ia.ts` · `app/api/video-editor/ia/route.ts` · tests/editores-por-prompt.test.ts
+
+- ⚠️ **El selector «Discutir | Editar» estaba, la ruta lo leía, y el pedido nunca lo llevaba.** `pedirEdicion` recibía
+  `op.intencion` y llamaba a `pedirIA` sin ella: con «Discutir», MaKo igual armaba una propuesta. Los tests del WIP fijaban
+  el lado que RECIBE (la ruta pasa `intencion` al motor) y no el que MANDA. Un cable entre dos archivos se prueba en los
+  dos extremos: ahora el test mira también el `pedirIA` del panel.
+- **Al juntar el WIP con main (tren-v), el panel nuevo (`PanelDeChat`) perdía lo que main le había sumado al viejo**: la nota
+  de voz en el acto (`nota.conNotas`, `onGrabada`), las fotos y PDF en la caja (`adj`) y el paso a paso de «Borrar
+  silencios». El merge marca el conflicto en la caja, pero el hilo (`HiloMako`) estaba fuera del conflicto y quedaba con la
+  versión vieja sin avisar: después de un merge de una pantalla rearmada, se busca cada pieza de main por su nombre.
+- **«Discutir» es un prompt nuevo, y lleva la regla de lo que no existe** (AGENTS.md): `REGLA_NO_EXISTE` en su system y
+  `conPedidoDeNoExisteDeLaSesion` sobre el texto, como «Editar».
+- **Las siete operaciones nuevas del WIP van DESPUÉS de `borrar_silencios_video`**, que ya estaba en producción: una nueva va
+  al final del área para no sacarle el lugar a las de antes en el presupuesto de 12.000.
+
 ## Los textos de CapCut: el `.po` manda, con sus erratas
 
 **Vive en:** la tabla en/es del scratchpad (no se versiona, ver el diseño) ·

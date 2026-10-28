@@ -42,8 +42,9 @@ import { useEditor, useEditorState, type EditorEngine } from '../../_doory/edito
 import { useEstudio } from '../../editor/estudio';
 import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
 import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/aplicar';
-import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
-import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
+import { cambiarHilo, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
+import { aceptarPropuesta, descartarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
+import { iniciarPropuestasImagen } from './propuestas';
 import styles from './chat.module.css';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
@@ -195,6 +196,22 @@ export function PanelMakoIA() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [hilo.mensajes.length, hilo.corriendo]);
 
+  // Lo que la API propuso en este diseño (por WhatsApp, por la API): aparece en el chat para aceptarlo (./propuestas.ts). Con
+  // `?propuesta=` (el «Aceptar en el editor» del Ops Center), el chat baja hasta ÉSA. Como el Video Editor (editor-page.tsx):
+  // hasta el 28/10 nadie lo montaba y la API proponía en un diseño que la pantalla nunca mostraba.
+  useEffect(() => iniciarPropuestasImagen(editor, { foco: new URLSearchParams(window.location.search).get('propuesta') }), [editor]);
+
+  // DESPUÉS de bajar: la propuesta del link se centra y se resalta unos segundos (si todavía no llegó, espera a que llegue).
+  const foco = hilo.foco;
+  useEffect(() => {
+    if (!foco || !disenoId) return;
+    const el = hiloRef.current?.querySelector<HTMLElement>(`[data-mensaje="${CSS.escape(foco)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    const t = setTimeout(() => cambiarHilo(disenoId, (h) => ({ ...h, foco: undefined }), { guardar: false }), 4000);
+    return () => clearTimeout(t);
+  }, [foco, disenoId, hilo.mensajes.length]);
+
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
@@ -237,7 +254,8 @@ export function PanelMakoIA() {
     return {
       // Un error dice qué pasó y deja reportarlo (la casa: todo aviso de error lleva `ReportarASoporte`).
       arriba: m.error ? <p className={styles.error} role="alert">{m.texto}<ReportarASoporte error={m.texto} /></p> : null,
-      abajo: <>
+      // El hueco lleva el id del mensaje: ahí baja el link `?propuesta=` (`foco`, arriba).
+      abajo: <div data-mensaje={m.id} style={foco === m.id ? { borderRadius: 14, boxShadow: '0 0 0 2px var(--primary)' } : undefined}>
         {/* El arreglo, si lo hay («conecta OpenAI»): una integración abre SU modal acá mismo, sin salir del editor. */}
         {m.links && m.links.length > 0 && (
           <div className={styles.links}>
@@ -249,13 +267,13 @@ export function PanelMakoIA() {
             m={m as MensajeMako & { cambios: CambioImagen[]; estado: EstadoPropuesta }}
             tocada={m.propuesta.docVersion !== undefined && m.propuesta.docVersion !== docVersion}
             onAceptar={() => void aceptarPropuesta(editorRef.current, m)}
-            onDescartar={() => cambiarMensaje(disenoId, m.id, { estado: 'descartada', aviso: undefined })}
+            onDescartar={() => descartarPropuesta(editorRef.current, m)}
             onRestaurar={() => restaurarPropuesta(editorRef.current, m)}
           />
         ) : m.descartes && m.descartes.length > 0 ? (
           <p className={styles.nota}>No se aplica: {m.descartes.slice(0, 3).join(' · ')}</p>
         ) : null}
-      </>,
+      </div>,
     };
   };
 

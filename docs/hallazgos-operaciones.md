@@ -7,6 +7,15 @@ del código.
 
 ---
 
+## La batería del Ops Center cuenta por ÁREA: una operación que deja de llegar la tapan las que suben (28/10/2026)
+
+Al juntar el frente de los editores con main, `ACTUALIZAR_PISO=1` anotó 16 operaciones que pasaron a llegar y UNA que dejó de
+llegar al chat de la app: «pasá a Nicolás a calificado» → `marcar_calificado`. La batería dio verde: en las áreas de
+alternativas (nucleo, crm-chats, automations-clients) cuenta la FRASE, y esa frase sigue trayendo `proponer_cambio_etapa`.
+La fixture que había regenerado el agente del 27/10 traía esa misma baja anotada sin decirlo. **Antes de aceptar una fixture
+regenerada se compara par por par contra la de main** (`llegaHoy`/`llegaWhatsApp` de cada fila, sin la `fuente`): lo que
+pasa de `true` a `false` se dice en la entrega, aunque la batería esté verde.
+
 ## «No me responde, dice trabajando»: el Runner en OTRO modo de permisos retiene los mensajes, y el acuse dice ok (27/10/2026, Cerebro)
 
 **Vive en:** el modo de la sesión «Runner» (no en el código) · `scripts/operaciones/cartero.mjs` (`acuse`) · `lib/runner.ts`

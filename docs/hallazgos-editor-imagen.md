@@ -486,8 +486,17 @@ funcionalidad». Copiado del Web Generator (`.gma-izq` + PanelAgente), no diseñ
 - Lo que no se puede perder, relevado ANTES del cambio y tildado en el navegador después: la lista está en la carpeta de
   notas de la sesión (funciones-que-no-se-pierden.md), con las capturas del antes y del después.
 
+- ⚠️ **(28/10) La API proponía en un diseño que la pantalla nunca mostraba.** `iniciarPropuestasImagen` (mako/chat/propuestas.ts)
+  estaba escrita y NADIE la montaba: lo que MaKo proponía por WhatsApp quedaba en la base y el editor no lo traía. La monta
+  el panel (`PanelMakoIA`, que tiene el motor), con el `?propuesta=` leído de la URL: la página del diseño no recibe la
+  query. El hueco lleva `data-mensaje` para que el link baje hasta su mensaje. Y «Descartar» marcaba sólo el hilo: va por
+  `descartarPropuesta`, que también la cierra en la base. tests/image-editor-chat.test.ts (42).
+- **«Discutir» es un prompt nuevo, y lleva la regla de lo que no existe** (`REGLA_NO_EXISTE` y `conPedidoDeNoExisteDeLaSesion`,
+  como «Editar»): con la rama de «Discutir» volviendo antes, se la salteaba.
+
 **Vive en:** `_doory/editor/EditorApp.tsx` (`ChatFijo`) · `editor/PantallaEditor.tsx` · `mako/chat/PanelMakoIA.tsx` ·
-`mako/chat/chat.module.css` (`.columna`) · `_doory/styles/tokens.css` · *26/10/2026, chat «motion-imagen» (claude5).*
+`mako/chat/chat.module.css` (`.columna`) · `_doory/styles/tokens.css` · *26/10/2026, chat «motion-imagen» (claude5); lo del
+28/10, chat «Video Editor: el ruido y los silencios de Leila» (claude4).*
 
 ## Crear y editar imágenes con la IA del negocio: lo que se midió antes de escribir (26/10/2026, A MEDIAS)
 
