@@ -969,7 +969,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true,
     placeholder: arranque?.placeholder ?? 'Escríbele a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
     // `sinAdjuntos` también a la caja (la revisión del 27/10/2026): si no, la caja adjuntaba SOLA y lo leído iba a la respuesta.
-    adjuntos: sinAdjuntos ? undefined : adjuntosCaja, sinAdjuntos, estado: estadoVista, bloqueo: arranque ? undefined : appEscritorio.bloqueo,
+    sinAdjuntos,
+    adjuntos: sinAdjuntos ? undefined : adjuntosCaja, estado: estadoVista, bloqueo: arranque ? undefined : appEscritorio.bloqueo,
     voz: sinAdjuntos ? undefined : {
       onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,
       pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,

@@ -43,7 +43,9 @@ test('4. lo leído entra hasta el tope del motor, con su marca de cierre, y dice
 });
 
 test('7. el arranque de Offer (sólo texto) no adjunta', () => {
-  assert.match(fuente('app/offer/OfferApp.tsx'), /adjuntos: sinAdjuntos \? undefined : adjuntosCaja, sinAdjuntos, estado: estadoVista,/);
+  const offer = fuente('app/offer/OfferApp.tsx');
+  const caja = offer.slice(offer.indexOf('const caja: PropsCajaChat = {'), offer.indexOf('voz: sinAdjuntos ? undefined'));
+  assert.match(caja, /\n\s*sinAdjuntos,\n\s*adjuntos: sinAdjuntos \? undefined : adjuntosCaja,/, 'la caja del arranque adjunta sola');
 });
 
 test('8. leer-archivo mira lo que BAJÓ y anota el gasto en el chat', () => {
