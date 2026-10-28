@@ -84,7 +84,7 @@ export async function ejecutarOperacion(
         if (typeof cruda !== 'string' && cruda.falta) ctx.aFalta?.(cruda.falta);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
         // Lo que falta CONECTAR es una guarda, como en un preparar (la verificación de 692368a60).
-        if (cruda.isError) return { ok: false, status: 400, error: cruda.content, ...(cruda.falta ? { falta: cruda.falta } : {}) };
+        if (cruda.isError) return { ok: false, status: 400, error: cruda.content, ...(cruda.falta ? { falta: cruda.falta, guarda: true as const } : {}) };
         // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
         // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta. `siSeDibuja` va sólo si se dibujó: un saneo
         // que lo descarta o el tope de bloques del turno (`aDibujar` da `false`) no se lo dicen al modelo.
