@@ -682,8 +682,8 @@ export async function editarCuota(
   if (ws != null && prot.includes('link') && cambiaMonto) {
     try {
       const { anularLinksDeCuota } = await import('./cobros');
-      await anularLinksDeCuota(ws, pagoId, 'MaKo (cambió el monto de la cuota)');
-      linkAnulado = true;
+      // Sólo si de verdad anuló alguno (revisión de 1f02dd813, baja: lo decía aunque el link ya no estuviera vivo).
+      linkAnulado = (await anularLinksDeCuota(ws, pagoId, 'MaKo (cambió el monto de la cuota)')) > 0;
     } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude anular su link:`, e instanceof Error ? e.message : e); }
   }
   // ⚠️ UN RECORDATORIO CORTADO VUELVE A LA COBRANZA AUNQUE LA FECHA NO CAMBIE (revisión de b335f972c, media): con sólo el

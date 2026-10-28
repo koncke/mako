@@ -317,7 +317,9 @@ export type CuotaExistente = {
   protegida?: readonly Proteccion[];
 };
 
-export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null };
+/** `quedaComoEsta` (sólo en 'porId'): la que ya existe se casa por id SIN cambiarla, y si ya no existe no se inserta (lo de aparte
+ *  del plan libre, `cuotasDelPlanLibre`). */
+export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null; quedaComoEsta?: boolean };
 
 /**
  *   · 'porId' — la lista viene de una pantalla con el id de cada cuota (Editar deal): la que trae id se actualiza,
@@ -416,6 +418,7 @@ export function reconciliarCuotas(
     const pagadasId = new Set(existentes.filter((q) => q.pagado || q.devuelta).map((q) => q.id));
     for (const d of opts.protegidasPrimero ? protegidasPrimero(impagas, validas, opts.vistos) : validas) {
       const q = d.id != null ? porId.get(d.id) : undefined;
+      if (d.quedaComoEsta) { if (q) libres.delete(q.id); continue; } // tal cual está, y si ya no está, nada
       if (q && libres.has(q.id)) casar(q, d);
       else if (d.id != null && pagadasId.has(d.id)) continue; // una cobrada que vino en la lista: no se toca
       else sinCasar.push(d);
@@ -953,12 +956,19 @@ export function cuotasDelPlanLibre(p: {
   protegidas: ReadonlySet<number>;
   inicial: number; cuota: number; cantidad: number; desde: string;
   fechas: (n: number) => string[];
+  /** ¿El plan GUARDADO tiene cobro inicial? (el `cobro_inicial_usd` del lead o del trato al abrir). Sin inicial, el #0 que tomó un
+   *  lugar del plan es una cuota más: cobrado, cuenta como cuota (revisión de 1f02dd813). Sin esto, como si lo tuviera. */
+  planConInicial?: boolean;
 }):
-  | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
+  | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null; quedaComoEsta: true }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
   | { ok: false; error: string; cobradas: number; inicialCobrado: boolean } {
   const vivas = p.pagos.filter((q) => !noEsDeuda(q));
-  const inicialCobrado = vivas.some((q) => q.pagado && q.numero === 0);
-  const cobradas = vivas.filter((q) => q.pagado && q.numero !== 0 && esCuotaDelPlan(q)).length;
+  // ⚠️ UN #0 COBRADO DE UN PLAN SIN INICIAL ES UNA CUOTA (revisión de 1f02dd813, media): la seña protegida que tomó un lugar del
+  // plan (300 cada quincena, 4), una vez pagada contaba como «inicial cobrado» y no como cuota, y guardar el mismo plan armaba 4
+  // nuevas: cinco cuotas de 300 para un plan de 4 (1.200 de deuda en vez de 900).
+  const conInicial0 = p.planConInicial !== false;
+  const inicialCobrado = conInicial0 && vivas.some((q) => q.pagado && q.numero === 0);
+  const cobradas = vivas.filter((q) => q.pagado && (q.numero !== 0 || !conInicial0) && esCuotaDelPlan(q)).length;
   const nuevas = Math.floor(p.cantidad) - cobradas;
   if (nuevas < 1) {
     return { ok: false, cobradas, inicialCobrado, error: `Ya hay ${cobradas} cuota${cobradas === 1 ? '' : 's'} cobrada${cobradas === 1 ? '' : 's'} y cuenta${cobradas === 1 ? '' : 'n'} en la cantidad: pon más de ${cobradas}.` };
@@ -973,7 +983,9 @@ export function cuotasDelPlanLibre(p: {
   // Con lugar, protegido se quedaba con el de una cuota de US$500 y ésa se borraba (nunca se cobraba); sin proteger, se borraba
   // el resto. Va aparte (`aparte`), con su id, su monto y su fecha tal cual: se casa sin cambio y no se borra.
   const impagas = todasImpagas.filter((q) => esCuotaDelPlan(q));
-  const aparte = todasImpagas.filter((q) => !esCuotaDelPlan(q)).map((q) => ({ id: q.id, numero: null, monto: Number(q.monto_usd), fecha: q.fecha_esperada }));
+  // `quedaComoEsta`: el server la casa por id SIN cambiarla, y si ya no existe no la inserta (revisión de 1f02dd813, baja: un resto
+  // quitado o cambiado en el medio revivía con los valores de la pantalla).
+  const aparte = todasImpagas.filter((q) => !esCuotaDelPlan(q)).map((q) => ({ id: q.id, numero: null, monto: Number(q.monto_usd), fecha: q.fecha_esperada, quedaComoEsta: true as const }));
   // El inicial impago que existe vuelve a ser el inicial. Sin inicial en el plan nuevo, uno sin proteger se quita (no se
   // convierte en una cuota común llamada «Cobro inicial»); uno protegido toma un lugar, como cualquier protegida.
   const inicialImpago = impagas.find((q) => q.numero === 0) ?? null;

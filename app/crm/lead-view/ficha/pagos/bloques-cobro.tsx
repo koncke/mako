@@ -403,6 +403,7 @@ function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegidas: Re
   const armado = libre ? cuotasDelPlanLibre({
     pagos: ctx.data.pagos, protegidas: new Set(Object.entries(protegidas).filter(([, p]) => p.length).map(([id]) => Number(id))),
     inicial, cuota, cantidad, desde: plan.desde, fechas: (k) => fechasDelPlan({ desde: plan.desde, cantidad: k, cada, dias }),
+    planConInicial: (antes.cobro_inicial_usd ?? 0) > 0,
   }) : null;
   const fechas = armado?.ok ? armado.cuotas.filter((c) => c.numero !== 0).map((c) => c.fecha as string) : [];
   const conInicialNuevo = !!armado?.ok && armado.cuotas.some((c) => c.numero === 0);

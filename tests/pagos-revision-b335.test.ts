@@ -54,16 +54,16 @@ const LEAD: CuotaParaPlanLibre[] = [
 
 /** Lo que guarda «Guardar el plan» en el libre: la lista de `cuotasDelPlanLibre`, reconciliada POR ID con `vistos`. */
 /** `pantalla`: las protecciones que tiene la FICHA (pueden estar viejas); sin ella, las mismas que lee el server. */
-function guardar(pagos: CuotaParaPlanLibre[], form: { inicial: number; cuota: number; cantidad: number; cada: CadaPlan; dias?: number[] }, protegidas: Record<number, Array<'link' | 'recordatorio'>> = {}, pantalla?: Record<number, unknown>) {
+function guardar(pagos: CuotaParaPlanLibre[], form: { inicial: number; cuota: number; cantidad: number; cada: CadaPlan; dias?: number[]; planConInicial?: boolean }, protegidas: Record<number, Array<'link' | 'recordatorio'>> = {}, pantalla?: Record<number, unknown>) {
   const desde = '2026-10-27';
   const armado = cuotasDelPlanLibre({
     pagos, protegidas: new Set(Object.keys(pantalla ?? protegidas).map(Number)), inicial: form.inicial, cuota: form.cuota, cantidad: form.cantidad, desde,
-    fechas: (k) => fechasDelPlan({ desde, cantidad: k, cada: form.cada, dias: form.dias }),
+    fechas: (k) => fechasDelPlan({ desde, cantidad: k, cada: form.cada, dias: form.dias }), planConInicial: form.planConInicial,
   });
   if (!armado.ok) return { armado, deuda: null, plan: null };
   const existentes: CuotaExistente[] = pagos.map((q) => ({ id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado, resto_de: q.resto_de ?? null, nacio_cobrada: !!q.nacio_cobrada, protegida: protegidas[q.id] ?? [] }));
   // Lo que manda la ficha (guardarLibre): la lista del plan, lo de aparte tal cual, y el orden de las protegidas lo decide el server.
-  const plan = reconciliarCuotas(existentes, [...armado.cuotas, ...armado.aparte].map((c) => ({ id: c.id, numero: c.numero, monto_usd: c.monto, fecha_esperada: c.fecha })), 'porId', { vistos: new Set(armado.vistos), protegidasPrimero: true });
+  const plan = reconciliarCuotas(existentes, [...armado.cuotas, ...armado.aparte].map((c) => ({ id: c.id, numero: c.numero, monto_usd: c.monto, fecha_esperada: c.fecha, ...('quedaComoEsta' in c ? { quedaComoEsta: true } : {}) })), 'porId', { vistos: new Set(armado.vistos), protegidasPrimero: true });
   const borradas = new Set(plan.borrar.map((b) => b.id));
   const nuevoMonto = new Map(plan.actualizar.map((a) => [a.id, a.monto_usd]));
   const deuda = existentes.filter((q) => !q.pagado && !borradas.has(q.id)).reduce((s, q) => s + (nuevoMonto.get(q.id) ?? q.monto_usd), 0)
@@ -206,9 +206,45 @@ test('las protegidas primero las decide el server con sus protecciones, aunque l
 
 test('el link que se anuló al cambiar el monto se dice, y el Deshacer avisa que no vuelve (baja)', () => {
   const ed = bloque(fuente('lib/pagos.ts'), 'export async function editarCuota(');
-  assert.match(ed, /await anularLinksDeCuota\(ws, pagoId, [^;]*;\n\s*linkAnulado = true;/);
+  assert.match(ed, /linkAnulado = \(await anularLinksDeCuota\(ws, pagoId, [^;]*\)\) > 0;/, 'dice que anuló el link aunque no había ninguno vivo');
   assert.match(ed, /return \{ antes, despues, numero: q\.numero, recordatorioCortado, linkAnulado \};/);
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /r\.linkAnulado \? 'Cuota cambiada · el link anterior se anuló: manda uno nuevo'/, 'el cambio no dice que el link se anuló');
   assert.match(ui, /else if \(r\.linkAnulado\) show\('Monto devuelto · el link quedó anulado: manda uno nuevo'\);/, 'el Deshacer cree que deshizo todo');
+});
+
+// ── La revisión de 1f02dd813 (Cerebro, 28/10/2026): C:/dev/revisiones/2810-crm-1f02dd813.md ─────────────────────────────
+
+test('un #0 cobrado de un plan SIN inicial es una cuota más: guardar, cobrarlo y volver a guardar lo mismo no suma una (media)', () => {
+  const plan = { inicial: 0, cuota: 300, cantidad: 4, cada: 'quincena' as CadaPlan, dias: [1, 15], planConInicial: false };
+  // 1 · la seña #0 de 300 con link y la #1 de 500; el plan libre sin inicial: 300 cada quincena, 4.
+  const primero = guardar([
+    { id: 30, numero: 0, monto_usd: 300, fecha_esperada: '2026-10-30', pagado: false },
+    { id: 31, numero: 1, monto_usd: 500, fecha_esperada: '2026-11-15', pagado: false },
+  ], plan, { 30: ['link'] });
+  assert.equal(primero.deuda, 1200);
+  // 2 · el cliente paga el link de la #0, y se guarda el mismo plan: quedan 3 de 300.
+  const cobrado: CuotaParaPlanLibre[] = [
+    { id: 30, numero: 0, monto_usd: 300, fecha_esperada: '2026-10-30', pagado: true },
+    { id: 31, numero: 1, monto_usd: 300, fecha_esperada: '2026-11-01', pagado: false },
+    { id: 32, numero: 2, monto_usd: 300, fecha_esperada: '2026-11-15', pagado: false },
+    { id: 33, numero: 3, monto_usd: 300, fecha_esperada: '2026-12-01', pagado: false },
+  ];
+  const otraVez = guardar(cobrado, plan);
+  assert.ok(otraVez.armado.ok && !otraVez.armado.inicialCobrado, 'la #0 de un plan sin inicial se tomó por el inicial');
+  assert.equal(otraVez.deuda, 900, 'cinco cuotas de 300 para un plan de 4 (era 1200)');
+  // Con inicial en el plan guardado, la #0 cobrada sigue siendo el inicial, como siempre.
+  assert.equal(guardar(cobrado, { ...plan, planConInicial: true }).armado.ok && guardar(cobrado, { ...plan, planConInicial: true }).deuda, 1200);
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /planConInicial: \(antes\.cobro_inicial_usd \?\? 0\) > 0,/, 'la ficha no le dice si el plan guardado tiene inicial');
+});
+
+test('lo de aparte va tal cual: un resto quitado o cambiado en el medio no revive con los valores de la pantalla (baja)', () => {
+  const sinElResto = reconciliarCuotas([{ id: 104, numero: 4, monto_usd: 500, fecha_esperada: '2026-10-30', pagado: false }],
+    [{ id: 107, monto_usd: 100, fecha_esperada: '2026-11-05', quedaComoEsta: true }], 'porId', { vistos: new Set([104, 107]) });
+  assert.equal(sinElResto.insertar.length, 0, 'el resto que se quitó en el medio volvió a nacer');
+  const cambiado = reconciliarCuotas([{ id: 107, numero: 7, monto_usd: 80, fecha_esperada: '2026-11-20', pagado: false, resto_de: 103 }],
+    [{ id: 107, monto_usd: 100, fecha_esperada: '2026-11-05', quedaComoEsta: true }], 'porId', { vistos: new Set([107]) });
+  assert.equal(cambiado.actualizar.length, 0, 'el resto que se cambió en el medio volvió a los valores de la pantalla');
+  assert.equal(cambiado.borrar.length, 0);
+  assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /\.\.\.\(c\?\.quedaComoEsta === true \? \{ quedaComoEsta: true \} : \{\}\)/, 'la acción tira la marca');
 });

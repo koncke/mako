@@ -173,7 +173,7 @@ type ResultadoCuotas = { ok: true; actualizadas: number; nuevas: number; quitada
 export async function guardarCuotasAction(
   leadId: number,
   /** `numero`: el de una cuota que VUELVE (el Deshacer de `ajustarPlanAction`); sin él, después de la última. */
-  cuotas: Array<{ id?: number | null; numero?: number | null; monto: number; fecha: string | null }>,
+  cuotas: Array<{ id?: number | null; numero?: number | null; monto: number; fecha: string | null; quedaComoEsta?: boolean }>,
   plan?: PlanUniforme | null,
   /** Los ids de las impagas que la pantalla tenía cargadas: una que no vio no se borra (ver `reconciliarCuotas`). */
   idsVistos?: number[] | null,
@@ -195,7 +195,7 @@ export async function guardarCuotasAction(
     const cambios = await guardarCuotasPorId(leadId, cuotas.map((c) => {
       const id = c?.id;
       const numero = typeof c?.numero === 'number' && Number.isInteger(c.numero) && c.numero >= 0 && c.numero <= 60 ? c.numero : null;
-      return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null };
+      return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null, ...(c?.quedaComoEsta === true ? { quedaComoEsta: true } : {}) };
     }), { vistos, crm: trato, protegidasPrimero: como?.protegidasPrimero === true });
     if (plan) {
       // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null

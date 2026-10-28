@@ -1344,3 +1344,8 @@ en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, 
   que decide plata se decide con el dato del server, no con el de la pantalla**; la pantalla sólo propone.
 - Baja: cambiar el monto de una cuota con link anula el link, y el Deshacer devuelve el monto pero no el link. Ahora se dice en
   los dos («el link anterior se anuló: manda uno nuevo»).
+- **La revisión de 1f02dd813 (media):** un #0 que tomó un lugar del plan libre sin inicial (una seña con link), una vez cobrado,
+  contaba como «inicial cobrado» y no como cuota: guardar el mismo plan después armaba una de más (cinco de 300 para un plan
+  de 4). Ahora la ficha le dice a `cuotasDelPlanLibre` si el plan GUARDADO tiene inicial (`planConInicial`); sin él, el #0 es
+  una cuota. Y lo de aparte va `quedaComoEsta`: el server lo casa sin cambiarlo y, si ya no existe, no lo inserta (un resto
+  quitado o cambiado en el medio revivía). El aviso del link anulado sale sólo si se anuló alguno.
