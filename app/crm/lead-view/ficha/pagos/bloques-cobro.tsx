@@ -19,7 +19,7 @@ import { Button, Confirm, Toast, useToast } from '@/app/_ui';
 import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
 import { cobrosDelTrato, cobrosSinLosDe } from '@/lib/pagos-crm';
-import { ajustarSobre, fechasDelPlan, TOPE_CUOTAS_PLAN, type CadaPlan, type PlanUniforme } from '@/lib/pagos-campo';
+import { ajustarSobre, cuotasDelPlanLibre, fechasDelPlan, TOPE_CUOTAS_PLAN, type CadaPlan, type PlanUniforme } from '@/lib/pagos-campo';
 import { planEnLead } from '@/lib/muestra-pagos';
 import { fechaEnPalabras } from '@/lib/date-utils';
 import { marcaDato } from '@/lib/datos-aviso';
@@ -177,13 +177,27 @@ export function Cuotas(props: PropsBloque) {
     show(r.cortados ? 'Recordatorio cortado' : 'No había recordatorio');
   });
 
-  const editar = (q: Pago, cambio: { monto?: number; fecha?: string | null }) =>
-    editarCuotaAction(lead.id, q.id, cambio).then((r) => {
+  // `espera`: el estado del renglón que se dibujó (la fecha de una impaga es el vencimiento; la de una cobrada, el día del
+  // pago). Si la cuota cambió en el medio (se cobró, se desmarcó), el server tira en vez de escribir la otra columna.
+  // El Deshacer manda SÓLO lo que cambió (una cobrada sin día del pago no se puede «volver» a sin día), y dice si falló.
+  const editar = (q: Pago, cambio: { monto?: number; fecha?: string | null }) => {
+    const espera = q.pagado ? 'cobrada' as const : 'impaga' as const;
+    return editarCuotaAction(lead.id, q.id, { ...cambio, espera }).then((r) => {
       if (!r.ok) return r.error;
       ctx.releer();
-      show('Cuota cambiada', () => start(async () => { await editarCuotaAction(lead.id, q.id, { monto: r.antes.monto, fecha: r.antes.fecha }); ctx.releer(); }));
+      const volver = {
+        ...(r.antes.monto !== r.despues.monto ? { monto: r.antes.monto } : {}),
+        ...(r.antes.fecha !== r.despues.fecha ? { fecha: r.antes.fecha } : {}),
+        espera,
+      };
+      show(r.recordatorioCortado ? 'Cuota cambiada · el recordatorio arranca de nuevo' : 'Cuota cambiada', () => start(async () => {
+        const d = await editarCuotaAction(lead.id, q.id, volver);
+        if (!d.ok) show(`No se deshizo: ${d.error}`, undefined, 'bad');
+        ctx.releer();
+      }));
       return null;
     });
+  };
   // ⚠️ QUITAR VA SOLA Y CON CONFIRMACIÓN, SIN DESHACER (revisión del 16/10/2026). Sola: mandar la lista entera le
   // reescribía su valor viejo a una cuota que otra pestaña había cambiado. Sin Deshacer: volver a insertarla le daba
   // otro id y otro número (el inicial volvía como «Cuota N», y su recordatorio se volvía a mandar), así que no era
@@ -259,7 +273,10 @@ export function Cuotas(props: PropsBloque) {
           // primero. Ahora el server corta el recordatorio, anula el link si cambia el monto y corrige la cobrada a mano en
           // el lugar (`editarCuota`, lib/pagos.ts). Lo que cobró la pasarela no: es lo que entró.
           const cobradaAMano = r.estado === 'cobrada' && r.accion === 'deshacer';
-          const montoEditable = r.editable || cobradaAMano;
+          // Una cobrada en otra moneda muestra «MX$8.600 · US$500»: editarla como «$500» se leía en pesos. Su monto se corrige
+          // desmarcándola y cobrándola otra vez en su moneda; el día del pago sí se edita en el lugar.
+          const enOtraMoneda = !!q.moneda && q.moneda.toUpperCase() !== 'USD';
+          const montoEditable = r.editable || (cobradaAMano && !enOtraMoneda);
           const fechaEditable = r.editable || cobradaAMano;
           const saliendo = quitando.has(q.id);
           return (
@@ -326,7 +343,7 @@ export function Cuotas(props: PropsBloque) {
       )}
       {!editando && diseno !== 'proxima' && !becado && (
         armando
-          ? <ArmarPlan ctx={ctx} onListo={(m) => { setArmando(false); if (m) show(m.texto, m.deshacer); }} />
+          ? <ArmarPlan ctx={ctx} protegidas={protegidas} onListo={(m) => { setArmando(false); if (m) show(m.texto, m.deshacer); }} />
           : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {/* Siempre a mano (27/10/2026: «no tiene LIBERTAD»): con cuotas sueltas sin plan el botón se escondía; si el
@@ -352,9 +369,11 @@ export function Cuotas(props: PropsBloque) {
  *     recordatorio; las cobradas no se tocan, y NO gana el lead. Deshacer devuelve las cuotas y el plan de antes.
  *   · El LIBRE (27/10/2026, ticket #13 de Leila: «$300 cada quincena, los días 1 y 15», y Martín: «no tiene LIBERTAD»):
  *     cada quincena o cada semana, más de 6 cuotas o un día 29 a 31. Arma la lista (`fechasDelPlan`, lib/pagos-campo.ts) y
- *     reemplaza las impagas que se vieron por esa lista (`guardarCuotasAction`); las cobradas y las protegidas quedan.
+ *     reemplaza las impagas que se vieron por esa lista (`guardarCuotasAction`). Encima de lo que hay, como el uniforme
+ *     (`cuotasDelPlanLibre`): el inicial cobrado no se vuelve a pedir, la cantidad cuenta las cobradas, y cada impaga que
+ *     existe (las protegidas primero) toma un lugar de la lista por su id, así no queda al lado de una nueva.
  */
-function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: string; deshacer?: () => void } | null) => void }) {
+function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegidas: Record<number, Proteccion[]>; onListo: (m: { texto: string; deshacer?: () => void } | null) => void }) {
   const l = ctx.lead;
   // El plan como estaba AL ABRIR (no se recalcula si la ficha se relee mientras se escribe): se manda SÓLO lo que la
   // persona cambió contra esto, y el server lo escribe encima de lo que tiene (`ajustarSobre`). Mandar los cuatro
@@ -372,18 +391,25 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
   // ¿Entra en el plan uniforme? Cada mes, 1 a 6 cuotas, un día del 1 al 28. Si no, es el libre.
   const libre = cada !== 'mes' || cantidad > 6 || (dia != null && dia > 28);
   const v = ajustarSobre(antes, nuevo);
-  const fechas = libre ? fechasDelPlan({ desde: plan.desde, cantidad, cada, dias: cada === 'quincena' ? [dia ?? 1, n(plan.dia2) ?? 15] : cada === 'mes' ? [dia ?? 1] : undefined }) : [];
+  const dias = cada === 'quincena' ? [dia ?? 1, n(plan.dia2) ?? 15] : cada === 'mes' ? [dia ?? 1] : undefined;
   const inicial = n(plan.inicial) ?? 0;
   const cuota = n(plan.cuota) ?? 0;
+  // Encima de lo que ya hay (revisión de b335f972c, alta): sin el inicial cobrado, con las cobradas contadas en la cantidad
+  // y cada impaga en un lugar de la lista por su id. Armarla de cero duplicaba la deuda.
+  const armado = libre ? cuotasDelPlanLibre({
+    pagos: ctx.data.pagos, protegidas: new Set(Object.entries(protegidas).filter(([, p]) => p.length).map(([id]) => Number(id))),
+    inicial, cuota, cantidad, desde: plan.desde, fechas: (k) => fechasDelPlan({ desde: plan.desde, cantidad: k, cada, dias }),
+  }) : null;
+  const fechas = armado?.ok ? armado.cuotas.filter((c) => c.numero !== 0).map((c) => c.fecha as string) : [];
+  const conInicialNuevo = !!armado?.ok && armado.cuotas.some((c) => c.numero === 0);
   const guardarLibre = () => {
     if (!(cuota > 0)) { setErr('La cuota tiene que ser mayor a cero.'); return; }
     if (!(cantidad >= 1 && cantidad <= TOPE_CUOTAS_PLAN)) { setErr(`Las cuotas van de 1 a ${TOPE_CUOTAS_PLAN}.`); return; }
-    if (!fechas.length) { setErr(cada === 'quincena' ? 'Elige los dos días de cada mes (del 1 al 31).' : 'Revisa el día y la fecha de la primera.'); return; }
     if (inicial < 0) { setErr('El cobro inicial no puede ser negativo.'); return; }
-    const cuotas = [...(inicial > 0 ? [{ monto: inicial, fecha: plan.desde }] : []), ...fechas.map((f) => ({ monto: cuota, fecha: f }))];
+    if (!armado) return;
+    if (!armado.ok) { setErr(cada === 'quincena' && armado.error.startsWith('Revisa') ? 'Elige los dos días de cada mes (del 1 al 31).' : armado.error); return; }
+    const { cuotas, vistos } = armado;
     if (cuotas.length > TOPE_CUOTAS_PLAN) { setErr(`Son ${cuotas.length} con el cobro inicial: hasta ${TOPE_CUOTAS_PLAN} en total.`); return; }
-    // Las impagas que se ven son las que se reemplazan: una que no se vio no se borra (`reconciliarCuotas`).
-    const vistos = ctx.data.pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id);
     start(async () => {
       const r = await guardarCuotasAction(l.id, cuotas, {
         cobro_inicial_usd: inicial > 0 ? inicial : null, monto_cuota_usd: cuota,
@@ -392,7 +418,7 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
       }, vistos, ctx.crm?.id ?? null);
       if (!r.ok) { setErr(r.error); return; }
       ctx.releer();
-      onListo({ texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : `Plan guardado: ${cuotas.length} cuotas` });
+      onListo({ texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : `Plan guardado: ${armado.nuevas} cuota${armado.nuevas === 1 ? '' : 's'}${cuotas.length > armado.nuevas ? ' y el cobro inicial' : ''}` });
     });
   };
   const guardar = () => {
@@ -417,11 +443,15 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
       <input className="mk-input" type="number" inputMode="decimal" min={0} value={plan[k]} onChange={(e) => setPlan({ ...plan, [k]: e.target.value })} placeholder={ayuda} />
     </label>
   );
-  const total = libre ? inicial + cuota * fechas.length : v.ok ? (v.plan.cobro_inicial_usd ?? 0) + (v.plan.monto_cuota_usd ?? 0) * (v.plan.total_cuotas ?? 0) : null;
+  const total = libre ? (armado?.ok ? armado.cuotas.reduce((s, c) => s + c.monto, 0) : null) : v.ok ? (v.plan.cobro_inicial_usd ?? 0) + (v.plan.monto_cuota_usd ?? 0) * (v.plan.total_cuotas ?? 0) : null;
+  // Lo ya cobrado del plan, dicho: en el libre la cantidad lo cuenta y el inicial cobrado no se vuelve a pedir.
+  const yaCobrado = libre && armado && (armado.inicialCobrado || armado.cobradas > 0)
+    ? `Ya cobrado: ${[armado.inicialCobrado ? 'el inicial' : null, armado.cobradas ? `${armado.cobradas} cuota${armado.cobradas === 1 ? '' : 's'}` : null].filter(Boolean).join(' y ')}${armado.cobradas ? ' (cuentan en la cantidad)' : ''}. `
+    : '';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
-        {campo('inicial', 'Cobro inicial (USD)')}
+        {campo('inicial', libre && armado?.inicialCobrado ? 'Cobro inicial (ya cobrado)' : 'Cobro inicial (USD)')}
         {campo('cuota', 'Cada cuota (USD)')}
         {campo('cantidad', 'Cuántas cuotas', `1 a ${TOPE_CUOTAS_PLAN}`)}
         <label style={etiqueta}>
@@ -444,9 +474,12 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
       </div>
       {total != null && total > 0 && (
         <span style={{ fontSize: 13, color: 'var(--dim)' }}>
-          Total del plan: {usd(total)}{libre && fechas.length ? ` · la primera el ${fechaEnPalabras(fechas[0], ctx.hoy)}, la última el ${fechaEnPalabras(fechas[fechas.length - 1], ctx.hoy)}` : ''}
+          {libre && fechas.length
+            ? `${yaCobrado}Se arma${fechas.length === 1 && !conInicialNuevo ? '' : 'n'} ${fechas.length} cuota${fechas.length === 1 ? '' : 's'}${conInicialNuevo ? ' y el cobro inicial' : ''}: ${usd(total)} · la primera el ${fechaEnPalabras(fechas[0], ctx.hoy)}, la última el ${fechaEnPalabras(fechas[fechas.length - 1], ctx.hoy)}`
+            : `Total del plan: ${usd(total)}`}
         </span>
       )}
+      {libre && armado && !armado.ok && cantidad > 0 && <span style={{ fontSize: 13, color: 'var(--warn)' }}>{armado.error}</span>}
       {err && <Aviso tono="rojo">{err}</Aviso>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="secondary" size="sm" onClick={() => onListo(null)} disabled={pending}>Cancelar</Button>

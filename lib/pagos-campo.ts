@@ -901,3 +901,53 @@ export function fechasDelPlan(p: { desde: string; cantidad: number; cada: CadaPl
   }
   return out;
 }
+
+/** Una cuota tal como la tiene la ficha, para armar el plan libre encima (`cuotasDelPlanLibre`). */
+export type CuotaParaPlanLibre = {
+  id: number; numero: number; monto_usd: number | string; fecha_esperada: string | null; pagado: boolean;
+  proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null; nacio_cobrada?: boolean | null; resto_de?: number | null;
+};
+
+/**
+ * La lista que guarda el plan LIBRE encima de lo que ya hay, para `guardarCuotasAction` (POR ID, con `vistos`).
+ *
+ * ⚠️ ARMARLA DE CERO DUPLICABA PLATA (revisión adversarial de b335f972c, 27/10/2026, alta). Con el inicial de US$1.000 y
+ * 3 de 6 cuotas de US$500 cobradas, pasar la cantidad a 8 insertaba otra vez el inicial (con vencimiento HOY: la cobranza le
+ * recordaba al cliente plata que ya pagó) y 8 cuotas nuevas: US$5.000 de deuda en vez de US$2.500. Y una impaga con link o
+ * recordatorio quedaba AL LADO de las nuevas, contada dos veces. Ahora, la misma regla que el plan uniforme ('slots'):
+ *   · el inicial cobrado no se vuelve a pedir;
+ *   · la cantidad CUENTA las cuotas cobradas del plan (`esCuotaDelPlan`): se arman las que faltan, desde `desde`;
+ *   · cada impaga que ya existe toma el lugar de una de la lista POR SU ID (las protegidas primero), así no queda al lado
+ *     de una nueva: la que no se puede cambiar (un recordatorio corriendo) se conserva, y la pantalla lo dice.
+ * `fechas(n)`: las fechas de las `n` que faltan (`fechasDelPlan` con el `cada` y los días del formulario).
+ */
+export function cuotasDelPlanLibre(p: {
+  pagos: readonly CuotaParaPlanLibre[];
+  protegidas: ReadonlySet<number>;
+  inicial: number; cuota: number; cantidad: number; desde: string;
+  fechas: (n: number) => string[];
+}):
+  | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
+  | { ok: false; error: string; cobradas: number; inicialCobrado: boolean } {
+  const vivas = p.pagos.filter((q) => !noEsDeuda(q));
+  const inicialCobrado = vivas.some((q) => q.pagado && q.numero === 0);
+  const cobradas = vivas.filter((q) => q.pagado && q.numero !== 0 && esCuotaDelPlan(q)).length;
+  const nuevas = Math.floor(p.cantidad) - cobradas;
+  if (nuevas < 1) {
+    return { ok: false, cobradas, inicialCobrado, error: `Ya hay ${cobradas} cuota${cobradas === 1 ? '' : 's'} cobrada${cobradas === 1 ? '' : 's'} y cuenta${cobradas === 1 ? '' : 'n'} en la cantidad: pon más de ${cobradas}.` };
+  }
+  const fechas = p.fechas(nuevas);
+  if (fechas.length !== nuevas) return { ok: false, cobradas, inicialCobrado, error: 'Revisa el día y la fecha de la primera.' };
+  const conInicial = p.inicial > 0 && !inicialCobrado;
+  const impagas = vivas.filter((q) => !q.pagado).sort((a, b) => a.numero - b.numero);
+  const vistos = impagas.map((q) => q.id);
+  // El inicial impago que existe vuelve a ser el inicial. Sin inicial en el plan nuevo, uno sin proteger se quita (no se
+  // convierte en una cuota común llamada «Cobro inicial»); uno protegido toma un lugar, como cualquier protegida.
+  const inicialImpago = impagas.find((q) => q.numero === 0) ?? null;
+  const resto = impagas.filter((q) => q.numero !== 0 || (!conInicial && p.protegidas.has(q.id)));
+  const lugares = [...resto.filter((q) => p.protegidas.has(q.id)), ...resto.filter((q) => !p.protegidas.has(q.id))];
+  const cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }> = [];
+  if (conInicial) cuotas.push({ id: inicialImpago?.id ?? null, numero: 0, monto: p.inicial, fecha: p.desde });
+  fechas.forEach((f, i) => cuotas.push({ id: lugares[i]?.id ?? null, numero: null, monto: p.cuota, fecha: f }));
+  return { ok: true, cuotas, vistos, cobradas, inicialCobrado, nuevas };
+}

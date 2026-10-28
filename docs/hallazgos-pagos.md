@@ -1294,3 +1294,34 @@ tampoco el $ en el total de la columna cuando es suscripción».
 **Sin hacer:** el plan libre no tiene Deshacer (el uniforme sí) · el editor del plan sigue escondido para una suscripción (el
 caso de Nadia, lead 2605: primero se pasa la venta a «Pago único») · editar una cobrada deja su línea en el historial como
 «vencimiento» (`lineasDeCuotas`).
+
+## La revisión de b335f972c (27/10/2026): el plan libre duplicaba deuda y editar una cobrada no preguntaba cuál se vio
+
+Revisión adversarial del Cerebro (C:/dev/revisiones/2710-crm-b335f972c.md), con las funciones reales del sha. Arreglado en la
+misma rama (chat «CRM y Chats», `claude4`); tests/pagos-revision-b335.test.ts, probado rompiéndolo.
+
+- **El plan libre se armaba DE CERO sobre un plan con cobros (alta).** Con el inicial de US$1.000 y 3 de 6 cuotas de US$500
+  cobradas, pasar la cantidad a 8 dejaba US$5.000 de deuda en vez de US$2.500: el formulario trae el inicial precargado y lo
+  mandaba otra vez con vencimiento HOY (la cobranza le recordaba al cliente plata que ya pagó), y las 8 cuotas entraban todas
+  nuevas. Y `guardarCuotasAction` va POR ID: sin ids, todo se inserta y una impaga con link o recordatorio queda AL LADO de
+  las nuevas, contada dos veces. Ahora `cuotasDelPlanLibre` (lib/pagos-campo.ts) aplica la regla del plan uniforme: el inicial
+  cobrado no se pide, la cantidad cuenta las cobradas del plan (la pantalla lo dice: «Ya cobrado: …»), y cada impaga que existe
+  toma un lugar de la lista por su id, las protegidas primero. Regla: **una lista que reemplaza cuotas se arma ENCIMA de lo que
+  hay, nunca de cero**; el total que se muestra no avisa nada, porque el uniforme muestra el mismo número contando lo cobrado.
+- **`editarCuota` elegía la columna por lo que LEYÓ (media).** La misma `fecha` es el vencimiento de una impaga y el día del
+  pago de una cobrada. MaKo confirma un `editar_cuota` hasta 120 min después de prepararlo, sin volver a mirar: si en el medio
+  la cobraron, el vencimiento nuevo se escribía como `fecha_pago` (el Cash de octubre pasaba a noviembre) y MaKo contestaba
+  «Listo». La guarda `.eq('pagado', false)` no servía: la rama ya se había elegido. Ahora quien llama dice qué vio (`espera`,
+  «impaga» por defecto) y si no coincide, tira. Regla: **cuando un mismo campo significa dos cosas según el estado, el estado
+  lo dice quien llama**, no la lectura.
+- **Un recordatorio cortado quedaba afuera de la cobranza (media).** Editar sólo el monto cortaba la corrida, pero el olvido
+  del dedup (`cuotasReprogramadas`) sólo mira las cuotas cuya FECHA cambió: `cuota:<id>` seguía «enviada» y el cron la
+  descartaba. El comentario prometía lo contrario. Ahora la cuota del recordatorio cortado se olvida siempre, y la ficha dice
+  «el recordatorio arranca de nuevo».
+- Bajos: el monto de una cobrada en otra moneda ya no se edita como «$» en la ficha (se leía en pesos) y, si llega por otro
+  lado, limpia la moneda y el monto original (lo último que se dijo manda, como en `cobrarCuota`); el Deshacer manda sólo lo
+  que cambió y dice si no se aplicó.
+- **Cómo se probó lo que lee la base:** `editarCuota` corrió REAL contra una base en memoria (el arnés del refutador,
+  adaptado: el `await import('./flujo-corridas')` va por ESM, así que el stub de `Module._load` no lo agarra y hace falta un
+  hook de `module.register`; y las claves del dedup salen de `keyEspaciado`, que las hashea). Sobre b335f972c aparecen los
+  tres defectos; con el arreglo, ninguno.

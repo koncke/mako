@@ -157,7 +157,7 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(COBRO, /\{r\.accion === 'deshacer' && <Button[^\n]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>Deshacer<\/Button>\}/);
   assert.match(COBRO, /\{q\.pagado && q\.comprobante_path && <Button[^\n]*cobrar\.verComprobante\(q\)/);
   // Editar una cuota POR ID, armar el plan sin ganar el lead, y quitar o agregar UNA sin tocar las otras.
-  assert.match(COBRO, /editarCuotaAction\(lead\.id, q\.id, cambio\)/);
+  assert.match(COBRO, /editarCuotaAction\(lead\.id, q\.id, \{ \.\.\.cambio, espera \}\)/);
   assert.match(COBRO, /await ajustarPlanAction\(l\.id, cambiado, ctx\.crm\?\.id \?\? null\)/);
   assert.match(COBRAR, /await agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}, ctx\.crm\?\.id \?\? null\)/);
   assert.match(COBRO, /await quitarCuotaAction\(lead\.id, q\.id, crm\)/);
@@ -196,7 +196,8 @@ test('una cuota con un link vivo o un recordatorio corriendo lo dice, no ofrece 
   // Desde el 27/10/2026 («no tiene LIBERTAD») lo que la protegía ya no esconde el campo: el server corta el recordatorio y
   // anula el link al editar (tests/crm-feedback-27-10.test.ts). La cobrada A MANO también se edita en el lugar.
   assert.match(COBRO, /const cobradaAMano = r\.estado === 'cobrada' && r\.accion === 'deshacer';/);
-  assert.match(COBRO, /const montoEditable = r\.editable \|\| cobradaAMano;/);
+  // La cobrada en otra moneda no se edita como «$» (revisión de b335f972c): se leía en pesos.
+  assert.match(COBRO, /const montoEditable = r\.editable \|\| \(cobradaAMano && !enOtraMoneda\);/);
   assert.match(COBRO, /const fechaEditable = r\.editable \|\| cobradaAMano;/);
   assert.match(COBRO, /\{montoEditable && !editando\s*\? <EnLinea valor=\{String\(Number\(q\.monto_usd\)\)\}/);
   assert.match(COBRO, /\{r\.accion === 'marcar' && prot\.includes\('recordatorio'\) && <Button[^\n]*onClick=\{\(\) => cortar\(q\)\}>Cortar el recordatorio<\/Button>/);

@@ -17,6 +17,9 @@ hallazgos-comunicacion; los requisitos de cada etapa, en docs/crm-requisitos-de-
   reuniones, con el filtro de Calendly; el estado que contradice la columna), el ticket #13 (plan libre: quincenas en los
   días elegidos, más de 6 cuotas, sin migración) y el #14 (los accesos sin guarda que rompían /crm: links de Fathom sin url,
   leads sin nombre).
+- **La revisión adversarial de b335f972c** (1 alto y 2 medios de plata en Pagos) se arregló en la misma rama: el plan libre
+  ya no duplica lo cobrado, corregir una cobrada es explícito y un recordatorio cortado vuelve a la cobranza
+  (hallazgos-pagos, «La revisión de b335f972c»).
 - **El #14 no se reprodujo**: se arregló por búsqueda en el código. Después del despliegue, mirarlo en el ws3 (nunca el ws1)
   y confirmar con Martín que no sale más el TypeError.
 - **Pide el sí de Martín (vía el Cerebro):** la fila del lead 2371 (ws1, «ganado» con la tarjeta en «Perdido»: primero el

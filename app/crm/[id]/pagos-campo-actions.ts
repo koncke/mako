@@ -135,13 +135,15 @@ export async function guardarVentaAction(leadId: number, cambio: CambioVenta, op
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Edita UNA cuota impaga por su id (monto, vencimiento o los dos), sin borrar ni reinsertar: el link, el
- * recordatorio y el dedup siguen apuntando a ella. Deshacer: llamarla con `antes`.
+ * Edita UNA cuota por su id (monto, fecha o los dos), sin borrar ni reinsertar: el link, el recordatorio y el dedup siguen
+ * apuntando a ella. `espera`: cómo estaba la cuota en la pantalla («impaga»: la fecha es el vencimiento; «cobrada»: el día
+ * del pago). Si cambió en el medio, `editarCuota` tira. Deshacer: llamarla con `antes` y la misma `espera`.
  */
-export async function editarCuotaAction(leadId: number, pagoId: number, cambio: { monto?: number | null; fecha?: string | null }): Promise<{ ok: true; antes: { monto: number; fecha: string | null }; despues: { monto: number; fecha: string | null } } | Fallo> {
+export async function editarCuotaAction(leadId: number, pagoId: number, cambio: { monto?: number | null; fecha?: string | null; espera?: 'impaga' | 'cobrada' }): Promise<{ ok: true; antes: { monto: number; fecha: string | null }; despues: { monto: number; fecha: string | null }; recordatorioCortado: boolean } | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !idValido(pagoId)) return { ok: false, error: 'Cuota inválida.' };
+    if (cambio?.espera !== undefined && cambio.espera !== 'impaga' && cambio.espera !== 'cobrada') return { ok: false, error: 'Cuota inválida.' };
     const r = await editarCuota(leadId, pagoId, cambio ?? {});
     const antes = { monto: r.antes.monto_usd, fecha: r.antes.fecha_esperada };
     const despues = { monto: r.despues.monto_usd, fecha: r.despues.fecha_esperada };
@@ -153,7 +155,7 @@ export async function editarCuotaAction(leadId: number, pagoId: number, cambio: 
       bust(TAG.pagos, TAG.leads);
       revalidar(leadId, true);
     }
-    return { ok: true, antes, despues };
+    return { ok: true, antes, despues, recordatorioCortado: r.recordatorioCortado === true };
   } catch (e) {
     return { ok: false, error: mensaje(e) };
   }

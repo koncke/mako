@@ -624,20 +624,29 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
  *   · un link sin pagar, si cambia el MONTO, se anula (cobraría el viejo); si cambia sólo la fecha, sigue.
  * Lo único que no se toca: lo que cobró la PASARELA (su monto es lo que entró por Stripe o Mercado Pago; se corrige
  * devolviéndolo), una cuota devuelta y la de un cliente dado de baja.
+ *
+ * ⚠️ `espera` DICE QUÉ CUOTA VIO QUIEN LLAMA, y sin ella es «impaga» (revisión adversarial de b335f972c, 27/10/2026). La
+ * fecha de una impaga es el vencimiento y la de una cobrada el día del pago: la misma `fecha` decide dos columnas. Con la
+ * rama elegida por lo que se LEYÓ, MaKo («pasá la cuota 3 al 15/11», confirmado después de que la cobraron) o una pestaña
+ * vieja escribían el vencimiento como `fecha_pago` y el Cash de octubre pasaba a noviembre. Ahora corregir una cobrada es
+ * explícito (`espera: 'cobrada'`, el renglón «cobrada el …»), y si la cuota no está como la vio quien llama, tira.
  */
 export async function editarCuota(
   leadId: number,
   pagoId: number,
-  cambio: { monto?: number | null; fecha?: string | null },
-): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number }> {
+  cambio: { monto?: number | null; fecha?: string | null; espera?: 'impaga' | 'cobrada' },
+): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number; recordatorioCortado?: boolean }> {
   const db = await getTenantDb();
   // `*` y no la lista: `baja_at` (mig 0307) se lee si existe, y una base sin la migración no rompe editar.
   const { data, error } = await db.from('pagos').select('*').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (error) throw new Error(`Error leyendo la cuota ${pagoId}: ${error.message}`);
   if (!data) throw new Error('Esa cuota no existe en este lead.');
-  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; fecha_pago?: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at?: string | null };
+  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; fecha_pago?: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at?: string | null; moneda?: string | null };
   if (esCuotaDevuelta(q)) throw new Error('Esa cuota se devolvió: no se edita.');
   if (esCuotaDeBaja(q)) throw new Error('El cliente se dio de baja: deshaz la baja para editar esa cuota.');
+  const espera = cambio.espera ?? 'impaga';
+  if (q.pagado && espera !== 'cobrada') throw new Error('Esa cuota ya está cobrada (¿se cobró mientras tanto?): recarga y corrígela en su renglón.');
+  if (!q.pagado && espera === 'cobrada') throw new Error('La cuota cambió mientras tanto (¿se desmarcó?). Recarga la ficha.');
   if (q.pagado) return editarCuotaCobrada(leadId, pagoId, q, cambio);
   const antes = { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada };
   const despues = { ...antes };
@@ -661,10 +670,11 @@ export async function editarCuota(
   // Lo que protegía a la cuota se arregla DESPUÉS de guardarla (si el guardado falla, queda como estaba). Nunca tumba la
   // edición: lo peor es un recordatorio o un link con lo de antes, que es lo que pasaba siempre.
   const ws = prot.length ? await getWorkspaceActual() : null;
+  let recordatorioCortado = false;
   if (ws != null && prot.includes('recordatorio')) {
     try {
       const { cerrarCorridasDeCuota } = await import('./flujo-corridas');
-      await cerrarCorridasDeCuota(ws, pagoId);
+      recordatorioCortado = (await cerrarCorridasDeCuota(ws, pagoId)) > 0;
     } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude cortar su recordatorio:`, e instanceof Error ? e.message : e); }
   }
   if (ws != null && prot.includes('link') && cambiaMonto) {
@@ -673,8 +683,12 @@ export async function editarCuota(
       await anularLinksDeCuota(ws, pagoId, 'MaKo (cambió el monto de la cuota)');
     } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude anular su link:`, e instanceof Error ? e.message : e); }
   }
-  await olvidarAvisosDeCuotas(cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]));
-  return { antes, despues, numero: q.numero };
+  // ⚠️ UN RECORDATORIO CORTADO VUELVE A LA COBRANZA AUNQUE LA FECHA NO CAMBIE (revisión de b335f972c, media): con sólo el
+  // monto nuevo, `cuotasReprogramadas` no la devuelve, el dedup `cuota:<id>` seguía «enviado» y el cron la descartaba: la
+  // cuota de US$400 se quedaba sin recordatorio, sin que nadie lo dijera.
+  const reabrir = cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]);
+  await olvidarAvisosDeCuotas(recordatorioCortado && !reabrir.includes(pagoId) ? [...reabrir, pagoId] : reabrir);
+  return { antes, despues, numero: q.numero, recordatorioCortado };
 }
 
 /**
@@ -685,7 +699,7 @@ export async function editarCuota(
 async function editarCuotaCobrada(
   leadId: number,
   pagoId: number,
-  q: { numero: number; monto_usd: number; fecha_pago?: string | null; proveedor: string | null; cobro_id: number | null },
+  q: { numero: number; monto_usd: number; fecha_pago?: string | null; proveedor: string | null; cobro_id: number | null; moneda?: string | null },
   cambio: { monto?: number | null; fecha?: string | null },
 ): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number }> {
   if (q.proveedor || q.cobro_id != null) throw new Error('Esa cuota la cobró la pasarela: su monto es lo que entró. Si hay que corregirla, devuélvela desde su link.');
@@ -700,9 +714,14 @@ async function editarCuotaCobrada(
     if (cambio.fecha == null || !/^\d{4}-\d{2}-\d{2}$/.test(cambio.fecha)) throw new Error('El día del pago tiene que ser AAAA-MM-DD.');
     despues.fecha_esperada = cambio.fecha;
   }
-  if (Math.abs(despues.monto_usd - antes.monto_usd) < 0.005 && despues.fecha_esperada === antes.fecha_esperada) return { antes, despues, numero: q.numero };
+  const cambiaMonto = Math.abs(despues.monto_usd - antes.monto_usd) >= 0.005;
+  if (!cambiaMonto && despues.fecha_esperada === antes.fecha_esperada) return { antes, despues, numero: q.numero };
+  // Lo último que se dijo del cobro manda (la regla de `cobrarCuota`): un monto nuevo en dólares deja vieja la moneda y el
+  // monto original («MX$8.600 · US$480» era una equivalencia falsa en los movimientos).
+  const upd: Record<string, unknown> = { monto_usd: despues.monto_usd, fecha_pago: despues.fecha_esperada };
+  if (cambiaMonto && q.moneda) { upd.moneda = null; upd.monto_original = null; }
   const db = await getTenantDb();
-  const { data: hecho, error } = await db.from('pagos').update({ monto_usd: despues.monto_usd, fecha_pago: despues.fecha_esperada })
+  const { data: hecho, error } = await db.from('pagos').update(upd)
     .eq('id', pagoId).eq('lead_id', leadId).eq('pagado', true).select('id');
   if (error) throw new Error(`Error guardando la cuota ${pagoId}: ${error.message}`);
   if (!hecho?.length) throw new Error('La cuota cambió mientras tanto (¿se desmarcó?). Recarga la ficha.');

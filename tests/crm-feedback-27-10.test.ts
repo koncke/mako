@@ -247,7 +247,8 @@ test('una cuota se edita sin trámites: cobrada a mano, con recordatorio o con l
   const ed = p.slice(p.indexOf('export async function editarCuota('), p.indexOf('export async function cortarRecordatoriosDeCuota('));
   assert.doesNotMatch(ed, /desmárcala primero|córtalo para editarla|anúlalo para cambiar el monto/, 'volvió un trámite');
   assert.match(ed, /if \(q\.pagado\) return editarCuotaCobrada\(leadId, pagoId, q, cambio\);/);
-  assert.match(ed, /await cerrarCorridasDeCuota\(ws, pagoId\);/, 'el recordatorio viejo no se corta');
+  // Con su resultado: un recordatorio cortado vuelve a la cobranza (tests/pagos-revision-b335.test.ts).
+  assert.match(ed, /recordatorioCortado = \(await cerrarCorridasDeCuota\(ws, pagoId\)\) > 0;/, 'el recordatorio viejo no se corta');
   assert.match(ed, /prot\.includes\('link'\) && cambiaMonto\) \{/);
   assert.match(ed, /await anularLinksDeCuota\(ws, pagoId, /, 'el link con el monto viejo sigue vivo');
   assert.match(ed, /if \(q\.proveedor \|\| q\.cobro_id != null\) throw/, 'lo que cobró la pasarela no se edita');
