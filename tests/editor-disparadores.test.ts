@@ -105,13 +105,17 @@ const ESTADO = (conectado: boolean | null): EstadoCanales => ({
 const eventos = (clase: 'instagram' | 'messenger' | 'email' | 'pagos', estado: EstadoCanales | null | undefined, d: Partial<Disparador> = {}) =>
   renderToStaticMarkup(createElement(EventosDeCanal, { clase, d: { id: 'd1', trigger_tipo: 'manual', ...d } as Disparador, estado, onElegir: () => {} }));
 
-test('Instagram conectado: los seis eventos de ManyChat, y SÓLO el del anuncio apagado («Todavía no»)', () => {
+test('Instagram conectado: los seis eventos de ManyChat, todos prendidos (el del anuncio, desde el 28/10/2026)', () => {
   const html = eventos('instagram', ESTADO(true));
   assert.equal(cuantos(html, /<button/g), 6);
-  assert.equal(botonesApagados(html), 1);
-  assert.match(html, /<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*hace clic en un anuncio de Instagram/);
-  assert.match(html, /Todavía no/);
+  assert.equal(botonesApagados(html), 0);
+  assert.match(html, /hace clic en un anuncio de Instagram/);
+  assert.doesNotMatch(html, /Todavía no/);
   assert.doesNotMatch(html, /Sin conectar/);
+  // En Messenger sigue apagada sólo la tienda de Facebook (Zernio no la avisa).
+  const msg = eventos('messenger', ESTADO(true));
+  assert.equal(botonesApagados(msg), 1);
+  assert.match(msg, /<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*tienda de Facebook/);
 });
 
 // ⚠️ DUODÉCIMA TANDA (§2.11): Instagram y Messenger se conectan en EL MISMO modal que la tarjeta (`ConectarMedio`,
@@ -204,7 +208,7 @@ test('quien NO es admin mira: una fila por CRON con su texto, sin los botones ni
 //    1. sin «Email» en CLASES_DISPARADOR → 9 / 1.   2. los botones de 92 a 60 px → 9 / 1.
 //    3. sin «＋ Nuevo CRON» → 9 / 1.   4. sin pastillas con dos CRON → 9 / 1.   5. sin «Ignorar» → 9 / 1.
 //    6. la etiqueta archivada fuera de las opciones → 9 / 1.
-//    7. los eventos prendidos con el canal sin conectar → 9 / 1.   8. el anuncio de Instagram prendido → 9 / 1.
+//    7. los eventos prendidos con el canal sin conectar → 9 / 1.   8. el anuncio de Instagram apagado otra vez (28/10) → 9 / 1.
 //    9. «no pude comprobarlo» sin motivo → 9 / 1.   10. el evento ELEGIDO también apagado → 9 / 1.
 //   11. el email linkeando a /integraciones → 9 / 1.   12. un solo día por semana → 9 / 1.
 //   (12/10/2026) 11b. Instagram y Messenger de vuelta al link a /integraciones → 9 / 1.
