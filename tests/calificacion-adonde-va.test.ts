@@ -33,7 +33,8 @@ test('el veredicto: el conjunto de datos de CRM manda, después el píxel; sin t
 test('la ficha y el envío leen el destino por la MISMA función', () => {
   // Desde el 25/10/2026 la misma función trae también el CANAL (Zernio o el token, lib/meta-via.ts): la ficha y el envío lo
   // leen igual, y con la conexión de Zernio la ficha no dice «sin token» aunque no haya ninguno pegado.
-  assert.match(cuerpo('export async function sendMetaCAPIEvent'), /const \{ destino, accessToken, canal \} = await destinoYToken\(\);/);
+  // La compra pide sólo el píxel (`soloPixel`, 27/10/2026): misma función, con el conjunto de datos de CRM afuera.
+  assert.match(cuerpo('export async function sendMetaCAPIEvent'), /const \{ destino, accessToken, canal \} = await destinoYToken\(params\.soloPixel === true\);/);
   assert.doesNotMatch(cuerpo('export async function sendMetaCAPIEvent'), /credWs\('META_PIXEL_ID'\)/, 'una segunda lectura contestaría distinto');
   const adonde = cuerpo('export async function adondeVaLaCalificacion');
   assert.match(adonde, /const \{ destino, accessToken, canal \} = await destinoYToken\(\);[\s\S]{0,200}return adondeDe\(destino, canal\.via === 'zernio' \? 'zernio' : accessToken\);/);

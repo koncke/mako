@@ -50,7 +50,10 @@ export type OrigenLeadId =
   // reales de ese producto, y es justo el tacho que este catálogo vino a cerrar.
   | 'prueba'         // la creó la prueba del Pixel, para poder ver su grabación
   // ⚠️ Y EL DE LOS GRUPOS (23/10/2026), que además de decir de dónde vino MANDA: ver `quedaDondeLoPusieron`.
-  | 'grupo_whatsapp'; // se trajo de un grupo de WhatsApp (app/crm/grupo-wa-server.ts)
+  | 'grupo_whatsapp' // se trajo de un grupo de WhatsApp (app/crm/grupo-wa-server.ts)
+  // La venta de un Payment Link armado en el Stripe del negocio (27/10/2026, MAU-10): el comprador que no estaba en el CRM
+  // (`registrarVentaExterna`, lib/cobros.ts).
+  | 'stripe';
 
 export type OrigenLeadDef = {
   id: OrigenLeadId;
@@ -81,6 +84,7 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   skool: { id: 'skool', lista: 'Skool' },
   prueba: { id: 'prueba', lista: 'Prueba del Pixel' },
   grupo_whatsapp: { id: 'grupo_whatsapp', lista: 'Grupo de WhatsApp' },
+  stripe: { id: 'stripe', lista: 'Stripe' },
 };
 
 /**

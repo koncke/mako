@@ -22,6 +22,7 @@ import type { TipoCobro } from './cobros-tipos';
 import { aUnidadMinima, deUnidadMinima } from './pasarela-moneda';
 import { formStripe } from './stripe-form';
 import { finDelPlazo } from './cobros-reglas';
+import { sesionExternaDe, type SesionExterna } from './cobros-externos-reglas';
 
 export const STRIPE_API = 'https://api.stripe.com';
 export const STRIPE_VERSION = '2026-09-30.endive';
@@ -314,6 +315,17 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
     modo: b.livemode === true ? 'real' : 'prueba',
     referencia: str(b.client_reference_id),
   };
+}
+
+/**
+ * Una sesión de Checkout AJENA (un Payment Link armado en el Stripe del negocio, 27/10/2026, MAU-10), con su primer ítem: el
+ * comprador, el monto que pagó, el de origen si Stripe convirtió la moneda y el nombre del producto. La lee
+ * lib/cobros-externos-reglas.ts (`sesionExternaDe`).
+ */
+export async function leerCheckoutExternoStripe(key: string, id: string): Promise<R<{ sesion: SesionExterna }>> {
+  const r = await llamar(key, 'GET', `/v1/checkout/sessions/${encodeURIComponent(id)}`, { expand: ['line_items'] });
+  if (!r.ok) return fallo(r);
+  return { ok: true, sesion: sesionExternaDe(r.body) };
 }
 
 export async function expirarCheckoutStripe(key: string, id: string): Promise<R<{ estado: string | null }>> {
