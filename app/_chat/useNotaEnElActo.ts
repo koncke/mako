@@ -6,7 +6,9 @@
 //   <CajaChat … onGrabada={nota.onGrabada} />
 //   <HiloMako items={nota.conNotas(items)} onReintentar={nota.reintentar(suReintentar)} onDescartar={nota.descartar} … />
 // `clave`: el chat (una nota no viaja a otro). `puede`: lo que la pantalla pide para mandar (no está pensando, hay sesión);
-// mientras no puede, la nota espera dibujada. `mandar`: SU camino de siempre, con el texto ya transcrito.
+// mientras no puede, la nota espera dibujada. `mandar`: SU camino de siempre, con el texto ya transcrito; si devuelve `false`
+// (no la tomó), la nota se queda y sale en la próxima vuelta. `pendientes`: hay notas de este chat sin salir, y la caja no manda
+// lo escrito hasta que salgan (`ocupado`): salen en el orden en que se mandaron (la revisión de chats-unificados, 28/10/2026).
 // ⚠️ SIN 'use client' A PROPÓSITO (como app/tickets/soporte/useSoporte.ts): es un hook que sólo importan componentes de
 //    cliente, y así lo puede importar otro hook sin directiva (tests/frontera-use-client.test.ts).
 // =============================================================================
@@ -23,7 +25,7 @@ const NOTAS = crearNotasEnElActo(prepararNota);
 export function useNotaEnElActo({ clave, puede, mandar }: {
   clave: string;
   puede: boolean;
-  mandar: (texto: string, voz: VozDeNota) => void;
+  mandar: (texto: string, voz: VozDeNota) => boolean | void;
 }) {
   const delChat = useSyncExternalStore(NOTAS.suscribir, () => NOTAS.de(clave), () => NOTAS.de(clave));
   // El `mandar` del último render: el que lee el estado de AHORA (la sesión, el alcance).
@@ -33,8 +35,9 @@ export function useNotaEnElActo({ clave, puede, mandar }: {
     if (!puede) return;
     const y = NOTAS.siguiente(clave);
     if (!y) return;
+    // Primero la pantalla; recién si la tomó, deja de estar pendiente (antes se sacaba igual y, rechazada, se perdía sin aviso).
+    if (mandarRef.current(y.texto, y.voz) === false) return;
     NOTAS.salio(clave, y.id);
-    mandarRef.current(y.texto, y.voz);
   }, [puede, delChat, clave]);
   return {
     onGrabada: (g: GrabacionLista) => { NOTAS.grabar(clave, g.audio, g.segundos); },
@@ -42,5 +45,7 @@ export function useNotaEnElActo({ clave, puede, mandar }: {
     /** El «Reintentar» del hilo: una nota se pasa a texto otra vez; lo demás, al de la pantalla. */
     reintentar: (deLaPantalla: (id: string) => void) => (id: string) => { if (!NOTAS.reintentar(clave, id)) deLaPantalla(id); },
     descartar: (id: string) => NOTAS.descartar(clave, id),
+    /** Notas de este chat que todavía no salieron (pasándose a texto o esperando): lo escrito sale DETRÁS de ellas. */
+    pendientes: delChat.notas.some((x) => x.estado !== 'error'),
   };
 }

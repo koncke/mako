@@ -69,6 +69,8 @@ export function MakoChat({
   const [input, setInput] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [verChats, setVerChats] = useState(false);
+  /** Creando o abriendo otra sesión: la caja no graba (una nota quedaba en la sesión de antes y desaparecía, la revisión de chats-unificados, 28/10/2026). */
+  const [cambiando, setCambiando] = useState(false);
   const [chartAbierto, setChartAbierto] = useState(true);
   const [editId, setEditId] = useState<number | null>(null);
   const [editVal, setEditVal] = useState('');
@@ -88,7 +90,7 @@ export function MakoChat({
   const items = useMemo(() => itemsDe(messages), [messages]);
   // Fotos y PDF con la pregunta (28/10/2026, las cajas unificadas): la ruta los lee y su lectura va con el pedido.
   const adj = useAdjuntosDelChat({ puede: !pensando && !!sessionId, onError: setErr });
-  const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
+  const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
   // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
 
@@ -126,21 +128,21 @@ export function MakoChat({
 
   const nuevoChat = async () => {
     if (pensando) return;
-    setPensando(true); setErr(null); setVerChats(false); setMessages([]);
+    setPensando(true); setCambiando(true); setErr(null); setVerChats(false); setMessages([]);
     try {
       const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'new', chartKey, titulo, contexto }) }).then((r) => r.json());
       if (j.error) setErr(j.error); else { setSessions(j.sessions ?? []); setSessionId(j.session?.id ?? null); setMessages(j.messages ?? []); }
-    } catch (e) { setErr(String(e)); } finally { setPensando(false); }
+    } catch (e) { setErr(String(e)); } finally { setPensando(false); setCambiando(false); }
   };
 
   const abrirSesion = async (id: number) => {
     setVerChats(false);
     if (id === sessionId) return;
-    setPensando(true); setErr(null);
+    setPensando(true); setCambiando(true); setErr(null);
     try {
       const j = await fetch(`${endpoint}?sessionId=${id}`).then((r) => r.json());
       if (j.error) setErr(j.error); else { setMessages(j.messages ?? []); setSessionId(id); }
-    } catch (e) { setErr(String(e)); } finally { setPensando(false); }
+    } catch (e) { setErr(String(e)); } finally { setPensando(false); setCambiando(false); }
   };
 
   const accion = async (a: 'pin' | 'archive' | 'delete' | 'rename', id: number, extra: { valor?: boolean; titulo?: string } = {}) => {
@@ -229,7 +231,7 @@ export function MakoChat({
           </div>
         )}
         <div className="co-caja">
-          <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando} apagado={!sessionId}
+          <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando || nota.pendientes} apagado={!sessionId || cambiando}
             placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
             adjuntos={adj.caja} />
         </div>

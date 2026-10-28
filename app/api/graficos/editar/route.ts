@@ -24,6 +24,7 @@ import { sanearHoja } from '@/lib/graficos-catalogo';
 import { ALCANCE_GENERAL, TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { TURNOS_IA, permisoEdicionMako, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { editarHojaIA } from '@/lib/graficos-ia-editar';
+import { PLAZO_MODELO_MS } from '@/lib/graficos-ia-generar';
 import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos-del-chat';
 import { lecturaDeArchivos, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
@@ -34,6 +35,9 @@ export const revalidate = 0;
 export const maxDuration = 300;
 /** Lo que entra de la lectura de los archivos al prompt de la edición (la hoja y el catálogo ya son largos). */
 const TOPE_LECTURA_EDICION = 8_000;
+/** Hasta cuándo puede terminar la cascada, contado desde el arranque del pedido: el panel corta a 245 s y antes se lleva hasta
+ *  12 s entendiendo el pedido. Con archivos, la lectura (hasta 90 s) come de acá: la cascada no estrena plazo después. */
+const PLAZO_TOTAL_CON_ARCHIVOS_MS = 220_000;
 
 const err = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });
 
@@ -75,13 +79,15 @@ export async function POST(req: Request) {
   if (!permiso.ok) return NextResponse.json({ ok: false, error: permiso.error, analizar: true }, { status: 409 });
   const escrito = typeof body?.pedido === 'string' ? body.pedido.trim().slice(0, TOPE_PEDIDO_IA) : '';
   if (!escrito && !adjuntos.length) return err(400, 'Escribe qué quieres cambiar.');
-  // Los archivos se leen ANTES (lib/adjuntos-del-chat.ts); la cascada arranca su plazo después de leerlos.
+  // Los archivos se leen ANTES (lib/adjuntos-del-chat.ts, juntos y con plazo). La cascada NO estrena plazo después de leer
+  // (la revisión de chats-unificados, 28/10/2026): tiene sus 100 s, pero sin pasar el total que espera el panel.
   const { lecturas, noLeidos } = await leerLosArchivos(adjuntos, 'graficos-editar');
   if (adjuntos.length && !lecturas.length && !escrito) return err(422, `No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`);
   const pedido = escrito || 'Usa lo que traen estos archivos para esta hoja.';
   const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDICION) : undefined;
 
-  const r = await editarHojaIA({ hoja, pedido, historial: historialDe(body?.historial), alcance: general ? ALCANCE_GENERAL : undefined, inicio: adjuntos.length ? Date.now() : inicio, archivos });
+  const plazoMs = adjuntos.length ? Math.min(Date.now() - inicio + PLAZO_MODELO_MS, PLAZO_TOTAL_CON_ARCHIVOS_MS) : undefined;
+  const r = await editarHojaIA({ hoja, pedido, historial: historialDe(body?.historial), alcance: general ? ALCANCE_GENERAL : undefined, inicio, plazoMs, archivos });
   if ('error' in r) return NextResponse.json({ ok: false, error: r.error, ...(r.link ? { link: r.link } : {}) }, { status: 502 });
   if (r.correcciones.length) console.log('[graficos/editar] aceptada con correcciones:', r.correcciones.join(' | '));
   // `analizar` (#862): pidió un análisis, no un cambio; la hoja no se tocó y el panel ofrece pasar a «Analizar».

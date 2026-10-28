@@ -1019,7 +1019,7 @@ export function PanelAgente() {
             «Escribe a <quién>». */}
         {/* Lo que MaKo recomienda sobre las páginas con sus visitas y lo que dice la gente (26/10/2026): el bloque, plegado. */}
         <RecomendacionesDeMako superficie="landing" alPedir={setTexto} />
-        <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
+        <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo || nota.pendientes}
           apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
           arriba={cita ? <CitaAgente cita={cita} onQuitar={() => setCita(null)} /> : null} />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}

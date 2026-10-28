@@ -257,7 +257,7 @@ export function PanelMakoIA() {
         {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
-          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo}
+          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
             apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
             adjuntos={adj.caja} estado={errorAdjunto} />
         </div>

@@ -20,7 +20,7 @@ const src = sinComentarios(readFileSync('app/whatsapp/WhatsAppAdvisor.tsx', 'utf
 test('el hilo del Ops Center, con MaKo y su estrella; la caja única con Enter que manda', () => {
   assert.match(src, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{MAKO\} [^>]*enMensaje=\{enMensaje\} \/>/);
   assert.match(src, /const MAKO = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/);
-  assert.match(src, /<CajaChat texto=\{input\} onTexto=\{setInput\} onMandar=\{\(\) => \{ void enviarChat\(\); \}\} ocupado=\{pensando\}\s+placeholder="Pregúntale a MaKo…"/);
+  assert.match(src, /<CajaChat texto=\{input\} onTexto=\{setInput\} onMandar=\{\(\) => \{ void enviarChat\(\); \}\} ocupado=\{pensando \|\| nota\.pendientes\}\s+placeholder="Pregúntale a MaKo…"/);
   assert.match(src, /import '@\/app\/admin\/operaciones\/centro\.css';/);
 });
 

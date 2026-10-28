@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { CAJAS_DE_CHAT, CAJAS_PROPIAS } from '../lib/cajas-de-chat';
 import { conNotas, crearNotasEnElActo, filaDeNota } from '../app/_chat/notas-en-el-acto';
 import type { ItemHilo } from '../app/m/mako/chat-ui';
+import { armarHook, dibujador } from './hook-en-node';
 
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8');
@@ -148,3 +149,78 @@ test('la que no se entendió dice por qué, se reintenta o se descarta; el «Rei
   await espera();
   assert.equal(notas.de('chat:3').notas.length, 0);
 });
+
+// ── El hook real (app/_chat/useNotaEnElActo.ts), con el transcriptor en pausa (la revisión de chats-unificados, 28/10/2026) ──
+type Nota = { onGrabada: (g: { audio: Blob; segundos: number }) => void; conNotas: (items: ItemHilo[]) => ItemHilo[]; pendientes: boolean };
+type PropsNota = { clave: string; puede: boolean; mandar: (t: string) => boolean | void };
+const transcripciones: Array<(r: { mp3: Blob; texto: string } | { error: string }) => void> = [];
+let useNota: ((p: PropsNota) => Nota) | null = null;
+async function hookDeLaNota() {
+  useNota ??= (await armarHook(raiz, 'app/_chat/useNotaEnElActo.ts', {
+    './preparar-nota': 'export function prepararNota() { return new Promise((r) => globalThis.__transcripciones.push(r)); }',
+  })).useNotaEnElActo as (p: PropsNota) => Nota;
+  (globalThis as unknown as { __transcripciones: typeof transcripciones }).__transcripciones = transcripciones;
+  return useNota;
+}
+const vuelta = () => new Promise((x) => setImmediate(x));
+
+test('si la pantalla NO toma la nota (otra guarda suya), la nota se queda y sale en la próxima vuelta: no se pierde', async () => {
+  const hook = await hookDeLaNota();
+  const { dibujar } = dibujador(hook);
+  const mandados: string[] = [];
+  let toma = false;
+  const props = (puede: boolean): PropsNota => ({ clave: 'rechaza', puede, mandar: (t) => { mandados.push(t); return toma; } });
+  let s = dibujar(props(true));
+  s.onGrabada({ audio: new Blob(['x']), segundos: 4 });
+  s = dibujar(props(true));
+  assert.equal(s.pendientes, true, 'la nota recién grabada no cuenta como pendiente');
+  transcripciones.shift()!({ mp3: new Blob(['y']), texto: 'hola MaKo' });
+  await vuelta();
+  s = dibujar(props(true));
+  assert.deepEqual(mandados, ['hola MaKo'], 'no se intentó mandar');
+  assert.equal(s.conNotas([]).length, 1, 'rechazada, la nota desapareció (se perdía sin aviso)');
+  toma = true;
+  dibujar(props(false));
+  s = dibujar(props(true));
+  assert.deepEqual(mandados, ['hola MaKo', 'hola MaKo'], 'no volvió a intentar cuando la pantalla pudo');
+  s = dibujar(props(true)); // el almacén cambió: otro dibujo, como React
+  assert.equal(s.pendientes, false);
+  assert.equal(s.conNotas([]).length, 0);
+});
+
+test('mientras hay una nota sin salir, `pendientes` frena lo escrito (salen en el orden en que se mandaron); una que no se entendió, no', async () => {
+  const hook = await hookDeLaNota();
+  const { dibujar } = dibujador(hook);
+  const props: PropsNota = { clave: 'orden', puede: true, mandar: () => true };
+  let s = dibujar(props);
+  assert.equal(s.pendientes, false);
+  s.onGrabada({ audio: new Blob(['x']), segundos: 2 });
+  s = dibujar(props);
+  assert.equal(s.pendientes, true);
+  transcripciones.shift()!({ error: 'No se escuchó nada en la nota. Grábala de nuevo.' });
+  await vuelta();
+  s = dibujar(props);
+  assert.equal(s.pendientes, false, 'una nota que no se entendió traba la caja hasta descartarla');
+  // Cada pantalla le pasa `pendientes` a su caja: lo escrito no sale antes que la nota.
+  const cajas = [
+    ['app/_components/MakoChat.tsx', /ocupado=\{pensando \|\| nota\.pendientes\}/],
+    ['app/whatsapp/WhatsAppAdvisor.tsx', /ocupado=\{pensando \|\| nota\.pendientes\}/],
+    ['app/dashboard/PanelEditarMako.tsx', /ocupado=\{pensando \|\| nota\.pendientes\}/],
+    ['app/image-editor/mako/chat/PanelMakoIA.tsx', /ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/],
+    ['app/video-editor/_opencut/chat/PanelChat.tsx', /ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/],
+    ['app/web-generator/editor/paneles/PanelAgente.tsx', /ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/],
+    ['app/tickets/soporte/PiezasSoporte.tsx', /ocupado=\{s\.notasPendientes\}/],
+  ] as const;
+  for (const [f, re] of cajas) assert.match(fuenteDe(f), re, `${f}: lo escrito sale antes que la nota`);
+});
+
+test('la nota sale cuando la pantalla de verdad puede: el `puede` de la nota tiene las guardas de su enviar', () => {
+  for (const f of ['app/_components/MakoChat.tsx', 'app/whatsapp/WhatsAppAdvisor.tsx', 'app/dashboard/PanelEditarMako.tsx']) {
+    assert.match(fuenteDe(f), /useNotaEnElActo\(\{[\s\S]*?puede: [^\n]*!adj\.preparando/, `${f}: con una foto achicándose, la nota salía al vacío`);
+  }
+  // MakoChat: mientras crea o abre otra sesión, la caja no graba (la nota quedaba en la sesión de antes).
+  const mako = fuenteDe('app/_components/MakoChat.tsx');
+  assert.match(mako, /apagado=\{!sessionId \|\| cambiando\}/);
+  assert.equal((mako.match(/setCambiando\(true\)/g) ?? []).length, 2, 'nuevoChat y abrirSesion apagan la caja');
+});
+

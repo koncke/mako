@@ -43,10 +43,12 @@ const STUBS: Record<string, string> = {
     export async function contestarTicketAction(id, texto, adjuntos) { g().respuestas.push({ texto, adjuntos: (adjuntos ?? []).map((a) => a.nombre) }); return g().alContestar.shift() ?? { ok: true, ticket: null }; }`,
   navegador: 'export const contextoDelNavegador = () => ({});',
   subir: 'export function subirAdjuntosTicket(archivos) { return new Promise((resolve) => globalThis.__soporte.pendientes.push({ nombres: archivos.map((f) => f.name), resolve })); }',
+  // La nota de voz (app/_chat/useNotaEnElActo.ts): la transcripción queda en pausa hasta que el test la suelta.
+  preparar: 'export function prepararNota() { return new Promise((resolve) => globalThis.__soporte.notas.push(resolve)); }',
 };
 
 type Pendiente = { nombres: string[]; resolve: (r: unknown) => void };
-type Estado = { rt: { hooks: unknown[]; idx: number; efectos: Array<() => void> }; levantados: Array<{ id: number; descripcion: string; adjuntos: string[] }>; respuestas: Array<{ texto: string; adjuntos: string[] }>; pendientes: Pendiente[]; alContestar: unknown[] };
+type Estado = { rt: { hooks: unknown[]; idx: number; efectos: Array<() => void> }; levantados: Array<{ id: number; descripcion: string; adjuntos: string[] }>; respuestas: Array<{ texto: string; adjuntos: string[] }>; pendientes: Pendiente[]; alContestar: unknown[]; notas: Array<(r: unknown) => void> };
 const g = globalThis as unknown as { __soporte: Estado };
 
 let hook: ((p: unknown) => any) | null = null; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -59,6 +61,7 @@ async function cargar() {
     plugins: [{ name: 'vecinos', setup(b) {
       const virtual = (filter: RegExp, clave: string) => b.onResolve({ filter }, () => ({ path: clave, namespace: 'stub' }));
       virtual(/^react$/, 'react'); virtual(/^\.\.\/acciones$/, 'acciones'); virtual(/^\.\.\/navegador$/, 'navegador'); virtual(/^\.\/subir-adjuntos$/, 'subir');
+      virtual(/^\.\/preparar-nota$/, 'preparar');
       b.onLoad({ filter: /.*/, namespace: 'stub' }, (a) => ({ contents: STUBS[a.path], loader: 'js' }));
       b.onResolve({ filter: /^@\// }, (a) => ({ path: ['.ts', '.tsx'].map((x) => join(raiz, `${a.path.slice(2)}${x}`)).find((x) => existsSync(x)) ?? join(raiz, `${a.path.slice(2)}.ts`) }));
     } }],
@@ -75,7 +78,7 @@ const vuelta = () => new Promise((x) => setImmediate(x));
 async function pantalla(t: TestContext, props: Record<string, unknown> = { tickets: [], inicial: 'nuevo', movil: true }) {
   const useSoporte = await cargar();
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  g.__soporte = { rt: { hooks: [], idx: 0, efectos: [] }, levantados: [], respuestas: [], pendientes: [], alContestar: [] };
+  g.__soporte = { rt: { hooks: [], idx: 0, efectos: [] }, levantados: [], respuestas: [], pendientes: [], alContestar: [], notas: [] };
   const r = () => {
     const rt = g.__soporte.rt;
     rt.idx = 0;
@@ -208,6 +211,42 @@ test('los 3 puntos: MaKo escribe antes de contestar, y su respuesta no cae en OT
   s = p.r();
   assert.equal(s.items.length, 1, 'la respuesta de la conversación anterior cayó en la nueva (sólo va el saludo)');
   assert.match(leer('app/tickets/soporte/PiezasSoporte.tsx'), /escribiendo=\{s\.escribiendo\}/, 'el hilo de Soporte no muestra los puntos');
+});
+
+test('la nota de voz queda atada a SU conversación: el ticket la espera, y no sale en la conversación siguiente (la revisión de chats-unificados)', async (t) => {
+  const p = await pantalla(t);
+  p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
+  // Graba una nota con la tarjeta a la vista: mientras se pasa a texto, el ticket no sale.
+  p.r().onGrabada({ audio: new Blob(['x']), segundos: 3 });
+  let s = p.r();
+  assert.equal(s.notasPendientes, true);
+  await s.mandarTicket();
+  assert.equal(p.e.levantados.length, 0, 'el ticket salió sin la nota que se estaba pasando a texto');
+  // Llega el texto: entra al relato, MaKo contesta, y recién ahí sale el ticket, con lo que dijo.
+  p.e.notas.shift()!({ mp3: new Blob(['y']), texto: 'y también pasa en el celular' });
+  await vuelta();
+  p.r();
+  t.mock.timers.tick(p.demora);
+  s = p.r();
+  s = p.r();
+  assert.equal(s.notasPendientes, false);
+  await s.mandarTicket();
+  assert.match(p.e.levantados[0]?.descripcion ?? '', /celular/, 'el ticket no lleva lo que dijo en la nota');
+});
+
+test('una nota grabada en una conversación que se deja (otra conversación) no sale en la nueva', async (t) => {
+  const p = await pantalla(t);
+  p.decir('No me deja guardar el lead en el CRM, sale un error rojo');
+  p.r().onGrabada({ audio: new Blob(['x']), segundos: 3 });
+  p.r();
+  p.r().nuevo();
+  p.e.notas.shift()!({ mp3: new Blob(['y']), texto: 'y también pasa en el celular' });
+  await vuelta();
+  p.r();
+  t.mock.timers.tick(p.demora);
+  const s = p.r();
+  assert.ok(!s.items.some((x: { texto?: string }) => /celular/.test(x.texto ?? '')), 'la nota de la conversación anterior salió en la nueva');
+  assert.equal(s.notasPendientes, false, 'la nota de la otra conversación traba la nueva');
 });
 
 test('la persona ve sus archivos en el ticket aunque haya escrito algo (sólo los nombres, nunca un link)', () => {

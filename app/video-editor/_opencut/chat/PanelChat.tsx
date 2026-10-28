@@ -604,7 +604,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 				</div>
 				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
 				<div className="co-caja">
-					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo}
+					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
 						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
 						adjuntos={adj.caja} />
 				</div>

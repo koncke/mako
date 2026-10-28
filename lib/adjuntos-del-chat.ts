@@ -10,7 +10,12 @@
 
 import 'server-only';
 import { archivoATexto } from './archivo-a-texto';
-import { ERROR_ADJUNTO, MARGEN_MULTIPART_BYTES, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, validarAdjuntos, type AdjuntoListo } from './mako-adjuntos';
+import { ERROR_ADJUNTO, MARGEN_MULTIPART_BYTES, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, leerConPlazo, validarAdjuntos, type AdjuntoListo } from './mako-adjuntos';
+
+/** Lo que puede tardar la lectura de TODOS los archivos de un mensaje, juntos (la revisión de chats-unificados, 28/10/2026). */
+export const PLAZO_LECTURA_MS = 90_000;
+/** Un PDF del chat se lee hasta acá: al modelo van 40 k caracteres, y un PDF «bomba» no se recorre entero. */
+const TOPE_PAGINAS_CHAT = 30;
 
 /** ¿Llegó con archivos? (multipart). Sin archivos, la ruta sigue leyendo su JSON de siempre. */
 export const traeArchivos = (req: Request): boolean => (req.headers.get('content-type') ?? '').toLowerCase().startsWith('multipart/form-data');
@@ -33,16 +38,17 @@ export async function pedidoConArchivos(req: Request): Promise<
   return { ok: true, campos, adjuntos: v.adjuntos };
 }
 
-/** Lo que el sistema leyó de cada archivo; los que no pudo, por nombre (la pantalla lo dice). */
-export async function leerLosArchivos(adjuntos: readonly AdjuntoListo[], feature: string): Promise<{ lecturas: Array<{ nombre: string; texto: string }>; noLeidos: string[] }> {
-  const lecturas: Array<{ nombre: string; texto: string }> = [];
-  const noLeidos: string[] = [];
-  for (const a of adjuntos) {
-    const leido = await archivoATexto(new File([a.bytes as BlobPart], a.nombre, { type: a.mime }), { feature }).catch(() => null);
-    const texto = leido?.texto?.trim();
-    if (texto) lecturas.push({ nombre: a.nombre, texto }); else noLeidos.push(a.nombre);
-  }
-  return { lecturas, noLeidos };
+/**
+ * Lo que el sistema leyó de cada archivo; los que no pudo (o no llegó a tiempo), por nombre: la pantalla lo dice. Todos a la
+ * vez y con un plazo total (`leerConPlazo`). El lector recibe un nombre que sale de la FIRMA («archivo.pdf», «foto.png»): el de
+ * la persona puede decir otra cosa (`.txt`) y el lector clasifica por extensión. El de la persona queda para mostrar.
+ */
+export async function leerLosArchivos(adjuntos: readonly AdjuntoListo[], feature: string, plazoMs = PLAZO_LECTURA_MS): Promise<{ lecturas: Array<{ nombre: string; texto: string }>; noLeidos: string[] }> {
+  return leerConPlazo(adjuntos, async (a, ms) => {
+    const paraLeer = a.tipo === 'document' ? 'archivo.pdf' : `foto.${a.mime.split('/')[1] || 'jpg'}`;
+    const leido = await archivoATexto(new File([a.bytes as BlobPart], paraLeer, { type: a.mime }), { feature, motivo: `Leer «${a.nombre}»`, timeoutMs: ms, topePaginas: TOPE_PAGINAS_CHAT });
+    return leido.texto;
+  }, plazoMs);
 }
 
 /** El cuerpo de un pedido que puede traer archivos: el JSON de siempre, o el multipart con `datos` (JSON) y `adjuntos`. */

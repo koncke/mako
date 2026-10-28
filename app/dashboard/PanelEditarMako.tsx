@@ -280,7 +280,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   const items = useMemo(() => itemsDeEdicion(hilo), [hilo]);
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
   // `enviar`, como lo escrito.
-  const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
+  const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
 
   /** Lo que sólo tiene este chat, adentro del mensaje de MaKo que lo dijo (./items-edicion.ts). */
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
@@ -342,7 +342,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         caja={<>
           <div className="co-caja">
             <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
-              ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
+              ocupado={pensando || nota.pendientes} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
               bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} adjuntos={adj.caja} />
           </div>
           {errorDictado && <p className="em-err">{errorDictado}</p>}

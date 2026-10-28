@@ -178,7 +178,7 @@ export function WhatsAppAdvisor({
 
   const ultimoEntrante = mensajes.length > 0 && !mensajes[mensajes.length - 1].saliente;
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás y sale por `enviarChat`.
-  const nota = useNotaEnElActo({ clave: `asesor-wa:${grupo.id}`, puede: !pensando && !appEscritorio.bloqueada, mandar: (t) => { void enviarChat(t, { dejarCaja: true }); } });
+  const nota = useNotaEnElActo({ clave: `asesor-wa:${grupo.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviarChat(t, { dejarCaja: true }); } });
 
   // El hilo del Ops Center: los mensajes por su posición (no traen id), y en cada respuesta de MaKo, «Usar →» y «Copiar».
   const items = useMemo((): ItemHilo[] => chat.map((m, i) => ({ k: 'msg', id: `a${i}`, role: m.role, texto: m.content, at: null })), [chat]);
@@ -299,7 +299,7 @@ export function WhatsAppAdvisor({
             </div>
             {/* La caja única (app/_chat/CajaChat.tsx): el «+» (fotos y PDF), los emojis y el micrófono que graba una nota (sale en el acto). */}
             <div className="co-caja">
-              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando}
+              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando || nota.pendientes}
                 placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
                 adjuntos={adj.caja} />
             </div>

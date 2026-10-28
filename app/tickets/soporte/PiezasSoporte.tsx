@@ -59,8 +59,8 @@ export function TarjetaTicket({ s }: { s: Soporte }) {
       <p className="ch-tarjeta__nota sp-tarjeta__detalle">{b.descripcion}</p>
       {s.errorTarjeta && <p className="ch-tarjeta__nota sp-tarjeta__error" role="status">{s.errorTarjeta}</p>}
       <div className="ch-tarjeta__botones">
-        <button type="button" className="co-chip co-chip--primario" disabled={s.mandando} onClick={() => void s.mandarTicket()}>
-          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : 'Mandárselo al equipo'}
+        <button type="button" className="co-chip co-chip--primario" disabled={s.mandando || s.notasPendientes} onClick={() => void s.mandarTicket()}>
+          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : s.notasPendientes ? 'Esperando tu nota…' : 'Mandárselo al equipo'}
         </button>
         <span className="ch-tarjeta__nota">Como «{rotuloTipo(tipo)}». Te aviso aquí cuando conteste.</span>
       </div>
@@ -126,7 +126,9 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
   s: Soporte; movil?: boolean; campo?: RefObject<HTMLTextAreaElement | null>; seguir?: () => HTMLElement | null;
 }) {
   return (
-    <CajaChat texto={s.texto} onTexto={s.setTexto} onMandar={() => { s.mandar(); }} enviando={s.enviando} apagado={s.apagado || s.cargando}
+    <CajaChat texto={s.texto} onTexto={s.setTexto} onMandar={() => { s.mandar(); }} enviando={s.enviando} apagado={s.apagado || s.cargando || s.mandando}
+      // Lo escrito sale DETRÁS de una nota de voz que todavía se está pasando a texto (en el orden en que se mandaron).
+      ocupado={s.notasPendientes}
       placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil} campo={campo} seguir={seguir}
       // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
       arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}

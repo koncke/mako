@@ -18,6 +18,8 @@ import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos
 import { memoriaConArchivos, pedidoConLecturas, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
+/** Con fotos o PDF, la lectura (hasta 90 s: lib/adjuntos-del-chat.ts) y el modelo comparten esto. */
+export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const chartKeyDe = (groupId: string) => `wa-advisor:${groupId}`;
