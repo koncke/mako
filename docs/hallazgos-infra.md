@@ -6492,6 +6492,17 @@ posterior al leído, o una revisión. La primera escritura (esperado `null`) sí
 **Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
 tanda de Automations*
 
+**28/10/2026: la regla escrita no alcanzó, y ahora la red está en `cambiarSettingSi` mismo.** Copywriter volvió a caer (un
+guion de más de ~6 KB no se guardaba más, y el índice con ~40 guiones congelaba el árbol), y medido ese día en producción el
+`onboarding.historial` ya pasaba los 6 KB codificados en cuatro negocios: su historial había dejado de guardarse en silencio
+(es best-effort). Unas treinta funciones llaman a `cambiarSettingSi` y nadie se acuerda de esta entrada. **El arreglo:** con
+un `esperado` de más de 6 KB en la URL (`lib/settings-cas.ts`, medido codificado: un JSON con comillas pesa el triple),
+`cambiarSettingSi` lee la fila, compara el valor en el server y escribe filtrando por `updated_at`, uno estrictamente
+posterior al leído (toda escritura de app_settings marca `updated_at`, así que si otro escribió en el medio, pierde). Sin
+cambiar a nadie que lo llame. tests/settings-cas-largo.test.ts corre el lib/settings.ts real con una base de mentira que
+anota cada filtro. **Medir antes de culpar al código:** el script del 28/10 (scratchpad del Cerebro, settings-largos.cjs)
+lista las claves de app_settings por peso codificado.
+
 ## El typecheck que «salía con 1 sin errores»: lo mataba el vigía, y el fallo mudo alimentaba la estampida (13/10/2026)
 
 **El síntoma, tal como llegó:** `node node_modules/typescript/bin/tsc --noEmit` sale con
