@@ -6856,6 +6856,22 @@ código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallaz
 - **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
   uno de los 10 «no puedo» de Leila era algo que no existía.
 
+# Un ticket resuelto se CIERRA y se AVISA en el grupo del cliente, sin preguntarle a Martín (Martín, 28/10/2026)
+
+Martín: «Si ya están resueltos siempre ciérralos, no me preguntes y siempre envía mensaje al grupo avisando con un buen copy
+que ya está solucionado».
+
+- **Lo normal es que se cierre solo:** el hito de la bitácora con `tickets: [n]` llega en el deploy y lib/tickets-cierre.ts lo
+  cierra. Lo que quede abierto con el arreglo ya en producción (un ticket que esperaba decisión, uno sin hito) lo cierra el
+  Cerebro con `scripts/tickets-cerrar-resueltos.mjs`, sin preguntar.
+- **Cada cierre lleva su aviso al grupo de MaKo del negocio**, con `scripts/avisar-arreglo-al-grupo.mts`: primero sin
+  `--enviar` (prueba que el arreglo está en main y servido en hola-mako.com) y después con `--enviar`. El copy, en español
+  neutro con «tú» (sin voseo: la audiencia es México): qué quedó resuelto y cómo probarlo, sin promesas, en menos de 500
+  caracteres. La firma «Desarrollador de MaKo» la pone el script.
+- **«Resuelto» es resuelto PARA EL CLIENTE.** Si se arregló la herramienta pero el dato del cliente sigue mal (el plan de
+  pagos de una clienta de Leila, el 28/10), no se cierra: se dice qué falta.
+- **A Martín, un ticket se le nombra por quién y de qué trata** («Leila: no podía adjuntar un documento»), nunca por su número.
+
 # En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
 
 Martín, desde el Ops Center: «Apenas envío el audio, en todos los chats de todo MaKo, se debe enviar automáticamente; yo
