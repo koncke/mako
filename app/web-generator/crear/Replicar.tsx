@@ -39,6 +39,12 @@
 //   El link pegado en la caja («Replica esta landing», «Replica y adapta») arranca el paso 1 solo, con la ventana que
 //   reservó el ↑; las partes arrancan con el caso de Martín (estructura + ángulos) o, con «adapta», diseño + estructura
 //   + ángulos. Lo último que eligió la persona (las partes y el tema) se recuerda en ESTE navegador.
+//
+// 28/10/2026, la regla de AGENTS.md («Lo que MaKo construye se ve CONSTRUYÉNDOSE»): la réplica se ve armarse. El server
+// manda una línea por cosa armada (`enVivo`, lib/editor-landing/replicar-progreso.ts: el esquema, cada sección cuando su
+// tanda volvió, el diseño) y `ArmadoEnVivo` (app/_ui) la muestra con una cadencia corta: las fases, un punto por sección
+// y la lista que crece. Cuando terminó Y ya se ve todo, se abre el editor de la copia. La lectura llega entera: su lista
+// de secciones también se revela de a una (`useRevelado`).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,6 +59,8 @@ import {
 import { resumenDeMolde } from '@/lib/editor-landing/replicar-estructura';
 import { NOMBRE_TIPO_SECCION, type Angulos } from '@/lib/editor-landing/replicar-angulos';
 import type { LecturaReplica, RespuestaLectura } from '@/lib/editor-landing/replicar-lectura-tipos';
+import { leerEventos, vistaDeEventos, type EventoReplica } from '@/lib/editor-landing/replicar-progreso';
+import { ArmadoEnVivo, useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import {
   abrirEnElClic, cerrarVentana, pedirConVentana, tomarVentanaReservada,
   type SalidaSinLectura, type VentanaDelClic,
@@ -94,6 +102,8 @@ export type ExtraReplicar = {
   lectura?: Lectura; texto?: string; ventana?: VentanaDelClic | null; adaptar?: boolean;
   /** 28/10/2026: qué se replica, el tema de la persona (sin el diseño de la original) y los ángulos ya leídos. */
   partes?: ParteReplica[]; tema?: string; angulos?: Angulos;
+  /** «Tu oferta»: de qué habla la copia cuando el texto se escribe de nuevo. */
+  oferta?: string;
 };
 
 /**
@@ -165,6 +175,66 @@ export function useReplicar(): {
     });
   }, [ws]);
   return { estado, replicar };
+}
+
+/**
+ * Replicar A LA VISTA (28/10/2026): el mismo pedido que `useReplicar`, con `enVivo`, leyendo el flujo de eventos
+ * (`eventos`) mientras el server arma la copia. No abre ventanas (la página ya se leyó en el paso 1). Si sale bien, deja
+ * el aviso de lo que no se copió y la copia en `lista`: la pantalla abre su editor cuando terminó de mostrarse. Si la
+ * ruta contesta sin flujo (la puerta: 401, 403), se lee como la respuesta de siempre.
+ */
+export function useReplicarEnVivo(): {
+  estado: EstadoReplicar;
+  eventos: readonly EventoReplica[];
+  lista: { id: number } | null;
+  replicar: (url: string, formato: FormatoReplicar, extra?: Omit<ExtraReplicar, 'ventana'>) => Promise<void>;
+} {
+  const [estado, setEstado] = useState<EstadoReplicar>({ fase: 'quieto' });
+  const [eventos, setEventos] = useState<EventoReplica[]>([]);
+  const [lista, setLista] = useState<{ id: number } | null>(null);
+  const montado = useRef(true);
+  useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
+  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: Omit<ExtraReplicar, 'ventana'> = {}) => {
+    const { adaptar = false, ...dato } = extra;
+    setEventos([]);
+    setLista(null);
+    setEstado({ fase: 'replicando', formato });
+    const cuerpo = { ...(formato === 'web' ? { url, formato } : { url, formato, ...dato, ...(adaptar ? { adaptar: true } : {}) }), enVivo: true };
+    let r: RespuestaReplicar = { ok: false, error: 'La réplica se cortó antes de terminar. Vuelve a intentar.' };
+    try {
+      const res = await fetch('/api/landing-generator/replicar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(PLAZO_IA_MS) });
+      if (res.body && /ndjson/.test(res.headers.get('content-type') ?? '')) {
+        const lector = res.body.getReader();
+        const dec = new TextDecoder();
+        let resto = '';
+        for (;;) {
+          const { done, value } = await lector.read();
+          const l = leerEventos(resto, done ? '\n' : dec.decode(value, { stream: true }));
+          resto = l.resto;
+          if (l.eventos.length && montado.current) setEventos((prev) => [...prev, ...l.eventos]);
+          for (const e of l.eventos) if (e.fase === 'fin') r = e.respuesta;
+          if (done) break;
+        }
+      } else {
+        const d = await res.json().catch(() => null) as RespuestaReplicar | null;
+        if (d && typeof d.ok === 'boolean') r = d;
+        else r = { ok: false, error: `Error ${res.status}` };
+      }
+    } catch {
+      r = { ok: false, error: 'Se cortó la conexión mientras se replicaba. Vuelve a intentar.' };
+    }
+    if (!montado.current) return;
+    if (r.ok) {
+      const aviso = r.aviso ?? (r.avisoScroll ? AVISO_SCROLL : null);
+      if (aviso) dejarAvisoDeReplica(r.id, aviso);
+      setLista({ id: r.id });
+      return;
+    }
+    const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
+    const probar = formatoReplicar(f.probar);
+    setEstado({ fase: 'falla', formato, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true, probar: probar && probar !== formato ? probar : null, salida: null });
+  }, []);
+  return { estado, eventos, lista, replicar };
 }
 
 /**
@@ -256,7 +326,9 @@ export function LecturaDeLaPagina({ lectura }: { lectura: LecturaReplica }) {
   const [todas, setTodas] = useState(false);
   const a = lectura.angulos;
   const tipoDe = (i: number) => a?.secciones.find((s) => s.n === i + 1)?.tipo;
-  const secciones = todas ? lectura.secciones : lectura.secciones.slice(0, SECCIONES_A_LA_VISTA);
+  // Llega entera de una vez: igual se revela de a una sección (AGENTS.md, «se ve CONSTRUYÉNDOSE»).
+  const { visibles } = useRevelado(lectura.secciones.length);
+  const secciones = (todas ? lectura.secciones : lectura.secciones.slice(0, SECCIONES_A_LA_VISTA)).slice(0, visibles);
   const host = (() => { try { return new URL(lectura.url).hostname.replace(/^www\./, ''); } catch { return lectura.url; } })();
   const fila = (rotulo: string, v: string | string[] | undefined) => {
     const lista = Array.isArray(v) ? v.filter(Boolean) : v ? [v] : [];
@@ -277,7 +349,7 @@ export function LecturaDeLaPagina({ lectura }: { lectura: LecturaReplica }) {
           {secciones.map((m, i) => {
             const tipo = tipoDe(i);
             return (
-              <li key={i}>
+              <li key={i} className="gp-rp-sec-entra">
                 <span className="gp-rp-sec-titulo">{tipo && tipo !== 'otro' ? <span className="gp-rp-chip">{NOMBRE_TIPO_SECCION[tipo]}</span> : null}{m.titulo}</span>
                 <span className="gp-rp-sec-molde">{resumenDeMolde(m) || 'Sólo el título'}</span>
               </li>
@@ -375,6 +447,9 @@ export function useLeerParaReplicar(): {
 /** Lo último que eligió la persona, en ESTE navegador (una comodidad, nunca un dato: puede volver vacío). */
 const CLAVE_PARTES = 'gp.replicar.partes';
 const CLAVE_TEMA = 'gp.replicar.tema';
+const CLAVE_OFERTA = 'gp.replicar.oferta';
+/** Lo que se acepta de «Tu oferta» (`TOPE_OFERTA` de replicar-partes.ts). */
+const TOPE_OFERTA_PANTALLA = 1_200;
 
 /**
  * El tema con que nace la réplica sin el diseño de la original: el último que eligió la persona; si no, su primer tema
@@ -405,13 +480,25 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   // La «Página web» del link de la caja con partes que no son todas: arranca en «Landing» (la copia idéntica es TODO).
   const [formato, setFormato] = useState<FormatoReplicar>(() => (formatoInicial && formatoConPartes(formatoInicial, partes) ? formatoInicial : FORMATO_INICIAL));
   const [tema, setTema] = useState<string>(() => temaInicialDeReplica(propios, leerLocal<string | null>(CLAVE_TEMA, null)));
+  // De qué habla la copia escrita de nuevo. Sin ella (y sin el perfil del negocio cargado) la IA vuelve sobre la oferta de la
+  // competencia: medido el 28/10/2026 en el ws9, la réplica de Reportei seguía hablando de Reportei.
+  const [oferta, setOferta] = useState<string>(() => leerLocal<string>(CLAVE_OFERTA, ''));
   const sugerido = useMemo(() => temaSugerido('vender'), []);
   const { estado: lectura, leer } = useLeerParaReplicar();
-  const { estado, replicar } = useReplicar();
+  const { estado, eventos, lista, replicar } = useReplicarEnVivo();
+  const ws = useWs();
+  const vista = useMemo(() => vistaDeEventos(eventos), [eventos]);
+  // La copia está lista: se abre su editor cuando ya se vio armarse (`onTodoVisible`), o a los pocos segundos si no.
+  const abrirCopia = useCallback(() => { if (lista) irDuro(`/web-generator/${lista.id}`, ws); }, [lista, ws]);
+  useEffect(() => {
+    if (!lista) return;
+    const t = setTimeout(abrirCopia, 8_000);
+    return () => clearTimeout(t);
+  }, [lista, abrirCopia]);
   const campo = useRef<HTMLInputElement>(null);
   const url = urlParaAnalizar(texto);
   const leyendo = lectura.fase === 'leyendo';
-  const replicando = estado.fase === 'replicando';
+  const replicando = estado.fase === 'replicando' || !!lista;
   const ocupado = leyendo || replicando;
 
   /** Leer `u`. `ventana`: la que se abrió EN EL CLIC (el submit) o la que reservó el ↑ de la caja (el arranque). */
@@ -432,6 +519,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
     if (lectura.fase !== 'leida') return;
     guardarLocal(CLAVE_PARTES, listaDePartes(partes));
     if (!partes.diseno) guardarLocal(CLAVE_TEMA, tema);
+    const tuOferta = partes.texto ? '' : oferta.trim().slice(0, TOPE_OFERTA_PANTALLA);
+    if (tuOferta) guardarLocal(CLAVE_OFERTA, tuOferta);
     const angulos = partes.angulos && !partes.texto ? lectura.lectura.angulos : null;
     void replicar(lectura.url, f, {
       ...(lectura.leidaEnNavegador ? { lectura: lectura.leidaEnNavegador } : {}),
@@ -439,6 +528,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
       partes: listaDePartes(partes),
       ...(!partes.diseno ? { tema } : {}),
       ...(angulos ? { angulos } : {}),
+      ...(tuOferta ? { oferta: tuOferta } : {}),
     });
   };
   const cambiarPartes = (p: PartesReplica) => {
@@ -497,6 +587,23 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
             <h2 className="gp-rp-titulo">Qué replicar</h2>
             <SelectorPartes partes={partes} onCambio={cambiarPartes} deshabilitado={replicando} />
             <p className="gp-rp-nota">{lineaDePartes(partes)}</p>
+            {!partes.texto && (
+              <label className="gp-rp-oferta">
+                <span className="gp-rp-oferta-titulo">Tu oferta</span>
+                <textarea
+                  className="gp-campo"
+                  rows={3}
+                  maxLength={TOPE_OFERTA_PANTALLA}
+                  value={oferta}
+                  disabled={replicando}
+                  placeholder="Qué vendes, a quién y por cuánto. Ej.: mentoría de 8 semanas para dueños de agencias que quieren cerrar más clientes; US$997."
+                  onChange={(e) => setOferta(e.target.value)}
+                />
+                {lectura.lectura.tieneOferta === false && !oferta.trim() && (
+                  <span className="gp-rp-aviso" role="note">Tu negocio no tiene la oferta cargada: escríbela aquí para que el texto hable de lo tuyo y no de la otra.</span>
+                )}
+              </label>
+            )}
             {!partes.diseno && (
               <div className="gp-rp-tema">
                 <SelectorTemaCrear valor={tema} onCambio={setTema} sugerido={sugerido} propios={propios} />
@@ -509,10 +616,16 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
               {replicando ? <span className="gp-giro" aria-hidden /> : <Ico n="copiar" t={14} />} Replicar
             </button>
           </section>
-          {estado.fase === 'replicando' && (
-            <p className="gp-analizar-sub gp-replicar-estado" role="status">
-              <span className="gp-giro" aria-hidden /> Replicando… puede tardar unos minutos.
-            </p>
+          {replicando && (
+            <ArmadoEnVivo
+              titulo={lista ? 'Lista: abriendo el editor' : 'Replicando… puede tardar unos minutos'}
+              fases={vista.fases}
+              piezas={vista.piezas}
+              total={vista.total || lectura.lectura.secciones.length}
+              unidad="secciones"
+              terminado={vista.terminado}
+              onTodoVisible={() => setTimeout(abrirCopia, 600)}
+            />
           )}
           {estado.fase === 'falla' && (
             <FallaReplicar
@@ -561,7 +674,14 @@ const CSS_REPLICAR = `
 .gp .gp-rp-parte-cabeza { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
 .gp .gp-rp-parte-detalle { color: var(--gp-tenue); font-size: 12px; line-height: 1.3; }
 .gp .gp-rp-tema { margin-top: 12px; }
+.gp .gp-rp-oferta { display: grid; gap: 6px; margin-top: 12px; }
+.gp .gp-rp-oferta-titulo { font-size: 14px; font-weight: 600; color: var(--gp-titulo); }
+.gp .gp-rp-oferta textarea { height: auto; padding: 10px 12px; resize: vertical; line-height: 1.45; }
+.gp .gp-rp-aviso { font-size: 13px; color: var(--gp-activo-texto); }
 .gp .gp-rp-replicar { margin-top: 16px; }
+.gp .gp-rp-sec-entra { animation: gp-rp-entra .3s ease-out both; }
+@keyframes gp-rp-entra { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .gp .gp-rp-sec-entra { animation: none; } }
 @media (max-width: 760px) {
   .gp .gp-replicar { margin-top: 16px; }
   .gp .gp-rp-partes { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -23,11 +23,13 @@ import {
 } from '../lib/editor-landing/replicar-estructura';
 import {
   PARTES_ADAPTAR, PARTES_INICIALES, PARTES_TODAS, TOPE_INSTRUCCION, alternarParte, formatoConPartes, instruccionDePartes,
-  nombreDeCopia, partesDePedido, recetaDePartes,
+  marcaDeUrl, mencionesDe, nombreDeCopia, partesDePedido, recetaDePartes,
 } from '../lib/editor-landing/replicar-partes';
 import { ANGULOS_SYSTEM_TEMPLATE, ANGULOS_USER_TEMPLATE, sanearAngulos, seccionesParaAngulos, textoDeAngulos } from '../lib/editor-landing/replicar-angulos';
 import { MAX_SECCIONES, esquemaDelPedido, pedidoDeTanda, quitarPruebaDeLaOriginal, slotsDe, tarjetaDesdeEsquema } from '../lib/editor-landing/ia-reglas';
 import { configDeReplica } from '../lib/editor-landing/replicar-reglas';
+import { copyDeHtml, sinLetrasDobles } from '../lib/landing-extraer';
+import { leerEventos, lineaDeEvento, vistaDeEventos } from '../lib/editor-landing/replicar-progreso';
 
 const RAIZ = join(__dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
@@ -98,6 +100,22 @@ test('1c. el respaldo sin IA dibuja el subtítulo `###` como título, no como te
   const tipos = (t.content ?? []).map((n) => `${n.type}${n.type === 'heading' ? (n.attrs as { level?: number }).level : ''}`);
   assert.deepEqual(tipos, ['heading2', 'heading3', 'paragraph', 'heading3', 'paragraph']);
   assert.doesNotMatch(JSON.stringify(t), /###/);
+});
+
+// Las landings de Martín (28/10/2026): respond.io tenía su megamenú y el selector de idiomas en un `<header class="fixed">`
+// sin <nav> (79 renglones en la primera sección); tryholo.ai escribe dos veces cada letra de una animación.
+test('1d. el extractor: la barra fija de arriba no es copy, y las letras dobles de una animación vuelven a ser palabras', () => {
+  const html = '<body><header class="fixed top-0 z-50"><ul><li>Spanish</li><li>Capture from Ads</li></ul><a class="btn btn-primary" href="/x">Start Free Trial</a></header>'
+    + '<main><h1>Customers ask on chat</h1><p>Respond.io unifies all customer touchpoints in one inbox.</p></main></body>';
+  const t = copyDeHtml(html).texto;
+  assert.doesNotMatch(t, /Spanish|Capture from Ads/, 'el menú de la barra fija no entra');
+  assert.match(t, /\[BOTÓN\] Start Free Trial/, 'su botón sí');
+  assert.match(t, /^# Customers ask on chat/m);
+  // Un <header> que no es fijo puede ser el hero: se lee.
+  assert.match(copyDeHtml('<header class="hero"><h1>La portada</h1><p>Un texto de la portada que se lee.</p></header>').texto, /# La portada/);
+  assert.equal(sinLetrasDobles('Holo runs your a a d d s s , e e m m a a i i l l , and S S E E O O end to end'), 'Holo runs your ads, email, and SEO end to end');
+  assert.equal(sinLetrasDobles('Plan A y B , a la vez'), 'Plan A y B , a la vez', 'sin corridas, igual');
+  assert.equal(sinLetrasDobles('la a a b'), 'la a a b', 'un solo par no es una corrida');
 });
 
 test('2. el molde de cada sección y la fidelidad de una réplica', () => {
@@ -317,4 +335,66 @@ test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', 
   assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
   const ia = fuente('lib/editor-landing/ia.ts');
   assert.match(ia, /p\.modo === 'importar' \? esquemaDeReplica\(texto, tituloFallback\) : esquemaConservado\(texto, tituloFallback\)/);
+});
+
+// AGENTS.md, «Lo que MaKo construye se ve CONSTRUYÉNDOSE» (28/10/2026): la réplica manda una línea por cosa armada.
+test('7. en vivo: las líneas del flujo, una línea rota que no rompe, y lo que se dibuja', () => {
+  const a = lineaDeEvento({ fase: 'leer' }) + lineaDeEvento({ fase: 'esquema', secciones: ['Hero', 'Precio', 'Cierre'] });
+  const corte = a.length - 5;
+  const uno = leerEventos('', a.slice(0, corte));
+  assert.equal(uno.eventos.length, 1, 'lo que llegó a medias espera al próximo trozo');
+  const dos = leerEventos(uno.resto, a.slice(corte) + '{roto\n' + lineaDeEvento({ fase: 'seccion', indice: 2, titulo: 'Cierre' }));
+  assert.deepEqual(dos.eventos.map((e) => e.fase), ['esquema', 'seccion'], 'la línea rota se descarta');
+  const eventos = [...uno.eventos, ...dos.eventos, { fase: 'seccion', indice: 0, titulo: 'Hero' } as const, { fase: 'seccion', indice: 2, titulo: 'Cierre' } as const];
+  const v = vistaDeEventos(eventos);
+  assert.equal(v.total, 3);
+  assert.deepEqual(v.piezas.map((p) => p.texto), ['Cierre', 'Hero'], 'en el orden en que llegaron, sin repetir');
+  assert.deepEqual(v.fases.map((f) => f.estado), ['hecha', 'hecha', 'ahora', 'pendiente']);
+  const fin = vistaDeEventos([...eventos, { fase: 'diseno' }, { fase: 'fin', respuesta: { ok: true, id: 9, titulo: 'x', secciones: 3, formato: 'landing' } }]);
+  assert.equal(fin.terminado, true);
+  assert.deepEqual(fin.fases.map((f) => f.estado), ['hecha', 'hecha', 'hecha', 'hecha']);
+  const mal = vistaDeEventos([{ fase: 'leer' }, { fase: 'fin', respuesta: { ok: false, error: 'x' } }]);
+  assert.equal(mal.fallo, true);
+  assert.deepEqual(mal.fases.map((f) => f.estado), ['fallo', 'pendiente', 'pendiente', 'pendiente']);
+  // La pantalla replica en vivo y abre el editor cuando YA se vio todo.
+  const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
+  assert.match(pantalla, /const \{ estado, eventos, lista, replicar \} = useReplicarEnVivo\(\);/);
+  assert.match(pantalla, /onTodoVisible=\{\(\) => setTimeout\(abrirCopia, 600\)\}/);
+  assert.match(pantalla, /enVivo: true/);
+});
+
+// Medido el 28/10/2026 en el ws9: con el perfil del negocio vacío, la réplica «adaptada» seguía hablando de la competencia
+// (Reportei nombrada 11 veces, respond.io 22). La oferta manda, la marca de la otra no se nombra, y lo que quede se cuenta.
+test('8. «Tu oferta» manda, la marca de la referencia no se nombra y sus menciones se cuentan', () => {
+  assert.equal(marcaDeUrl('https://tryholo.ai/'), 'Holo', 'sin el «try» del producto');
+  assert.equal(marcaDeUrl('https://www.reportei.com/es/'), 'Reportei');
+  assert.equal(marcaDeUrl('https://masterads.ai/mkt/register'), 'Masterads');
+  assert.equal(marcaDeUrl('https://ab.co/'), null);
+  assert.equal(mencionesDe('Con Reportei, REPORTEI.com y reporteis', 'Reportei'), 3);
+  assert.equal(mencionesDe('Master Ads te ayuda; masterads.ai también', 'Masterads'), 2, 'separada o junta');
+  assert.equal(mencionesDe('Con Reportei', null), 0);
+  const i = instruccionDePartes(PARTES_INICIALES, { oferta: 'Mentoría de 8 semanas para agencias; US$997.', marca: 'Reportei', angulos: 'Promesa: x' })!;
+  assert.ok(i.indexOf('LA OFERTA DE ESTE NEGOCIO') < i.indexOf('TEXTO (no se toma)'), 'la oferta va entre las reglas, antes de los datos');
+  assert.match(i, /La referencia es «Reportei»: no la nombres/);
+  assert.doesNotMatch(instruccionDePartes(PARTES_INICIALES)!, /\n\n\n|OFERTA DE ESTE|La referencia es/, 'sin oferta ni marca, sin renglones vacíos');
+  assert.ok(instruccionDePartes(PARTES_INICIALES, { oferta: 'x'.repeat(5_000) })!.length <= TOPE_INSTRUCCION);
+  const rep = fuente('lib/editor-landing/replicar.ts');
+  assert.match(rep, /instruccionDePartes\(partes, \{ angulos: angulos \? textoDeAngulos\(angulos\) : undefined, oferta: entrada\.oferta, marca: marca \?\? undefined \}\)/);
+  assert.match(rep, /const menciones = partes\.texto \? 0 : mencionesDe\(/);
+  assert.match(fuente('lib/editor-landing/replicar-lectura.ts'), /tieneOferta: perfil\.replace\(/, 'la lectura dice si el negocio tiene la oferta cargada');
+  const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
+  assert.match(pantalla, /\{lectura\.lectura\.tieneOferta === false && !oferta\.trim\(\) && \(/);
+  assert.match(pantalla, /\.\.\.\(tuOferta \? \{ oferta: tuOferta \} : \{\}\),/);
+});
+
+test('9. en vivo: la ruta manda el flujo y replicar.ts avisa lo que armó, sin frenar el trabajo', () => {
+  const ruta = fuente('app/api/landing-generator/replicar/route.ts');
+  assert.match(ruta, /if \(body\.enVivo === true\) \{/);
+  assert.match(ruta, /'Content-Type': 'application\/x-ndjson; charset=utf-8'/);
+  assert.match(ruta, /enviar\(\{ fase: 'fin', respuesta \}\);\s*ctrl\.close\(\);/, 'la última línea es la respuesta de siempre');
+  const rep = fuente('lib/editor-landing/replicar.ts');
+  assert.match(rep, /const avisar = \(e: EventoReplica\) => \{ try \{ alProgreso\?\.\(e\); \} catch \{/, 'un error al avisar no corta la réplica');
+  assert.match(rep, /avisar\(\{ fase: 'esquema', secciones: esq\.secciones\.map\(\(s\) => s\.titulo\) \}\);/);
+  assert.match(rep, /porIndice\.set\(indices\[k\], t\); avisar\(\{ fase: 'seccion', indice: indices\[k\]/, 'una sección se avisa cuando su tanda VOLVIÓ');
+  assert.match(rep, /avisar\(\{ fase: 'seccion', indice: i, titulo: s\.titulo, respaldo: true \}\);/);
 });

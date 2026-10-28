@@ -3383,8 +3383,39 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
   arranca con «Elegir qué replicar…», que abre «Replicar landing» con esa página: la lee y pregunta las partes. Los
   formatos directos quedan como «copia completa».
 
+### Las 5 landings de Martín (28/10/2026, noche): Reportei, Holo, MasterAds, Closermood y respond.io
+
+- **El diagnóstico obvio era el equivocado otra vez: no era el prompt, era la OFERTA.** Con IA (ws9, el espacio de MaKo)
+  la réplica «adaptada» seguía hablando de la competencia: Reportei quedó nombrada 11 veces en su copia, respond.io 22,
+  y 15 a 28 frases quedaban iguales a la original. El perfil del negocio del ws9 está VACÍO
+  (`buildLandingBrief` → «PERFIL DEL NEGOCIO» sin nada): la IA no tenía de qué hablar y volvía sobre lo único que tenía.
+  **Regla:** reescribir «para tu oferta» exige la oferta. La lectura dice si el negocio la tiene (`tieneOferta`), el
+  panel pide «Tu oferta» (y avisa si el perfil está vacío), la instrucción la pone PRIMERO como la que manda y nombra la
+  marca de la referencia para que no aparezca (`marcaDeUrl`), y las menciones que queden se cuentan y se dicen
+  (`mencionesDe`).
+- **Un `<header>` fijo es la barra del sitio, aunque no tenga `<nav>`.** respond.io tiene su megamenú y el selector de
+  idiomas en `<header class="fixed …">`: entraban ~80 renglones a la primera sección. El extractor lo trata como un
+  `<nav>` (sus botones pasan). En las otras 11 páginas medidas no cambió nada.
+- **Letras dobles de una animación:** tryholo.ai escribe cada letra dos veces («a a d d s s»); `sinLetrasDobles` las junta
+  (dos pares o más de letras sueltas iguales).
+- **Un testimonio entero en un `h3`** (reportei): el respaldo cortaba el subtítulo en 120 caracteres (el tope de un título
+  de sección) y se perdían 124 palabras. Va con el tope de un texto.
+- **El destino de un botón no es texto:** el lector del navegador escribe «[BOTÓN] Crear mi cuenta → envía el formulario»;
+  `palabrasDe` lo contaba como palabras de la original.
+- **Leer una página con el lector de la app SIN la app:** `scriptLector(id, 'pixel', origen)` corre en la página real si
+  `window.opener` es la propia ventana (el saludo y el «dale» van y vienen ahí). El navegador del panel no deja que una
+  página pública le pida algo a 127.0.0.1, así que se corre en un Chrome sin ventana por CDP (Node 24 trae WebSocket;
+  `--headless=new --mute-audio`). Script: notas del Cerebro, `replicar-landings-scripts/leer-cdp.mts`.
+- **Server o navegador:** en reportei y respond.io el lector del navegador anota cada link y cada pestaña como botón (167 y
+  71); el server da una estructura más limpia. El orden de la app (server primero, navegador si no puede) es el correcto.
+  MasterAds (una app que se arma en el navegador) sólo se lee en el navegador: 7 secciones, 431 palabras.
+- **Réplica «texto literal» con su tema, en el ws3 (#49 a #53):** Reportei 16/16 secciones · 39/39 títulos · 68/68 textos ·
+  8/8 botones; Holo 12/12 · 20/20 · 223/224 · 3/3; MasterAds 7/7 · 19/19 · 72/72 · 11/11; Closermood 8/8 · 21/21 · 79/79 ·
+  6/6; respond.io 8/8 · 26/26 · 82/82 · 3/3. El 100% de las palabras en las cinco (con los dos arreglos de arriba).
+- **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
+  llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
+
 Lo que quedó SIN hacer:
-- Medir los ángulos y la reescritura con IA de verdad: el ws3 no tiene (pregunta hecha al Cerebro, 28/10).
 - Recorrer el flujo entero en la app (leer en la ventana del clic una SPA como adcreative.ai/es, replicar, abrir el
   editor): no entró el build en la RAM; queda para cuando haya memoria o en producción en el ws3.
 - La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda

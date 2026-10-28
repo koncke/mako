@@ -32,7 +32,10 @@ const RE_VINETA = /^[•▪]\s+/;
 
 /** Las palabras de un renglón leído, sin sus marcas (`#`, `[BOTÓN]`, `•`, la flecha del destino). */
 export function palabrasDe(linea: string): number {
-  const t = linea
+  // En un botón, lo de después de la flecha es su DESTINO («→ envía el formulario»), no texto que se ve; en un desplegable
+  // es la respuesta, y cuenta (MasterAds, 28/10/2026: 8 palabras de destinos contaban como texto de la original).
+  const sinDestino = RE_BOTON.test(linea.trim()) ? linea.replace(/\s→\s[\s\S]*$/, '') : linea;
+  const t = sinDestino
     .replace(RE_TITULO, '$2')
     .replace(/^\[[^\]]+\]\s*/, '')
     .replace(RE_VINETA, '')

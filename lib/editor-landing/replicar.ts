@@ -67,7 +67,7 @@ import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
 import { quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
-import { nuevoId, type JsonNodo, type LandingContenido } from './doc';
+import { nuevoId, textoDe, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
 import {
@@ -80,8 +80,8 @@ import { bajarHoja, estiloDeLaPagina, subirImagenes } from './estilo-server';
 import { colorDeRelleno, temaPorId } from './temas';
 import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scrollEnHtml } from './replicar-animaciones';
 import {
-  ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, formatoConPartes, instruccionDePartes, listaDePartes, nombreDeCopia, partesDePedido,
-  recetaDePartes, type PartesReplica,
+  ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, TOPE_OFERTA, formatoConPartes, instruccionDePartes, listaDePartes, marcaDeUrl, mencionesDe,
+  nombreDeCopia, partesDePedido, recetaDePartes, type PartesReplica,
 } from './replicar-partes';
 import {
   acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
@@ -89,6 +89,7 @@ import {
 import { NOMBRE_TIPO_SECCION, sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
 import { TEMAS } from './temas';
+import type { AlProgreso, EventoReplica } from './replicar-progreso';
 
 export type ResultadoReplicar = RespuestaReplicar & { status?: number };
 
@@ -119,10 +120,17 @@ export type EntradaReplicar = {
   url: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown;
   /** 28/10/2026: qué se replica (replicar-partes.ts); el tema de la persona cuando el diseño no se copia; los ángulos ya leídos. */
   partes?: unknown; tema?: unknown; angulos?: unknown;
+  /** «Tu oferta» (28/10/2026): de qué habla la copia cuando el texto se escribe de nuevo. Manda sobre el perfil. */
+  oferta?: unknown;
 };
 
-/** Replica la landing de `url` en una landing nueva del workspace de la sesión. */
-export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
+/**
+ * Replica la landing de `url` en una landing nueva del workspace de la sesión. `alProgreso` (28/10/2026, «se ve
+ * CONSTRUYÉNDOSE»): recibe una línea por cosa armada, en el orden en que se armó (replicar-progreso.ts). Un error al
+ * avisar nunca corta la réplica.
+ */
+export async function replicar(p: EntradaReplicar, alProgreso?: AlProgreso): Promise<ResultadoReplicar> {
+  const avisar = (e: EventoReplica) => { try { alProgreso?.(e); } catch { /* mostrar no frena el trabajo */ } };
   const url = urlParaReplicar(p.url);
   if (!url) return falla('Pega un enlace válido.');
   const formato = formatoReplicar(p.formato, p.modo);
@@ -137,7 +145,8 @@ export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
   const texto = typeof p.texto === 'string' ? p.texto.trim().slice(0, MAX_TEXTO) : '';
   // Con memoria de cuelgues PROPIA (lib/ia-saturacion.ts): el modelo que se colgó en una tanda va al final de la lista en las
   // tandas que siguen y en la segunda vuelta de ESTA réplica, sin degradar a ningún otro pedido.
-  return conMemoriaDelPedido(() => replicarComoBloques(url, receta, partes, { lectura: p.lectura, texto, angulos: p.angulos, tema: p.tema }));
+  const oferta = typeof p.oferta === 'string' ? p.oferta.trim().slice(0, TOPE_OFERTA) : '';
+  return conMemoriaDelPedido(() => replicarComoBloques(url, receta, partes, { lectura: p.lectura, texto, angulos: p.angulos, tema: p.tema, oferta }, avisar));
 }
 
 /** El dominio de la página, sin `www.` (el nombre de una copia adaptada). */
@@ -189,10 +198,11 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Lo que llega del pedido para armar la réplica por bloques (lo pegado, la lectura del navegador, lo de las partes). */
-type EntradaBloques = { lectura: unknown; texto: string; angulos?: unknown; tema?: unknown };
+type EntradaBloques = { lectura: unknown; texto: string; angulos?: unknown; tema?: unknown; oferta?: string };
 
-async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, partes: PartesReplica, entrada: EntradaBloques): Promise<ResultadoReplicar> {
+async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, partes: PartesReplica, entrada: EntradaBloques, avisar: (e: EventoReplica) => void = () => {}): Promise<ResultadoReplicar> {
   const t0 = Date.now();
+  avisar({ fase: 'leer' });
   const base = recetaFormato.params ?? {};
   // El estilo de la original, EN PARALELO con el esquema: el de la lectura del navegador si vino (los estilos computados
   // de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira. Se lee con el diseño (el tema, las
@@ -213,7 +223,8 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     }
   }
   // La receta por partes: la del esquema va sin el molde (sale del esquema); la de las secciones se completa después.
-  const instruccionEsquema = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined });
+  const marca = marcaDeUrl(url);
+  const instruccionEsquema = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined, oferta: entrada.oferta, marca: marca ?? undefined });
   const inicial = recetaDePartes(recetaFormato.formato, base, partes, { esquema: instruccionEsquema, secciones: instruccionEsquema });
   const params = inicial.paramsEsquema;
   // El esquema: con la estructura, el de la página (lo pegado entra como «Pegar texto»; la lectura del navegador, como
@@ -228,6 +239,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     return { ok: false, error: e.error, status: e.status, ...(e.enNavegador && e.motivo ? seLeeEnNavegador(e.motivo) : {}) };
   }
   const esq: Esquema = e.esquema;
+  avisar({ fase: 'esquema', secciones: esq.secciones.map((s) => s.titulo) });
   // Con la estructura de una Landing, la réplica tiene las MISMAS secciones que la página: el molde de cada una y su
   // ángulo van en la tanda de secciones. `adaptar`: la sección que no pasa por la IA queda con el texto de la ORIGINAL.
   const mismasSecciones = partes.estructura && recetaFormato.formato === 'landing';
@@ -250,7 +262,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     })
     : null;
   const esqTandas: Esquema = notas ? { ...esq, secciones: esq.secciones.map((s, i) => ({ ...s, nota: notas[i] })) } : esq;
-  const instruccionSecciones = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined });
+  const instruccionSecciones = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined, oferta: entrada.oferta, marca: marca ?? undefined });
   // El `adaptar` del formato (el pedido viejo) no manda: lo deciden las partes.
   const { adaptar: _adaptarDelFormato, ...delFormato } = recetaFormato;
   void _adaptarDelFormato;
@@ -279,7 +291,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
         if (Date.now() - t0 + TANDA_MS > PLAZO_BLOQUES_MS) continue;
         try {
           const r = await pedirSecciones({ esquema: esqTandas, indices, params: receta.paramsSecciones ?? params });
-          if (r.ok) r.tarjetas.forEach((t, k) => porIndice.set(indices[k], t));
+          if (r.ok) r.tarjetas.forEach((t, k) => { porIndice.set(indices[k], t); avisar({ fase: 'seccion', indice: indices[k], titulo: esq.secciones[indices[k]]?.titulo ?? '' }); });
           else console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${r.error}`);
         } catch (err) {
           console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${err instanceof Error ? err.message : String(err)}`);
@@ -312,8 +324,12 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       return f.tarjeta;
     }
     sinIA++;
+    avisar({ fase: 'seccion', indice: i, titulo: s.titulo, respaldo: true });
     return tarjetaDesdeEsquema(s, i === 0);
   });
+  avisar({ fase: 'diseno' });
+  // La marca de la original que quedó nombrada en una copia escrita de nuevo: se cuenta y se dice (no se adivina el reemplazo).
+  const menciones = partes.texto ? 0 : mencionesDe(tarjetas.map((t) => textoDe(t, ' ')).join(' '), marca);
   if (!tarjetas.length) return falla('No encontré secciones en esa página.', 422);
 
   // Las imágenes que faltan para los huecos que dejó la IA (una galería, las caras de un equipo), si
@@ -348,7 +364,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
@@ -360,6 +376,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     noCopiadas ? (noCopiadas === 1 ? 'Una imagen no se copió.' : `${noCopiadas} imágenes no se copiaron.`) : '',
     pruebaQuitada ? (pruebaQuitada === 1 ? 'Una cita o cifra de la original quedó vacía: pon la tuya.' : `${pruebaQuitada} citas o cifras de la original quedaron vacías: pon las tuyas.`) : '',
     frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
+    menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);
   return {

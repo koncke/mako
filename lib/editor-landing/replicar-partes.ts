@@ -105,6 +105,36 @@ export function nombreDeCopia(p: PartesReplica, host: string, tituloOriginal: st
 /** Lo que nunca pasa de la referencia a la copia cuando el texto se escribe de nuevo (la regla de «adaptar»). */
 const NADA_PROPIO = 'De la referencia no pasa nada propio: ni su marca, ni sus nombres, ni sus testimonios, ni sus cifras, ni sus precios, ni sus garantías. Si a una sección le falta un dato que el negocio no dio, escribe entre corchetes qué falta: "[testimonio real de un cliente]".';
 
+/** Lo que se acepta de «Tu oferta» (lo escribe la persona en el panel; va primero en la instrucción). */
+export const TOPE_OFERTA = 1_200;
+
+/**
+ * El nombre de la marca de una página por su dirección: el primer nombre del host sin `www.` ni los prefijos de
+ * producto (`try`, `get`, `use`, `join`, `go`): «tryholo.ai» → «Holo», «reportei.com» → «Reportei». null si no sale uno
+ * de 3 letras o más. Para decirle a la IA qué no nombrar y para contar si igual quedó.
+ */
+export function marcaDeUrl(url: string): string | null {
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
+  const nombre = (host.split('.')[0] ?? '').replace(/^(?:try|get|use|join|go)(?=[a-z]{3,})/, '');
+  return nombre.length >= 3 ? nombre.charAt(0).toUpperCase() + nombre.slice(1) : null;
+}
+
+/** Cuántas veces nombra `texto` a la marca (sin mayúsculas ni acentos; «Master Ads» cuenta para «Masterads»). */
+export function mencionesDe(texto: string, marca: string | null): number {
+  if (!marca) return 0;
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const m = norm(marca).replace(/[^a-z0-9]/g, '');
+  if (m.length < 3) return 0;
+  const palabras = norm(texto).split(/[^a-z0-9]+/).filter(Boolean);
+  let n = 0;
+  for (let i = 0; i < palabras.length; i++) {
+    if (palabras[i] === m || palabras[i].startsWith(m)) { n++; continue; }
+    if (i + 1 < palabras.length && palabras[i] + palabras[i + 1] === m) { n++; i++; }
+  }
+  return n;
+}
+
 /** El tope de `instrucciones` en ia.ts (MAX_INSTRUCCIONES). La instrucción entera tiene que entrar: un corte se llevaría datos. */
 export const TOPE_INSTRUCCION = 5_000;
 
@@ -115,12 +145,16 @@ export const TOPE_INSTRUCCION = 5_000;
  * TERCERO. Las REGLAS van primero y los datos al final: si algo no entra en `TOPE_INSTRUCCION`, se recortan los datos,
  * nunca la regla de no copiar.
  */
-export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; angulos?: string } = {}): string | null {
+export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; angulos?: string; oferta?: string; marca?: string } = {}): string | null {
   if (p.texto) return null;
+  const oferta = (extra.oferta ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPE_OFERTA);
   const reglas: string[] = [
     p.estructura
       ? 'REPLICAR UNA LANDING DE REFERENCIA PARA ESTE NEGOCIO. El esquema es la página de OTRO negocio.'
       : 'ARMAR UNA LANDING PARA ESTE NEGOCIO tomando cosas de una landing de referencia de OTRO negocio.',
+    // 28/10/2026, medido en el ws9: sin una oferta (el perfil del negocio vacío) la IA reescribía la de la competencia.
+    oferta ? `LA OFERTA DE ESTE NEGOCIO (manda sobre todo lo demás; de esto habla la landing): ${oferta}` : '',
+    extra.marca ? `La referencia es «${extra.marca}»: no la nombres, ni a sus productos, sus clientes, sus cifras ni su precio.` : '',
     p.estructura
       ? 'ESTRUCTURA (se toma): las mismas secciones, en el mismo orden y con el mismo tipo de bloque. En cada sección, la misma cantidad de títulos, subtítulos, párrafos, viñetas, botones y preguntas que la de la referencia, con un largo parecido y el mismo acomodo (si la referencia tiene tres tarjetas con un título y dos renglones cada una, la copia también; si tiene una imagen, la copia deja su hueco). Cada sección pedida trae su «Molde de la referencia».'
       : 'ESTRUCTURA (no se toma): elige las secciones y su orden para vender la oferta de ESTE negocio.',
@@ -137,7 +171,7 @@ export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; a
     p.estructura && extra.molde ? `MOLDE de la referencia, sección por sección:\n${extra.molde}` : '',
     p.angulos && extra.angulos ? `ÁNGULOS de la referencia:\n${extra.angulos}` : '',
   ].filter(Boolean);
-  const texto = [...reglas, ...datos].join('\n\n');
+  const texto = [...reglas.filter(Boolean), ...datos].join('\n\n');
   return texto.length > TOPE_INSTRUCCION ? `${texto.slice(0, TOPE_INSTRUCCION - 1)}…` : texto;
 }
 

@@ -21,6 +21,11 @@ export type LecturaReplica = {
   /** Por qué no hay ángulos (la IA no contestó), para decirlo en la pantalla. */
   errorAngulos?: string;
   diseno: DisenoLeido | null;
+  /**
+   * ¿El negocio tiene su oferta cargada (el perfil)? Sin ella, la copia escrita de nuevo no tiene de qué hablar y vuelve
+   * sobre la de la competencia (medido el 28/10/2026 en el ws9): la pantalla pide «Tu oferta».
+   */
+  tieneOferta?: boolean;
 };
 
 /** Lo que contesta POST /api/landing-generator/replicar/leer. */

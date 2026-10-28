@@ -463,7 +463,9 @@ export function hrefDeDestinoLeido(d: string | undefined): string {
 /** El bloque de un renglón con marca; 'sumado' si se sumó al bloque anterior (un botón más en la fila); null si no tiene. */
 function bloqueDeMarca(p: string, anterior: JsonNodo | undefined): JsonNodo | 'sumado' | null {
   const sub = RE_SUBTITULO_LEIDO.exec(p.trim());
-  if (sub) return titulo(sub[1].trim().slice(0, MAX_TITULO_SECCION), 3);
+  // El tope de un TEXTO y no el de un título de sección: hay páginas que escriben sus testimonios enteros en un h3
+  // (reportei.com, 28/10/2026: con 120 caracteres se perdían 124 palabras de sus citas).
+  if (sub) return titulo(sub[1].trim().slice(0, TOPES.caracteresTexto), 3);
   const b = RE_BOTON_LEIDO.exec(p.trim());
   if (b) {
     const href = hrefDeDestinoLeido(b[2]);

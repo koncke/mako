@@ -129,7 +129,8 @@ export async function leerParaReplicar(p: FuenteReplica): Promise<ResultadoLectu
   const esq = esquemaDeReplica(t.texto, t.titulo);
   if (!esq.secciones.length) return { ok: false, error: 'No encontré secciones en esa página.', status: 422 };
   const estiloP: Promise<EstiloOriginal | null> = t.pegado ? Promise.resolve(null) : t.lectura ? Promise.resolve(estiloDeLectura(t.lectura)) : estiloDeLaPagina(t.url);
-  const [ang, estilo] = await Promise.all([angulosDePagina(esq, t.url), estiloP]);
+  const perfilP = import('../onboarding').then((m) => m.perfilNegocioTexto()).catch(() => '');
+  const [ang, estilo, perfil] = await Promise.all([angulosDePagina(esq, t.url), estiloP, perfilP]);
   console.log(`[editor-landing/replicar-lectura] ${t.url}${t.pegado ? ' (texto pegado)' : t.lectura ? ' (leída en el navegador)' : ''}: ${esq.secciones.length} secciones, ángulos ${ang.angulos ? `${ang.angulos.secciones.length} por sección` : 'no'}, diseño ${estilo ? 'sí' : 'no'}, ${Math.round((Date.now() - t0) / 1000)} s`);
   return {
     ok: true,
@@ -140,6 +141,7 @@ export async function leerParaReplicar(p: FuenteReplica): Promise<ResultadoLectu
       angulos: ang.angulos,
       ...(ang.error ? { errorAngulos: ang.error } : {}),
       diseno: disenoDeEstilo(estilo),
+      tieneOferta: perfil.replace(/\s+/g, ' ').trim().length >= 30,
     },
   };
 }
