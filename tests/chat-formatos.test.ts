@@ -59,7 +59,14 @@ test('2. lo que la pantalla toma va a SUS adjuntos y lo demás lo lee la caja; s
   const l = propio(ACCEPT_CHAT);
   l.items = [{ id: 'l1', file: archivo('guion.docx'), tipo: 'document', url: '' }];
   const j = juntarAdjuntos(p, l)!;
-  assert.equal(j.accept, ACCEPT_CHAT, 'el «+» y lo arrastrado tienen que ofrecer todo');
+  assert.deepEqual(faltanEnAccept(j.accept), [], 'el «+» y lo arrastrado tienen que ofrecer todo');
+  assert.ok(j.accept.startsWith(ACCEPT_CHAT), 'primero lo que MaKo lee');
+  // Lo que la pantalla toma de más sigue en el «+»: el .zip de la carpeta de una landing en Offer.
+  const offer = propio(`${ACCEPT_ADJUNTOS_CHAT},.zip`);
+  const conZip = juntarAdjuntos(offer, l)!;
+  assert.match(conZip.accept ?? '', /,\.zip$/, 'el «+» perdió lo que la pantalla toma de más');
+  conZip.onSumar([archivo('landing.zip', 'application/zip')]);
+  assert.deepEqual(offer.sumados, ['landing.zip'], 'el .zip va a la pantalla, que lo sabe abrir');
   assert.deepEqual(j.items.map((x) => x.id), ['p1', 'l1']);
   j.onSumar([archivo('foto2.jpg', 'image/jpeg'), archivo('propuesta.docx'), archivo('ventas.xlsx'), archivo('nota.mp3', 'audio/mpeg')]);
   assert.deepEqual(p.sumados, ['foto2.jpg'], 'la foto va a la pantalla (su motor la ve como imagen)');
@@ -116,3 +123,4 @@ test('3. EL RECORRIDO: cada caja de chat adjunta todo, salvo Chats (archivos a u
 //   4. la conversación (PanelDeChat) soltando en los adjuntos de la pantalla  → rojo el 3.
 //   5. `esArchivoParaLeer` aceptando el path de otro negocio                → rojo el 1 (la ruta).
 //   6. Chats sin `sinAdjuntos` (leería y pegaría lo que se le manda a un lead) → rojo el 3.
+//   7. `juntarAdjuntos` con `accept: ACCEPT_CHAT` solo (el .zip de Offer fuera)  → rojo el 2 (y tests/offer-hilo-unico el 4).

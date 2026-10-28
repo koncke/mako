@@ -79,8 +79,9 @@ test('3. la pregunta como la escribió Mauricio trae la herramienta que arma los
       assert.ok(nombres.includes('generar_avatares'), `[${canal}] «${m}» → ${veredicto.intencion}: no trae generar_avatares (${nombres.slice(0, 8).join(', ')}…)`);
     }
   }
-  // El avatar de un VIDEO o de un guion de anuncios es otro: esa regla no lo toma.
-  for (const m of ['creá un video con el avatar Lucía', 'cambiá el avatar del guion de anuncios']) {
+  // El avatar de un VIDEO o de un guion de anuncios es otro: esa regla no lo toma. Las dos últimas son del AI Avatar
+  // (tests/ops-center-clasificador-app.test.ts): sin señal de negocio no es el avatar del negocio.
+  for (const m of ['creá un video con el avatar Lucía', 'cambiá el avatar del guion de anuncios', 'creame un avatar en la oficina', 'hacé que mi avatar diga: hola, soy Juan']) {
     assert.notEqual(clasificarIntencion(m, { canal: 'app' }).porque, 'pide armar o redefinir el avatar', `«${m}» cayó en el avatar del negocio`);
   }
 });
@@ -93,4 +94,5 @@ test('3. la pregunta como la escribió Mauricio trae la herramienta que arma los
 //   4. el bloque sin llegar al pedido                                     → rojo el 2.
 //   5. la regla `PIDE_AVATAR` fuera (la pregunta de Mauricio, «consultar») → rojo el 3.
 //   6. la regla tomando el avatar de un video                             → rojo el 3.
+//   7. la regla sin `AVATAR_DEL_NEGOCIO` («creame un avatar en la oficina») → rojo el 3 (y ops-center-clasificador-app).
 // La primera corrida dio rojo SIN romper nada en el 1: «Ana» sin bordes de palabra matcheaba «ganados».

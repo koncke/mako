@@ -920,17 +920,21 @@ const RELEVANCIA_YA_HECHO = 'cerrar tareas plan hecha completada evidencia lista
 const CORRIGE_RECOMENDACION = /\bno (?:me |nos )?(?:vuelvas a |sigas )?(?:recomend|recomiend|sugier|suger)\w*|\b(?:descart|olvid|call|ignor|saca|quita)\w* (?:esa|esta|la|lo de la|las|esas|estas) (?:recomendaci|sugerenci)\w*|\b(?:esa|esta|la) (?:recomendaci|sugerenci)\w* no (?:aplica|sirve|va)\b/;
 const RELEVANCIA_CORRIGE_RECOMENDACION = 'decidir recomendacion descartar que recomienda';
 /**
+ * PIDE ARMAR O REDEFINIR EL AVATAR (27/10/2026, MAU-02 de Mauricio: «que redefina o defina mi avatar considerando los clientes
+ * que son ganados... no funciona al preguntar»). Caía en «consultar» y sólo viajaban lecturas: `generar_avatares` (que ahora
+ * lee los ganados, lib/avatares-ganados.ts) nunca llegaba. Sobre el texto normalizado (sin tildes).
+ * Es el avatar del NEGOCIO sólo con una señal de negocio (`AVATAR_DEL_NEGOCIO`): «creame un avatar en la oficina» o «hacé que mi
+ * avatar diga…» son el del video (AI Avatar, tests/ops-center-clasificador-app.test.ts) y siguen su camino, como `AVATAR_DE_VIDEO`.
+ */
+const PIDE_AVATAR = /\b(?:redefin|defin|arm|gener|crea|hac|haz|rehac|actualiz|mejor|ajust|cambi|rearm|regener)\w*\s+(?:\S+\s+){0,3}?(?:avatar(?:es)?|cliente ideal|buyer persona)\b/;
+const AVATAR_DEL_NEGOCIO = /\b(?:redefin|defin)\w*|\b(?:cliente ideal|buyer persona|clientes?|ganad[oa]s?|compr\w+|compradores|publico|audiencia|nicho)\b/;
+const AVATAR_DE_VIDEO = /\b(?:videos?|clips?|reels?|ai avatar|voz|voces|escenas?|guion(?:es)?|anuncios?|diga|digan|dice|decir|habl\w*)\b/;
+const RELEVANCIA_PIDE_AVATAR = 'generar avatares afinar avatares listar avatares negocio';
+/**
  * PIDE una recomendación (26/10/2026): «Mako, qué me recomendás hacer esta semana», «dame un consejo», «¿qué debería mejorar?».
  * Es una CONSULTA (`que_recomienda_mako`): sin signo de pregunta, en WhatsApp caía en `capturar` (una idea para el Plan), y en la
  * app, ante la duda, en `actuar` (con la escritura). En una consulta MaKo ofrece; la persona decide.
  */
-/**
- * PIDE ARMAR O REDEFINIR EL AVATAR (27/10/2026, MAU-02 de Mauricio: «que redefina o defina mi avatar considerando los clientes
- * que son ganados... no funciona al preguntar»). Caía en «consultar» y sólo viajaban lecturas: `generar_avatares` (que ahora
- * lee los ganados, lib/avatares-ganados.ts) nunca llegaba. Sobre el texto normalizado (sin tildes).
- */
-const PIDE_AVATAR = /\b(?:redefin|defin|arm|gener|crea|hac|haz|rehac|actualiz|mejor|ajust|cambi|rearm|regener)\w*\s+(?:\S+\s+){0,3}?(?:avatar(?:es)?|cliente ideal|buyer persona)\b/;
-const RELEVANCIA_PIDE_AVATAR = 'generar avatares afinar avatares listar avatares negocio';
 const PIDE_RECOMENDACION = /\bque (?:me |nos )?(?:recomend|recomiend|suger|sugier|aconsej)\w*|\b(?:dame|danos|pasame|tenes|tienes|hay) (?:alguna?s? |un |unos |tu |tus )?(?:consejos?|recomendaci\w*|sugerenci\w*)|\bque (?:deberia|tendria que|me conviene) (?:mejorar|cambiar|hacer)\b/;
 const RELEVANCIA_PIDE_RECOMENDACION = 'que recomienda recomendaciones mako';
 /** Lo que suma un «movela al viernes»: reagendar, leer el día («qué tengo», el título de
@@ -1117,7 +1121,7 @@ export function clasificarIntencion(
   // 3-bis-av) PIDE ARMAR O REDEFINIR EL AVATAR (MAU-02, ver `PIDE_AVATAR`): un pedido, con `generar_avatares` (que propone y se
   //           confirma en su pantalla).
   // El avatar de un VIDEO (AI Avatar) o el de un guion de anuncios es otro: ésos siguen su camino.
-  if (PIDE_AVATAR.test(nPersona) && !/\b(?:videos?|clips?|reels?|ai avatar|voz|voces|escenas?|guion(?:es)?|anuncios?)\b/.test(nPersona)) {
+  if (PIDE_AVATAR.test(nPersona) && AVATAR_DEL_NEGOCIO.test(nPersona) && !AVATAR_DE_VIDEO.test(nPersona)) {
     return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'pide armar o redefinir el avatar', areas: ['negocio'], relevancia: RELEVANCIA_PIDE_AVATAR };
   }
   // 3-bis-rec2) PIDE UNA RECOMENDACIÓN (ver `PIDE_RECOMENDACION`): una consulta, con las áreas que nombre además («¿qué me

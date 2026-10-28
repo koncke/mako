@@ -10,15 +10,22 @@ import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { ACCEPT_CHAT, aceptaArchivo } from '@/lib/chat-formatos';
 import { ACCEPT_ADJUNTOS_CENTRO } from '@/lib/operaciones-reglas';
 
+/** Los dos `accept` en uno, sin repetir: lo que la caja lee primero y, al final, lo que sólo toma la pantalla. */
+const unirAccept = (a: string, b: string): string =>
+  [...new Set(`${a},${b}`.split(',').map((x) => x.trim()).filter(Boolean))].join(',');
+
 export function juntarAdjuntos(propio: AdjuntosDeCaja | undefined, leidos: AdjuntosDeCaja | undefined): AdjuntosDeCaja | undefined {
   if (!leidos) return propio;
   if (!propio) return leidos;
-  const tomaPropio = (f: File) => aceptaArchivo(propio.accept ?? ACCEPT_ADJUNTOS_CENTRO, f);
+  const acceptPropio = propio.accept ?? ACCEPT_ADJUNTOS_CENTRO;
+  const tomaPropio = (f: File) => aceptaArchivo(acceptPropio, f);
   return {
     ...propio,
     items: [...propio.items, ...leidos.items],
     puede: propio.puede && leidos.puede,
-    accept: ACCEPT_CHAT,
+    // Todo lo que MaKo lee, sin perder lo que la pantalla toma de más: el .zip de la carpeta de una landing en Offer
+    // (tests/offer-hilo-unico.test.ts). Con `ACCEPT_CHAT` solo, el «+» del teléfono dejó de ofrecerlo.
+    accept: unirAccept(ACCEPT_CHAT, acceptPropio),
     onSumar: (fs) => {
       const suyos = fs.filter(tomaPropio);
       const otros = fs.filter((f) => !tomaPropio(f));
