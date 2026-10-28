@@ -2827,6 +2827,11 @@ conversación suelta en los adjuntos de la caja (`ContextoSoltar`), y la caja mi
 - **Sin el límite de Vercel:** se sube con una URL firmada (el molde de Offer) y se borra después de leer.
 - tests/chat-formatos.test.ts recorre TODAS las cajas de app/ y falla si una apaga los adjuntos sin estar en la lista con su
   porqué, o si el `accept` deja afuera algo requerido (docx, xlsx, pptx, pdf, csv, txt, md, imágenes y audio).
+- **Trampa (27/10, claude4): el rojo parecía un anclaje viejo y era una regresión.** tests/offer-hilo-unico (el 4) caía en la
+  fila de la caja (un `data-caja-adjunta` nuevo) y, corregido eso, en «el teléfono no deja elegir el .zip de la landing»:
+  `juntarAdjuntos` PISABA el `accept` de la pantalla con `ACCEPT_CHAT`, y el «+» de Offer perdió el .zip de la carpeta de una
+  landing. **La regla:** el `accept` de la caja es la UNIÓN (lo que MaKo lee primero, lo que sólo toma la pantalla al final). En un
+  test de forma que cae, mirar la SEGUNDA aserción antes de decir «anclaje viejo».
 
 **Sin hacer:** no se probó en pantalla (arrastrar un .docx y un .pdf en cada caja); el Ops Center de la plataforma manda los
 archivos al Runner como siempre (un audio adjunto lo lee la caja como texto). WhatsApp (no ve fotos ni PDF) es de

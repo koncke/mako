@@ -2978,6 +2978,12 @@ de Mauricio caía en «consultar» y con eso sólo viajan lecturas, así que `ge
 la escribió la persona; ahora `PIDE_AVATAR` (lib/mako-intencion.ts) lo vuelve un pedido del área negocio. El avatar de un VIDEO
 (AI Avatar) o el de un guion de anuncios no entra en esa regla.
 
+**Trampa (27/10, claude4): «avatar» son dos cosas, y excluir las palabras del video no alcanza.** Con sólo la exclusión
+(video, voz, guion, anuncio…), «creame un avatar en la oficina» y «hacé que mi avatar diga: hola» (AI Avatar) caían en el del
+negocio y perdían `ver_avatares` (tests/ops-center-clasificador-app, generator_avatar). **La regla:** la regla del negocio pide
+una señal de NEGOCIO (`AVATAR_DEL_NEGOCIO`: definir, clientes, ganados, compraron, cliente ideal, público…), y «diga/hable» cuenta
+como video. Un «armame un avatar» suelto sigue su camino de antes.
+
 **La segunda:** `generarAvatares` (lib/avatares.ts) nunca miraba a quién le vendió de verdad: el perfil, el panorama y la fase.
 Ahora suma los leads GANADOS del CRM, agregados (lib/avatares-ganados.ts): cuántos, el ticket, el sexo, el ingreso estimado, lo
 más contestado en el formulario por pregunta y por dónde entraron. Sin nombres, emails, teléfonos ni empresas (las preguntas de
