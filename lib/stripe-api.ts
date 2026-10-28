@@ -284,6 +284,12 @@ export type SesionStripe = {
   paymentLink?: string | null;
   /** El teléfono que dejó el comprador (`customer_details.phone`), si Stripe lo pidió. */
   telefono?: string | null;
+  /**
+   * Si Stripe le cobró en OTRA moneda (`currency_conversion`, el precio adaptado al país): el monto y la moneda en que se armó
+   * la sesión. Lo compara `sesionDelCobro` (lib/cobros-eventos.ts) contra el cobro (28/10/2026). Sin conversión, null.
+   */
+  montoOrigen?: number | null;
+  monedaOrigen?: string | null;
 };
 
 const metadataDe = (v: unknown): Record<string, string> => {
@@ -298,11 +304,16 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
   const b = r.body;
   const moneda = str(b.currency)?.toUpperCase() ?? null;
   const total = Number(b.amount_total);
+  const cc = obj(b.currency_conversion);
+  const monedaOrigen = str(cc.source_currency)?.toUpperCase() ?? null;
+  const totalOrigen = Number(cc.amount_total);
   return {
     ok: true,
     id: str(b.id) ?? id,
     estado: str(b.status),
     pagoEstado: str(b.payment_status),
+    montoOrigen: monedaOrigen && Number.isFinite(totalOrigen) ? deUnidadMinima(totalOrigen, monedaOrigen) : null,
+    monedaOrigen,
     paymentIntent: idDe(b.payment_intent),
     subscription: idDe(b.subscription),
     invoice: idDe(b.invoice),

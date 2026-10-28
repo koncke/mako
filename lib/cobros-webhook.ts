@@ -40,11 +40,12 @@ import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
 import {
   avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
-  mismoModo, nombreModo, planDePagoMp, suscripcionMpCancelada, tokenReleido,
+  mismoModo, nombreModo, planDePagoMp, sesionDelCobro, suscripcionMpCancelada, tokenReleido,
   type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
   facturaDePagoStripe, leerCargoStripe, leerCheckoutExternoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
+  type SesionStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -74,6 +75,31 @@ function errorDelProveedor(quien: string, que: string, r: { status: number; erro
 function invalidarLecturas(): void {
   for (const t of [TAG.pagos, TAG.leads, TAG.pipeline]) {
     try { revalidateTag(t, { expire: 0 }); } catch { /* vence por TTL */ }
+  }
+}
+
+/**
+ * Una sesión PAGADA que trae el token de un cobro de MaKo y no es la suya, o cobró menos (`sesionDelCobro`, 28/10/2026): el cobro
+ * no se asienta y queda un ticket para que una persona lo mire (la plata entró en Stripe, pero no por ese cobro). El `ref` es el
+ * de la sesión: los reintentos de Stripe no abren otro. Nunca tira: el aviso se contesta igual.
+ */
+async function avisarSesionQueNoCuadra(ws: number, c: Cobro, s: SesionStripe, motivo: string): Promise<void> {
+  try {
+    const [{ crearTicket }, { identidadDelSistema }] = await Promise.all([import('./tickets-db'), import('./errores-app')]);
+    const r = await crearTicket({
+      identidad: await identidadDelSistema(), tipo: 'bug', declaradoPor: 'sistema', sistema: true, canal: 'sistema',
+      titulo: `Un pago de Stripe trae el código del cobro ${c.id} y no es suyo: no se asentó`.slice(0, 140),
+      descripcion: [
+        `Llegó un pago de Stripe (sesión ${s.id}) con el código del cobro ${c.id} del negocio ${ws} (${c.concepto}, ${c.monto} ${c.moneda}).`,
+        `No se marcó pagado: ${motivo}.`,
+        'Puede ser un link de pago con el código pegado en la URL (?client_reference_id=). Mirá en Stripe quién pagó y cuánto.',
+      ].join('\n'),
+      contexto: { ws, cobroId: c.id, sesion: s.id, paymentLink: s.paymentLink ?? null, monto: s.monto, moneda: s.moneda, motivo },
+      ref: `cobro-ajeno:${s.id}`,
+    });
+    if (!r.ok) console.error(`[cobros-webhook] no pude abrir el ticket del cobro ${c.id} (sesión ${s.id}): ${r.error}`);
+  } catch (e) {
+    console.error(`[cobros-webhook] no pude abrir el ticket del cobro ${c.id} (sesión ${s.id}):`, e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -203,6 +229,13 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     if (!esDelCobro(c.token, tokenReleido(s))) return ignorado('la sesión releída es de otro cobro', c.id);
     const conf = confirmarCheckout(aviso.accion === 'fallido' ? 'fallido' : 'aprobado', s);
     if (!conf.ok) return ignorado(conf.motivo, c.id);
+    // ⚠️ LA SESIÓN TIENE QUE SER LA QUE MaKo ARMÓ PARA ESTE COBRO (28/10/2026): el token llega también por el
+    // `client_reference_id` de un Payment Link, y una venta de US$1 marcaba pagado un cobro de US$1.500 (`sesionDelCobro`).
+    const deEste = sesionDelCobro(c, s, aviso.accion === 'fallido' ? 'fallido' : 'aprobado');
+    if (!deEste.ok) {
+      if (aviso.accion !== 'fallido') await avisarSesionQueNoCuadra(ws, c, s, deEste.motivo);
+      return ignorado(deEste.motivo, c.id);
+    }
     if (aviso.accion === 'fallido') {
       await aplicarPagoFallido(c, 'El pago diferido no se completó.');
       invalidarLecturas();

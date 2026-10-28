@@ -1384,3 +1384,28 @@ en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, 
   de 4). Ahora la ficha le dice a `cuotasDelPlanLibre` si el plan GUARDADO tiene inicial (`planConInicial`); sin él, el #0 es
   una cuota. Y lo de aparte va `quedaComoEsta`: el server lo casa sin cambiarlo y, si ya no existe, no lo inserta (un resto
   quitado o cambiado en el medio revivía). El aviso del link anulado sale sólo si se anuló alguno.
+
+## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
+
+- **El síntoma (el refutador, por la ruta real):** una venta de US$1 por un Payment Link del negocio, con
+  `?client_reference_id=<token>`, dejaba PAGADO un cobro de MaKo de US$1.500, con su cuota, el lead ganado y el historial
+  «Pago de Programa: US$ 1.500 por Stripe». Igual con el interruptor de ventas externas apagado o prendido. Venía de main, de
+  antes de MAU-10.
+- **La causa, y por qué «releer» no alcanzaba:** el aviso busca el cobro por la metadata `mako_cobro` o, si no está, por el
+  `client_reference_id` (`avisoStripe`), y la rama de MaKo relee la sesión y compara la REFERENCIA (`esDelCobro`), que es justo
+  lo que el atacante puso. `confirmarCheckout` no miraba ni el monto ni de dónde salía la sesión. El token viaja en
+  /pagar/<token>, los Payment Links aceptan ese parámetro en la URL, y la landing de Mauricio lo copia a cada link de Stripe.
+- **El arreglo (`sesionDelCobro`, lib/cobros-eventos.ts, en la rama de MaKo del checkout):** la sesión tiene que llevar la
+  metadata de MaKo de ESE cobro, o ser la guardada en el cobro (`proveedor_ref`); nunca salir de un Payment Link; y el monto y
+  la moneda tienen que alcanzar los del cobro. Si Stripe convirtió la moneda (`currency_conversion`), vale el de origen
+  (`leerCheckoutStripe` lo trae). Si no cuadra, no se asienta y se abre un ticket, uno por sesión (`cobro-ajeno:<cs_>`). Un
+  pago diferido que falló en un link ajeno tampoco marca el cobro.
+- **Trampa del doble, para quien lo vuelva a probar:** con un `data.object` recortado (sin `client_reference_id`) el cruce
+  NO aparece. El evento real trae la sesión entera: un doble con el cuerpo recortado esconde toda búsqueda por referencia.
+
+**Sin hacer:** una sesión de Payment Link que trae el token de un cobro de MaKo queda ignorada con su ticket, no registrada
+como venta externa (con el interruptor prendido, la venta de verdad no entra al CRM sola). La puerta es de Zernio
+(`ventaExternaStripe`). Con Mercado Pago no se midió un cruce parecido.
+**Vive en:** lib/cobros-eventos.ts (`sesionDelCobro`) · lib/cobros-webhook.ts (rama de checkout, `avisarSesionQueNoCuadra`) ·
+lib/stripe-api.ts (`leerCheckoutStripe`: `montoOrigen`, `monedaOrigen`) · tests/cobro-sesion-ajena.test.ts ·
+C:/dev/revisiones/scratch-3ca2/B-refuta/refuta.ts (bloque H2).

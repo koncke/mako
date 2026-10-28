@@ -242,6 +242,29 @@ export function confirmarCheckout(
   return s.paymentIntent ? { ok: true, proveedorPagoId: s.paymentIntent, suscripcionId: null } : { ok: false, motivo: 'la sesión pagada no trae el pago' };
 }
 
+/**
+ * ¿La sesión RELEÍDA es la que MaKo armó para ESTE cobro, y cobró lo que el cobro pide? (28/10/2026, la verificación de
+ * 3ca2d8328). El aviso encuentra el cobro por el `client_reference_id`, y un Payment Link lo acepta en su URL: una venta de US$1
+ * con `?client_reference_id=<token>` (el token viaja en /pagar/<token>) marcaba PAGADO un cobro de MaKo de US$1.500, con su
+ * cuota y el lead ganado. MaKo arma su sesión con `metadata.mako_cobro` y un solo ítem al monto del cobro, sin cupones ni
+ * impuestos (lib/stripe-api.ts, `crearCheckoutStripe`): se exige eso, y nunca un Payment Link. Si Stripe le cobró en otra
+ * moneda (`currency_conversion`), vale el monto de origen. Un pago diferido que FALLÓ no trae plata: ahí no se mira el monto.
+ */
+export function sesionDelCobro(
+  c: { token: string; monto: number; moneda: string; proveedor_ref: string | null },
+  s: { id: string; metadata: Record<string, string>; paymentLink?: string | null; monto: number | null; moneda: string | null; montoOrigen?: number | null; monedaOrigen?: string | null },
+  accion: 'aprobado' | 'fallido',
+): Confirmacion<object> {
+  if (s.paymentLink) return { ok: false, motivo: `la sesión salió de un Payment Link (${s.paymentLink}), no del checkout de MaKo de este cobro` };
+  if (s.metadata.mako_cobro !== c.token && s.id !== c.proveedor_ref) return { ok: false, motivo: 'la sesión no es la que MaKo armó para este cobro' };
+  if (accion === 'fallido') return { ok: true };
+  const pide = c.moneda.toUpperCase();
+  const alcanza = (monto: number | null | undefined, moneda: string | null | undefined) =>
+    monto != null && (moneda ?? '').toUpperCase() === pide && monto >= c.monto - 0.005;
+  if (alcanza(s.monto, s.moneda) || alcanza(s.montoOrigen, s.monedaOrigen)) return { ok: true };
+  return { ok: false, motivo: `la sesión cobró ${s.monto ?? '—'} ${s.moneda ?? ''} y el cobro es de ${c.monto} ${pide}`.replace(/\s+/g, ' ') };
+}
+
 /** La factura RELEÍDA confirma el aviso. Una renovación lleva el id de ESA factura (es otra cuota). */
 export function confirmarFactura(
   accion: 'aprobado' | 'fallido',

@@ -3768,6 +3768,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
 - **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
+  ⚠️ **Y releer no alcanza: lo releído tiene que ser lo que MaKo armó para ESE cobro, por lo que pide** (28/10/2026). El
+  token del cobro viaja en /pagar/<token> y un Payment Link acepta `?client_reference_id=<token>`: una venta de US$1 marcaba
+  pagado un cobro de US$1.500. La sesión lleva la metadata de MaKo (o es la guardada en el cobro), no sale de un Payment Link,
+  y el monto y la moneda alcanzan (`sesionDelCobro`, lib/cobros-eventos.ts); si no, se ignora con un ticket. Detalle:
+  [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Un Payment Link con el token de un cobro de MaKo».
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
