@@ -7,8 +7,9 @@
 
 import { almacenIdb, existeBase } from './almacen';
 import { deBase64url, nombreDeBase } from './cifra';
-import { activar, guardarCopia, type PedirLlave, type ResultadoGuardar } from './local';
+import { activar, colaConLaLlaveDelServidor, copiasCon, guardarCopia, type PedirLlave, type ResultadoGuardar } from './local';
 import { CADA_MS, normalizarEmail, type CopiaV1 } from './reglas';
+import type { Operacion } from './cola';
 
 const ULTIMA = 'mako-sc-ultima:';
 /**
@@ -80,6 +81,33 @@ export async function guardarAhora(email: string): Promise<ResultadoGuardar> {
 /** El último resultado de guardar, o null. `otra-llave` = hay que elegir la clave de nuevo. */
 export async function ultimoResultado(email: string): Promise<ResultadoGuardar | null> {
   try { return localStorage.getItem(ESTADO + (await baseDe(email))) as ResultadoGuardar | null; } catch { return null; }
+}
+
+// ── La cola (T2): lo escrito sin conexión, para subirlo con el OK de la persona ──
+
+/** Cuántos cambios esperan en este navegador, sin descifrar nada (ni pedir la llave). 0 sin activar. */
+export async function cuantosSinSubir(email: string): Promise<number> {
+  const nombre = await baseDe(email);
+  if (!(await existeBase(nombre))) return 0;
+  return (await almacenIdb(nombre).leerCola().catch(() => [])).length;
+}
+
+/**
+ * La cola descifrada con la llave del servidor, y la copia del negocio para nombrar cada cambio («Nota en Juan Pérez»).
+ * `otra-llave`: se rotó el secreto del servidor y lo escrito no abre con la llave de hoy (sólo con la clave, sin conexión).
+ */
+export async function leerColaParaSubir(email: string): Promise<{ ok: true; cola: Operacion[]; copias: CopiaV1[] } | { ok: false; motivo: 'sin-activar' | 'otra-llave' | 'sin-llave' }> {
+  const nombre = await baseDe(email);
+  if (!(await existeBase(nombre))) return { ok: false, motivo: 'sin-activar' };
+  const almacen = almacenIdb(nombre);
+  const r = await colaConLaLlaveDelServidor({ email: normalizarEmail(email), almacen, pedirLlave });
+  if (!r.ok) return r;
+  return { ok: true, cola: r.cola, copias: await copiasCon({ email: normalizarEmail(email), llave: r.llave, almacen }) };
+}
+
+/** Saca UN cambio de la cola (ya subido, o descartado por la persona). */
+export async function sacarDeLaCola(email: string, id: string): Promise<void> {
+  await almacenIdb(await baseDe(email)).sacarDeCola(id);
 }
 
 export async function borrarLoGuardado(email: string): Promise<void> {

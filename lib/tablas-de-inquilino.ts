@@ -118,7 +118,11 @@ export const TABLAS_DE_INQUILINO = [
   // Las grabaciones de sesión de las landings (mig 0191): en TENANT_TABLES y no acá hasta el 17/10/2026.
   'replay_lotes', 'replay_sesiones',
   'retros', 'review_queue', 'script_analyses',
-  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
+  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares',
+  // Lo escrito sin conexión que ya se subió (MaKo sin conexión, T2, mig 0346, 28/10/2026): la llave de idempotencia de cada
+  // cambio. No va en TENANT_TABLES: la lee app/_sin-conexion/acciones.ts con la PERSONA (usuario_id) y el id del cambio.
+  'sin_conexion_aplicadas',
+  'tarea_categorias',
   // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no
   // tiene `workspace_id`: se va con su ticket (on delete cascade). No va en TENANT_TABLES: la lee lib/tickets-db.ts.
   'tickets',

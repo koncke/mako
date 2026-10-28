@@ -179,14 +179,17 @@ el aviso de la primera vez. En una PC prestada no se guarda nada.
   - **otro valor:** es un conflicto. Gana lo del servidor, porque lo cambió otra persona o una automatización. La persona
     ve, por ejemplo: «Mientras no tenías conexión, Ana movió a Juan a Cerrado. Tu cambio: Llamada», con [Aplicar el mío] y
     [Dejar].
-- En un texto, su versión además queda guardada como nota («Tu versión sin conexión»), para que nada se pierda.
+- En un texto, la persona puede **copiar** su versión antes de dejarla, para que nada se pierda. *(T2, 28/10: el diseño
+  decía guardarla sola como nota; quedó en «Copiar», porque una escritura que la persona no eligió no sale.)*
 - Las altas no tienen conflicto: una nota o una tarea nueva.
 
-**Lo creado sin conexión** lleva un uuid. El servidor guarda el par uuid → id real, y las operaciones siguientes lo usan.
+**Lo creado sin conexión** lleva un id. *(T2, 28/10: lo único que se crea es una tarea, y entra como BORRADOR para
+confirmar en el Plan, como toda alta (lib/api-mako/areas/plan.run.ts). Un borrador no se mueve ni se edita sin
+conexión, así que ningún cambio depende de otro: no hace falta el par id local → id real.)*
 
 **Cuando el servidor la rechaza** (permiso perdido, lead borrado, dato inválido):
 - Queda en «No se pudo subir», con el motivo y su texto para copiar.
-- No se reintenta.
+- No se reintenta solo: la persona elige «Reintentar» o «Descartar».
 - Las que dependen de ella caen con ella. Por ejemplo, la nota de una tarea que se rechazó.
 - Las demás siguen.
 
@@ -240,10 +243,15 @@ mismo contrato:
 - La copia cada 10 minutos, en las ventanas de escritorio donde la persona activó MaKo sin conexión.
 - La clave de esta computadora: elegirla, y abrir con ella sin conexión.
 
-**T2 — la cola y la sincronización.**
-- La tabla `sin_conexion_aplicadas` (migración aditiva).
-- `POST /api/sin-conexion/subir`, con la idempotencia, los conflictos campo por campo, los rechazos y «Espera tu OK».
-- Escribir notas, tareas, etapas y textos desde el cascarón.
+**T2 — la cola y la sincronización** (hecha el 28/10, rama desktop-offline-t2-2810).
+- La tabla `sin_conexion_aplicadas` (migración aditiva 0346).
+- La subida es una server action (`app/_sin-conexion/acciones.ts`), no una ruta: pasa por las acciones del teléfono, y
+  ésas llaman a `refresh()`, que sólo vale dentro de una. Lleva la idempotencia, los conflictos campo por campo, los
+  rechazos y «Espera tu OK».
+- Desde el cascarón se escriben: una nota, mover de etapa (sólo a donde mueve el teléfono), el nombre, el email o la
+  empresa, mover una tarea de columna y una tarea nueva (como borrador).
+- El título de una tarea queda para la T3: el tablero del dueño sólo se guarda con la fila entera.
+- Al volver la conexión no sube nada solo. El panel «Cambios hechos sin conexión» sube con el clic de la persona.
 
 **T3 — el resto.**
 - Leer Calendar, el Second Brain y los documentos.

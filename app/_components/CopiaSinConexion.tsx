@@ -3,7 +3,8 @@
 // =============================================================================
 // <CopiaSinConexion> — renueva la copia de MaKo sin conexión mientras hay conexión (28/10/2026)
 // =============================================================================
-// No pinta nada. Sólo trabaja en un navegador donde la persona ACTIVÓ MaKo sin conexión (Settings › Instalar la app): ahí
+// No pinta nada salvo el panel de lo escrito sin conexión (<SubirCambios>, T2), que sólo aparece si hay algo en la cola.
+// Sólo trabaja en un navegador donde la persona ACTIVÓ MaKo sin conexión (Settings › Instalar la app): ahí
 // registra el service worker (el que sirve el cascarón sin red, public/sw.js) y guarda la copia al entrar si la última tiene
 // más de `CADA_MS`, cada `CADA_MS`, al volver la red y al volver a la pestaña. En una PC donde nadie lo activó no hace nada:
 // ni crea la base ni pide nada al servidor.
@@ -11,12 +12,15 @@
 // Varias pestañas abiertas guardan UNA vez: el candado del navegador (`navigator.locks`) y la hora de la última.
 // =============================================================================
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { registrarServiceWorker } from '@/lib/push-cliente';
 import { estaActivado, guardarAhora, tocaGuardar as toca } from '@/lib/sin-conexion/en-la-app';
 import { CADA_MS, EVENTO_ACTIVADO } from '@/lib/sin-conexion/reglas';
+import { SubirCambios } from './SubirCambios';
 
 export function CopiaSinConexion({ email }: { email: string }) {
+  // T2: activado en este navegador, monta el panel de lo escrito sin conexión (que sólo se ve si la cola tiene algo).
+  const [activado, setActivado] = useState(false);
   useEffect(() => {
     if (!email || typeof indexedDB === 'undefined' || !globalThis.crypto?.subtle) return;
     let vivo = true;
@@ -40,6 +44,7 @@ export function CopiaSinConexion({ email }: { email: string }) {
     const arrancar = async () => {
       if (activo || !vivo || !(await estaActivado(email)) || !vivo) return;
       activo = true;
+      setActivado(true);
       await registrarServiceWorker();
       await guardar();
       reloj = setInterval(() => void guardar(), CADA_MS);
@@ -59,5 +64,5 @@ export function CopiaSinConexion({ email }: { email: string }) {
       window.removeEventListener(EVENTO_ACTIVADO, alActivar);
     };
   }, [email]);
-  return null;
+  return activado ? <SubirCambios email={email} /> : null;
 }

@@ -51,6 +51,8 @@ function memoria(): Almacen & { llave: () => LlaveGuardada | null; copias: () =>
     guardarLlave: async (l) => { llave = l; },
     leerCopias: async () => [...copias.values()],
     guardarCopia: async (c) => { copias.set(c.ws, c); },
+    // La cola de la T2 (tests/sin-conexion-cola.test.ts la prueba): acá vacía.
+    leerCola: async () => [], guardarEnCola: async () => undefined, sacarDeCola: async () => undefined,
     borrar: async () => { llave = null; copias.clear(); },
     llave: () => llave,
     copias: () => [...copias.values()],
@@ -509,7 +511,8 @@ test('7. la copia no se arma mirando a otro; la llave es de la persona; el layou
   const copiaApp = sinComentarios(leer('app/_components/CopiaSinConexion.tsx'));
   assert.ok(copiaApp.indexOf('await estaActivado(email)') < copiaApp.indexOf('await registrarServiceWorker()'), 'sin activar, ni el service worker');
   assert.match(copiaApp, /navigator\.locks\.request\('mako-sin-conexion', \{ ifAvailable: true \}/, 'varias pestañas guardan una vez');
-  assert.match(copiaApp, /return null;\s*\}\s*$/, 'no pinta nada');
+  // No pinta nada propio: sólo el panel de lo escrito sin conexión (T2), y sólo activado en este navegador.
+  assert.match(copiaApp, /return activado \? <SubirCambios email=\{email\} \/> : null;\s*\}\s*$/);
   const fila = sinComentarios(leer('app/perfil/instalar/SinConexion.tsx'));
   assert.match(fila, /\{abierto && !noDisponible && \(/, 'mirando a otro no hay formulario');
   assert.match(fila, /autoComplete="new-password"/);

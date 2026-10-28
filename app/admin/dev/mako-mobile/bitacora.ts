@@ -266,4 +266,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/perfil/instalar',
   },
+  {
+    fecha: '28 oct', hora: '18:30', chat: 'Web Generator: replicar landings', sesion: 'local_1dd40ee7-c2c9-403e-8b3d-ad1dd87b505c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sin conexión también se escribe, y al volver se sube con tu OK',
+    puntos: [
+      'Sin internet o con MaKo caído, en lo guardado ya se puede escribir una nota en un lead, moverlo de etapa, cambiarle el nombre, el email o la empresa, mover una tarea de columna y crear una tarea nueva.',
+      'Lo escrito queda guardado y cifrado en la computadora, marcado «Se sube al volver», aunque cierres la ventana.',
+      'Al volver la conexión no se sube nada solo: aparece «Tienes 3 cambios hechos sin conexión» y los subes cuando lo decides, en orden.',
+      'Si un cambio arranca una automatización que le escribe al lead, espera tu OK aparte. Si otra persona cambió lo mismo mientras tanto, MaKo te lo muestra y eliges: aplicar el tuyo o dejar el de ahora.',
+      'Una tarea nueva escrita sin conexión llega como borrador, para que la confirmes en el Plan.',
+    ],
+    archivos: [
+      'lib/sin-conexion/cola.ts — qué se escribe sin red, la decisión campo por campo y cómo se ve lo pendiente',
+      'lib/sin-conexion/subir.ts — subir un cambio: idempotencia, conflictos, «Espera tu OK»',
+      'app/_sin-conexion/acciones.ts — la subida, por las mismas puertas que el teléfono',
+      'app/_components/SubirCambios.tsx — el panel que sube con tu OK',
+      'supabase/migrations/0346_sin_conexion_aplicadas.sql — lo ya subido, para no aplicarlo dos veces',
+      'tests/sin-conexion-cola.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/perfil/instalar',
+  },
 ];

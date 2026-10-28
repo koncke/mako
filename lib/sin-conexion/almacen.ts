@@ -9,18 +9,23 @@
 // La lógica (activar, guardar, abrir) vive en ./local.ts contra la interfaz `Almacen`: los tests le pasan uno en memoria.
 // =============================================================================
 
-import type { CopiaGuardada, LlaveGuardada } from './reglas';
+import type { ColaGuardada, CopiaGuardada, LlaveGuardada } from './reglas';
 
 export interface Almacen {
   leerLlave(): Promise<LlaveGuardada | null>;
   guardarLlave(l: LlaveGuardada): Promise<void>;
   leerCopias(): Promise<CopiaGuardada[]>;
   guardarCopia(c: CopiaGuardada): Promise<void>;
+  /** La cola de cambios hechos sin conexión (T2), cifrados. */
+  leerCola(): Promise<ColaGuardada[]>;
+  guardarEnCola(c: ColaGuardada): Promise<void>;
+  sacarDeCola(id: string): Promise<void>;
   /** Borra la base entera de esta persona. */
   borrar(): Promise<void>;
 }
 
-const VERSION_BASE = 1;
+/** 2 (T2, 28/10/2026): suma `cola`. Una base de la T1 se actualiza sola al abrirla (`onupgradeneeded`). */
+const VERSION_BASE = 2;
 const promesa = <T>(r: IDBRequest<T>): Promise<T> =>
   new Promise((ok, mal) => { r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error); });
 const listo = (t: IDBTransaction): Promise<void> =>
@@ -49,6 +54,7 @@ function abrirBase(nombre: string): Promise<IDBDatabase> {
       const db = r.result;
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
       if (!db.objectStoreNames.contains('copias')) db.createObjectStore('copias', { keyPath: 'ws' });
+      if (!db.objectStoreNames.contains('cola')) db.createObjectStore('cola', { keyPath: 'id' });
     };
     r.onsuccess = () => ok(r.result);
     r.onerror = () => mal(r.error);
@@ -73,6 +79,9 @@ export function almacenIdb(nombre: string): Almacen {
     guardarLlave: (l) => con(['meta'], 'readwrite', (t) => { t.objectStore('meta').put(l, 'llave'); }),
     leerCopias: () => con(['copias'], 'readonly', async (t) => (await promesa(t.objectStore('copias').getAll())) as CopiaGuardada[]),
     guardarCopia: (c) => con(['copias'], 'readwrite', (t) => { t.objectStore('copias').put(c); }),
+    leerCola: () => con(['cola'], 'readonly', async (t) => (await promesa(t.objectStore('cola').getAll())) as ColaGuardada[]),
+    guardarEnCola: (c) => con(['cola'], 'readwrite', (t) => { t.objectStore('cola').put(c); }),
+    sacarDeCola: (id) => con(['cola'], 'readwrite', (t) => { t.objectStore('cola').delete(id); }),
     borrar: () => new Promise<void>((ok) => {
       const r = indexedDB.deleteDatabase(nombre);
       r.onsuccess = () => ok(); r.onerror = () => ok(); r.onblocked = () => ok();

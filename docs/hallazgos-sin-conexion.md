@@ -136,11 +136,7 @@ cazó al menos un test. Los resultados están en C:/dev/revisiones/sin-conexion-
 - El cascarón armado pesa 21 KB.
 
 **Lo que quedó SIN hacer:**
-- **T2:**
-  - escribir sin conexión;
-  - la cola con su id, y la tabla `sin_conexion_aplicadas`;
-  - los conflictos campo por campo;
-  - «Espera tu OK».
+- **T2:** hecha el mismo día (abajo, «T2: escribir sin conexión…»).
 - **T3:**
   - Calendar, el Second Brain y los documentos;
   - Windows Hello (PRF);
@@ -163,6 +159,98 @@ cazó al menos un test. Los resultados están en C:/dev/revisiones/sin-conexion-
 - **Tanda posterior:**
   - lo de que la app gasta los tokens de la suscripción del cliente (00:12:40). Hoy cubre sólo los chats con MaKo.
 
+---
+
+## T2: escribir sin conexión y subirlo con el OK de la persona (28/10/2026, rama desktop-offline-t2-2810)
+
+**El pedido** (Cerebro, 28/10): «escribir sin red con la cola de cambios, y al volver la conexión subirla pidiendo el OK de
+la persona, con los conflictos campo por campo».
+
+**Trampas del entorno:**
+- **La subida no puede ser una ruta de la API, como decía el diseño.** Las acciones del teléfono (`notaLeadAction`,
+  `moverEtapaAction`, `moverTareaAction`) llaman a `refresh()`, que sólo vale dentro de una server action. La subida es
+  una server action (`app/_sin-conexion/acciones.ts`) que las reusa: las mismas puertas, con la sesión de la persona.
+- **Ninguna alta de tarea entra directo al Plan** (lib/api-mako/areas/plan.run.ts). Una tarea escrita sin conexión sube
+  como BORRADOR.
+  - `crearPropuesta` ya trae `ref` anti-duplicado, que sirve de idempotencia del alta.
+  - Ojo: con un `ref` que ya existe y un borrador DESCARTADO, `crearPropuesta` lo revive. Por eso la tabla de
+    idempotencia se mira antes, y un cambio subido no vuelve a llamarla.
+- **La consecuencia de mover de etapa** (una automatización que le escribe al lead):
+  - `secuenciasDeEtapa` es pura, pero `ambitoDeFunnel` (lib/nutricion.ts) no está exportada.
+  - Se arma con `ambitoDeSecuencia` y una lectura de `funnels.es_default`, sin tocar lib/nutricion.ts, que la usan otros
+    chats.
+  - Pide el OK de más a propósito: un agregado que el motor no inscribiría igual lo pide. Si no se puede revisar, también.
+- **La copia guardada NO se toca al escribir.** Lo pendiente se aplica encima al dibujar (`conLoPendiente`). Si se
+  escribiera en la copia, la renovación con conexión (cada 10 min) borraría lo escrito antes de subirlo.
+- **Una copia vencida (30 días) con cambios sin subir ya no se borra.** Perder lo escrito es peor que mostrar una copia
+  vieja.
+- **IndexedDB pasa a la versión 2** (suma `cola`). La base de la T1 se actualiza sola al abrirla.
+- **Antes de escribir se reserva el id** (una fila «en-curso»; la llave única frena a otra ventana que suba lo mismo).
+  - Un rechazo de la puerta (sin permiso, el lead ya no está) la suelta: se puede reintentar.
+  - Un error que TIRA a mitad la deja, porque no se sabe si la escritura quedó. A los 10 min es «incierta», y la persona
+    elige «Subirlo igual» o «Ya quedó». Nunca un segundo intento a ciegas.
+- **Si se rota `CREDENCIALES_SECRET` con cambios en la cola,** con conexión no se pueden leer (`otra-llave`) y el panel lo
+  dice. Sin conexión, con la clave, sí se ven, pero el cascarón no sube nada.
+
+**Las reglas que quedan:**
+- **Nada sale solo al volver.** El panel aparece como una tarjeta chica, se abre con el clic y sube con «Subir».
+- Lo que tiene consecuencias empieza SIN marcar («Espera tu OK»). Sin marcar no se manda, y el servidor lo frena igual
+  (`espera-ok`) si llega sin el OK.
+- **El cascarón no le habla al servidor:** escribe sólo en la cola cifrada. Lo fija el test 6 de los dos archivos.
+- **Campo por campo:**
+  - igual al «antes» se aplica;
+  - igual al «después» ya estaba, y también se guarda como hecho;
+  - otro valor es conflicto: no se pisa sin «Aplicar el mío».
+- **Desvíos del diseño, decididos:**
+  - el texto en conflicto se COPIA, no se guarda solo como nota (una escritura que la persona no eligió no sale);
+  - el título de una tarea queda para la T3 (el tablero del dueño sólo se guarda con la fila entera).
+
+**Lo que quedó SIN hacer:**
+- **La migración 0346** (`sin_conexion_aplicadas`) se aplica ANTES del deploy. Sin ella, todo cambio vuelve
+  «reintentar» y no se escribe nada.
+- **La subida contra la app de verdad.** El arnés de CDP no corre server actions: cubre escribir sin conexión y leer la
+  cola con conexión. La subida está probada con un servidor de mentira (tests/sin-conexion-cola.test.ts, 5a-5f).
+- **Subir desde el cascarón** cuando vuelve la red con la clave abierta (útil si se rotó el secreto): T3.
+
+**Probado rompiéndolo** (28/10/2026, base: 11 de 11 en tests/sin-conexion-cola.test.ts y 16 de 16 en
+tests/sin-conexion.test.ts). Cada rotura, restaurada por sha256, la cazó al menos un test. Los resultados están en
+C:/dev/revisiones/sin-conexion-t2-roturas.json.
+
+| Rotura | Lo que la cazó |
+|---|---|
+| R28. El email comparado con mayúsculas | 2 |
+| R29. Sin idempotencia | 5a, 5f |
+| R30. El conflicto se pisa | 5b |
+| R31. Sin «Espera tu OK» | 5c |
+| R32. El rechazo no suelta la reserva | 5d |
+| R33. Un error a mitad suelta la reserva | 5d |
+| R34. Otro negocio pasa | 5e |
+| R35. El borrador sin `ref` | 5f |
+| R36. Cualquier campo de contacto | 1, 6 |
+| R37. Lo pendiente toca la copia | 3 |
+| R38. La cola sin tope | 4 |
+| R39. La cola sin la persona en el AAD | 4 |
+| R40. Vencida borra aunque haya cola | 4 |
+| R41. El panel sube solo al montar | 6 |
+| R42. Lo de consecuencias viene marcado | 6 |
+| R43. La nota sin la puerta del teléfono | 6 |
+| R44. El cascarón sube por su cuenta | 6 (de la T1: el `app.js` quedó viejo) |
+
+- **Un test inestable que cazaron las roturas, no el código:** el 5d fallaba sólo bajo carga. El reloj de mentira se leía
+  ANTES de crear la reserva con el reloj de verdad, y unos milisegundos dejaban la edad apenas por debajo de los 10 min.
+  Ahora salta con margen (+1 min). En la corrida de las 17 roturas aparecía en casi todas, y solo con cada una no aparecía.
+
+**De punta a punta** (C:/dev/revisiones/sin-conexion-t1/, el mismo arnés con los pasos T2):
+- Con MaKo caído: la nota, la etapa, el email, la tarea nueva y la tarea movida se ven encima, con «Se sube al volver» y
+  «5 cambios esperan la conexión» (capturas 7 y 8).
+- Al salir y volver a entrar siguen ahí. En la base son 5 cambios cifrados, sin nada en claro.
+- Con conexión, la app los lee en orden con la llave del servidor, y Beto no ve la cola de Ana.
+
+**Lo que cazaron las barredoras** (tests-afectados sobre la T2: las 6 tandas en verde con 499 tests; las barredoras,
+2.561 tests con un rojo):
+- **Una tabla nueva con `workspace_id` va a `TABLAS_DE_INQUILINO`** (lib/tablas-de-inquilino.ts), para que vaciar o borrar
+  un negocio se la lleve. Como no se lee con `getTenantDb()`, va también a `FUERA_DEL_PROXY`, con su porqué
+  (tests/tenant-tables-contract.test.ts, INVERSO 1 y 2). Arreglado. Los 30 tests que leen esa lista dan 453/453.
 ## La verificación de 90d6410eb (Cerebro, 28/10/2026): 2 medias y 7 bajas, todas arregladas
 
 **Lo que NO era lo que parecía:**
