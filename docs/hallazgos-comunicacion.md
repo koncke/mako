@@ -11618,3 +11618,35 @@ funciona…», «No sale…»), que sólo saca las quejas. tests/mako-no-puedo-f
 «No consigo turno» con una reunión propuesta SON un «no»: con `QUEJA_NO_ANDA` en la regla 1 se perdía cancelar_accion y MaKo podía
 apilar otra propuesta (lib/doer-hilo.ts cuenta con que un «no» de verdad llega como 'confirmar'). **La regla:** la regla 1 sólo deja
 pasar la queja con OBJETO de la app (`QUEJA_DE_LA_APP`: «no me deja editar…», «no funciona el…»); la 9-bis sigue sacando toda queja.
+
+## El turno del grupo llegaba sin herramientas, por el camino barato o como si fuera un saludo (28/10/2026, claude4, el diagnóstico del Cerebro, tanda 1)
+
+**El síntoma:** de 58 respuestas de MaKo en los grupos del 21 al 28/10, 9 BIEN, 21 FLOJAS y 28 MAL. A «Tal cual como lo hace
+manychat» le contestó un consejo; a «y tú eres el servicio técnico», «Intenta desde otro navegador»; a «bien», «No hay tareas
+abiertas en el plan»; a «Si», «Hola. ¿En qué te puedo ayudar hoy?».
+⚠️ **El diagnóstico obvio, «el modelo es viejo», explica 5 de las 49.** Lo que pesó fue lo que el turno decide ANTES del modelo.
+
+- **G1, la causa más grande: el default del clasificador era `capturar` dudosa, con SÓLO `ver_plan` y `listar_pendientes`.**
+  Fue el 35 % de los turnos: el pedido de Leandro, todo el soporte de Leila («Fabi Pedraza no aparece en el SRM»), «Ya
+  conteste» y los saludos. Sin CRM ni tickets, el modelo no podía mirar ni reportar nada, y contestaba con el plan. La app lo
+  había arreglado el 20/10; el grupo no.
+  **La regla:** el clasificador marca su default (`sinSenal`) y el grupo lo decide DESPUÉS de seguir el hilo
+  (`enElGrupoSinSenal`, lib/doer-hilo.ts): un acuse o un saludo es charla; lo demás, una consulta con las áreas del hilo, MaKo
+  (lo que hace y los tickets del negocio) y las lecturas del CRM. Nunca el Plan por default.
+  ⚠️ **No va en el clasificador:** `conElHilo` usa esa misma duda para seguir el pedido vivo («pausala» después de «¿La
+  pauso?»). Cambiado ahí, el hilo deja de seguirse.
+- **G2: el camino barato iba sin historial ni el system del grupo**, y por la cascada de `chatCheap` (Gemini primero), no por
+  la del turno. Se fue del grupo: lo que llega como charla lo contesta la cascada con todo.
+- **Los saludos reales no eran acuse** (`esAcusePuro`, lib/doer-para-quien.ts): «Bien», «Excelente», «Buendiaa», «Okk perfe»,
+  «Buen día! Geniall», «Vamos que arranca la semana!». Contestar «Excelente» costó 15.630 tokens de entrada. Ahora llevan el
+  👍 sin turno (si nada espera respuesta), con la letra del final estirada como se escribe en WhatsApp (en el medio, «arranca»,
+  es la palabra).
+- **Medido con el banco de casos** (tests/_banco-grupo.ts, los textos reales, sin modelo): antes, 13 de 24 casos llegaban con
+  sólo el Plan y 5 iban por el camino barato; después, 0 y 0, y los 7 saludos llevan el 👍.
+
+**Sin hacer (las tandas siguientes del diagnóstico):** F2 (el turno no ve lo que el equipo y las automatizaciones mandan al
+grupo, ni los tickets del negocio, ni quién escribe); F4 (la marca y la memoria del audio y el video que no se pudieron leer);
+G3 (lo que llega durante un turno queda huérfano hasta el cron, 2 a 3 min tarde); G4 (la memoria corta a MaKo en su primera
+línea); G5 (la agencia escribe en 5 de 8 grupos y MaKo le contesta lo que era para el cliente); F6 (los reintentos que tiran una
+respuesta buena). «Si contacte Eli» sigue llegando como charla, sin herramientas: lo arregla F2a con el lead del aviso en la
+memoria, y F3, el «¿lo contactaron?» sin vuelta (chat de CRM).

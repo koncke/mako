@@ -22,6 +22,8 @@
 // =============================================================================
 
 import { areasDelMensaje, clasificarIntencion, makoPidioDatos, makoPreguntoAlgo, sinPrefijoDeLote, type VeredictoIntencion } from './mako-intencion';
+import { esAcusePuro } from './doer-para-quien';
+import type { Area } from './api-mako/tipos';
 
 /** Un turno del historial del grupo (lib/mako-doer-conv.ts). */
 export type TurnoDelHilo = { role: 'user' | 'assistant'; content: unknown };
@@ -107,6 +109,35 @@ export function pedidoDelHilo(historial: readonly TurnoDelHilo[], clasificar: (t
  *   2. Un pedido corto que apunta a lo hablado pero no nombra el área del pedido («ya lo conecté, analizá la última»
  *      después de «¿estás analizando mis fathom?») suma las áreas del pedido a las suyas.
  */
+/** Las áreas de un mensaje del grupo sin señal clara: MaKo (lo que hace, y los tickets del negocio) y las lecturas del CRM. */
+export const AREAS_SIN_SENAL: readonly Area[] = ['mako', 'crm'];
+/** Lo que suma relevancia en ese turno, para que entren el catálogo de MaKo y los tickets antes que otra lectura. */
+const RELEVANCIA_SIN_SENAL = 'qué hace MaKo capacidades funciones ticket pedido reporte soporte lead';
+
+/**
+ * ⚠️ EL DEFAULT DEL GRUPO NO ES CAPTURAR (28/10/2026, la crítica del diagnóstico del Cerebro, G1: la causa más grande).
+ *
+ * Lo que ningún clasificador reconocía caía en `capturar` dudosa, y llegaba con SÓLO `ver_plan` y `listar_pendientes`: el
+ * 35 % de los turnos del 23 al 28/10. Ahí estaban el pedido de Leandro («Tal cual como lo hace manychat»), todo el soporte de
+ * Leila («Fabi Pedraza no aparece en el SRM», «y tú eres el servicio técnico»), «Ya conteste» y los saludos: sin herramientas
+ * de CRM ni de tickets, el modelo no podía mirar ni reportar nada, y contestaba con el plan («No hay tareas abiertas en el
+ * plan» a un «bien»). La app lo arregló el 20/10 (lib/mako-intencion.ts, el canal app); el grupo no.
+ *
+ * Va DESPUÉS de `conElHilo`, que usa esa misma duda para seguir el pedido vivo («pausala» sigue lo que MaKo acaba de contestar):
+ *   · un acuse o un saludo («Bien», «Buendiaa», «Okk perfe») es charla (si nada espera respuesta, ni llega: lleva el 👍);
+ *   · lo demás es una CONSULTA con las áreas del hilo, MaKo (lo que hace y los tickets del negocio) y las lecturas del CRM.
+ * Nunca el Plan por default.
+ */
+export function enElGrupoSinSenal(v: VeredictoIntencion, mensaje: string, areasDelHilo: readonly Area[] = []): VeredictoIntencion {
+  if (!v.sinSenal) return v;
+  const propio = sinPrefijoDeLote(mensaje || '').trim();
+  if (esAcusePuro(propio)) return { intencion: 'charlar', dudosa: false, porque: 'grupo: acuse o saludo' };
+  return {
+    intencion: 'consultar', dudosa: false, porque: 'grupo: sin señal clara; consulta (MaKo, sus pedidos y el CRM)',
+    areas: [...new Set<Area>([...areasDelHilo, ...AREAS_SIN_SENAL])], relevancia: RELEVANCIA_SIN_SENAL,
+  };
+}
+
 export function conElHilo(
   v: VeredictoIntencion, mensaje: string, pedido: PedidoDelHilo | null, ultimoDeMako: string | null,
 ): { veredicto: VeredictoIntencion; hilo: string | null } {

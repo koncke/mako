@@ -54,10 +54,11 @@ import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTick
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
-import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
+import { conElNegocio } from '@/lib/nucleo-grupo';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
-import { sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
+import { aFormatoWhatsapp, sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
@@ -68,7 +69,7 @@ import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
-import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones, hizoAlgo } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
@@ -310,7 +311,7 @@ function hoyLegible(tz: string): string {
 
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
-SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
+SI NO SABES A QUÉ SE REFIERE O QUÉ TE PIDE: pregúntalo, en una línea. ⛔ No lo conviertas en una tarea del plan ni crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió. Si pide algo que MaKo no hace, vas por PEDIDO DE FUNCIÓN O PROBLEMA, no al plan.
 
 ⛔ NO PROMETAS LO QUE NO HACES EN ESTE MISMO MENSAJE: nada de "déjame ver", "ya te lo cargo", "dame un segundo", "en breves te digo". Si algo lleva tiempo, el aviso de espera ya salió antes de tu respuesta: no lo repitas. Tu respuesta es el FINAL del turno: no hay un después en el que vuelvas con el dato. Si hay que mirar o hacer algo, hazlo AHORA y contesta con lo que pasó; si no puedes, dilo en una línea y di cómo se hace. Para ofrecer, PREGUNTA ("¿te lo cargo al plan?").
 
@@ -350,7 +351,8 @@ SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, 
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
 // ⚠️ La conversación va a /chats?lead= desde el 14/10/2026 (lib/chats-links.ts): /whatsapp?lead= ya no
 // abría ese chat sino el primero de la lista, el de OTRA persona.
-const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
+const DEEP_LINKS = `LINKS A LA APP: un link sólo si lleva a lo concreto de lo que se habla (el lead, la llamada, la automatización): nunca /plan ni /dashboard de relleno (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
+- Automations (flujos, disparadores de Instagram y WhatsApp, botones en DM): ${APP_URL}/automations
 - Ficha 360 de un lead: ${APP_URL}/crm/{id}
 - Análisis de una llamada de ventas: ${APP_URL}/dashboard?hoja=closing&llamada={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/dashboard?hoja=closing.
 - Los chats con un lead (WhatsApp, Instagram y Messenger en un solo hilo): ${APP_URL}${RUTA_CHATS}?${PARAM_CHATS.lead}={id}
@@ -1316,7 +1318,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Con lo último de la charla: el seguimiento de Leila sin foto («son 423, no 4235») no nombra la plata; la foto de antes, sí.
     const loDeAntes = historial.slice(-2).map((r) => (typeof r.content === 'string' ? r.content : '')).join('\n');
     const correccion = laCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto), loDeAntes);
-    const intencion = correccion.veredicto;
+    // Lo que nadie reconoció NO se captura en el grupo (G1, lib/doer-hilo.ts): un acuse es charla; lo demás, una consulta con
+    // las áreas del hilo, MaKo y el CRM. Nunca el Plan por default.
+    const intencion = enElGrupoSinSenal(correccion.veredicto, texto, pedidoDelHilo(historial)?.areas ?? []);
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
@@ -1340,7 +1344,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // router (tareas→Sonnet, no Opus), el subset de tools y el historial de 12. El lean
     // queda disponible en buildSystemPrompt para cuando revisemos ese flujo.
     // La consulta al conocimiento (el Second Brain): con el pedido del hilo, si lo sigue. «y eso?» solo no encuentra nada.
-    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno(texto, conHilo.hilo) }));
+    // ⚠️ EL SYSTEM DEL GRUPO NO ES EL DEL DASHBOARD (28/10/2026, F1, lib/nucleo-grupo.ts): sin la persona de consultor ni el
+    // núcleo de los gráficos, y el contexto del negocio sólo si el turno piensa o consulta sus números, su copy o sus anuncios.
+    const negocio = conElNegocio(intencion, [...areasDelMensaje(sinPrefijoDeLote(texto)), ...(intencion.areas ?? [])]);
+    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno(texto, conHilo.hilo), canal: 'grupo', conElNegocio: negocio }));
     // LO QUE YA SE HABLÓ (y lo que MaKo propuso o hizo) de antes de la ventana: hechos con fecha, al final del system.
     const ctxYaSeHablo = bloqueYaSeHablo(
       memoria.antes,
@@ -1809,25 +1816,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      */
     let avisoDeSistema = false;
 
-    /**
-     * ⚠️ EL CAMINO BARATO NO VA SIN HERRAMIENTAS CUANDO EL CLASIFICADOR PIDIÓ HERRAMIENTAS.
-     *
-     * El router (`rutearDoer`) contesta CUÁNTO gastar y lee «sí», «ok», «dale» como charla. El 13/10/2026 (ws13) «Si 18 de
-     * noviembre» —la fecha que MaKo le había pedido para agendar un cumpleaños— salió por acá, sin una sola herramienta,
-     * y MaKo contestó «te lo agendo de una». Con el clasificador diciendo qué HACER (agendar, leer, cargar), lo barato
-     * sólo va si es charla de verdad o si la clasificación fue una duda.
-     */
-    const pideHerramientas = intencion.intencion !== 'charlar' && !intencion.dudosa;
-    if (ruta.tier === 'cheap' && !mediaBlocks && !pideHerramientas) {
-      // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
-      // falla la IA barata, caemos al doer normal (nunca dejamos al dueño sin respuesta).
-      try {
-        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Responde CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, pide que te lo pregunten directo (no prometas mirarlo: este mensaje es todo lo que haces). Sin groserías ni lunfardo.`;
-        respuesta = (await chatCheap({ system: cheapSys, user: texto, maxTokens: 350, feature: 'mako-doer-in', motivo: `${ruta.motivo} «${recorte}»` })).trim();
-      } catch (e) {
-        console.warn('[mako-doer-in] cheap falló, uso doer:', e instanceof Error ? e.message : String(e));
-      }
-    }
+    // ⛔ SIN CAMINO BARATO EN EL GRUPO (28/10/2026, la crítica del diagnóstico del Cerebro, G2). La charla trivial iba a
+    // `chatCheap` con la base y una línea: sin historial, sin DOER_WA_VOZ, sin la memoria ni quién escribe, y por la cascada
+    // propia de `chatCheap` (Gemini primero), no por la de este turno. «Si» a la alerta del nuevo propietario (Brigitte, 22/10)
+    // salió «Hola. ¿En qué te puedo ayudar hoy?». Un acuse o un saludo ya llevan el 👍 sin turno (`esAcusePuro`); lo que llega
+    // acá como charla lo contesta la cascada de abajo, con todo.
 
     // ── EL GRUPO DEL DUEÑO, A SU COMPUTADORA (25/10/2026, docs/conexiones-y-ayuda.md, decisión 2) ──────────────────────
     // Martín: «todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Igual que el chat de la app:
@@ -2209,7 +2202,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
               // ⛔ El system de la red va LEAN (la voz de MaKo y su núcleo, `buildSystemPrompt({ lean })`): el completo
               // trae «TU METODOLOGÍA», que sale de `searchKnowledge` sobre el conocimiento propio, y el glosario (fuente
               // «reunión») son nombres y apellidos de la gente de las llamadas (revisión del Cerebro, 17/10/2026).
-              const baseRed = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true }));
+              const baseRed = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true, canal: 'grupo' }));
               const systemRed = armarSystem(toolsRed, turnoRed.sacadas.length ? `\n\n${SIN_DATOS_DE_CLIENTES}` : '', baseRed);
               if (turnoRed.sacadas.length) console.warn(`[mako-doer-in] ws=${wsData} red de plataforma SIN ${turnoRed.sacadas.length} herramientas con datos de clientes (${turnoRed.sacadas.join(', ').slice(0, 300)})`);
               // ⚠️ CON PRESUPUESTO DE TIEMPO. La agencia tiene 11 keys gratis
@@ -2494,6 +2487,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         respuesta = saneo.texto;
       }
     }
+    // WhatsApp no es Markdown (F1): `**x**` llegaba con los asteriscos a la vista (6 respuestas del 21 al 28/10) y los `##`, igual.
+    if (respuesta) respuesta = aFormatoWhatsapp(respuesta);
 
     // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
     // Martín (17/10/2026): «Y todo lo solucionás automáticamente». Ya no se le pregunta a la persona «¿se lo aviso al

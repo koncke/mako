@@ -127,10 +127,11 @@ test('ws13: «Si 18 de noviembre» —la fecha que MaKo pidió— sigue el pedid
   const r = turno(m, { siguePedidoDeAgenda: true }, `${pedido}\n${pidio}`);
   assert.equal(r.veredicto.intencion, 'actuar', r.veredicto.porque);
   trae(m, 'proponer_agendar_agenda', r);
-  // El router lo leía como charla («si») y el camino barato corría SIN herramientas, antes de mirar la intención.
+  // El router lo leía como charla («si») y el camino barato corría SIN herramientas, antes de mirar la intención. Desde el
+  // 28/10/2026 el grupo no tiene camino barato (el diagnóstico del Cerebro, G2: tampoco llevaba historial): no vuelve.
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /const pideHerramientas = intencion\.intencion !== 'charlar' && !intencion\.dudosa;/);
-  assert.match(doer, /if \(ruta\.tier === 'cheap' && !mediaBlocks && !pideHerramientas\)/, 'el camino barato vuelve a correr sin mirar si el clasificador pidió herramientas');
+  assert.doesNotMatch(doer, /ruta\.tier === 'cheap'/, 'volvió el camino barato del grupo');
+  assert.doesNotMatch(doer, /\bchatCheap\(/, 'el grupo volvió a contestar por `chatCheap`, sin historial ni el system del grupo');
 });
 
 test('ws13: «Pasamelo» después de «Eso lo miro y te lo paso» reclama el pedido de antes, con sus herramientas', () => {

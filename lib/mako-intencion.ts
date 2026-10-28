@@ -97,6 +97,9 @@ export type VeredictoIntencion = {
   /** Es un SEGUIMIENTO del pedido del hilo («pausala» después de «¿cómo va la campaña?»): las herramientas se eligen también
    *  por ese pedido (`hilo`, lib/doer-herramientas.ts). Lo marca lib/doer-hilo.ts (`conElHilo`), 26/10/2026. */
   sigueElHilo?: boolean;
+  /** Es el DEFAULT del clasificador: ninguna regla reconoció el mensaje (sólo fuera de la app). En el grupo no se captura:
+   *  lo decide `enElGrupoSinSenal` (lib/doer-hilo.ts), después de seguir el hilo (el diagnóstico del 28/10/2026, G1). */
+  sinSenal?: true;
   /** Un seguimiento que el hilo levantó desde «sin señal clara» (lib/doer-hilo.ts, rama 1): NO puede confirmar ni cancelar lo
    *  que ya está pendiente. «esperá, primero movamos esos leads» después de «¿Confirmás?» no es un «sí» (la revisión del
    *  26/10/2026). El «sí» o el «no» de verdad entran por la regla 1, como 'confirmar'. */
@@ -1404,7 +1407,8 @@ export function clasificarIntencion(
     if (ACUSE_DE_LA_APP.test(acuse)) return { intencion: 'charlar', dudosa: false, porque: 'canal app: acuse o saludo' };
     return { intencion: 'actuar', dudosa: false, adivina: true, ...deLaApp, porque: 'canal app: sin señal clara; propone con tarjeta' };
   }
-  return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo' };
+  // EN EL GRUPO, el default se decide DESPUÉS de seguir el hilo (lib/doer-hilo.ts, `enElGrupoSinSenal`): `sinSenal` lo marca.
+  return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo', sinSenal: true };
 }
 
 // ── El contrato de cada intención ────────────────────────────────────────────
