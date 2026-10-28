@@ -31,6 +31,11 @@ import { Arbol } from './Arbol';
 import { Inicio } from './Inicio';
 import { EditorGuion, type ApiPagina } from './editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from './PanelMaKo';
+// «Compartir para editar» (D9): el MISMO modal de Compartir de la casa (Conocimientos, el Dashboard), con el recurso del
+// guion. La puerta y el permiso de editar los pone el server (/api/compartir).
+import Compartir from '@/app/conocimientos/Compartir';
+import { RECURSO_GUION } from '@/lib/share-nombre';
+import { SIN_TITULO } from '@/lib/copywriter/tipos';
 
 /** Debajo de este ancho la barra de guiones arranca plegada (con la de MaKo y el documento no entran las tres). */
 const ANCHO_ARBOL_PLEGADO = 1280;
@@ -67,6 +72,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const [creando, setCreando] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [pausa, setPausa] = useState(false);
+  const [compartiendo, setCompartiendo] = useState(false);
   const cajaMako = useRef<HTMLTextAreaElement | null>(null);
   // El título y las propiedades de ahora (los pone EditorGuion; el chat los lee al mandar).
   const vivoGuion = useRef<GuionVivo | null>(null);
@@ -153,11 +159,18 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
         <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
           onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
           onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} pausa={pausa}
-          arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} avisar={avisar} onVivo={ponerVivo} onApi={ponerApi} />
+          arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} avisar={avisar} onVivo={ponerVivo} onApi={ponerApi}
+          onCompartir={() => setCompartiendo(true)} />
       ) : error ? (
         <div className="nt-doc"><div className="nt-inicio"><div className="nt-aviso" role="alert">{error}<ReportarASoporte /></div></div></div>
       ) : (
         <Inicio creando={creando} onCrear={(t, pedido) => void crear(t, null, pedido)} arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} tipoInicial={tipoInicial} />
+      )}
+      {guion && (
+        <Compartir recurso={RECURSO_GUION} recursoId={guion.pagina.id}
+          etiqueta={paginas.find((x) => x.id === guion.pagina.id)?.titulo ?? (guion.pagina.titulo || SIN_TITULO)}
+          nota="Quien abra el link puede escribir y cambiar este guion, sin cuenta. Lo que guarde queda marcado con su nombre en «Última edición»."
+          abierto={compartiendo} onCerrar={() => setCompartiendo(false)} variante="app" />
       )}
       <Toast state={toast} onClose={clear} />
     </div>

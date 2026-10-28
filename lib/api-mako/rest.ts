@@ -614,6 +614,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/contenido/documentos/{documentoId}/bloques', 'agregar_al_documento_copywriter'],
   ['PUT', '/contenido/documentos/{documentoId}/contenido', 'reemplazar_documento_copywriter'],
   ['POST', '/contenido/documentos/{documentoId}/restauracion', 'restaurar_documento_copywriter'],
+  // Compartir un documento para editar (28/10/2026): sus links, crear uno y revocarlo.
+  ['GET', '/contenido/documentos/{documentoId}/enlaces', 'enlaces_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/enlaces', 'compartir_documento_copywriter'],
+  ['DELETE', '/contenido/enlaces/{enlaceId}', 'revocar_enlace_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],

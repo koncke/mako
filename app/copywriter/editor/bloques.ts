@@ -63,9 +63,10 @@ export function bloqueDeSeccion(etiqueta: string): DefBloqueCopy {
 }
 
 /** Todo el catálogo, con las secciones del guion abierto primero (las de su estructura) y las comunes después. */
-export function catalogoCopy(seccionesDelGuion: readonly string[] = []): DefBloqueCopy[] {
+export function catalogoCopy(seccionesDelGuion: readonly string[] = [], { conMako = true }: { conMako?: boolean } = {}): DefBloqueCopy[] {
   const etiquetas = [...new Set([...seccionesDelGuion, ...SECCIONES_COMUNES])];
-  return [...BLOQUES_BASICOS, ...etiquetas.map(bloqueDeSeccion), BLOQUE_MAKO];
+  // Con un link para editar no hay MaKo (D9): «Pedirle a MaKo» no se ofrece.
+  return [...BLOQUES_BASICOS, ...etiquetas.map(bloqueDeSeccion), ...(conMako ? [BLOQUE_MAKO] : [])];
 }
 
 /** Sin tildes y en minúscula, para comparar lo escrito. */

@@ -15,6 +15,8 @@ import { veCopywriter } from '@/app/copywriter/acceso';
 import { abrir, crear, guardar, listar, mover, papelera, renombrar, restaurar } from '@/lib/copywriter/server';
 import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { listFiles } from '@/lib/archivero';
+import { getUsuarioActual } from '@/lib/auth';
+import { nombreDeVisita } from '@/lib/copywriter/editado';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,9 +61,13 @@ export async function POST(req: Request) {
           emoji: typeof b.emoji === 'string' ? b.emoji : null,
         }));
       }
-      case 'guardar':
+      case 'guardar': {
         if (!Number.isInteger(b.version)) return falla(400, 'Falta la versión');
-        return responder(await guardar({ id: texto(b.id), version: b.version as number, contenido: b.contenido, props: b.props }));
+        // La marca de quién guardó (D9): desde la tab, el usuario de la sesión. Es la que tapa la de alguien de afuera.
+        const yo = await getUsuarioActual();
+        const por = nombreDeVisita(yo?.nombre) ?? nombreDeVisita(yo?.email) ?? 'El equipo';
+        return responder(await guardar({ id: texto(b.id), version: b.version as number, contenido: b.contenido, props: b.props }, { por, afuera: false }));
+      }
       case 'renombrar':
         return responder(await renombrar(texto(b.id), {
           ...(typeof b.titulo === 'string' ? { titulo: b.titulo } : {}),

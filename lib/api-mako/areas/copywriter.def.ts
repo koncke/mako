@@ -111,4 +111,31 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'saca la marca de Papelera en el índice del Copywriter',
     canales: TODOS, costo: 'gratis', gating: G,
   },
+  // ── Compartir para editar (28/10/2026, docs/diseno-copywriter.md, D9): leer los links, crear uno, revocarlo ──
+  // Por la API se crea el link ABIERTO (el que se pega en un chat); invitar por mail queda en la pantalla.
+  {
+    id: 'enlaces_documento_copywriter', area: 'contenido', tipo: 'lectura',
+    titulo: 'Links para editar un documento',
+    descripcion: 'Los links que dejan EDITAR un documento del Copywriter sin cuenta: id del link, si es abierto o de invitados (con sus emails), cuántas veces se abrió y la última, y si está revocado. El link en sí no se puede volver a leer: se ve en la pantalla («Compartir para editar») o se crea otro.',
+    parametros: [DOC],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G,
+  },
+  {
+    id: 'compartir_documento_copywriter', area: 'contenido', tipo: 'accion',
+    titulo: 'Compartir un documento para editar',
+    descripcion: 'Crea un link que deja EDITAR un documento del Copywriter sin cuenta (el cliente entra y lo corrige): cualquiera con el link escribe en el documento, y lo que guarda queda marcado con su nombre en «Última edición». Devuelve el link. Se corta con revocar_enlace_copywriter. Queda pendiente hasta que la persona confirme.',
+    parametros: [DOC],
+    confirmacion: 'chat', reversible: true,
+    escribe: 'crea un link para editar el documento (tabla shares, recurso copywriter, permiso editar)',
+    canales: TODOS, costo: 'gratis', gating: G,
+  },
+  {
+    id: 'revocar_enlace_copywriter', area: 'contenido', tipo: 'accion',
+    titulo: 'Revocar un link del Copywriter',
+    descripcion: 'Corta un link para editar un documento del Copywriter (el id sale de enlaces_documento_copywriter): deja de abrir al instante, también para quien ya lo tenía abierto. No se puede deshacer; para volver a compartir se crea otro. Queda pendiente hasta que la persona confirme.',
+    parametros: [{ nombre: 'enlaceId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'id del link (de enlaces_documento_copywriter).' }],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'marca el link como revocado (tabla shares)',
+    canales: TODOS, costo: 'gratis', gating: G,
+  },
 ];

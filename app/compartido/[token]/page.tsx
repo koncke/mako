@@ -12,7 +12,7 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
-import { resolverToken, filtrarPorShare, registrarVisita, RECURSO_INFORME } from '@/lib/shares';
+import { resolverToken, filtrarPorShare, registrarVisita, RECURSO_GUION, RECURSO_INFORME } from '@/lib/shares';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
@@ -21,6 +21,9 @@ import { informeDeAcceso } from './informe-compartido';
 // ⚠️ La tab va PEREZOSA (su propio chunk): importada directo, el catálogo entero viajaba a TODO
 //    link de esta ruta, también al de UN curso con lo que el super admin ocultó. Ver el archivo.
 import PortalCompartido from './PortalCompartidoPerezoso';
+// El editor del Copywriter, igual de PEREZOSO: trae TipTap entero (ver el archivo).
+import GuionCompartido from './GuionCompartidoPerezoso';
+import { abrirCompartido, accesoDeGuion } from '@/lib/copywriter/compartir';
 import { buscarCurso, CURSOS_COMPARTIBLES, VISTA_PROPIA } from '@/app/conocimientos/catalogo';
 import { PortalShell } from '@/app/conocimientos/CursoPortal';
 import { ajustarFicha, aplicarAjustes, type FilaAjuste } from '@/lib/conocimiento-ajustes';
@@ -90,6 +93,8 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const acceso = await resolver(token).catch(() => null);
   // El informe del Dashboard tampoco se nombra (ni el informe ni el negocio): la pestaña dice qué ES.
   if (acceso?.share.recurso === RECURSO_INFORME) return { ...GENERICA, title: 'Informe compartido' };
+  // Un guion tampoco: ni su título ni el negocio. La pestaña dice qué ES.
+  if (acceso?.share.recurso === RECURSO_GUION) return { ...GENERICA, title: 'Guion compartido' };
   if (!acceso || acceso.share.recurso !== 'curso') return GENERICA;
   const slug = acceso.share.recurso_id;
   // Branding se sirve por su propio recurso; como curso da 404 (ver más abajo). Y el
@@ -133,6 +138,18 @@ export default async function CompartidoPage({ params, searchParams }: {
     if (!informe) notFound();
     const pedida = (await searchParams).hoja;
     return <InformeCompartido informe={informe} token={token} hoja={(Array.isArray(pedida) ? pedida[0] : pedida) ?? null} />;
+  }
+
+  // ── Un GUION del Copywriter, para EDITAR sin cuenta (28/10/2026, docs/diseno-copywriter.md, D9) ──
+  // `accesoDeGuion` pregunta `guionDelShare` (lib/copywriter/compartir-reglas.ts), la MISMA puerta que la ruta que
+  // guarda (/api/compartido/guion). Lo que lee corre en el workspace DEL LINK, y un guion en la Papelera es un 404.
+  if (acceso.share.recurso === RECURSO_GUION) {
+    const a = accesoDeGuion(acceso);
+    const abierto = a ? await abrirCompartido(a) : null;
+    if (!abierto) notFound();
+    await registrarVisita(acceso);
+    const invitado = acceso.invitado ? acceso.invitado.nombre?.trim() || acceso.invitado.email : null;
+    return <GuionCompartido token={token} guion={abierto.guion} catalogos={abierto.catalogos} invitado={invitado} />;
   }
 
   // ── La TAB ENTERA de Conocimientos: el selector con todos los cursos ──

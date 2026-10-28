@@ -21,6 +21,11 @@
 //      los guarda en el índice. Las propiedades y el cuerpo, acá.
 //   4. CON UNA PROPUESTA DE MaKo ABIERTA (`pausa`), el autoguardado no escribe y el editor no se toca: lo que se ve es
 //      la propuesta, todavía no el guion (docs/diseno-copywriter.md, D5). Al soltarla, lo pendiente sale.
+//   5. COMPARTIDO PARA EDITAR (`compartido`, D9: /compartido/<token>): el MISMO editor, con el guardar que le pasa la
+//      página del link (nunca /api/copywriter: quien abre el link puede tener SU sesión). Sin MaKo, sin la Papelera, sin
+//      el ícono y con las propiedades a la vista pero sin cambiar (son del método). La barra se ve también angosta.
+//   6. «ÚLTIMA EDICIÓN» (D9): la marca de quién guardó, como la propiedad de Notion. Si fue alguien con un link, el
+//      dueño la ve resaltada.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,7 +35,8 @@ import { INFO_TIPO, SIN_TITULO, TIPOS_GUION, type GuionAbierto, type JsonNodo, t
 import { docDeEstructura, sinTexto, textoDelDoc } from '@/lib/copywriter/doc';
 import { rutaDe } from '@/lib/copywriter/arbol';
 import { estructurasDelTipo, type CatalogosCopy } from '@/lib/copywriter/catalogos';
-import { pedirGuardar } from '../cliente';
+import { quienYCuando } from '@/lib/copywriter/editado';
+import { pedirGuardar, type GuardarGuion } from '../cliente';
 import { extensionesCopy } from './extensiones';
 import { catalogoCopy } from './bloques';
 import { MenuBloques } from './MenuBloques';
@@ -49,7 +55,7 @@ const TEXTO_ESTADO: Record<EstadoGuardado, string> = {
   pendiente: 'Editando…',
   guardando: 'Guardando…',
   error: 'No se pudo guardar',
-  conflicto: 'Cambió en otra pestaña',
+  conflicto: 'Cambió en otro lado',
   roto: 'No se pudo abrir',
 };
 
@@ -80,6 +86,10 @@ export type PropsEditorGuion = {
   onVivo?: (v: { titulo: string; props: PropsGuion }) => void;
   /** Lo que el chat puede cambiar de la página al ACEPTAR una propuesta de MaKo (el título y las propiedades). */
   onApi?: (api: ApiPagina | null) => void;
+  /** «Compartir para editar» del menú ⋯ (D9). Sin esto, el menú no lo ofrece. */
+  onCompartir?: () => void;
+  /** Abierto con un link para editar (ver la cabecera, 5): el guardar es el del link. */
+  compartido?: { guardar: GuardarGuion };
 };
 
 /** Lo que el chat cambia de la página (no del cuerpo: el cuerpo lo escribe en el editor). */
@@ -87,7 +97,9 @@ export type ApiPagina = { cambiarTitulo: (t: string) => void; cambiarProps: (c: 
 
 export function EditorGuion(p: PropsEditorGuion) {
   const { guion, catalogos, movil = false, pausa = false } = p;
+  const compartido = !!p.compartido;
   const id = guion.pagina.id;
+  const [editado, setEditado] = useState(guion.doc.editado ?? null);
   const [props, setProps] = useState<PropsGuion>(guion.doc.props);
   const [titulo, setTitulo] = useState(guion.pagina.titulo === SIN_TITULO ? '' : guion.pagina.titulo);
   const [estado, setEstado] = useState<EstadoGuardado>('guardado');
@@ -115,9 +127,13 @@ export function EditorGuion(p: PropsEditorGuion) {
     pendiente.current = null;
     cola.current = cola.current.then(async () => {
       setEstado('guardando');
-      const r = await pedirGuardar({ id, version: versionRef.current, ...cambio }, keepalive);
+      const conLink = vivo.current.compartido;
+      const r = conLink
+        ? await conLink.guardar({ version: versionRef.current, ...cambio }, keepalive)
+        : await pedirGuardar({ id, version: versionRef.current, ...cambio }, keepalive);
       if (r.ok) {
         versionRef.current = r.version;
+        if (r.editado !== undefined) setEditado(r.editado);
         setEstado(pendiente.current ? 'pendiente' : 'guardado');
         return;
       }
@@ -226,7 +242,7 @@ export function EditorGuion(p: PropsEditorGuion) {
 
   const { estructuras, propias } = estructurasDelTipo(catalogos, props.tipo);
   const estructura = catalogos.estructuras.find((e) => e.id === props.estructura) ?? null;
-  const catalogoMenu = useMemo(() => catalogoCopy(estructura?.etiquetas ?? []), [estructura]);
+  const catalogoMenu = useMemo(() => catalogoCopy(estructura?.etiquetas ?? [], { conMako: !compartido }), [estructura, compartido]);
 
   /** Elegir la estructura: si el cuerpo está vacío, arma sus secciones (un título por etiqueta). */
   const elegirEstructura = (idE: string) => {
@@ -249,10 +265,11 @@ export function EditorGuion(p: PropsEditorGuion) {
   const ruta = rutaDe(p.paginas, id);
   const emojiPagina = guion.pagina.emoji ?? INFO_TIPO[props.tipo].emoji;
   const enError = estado === 'error' || estado === 'conflicto' || estado === 'roto';
+  const angulo = catalogos.angulos.find((a) => a.id === props.angulo) ?? null;
 
   return (
     <div className="nt-doc">
-      {!movil && (
+      {(!movil || compartido) && (
         <div className="nt-barra">
           <nav className="nt-migas" aria-label="Dónde está este guion">
             {p.arbolPlegado && (
@@ -276,9 +293,16 @@ export function EditorGuion(p: PropsEditorGuion) {
                 <button type="button" role="menuitem" className="nt-menu-fila" onClick={() => void copiarTexto()}>
                   <span className="nt-menu-cuadro" aria-hidden>⧉</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Copiar el texto</span></span>
                 </button>
-                <button type="button" role="menuitem" className="nt-menu-fila" data-peligro="" onClick={() => { setMenuPagina(false); p.onPapelera(); }}>
-                  <span className="nt-menu-cuadro" aria-hidden>✕</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Mover a la Papelera</span></span>
-                </button>
+                {p.onCompartir && !compartido && (
+                  <button type="button" role="menuitem" className="nt-menu-fila" onClick={() => { setMenuPagina(false); p.onCompartir?.(); }}>
+                    <span className="nt-menu-cuadro" aria-hidden>↗</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Compartir para editar</span></span>
+                  </button>
+                )}
+                {!compartido && (
+                  <button type="button" role="menuitem" className="nt-menu-fila" data-peligro="" onClick={() => { setMenuPagina(false); p.onPapelera(); }}>
+                    <span className="nt-menu-cuadro" aria-hidden>✕</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Mover a la Papelera</span></span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -288,7 +312,7 @@ export function EditorGuion(p: PropsEditorGuion) {
       <div className="nt-scroll" ref={setScroll}>
         {enError && (
           <div className="nt-aviso" role="alert">
-            {estado === 'conflicto' && <>Este guion cambió en otra pestaña. Para no pisar lo de allá, <button type="button" className="nt-miga" onClick={() => window.location.reload()}>recarga la página</button>.</>}
+            {estado === 'conflicto' && <>Este guion cambió en otra pestaña o lo editó alguien más. Para no pisar lo otro, <button type="button" className="nt-miga" onClick={() => window.location.reload()}>recarga la página</button>.</>}
             {estado === 'error' && <>No se pudo guardar lo último. <button type="button" className="nt-miga" onClick={() => void guardarAhora()}>Reintentar</button></>}
             {estado === 'roto' && <>Este guion no se pudo abrir: queda como estaba, sin cambios.</>}
             <ReportarASoporte />
@@ -297,8 +321,10 @@ export function EditorGuion(p: PropsEditorGuion) {
         <div className="nt-pagina" style={{ position: 'relative' }}>
           <div className="nt-portada" />
           <div style={{ position: 'relative' }} ref={refEmojis}>
-            <button type="button" className="nt-icono" onClick={() => setEmojis((v) => !v)} aria-expanded={emojis} aria-label="Cambiar el ícono del guion" title="Cambiar el ícono">{emojiPagina}</button>
-            {emojis && (
+            {compartido
+              ? <span className="nt-icono" aria-hidden>{emojiPagina}</span>
+              : <button type="button" className="nt-icono" onClick={() => setEmojis((v) => !v)} aria-expanded={emojis} aria-label="Cambiar el ícono del guion" title="Cambiar el ícono">{emojiPagina}</button>}
+            {emojis && !compartido && (
               <div className="nt-menu" data-chico="" role="dialog" aria-label="Ícono" style={{ position: 'absolute', top: 84, left: 0, width: 'auto' }}>
                 <div className="nt-emojis">
                   {EMOJIS_PAGINA.map((e) => (
@@ -317,6 +343,19 @@ export function EditorGuion(p: PropsEditorGuion) {
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); editor?.commands.focus('start'); } }} />
 
           <div className="nt-props" aria-label="Propiedades">
+            {compartido ? (
+              // Con un link: a la vista, sin cambiar (son del método, y la biblioteca no viaja: ver compartir-reglas.ts).
+              <>
+                <div className="nt-prop"><span className="nt-prop-nombre"><span aria-hidden>◉</span><span>Tipo</span></span>
+                  <span className="nt-prop-valor nt-prop-fija">{INFO_TIPO[props.tipo].emoji} {INFO_TIPO[props.tipo].label}</span></div>
+                {angulo && <div className="nt-prop"><span className="nt-prop-nombre"><span aria-hidden>↗</span><span>Ángulo</span></span>
+                  <span className="nt-prop-valor nt-prop-fija">{angulo.emoji} {angulo.nombre}</span></div>}
+                {estructura && <div className="nt-prop"><span className="nt-prop-nombre"><span aria-hidden>≡</span><span>Estructura</span></span>
+                  <span className="nt-prop-valor nt-prop-fija">{estructura.emoji} {estructura.nombre}</span></div>}
+                {props.duracion != null && <div className="nt-prop"><span className="nt-prop-nombre"><span aria-hidden>◷</span><span>Duración</span></span>
+                  <span className="nt-prop-valor nt-prop-fija">{props.duracion} segundos</span></div>}
+              </>
+            ) : (<>
             <div className="nt-prop">
               <span className="nt-prop-nombre"><span aria-hidden>◉</span><span>Tipo</span></span>
               <span className="nt-prop-valor">
@@ -352,6 +391,13 @@ export function EditorGuion(p: PropsEditorGuion) {
                 {props.duracion != null && <span className="nt-prop-vacio">segundos</span>}
               </span>
             </div>
+            </>)}
+            {editado && (
+              <div className="nt-prop">
+                <span className="nt-prop-nombre"><span aria-hidden>✎</span><span>Última edición</span></span>
+                <span className="nt-prop-valor nt-prop-fija" data-afuera={editado.afuera && !compartido ? '' : undefined}>{quienYCuando(editado)}</span>
+              </div>
+            )}
           </div>
           <div className="nt-separador-props" />
 

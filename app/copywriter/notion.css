@@ -225,6 +225,22 @@
 .nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
 .nt[data-movil] .nt-cuerpo .ProseMirror input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
 
+/* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
+   alguien de afuera, el dueño lo ve en azul. */
+.nt-prop-fija { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 30px; }
+.nt-prop-valor[data-afuera] { color: var(--nt-azul); font-weight: 500; }
+
+/* Un guion abierto con un link para EDITAR (/compartido/<token>, D9): la franja del link arriba y la página abajo. */
+.nt.nt-compartido { flex-direction: column; }
+.nt-compartido-barra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; flex: none; padding: 8px 16px; border-bottom: 1px solid var(--nt-linea); background: var(--nt-gris); font-size: 13px; color: var(--nt-tenue); }
+.nt-compartido-que { font-weight: 600; color: var(--nt-texto); }
+.nt-compartido-quien { margin-left: auto; }
+.nt-compartido-nombre { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.nt-compartido-nombre input { width: min(240px, 56vw); height: 30px; padding: 0 10px; border: 1px solid var(--nt-linea-fuerte); border-radius: 6px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; font-size: 14px; }
+.nt-compartido-nombre input:focus { outline: none; border-color: var(--nt-azul); }
+.nt[data-movil] .nt-compartido-nombre { margin-left: 0; width: 100%; }
+.nt[data-movil] .nt-compartido-nombre input { flex: 1; width: auto; font-size: 16px; }
+
 @media (prefers-reduced-motion: reduce) {
   .nt *, .nt *::before, .nt *::after { transition: none !important; animation: none !important; }
 }

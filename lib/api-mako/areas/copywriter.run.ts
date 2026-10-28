@@ -17,6 +17,8 @@ import { escondida } from '@/lib/copywriter/arbol';
 import { esTipoGuion, INFO_TIPO, SIN_TITULO, type PaginaCopy } from '@/lib/copywriter/tipos';
 import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { veCopywriterEnApi } from '@/lib/copywriter/puerta-api';
+import { crearShare, getShare, listarInvitados, listarShares, revocarShare, RECURSO_GUION } from '@/lib/shares';
+import { APP_BASE_URL } from '@/lib/app-url';
 
 const str = (o: Record<string, unknown>, k: string): string => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
 const json = (v: unknown) => JSON.stringify(v, null, 2);
@@ -199,6 +201,67 @@ export const RUNNERS: Runners = {
       const r = await restaurar(str(payload, 'documentoId'));
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
       return { ok: true, resumen: 'Listo: volvió a su lugar.', datos: { documentoId: str(payload, 'documentoId'), link: linkDoc(str(payload, 'documentoId')) } };
+    },
+  },
+
+  // ── Compartir para editar (D9). Los links viven en `shares` (lib/shares.ts), en el workspace del pedido. ──
+  enlaces_documento_copywriter: {
+    leer: async (input, ctx) => {
+      if (await cerrada(ctx)) return error(CERRADA);
+      const p = await paginaViva(str(input, 'documentoId'));
+      if ('error' in p) return error(p.error);
+      let filas: Awaited<ReturnType<typeof listarShares>>;
+      try { filas = await listarShares(ctx.ws, RECURSO_GUION, p.p.id); } catch (e) { return error(`No pude leer los links: ${e instanceof Error ? e.message : e}`); }
+      const enlaces = await Promise.all(filas.map(async (s) => ({
+        enlaceId: s.id,
+        modo: s.modo === 'invitados' ? 'invitados' : 'abierto',
+        creado: s.created_at,
+        visitas: s.visitas ?? 0,
+        ultimaVisita: s.ultima_visita ?? null,
+        ...(s.revocado_at ? { revocado: s.revocado_at } : {}),
+        ...(s.modo === 'invitados' ? { invitados: (await listarInvitados(s.id as number).catch(() => [])).filter((i) => !i.revocado_at).map((i) => i.email) } : {}),
+      })));
+      return json({ documento: nombreDe(p.p), enlaces, total: enlaces.length });
+    },
+  },
+
+  compartir_documento_copywriter: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (await cerrada(ctx)) return { error: CERRADA };
+      const p = await paginaViva(str(input, 'documentoId'));
+      if ('error' in p) return { error: p.error };
+      if (escondida(p.todas, p.p.id)) return { error: `${nombreDe(p.p)} está en la Papelera: un link a un documento borrado no abre.` };
+      return { payload: { documentoId: p.p.id }, resumen: `Crear un link que deja EDITAR ${nombreDe(p.p)} sin cuenta, a cualquiera que lo tenga.` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = str(payload, 'documentoId');
+      const a = await abrir(id);
+      if (!a.ok || a.pagina.papelera) return { ok: false, resumen: 'El documento ya no está (o está en la Papelera).' };
+      const { id: enlaceId, token } = await crearShare({
+        ws: ctx.ws, recurso: RECURSO_GUION, alcance: 'item', recursoId: id, modo: 'link', permiso: 'editar', etiqueta: a.pagina.titulo || SIN_TITULO,
+      });
+      const enlace = `${APP_BASE_URL}/compartido/${token}`;
+      return { ok: true, resumen: `Listo: con este link se edita «${a.pagina.titulo}» sin cuenta: ${enlace}`, datos: { documentoId: id, enlaceId, enlace } };
+    },
+  },
+
+  revocar_enlace_copywriter: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (await cerrada(ctx)) return { error: CERRADA };
+      const enlaceId = typeof input.enlaceId === 'number' ? input.enlaceId : NaN;
+      if (!Number.isInteger(enlaceId) || enlaceId <= 0) return { error: 'Falta enlaceId (de enlaces_documento_copywriter).', faltan: ['enlaceId'] };
+      // Del workspace del pedido Y del Copywriter: con el id de un link de otro recurso no se revoca nada.
+      const s = await getShare(ctx.ws, enlaceId);
+      if (!s || s.recurso !== RECURSO_GUION) return { error: `No hay ningún link del Copywriter con id ${enlaceId} en este negocio.` };
+      if (s.revocado_at) return { error: 'Ese link ya estaba revocado.', yaEstaba: true };
+      return { payload: { enlaceId }, resumen: `Revocar el link ${enlaceId}: deja de abrir al instante, también para quien ya lo tiene.` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const enlaceId = Number(payload.enlaceId);
+      const s = await getShare(ctx.ws, enlaceId);
+      if (!s || s.recurso !== RECURSO_GUION) return { ok: false, resumen: 'Ese link ya no está.' };
+      await revocarShare(ctx.ws, enlaceId);
+      return { ok: true, resumen: 'Listo: el link ya no abre.', datos: { enlaceId } };
     },
   },
 };

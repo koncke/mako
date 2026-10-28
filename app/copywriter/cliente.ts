@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { postJson, type FallaPedido } from '@/app/web-generator/cliente';
-import type { GuionAbierto, JsonNodo, PaginaCopy, PropsGuion, TipoGuion } from '@/lib/copywriter/tipos';
+import type { EditadoPor, GuionAbierto, JsonNodo, PaginaCopy, PropsGuion, TipoGuion } from '@/lib/copywriter/tipos';
 
 export const RUTA_COPY = '/api/copywriter';
 /** /api/copywriter no llama a ninguna IA: lo que tarda es la base. */
@@ -28,8 +28,15 @@ export function pedirCrear(p: { tipo: TipoGuion; titulo?: string; padre?: string
   return postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'crear', ...p }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>;
 }
 
-export function pedirGuardar(p: { id: string; version: number; contenido?: JsonNodo; props?: PropsGuion }, keepalive = false) {
-  return postJson<{ ok: true; version: number; actualizado: string }>(RUTA_COPY, { accion: 'guardar', ...p }, keepalive ? { keepalive: true } : PLAZO_COPY_MS) as Promise<{ ok: true; version: number; actualizado: string } | FallaCopy>;
+/** Lo que contesta un guardado: la versión nueva y la marca de quién guardó (D9). */
+export type RespGuardar = { ok: true; version: number; actualizado: string; editado?: EditadoPor | null } | FallaCopy;
+
+/** Lo que manda el editor al guardar. Quién lo recibe lo decide quien monta el editor: la tab o un link compartido. */
+export type CambioGuion = { version: number; contenido?: JsonNodo; props?: PropsGuion };
+export type GuardarGuion = (c: CambioGuion, keepalive: boolean) => Promise<RespGuardar>;
+
+export function pedirGuardar(p: { id: string } & CambioGuion, keepalive = false): Promise<RespGuardar> {
+  return postJson(RUTA_COPY, { accion: 'guardar', ...p }, keepalive ? { keepalive: true } : PLAZO_COPY_MS) as Promise<RespGuardar>;
 }
 
 type Arbol = Promise<{ ok: true; paginas: PaginaCopy[] } | FallaCopy>;
@@ -50,6 +57,21 @@ export function pedirRestaurar(id: string): Arbol {
 /** Los archivos de El Archivero que se pueden citar con «@» (id y nombre). */
 export function pedirCitables() {
   return postJson<{ ok: true; archivos: { id: string; nombre: string }[] }>(RUTA_COPY, { accion: 'citables' }, PLAZO_COPY_MS) as Promise<{ ok: true; archivos: { id: string; nombre: string }[] } | FallaCopy>;
+}
+
+// ── Un guion abierto con un link para EDITAR (D9) ─────────────────────────────────────────────────────────────────
+// El token del link es la credencial entera y viaja en el CUERPO, nunca en la URL (lib/rutas-publicas.ts,
+// PUBLICOS_ESCRITURA). El id del guion NO viaja: lo saca el server del link. `nombre` es el que escribió quien entró
+// con el link abierto (la marca de quién editó); con un link personal de invitado no se usa.
+export const RUTA_COMPARTIDO = '/api/compartido/guion';
+
+export function pedirGuardarCompartido(token: string, nombre: string, c: CambioGuion, keepalive = false): Promise<RespGuardar> {
+  const cuerpo = { accion: 'guardar', token, nombre, version: c.version, ...(c.contenido ? { contenido: c.contenido } : {}) };
+  return postJson(RUTA_COMPARTIDO, cuerpo, keepalive ? { keepalive: true } : PLAZO_COPY_MS) as Promise<RespGuardar>;
+}
+
+export function pedirTituloCompartido(token: string, nombre: string, titulo: string) {
+  return postJson<{ ok: true }>(RUTA_COMPARTIDO, { accion: 'titulo', token, nombre, titulo }, PLAZO_COPY_MS) as Promise<{ ok: true } | FallaCopy>;
 }
 
 /** Las rutas de la tab (escritorio): un guion se abre en /copywriter/<id>. */

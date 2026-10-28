@@ -86,6 +86,15 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - La biblioteca de estructuras dejó de ser sólo de anuncios: lo que eso rompía está en
   [hallazgos-ads.md](hallazgos-ads.md) («La biblioteca de estructuras era de anuncios sin decirlo»).
 
+## Compartir para editar: lo de seguridad está en su documento (28/10/2026)
+
+- El link que EDITA un guion es la primera ruta pública que escribe en los datos de un negocio. Lo que costó (la puerta
+  que nadie usaba, el índice entero que devolvía renombrar, la sesión de quien abre el link) está en
+  [hallazgos-seguridad.md](hallazgos-seguridad.md), «Un guion del Copywriter se EDITA por link».
+- ⚠️ **Fines de línea mezclados:** varios archivos del Copywriter quedaron con renglones LF adentro de un archivo CRLF
+  (ediciones de tandas anteriores). Un reemplazo que arma el texto con un solo tipo de salto no encuentra nada y no avisa
+  por qué: se normaliza a `\n`, se reemplaza y se vuelve a escribir con el salto del archivo.
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
@@ -93,3 +102,4 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - La estructura de YouTube (falta la fuente) y sacar de la barra Stories y YouTube Writer el día que Martín valide el
   Copywriter (nav.ts es del jefe Sidebar): docs/diseno-copywriter.md, D6 y D7.
 - `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.
+- «Compartir para editar» desde el teléfono del dueño (la vista del guion del teléfono no tiene el menú ⋯): D9.

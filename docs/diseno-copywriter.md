@@ -135,8 +135,9 @@ En el área `contenido`, archivo propio (`copywriter.def.ts` + `.run.ts`), al fi
 | `get_document` | `leer_documento_copywriter` | lectura |
 | `create_document` | `crear_documento_copywriter` | acción (chat) |
 | `append_to_document` | `agregar_al_documento_copywriter` | acción (chat) |
-| `update_document` | `cambiar_documento_copywriter` | acción (pantalla) |
+| `update_document` | `reemplazar_documento_copywriter` (pantalla) y `renombrar_documento_copywriter` (chat) | acción |
 | `delete_document` | `papelera_documento_copywriter` (+ `restaurar_documento_copywriter`) | acción (chat), reversible |
+| — | `enlaces_documento_copywriter`, `compartir_documento_copywriter`, `revocar_enlace_copywriter` (D9) | lectura y acciones (chat) |
 
 Mientras la tab sea sólo del super admin, la API también: cada runner pregunta `veCopywriterEnApi`
 (lib/copywriter/puerta-api.ts: sólo el negocio de la plataforma). Se abre junto con la pantalla.
@@ -144,8 +145,38 @@ Mientras la tab sea sólo del super admin, la API también: cada runner pregunta
 Lo que escribe con IA (escribir un guion entero) NO va por la API en esta versión: lo hace el chat de la tab, que muestra
 la propuesta antes de aceptarla.
 
+## D9 · Compartir para editar (tanda 4)
+
+Lo que Martín le prometió a Teo (28/10/2026): «Tu cliente entra y edita lo que le presentás». Fuentes: el «Share → Can
+edit» de Notion (un link que edita, sin cuenta si es público) y el modal «Compartir» de la casa (Conocimientos y el
+Dashboard: link abierto o invitados por mail, «quién tiene acceso», copiar, rotar y revocar).
+
+- **El link** es una fila de `shares` (lib/shares.ts) con `recurso: 'copywriter'`, `alcance: 'item'`,
+  `permiso: 'editar'` y el id del guion en `recurso_id`, en el workspace del guion. Sin migración: la tabla ya tenía el
+  permiso de editar (mig 0126) y nadie lo usaba.
+- **Quién lo crea:** el menú ⋯ del guion → «Compartir para editar», el MISMO modal (`app/conocimientos/Compartir.tsx`,
+  variante `app`). /api/compartir suma una TERCERA puerta (`guion`: quien ve el Copywriter, sobre el workspace de la
+  pestaña); el alcance y el permiso los pone el server, y sólo de un guion vivo.
+- **Quien lo abre** (`/compartido/<token>`) ve el MISMO editor de la tab en modo `compartido`: el título, el cuerpo con
+  «/» y el asa; las propiedades a la vista y sin cambiar (son del método); sin el árbol, sin MaKo, sin la Papelera.
+  Arriba, «Tu nombre» (se recuerda en ese navegador) o «Editas como …» si entró con su link personal.
+- **Lo que guarda** va a `/api/compartido/guion` con el token en el CUERPO (PUBLICOS_ESCRITURA, por nombre exacto): el id
+  del guion sale de la fila, corre en el workspace del link, mira el Origin y corta por IP. Nunca va a /api/copywriter:
+  quien abre el link puede tener SU sesión de MaKo abierta. La misma concurrencia de la tab (versión, 409 «recarga»).
+- **La marca de quién editó:** la propiedad «Última edición» (la «Last edited by» de Notion): «Ana con el link · 28 oct,
+  17:05». Si fue alguien de afuera, el dueño la ve en azul hasta que alguien del equipo vuelve a guardar. El nombre de un
+  link abierto lo escribe la persona y no está verificado (por eso «con el link»); el de un invitado sale de su invitación.
+- **Lo que viaja** al navegador de afuera: el guion sin su lugar en el árbol, y de la biblioteca SÓLO el ángulo y la
+  estructura de ese guion. La pestaña dice «Guion compartido» (ni el título ni el negocio en la tarjeta de un chat).
+- Un guion en la **Papelera** no abre por el link (404); si se restaura, vuelve a andar. Para cortar: revocar.
+- **API de MaKo:** `enlaces_documento_copywriter` (lectura), `compartir_documento_copywriter` (crea el link abierto y lo
+  devuelve) y `revocar_enlace_copywriter`. Invitar por mail queda en la pantalla.
+- **En el teléfono** el dueño todavía no tiene «Compartir para editar» (la vista del guion del teléfono no tiene el menú
+  ⋯); quien abre el link desde el teléfono sí edita, con la página a lo ancho.
+
 ## Qué queda para después
 
+- «Compartir para editar» desde el teléfono del dueño (D9).
 - La búsqueda web con fuentes de mila.
 - Varias personas editando a la vez (Notion lo tiene; no hay presencia en la casa).
 - Versiones guardadas (hoy: deshacer, y la foto de «antes de la IA» mientras hay una propuesta).

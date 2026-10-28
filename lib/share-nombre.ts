@@ -48,6 +48,16 @@ export const RECURSO_INFORME = 'dashboard';
 export const INFORME_SIN_NOMBRE = 'Dashboard';
 
 /**
+ * Un GUION del Copywriter compartido PARA EDITAR (28/10/2026, «Compartir para editar»: docs/diseno-copywriter.md, D9).
+ * Vive acá por la misma razón que `RECURSO_INFORME`. Su `recurso_id` es el id de la página (`g…`), que tampoco se usa
+ * como nombre: el nombre de hoy es el título del guion, que lee la ruta del índice del negocio.
+ */
+export const RECURSO_GUION = 'copywriter';
+
+/** El nombre de un guion compartido que no trae ninguno. */
+export const GUION_SIN_NOMBRE = 'Guion';
+
+/**
  * Qué comparte esta fila, con el nombre de HOY.
  *
  * `tituloDeCurso` resuelve un slug a su título actual — en este repo es `buscarCurso`,
@@ -55,7 +65,8 @@ export const INFORME_SIN_NOMBRE = 'Dashboard';
  * de un curso se sigue nombrando bien.
  *
  * `nombreDeInforme` es el nombre de HOY del informe del Dashboard al que apunta la fila (lo lee la
- * ruta del informe guardado de esa persona). Sólo cuenta para `recurso: 'dashboard'`.
+ * ruta del informe guardado de esa persona). Sólo cuenta para `recurso: 'dashboard'` y, desde el 28/10/2026, para
+ * `recurso: 'copywriter'`, donde es el título de hoy del guion.
  *
  * El orden es el de la confianza: la clave primero, la foto después, el id crudo al final.
  * Nunca devuelve cadena vacía — una fila sin nombre en una lista es una fila que no se
@@ -69,6 +80,8 @@ export function nombreDeShare(
   // El informe: su nombre de hoy, si no la foto del día que se emitió, si no el del inicial. NUNCA el
   // `recurso_id`, que es el id de una persona.
   if (s.recurso === RECURSO_INFORME) return nombreDeInforme?.trim() || s.etiqueta?.trim() || INFORME_SIN_NOMBRE;
+  // El guion del Copywriter, igual: el título de hoy (llega por el mismo parámetro), la foto, el genérico. Nunca el id.
+  if (s.recurso === RECURSO_GUION) return nombreDeInforme?.trim() || s.etiqueta?.trim() || GUION_SIN_NOMBRE;
 
   // La tab entera no apunta a ninguna cosa: su `recurso_id` es null en las 17 filas de
   // producción, así que no hay nada que resolver y el nombre es una constante. Se decide

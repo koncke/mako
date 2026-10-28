@@ -20,9 +20,10 @@ import 'server-only';
 import { cambiarSettingSi, getSettingEstricto } from '../settings';
 import {
   CLAVE_INDICE, SIN_TITULO, claveDoc, esIdPagina, propsNuevas, sanearProps, TOPES,
-  type DocCopy, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion,
+  type DocCopy, type EditadoPor, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion,
 } from './tipos';
 import { sanearContenido, docVacio } from './doc';
+import { sanearEditado } from './editado';
 import { agregar, aPapelera, cambiarPagina, idPaginaNuevo, mover as moverEnArbol, restaurar as restaurarEnArbol, sanearIndice, type ResultadoArbol } from './arbol';
 
 export type Falla = { ok: false; error: string; status: 400 | 404 | 409 | 422 | 500 };
@@ -78,6 +79,7 @@ async function leerDoc(id: string): Promise<{ crudo: string; doc: DocCopy } | nu
       version: Number.isInteger(o.version) && (o.version as number) >= 1 ? (o.version as number) : 1,
       props: sanearProps(o.props),
       contenido: s.ok ? s.doc : docVacio(),
+      editado: sanearEditado(o.editado),
     },
   };
 }
@@ -134,8 +136,11 @@ export type PedidoGuardar = { id: string; version: number; contenido?: unknown; 
 /**
  * Guarda el documento si la versión es la que se abrió. Devuelve la versión nueva. 409 = otro guardó en el medio (la
  * pantalla ofrece recargar). Lo que no vino (contenido o props) queda como estaba.
+ *
+ * `autor` es la marca de quién guardó (D9): el usuario de la sesión desde la pantalla, quien entró con un link
+ * compartido desde /api/compartido/guion. Sin `autor` (la API de MaKo), la marca de antes queda como estaba.
  */
-export async function guardar(p: PedidoGuardar): Promise<{ ok: true; version: number; actualizado: string } | Falla> {
+export async function guardar(p: PedidoGuardar, autor?: Omit<EditadoPor, 'at'>): Promise<{ ok: true; version: number; actualizado: string; editado: EditadoPor | null } | Falla> {
   if (!esIdPagina(p.id)) return falla(404, 'No existe');
   let leido: Awaited<ReturnType<typeof leerDoc>>;
   try { leido = await leerDoc(p.id); } catch (e) { return falla(500, e instanceof Error ? e.message : 'No pude leer este guion.'); }
@@ -148,7 +153,8 @@ export async function guardar(p: PedidoGuardar): Promise<{ ok: true; version: nu
     contenido = s.doc;
   }
   const props = p.props !== undefined ? sanearProps(p.props, leido.doc.props.tipo) : leido.doc.props;
-  const nuevo: DocCopy = { version: leido.doc.version + 1, props, contenido };
+  const editado = autor ? { ...autor, at: new Date().toISOString() } : leido.doc.editado ?? null;
+  const nuevo: DocCopy = { version: leido.doc.version + 1, props, contenido, ...(editado ? { editado } : {}) };
   try {
     if (!(await cambiarSettingSi(claveDoc(p.id), leido.crudo, JSON.stringify(nuevo)))) {
       return falla(409, 'Este guion cambió en otra pestaña. Recarga para ver lo último.');
@@ -159,7 +165,7 @@ export async function guardar(p: PedidoGuardar): Promise<{ ok: true; version: nu
   // La fecha (y el tipo, que el árbol dibuja con su emoji) van al índice. Si eso falla, lo guardado sigue guardado.
   const actualizado = new Date().toISOString();
   await cambiarIndice((ps) => cambiarPagina(ps, p.id, { actualizado, tipo: props.tipo }));
-  return { ok: true, version: nuevo.version, actualizado };
+  return { ok: true, version: nuevo.version, actualizado, editado };
 }
 
 /** Título y emoji (la página). */

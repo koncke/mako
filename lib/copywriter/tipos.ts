@@ -66,7 +66,16 @@ export type DocCopy = {
   version: number;
   props: PropsGuion;
   contenido: JsonNodo;
+  /** Quién guardó la última vez (D9): la marca que ve el dueño cuando alguien editó con un link compartido. */
+  editado?: EditadoPor | null;
 };
+
+/**
+ * La marca de quién editó (D9). `afuera`: lo guardó alguien con un link compartido, no el equipo. `por` es lo que se
+ * muestra: el nombre del usuario, el del invitado (o su email) o el que escribió quien entró con el link, que NO está
+ * verificado (por eso la pantalla dice «con el link»).
+ */
+export type EditadoPor = { por: string; afuera: boolean; at: string };
 
 /** Lo que abre la pantalla: la página y su documento. */
 export type GuionAbierto = { pagina: PaginaCopy; doc: DocCopy };
