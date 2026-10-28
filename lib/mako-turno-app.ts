@@ -871,10 +871,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // dependía de que la persona tocara el botón): su tarjeta queda, por si lo pidió ella. La línea la escribe el código.
     /** Lo que no fue de MaKo sino del proveedor de IA (un 503, el cupo): `esRuido` no lo registra, y es su propio ticket. */
     let delProveedor = false;
+    /** registrarError DEJÓ ticket (no sólo «hubo una falla»): el «no pude» del modelo no abre otro. */
+    let registroConTicket = false;
     if (fallasDeMako.length) {
       const quien = await identidadDe(ws, persona.actor).catch(() => null);
       const r = await registrarError({ origen: 'mako', ...fallasDeMako[0], hilo: String(s.id) }, quien);
-      if (r.ok && r.ticketId) paraLaPersona.push(r.nuevo ? lineaDelTicket(r.ticketId) : LINEA_YA_AVISADO);
+      if (r.ok && r.ticketId) { registroConTicket = true; paraLaPersona.push(r.nuevo ? lineaDelTicket(r.ticketId) : LINEA_YA_AVISADO); }
       delProveedor = !r.ok && r.motivo === 'ruido' && fallasDeMako[0].nombre === 'responder';
     }
     const dondeDelTurno: DondeNoPude = { ws, actor: persona.actor, superficie: 'ops-center', conv: String(s.id), pedido: textoPersona, ...(desde?.pantalla ? { ruta: desde.pantalla } : {}) };
@@ -943,7 +945,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // línea que lo dice la escribe el código. Repetido en la misma conversación: nada.
     if (respuesta) {
       // Si lo que falló ya dejó su ticket (registrarError), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
-      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: fallasDeMako.length > 0 }, dondeDelTurno, { operacion: noViajo[0] ?? null });
+      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket }, dondeDelTurno, { operacion: noViajo[0] ?? null });
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n') || null;
     }
     // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio).

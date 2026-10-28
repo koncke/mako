@@ -51,9 +51,48 @@ export function rechazoSiNoEsConfirmacionPura(p: {
   canal: string; aTerceros: boolean | undefined; mensaje: string | null | undefined; titulo: string; resumen: string;
   /** Mueve plata (D2, `plata` del registro): la misma puerta, con su razón. */
   plata?: boolean | undefined;
+  /** El grupo de WhatsApp: quién pidió la acción, quién confirma, y si el «sí» le habla a MaKo (`elSiEsDeQuienPidio`). */
+  enElGrupo?: ElSiEnElGrupo;
 }): string | null {
   if (p.canal !== 'whatsapp' || !(p.aTerceros || p.plata)) return null;
-  if (confirmacionPura(p.mensaje)) return null;
-  if (!p.aTerceros) return `«${p.titulo}» mueve plata (un gasto, un monto) y no se toma a la ligera: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a pasar —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;
-  return `«${p.titulo}» le llega a otra persona (un email, un WhatsApp o una invitación) y no se deshace: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a salir —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;
+  if (!confirmacionPura(p.mensaje)) {
+    if (!p.aTerceros) return `«${p.titulo}» mueve plata (un gasto, un monto) y no se toma a la ligera: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a pasar —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;
+    return `«${p.titulo}» le llega a otra persona (un email, un WhatsApp o una invitación) y no se deshace: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a salir —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;
+  }
+  if (p.plata && p.enElGrupo && !elSiEsDeQuienPidio(p.enElGrupo)) return `«${p.titulo}» mueve plata, y en el grupo este «sí» no es de quien la pidió ni le habla a MaKo: puede ser la respuesta a otra persona. NO la confirmes. Contesta en una sola línea, exactamente: ${PIDE_EL_SI_A_MAKO} La pendiente sigue viva.`;
+  return null;
+}
+
+/**
+ * EL «SÍ» DE PLATA EN UN GRUPO (la verificación de 8cb034a18, decidido por el Cerebro el 28/10/2026). El lote junta sólo lo que
+ * entra en 8 s (lib/mako-doer-buffer.ts): si Pedro contesta «sí» a «@Pedro ¿lo confirmo?» de Ana más tarde, el «sí» llega solo, y
+ * un «sí» puro confirmaba la pendiente de plata. Ahora la confirma:
+ *   · el «sí» de QUIEN LA PIDIÓ (el caso de casi siempre: el que pide, confirma);
+ *   · un «sí» que le habla a MaKo, de cualquiera: «sí, MaKo», «@MaKo sí», o la respuesta CITADA a un mensaje de MaKo.
+ * Otro «sí» no ejecuta: MaKo pide `PIDE_EL_SI_A_MAKO` y la pendiente sigue viva. Sin saber quién la pidió (una pendiente de antes,
+ * un lote de varios), también. Lo que le llega a un tercero (`aTerceros`) queda afuera de esta primera versión.
+ */
+export type ElSiEnElGrupo = { pidio: string | null; confirma: string | null; aMaKo: boolean };
+export function elSiEsDeQuienPidio(s: ElSiEnElGrupo): boolean {
+  return s.aMaKo || (!!s.pidio && !!s.confirma && s.pidio === s.confirma);
+}
+/** Lo que MaKo contesta cuando el «sí» no alcanza. */
+export const PIDE_EL_SI_A_MAKO = '¿Lo confirmo? Respóndeme «sí, MaKo» y lo hago.';
+
+/** Quién escribe en el grupo, para comparar al que pidió con el que confirma: el `participant` sin el `:device`. */
+export function quienEnElGrupo(participant: string | null | undefined): string | null {
+  const p = (participant ?? '').trim().replace(/:\d+(?=@)/, '');
+  return p || null;
+}
+
+/** Dónde guarda la pendiente quién la pidió: en su `payload` (jsonb, sin migración). No es un parámetro de la acción: se saca al
+ *  leerla (lib/mako-pendientes.ts, `toP`), antes de mostrarla o ejecutarla. */
+export const PIDIO = '__pidio';
+export function conQuienPidio(payload: Record<string, unknown>, pidio: string | null | undefined): Record<string, unknown> {
+  return pidio ? { ...payload, [PIDIO]: pidio } : payload;
+}
+export function sinQuienPidio(payload: Record<string, unknown>): { payload: Record<string, unknown>; pidio: string | null } {
+  if (!(PIDIO in payload)) return { payload, pidio: null };
+  const { [PIDIO]: pidio, ...resto } = payload;
+  return { payload: resto, pidio: typeof pidio === 'string' && pidio ? pidio : null };
 }

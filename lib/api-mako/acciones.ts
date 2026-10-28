@@ -52,6 +52,7 @@ import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
 import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
 import { bloqueDeResultado } from '@/lib/chat-bloques';
 import { esReglaUOpinion, lineaDelTicket } from '../no-pude';
+import { esFallaTragada } from '../no-pude-frases';
 import { ticketDeNoPude } from '../no-pude-server';
 
 /** Cuánto vive un «sí». Dos horas: alcanza para que el dueño conteste y no para que
@@ -96,6 +97,8 @@ export async function proponerChat(def: AccionDef, payload: Record<string, unkno
     origen: origenDe(ctx), ttlMin: TTL_PENDIENTE_MIN,
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
     mismoTurnoDesde: ctx.turnStart,
+    // En un grupo, quién la pidió: el «sí» de plata es de esa persona o le habla a MaKo (lib/confirmacion-pura.ts).
+    pidio: ctx.enElGrupo?.quien,
   });
   // El motivo VIAJA (23/10/2026, el ws13): un paso de una automatización lo escribe en `nutricion_envios.error`, y
   // «no pude registrarla» sin él costó diez días de avisos perdidos con la causa en un log que nadie lee. Va APARTE
@@ -189,7 +192,7 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     // pudo haber escrito a medias.
     await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
     // Si falló al ejecutarse, el ticket (`ticketSiFallo`) y su línea van con el «No se pudo».
-    const ticket = reventoAlEjecutar ? await ticketSiFallo(ctx, def.titulo, def.id, r.resumen) : null;
+    const ticket = reventoAlEjecutar || (!r.ok && esFallaTragada(r.resumen)) ? await ticketSiFallo(ctx, def.titulo, def.id, r.resumen) : null;
     if (ticket) r = { ...r, resumen: `${r.resumen} ${lineaDelTicket(ticket)}` };
     // El chat de donde salió se entera, con lo que dibuja el resultado: como si se hubiera confirmado en su tarjeta.
     const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
@@ -295,6 +298,7 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   // lo reviso» no lo ejecuta. La pendiente sigue viva; el rechazo vuelve al modelo, que repregunta mostrando qué va a salir (lib/confirmacion-pura.ts).
   const rechazoATercero = rechazoSiNoEsConfirmacionPura({
     canal: ctx.canal, aTerceros: def && esAccion(def) ? def.aTerceros : undefined, plata: def && esAccion(def) ? def.plata : undefined, mensaje: ctx.mensajeUsuario, titulo: def?.titulo ?? p.tipo, resumen: p.resumen,
+    enElGrupo: ctx.enElGrupo ? { pidio: p.pidio ?? null, confirma: ctx.enElGrupo.quien, aMaKo: ctx.enElGrupo.aMaKo } : undefined,
   });
   if (rechazoATercero) return { error: rechazoATercero };
 
@@ -337,7 +341,8 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   await resolverPendiente(ctx.ws, p.id, r.ok ? 'ejecutada' : 'error', `${r.resumen}${quien}`);
   // Si falló al ejecutarse, el ticket (`ticketSiFallo`): su línea va en el resumen, que leen la tarjeta de la app (también por
   // detrás, `enSegundoPlano`) y `confirmar_accion` de WhatsApp. El modelo la puede repetir: no dice «no pude» (anti-bucle).
-  const ticket = reventoAlEjecutar ? await ticketSiFallo(ctx, def?.titulo ?? p.tipo, p.tipo, r.resumen) : null;
+  // O lo que el runner se TRAGÓ (`esFallaTragada`, lib/no-pude-frases.ts): los `sinLanzar`, ejecutarAccion, agendar.
+  const ticket = reventoAlEjecutar || (!r.ok && esFallaTragada(r.resumen)) ? await ticketSiFallo(ctx, def?.titulo ?? p.tipo, p.tipo, r.resumen) : null;
   const resumen = ticket ? `${r.resumen} ${lineaDelTicket(ticket)}` : r.resumen;
   return { ok: r.ok, id: p.id, tipo: p.tipo, resumen, ...(ticket ? { ticket } : {}), ...(r.datos ? { datos: r.datos } : {}) };
 }

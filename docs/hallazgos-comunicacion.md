@@ -157,13 +157,68 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     editar»); quedan afuera las cifras pegadas a «:» o «/», las de más de 8 dígitos, los años y las que van después de «las»
     o «el».
   · **Regla: la intención y las herramientas de un detector se deciden en UNA función, y se prueban con el turno real**
-    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. Capturar, la duda,
-    la agenda y el «sí» no cambian de intención.
-- **«He hecho», «he abierto» y «he escrito» también cuentan una lectura** (la revisión de 36e06b35f). «He hecho una búsqueda
-  en tu CRM» o «He abierto tu agenda y mañana tienes 2» salían como «Eso no lo llegué a hacer». Ahora «escrito» corta sólo
-  con a quién («le he escrito», «he escrito a Juan»), y en un turno que leyó, «hice» y «abrí» no cortan.
-- **El lote es texto plano y perdía las @menciones**: en modo «ventana», una mención a MaKo seguida de otro mensaje recibía
-  el 👍 y después silencio. Ahora el sintético lleva las menciones de todo el lote (`mencionesDelLote`).
+    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. El capturar
+    explícito, la agenda y el «sí» no cambian de intención.
+  · ⚠️ **Respetar la duda fue el arreglo equivocado** (la verificación de 4d1d0a010): el seguimiento de Leila SIN foto («son
+    423, no 4235», capturar dudosa) quedaba en el camino barato sin herramientas. La duda se saca, porque el detector ya pide
+    plata a la vista, y la plata puede estar en lo de antes (la foto, la respuesta de MaKo). En ese caso las cifras tienen
+    que ser de 3 dígitos o más y no un año, y el mensaje tiene que ser la corrección y nada más (`SOLO_LA_CORRECCION`: «son
+    120 no 150 leads» o «el código postal es 3300 no 3301» hablan de otra cosa).
+  · ⚠️ **La lista de lo que rodea la cifra tiene que traer cómo se PIDE corregir** (la verificación de 8cb034a18): sin
+    «corregilo», «por favor», «debería ser» ni «la de Nadia», «son 423, no 4235 por favor» volvía a capturar dudosa sin
+    `editar_cuota`. Ahora `SOLO_LA_CORRECCION` los admite (y los emojis), y en un lote mira renglón por renglón («ahí está» +
+    «son 423, no 4235»).
+  · ⚠️ **Por la palabra no se sabe si es un año**: «una cuota de 2000» lleva el mismo «de» que «vence en 2026», y mirar el
+    «de» (8cb034a18) volvía año a «la cuota es de 2000 no 1500». Ahora dos cifras son años sólo si las DOS están a ±5 del año
+    en curso (`sonAnios`), con la plata en el mensaje o antes. Las pruebas fijan la fecha (`corrigeUnMonto(t, antes, HOY)`).
+  · Y cuando la corrección pasa a ACTUAR, no trae el plan ni lo que confirma o cancela lo pendiente (`sinEstas`):
+    `cancelar_accion` actúa sin tarjeta.
+- **«He hecho», «he abierto» y «he escrito» dependen de QUÉ** (la revisión de 36e06b35f y sus dos verificaciones). Leer:
+  «He hecho una búsqueda», «He abierto la imagen y la cuota figura en…», «Te hice el cálculo», «He escrito un resumen».
+  Escribir: «He hecho el cambio de etapa», «He abierto un ticket», «Te abrí la reunión», «He escrito un mensaje a Juan».
+  · Sacarlos de la lista entera dejó pasar las escrituras, y una lista corta volvió a cortar lecturas, también la respuesta
+    a la foto de Leila. Ahora son dos listas, con plurales y artículos: lo que se HACE para leer (búsquedas, cuentas,
+    cálculos, chequeos) y lo que se ABRE para leer (imagen, archivo, PDF, chat, panel, reporte, campañas, Google Calendar).
+    «te/le abrí» nunca es leer; «te/le hice» sí.
+  · ⚠️ **Un reporte, una campaña, un chat o una planilla también se CREAN** (la verificación de 8cb034a18): sumarlos a lo que
+    se abre para leer perdonó «He abierto un reporte del error para el equipo», la misma mentira de Leila. Lo que distingue
+    es el determinante, no el sustantivo: con «un/una», «nuevo» o «para el equipo» (`LO_CREADO`) es escribir. Lo que MaKo
+    «dejó abierto» o «ya quedó abierto» nunca es lo que leyó. Y lo hecho PARA OTRO tampoco (`A_UN_TERCERO`): «Les hice un
+    resumen a todos por mail», «Le hice una consulta al equipo de soporte». «He hecho la verificación de tu número» es
+    escribir: «verificación» salió de la lista.
+- ⚠️ **El lote se decide MENSAJE POR MENSAJE, no con las menciones juntas.** Unir las menciones (36e06b35f) arregló el 👍 y
+  el silencio en «ventana», pero una @mención a Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍: era una
+  regresión contra producción.
+  · Ahora cada mensaje se clasifica con lo suyo (`paraQuienEsElMensaje`), lo que era para otra persona no entra al turno
+    si otro mensaje es para MaKo, y el sintético lleva la decisión (`paraQuienDelLote`), no las menciones.
+  · ⚠️ **Sacar un mensaje del lote le saca el contexto a su respuesta** (la verificación de bb41ede4a): Ana «@Pedro ¿lo
+    confirmo?» y Pedro «sí». Quedaba el «sí» solo, y con una pendiente se EJECUTABA, aunque fuera de plata.
+  · **Regla: la respuesta corta a un mensaje para otro también es para otro, y lo que es para otro no lo vuelve para MaKo
+    ni una pendiente ni su pregunta.** Sólo un acuse se lee como «sí».
+  · ⚠️ **«Respuesta corta» es el mensaje ENTERO, no el arranque** (la verificación de 8cb034a18): con sólo el «listo»,
+    «listo, agendá a Juan el lunes» o «si entra un lead nuevo avisame» (el «si» condicional) se volvían «a otro» detrás de
+    una mención, y quedaban con 👍 y silencio. Ahora es un acuse o una confirmación entera («sí», «dale, ya te lo mando»,
+    «ok 👍»), sin nombrar a MaKo ni preguntar (`esRespuestaCorta`).
+  · **Y la escribe OTRA persona** (`conLasRespuestas`): Ana «@Leila mirá» y después Ana «sí» no se contesta a sí misma, ese
+    «sí» es para MaKo. Lo que sigue a una respuesta va con ella aunque sea del mismo (Pedro «sí» y Pedro «dale»). Sin el
+    autor, se toma como respuesta: es lo que no ejecuta nada.
+  · **El 👍 sale antes del lote y mensaje por mensaje**, así que mira la cola con la misma regla (`contestaAOtroEnLaCola`): sin
+    eso, el «sí» de Pedro a Ana recibía el 👍 con una pendiente viva.
+  · «sí, y avísale a @Pedro», con una pendiente o una pregunta de MaKo, es para MaKo (`confirmaYNombraAOtro`: la @ va después
+    de «a», «con» o «para»). «@Pedro sí» y «sí @Pedro» siguen siendo para Pedro.
+  · ⚠️ **Lo del lote no alcanza: el «sí» que llega más de 8 s después llega solo** (`VENTANA_MS`, lib/mako-doer-buffer.ts), y un
+    «sí» puro confirmaba la pendiente aunque fuera de plata; lo de Ana se salteó sin quedar en la memoria, así que el turno
+    del «sí» no sabe a quién le contestaba. La red no es otra regla del lote: es la PUERTA (`elSiEsDeQuienPidio`,
+    lib/confirmacion-pura.ts; lo decidió el Cerebro el 28/10, se lo cuenta a Martín). Una pendiente de plata en un grupo la
+    confirma quien la pidió, o un «sí» que le habla a MaKo («sí, MaKo», «@MaKo sí», la respuesta citada a un mensaje de
+    MaKo). Otro «sí» no ejecuta: MaKo pide «sí, MaKo» y la pendiente sigue viva. Lo que le llega a un tercero quedó afuera.
+    · Quién la pidió va en el `payload` (`__pidio`, sin migración) y sale al leerla (`toP`): ni la bandeja lo muestra ni la
+      acción lo recibe. Sin saber quién (una pendiente de antes, un lote de varios), pide «sí, MaKo».
+    · ⚠️ **«@MaKo sí» no confirmaba**: la @ escribe el número de la línea, que contaba como palabra en `confirmacionPura` y
+      tapaba el «sí» del arranque en el clasificador. El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): se saca la @ de la
+      línea y el «MaKo,» de delante de una confirmación, antes de clasificar.
+    · En la línea del dueño, lo suyo llega `fromMe` y puede venir sin `participant`: cuenta como «fromMe».
+  · El sintético lleva el nombre y el autor del último mensaje que QUEDA, no del último de la cola.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
 levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09fa3c3, lib/no-pude*.ts).

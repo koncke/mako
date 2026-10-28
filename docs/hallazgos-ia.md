@@ -7293,3 +7293,9 @@ Martín: hoy la regla de `mako-pc` es no tocarlo.
   «sí» lo que escribe no viaja. Un ofrecible es una promesa: tiene que pasar las mismas puertas que la herramienta.
 - **«Anotado» sin sujeto, sí; un estado LEÍDO, no** («La cuota 13 quedó registrada como cobrada» es un dato de cobranza_lead). La
   regla de precisión de lib/doer-salida.ts ya lo decía: un estado puede ser lo que MaKo leyó.
+
+**La verificación del 28/10/2026 (claude4):** angostar la señal del plan se pasó de largo con frases vecinas. Un «están mal,
+¿me ayudas?» es un pedido (la pregunta del final no lo anula si dice que algo está mal); la llamada o la cita como CONTEXTO no le
+gana al plan (sólo un pedido de MOVERLA: `MUEVE_AGENDA`); y el estilo de la vista («mostrar», «formato», «más grande») vale sólo en
+«Editar» (`nombraLaVistaDeLaFicha`), no en todo esPedidoDeCobro, donde «me mostró» o «la orden de compra» son datos. «Anotado, …»,
+«Anotado 👍» y «Anotado y guardado» siguen siendo un «Anotado»; con una pendiente, la queja suelta («No anda») tampoco es un «no».

@@ -112,6 +112,14 @@ export function hashCorto(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+/** Las palabras que no distinguen un fallo de otro. */
+const VACIAS = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'a', 'al', 'para', 'con', 'y', 'que', 'por', 'mi', 'su', 'tu', 'lo']);
+/**
+ * Lo que identifica un fallo: sus dos primeras palabras con peso (la verificación del 28/10/2026). «crear la tarea» y «crear la
+ * tarea en el plan» son el mismo; «un registro de cumpleaños» y «un tope por canal», dos.
+ */
+export const nucleoDeLaClave = (s: string): string => norm(s).split(/[^\p{L}\p{N}]+/u).filter((w) => w && !VACIAS.has(w)).slice(0, 2).join(' ');
+
 /** El comienzo de la `ref` de TODO ticket automático de un negocio: con él se cuenta su tope del día (lib/tickets-db.ts). */
 export const prefijoAutomatico = (ws: number): string => `np:${ws}:`;
 
@@ -122,7 +130,7 @@ export const prefijoAutomatico = (ws: number): string => `np:${ws}:`;
 export function refDeNoPude(p: { ws: number; superficie: Superficie; conv: string; causa: CausaNoPude; clave?: string | null }): string {
   if (CAUSAS_DEL_NEGOCIO.has(p.causa)) return `${prefijoAutomatico(p.ws)}${p.causa}`;
   // Con lo que falló (la revisión del 28/10/2026): dos pedidos DISTINTOS en la misma conversación son dos tickets; el mismo, uno.
-  const clave = p.clave?.trim() ? `:${hashCorto(p.clave)}` : '';
+  const clave = p.clave?.trim() ? `:${hashCorto(nucleoDeLaClave(p.clave))}` : '';
   return `${prefijoAutomatico(p.ws)}${p.superficie}:${hashCorto(p.conv)}:${p.causa}${clave}`.slice(0, 120);
 }
 

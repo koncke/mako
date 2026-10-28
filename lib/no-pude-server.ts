@@ -94,11 +94,14 @@ export async function conTicketsDeMaKo(respuesta: string, senales: Omit<SenalesN
 }> {
   const ne = sacarNoExiste(respuesta);
   const np = sacarNoPude(ne.texto);
-  // Lo que falló ya dejó su ticket (registrarError, el de la huella): sólo se sacan las marcas, sin un segundo ticket ni otra línea.
-  if (senales.yaRegistrado) return { texto: np.texto, causa: null, ticket: null, linea: null, lineaCorta: null };
-  // La negativa legítima se mira también en lo que EXPLICA la respuesta (la marca dice el qué, no el porqué; la revisión del 28/10).
-  const regla = senales.regla || (!!np.noPudo && esReglaUOpinion(np.texto));
-  const causa = causaDelNoPude({ ...senales, regla, noExiste: ne.falta, noPudo: np.noPudo });
+  // La negativa legítima se mira en la marca y en la ORACIÓN que la explica (la última antes de la marca), no en toda la respuesta:
+  // «Meta devolvió un error al leer el token» es una falla (la verificación del 28/10/2026). Sólo apaga el «no pude», no el
+  // «no existe» que venga en la misma respuesta.
+  const ultimaOracion = np.texto.split(/(?<=[.!?])\s+|\n+/).map((x) => x.trim()).filter(Boolean).pop() ?? '';
+  const noPudoLegitimo = !!np.noPudo && (esReglaUOpinion(np.noPudo) || esReglaUOpinion(ultimaOracion));
+  // Lo que falló ya dejó su ticket (registrarError, el de la huella): el «no pude» no abre otro. Lo que NO existe sí sigue.
+  const noPudo = senales.yaRegistrado || noPudoLegitimo ? null : np.noPudo;
+  const causa = causaDelNoPude({ ...senales, ruteo: senales.ruteo && !senales.yaRegistrado, noExiste: ne.falta, noPudo });
   if (!causa) return { texto: np.texto, causa: null, ticket: null, linea: null, lineaCorta: null };
   const ticket = await ticketDeNoPude(causa, d, { ...det, queNoPudo: det.queNoPudo ?? np.noPudo ?? ne.falta, respuestaMako: det.respuestaMako ?? np.texto });
   const delNegocio = CAUSAS_DEL_NEGOCIO.has(causa);
