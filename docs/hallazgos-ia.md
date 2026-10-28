@@ -7139,3 +7139,32 @@ y propone cómo, y lo urgente va después como sugerencia. tests/mako-no-descali
 **Sin hacer:** medirlo con el MODELO REAL: `scripts/probar-no-existe.mts` ya trae la pregunta de cumpleaños con la persona de
 verdad y `descalificaElPedido`, y no se corrió (pide las claves de IA y registra el uso en la base). El campo de cumpleaños
 lo hace CRM/Chats.
+
+## Los «no puedo» falsos de la app: la herramienta existía y no viajaba (27/10/2026, claude4, Leila)
+
+**Síntoma:** MaKo le dijo «no puedo» a Leila con cosas que sí hace: editar las cuotas de un lead, corregir su plan de pagos
+(terminó en el ticket #13 como «no existe»), guardar los datos de una constancia fiscal. El diagnóstico (sólo lectura, con el
+selector real) mostró que en los tres casos la herramienta no llegaba al turno.
+
+**Lo que no se ve en el modelo, se ve en el selector:** las herramientas de un turno son una SELECCIÓN (clasificador +
+presupuesto de 12.000). Medirlo con `deSiempre: []` miente: libera presupuesto y da otra selección; el test usa
+`MAKO_TOOLS` + `MAKO_ACCION_TOOLS` de verdad.
+
+- **El plan de pagos sin la palabra «cuota»** (lib/mako-intencion.ts): «las fechas y cantidades de pago», «cada quincena», «la
+  mensualidad de Ana», «el plan de pagos» no sumaban cobros. Ahora son el tipo `plan` (editar_venta_lead y editar_cuota
+  primero; `guardar_cuotas` también marca GANADO). Trampa: `DEL_PLAN_COBRO` tomaba «el plan de pagos» como la tab Plan. La
+  mensualidad de MaKo («mi mensualidad») no entra.
+- **La ficha en «Editar»** (lib/mako-analyst-lead*.ts): la pista de diseño va adelante a propósito, pero se adueñaba de un DATO.
+  `pistaDeEdicion` elige la pista del dato si es un cobro que no nombra la vista. Sin «ficha» en esa pista: es una palabra de la
+  vista. Además, en «Editar» la pantalla bloquea los montos (bloques-cobro.tsx, `bloqueado={editando}`): MaKo ahora lo dice.
+- **Los datos fiscales** no sumaban ningún área: `editar_dato_deal` (cobros) no llegaba ni pedido explícito. Y con la constancia
+  ADJUNTA el turno es «pensar», donde lo que escribe no viaja por diseño («la ofrece»): sin sus NOMBRES, MaKo no tenía qué
+  ofrecer y decía «no puedo». **La regla:** `herramientasDelTurno` devuelve `ofrecibles` (los nombres, sin esquema) y el turno
+  de la app los dice en el system. WhatsApp todavía no los usa.
+- **«Anotado» sin escribir nada** (el horario, dos veces): `afirmacionesDeHecho` sólo miraba pretéritos; ahora también
+  «Anotado», «queda guardado», «lo recordaré», mirando la oración ENTERA (en «Anotado: X» el «:» no presenta, afirma).
+
+**Sin hacer:** en la PANTALLA, un aviso junto a los montos bloqueados en «Editar» (es del CRM: app/crm/lead-view/ficha/pagos/
+bloques-cobro.tsx:504). Corregir un dato YA cargado del perfil desde el chat: `guardar_campo_perfil` sólo completa vacíos
+(negocio.def.ts:431), se corrige en el Archivero. WhatsApp: la edición de montos con una foto (regla 9, media → pensar) es de
+«MaKo en WhatsApp». Los datos de Nadia (lead 2605, 12 cuotas de 4235.29) son producción de ws 11: los decide Martín.

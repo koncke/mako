@@ -112,6 +112,12 @@ const PRETERITO = new RegExp(`(?<!\\p{L})(?:${PRETERITOS})(?!\\p{L})`, 'u');
 const DEJE_HECHO = /(?<!\p{L})dejé(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
 /** «acabo de cargar las 3 tareas»: el pasado reciente, en primera persona. */
 const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar|publicar|cambiar|mover|borrar|guardar|programar|anotar|actualizar|subir|agregar|eliminar|activar|pausar|cancelar|confirmar|responder|escribir|marcar|reprogramar)(?!\p{L})/u;
+/**
+ * «Anotado», «queda guardado», «lo recordaré» (27/10/2026, el horario de Leila): MaKo lo dijo dos veces sin escribir nada, y
+ * en el chat no hay con qué «recordar». Se mira la oración ENTERA: en «Anotado: X es de 7:30 a 9:30» lo de antes del «:» no
+ * presenta nada, ES lo que afirma.
+ */
+const HECHO_EN_MEMORIA = /^(?:¡\s*)?(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:lo|la|los|las)\s+(?:recordaré|recuerdo|tendré en cuenta|tengo en cuenta)(?!\p{L})/u;
 /** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
 const NIEGA = /(?<!\p{L})(?:no|nunca|tampoco|ni)(?!\p{L})/u;
 // «confírmala», «para confirmar», «revísala»: lo que habla de confirmar; «confirmé» y «revisé» dicen hecho, y no entran.
@@ -183,7 +189,7 @@ export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false }: { 
     if (/[¿?]/.test(tal) || NIEGA.test(tal) || DE_LO_PROPUESTO.test(tal) || CONDICION.test(tal)) return false;
     // Lo que va antes de un «:» que presenta está a la vista: se mira lo de después («Listo: pausé la campaña»).
     const dicho = o.propia.slice(finDeLoQuePresenta(texto, o, bloquesDebajo)).toLowerCase();
-    return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho);
+    return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho) || HECHO_EN_MEMORIA.test(o.propia.trim().toLowerCase());
   }).map((o) => o.tal.trim());
 }
 

@@ -11236,3 +11236,15 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
   llegaron 26. Lo que NO hace hoy es seguir avisando: con el techo agotado, una cuenta frenada nueve días calla desde el día 2.
 - **SIN hacer, decisión de producto de Martín (el Cerebro lo reparte):** si un incidente abierto varios días vuelve a avisar
   (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4 (P1: quitar «Cliente de Diseño»).
+
+## «No me deja editar sus cuotas» era charla: la queja corta caía en la 9-bis (27/10/2026, claude4, Leila)
+
+**Síntoma:** Leila recibía «no lo puedo hacer» de MaKo con cosas que SÍ se pueden. «No me deja editar sus cuotas» y «No puedo
+cambiar la fecha de la cuota 2» salían «charlar, confirmación sin nada pendiente», con 0 herramientas; con una pendiente abierta,
+la regla 1 los tomaba como un «no» a lo propuesto.
+
+**Lo obvio era el equivocado (otra vez):** anclar `CONFIRMACION` al final. La regla 1 y `corrigeAgenda` necesitan que tome el
+ARRANQUE («no, movela al viernes»). Y la segunda opción, la del refutador (charla sólo con una confirmación «pelada»), se midió
+y también rompía: «no, mejor el martes» y «No, gracias, eso es todo» pasaban a capturarse como idea en WhatsApp. **La regla:**
+`CONFIRMACION` no se toca; las reglas 1 y 9-bis la miran con `QUEJA_NO_ANDA` al lado («No me deja…», «No puedo…», «No
+funciona…», «No sale…»), que sólo saca las quejas. tests/mako-no-puedo-falsos.test.ts (el 1), con los casos de siempre.
