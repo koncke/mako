@@ -10,6 +10,11 @@
 //   · LA VISTA LOCAL: el índice + recuperar(pregunta) con el presupuesto de siempre (lib/cerebro-recuperar.ts).
 // Los tokens son ESTIMADOS (caracteres / 4, `tokensDe`): sirven para comparar, no para facturar.
 //
+// EL TURNO (28/10/2026): lo que el turno de MaKo suma a su system con lo que trae del Second Brain antes del modelo
+// (lib/cerebro-para-chat.ts → `paqueteParaElTurno`), para el dueño y para un closer (sin la plata). En la plataforma (el ws 9),
+// el grafo lleva «Lo que hace MaKo» y se suman preguntas de producto. No llama a ninguna IA: el system fijo de hoy (~2,3k
+// tokens medidos sobre el código, C:/dev/revisiones/2810-second-brain-relevamiento.md) es la vara, no se arma acá.
+//
 // ⚠️ NUNCA el ws 1 (el cliente real): se mide en el 3 (Cliente de Prueba) o en el 9 (MaKo).
 // ⚠️ `--conditions=react-server` hace que `server-only` no reviente fuera de Next; `--env` es el .env.local del clon
 //    principal (los worktrees no lo tienen). Apunta a PRODUCCIÓN: por eso este script no escribe nada.
@@ -65,6 +70,27 @@ async function main() {
   const prom = Math.round(suma / PREGUNTAS.length);
   console.log(`PROMEDIO por pregunta: ${prom} tokens, más el índice una vez por chat (${tokensDe(indice)}).`);
   console.log(`Ahorro medio contra ENTERO en líneas: ${Math.round(100 * (1 - prom / Math.max(1, tokensDe(enLineas))))}% · contra ENTERO en archivos: ${Math.round(100 * (1 - prom / Math.max(1, tokensDe(vaultConTope))))}%`);
+
+  // ── EL TURNO ──
+  const { wsSuperAdmin } = await import('../lib/workspace');
+  const { conCapa, sinLaPlata, bloqueDelSecondBrain, PRESUPUESTO_TURNO } = await import('../lib/cerebro-union');
+  const { CAPA_FUNCIONES, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES } = await import('../lib/cerebro-funciones');
+  const plataforma = (await wsSuperAdmin().catch(() => -1)) === ws;
+  const negocio = await runWithWorkspace(ws, () => construirCerebro({ sinLayout: true }));
+  const grafo = plataforma ? conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES }) : negocio;
+  const preguntas = [...PREGUNTAS, '¿Cuál es mi meta del trimestre?', ...(plataforma ? ['hacé de esta copia la landing de los Chats', '¿qué reemplaza a respond.io?', '¿qué no hace la bandeja?'] : [])];
+  console.log(`\nEL TURNO (${plataforma ? 'la plataforma, con las funciones' : 'un negocio'}), presupuesto ${PRESUPUESTO_TURNO}: lo que suma al system de cada turno`);
+  let sumaTurno = 0;
+  let conPaquete = 0;
+  for (const q of preguntas) {
+    const dueno = bloqueDelSecondBrain(recuperar(grafo, { pregunta: q, presupuesto: PRESUPUESTO_TURNO }));
+    const closer = bloqueDelSecondBrain(recuperar(sinLaPlata(grafo), { pregunta: q, presupuesto: PRESUPUESTO_TURNO }));
+    sumaTurno += tokensDe(dueno);
+    if (dueno) conPaquete++;
+    const semillas = recuperar(grafo, { pregunta: q, presupuesto: PRESUPUESTO_TURNO }).semillas.slice(0, 3).join(', ');
+    console.log(`«${q}» → dueño ${tokensDe(dueno)} tokens · closer ${tokensDe(closer)} · semillas: ${semillas || '(ninguna: no suma nada)'}`);
+  }
+  console.log(`PROMEDIO que suma el turno: ${Math.round(sumaTurno / preguntas.length)} tokens (${conPaquete} de ${preguntas.length} preguntas traen algo), contra ${tokensDe(enLineas)} del grafo entero en líneas.`);
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

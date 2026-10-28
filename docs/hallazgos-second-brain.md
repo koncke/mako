@@ -2899,3 +2899,18 @@ chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `
 (no una acción de MaKo) se ve en el chat al vencer la caché, y en Vercel cada instancia tiene la suya; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
 MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
 lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.
+
+## El turno de MaKo trae del Second Brain lo que nombra la pregunta (28/10/2026, claude4, la tanda 3 del relevamiento)
+
+- **Lo que quedó:** el turno de la app (Ops Center, Second Brain, MaKo de cada tab, teléfono, CRM, el Analyst del lead) arma,
+  en paralelo con su system y sin IA, la vista local de la pregunta (`paqueteParaElTurno`, presupuesto 1.200) y la pone justo
+  después del system. No depende de que el selector deje pasar `indice` o `recuperar` (casi nunca lo hacía).
+- **La plata:** el grafo en caché es del NEGOCIO, no de la persona. Para un closer o un setter (`sinPlata`, el mismo corte que
+  `sinNumerosDelNegocio`) se sacan antes de recuperar los objetivos, los KPIs y los clientes ganados, con sus aristas.
+- **Sin frenar el primer mensaje:** el grafo son 21 lecturas. El turno lo espera hasta 2,5 s; si no llegó, sigue sin el
+  paquete y el armado queda en la caché para el turno siguiente.
+- **Si la pregunta no nombra nada del grafo, no suma nada:** el índice NO viaja en cada turno (serían ~300 tokens por paso).
+
+**Sin hacer:** achicar el system fijo por etapas (perfil, funnel y fase cuando el paquete ya los trae; `hechosMako` como nodos
+de la capa de funciones); `indice` y `recuperar` entre las herramientas de siempre; el doer de WhatsApp (lib/mako-doer-in.ts)
+y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen.

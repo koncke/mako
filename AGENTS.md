@@ -1772,6 +1772,10 @@ código nuevo:
       MaKo acaba de escribir se lee en el turno siguiente: un camino nuevo que EJECUTA una acción sin pasar por
       lib/api-mako/acciones.ts llama a `invalidarGrafoChat(ws)` (lib/cerebro-cache-chat.ts). Una lectura nueva del grafo que
       se degrada a vacío lo hace con `vacioAvisando` (un grafo con una lectura caída no se guarda).
+    - **Un chat con su propio turno trae del Second Brain lo que nombra la pregunta ANTES del modelo**: `paqueteParaElTurno`
+      (lib/cerebro-para-chat.ts), con `sinPlata` para quien no es admin (sin objetivos, KPIs ni clientes del negocio: el grafo
+      en caché es del negocio, no de la persona). Como el turno de la app (lib/mako-turno-app.ts). No depende de que el
+      modelo pida una herramienta.
     - **Una tab o una capacidad nueva suma o cambia su entrada en lib/funciones-mako.ts en el MISMO commit** (28/10/2026,
       Martín: «que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades»): qué hace, qué no hace
       (lo que todavía no, como «Todavía no: …»), qué reemplaza y cómo le dice la gente. Es lo que un chat lee para no negar

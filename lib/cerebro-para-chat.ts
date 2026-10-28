@@ -21,7 +21,8 @@ import { construirCerebro } from './cerebro-grafo';
 import {
   CAPA_FUNCIONES, catalogoCorto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES,
 } from './cerebro-funciones';
-import { conCapa } from './cerebro-union';
+import { bloqueDelSecondBrain, conCapa, PRESUPUESTO_TURNO, sinLaPlata } from './cerebro-union';
+import { recuperar } from './cerebro-recuperar';
 import { grafoGuardado, guardarGrafo } from './cerebro-cache-chat';
 import type { Cerebro } from './cerebro-modelo';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
@@ -47,6 +48,30 @@ export async function funcionesParaLanding(p: { pedido: string; pagina?: string 
     return { catalogo: catalogoCorto(), funcion: f ? funcionEntera(funcionesDeMako(), f) : '' };
   } catch {
     return null;
+  }
+}
+
+/** Cuánto espera el turno al grafo la primera vez (después sale de la caché): si no llegó, el turno sigue sin el paquete. */
+export const ESPERA_GRAFO_TURNO_MS = 2_500;
+
+/**
+ * Lo que el turno de MaKo trae del Second Brain ANTES del modelo (la tanda 3 del relevamiento, 28/10/2026): la vista local de
+ * lo que nombra la pregunta, sin IA y con su presupuesto (`bloqueDelSecondBrain`). Si la pregunta no nombra nada del grafo,
+ * nada (el índice no viaja en cada turno). Con `sinPlata` (un closer o un setter, como `sinNumerosDelNegocio` de
+ * lib/mako-context.ts), sin los objetivos, los KPIs ni los clientes del negocio: el grafo en caché es del NEGOCIO, no de la
+ * persona. Espera al grafo hasta `ESPERA_GRAFO_TURNO_MS` y nunca tira: sin grafo, el turno sigue como antes.
+ */
+export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolean; presupuesto?: number }): Promise<string> {
+  if (!pregunta.trim()) return '';
+  try {
+    const grafo = await Promise.race([
+      grafoParaChat(),
+      new Promise<null>((r) => setTimeout(() => r(null), ESPERA_GRAFO_TURNO_MS)),
+    ]);
+    if (!grafo) return '';
+    return bloqueDelSecondBrain(recuperar(o.sinPlata ? sinLaPlata(grafo) : grafo, { pregunta, presupuesto: o.presupuesto ?? PRESUPUESTO_TURNO }));
+  } catch {
+    return '';
   }
 }
 
