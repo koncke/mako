@@ -3297,6 +3297,14 @@ por `AdjuntosCaja.tsx` (`import '@/app/_chat/chat.css'`): en node un `.css` no c
 vive en su archivo (`CajaChatNuevo.tsx`), las piezas importan de `AdjuntosCaja` sólo TIPOS, y `etiquetaDoc` pasó a
 `lib/centro-caja.ts`.
 
+**La revisión de 0453923ab (el Cerebro): la nota de voz se llevaba los archivos TARDE.** `mandarNota` los tomaba de la caja
+después del `await prepararNota` (hasta 300 s), con el `enLaCaja` del dibujo en que arrancó: lo que Martín quitaba en esos
+segundos salía firmado igual, y lo que soltaba lo borraba `vaciarAdjuntos` sin mandarlo. La regla: lo que sale con un envío se
+toma de la caja AL EMPEZAR, antes de cualquier `await`, como `mandar()`; si el envío no sigue (la nota no se entendió), vuelve a
+la caja tal cual (`devolverAdjuntos`, useCentro.ts). Y la caja QUIETA (saliendo, apagada o bloqueada) no quita ni toma lo
+soltado (`adjuntosQuietos`, app/_chat/juntar-adjuntos.ts): vale para las 17 cajas, no sólo para el chat nuevo (Soporte también
+se apaga mientras manda).
+
 **Lo que quedó SIN hacer:**
 - Instalar el cartero 1.22.0 en la PC, DESPUÉS de desplegar el servidor que acepta el trabajo. Hasta entonces la caja del chat
   nuevo no ofrece adjuntar.

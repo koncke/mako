@@ -19,6 +19,10 @@
 //   · los archivos no pasan de la caja al mensaje → 2 (el 6 y el 7);
 //   · las piezas importan un VALOR de AdjuntosCaja (con su CSS) → centro-nuevo-chat entero no carga, y el 5;
 //   · la caja del chat nuevo sin `adjuntos` → 2 (el 5 y el barrido); `mandarTextoA` sin firmar los archivos → 1 (el 5).
+// Y la revisión de 0453923ab (28/10/2026, base de 31 con chat-formatos, chat-unico y el barrido): el 9 da ROJO con el
+// ChatNuevo.tsx de 0453923ab tal cual. Roturas: la nota sin tomar los archivos antes → 2 (el 8 y el 9); sin devolverlos si no se
+// entendió → 1 (el 8); la caja quieta deja tocar lo adjuntado → 2 (el 10 y chat-formatos); `adjuntosQuietos` deja pasar todo
+// → 1; la cruz de quitar sin apagarse → 1; la lista sin saber que la caja está quieta → 2.
 // =============================================================================
 
 import test from 'node:test';
@@ -224,6 +228,7 @@ function centro(o: { abre: string[]; llevaArchivos: string[] }) {
   const k = {
     tabs: ['CRM'], chats: [{ clave: 'nombre:crm', titulo: 'CRM' }], carteros: [], ahora: Date.now(), apertura: null,
     adjuntosDe: (c: string) => cajas[c] ?? [], vaciarAdjuntos: (c: string) => { cajas[c] = []; },
+    devolverAdjuntos: (c: string, xs: Archivo[]) => { cajas[c] = [...xs, ...(cajas[c] ?? [])]; },
     sumarAdjuntos: async () => {}, quitarAdjunto: () => {}, sinAdjuntos: () => {}, sinImagen: () => {}, copiarConAviso: () => {},
     puedeAbrirEn: (c: string) => o.abre.includes(c),
     adjuntaEnNuevo: (c?: string) => (c ? o.llevaArchivos.includes(c) : o.llevaArchivos.length > 0),
@@ -294,7 +299,8 @@ test('8. con una nota de voz: lo adjuntado sale con ella; si la nota no se enten
   await vuelta();
   s = dibujar(c.k);
   assert.equal(s.fase, 'escribiendo');
-  assert.equal(c.cajas[':chat-nuevo'].length, 1, 'la nota que no se entendió no se lleva los archivos');
+  assert.deepEqual(c.cajas[':chat-nuevo'].map((a) => a.file.name), ['pantalla.png'], 'la nota que no se entendió devuelve los archivos a la caja');
+  assert.deepEqual(s.archivos, [], 'y ya no se ven como mandados');
   g.__preparar = async () => ({ texto: 'Mirá esta pantalla' });
   s.mandarNota({ audio: new Blob(['x']), segundos: 3 });
   await vuelta(); await vuelta();
@@ -302,4 +308,52 @@ test('8. con una nota de voz: lo adjuntado sale con ella; si la nota no se enten
   r.correr();
   await vuelta();
   assert.deepEqual(c.salio, [{ a: 'nombre:crm', texto: 'Mirá esta pantalla', archivos: ['pantalla.png'] }]);
+});
+
+test('9. la nota se lleva lo adjuntado ANTES de pasarse a texto: lo que cambia en la caja en esos segundos no sale ni se borra', async () => {
+  // La revisión de 0453923ab: tomado DESPUÉS del `await` (con la lista del dibujo en que arrancó), salía firmado lo quitado en
+  // esos segundos y `vaciarAdjuntos` borraba lo sumado.
+  const hook = await motor();
+  g.__decidir = async () => ({ ok: true, decision: { accion: 'existente', nombre: 'CRM', jefe: 'CRM', clave: 'nombre:crm', origen: 'ia' } });
+  const { dibujar } = dibujador((k: unknown) => hook(k, () => {}));
+  const c = centro({ abre: ['claude1'], llevaArchivos: ['claude1'] });
+  const r = reloj();
+  c.poner('a.png', 'b.png');
+  let entendida: (x: { texto: string }) => void = () => {};
+  g.__preparar = () => new Promise((ok) => { entendida = ok; });
+  let s = dibujar(c.k);
+  s.mandarNota({ audio: new Blob(['x']), segundos: 3 });
+  s = dibujar(c.k);
+  assert.equal(s.fase, 'pasando');
+  assert.deepEqual(c.cajas[':chat-nuevo'], [], 'mientras se pasa a texto, la caja ya no tiene lo de la nota: no hay qué quitar');
+  assert.deepEqual(s.archivos.map((a) => a.file.name), ['a.png', 'b.png'], 'se ven con la nota');
+  // Algo cae en la caja en esos segundos (la caja quieta no lo toma: si igual entrara, no es de esta nota).
+  c.cajas[':chat-nuevo'] = [{ id: 'c', file: new File([PNG], 'c.png', { type: 'image/png' }), tipo: 'image', url: 'blob:c' }];
+  dibujar(c.k);
+  entendida({ texto: 'Mirá' });
+  await vuelta(); await vuelta();
+  dibujar(c.k);
+  r.correr();
+  await vuelta();
+  assert.deepEqual(c.salio, [{ a: 'nombre:crm', texto: 'Mirá', archivos: ['a.png', 'b.png'] }], 'sale lo que tenía la caja al grabar');
+  assert.deepEqual(c.cajas[':chat-nuevo'].map((a) => a.file.name), ['c.png'], 'y lo que cayó después no se borra');
+});
+
+test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma lo soltado, y lo sigue mostrando', async () => {
+  const { adjuntosQuietos } = await import('../app/_chat/juntar-adjuntos');
+  const tocados: string[] = [];
+  const a = { items: [{ id: 'x' }], puede: true, onSumar: () => { tocados.push('sumar'); }, onQuitar: () => { tocados.push('quitar'); } } as unknown as Parameters<typeof adjuntosQuietos>[0] & object;
+  const quieta = adjuntosQuietos(a, true)!;
+  quieta.onSumar([new File([PNG], 'nuevo.png')]);
+  quieta.onQuitar('x');
+  assert.deepEqual(tocados, [], 'ni entra ni se quita nada');
+  assert.equal(quieta.items, a.items, 'lo adjuntado se sigue viendo');
+  assert.equal(adjuntosQuietos(a, false), a, 'con la caja libre, los de siempre');
+  assert.equal(adjuntosQuietos(undefined, true), undefined);
+  // La caja única la usa con su `quieto` (el soltar y el aviso al panel pasan por `adjuntos`), y la ✕ se apaga.
+  const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
+  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;\s*const adjuntos = adjuntosQuietos\(deLaCaja, quieto\);\s*useAvisarAdjuntos\(adjuntos\);/);
+  assert.match(caja, /<ListaAdjuntos a=\{adjuntos\} apagado=\{quieto\} \/>/);
+  assert.match(caja, /onDrop=\{\(e\) => \{ if \(!adjuntos \|\| !traeArchivos\(e\.dataTransfer\)\) return; e\.stopPropagation\(\); alSoltar\(e, adjuntos\); \}\}/);
+  assert.match(sinComentarios(leer('app/admin/operaciones/AdjuntosCaja.tsx')), /className="co-miniatura__quitar" onClick=\{\(\) => a\.onQuitar\(x\.id\)\} disabled=\{apagado\}/);
 });

@@ -47,7 +47,7 @@ export { etiquetaDoc };
  * Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. `data-estado`: la que
  * todavía no está lista (la caja del Web Generator la lee antes de mandar; su hoja la dibuja leyéndose o en rojo).
  */
-export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
+export function ListaAdjuntos({ a, apagado = false }: { a: AdjuntosDeCaja | undefined; /** La caja está quieta (saliendo, apagada): la ✕ no quita. */ apagado?: boolean }) {
   const [viendo, setViendo] = useState<AdjuntoCaja | null>(null);
   if (!a?.items.length) return null;
   return (
@@ -59,7 +59,7 @@ export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
               {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>{etiquetaDoc(x.file.name)}</span></span>}
             </button>
-            <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} aria-label={`Quitar ${x.file.name}`}>
+            <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} disabled={apagado} aria-label={`Quitar ${x.file.name}`}>
               <Icon name="x" size={12} />
             </button>
           </li>

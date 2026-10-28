@@ -66,6 +66,11 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
     setArchivos(xs);
     return xs;
   };
+  /** Lo tomado vuelve a la caja tal cual, con sus vistas previas (la nota que no se entendió). */
+  const devolverArchivos = (xs: AdjuntoCaja[]) => {
+    k.devolverAdjuntos(CLAVE_CHAT_NUEVO, xs);
+    setArchivos([]);
+  };
   const vistas = useRef<AdjuntoCaja[]>([]);
   vistas.current = archivos;
   useEffect(() => () => { for (const a of vistas.current) URL.revokeObjectURL(a.url); }, []);
@@ -89,9 +94,12 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
   }
 
   /** El primer mensaje, una nota de voz: se ve ya, se pasa a texto por detrás y con eso MaKo decide. Lo escrito queda en la
-   *  caja; lo adjuntado sale con la nota (mientras se pasa a texto la caja está quieta: no cambia). */
+   *  caja. Lo adjuntado sale con la nota y se toma de la caja YA, antes de pasarla a texto (revisión de 0453923ab): tomado
+   *  después, con la lista del dibujo en que arrancó, salía firmado lo que se había quitado en esos segundos y se borraba lo
+   *  que se había sumado. Si la nota no se entendió, vuelve a la caja. */
   async function mandarNota(g: GrabacionLista) {
     if (fase !== 'escribiendo') return;
+    const tomados = tomarArchivos();
     const voz = { url: URL.createObjectURL(g.audio), secs: g.segundos };
     setNota(voz);
     setErrorNota(null);
@@ -101,10 +109,10 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
       URL.revokeObjectURL(voz.url);
       setNota(null);
       setErrorNota(r.error);
+      devolverArchivos(tomados);
       setFase('escribiendo');
       return;
     }
-    tomarArchivos();
     setEnviado(r.texto);
     setFase('decidiendo');
     await decidir(r.texto);

@@ -600,6 +600,15 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     for (const a of adjuntosRef.current[clave] ?? []) URL.revokeObjectURL(a.url);
     ponerAdjuntos(clave, []);
   };
+  /** Lo que se había tomado de la caja vuelve a ella TAL CUAL, delante de lo que haya (el chat nuevo, cuando la nota con la
+   *  que salía no se entendió: 28/10/2026). Ya pasó por `sumarAdjuntos`: no se vuelve a validar ni a achicar. */
+  const devolverAdjuntos = (clave: string, xs: readonly AdjuntoCaja[]) => {
+    if (!xs.length) return;
+    const todos = [...xs, ...(adjuntosRef.current[clave] ?? [])];
+    ponerAdjuntos(clave, todos);
+    const dir = direccionDe(clave);
+    if (dir) void guardarAdjuntos(dir, todos.map((a) => a.file));
+  };
 
   /**
    * Mandar lo de la caja SIN ESPERAR NADA (27/10/2026, Martín: «tarda un montón en verse en el chat. Debe ser automático; si
@@ -815,7 +824,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,
-    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos, notaGrabada,
+    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos, devolverAdjuntos, notaGrabada,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
     /** «Pegar» del «+» sin nada que pegar (20/10/2026). */
