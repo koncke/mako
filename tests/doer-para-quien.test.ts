@@ -205,7 +205,8 @@ test('11. con mayúscula no siempre es un nombre; y «@MaKo ok» / «mako listo�
   // La verificación de 991abd4af: «Dale Makito», «Ok Borralo» o «Dale Meta» detrás de un @ a otro quedaban mudos.
   for (const t of ['Dale Makito', 'Sí Makito', 'Si Pausala', 'Ok Borralo', 'Dale Cancelalo', 'Si Cargala', 'Dale Meta', 'Ok Calendly', 'Sí, Leads'])
     assert.ok(!esRespuestaCorta(t), `«${t}» se toma como respuesta a otro`);
-  for (const t of ['sí Pedro', 'dale Ana', 'sí Leila', 'ok Paola', 'dale Marcela']) assert.ok(esRespuestaCorta(t), `«${t}» no es una respuesta`);
+  // Y los nombres que esa lista se come (la verificación de 96e7840e8), con su lista corta.
+  for (const t of ['sí Pedro', 'dale Ana', 'sí Leila', 'ok Paola', 'dale Marcela', 'sí Pascuala', 'dale Mandela', 'ok Guardiola', 'sí Makena', 'sí Pasquale']) assert.ok(esRespuestaCorta(t), `«${t}» no es una respuesta`);
   // Un «ok» o un «listo» a MaKo es un «ok» para el clasificador (la puerta de plata y terceros lo repregunta: no es puro).
   for (const [t, limpio] of [['@5493764002605 ok', 'ok'], ['@5493764002605 listo', 'listo'], ['MaKo, ok', 'ok'], ['mako listo', 'listo']] as const) {
     assert.equal(sinElLlamadoAMaKo(t, LINEA), limpio, t);
@@ -220,8 +221,21 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   // La verificación de 991abd4af: los avisos, las insistencias, los flujos y el cierre de tickets salían sin anotarse; su eco volvía
   // `fromMe` y marcaba la línea de MaKo como del dueño 7 días, y desde ahí «@MaKo sí» no confirmaba.
   const grupo = leer('lib/mako-grupo.ts');
-  const jid = grupo.slice(grupo.indexOf('export async function enviarAGrupoJid('), grupo.indexOf('/** `sinGrupo`'));
-  assert.match(jid, /if \(r\.ok\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[r\.id\]\)\.catch\(\(\) => \{\}\);/);
+  // El envío de texto de la línea de MaKo anota lo que sale a un GRUPO: por ahí pasan `enviarAGrupoJid`, el grupo SuperAdmin y la
+  // bienvenida (la verificación de 96e7840e8: esos dos quedaban afuera).
+  const texto = grupo.slice(grupo.indexOf('async function enviarTextoVozMaKo('), grupo.indexOf('async function ponerNombre('));
+  assert.match(texto, /if \(r\.ok && id && jidONumero\.endsWith\('@g\.us'\)\) await anotarEnviadosAlGrupo\(OWNER_WS, jidONumero, \[id\]\);/);
+  for (const f of ['export async function enviarAGrupoJid(', 'export async function enviarAlGrupoSuperAdmin(']) {
+    const cuerpo = grupo.slice(grupo.indexOf(f), grupo.indexOf('\n}\n', grupo.indexOf(f)));
+    assert.match(cuerpo, /await enviarTextoVozMaKo\(jid, texto/, `${f} no sale por enviarTextoVozMaKo`);
+  }
+  assert.match(grupo, /if \(opts\.bienvenida !== false\) await enviarTextoVozMaKo\(jid, mensajeBienvenidaMaKo\(opts\.nombre\)\);/);
+  // El anillo, con compare-and-set y la lectura estricta (un error al leer no lo vacía), y nunca tira.
+  const anotar = grupo.slice(grupo.indexOf('export async function anotarEnviadosAlGrupo('), grupo.indexOf('const delAnillo'));
+  assert.match(anotar, /const raw = await getSettingEstricto\(KEY_ENVIADOS\(jid\)\);/);
+  assert.match(anotar, /if \(await cambiarSettingSi\(KEY_ENVIADOS\(jid\), raw, JSON\.stringify\(next\)\)\) return;/);
+  assert.match(anotar, /\} catch \(e\) \{/);
+  assert.doesNotMatch(anotar, /setSetting\(/, 'el anillo volvió a escribir sin compare-and-set');
   const maKo = grupo.slice(grupo.indexOf('export async function enviarAlGrupoMaKo('), grupo.indexOf('export async function enviarPartesAlGrupoMaKo('));
   assert.match(maKo, /if \(id\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[id\]\)\.catch\(\(\) => \{\}\);/);
   assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, r\.ids\)\.catch\(\(\) => \{\}\);/);
@@ -230,6 +244,9 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n\s*const registrarEnviados = anotarEnviadosAlGrupo;/);
   assert.doesNotMatch(doer, /KEY_SENT/);
-  assert.match(doer, /const deMaKo = \(await instanciaVoz\(\)\.catch\(\(\) => ''\)\) === instance;\n\s*const visto = deMaKo \? NaN :/);
-  assert.match(doer, /if \(!instance \|\| \(await esLineaDelDueno\(instance\)\) \|\| \(await instanciaVoz\(\)\.catch\(\(\) => ''\)\) === instance\) return;/);
+  // La voz, leída ESTRICTA (la otra convierte un error en «mako_ws1»): sin leerla no se anota ni se guarda en memoria.
+  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = voz === instance;\n\s*const visto = deMaKo \? NaN :/);
+  assert.match(doer, /if \(voz !== null\) LINEA_DEL_DUENO\.set\(/);
+  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| voz === instance\) return;/);
+  assert.doesNotMatch(doer, /instanciaVoz\(\)\.catch/, 'la voz se lee sin estricto');
 });

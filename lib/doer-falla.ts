@@ -16,6 +16,7 @@ import type { EstadoSuClave, ProvSuClave } from './su-clave-reglas';
 import type { Area } from './api-mako/tipos';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from './mako-intencion';
 import { corrigeUnMonto } from './doer-falla-frases';
+import { esFallaTragada } from './no-pude-frases';
 
 // Los detectores de lo que la persona escribe («sos el soporte», «abrime la agenda») viven aparte: nombran las formas de vos y
 // van fuera de la guarda de voseo; la nota de abajo, no (lib/doer-falla-frases.ts).
@@ -81,6 +82,35 @@ export function laCorreccion(v: VeredictoIntencion, texto: string, antes = ''): 
     herramientas: HERRAMIENTAS_CORRECCION,
     sinEstas: FUERA_DE_LA_CORRECCION,
   };
+}
+
+/**
+ * ¿La salida de una herramienta es una falla que el runner se TRAGÓ? (el error técnico entre paréntesis, `esFallaTragada` de
+ * lib/no-pude-frases.ts: «❌ No se pudo aplicar (Error guardando …).», o un JSON con ese `error`). No trae isError, así que
+ * `errorParaTicket` no la ve, y la guarda de otra herramienta del turno le comía el ticket (la verificación de 96e7840e8).
+ */
+export function esFallaTragadaDeHerramienta(out: unknown): boolean {
+  if (!out) return false;
+  const o = out as { isError?: unknown; content?: unknown };
+  if (typeof out === 'object' && o.isError === true) return false;
+  const t = (typeof out === 'string' ? out : typeof o.content === 'string' ? o.content : '').trim();
+  if (esFallaTragada(t)) return true;
+  try {
+    const j = JSON.parse(t) as { error?: unknown };
+    return !!j && typeof j.error === 'string' && esFallaTragada(j.error);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ¿El «no pude» del turno es la REGLA de una guarda? (base 7: no abre ticket). Sólo si la ÚLTIMA herramienta que corrió devolvió
+ * una guarda, y nada falló de verdad: ni un error (`errorParaTicket`) ni una falla tragada. Con «hubo alguna guarda» (96e7840e8),
+ * «falta el monto» + un reintento que se tragó el error de la base dejaba la falla sin ticket, y una guarda vieja le comía el
+ * ticket a un «no pude» de otra cosa.
+ */
+export function esLaReglaDeUnaGuarda(t: { ultimaFueGuarda: boolean; errores: number; tragadas: number }): boolean {
+  return t.ultimaFueGuarda && t.errores === 0 && t.tragadas === 0;
 }
 
 /** Lo que ACTUAR trae de siempre y una corrección de monto no lleva: el plan y las que resuelven lo pendiente. */

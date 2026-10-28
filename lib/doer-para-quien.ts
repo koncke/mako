@@ -158,6 +158,8 @@ const CON_SU_NOMBRE = /^(?:[Ss][IiÍí]+|[Dd]ale|[Oo][Kk]|[Ll]isto)[\s,]+\p{Lu}\
  *  Borralo», «Si Pausala»), a MaKo por su apodo («Dale Makito»), o algo de MaKo («Dale Meta», «Ok Calendly», «Sí, Leads»). */
 // (Por la raíz del verbo y no por la terminación: «Leila», «Paola» o «Marcela» terminan igual que «pausala».)
 const NO_ES_UN_NOMBRE = /(?<!\p{L})(?:borr|paus|cancel|carg|mand|pas|confirm|agend|activ|apag|prend|envi|hac|haz|pon|elimin|sac|cobr|mov|public|guard|cre|arm|edit|cambi|actualiz|agreg|anot|registr|mostr|abr|reprogram|resolv)\p{L}*(?:lo|la|los|las|le|les|me|nos)[\s.!]*$|(?<!\p{L})(?:mak\p{L}*|meta|calendly|leads?|google|zernio|whatsapp|instagram|facebook|stripe|fathom|zoom|drive|gmail|excel|crm|plan|ads|agenda|campañas?|landing)[\s.!]*$/iu;
+/** Los nombres de persona que esa lista se come (la verificación de 96e7840e8): «sí Pascuala» sigue siendo una respuesta. */
+const NOMBRE_QUE_PARECE = /(?<!\p{L})(?:pascuala|pasquale|mandela|guardiola|makena)[\s.!]*$/iu;
 const RESPUESTA_CORTA = new RegExp(String.raw`^${CONFIRMA}(?:[\s,.!¡;:]+(?:${CONFIRMA}|${DEL_QUE_CONTESTA}))*[\s,.!¡]*(?:\p{Extended_Pictographic}\uFE0F?\s*)*$`, 'iu');
 /**
  * Una RESPUESTA corta: pegada a un mensaje para otra persona, le contesta a esa persona. Es un acuse o una confirmación ENTERA
@@ -169,7 +171,7 @@ export function esRespuestaCorta(texto: string): boolean {
   const t = (texto || '').trim();
   // Y las confirmaciones CON VERBO («sí, hacelo», «dale, confirmalo», `confirmaAOtro`; la verificación de 9cef25dba): sin ellas,
   // detrás de «@Pedro ¿lo confirmo?» entraban al turno y ejecutaban lo que le llega a un tercero.
-  return t.length <= 60 && !t.includes('?') && !/mako/i.test(t) && (esAcusePuro(t) || RESPUESTA_CORTA.test(t) || (CON_SU_NOMBRE.test(t) && !NO_ES_UN_NOMBRE.test(t)) || confirmaAOtro(t));
+  return t.length <= 60 && !t.includes('?') && !/mako/i.test(t) && (esAcusePuro(t) || RESPUESTA_CORTA.test(t) || (CON_SU_NOMBRE.test(t) && (!NO_ES_UN_NOMBRE.test(t) || NOMBRE_QUE_PARECE.test(t))) || confirmaAOtro(t));
 }
 
 /** El arranque de un «sí» a MaKo («sí», «dale», «ok», «listo», «confirmo», «adelante»). */

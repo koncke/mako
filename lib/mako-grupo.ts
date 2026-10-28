@@ -15,7 +15,7 @@
 import 'server-only';
 import { esSesionCaida } from './evolution';
 import sharp from 'sharp';
-import { getSetting, getSettingEstricto, setSetting } from './settings';
+import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS, getWorkspace } from './workspace';
 import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
 import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type PartePreparada } from './mako-tarjeta';
@@ -185,6 +185,9 @@ async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: n
     method: 'POST', body: JSON.stringify({ number: jidONumero, text: texto, delay }),
   });
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
+  // Lo que sale a un GRUPO, al anillo anti-eco (`anotarEnviadosAlGrupo`): por acá pasan `enviarAGrupoJid`, el grupo SuperAdmin y la
+  // bienvenida (la verificación de 96e7840e8: esos dos quedaban afuera). Un número suelto no es un grupo del doer.
+  if (r.ok && id && jidONumero.endsWith('@g.us')) await anotarEnviadosAlGrupo(OWNER_WS, jidONumero, [id]);
   return { ok: r.ok, id };
 }
 async function ponerNombre(jid: string, subject: string): Promise<void> {
@@ -658,27 +661,39 @@ export async function enviarAPersonaMaKo(telefono: string, texto: string): Promi
 const KEY_ENVIADOS = (jid: string) => `mako.doer.sent.${jid}`;
 /** Los últimos 40 ids que MaKo mandó a ese grupo (los settings operativos del doer van en OWNER_WS, keyeados por jid). */
 export async function idsEnviadosAlGrupo(ws: number, jid: string): Promise<string[]> {
-  return runWithWorkspace(ws, async () => {
-    const raw = await getSetting(KEY_ENVIADOS(jid));
-    if (!raw) return [];
-    try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }
-  });
+  return runWithWorkspace(ws, async () => delAnillo(await getSetting(KEY_ENVIADOS(jid))));
 }
-// VARIOS ids en UN solo read-modify-write. Importante con los mensajes separados (punto 10): antes eran N escrituras
-// concurrentes sobre la misma key (lost-update → MaKo procesaba su propio eco); ahora la respuesta se registra de una.
+// VARIOS ids en UNA escritura. Importante con los mensajes separados (punto 10): antes eran N escrituras concurrentes sobre la
+// misma key (lost-update → MaKo procesaba su propio eco); ahora la respuesta se registra de una.
+// ⚠️ Y con COMPARE-AND-SET (la verificación de 96e7840e8): desde que se anotan los avisos, los flujos y el acuse, dos envíos a la
+// vez al mismo grupo perdían un id. La lectura es ESTRICTA: con `getSetting`, un error al leer era «anillo vacío» y se pisaban los
+// 39 anteriores; ahora no se escribe. Nunca tira: el mensaje ya salió, y el anillo es best effort.
 export async function anotarEnviadosAlGrupo(ws: number, jid: string, ids: readonly string[]): Promise<void> {
   const nuevos = ids.filter(Boolean);
   if (!jid || !nuevos.length) return;
-  const prev = await idsEnviadosAlGrupo(ws, jid);
-  const next = [...prev.filter((x) => !nuevos.includes(x)), ...nuevos].slice(-40); // ring buffer
-  await runWithWorkspace(ws, () => setSetting(KEY_ENVIADOS(jid), JSON.stringify(next)));
+  try {
+    await runWithWorkspace(ws, async () => {
+      for (let intento = 0; intento < 3; intento++) {
+        const raw = await getSettingEstricto(KEY_ENVIADOS(jid));
+        const next = [...delAnillo(raw).filter((x) => !nuevos.includes(x)), ...nuevos].slice(-40); // ring buffer
+        if (await cambiarSettingSi(KEY_ENVIADOS(jid), raw, JSON.stringify(next))) return;
+      }
+      console.warn(`[mako-grupo] anti-eco de ${jid}: otro envío ganó tres veces; no se anotó ${nuevos.join(',')}`);
+    });
+  } catch (e) {
+    console.error(`[mako-grupo] anti-eco de ${jid}: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
+const delAnillo = (raw: string | null): string[] => {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }
+};
 
-/** Manda un texto a un JID de grupo cualquiera. delayMs opcional (demo = chico). Lo que sale queda en el anillo anti-eco. */
+/** Manda un texto a un JID de grupo cualquiera. delayMs opcional (demo = chico). Lo que sale queda en el anillo anti-eco
+ *  (`enviarTextoVozMaKo`). */
 export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
   if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };
   const r = await enviarTextoVozMaKo(jid, texto, delayMs);
-  if (r.ok) await anotarEnviadosAlGrupo(OWNER_WS, jid, [r.id]).catch(() => {});
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
