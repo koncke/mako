@@ -15,11 +15,12 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ENTRADAS, funcionDeKey, funcionDeRuta, funcionesMako } from '../lib/funciones-mako';
 import { CAPACIDADES } from '../lib/mako-capacidades';
-import { TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
+import { FAMILIAS, TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
 import { AREAS } from '../app/admin/dev/areas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -44,8 +45,10 @@ test('1. cada key viva del nav es de exactamente una función, y ninguna funció
 });
 
 test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
+  // La tab que agrupa TODAS las keys de una función como sus secciones (AI Avatar) le da el nombre; si no, su primer ítem.
+  const tabs = FAMILIAS.flatMap((fa) => [...fa.bloques.flat(), ...(fa.grupos ?? []).flatMap((g) => g.items)]).filter((i) => i.secciones?.length);
   for (const f of funcionesMako()) {
-    const item = ITEMS.find((i) => i.key === f.key)!;
+    const item = tabs.find((t) => t.secciones!.every((s) => f.keys.includes(s.key))) ?? ITEMS.find((i) => i.key === f.key)!;
     assert.equal(f.nombre, item.label);
     assert.equal(f.ruta, item.href);
     assert.ok(f.familia, `«${f.key}» sin familia`);
@@ -54,6 +57,10 @@ test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   assert.equal(funcionDeKey('landing-writer')?.nombre, 'Web Generator');
   assert.equal(funcionDeKey('chats')?.familia, 'Today');
   assert.equal(funcionDeKey('ai-avatar-voces')?.soloSuperAdmin, true);
+  // Una tab con secciones se llama como la tab, no como su primera sección («Create video»).
+  assert.deepEqual([funcionDeKey('ai-avatar-crear')?.nombre, funcionDeKey('ai-avatar-crear')?.ruta], ['AI Avatar', '/ai-avatar']);
+  assert.equal(funcionDeKey('video-editor')?.nombre, 'Video Editor', 'una sección de una tab con otras se llama como su sección');
+  assert.equal(funcionDeKey('partners')?.noEnPlataforma, true);
   assert.equal(funcionDeKey('crm')?.soloSuperAdmin, false);
   assert.equal(funcionDeKey('integraciones')?.familia, 'Settings');
   // La función de una ruta: la que se enciende en la barra al llegar.
@@ -99,13 +106,38 @@ test('5. es la fuente: cada capacidad cae en una función y su tab es el nombre 
   for (const c of CAPACIDADES) {
     assert.ok(c.funcion, `la capacidad «${c.id}» (${c.ruta}) no cae en ninguna función del catálogo`);
     assert.equal(c.tab, funcionDeKey(c.funcion!)!.nombre, `la capacidad «${c.id}» nombra una tab que no es la de su función`);
+    // El primer paso nombra la tab del botón («Ir a Chats →» y «Entra a Email» se contradecían: la verificación de 0c80dd3ce).
+    assert.ok(c.como[0].toLowerCase().includes(c.tab.toLowerCase()), `«${c.id}»: el botón dice «${c.tab}» y el primer paso «${c.como[0]}»`);
   }
   const fuenteCap = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-capacidades.ts'), 'utf8'));
   assert.doesNotMatch(fuenteCap, /\btab: '/, 'una capacidad volvió a escribir su tab a mano');
   const run = sinComentarios(readFileSync(join(RAIZ, 'lib/api-mako/areas/mako.run.ts'), 'utf8'));
   const listar = run.slice(run.indexOf('listar_capacidades_mako: {'), run.indexOf('listar_chats_mako: {'));
-  assert.match(listar, /const funciones = id \? \[\] : funcionesMako\(\)\.filter\(\(f\) => disponible\(f\.ruta\)\)/, 'la herramienta no lee el catálogo (o no filtra por el plan)');
+  assert.match(listar, /const funciones = id \? \[\] : funcionesMako\(\)\s*\.filter\(\(f\) => \(!f\.soloSuperAdmin \|\| vista\.plataforma\) && !\(f\.noEnPlataforma && vista\.plataforma\) && disponible\(f\.ruta\)\)/, 'la herramienta no lee el catálogo (o no filtra por el plan y por la plataforma)');
   assert.match(listar, /no_hace: f\.noHace/, 'la herramienta no dice lo que una función no hace');
+});
+
+test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo en la plataforma, el menú de la foto en todo plan', () => {
+  // El runner REAL con la capa de mentira (tests/_capacidades-hijo.ts): la verificación de 0c80dd3ce lo reprodujo así.
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', join(RAIZ, 'tests/_capacidades-hijo.ts')], { cwd: RAIZ, encoding: 'utf8', timeout: 120_000 });
+  const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, { funciones: string[]; capacidades: string[] }> & { error?: string };
+  assert.ok(!R.error, String(R.error));
+  const SOLO_SA = funcionesMako().filter((f) => f.soloSuperAdmin).map((f) => f.nombre);
+  assert.deepEqual(SOLO_SA.sort(), ['AI Avatar', 'Customers', 'Reels', 'Stories']);
+  // El dueño de un negocio cliente (plan completo, agencia o pm) nunca recibe lo que sólo ve el super admin.
+  for (const k of ['11:admin', '12:admin', '13:admin', '11:miembro']) {
+    for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);
+  }
+  // La plataforma sí, y sin MaKo Partners (que no va en la plataforma); un cliente admin sí tiene Partners.
+  assert.ok(R['9:admin'].funciones.includes('AI Avatar'));
+  assert.ok(!R['9:admin'].funciones.includes('MaKo Partners'), 'la plataforma recibió MaKo Partners');
+  assert.ok(R['11:admin'].funciones.includes('MaKo Partners'));
+  // El menú de la foto no depende del plan: con la capa pm, Settings y conectar siguen.
+  assert.ok(R['13:admin'].funciones.includes('Settings') && R['13:admin'].capacidades.includes('conectar'), 'un plan acotado perdió Settings');
+  assert.ok(R['13:admin'].funciones.length < R['11:admin'].funciones.length, 'el plan pm recibe lo mismo que el completo');
+  // Un miembro: «Report a problem» sí, sumar gente al equipo (Business settings, del admin) no.
+  assert.ok(R['11:miembro'].funciones.includes('Report a problem'));
+  assert.ok(!R['11:miembro'].capacidades.includes('equipo'), 'un miembro recibió «sumar gente al equipo»');
 });
 
 // ── Probado rompiéndolo (28/10/2026) ─────────────────────────────────────────────────────────────────────────────────
@@ -119,3 +151,6 @@ test('5. es la fuente: cada capacidad cae en una función y su tab es el nombre 
 //  13. la tab de una capacidad con la key y no el nombre de su función        → rojo el 5.
 //  14. `listar_capacidades_mako` sin lo que una función no hace               → rojo el 5.
 //  15. las funciones de la herramienta sin el filtro del plan                  → rojo el 5.
+//  (28/10, la verificación de 0c80dd3ce) V1. lo del super admin a cualquier dueño, V2. Partners en la plataforma, V3. el menú
+//  de la foto según el plan, V4. el menú con su primer ítem y no el de menos roles → rojo el 6 (V1 y V2, también el 5);
+//  V9. AI Avatar como «Create video» → rojo el 2; V10. «Entra a Email» con el botón «Chats» → rojo el 5.

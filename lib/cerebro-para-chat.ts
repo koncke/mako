@@ -12,38 +12,33 @@
 //   · el negocio SIN física (los chats no usan posiciones);
 //   · en el workspace de la plataforma, más «Lo que hace MaKo» (lib/cerebro-funciones.ts), colgado de la raíz;
 //   · la capa Construcción NO entra: es la obra, no lo que se vende;
-//   · en caché por workspace unos minutos: un turno lo pide varias veces y el grafo son 21 lecturas.
+//   · en caché por workspace unos minutos (lib/cerebro-cache-chat.ts): un turno lo pide varias veces y el grafo son 21
+//     lecturas. Una acción ejecutada la borra, y un grafo con una lectura caída no se guarda.
 // =============================================================================
 
 import 'server-only';
 import { construirCerebro } from './cerebro-grafo';
 import { CAPA_FUNCIONES, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES } from './cerebro-funciones';
 import { conCapa } from './cerebro-union';
+import { grafoGuardado, guardarGrafo } from './cerebro-cache-chat';
 import type { Cerebro } from './cerebro-modelo';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
 
-const CACHE_MS = 3 * 60_000;
-const cache = new Map<number, { hasta: number; grafo: Promise<Cerebro<string>> }>();
-
-/** El grafo del negocio de este pedido para un chat; con las funciones de MaKo si es la plataforma. Nunca tira. */
+/** El grafo del negocio de este pedido para un chat; con las funciones de MaKo si es la plataforma. Tira si una lectura
+ *  principal tira (quien llama lo envuelve: lib/api-mako/ejecutar.ts). */
 export async function grafoParaChat(): Promise<Cerebro<string>> {
   const ws = await getWorkspaceActual().catch(() => null);
-  const ahora = Date.now();
-  const ya = ws == null ? undefined : cache.get(ws);
-  if (ya && ya.hasta > ahora) return ya.grafo;
-  const grafo = armar(ws);
-  if (ws != null) {
-    cache.set(ws, { hasta: ahora + CACHE_MS, grafo });
-    // Un grafo que falló no queda en la caché: el pedido siguiente lo vuelve a intentar.
-    grafo.catch(() => cache.delete(ws));
-  }
-  return grafo;
+  if (ws == null) return (await armar(null)).grafo;
+  return grafoGuardado<Cerebro<string>>(ws) ?? guardarGrafo(ws, armar(ws));
 }
 
-async function armar(ws: number | null): Promise<Cerebro<string>> {
+async function armar(ws: number | null): Promise<{ grafo: Cerebro<string>; completo: boolean }> {
+  // Las lecturas que se caen se degradan a vacío (el grafo no se cae), pero AVISAN: un grafo así no se guarda.
+  const cayeron: string[] = [];
   const [negocio, plataforma] = await Promise.all([
-    construirCerebro({ sinLayout: true }) as Promise<Cerebro<string>>,
+    construirCerebro({ sinLayout: true, alFallar: (fuente) => cayeron.push(fuente) }) as Promise<Cerebro<string>>,
     ws == null ? false : wsSuperAdmin().then((s) => s === ws, () => false),
   ]);
-  return plataforma ? conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES }) : negocio;
+  const grafo = plataforma ? conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES }) : negocio;
+  return { grafo, completo: cayeron.length === 0 };
 }

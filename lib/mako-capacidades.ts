@@ -47,7 +47,7 @@ const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
     // Empieza por Avatares, que es el primer paso del «como»; el resto son áreas vecinas de la misma pantalla.
     id: 'creativos', ruta: rutaSeccion('avatares'),
     que: 'Sacar los avatares, las razones de compra, el lead magnet y la persona de marca — el material del que salen los anuncios.',
-    como: ['Abre Second Brain', 'En «Avatares», define tus avatares', 'En «Razones», deja que MaKo saque las razones de compra de cada uno', 'En «Lead Magnet», carga el tuyo'],
+    como: ['En Ops Center, abre Second Brain', 'En «Avatares», define tus avatares', 'En «Razones», deja que MaKo saque las razones de compra de cada uno', 'En «Lead Magnet», carga el tuyo'],
   },
   {
     // La tab se llama Content Machine pero la RUTA sigue siendo /ads-writer (ver
@@ -119,7 +119,7 @@ const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
   {
     id: 'email', ruta: '/email',
     que: 'Mandar campañas y secuencias por email.',
-    como: ['Entra a Email', 'Elige a quién le va', 'Revisa el texto que escribe MaKo y envíalo'],
+    como: ['Abre Email (se configura desde Chats)', 'Elige a quién le va', 'Revisa el texto que escribe MaKo y envíalo'],
   },
   {
     // Desde el 11/10/2026 `/dashboard` ES la pantalla (el editor de informes); /marketing y
@@ -159,14 +159,14 @@ const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
     // (lib/secciones-negocio.ts). El id se queda: es el contrato de `listar_capacidades_mako`.
     id: 'contexto', ruta: '/second-brain',
     que: 'Cargar lo que MaKo tiene que saber del negocio: documentos, glosario, oferta, precios.',
-    como: ['Entra a Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
+    como: ['En Ops Center, abre Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
   },
   {
     // 25/10/2026: decía que WhatsApp se conecta en Integraciones (el QR vive en Chats) y no nombraba la IA ni la computadora.
     // El link de CADA conexión lo da el catálogo único (lib/conexiones-catalogo.ts, `como_conectar`).
     id: 'conectar', ruta: '/integraciones',
     que: 'Conectar tus cuentas desde la computadora: tu GPT, Fathom, tus redes con Zernio, tu agenda, el email y el resto, y ver cuáles están sanas.',
-    como: ['Desde la computadora, entra a Integraciones', 'Abre la tarjeta de lo que quieres conectar y sigue su paso a paso', 'Tu Claude en tu computadora va en «Tus cuentas de IA»; tu número de WhatsApp, en Chats'],
+    como: ['Desde la computadora, entra a Settings → Integrations', 'Abre la tarjeta de lo que quieres conectar y sigue su paso a paso', 'Tu Claude en tu computadora va en «Tus cuentas de IA»; tu número de WhatsApp, en Chats'],
   },
   {
     id: 'funnel', ruta: '/crm',

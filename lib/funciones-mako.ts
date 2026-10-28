@@ -333,11 +333,25 @@ export type FuncionMako = Omit<EntradaFuncion, 'keys'> & {
   familia: string;
   /** Sólo la ve el super admin (todas sus keys son `adminOnly` en el nav). */
   soloSuperAdmin: boolean;
+  /** No va en la plataforma (`noEnPlataforma` en el nav: MaKo Partners y Agency son de los negocios). */
+  noEnPlataforma: boolean;
 };
 
 /** Los ítems que son funciones: la barra (con lo que dejó de ser fila) y el menú de la foto. */
 const ITEMS: readonly NavItem[] = [...TODOS_LOS_ITEMS, ...USER_NAV];
 const itemPorKey = (key: string): NavItem | undefined => ITEMS.find((i) => i.key === key);
+
+/** La tab que AGRUPA estas keys como sus secciones (AI Avatar: «Create video», «Avatars»…), si son todas las suyas: el
+ *  nombre de la función es el de la tab, no el de su primera sección (la verificación de 0c80dd3ce). Video Editor y Video
+ *  Generator son secciones de una tab con otras: ésas se llaman como su sección. */
+function tabQueAgrupa(keys: readonly string[]): NavItem | undefined {
+  for (const f of FAMILIAS) {
+    for (const it of [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]) {
+      if (it.secciones?.length && it.secciones.every((s) => keys.includes(s.key))) return it;
+    }
+  }
+  return undefined;
+}
 
 function familiaDe(keys: readonly string[]): string {
   for (const f of FAMILIAS) if (itemsDe(f).some((i) => keys.includes(i.key))) return f.label;
@@ -350,12 +364,13 @@ export function funcionesMako(): FuncionMako[] {
   if (cache) return cache;
   cache = ENTRADAS.map((e) => {
     const items = e.keys.map(itemPorKey).filter((i): i is NavItem => !!i);
-    const principal = items[0];
+    const principal = tabQueAgrupa(e.keys) ?? items[0];
     const { keys, ...resto } = e;
     return {
       ...resto, key: keys[0], keys,
       nombre: principal?.label ?? keys[0], ruta: principal?.href ?? '',
       familia: familiaDe(keys), soloSuperAdmin: items.length > 0 && items.every((i) => i.adminOnly),
+      noEnPlataforma: items.length > 0 && items.every((i) => i.noEnPlataforma),
     };
   });
   return cache;

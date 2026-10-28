@@ -44,7 +44,7 @@ const FAMILIAS: ReadonlyArray<readonly [string, string, string]> = [
   [FAMILIA_SETTINGS, 'var(--grafo-documentos)', 'La configuración, las conexiones, la API y el soporte.'],
 ];
 
-export function taxonomiaFunciones(fs: readonly FuncionMako[] = funcionesMako()): Taxonomia {
+export function taxonomiaFunciones(fs: readonly FuncionMako[]): Taxonomia {
   const usadas = new Set(fs.map((f) => f.familia));
   const extra = [...usadas].filter((f) => !FAMILIAS.some(([n]) => n === f)).map((f) => [f, 'var(--grafo-documentos)', `Las funciones de ${f}.`] as const);
   return {
@@ -73,8 +73,11 @@ export function nodoDeFuncion(f: FuncionMako): NodoCerebro<string> {
   };
 }
 
+/** Las funciones de la capa: la capa vive sólo en el grafo de la PLATAFORMA, así que sin lo que no va en ella (Partners). */
+const deLaPlataforma = (): FuncionMako[] => funcionesMako().filter((f) => !f.noEnPlataforma);
+
 /** El grafo de «Lo que hace MaKo», sin física (los chats no usan posiciones). */
-export function armarFunciones(fs: readonly FuncionMako[] = funcionesMako()): Cerebro<string> {
+export function armarFunciones(fs: readonly FuncionMako[] = deLaPlataforma()): Cerebro<string> {
   const nodos: NodoCerebro<string>[] = [{
     id: ID_RAIZ_FUNCIONES, area: idArea(FAMILIA_ARRIBA), tipo: 'Carpeta', etiqueta: 'Lo que hace MaKo',
     detalle: `Las ${fs.length} funciones de MaKo: qué hace cada una, qué no hace y qué reemplaza.`, fuente: 'lib/funciones-mako.ts', autoria: 'mako',
@@ -123,7 +126,7 @@ export function menciones(f: Pick<FuncionMako, 'nombre' | 'alias'>, texto: strin
 }
 
 /** Lo que se vende: ni lo que sólo ve el super admin ni el menú de la foto (la configuración no es una landing). */
-const lasQueSeVenden = (): FuncionMako[] => funcionesMako().filter((f) => !f.soloSuperAdmin && f.familia !== FAMILIA_SETTINGS);
+const lasQueSeVenden = (): FuncionMako[] => funcionesMako().filter((f) => !f.soloSuperAdmin && !f.noEnPlataforma && f.familia !== FAMILIA_SETTINGS);
 
 /**
  * La función que vende una landing: la que más nombra el PEDIDO (sin empate); si el pedido no nombra ninguna, la que la

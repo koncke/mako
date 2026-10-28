@@ -1768,7 +1768,10 @@ código nuevo:
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
     - **El grafo de un chat sale de `grafoParaChat()`** (lib/cerebro-para-chat.ts, 28/10/2026), nunca de `construirCerebro()` a
-      secas: sin física, en caché por workspace y, en la plataforma, con «Lo que hace MaKo» (lib/cerebro-funciones.ts).
+      secas: sin física, en caché por workspace y, en la plataforma, con «Lo que hace MaKo» (lib/cerebro-funciones.ts). Lo que
+      MaKo acaba de escribir se lee en el turno siguiente: un camino nuevo que EJECUTA una acción sin pasar por
+      lib/api-mako/acciones.ts llama a `invalidarGrafoChat(ws)` (lib/cerebro-cache-chat.ts). Una lectura nueva del grafo que
+      se degrada a vacío lo hace con `vacioAvisando` (un grafo con una lectura caída no se guarda).
     - **Una tab o una capacidad nueva suma o cambia su entrada en lib/funciones-mako.ts en el MISMO commit** (28/10/2026,
       Martín: «que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades»): qué hace, qué no hace
       (lo que todavía no, como «Todavía no: …»), qué reemplaza y cómo le dice la gente. Es lo que un chat lee para no negar

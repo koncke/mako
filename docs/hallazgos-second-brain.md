@@ -2883,6 +2883,19 @@ chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `
   («WhatsApp», «Content Machine», «General», «Integraciones», «Configuraciones»). La `ruta` se queda: es más fina que una tab
   (`?hoja=closing`).
 
-**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
+- **La verificación de 0c80dd3ce (el Cerebro):**
+  - `listar_capacidades_mako` le daba al DUEÑO de un negocio con plan completo o agencia las funciones que sólo ve el super
+    admin (Customers con su URL, AI Avatar, Reels, Stories): el filtro miraba el plan y el rol, nunca `adminOnly`. Ahora lo
+    del super admin va sólo a la plataforma, lo `noEnPlataforma` (Partners) no va a ella, y el menú de la foto (Settings,
+    «Report a problem») no depende del plan; de los ítems del menú que abren una ruta manda el de MENOS roles (/equipo).
+  - **La caché de 3 minutos no se invalidaba nunca:** después de guardar la oferta, el chat contestaba con la vieja. Cada
+    acción ejecutada (acciones.ts) la borra, y vive en un módulo chico (lib/cerebro-cache-chat.ts) porque las acciones no
+    pueden importar el armado del grafo (cerraría un ciclo: acciones → grafo → leads → nutrición → flujo → acciones).
+  - **`construirCerebro` se traga sus lecturas caídas** (`.catch(() => [])`): un grafo PARCIAL quedaba 3 minutos. Ahora
+    cada `.catch` avisa (`vacioAvisando`) y el grafo de los chats no guarda uno así; la pantalla se degrada como siempre.
+  - El nombre de una tab con secciones es el de la tab: AI Avatar se llamaba «Create video», su primera sección.
+
+**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); lo que cambia una PANTALLA
+(no una acción de MaKo) se ve en el chat al vencer la caché, y en Vercel cada instancia tiene la suya; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
 MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
 lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.

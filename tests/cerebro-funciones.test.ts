@@ -25,6 +25,7 @@ import { funcionDeKey, funcionesMako } from '../lib/funciones-mako';
 import { esEstructura } from '../lib/cerebro-areas';
 import { indiceDelCerebro, recuperar, tokensDe } from '../lib/cerebro-recuperar';
 import { conCapa } from '../lib/cerebro-union';
+import { CACHE_GRAFO_MS, grafoGuardado, guardarGrafo, invalidarGrafoChat } from '../lib/cerebro-cache-chat';
 import type { Cerebro } from '../lib/cerebro-modelo';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -34,7 +35,8 @@ test('1. una raíz que es estructura, un nodo por función, sus áreas en la tax
   const g = funcionesDeMako();
   const raiz = g.nodos.find((n) => n.id === ID_RAIZ_FUNCIONES);
   assert.ok(raiz && esEstructura(raiz), 'la raíz de las funciones cuenta como un dato (el índice y la vista local la tomarían)');
-  const fs = funcionesMako();
+  // La capa vive sólo en la plataforma: todas las funciones menos las que no van en ella.
+  const fs = funcionesMako().filter((f) => !f.noEnPlataforma);
   assert.deepEqual(g.nodos.filter((n) => !esEstructura(n)).map((n) => n.id).sort(), fs.map((f) => idFuncion(f.key)).sort());
   const areas = new Set(g.taxonomia!.areas.map((a) => a.id));
   for (const n of g.nodos) assert.ok(areas.has(n.area), `${n.id}: su área ${n.area} no está en la taxonomía`);
@@ -47,6 +49,8 @@ test('1. una raíz que es estructura, un nodo por función, sus áreas en la tax
     pares.add(par);
   }
   assert.equal(g.taxonomia!.capas?.[0]?.id, CAPA_FUNCIONES);
+  // La capa vive sólo en la plataforma: sin lo que no va en ella (MaKo Partners).
+  assert.ok(!g.nodos.some((n) => n.id === 'fn:partners'), 'la capa de la plataforma trae MaKo Partners');
 });
 
 test('2. la vista local encuentra la función por cómo se la nombra, sin traer el catálogo entero', () => {
@@ -104,9 +108,10 @@ test('5. las herramientas del Second Brain leen grafoParaChat: sin física, con 
     assert.doesNotMatch(de(op), /construirCerebro\(/, `${op} rearma el mapa entero con su física`);
   }
   const chat = fuente('lib/cerebro-para-chat.ts');
-  assert.match(chat, /construirCerebro\(\{ sinLayout: true \}\)/, 'el grafo de los chats corre la física');
+  assert.match(chat, /construirCerebro\(\{ sinLayout: true, alFallar:/, 'el grafo de los chats corre la física (o no se entera de una lectura caída)');
   assert.match(chat, /wsSuperAdmin\(\)\.then\(\(s\) => s === ws, \(\) => false\)/, 'las funciones no se limitan a la plataforma (o fallan abiertas)');
-  assert.match(chat, /cache\.set\(ws, \{ hasta: ahora \+ CACHE_MS, grafo \}\)/, 'sin caché: cada pedido rearma el grafo');
+  assert.match(chat, /return grafoGuardado<Cerebro<string>>\(ws\) \?\? guardarGrafo\(ws, armar\(ws\)\);/, 'sin caché: cada pedido rearma el grafo');
+  assert.match(chat, /return \{ grafo, completo: cayeron\.length === 0 \};/, 'un grafo con una lectura caída se guarda igual');
   assert.doesNotMatch(chat, /construccionDeMako|cerebroUnido/, 'la capa Construcción no es para los chats');
   assert.match(fuente('lib/cerebro-grafo.ts'), /opciones\.sinLayout \? \{ posiciones: \{\}, encuadre: \{ x: 0, y: 0, lado: 1 \} \} : layoutCerebro\(nodos, aristas\)/);
 });
@@ -148,6 +153,45 @@ test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan
   assert.equal(funcionEntera(negocio, funcionDeKey('chats')!), '', 'un negocio sin la capa (un cliente) recibió la función');
 });
 
+test('10. la caché del grafo de los chats: cada negocio el suyo, una acción la borra, y lo incompleto o lo que tira no queda', async () => {
+  const ahora = 1_000_000;
+  const armado = (grafo: string, completo = true) => Promise.resolve({ grafo, completo });
+  assert.equal(await guardarGrafo(3, armado('del 3'), ahora), 'del 3');
+  await guardarGrafo(5, armado('del 5'), ahora);
+  assert.equal(await grafoGuardado<string>(3, ahora + 1), 'del 3');
+  assert.equal(await grafoGuardado<string>(5, ahora + 1), 'del 5', 'un negocio recibió el grafo de otro');
+  assert.equal(grafoGuardado(3, ahora + CACHE_GRAFO_MS + 1), undefined, 'no vence');
+  // Una acción ejecutada en el 3 lo borra; el 5 sigue.
+  invalidarGrafoChat(3);
+  assert.equal(grafoGuardado(3, ahora + 1), undefined, 'después de una acción, el chat sigue con el grafo viejo');
+  assert.equal(await grafoGuardado<string>(5, ahora + 1), 'del 5');
+  invalidarGrafoChat(null);
+  // Armado con una lectura caída: se devuelve, pero no queda.
+  assert.equal(await guardarGrafo(7, armado('parcial', false), ahora), 'parcial');
+  await new Promise((r) => setImmediate(r));
+  assert.equal(grafoGuardado(7, ahora + 1), undefined, 'un grafo incompleto quedó guardado 3 minutos');
+  // Armado que tira: no queda.
+  await assert.rejects(guardarGrafo(8, Promise.reject(new Error('base caída')), ahora));
+  await new Promise((r) => setImmediate(r));
+  assert.equal(grafoGuardado(8, ahora + 1), undefined);
+  invalidarGrafoChat(5);
+});
+
+test('11. lo que lo borra y lo que avisa: cada acción ejecutada, y cada lectura secundaria del grafo que se cae', () => {
+  const acc = fuente('lib/api-mako/acciones.ts');
+  const generica = acc.slice(acc.indexOf('export async function aplicarPropuestaGenerica('), acc.indexOf('export async function confirmarPendiente('));
+  assert.match(generica, /await marcarResultado\([^\n]*\);\n\s*invalidarGrafoChat\(ctx\.ws\);/, 'aplicar una propuesta no borra la caché del grafo');
+  const pendiente = acc.slice(acc.indexOf('export async function confirmarPendiente('));
+  assert.match(pendiente, /await resolverPendiente\([^\n]*\);\n\s*invalidarGrafoChat\(ctx\.ws\);/, 'confirmar una acción no borra la caché del grafo');
+  const grafo = fuente('lib/cerebro-grafo.ts');
+  for (const [desde, hasta] of [['async function leerLoVivo(', ']);'], ['  const [schema, diag, files, manual,', ']);']] as const) {
+    const i = grafo.indexOf(desde);
+    const bloque = grafo.slice(i, grafo.indexOf(hasta, i));
+    assert.doesNotMatch(bloque, /\.catch\(\(\) =>/, `una lectura de ${desde.trim()} se cae callada: el chat guardaría el grafo incompleto`);
+    assert.ok((bloque.match(/vacioAvisando\(/g) ?? []).length >= 9, `${desde.trim()}: faltan lecturas que avisen`);
+  }
+});
+
 // ── Probado rompiéndolo (28/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   6. la raíz `fn:raiz` (cuenta como dato)                                → rojo el 1 y el 2.
@@ -159,3 +203,5 @@ test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan
 //  16. «landing» cuenta como el Web Generator                                → rojo el 6.
 //  17. una palabra suelta de la página alcanza para elegir                    → rojo el 6.
 //  18. se vende lo que sólo ve el super admin                                 → rojo el 6 y el 7.
+//  (28/10, la verificación de 0c80dd3ce) V5. confirmar sin borrar la caché, V8. una lectura que se cae callada → rojo el 11;
+//  V6. lo incompleto queda, V7. invalidar no borra → rojo el 10; V11. Partners en la capa de la plataforma → rojo el 1.

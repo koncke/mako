@@ -18,7 +18,7 @@ import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
 import { funcionesMako } from '@/lib/funciones-mako';
-import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
+import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { chatsDelSecondBrain, hiloDelSecondBrain } from '@/lib/chat-mako-indice';
 import { arbolDelJefe, JEFE_SECOND_BRAIN, sesionDelCanal, tituloDe } from '@/lib/chat-mako-reglas';
 import { loQueHizo } from '@/lib/chat-mako-hecho';
@@ -272,8 +272,18 @@ export const RUNNERS: Runners = {
       // restringida, una ruta que no cae en ningún item del nav no sale.
       const disponible = (ruta: string): boolean => {
         // Sin la query: una capacidad puede apuntar a `/dashboard?hoja=closing`, y el `match` del nav mira el camino.
-        const item = TODOS_LOS_ITEMS.find((i) => i.match(ruta.split(/[?#]/)[0]));
-        if (vista.tabs != null && (!item || !vista.tabs.includes(item.key))) return false;
+        const camino = ruta.split(/[?#]/)[0];
+        const deLaBarra = TODOS_LOS_ITEMS.find((i) => i.match(camino));
+        // El menú de la foto (Settings, «Report a problem»): el que la abre con MENOS roles (/equipo abre Settings, que ven todos,
+        // y Business settings, que es del admin: manda el del admin). No depende del plan: lo tiene todo negocio.
+        const delMenu = deLaBarra ? undefined
+          : USER_NAV.filter((i) => i.match(camino)).sort((a, b) => (a.rolesWs?.length ?? 0) - (b.rolesWs?.length ?? 0))[0];
+        const item = deLaBarra ?? delMenu;
+        // Lo del super admin, sólo en la plataforma; lo que no va en la plataforma (Partners), no en ella (la verificación de
+        // 0c80dd3ce: el dueño de un negocio con plan completo recibía Customers, AI Avatar, Reels y Stories).
+        if (item?.adminOnly && !vista.plataforma) return false;
+        if (item?.noEnPlataforma && vista.plataforma) return false;
+        if (vista.tabs != null && !delMenu && (!item || !vista.tabs.includes(item.key))) return false;
         if (vista.rol !== 'admin' && !(item?.rolesWs?.length)) return false;
         return true;
       };
@@ -283,7 +293,8 @@ export const RUNNERS: Runners = {
       if (id && !visibles.length) return fallo(`«${id}» no está disponible en este negocio (su tab no está en el plan contratado o no la ve tu rol).`);
       // Las FUNCIONES de este negocio, del catálogo (lib/funciones-mako.ts, 28/10/2026): qué hace cada una, qué no y qué
       // reemplaza. Con un id se pide UNA capacidad: van sólo sus pasos.
-      const funciones = id ? [] : funcionesMako().filter((f) => disponible(f.ruta)).map((f) => ({
+      const funciones = id ? [] : funcionesMako()
+        .filter((f) => (!f.soloSuperAdmin || vista.plataforma) && !(f.noEnPlataforma && vista.plataforma) && disponible(f.ruta)).map((f) => ({
         funcion: f.nombre, url: linkPantalla(f.ruta), que: f.que,
         ...(f.noHace?.length ? { no_hace: f.noHace } : {}), ...(f.reemplaza ? { en_vez_de: f.reemplaza } : {}),
       }));
