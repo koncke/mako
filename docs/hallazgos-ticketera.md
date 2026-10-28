@@ -602,3 +602,25 @@ lo corrige `scripts/tickets.ts ver`.
 
 **Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `estimaMasDeUnDia`) · `lib/tickets-runner.ts` · `scripts/operaciones/cartero.mjs`
 (`mensajeTicket`, `REGLAS_CONOCIDAS`) · `tests/feedback-2710-tanda1.test.ts`
+
+## Soporte sin adjuntos: el «+» sólo daba emojis (28/10/2026)
+
+Martín (28/10): «las personas no están pudiendo usar la ticketera porque nuevamente el chat está mal configurado, solamente
+permite emojis, no permite adjuntar ni archivos ni capturas ni documentos».
+
+- **La causa:** la caja de Soporte (`CajaSoporte`, app/tickets/soporte/PiezasSoporte.tsx; el teléfono usa la misma) montaba la
+  caja compartida SIN `adjuntos`, y sin esa prop el «+» de `CajaChat` sólo ofrece emojis. No falló nada: nunca se cableó.
+  Regla: **una caja de chat nueva nace con adjuntos y voz, o dice por qué no** (lo barre el test de las cajas unificadas).
+- **Dónde quedan, sin migración:** los archivos suben al bucket privado `archivero`, en `<ws>/tickets/<uuid>`
+  (app/api/tickets/adjuntos/route.ts, con el negocio de la SESIÓN), y el ticket guarda sus referencias en el `datos` de su
+  evento (`ticket_eventos.datos`, jsonb, que en los comentarios estaba siempre vacío): el «creado» para lo de la conversación
+  nueva, cada «comentario» para lo de una respuesta. Cada referencia se valida contra el negocio de la sesión
+  (`sanearAdjuntosTicket`): un path de otro negocio no se guarda.
+- ⚠️ **`contexto` del ticket NO sirve para esto:** pasa por `sanearContexto`, una lista blanca que tira sin aviso cualquier clave
+  que no conoce.
+- **El Cerebro los ve** con `scripts/tickets.ts ver <n>` (la sección ADJUNTOS, con un link firmado de 1 hora), y el triage los
+  nombra en su «porque».
+
+**Sin hacer:** «Reintentar» una respuesta que falló la manda sin sus archivos (el turno guarda el texto, no los `File`); y en la
+conversación nueva, si se levanta el ticket antes de que terminen de subir, el ticket sale sin ellos. Viven en
+app/tickets/soporte/useSoporte.ts.

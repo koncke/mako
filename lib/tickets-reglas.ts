@@ -224,6 +224,8 @@ export type EntradaTriage = {
   titulo: string;
   descripcion: string;
   contexto: ContextoTicket;
+  /** Cuántos archivos adjuntó (capturas, PDF, documentos: lib/tickets-adjuntos.ts). El triage lo dice, para que se miren. */
+  adjuntos?: number;
 };
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -273,6 +275,7 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
 export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
+  if (e.adjuntos) porque.push(`Trae ${e.adjuntos === 1 ? 'un adjunto' : `${e.adjuntos} adjuntos`}: mirarlos con scripts/tickets.ts ver.`);
   const error = e.contexto.error?.trim();
   const vioFallar = !!error;
   const noExiste = e.contexto.noExiste === true;

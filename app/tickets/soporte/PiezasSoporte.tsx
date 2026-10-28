@@ -130,6 +130,8 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil} campo={campo} seguir={seguir}
       // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
       arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
+      // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
+      adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />
   );
 }
