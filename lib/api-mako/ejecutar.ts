@@ -59,7 +59,8 @@ export async function ejecutarOperacion(
   }
 
   const v = validarInput(def.parametros, inputCrudo, origen);
-  if ('error' in v) return { ok: false, status: 400, error: v.error, faltan: v.faltan };
+  // Un parámetro que falta o no vale es una GUARDA (la marca explícita, `guarda`: lib/no-pude.ts no adivina por el texto).
+  if ('error' in v) return { ok: false, status: 400, error: v.error, faltan: v.faltan, guarda: true };
 
   const run = runnerDe(def.id);
   if (!run) {
@@ -126,7 +127,12 @@ export async function ejecutarOperacion(
       const prep = await run.preparar(v.input, ctx);
       if ('error' in prep && prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
       if ('error' in prep && prep.falta) ctx.aFalta?.(prep.falta);
-      if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}), ...(prep.falta ? { falta: prep.falta } : {}) };
+      // Es GUARDA lo que el runner marcó, o lo que trae qué falta (un dato, una conexión) o que ya estaba: el error suelto de un
+      // preparar es una falla («No pude leer las pasarelas conectadas», la verificación de 2cb1cf67e).
+      if ('error' in prep) {
+        const guarda = prep.guarda || prep.faltan?.length || prep.yaEstaba || prep.falta ? { guarda: true as const } : {};
+        return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}), ...(prep.falta ? { falta: prep.falta } : {}), ...guarda };
+      }
 
       if (def.confirmacion === 'pantalla') {
         // Se guarda el INPUT validado, no el payload preparado: la pantalla genérica
@@ -165,9 +171,11 @@ function traducirLegado(crudo: string): Resultado {
   if (j.ok === true && typeof j.pendiente_id === 'number') {
     return { ok: true, tipo: 'pendiente', pendiente: { id: j.pendiente_id, resumen: String(j.resumen ?? ''), venceEnMin: Number(j.vence_en_min ?? TTL_PENDIENTE_MIN), url: linkPantalla(RUTA_BANDEJA) } };
   }
-  const { ok: _ok, error, faltan, ...resto } = j;
+  const { ok: _ok, error, faltan, guarda, ...resto } = j;
   void _ok;
-  return { ok: false, status: 400, error: String(error ?? crudo), faltan: Array.isArray(faltan) ? faltan.map(String) : undefined, disponibles: Object.keys(resto).length ? resto : undefined };
+  // La tool vieja marca su GUARDA (`guarda: true`, o qué falta); «No pude registrar la acción pendiente» no la trae: es una falla.
+  const esGuarda = guarda === true || (Array.isArray(faltan) && faltan.length > 0);
+  return { ok: false, status: 400, error: String(error ?? crudo), faltan: Array.isArray(faltan) ? faltan.map(String) : undefined, disponibles: Object.keys(resto).length ? resto : undefined, ...(esGuarda ? { guarda: true as const } : {}) };
 }
 
 /**
@@ -200,6 +208,8 @@ export function runnerDelRegistro(ctx: Ctx) {
       if (r.faltan) cuerpo.faltan = r.faltan;
       if (r.disponibles) cuerpo.disponibles = r.disponibles;
       if (r.falta) cuerpo.falta = faltaParaElModelo(r.falta, ctx);
+      // La marca de GUARDA viaja: el turno la lee para saber si el «no pude» es una regla (lib/no-pude.ts).
+      if (r.guarda) cuerpo.guarda = true;
       // 404/500 son fallas nuestras o un nombre inventado: van como isError para que
       // el modelo no las lea como un dato. Un 400 es un pedido corregible: va como
       // texto, igual que hoy, para que el modelo pida lo que falta.

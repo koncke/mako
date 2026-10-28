@@ -272,3 +272,31 @@ test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pu
   assert.match(doer, /const out = await correr\(\)\.catch\(\(e: unknown\) => \{ ultimaFueGuarda = false; tragadasDelTurno\+\+; throw e; \}\);\n\s*memo\.anotar\(name, out\);/);
   assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{\}\);/);
 });
+
+test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con la misma forma no la lleva', () => {
+  // La verificación de 2cb1cf67e: esGuardaDeHerramienta no distinguía «te falta un dato» de «se rompió algo», y una falla real
+  // con forma de guarda («No pude registrar la acción pendiente», «No pude leer las pasarelas conectadas») no abría ticket.
+  const ej = leer('lib/api-mako/ejecutar.ts');
+  assert.match(ej, /if \('error' in v\) return \{ ok: false, status: 400, error: v\.error, faltan: v\.faltan, guarda: true \};/, 'la validación es una guarda');
+  assert.match(ej, /const guarda = prep\.guarda \|\| prep\.faltan\?\.length \|\| prep\.yaEstaba \|\| prep\.falta \? \{ guarda: true as const \} : \{\};/);
+  assert.match(ej, /const esGuarda = guarda === true \|\| \(Array\.isArray\(faltan\) && faltan\.length > 0\);/, 'el legado marca sólo lo suyo');
+  assert.match(ej, /if \(r\.guarda\) cuerpo\.guarda = true;/, 'la marca no viaja al modelo ni al turno');
+  // Lo que NO es guarda: la pendiente que no entró, un throw (va como falla), el error suelto de un preparar.
+  assert.match(ej, /if \('error' in c\) return \{ ok: false, status: 500, error: c\.error, \.\.\.\(c\.motivo \? \{ motivo: c\.motivo \} : \{\}\), noCorrio: true \};/);
+  assert.match(ej, /if \(!esNuestro\(msg\)\) return \{ ok: false, status: 400, error: msg \};/);
+  assert.match(leer('lib/api-mako/areas/cobros.run.ts'), /if \(!conectadas\) return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.' \};/);
+  // El runner viejo del doer: sus guardas llevan la marca; la pendiente que no entró y lo que reventó, no.
+  const viejo = leer('lib/mako-doer-acciones.ts');
+  assert.match(viejo, /if \('error' in c\) return JSON\.stringify\(\{ ok: false, error: 'No pude registrar la acción pendiente\.' \}\);/);
+  for (const g of ["error: 'Falta el nombre.", "error: 'Faltan leadId o startIso.'", 'error: `No existe el lead #${leadId} en este workspace.`', "error: 'Falta secuenciaId.'"])
+    assert.ok(viejo.includes(`JSON.stringify({ ok: false, guarda: true, ${g}`), `sin marca: ${g}`);
+  assert.equal((viejo.match(/ok: false, guarda: true,/g) ?? []).length, 15, 'cambió cuántas guardas marca el runner viejo');
+  assert.equal((viejo.match(/JSON\.stringify\(\{ ok: false, error: e instanceof Error \? e\.message : String\(e\) \}\)/g) ?? []).length, 3, 'lo que revienta no es una guarda');
+  // requireLead (ficha_lead, reuniones_lead) devuelve la guarda en vez de tirar: un throw es una falla real para el turno.
+  const tools = leer('lib/mako-tools.ts');
+  assert.doesNotMatch(tools, /throw new Error\('Falta leadId|throw new Error\(`No existe un lead con id/);
+  assert.match(tools, /const guardaDelPedido = \(error: string\): string => JSON\.stringify\(\{ ok: false, error, guarda: true \}\);/);
+  assert.equal((tools.match(/const pedido = await requireLead\(input\);\n\s*if \('guarda' in pedido\) return pedido\.guarda;/g) ?? []).length, 2);
+  // Los tipos: la marca existe en lo que prepara un runner y en el resultado.
+  assert.equal((leer('lib/api-mako/tipos.ts').match(/guarda\?: true/g) ?? []).length, 2);
+});

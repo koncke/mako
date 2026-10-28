@@ -452,6 +452,10 @@ export type Preparado =
        *  otro; para un paso de un flujo (lib/api-mako/flujo.ts) es un éxito sin nada que hacer,
        *  y no le manda una alarma al dueño cada vez que el evento se repite. */
       yaEstaba?: boolean;
+      /** Es una GUARDA (un dato que falta, un pedido que MaKo no deja hacer), no una falla: el «no pude» que la sigue es una regla
+       *  y no abre ticket (lib/no-pude.ts, `esGuardaDeHerramienta`). Sin la marca, un `error` es una falla (la verificación de
+       *  2cb1cf67e: «No pude leer las pasarelas conectadas» tenía la misma forma). `faltan`, `yaEstaba` y `falta` la ponen solos. */
+      guarda?: true;
     };
 
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
@@ -513,4 +517,5 @@ export type Resultado =
   | { ok: true; tipo: 'control'; resultado: string }
   /** `motivo`: lo que contestó la base cuando la pendiente no entró (va al rastro de un flujo, nunca a una persona ni por
    *  HTTP). `noCorrio`: se sabe que NO se ejecutó nada (la pendiente no existe): un flujo lo puede reintentar sin repetir. */
-  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true; falta?: Falta };
+  /** `guarda`: el 400 es una GUARDA de MaKo, no una falla (`Preparado`, la marca explícita). */
+  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true; falta?: Falta; guarda?: true };

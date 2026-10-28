@@ -60,7 +60,7 @@ import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, aviso
 import { sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
-import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosAlGrupo, instanciaVoz } from '@/lib/mako-grupo';
+import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia, numeroDeInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
@@ -113,7 +113,8 @@ const CORRECCION_TOOLS = HERRAMIENTAS_CORRECCION.flatMap((id) => { const d = por
 // El anillo vive en lib/mako-grupo.ts desde el 28/10/2026 (`anotarEnviadosAlGrupo`): ahí se anota todo lo que sale por la línea
 // de MaKo, también los avisos y las insistencias, que no pasan por acá.
 const idsEnviados = idsEnviadosAlGrupo;
-const registrarEnviados = anotarEnviadosAlGrupo;
+// Con tope (`anotarEnviadosConTope`): lo que ya salió no espera a una base colgada (la verificación de 2cb1cf67e).
+const registrarEnviados = anotarEnviadosConTope;
 async function registrarEnviado(ws: number, jid: string, id: string): Promise<void> {
   return registrarEnviados(ws, jid, [id]);
 }

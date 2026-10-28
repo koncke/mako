@@ -224,7 +224,7 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   // El envío de texto de la línea de MaKo anota lo que sale a un GRUPO: por ahí pasan `enviarAGrupoJid`, el grupo SuperAdmin y la
   // bienvenida (la verificación de 96e7840e8: esos dos quedaban afuera).
   const texto = grupo.slice(grupo.indexOf('async function enviarTextoVozMaKo('), grupo.indexOf('async function ponerNombre('));
-  assert.match(texto, /if \(r\.ok && id && jidONumero\.endsWith\('@g\.us'\)\) await anotarEnviadosAlGrupo\(OWNER_WS, jidONumero, \[id\]\);/);
+  assert.match(texto, /if \(r\.ok && id && jidONumero\.endsWith\('@g\.us'\)\) await anotarEnviadosConTope\(OWNER_WS, jidONumero, \[id\]\);/);
   for (const f of ['export async function enviarAGrupoJid(', 'export async function enviarAlGrupoSuperAdmin(']) {
     const cuerpo = grupo.slice(grupo.indexOf(f), grupo.indexOf('\n}\n', grupo.indexOf(f)));
     assert.match(cuerpo, /await enviarTextoVozMaKo\(jid, texto/, `${f} no sale por enviarTextoVozMaKo`);
@@ -240,12 +240,18 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(grupo, /const INTENTOS_DEL_ANILLO = 6;/);
   assert.match(anotar, /for \(let intento = 0; intento < INTENTOS_DEL_ANILLO; intento\+\+\) \{\n\s*if \(intento > 0\) await new Promise\(\(r\) => setTimeout\(r, 10 \+ Math\.random\(\) \* 60\)\);/);
   const maKo = grupo.slice(grupo.indexOf('export async function enviarAlGrupoMaKo('), grupo.indexOf('export async function enviarPartesAlGrupoMaKo('));
-  assert.match(maKo, /if \(id\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[id\]\)\.catch\(\(\) => \{\}\);/);
-  assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, r\.ids\)\.catch\(\(\) => \{\}\);/);
+  assert.match(maKo, /if \(id\) await anotarEnviadosConTope\(OWNER_WS, jid, \[id\]\);/);
+  assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosConTope\(OWNER_WS, jid, r\.ids\);/);
+  // ⚠️ CON TOPE (la verificación de 2cb1cf67e): con la base colgada, el mensaje esperaba al anillo y la respuesta en partes salía
+  // 1/3 durante cinco minutos. Lo que ya salió espera hasta 3 s; la anotación sigue sola. Nadie fuera del tope espera al anillo.
+  assert.match(grupo, /export const TOPE_DEL_ANILLO_MS = 3000;/);
+  const conTope = grupo.slice(grupo.indexOf('export async function anotarEnviadosConTope('), grupo.indexOf('export async function anotarEnviadosConTope(') + 400);
+  assert.match(conTope, /const tope = new Promise<void>\(\(r\) => \{ t = setTimeout\(r, TOPE_DEL_ANILLO_MS\); \}\);\n\s*try \{ await Promise\.race\(\[anotarEnviadosAlGrupo\(ws, jid, ids\), tope\]\); \} finally \{ clearTimeout\(t\); \}/);
+  assert.equal((grupo.match(/await anotarEnviadosAlGrupo\(/g) ?? []).length, 0, 'alguien espera al anillo sin tope');
   assert.match(grupo, /const KEY_ENVIADOS = \(jid: string\) => `mako\.doer\.sent\.\$\{jid\}`;/, 'el anillo cambió de clave: el doer ya no ve lo anotado antes');
   // El doer usa ESE anillo (uno solo) y nunca toma la línea de MaKo por la del dueño.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n\s*const registrarEnviados = anotarEnviadosAlGrupo;/);
+  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n[^\n]*\n\s*const registrarEnviados = anotarEnviadosConTope;/);
   assert.doesNotMatch(doer, /KEY_SENT/);
   // La voz, leída ESTRICTA (la otra convierte un error en «mako_ws1»): sin leerla no se anota ni se guarda en memoria.
   assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = voz === instance;\n\s*const visto = deMaKo \? NaN :/);

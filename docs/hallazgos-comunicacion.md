@@ -236,6 +236,11 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
       La voz se lee estricta también para decidir «es la línea de MaKo»: la otra convierte un error en «mako_ws1».
       Cada vuelta del compare-and-set gana UNO: con 3 intentos, 4 envíos a la vez al mismo grupo perdían un id (tren-t). Son 6,
       con una espera al azar; más de 6 a la vez todavía puede perder uno (lo cerraría un append atómico en la base).
+    · ⚠️ **El mensaje no espera al anillo** (la verificación de 2cb1cf67e). La de tren-t lo anotó como «sólo atrasa al que
+      llama», y era el diagnóstico equivocado: con la base colgada en `mako.doer.sent.*`, `enviarAGrupoJid` esperaba al anillo
+      ANTES de volver, así que la respuesta en tres partes salía 1/3 y la espera no salía, hasta el corte de undici (300 s): cinco
+      minutos de MaKo mudo en el grupo. Ahora todo lo que ya salió anota con tope (`anotarEnviadosConTope`, 3 s) y la anotación
+      sigue sola; si el eco llega antes, entra como un mensaje.
     · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
       nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
       ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
@@ -272,11 +277,14 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     apaga la última y cuenta como tragada. Y una LECTURA que anduvo no cambia la última (`laUltimaFueGuarda`, lib/no-pude.ts):
     «falta el monto» + `buscar_leads` + «me falta el monto» abría un ticket por una regla. El costo: guarda + lectura + un «no
     pude» de otra cosa queda como la regla. El turno de la app quedó igual (MaKo inteligente, 5f0792446).
+  · ⚠️ **Por la FORMA no se sabe si es una guarda** (la verificación de 2cb1cf67e): «No pude registrar la acción pendiente» y «No
+    pude leer las pasarelas conectadas» volvían como `{ ok:false, error }`, igual que «falta el monto», y se tomaban por regla. La
+    marca es EXPLÍCITA: es guarda la salida con `guarda: true`. La ponen la validación de parámetros, el preparar que trae
+    `faltan`, `yaEstaba` o `falta` (o la marca el runner), el legado que la trae (lib/api-mako/ejecutar.ts), las guardas del
+    runner viejo del doer y `requireLead` (lib/mako-tools.ts), que dejó de tirar: un throw es una falla para el turno. Un error
+    suelto es una falla. Lo lee `esGuardaDeHerramienta` (lib/no-pude.ts, de MaKo inteligente).
 
 **Sin hacer:**
-- **El anillo anti-eco no tiene tope de tiempo** (la verificación de tren-t): `enviarTextoVozMaKo` espera al anillo, y
-  `getSettingEstricto` / `cambiarSettingSi` no cortan. Con la base colgada, una alarma al grupo SuperAdmin o la bienvenida (ya
-  salidas) vuelven recién a los ~8 s. No duplica nada; sólo atrasa al que llama (lib/mako-grupo.ts, `anotarEnviadosAlGrupo`).
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
   se compara por el `participant` exacto, así que PN↔`@lid`, o el dueño con y sin `participant`, piden «sí, MaKo» aunque sea
   quien la pidió (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); en un lote, la cita a MaKo se pierde (el sintético no
