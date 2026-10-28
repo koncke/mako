@@ -58,6 +58,10 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   65.4.0, que no estaba en la caché, y `--no-install` la rechaza con un error por stderr y nada útil por stdout. El
   diagnóstico obvio («Vercel no responde» o «el deploy no está») era el equivocado.
 - **Regla:** todo llamado al CLI de Vercel desde un script va con la versión FIJA (`vercel@65.3.1`) y `--yes` de npx.
+- **Y `--scope` siempre (28/10/2026, Cerebro):** desde la 65.5.0, `npx vercel ls` o `inspect` sin `--scope` contesta
+  un JSON `{"status":"action_required","reason":"missing_scope"}` y nada más: ya no toma un equipo por defecto. La espera
+  del deploy de tren-u (un bucle que grepea «Ready») siguió callada 12 minutos con el deploy ya Ready. El script del aviso
+  ya pasaba `--scope`; el que faltaba era el comando a mano del tren. Va `--scope mbustos-4239s-projects` en TODO llamado.
 - **Y el tope:** el envío al ws1 tarda ~134 s en frío (el chequeo de Vercel recorre los commits de main); con 180 s por
   negocio, el primero de la vuelta se cortaba sin decir nada (`rc=null`). Un tope por negocio de 300 s.
 
