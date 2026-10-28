@@ -80,6 +80,27 @@ export async function dispararEventoSocial(leadId: number, canal: CanalSocial, s
 }
 
 /**
+ * Los eventos en los que la persona ESCRIBIÓ un mensaje privado (un DM, una respuesta a la historia, el primer texto que
+ * sigue a un anuncio o a un enlace de referencia). Un comentario no: es público, y su respuesta es otra (la privada).
+ */
+const ES_MENSAJE_QUE_SE_CONTESTA: ReadonlySet<EventoSocial['subtipo']> = new Set(['mensaje', 'historia', 'anuncio', 'referencia']);
+
+/**
+ * EL AI STEP CONTESTA EL MENSAJE QUE ARRANCÓ LA AUTOMATIZACIÓN (28/10/2026, la (a) del Cerebro, como ManyChat): DESPUÉS de
+ * `dispararEventoSocial`, con lo que escribió. Lo decide el motor (`contestarElDisparo`): sólo una automatización de ESTE
+ * evento cuya primera tarjeta es el AI Step, y sólo la inscripción que todavía no mandó nada.
+ */
+export async function contestarDisparoSocial(
+  leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo'], extra: { texto?: string | null; cuenta?: string | null; fecha?: string | null },
+): Promise<number> {
+  if (!ES_MENSAJE_QUE_SE_CONTESTA.has(subtipo) || !extra.texto?.trim()) return 0;
+  const sub = subtipoDelEvento(canal, subtipo);
+  if (!sub) return 0;
+  const { contestarElDisparo } = await import('./nutricion');
+  return contestarElDisparo(leadId, canal, sub, { texto: extra.texto, cuenta: extra.cuenta ?? null, recibidoAt: extra.fecha ?? null });
+}
+
+/**
  * La respuesta por Instagram o Messenger de alguien que ya es un lead: anota que contestó y, si una
  * automatización suya tiene un AI Step de ese medio, le contesta por ahí (ver la cabecera). `texto`: lo que
  * escribió; `cuenta`: la cuenta de Zernio que lo recibió. Devuelve cuántas inscripciones anotó.

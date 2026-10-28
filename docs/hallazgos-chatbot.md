@@ -27,6 +27,23 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## El primer DM de Instagram no lo contestaba nadie: el AI Step esperaba el SEGUNDO (28/10/2026, la (a) del Cerebro)
+
+**El síntoma** (Teo, la llamada del 28/10): «la primera DM no la contesta el AI Step». Una automatización cuyo CRON es «envía
+un mensaje» y cuya primera tarjeta es el AI Step no tiene SALIDA (`raizSalida` null: la flecha CRON → AI Step es implícita,
+`suelta` ausente). El DM la inscribía y la inscripción quedaba esperando que la persona escribiera de nuevo: el motor sólo
+le pasa al AI Step lo que llega por `pausarPorRespuesta`, y el DM que la arrancó llegó ANTES de que existiera la inscripción.
+
+**La decisión** (el Cerebro, la (a), como ManyChat): si la primera tarjeta es el AI Step de ese medio (`contestaElDisparo`,
+lib/flujo-grafo.ts), contesta ese mismo DM. El webhook lo pide DESPUÉS de inscribir y sólo si inscribió
+(`contestarDisparoSocial`); el motor toma sólo las inscripciones de ESE evento que todavía no mandaron nada, las anota
+'respondio' (compare-and-set) y las pasa por la MISMA puerta que una respuesta (`asistirRespuesta`). Sólo un mensaje privado
+que la persona escribió (un DM, una respuesta a la historia, el primer texto de un anuncio o un enlace): un comentario no.
+Con una bienvenida adelante, lo de siempre. tests/instagram-primer-dm.test.ts.
+
+**Sin hacer:** nunca corrió contra un DM real; «Crear con IA» todavía no arma una automatización de Instagram con un AI Step
+como primera tarjeta (el otro pedazo de la promesa a Teo).
+
 ## «Clic en un anuncio»: el webhook ya lo producía, sólo la pantalla lo escondía (28/10/2026, lo prometido a Teo)
 
 **El pedido** (el Cerebro, de la llamada con Teo): Martín vendió Automations como «ManyChat 2.0», y el disparador «El usuario

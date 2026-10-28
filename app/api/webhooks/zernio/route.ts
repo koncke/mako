@@ -49,7 +49,7 @@ import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
-import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
+import { procesarEventoSocial, dispararEventoSocial, contestarDisparoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
 import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
 import { leerLeadDeZernio } from '@/lib/zernio-lead';
 import { cargarLeadDeZernio, alNacerLeadDeZernio } from '@/lib/zernio-leads';
@@ -248,6 +248,11 @@ export async function POST(req: NextRequest) {
             // Con lo que escribió (ticket #17): las palabras clave de un CRON de comentario.
             const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto));
             console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: ${n} automatización(es)`);
+            // EL AI STEP CONTESTA ESTE MISMO MENSAJE si es la primera tarjeta (28/10/2026, como ManyChat): después de inscribir.
+            if (n > 0) {
+              const c = await runWithWorkspace(wsFinal, () => contestarDisparoSocial(leadId, canal, subtipo, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId, fecha: ev.evento.fecha }));
+              if (c > 0) console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: el AI Step contestó el mensaje que la arrancó (${c})`);
+            }
           } catch (e) {
             console.error(`[webhook:zernio] disparar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);
           }

@@ -2446,6 +2446,17 @@ export function escuchaPor(pasos: readonly PasoGrafo[], medio: MedioAIStep = 'wh
 }
 
 /**
+ * ¿EL AI STEP CONTESTA EL MENSAJE QUE ARRANCÓ LA AUTOMATIZACIÓN? (28/10/2026, decisión del Cerebro, la (a): «como
+ * ManyChat»). Sí cuando la PRIMERA tarjeta es el AI Step: la automatización no tiene salida (`raizSalida` null) y escucha
+ * por ese medio. Hasta hoy la inscripción quedaba esperando el SEGUNDO mensaje y el primero no lo contestaba nadie (Teo,
+ * 28/10: «la primera DM no la contesta el AI Step»). Con una tarjeta de salida adelante (una bienvenida), lo de siempre:
+ * sale la tarjeta y el AI Step contesta lo que venga después. Pura: la usan el motor (`contestarElDisparo`) y el test.
+ */
+export function contestaElDisparo(pasos: readonly PasoGrafo[], medio: MedioAIStep): boolean {
+  return raizSalida(pasos) == null && escuchaPor(pasos, medio);
+}
+
+/**
  * ¿SE PUEDE SUMAR UN AI STEP de este medio? No si hay un «Si responde» de los de siempre (no se mezclan) ni si el
  * medio ya tiene uno (UNDÉCIMA TANDA: `TOPE_AI_STEP_POR_MEDIO` = 1; cuenta también uno suelto). La misma regla que
  * Publicar: ofrecerla sería una tarjeta que no se publica. La leen el ＋ y el click derecho

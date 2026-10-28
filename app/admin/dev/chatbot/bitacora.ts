@@ -3064,4 +3064,21 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "28 oct", hora: "17:00", chat: "Automations", cuenta: "claude4",
+    sesion: "local_ea2a6e6a-dd40-48a7-96c3-25bcbf003e41",
+    actor: "claude", tipo: "correccion",
+    titulo: "Instagram: el AI Step contesta el primer mensaje",
+    puntos: [
+      "Si la automatización arranca con un AI Step, el primer mensaje de la persona ya tiene respuesta, como en ManyChat.",
+      "Antes esperaba al segundo mensaje y el primero quedaba sin contestar.",
+      "Con una bienvenida adelante, sale la bienvenida y el AI Step contesta lo que venga después, como siempre.",
+    ],
+    archivos: [
+      "lib/flujo-grafo.ts — cuándo contesta el primero (contestaElDisparo)",
+      "lib/nutricion.ts y lib/zernio-entrante.ts — contestarlo",
+      "tests/instagram-primer-dm.test.ts",
+    ],
+    revisar: "/automations",
+  },
 ];

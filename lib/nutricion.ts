@@ -85,7 +85,7 @@ import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, extrasDeCaso, MAX_RAMAS_AB, type MedioAIStep,
+  juntarPasosIA, escuchaPor, contestaElDisparo, extrasDeCaso, MAX_RAMAS_AB, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -5915,6 +5915,49 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
+}
+
+/**
+ * EL AI STEP CONTESTA EL MENSAJE QUE ARRANCÓ LA AUTOMATIZACIÓN (28/10/2026, decisión del Cerebro, la (a): «como ManyChat»).
+ * Un DM de Instagram o Messenger que dispara una automatización cuya PRIMERA tarjeta es el AI Step (`contestaElDisparo`,
+ * lib/flujo-grafo.ts) la inscribía y la dejaba esperando el SEGUNDO mensaje: el primero no lo leía nadie. Lo llama el
+ * webhook DESPUÉS de inscribir (`contestarDisparoSocial`, lib/zernio-entrante.ts), con lo que escribió la persona.
+ *
+ * Toma SÓLO las inscripciones de ESTE evento que todavía no mandaron nada (las recién inscriptas: una vieja que ya
+ * conversa contesta por `pausarPorRespuesta`), las anota 'respondio' con compare-and-set contra 'activa' (como una
+ * respuesta) y las pasa por la MISMA puerta que una respuesta (`asistirRespuesta`): el mismo clasificador, el mismo
+ * redactor, «sale sola» o borrador, y el anti-ban. `subtipo`: en las palabras del CRON (`dm`, `historia`…). Devuelve
+ * cuántas contestó. Nunca tira: el lead ya quedó inscripto, que es lo crítico.
+ */
+export async function contestarElDisparo(
+  leadId: number, canal: CanalSocial, subtipo: string, opts: { texto?: string | null; cuenta?: string | null; recibidoAt?: string | null },
+): Promise<number> {
+  const texto = opts.texto?.trim();
+  if (!texto) return 0;
+  try {
+    const supabase = await getTenantDb();
+    const delEvento = (await getSecuenciasActivas()).filter((s) => contestaElDisparo(s.pasos, canal)
+      && vistasPorDisparador(s).some((v) => disparaPorEvento(v.disparador, canal, { subtipo, texto })));
+    if (!delEvento.length) return 0;
+    const { data, error } = await supabase.from('nutricion_inscripciones').select('id, secuencia_id')
+      .eq('lead_id', leadId).eq('estado', 'activa').in('secuencia_id', delEvento.map((s) => s.id));
+    if (error) throw new Error(error.message);
+    const frescas: number[] = [];
+    for (const i of (data ?? []) as Array<{ id: number }>) if (!(await yaLeSalioAlgo(supabase, i.id))) frescas.push(i.id);
+    if (!frescas.length) return 0;
+    const { data: marcadas, error: eMarca } = await supabase.from('nutricion_inscripciones')
+      .update({ estado: 'respondio', updated_at: ahoraISO() })
+      .in('id', frescas).eq('estado', 'activa')
+      .select('id, secuencia_id');
+    if (eMarca) throw new Error(eMarca.message);
+    const contestan = (marcadas ?? []) as Array<{ id: number; secuencia_id: number }>;
+    if (!contestan.length) return 0;
+    await asistirRespuesta(leadId, contestan.map((m) => m.secuencia_id), texto, null, { medio: canal, cuenta: opts.cuenta ?? null, recibidoAt: opts.recibidoAt ?? null });
+    return contestan.length;
+  } catch (e) {
+    console.error(`[nutricion] el AI Step no contestó el mensaje que arrancó la automatización (lead ${leadId}, ${canal}): ${e instanceof Error ? e.message : String(e)}`);
+    return 0;
+  }
 }
 
 /** ¿A esta inscripción ya le salió algo? (enviado, o simulado en una prueba.) Un error cuenta como sí: corta de más, nunca manda de más. */
