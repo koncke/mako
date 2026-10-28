@@ -126,6 +126,15 @@ const HE_HECHO = new RegExp(String.raw`(?<!\p{L})he\s+${PARTICIPIO_ESCRITO}(?!\p
 const YA_QUEDO = new RegExp(String.raw`(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+${PARTICIPIO_ESCRITO}(?!\p{L})`, 'u');
 /** «acabo de cargar las 3 tareas»: el pasado reciente, en primera persona. */
 const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar|publicar|cambiar|mover|borrar|guardar|programar|anotar|actualizar|subir|agregar|eliminar|activar|pausar|cancelar|confirmar|responder|escribir|marcar|reprogramar)(?!\p{L})/u;
+/**
+ * «Anotado», «queda guardado», «lo recordaré» (27/10/2026, el horario de Leila): MaKo lo dijo dos veces sin escribir nada, y
+ * en el chat no hay con qué «recordar». Se mira la oración ENTERA: en «Anotado: X es de 7:30 a 9:30» lo de antes del «:» no
+ * presenta nada, ES lo que afirma.
+ */
+const HECHO_EN_MEMORIA = /^(?:¡\s*)?(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:lo|la|los|las)\s+(?:recordaré|recuerdo|tendré en cuenta|tengo en cuenta)(?!\p{L})/u;
+/** La parte de `HECHO_EN_MEMORIA` que puede ser lo que el turno LEYÓ («el pago quedó registrado el 5/10»): el grupo la deja con
+ *  una lectura en el turno (`afirmacionesDeHecho`, `enElGrupo.leyo`). */
+const QUEDO_EN_MEMORIA = /(?<!\p{L})(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})/u;
 /** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
 const NIEGA = /(?<!\p{L})(?:no|nunca|tampoco|ni)(?!\p{L})/u;
 // «confírmala», «para confirmar», «revísala»: lo que habla de confirmar; «confirmé» y «revisé» dicen hecho, y no entran.
@@ -202,7 +211,11 @@ export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false, enEl
     if (/[¿?]/.test(tal) || NIEGA.test(tal) || DE_LO_PROPUESTO.test(tal) || CONDICION.test(tal)) return false;
     // Lo que va antes de un «:» que presenta está a la vista: se mira lo de después («Listo: pausé la campaña»).
     const dicho = o.propia.slice(finDeLoQuePresenta(texto, o, bloquesDebajo)).toLowerCase();
-    if (PRETERITO.test(dicho) || ACABO_DE.test(dicho)) return true;
+    // «Anotado», «lo recordaré» (`HECHO_EN_MEMORIA`): en el grupo, «quedó registrado» con una lectura en el turno puede ser lo
+    // que leyó («el pago quedó registrado el 5/10»), como el «ya quedó».
+    const entera = o.propia.trim().toLowerCase();
+    const enMemoria = HECHO_EN_MEMORIA.test(entera) && !(enElGrupo?.leyo && QUEDO_EN_MEMORIA.test(entera));
+    if (PRETERITO.test(dicho) || ACABO_DE.test(dicho) || enMemoria) return true;
     return enElGrupo
       ? DEJE_ESCRITO.test(dicho) || HE_HECHO.test(dicho) || (!enElGrupo.leyo && YA_QUEDO.test(dicho))
       : DEJE_HECHO.test(dicho);

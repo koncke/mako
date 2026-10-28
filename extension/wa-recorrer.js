@@ -37,6 +37,7 @@
     try {
       avisar('buscando', { texto: `Buscando «${nombre}»…` });
       if (!(await p.escribirBusqueda(nombre))) return fin({ ok: false, encontrado: false, motivo: 'sin_busqueda' });
+      if (parado()) return fin({ ok: false, encontrado: false, motivo: 'parado' });
       const fila = await esperar(() => p.filaDelGrupo(nombre), t.espera);
       if (!fila) return fin({ ok: false, encontrado: false, motivo: 'no_encontrado' });
       if (parado()) return fin({ ok: false, encontrado: true, motivo: 'parado' });
@@ -116,8 +117,15 @@
           continue;
         }
         diag.abiertos++;
-        if (!diag.forma) diag.forma = p.forma(r.info);
-        const perfil = raiz.MakoWaFichas.perfilDeInfo(p.leerPerfil(r.info));
+        // Los datos de una empresa llegan un instante después de abrir el panel (`esperarDatos`, abajo): se leen recién ahí.
+        let panel = r.info;
+        if (typeof p.esperarDatos === 'function') {
+          const t0 = Date.now();
+          panel = (await p.esperarDatos(r.info, tel)) || r.info;
+          diag.esperaMs = (diag.esperaMs || 0) + (Date.now() - t0);
+        }
+        if (!diag.forma) diag.forma = p.forma(panel);
+        const perfil = raiz.MakoWaFichas.perfilDeInfo(p.leerPerfil(panel));
         if (perfil) diag.conDatos++;
         if (perfil || r.nombreFila) perfiles.push({ telefono: tel, perfil: perfil || null, nombre: r.nombreFila || null });
         await p.volverDelPerfil();
@@ -251,8 +259,11 @@
         c.focus();
         if (c.tagName === 'INPUT') c.select(); else d.execCommand('selectAll', false);
         d.execCommand('delete', false);
-        // Letra por letra, como quien escribe: se ve que busca.
-        for (const ch of Array.from(texto)) { d.execCommand('insertText', false, ch); await dormir(28); }
+        // Letra por letra, como quien escribe: se ve que busca. ⚠️ CON LA PESTAÑA OCULTA (Chrome tapado por otra ventana, o la
+        // persona se fue a otra app) Chrome frena cada pausa a 1 s, y pasados 5 minutos a UNA POR MINUTO: MEDIDO el 27/10/2026,
+        // con la app de Claude encima de Chrome, un nombre de 36 letras seguía escribiéndose 10 minutos después. Oculta, de una.
+        if (d.hidden) d.execCommand('insertText', false, texto);
+        else for (const ch of Array.from(texto)) { d.execCommand('insertText', false, ch); await dormir(28); }
         return true;
       },
       filaDelGrupo(nombre) {
@@ -350,6 +361,29 @@
         if (!panel) return { ok: false, motivo: 'sin_panel', busqueda, menu, nombreFila };
         return { ok: true, info: panel, busqueda, menu, nombreFila };
       },
+      // ⚠️ LOS DATOS DE UNA EMPRESA LLEGAN DESPUÉS (MEDIDO 27/10/2026): el panel abre con el nombre, el teléfono y «Esta es una
+      // cuenta de empresa», y la web, el correo, la dirección y la descripción aparecen un instante más tarde (WhatsApp los
+      // pide). La 0.74.0 leía en el acto: 60 perfiles del grupo de agosto, 0 con datos; los mismos 60 otra vez, ya en su
+      // memoria, 25 con datos (21 webs, 18 correos). Se espera a que el panel deje de cambiar; si es de empresa y todavía no
+      // muestra ningún dato, hasta `tope`. Devuelve el panel de ESE teléfono tal como quedó (WhatsApp puede redibujarlo).
+      async esperarDatos(panel, telefono, tope) {
+        const dig = String(telefono || '').replace(/\D/g, '');
+        const actual = () => (dig ? panelDeContacto(dig) : null) || panel;
+        const texto = () => String(actual().innerText || actual().textContent || '');
+        const deEmpresa = (t) => /cuenta de empresa|business account|conta comercial/i.test(t);
+        const conDato = (t) => /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.|https?:\/\/|www\./i.test(t);
+        const hasta = Date.now() + (tope || 4000);
+        let antes = texto();
+        let quietos = 0;
+        while (Date.now() < hasta) {
+          await dormir(300);
+          const ahora = texto();
+          if (ahora !== antes) { antes = ahora; quietos = 0; continue; }
+          quietos++;
+          if (quietos >= 2 && (!deEmpresa(ahora) || conDato(ahora))) break;
+        }
+        return actual();
+      },
       leerPerfil(panel) {
         const textos = String(panel.innerText || panel.textContent || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 200);
         const links = Array.from(panel.querySelectorAll('a[href]')).map((a) => a.getAttribute('href') || '').filter(Boolean).slice(0, 50);
@@ -427,7 +461,7 @@
       const avisar = (paso, datos) => {
         const n = datos || {};
         p.decir(`${n.texto || 'Leyendo perfiles…'} · no toques nada`);
-        try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
+        try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso, oculta: document.hidden === true }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
       };
       const tope = Math.max(0, Math.min(Number(msg.tope) || 60, 200));
       const desde = Math.max(0, Number(msg.desde) || 0);
@@ -447,7 +481,9 @@
       p.decir(paso === 'recorriendo'
         ? `Leyendo los miembros${n.total ? `: ${Math.min(n.vistos, n.total)} de ${n.total}` : `: ${n.vistos}`} · no toques nada`
         : `${n.texto || 'Trabajando…'} · no toques nada`);
-      try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
+      // ⚠️ `oculta`: la pestaña no se ve (Chrome tapado por otra ventana, o la persona en otra app). Chrome la frena (1 por
+      // segundo; a los 5 minutos, 1 por minuto) y la lista se arrastra: MEDIDO el 27/10/2026, el trabón de «11 de 126».
+      try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso, oculta: document.hidden === true }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
     };
     enCurso = recorrerGrupo(msg.grupo.slice(0, 120), p, avisar, () => parados.has(id))
       .then((r) => { p.decir(r.ok ? 'Listo' : 'Terminé'); p.sacarCartel(1600); responder(r); })

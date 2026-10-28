@@ -8,6 +8,7 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { config } from 'dotenv';
@@ -15,7 +16,7 @@ import { CURATED_CURSOS } from '../lib/mako-knowledge-seed';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-const CONN = process.env.DATABASE_URL;
+const CONN = urlDeLaBase();
 const OAI = process.env.OPENAI_API_KEY;
 if (!CONN) { console.error('Falta DATABASE_URL en .env.local'); process.exit(1); }
 if (!OAI) { console.error('Falta OPENAI_API_KEY en .env.local'); process.exit(1); }

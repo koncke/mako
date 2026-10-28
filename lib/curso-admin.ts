@@ -24,7 +24,8 @@ import { getSupabaseServer } from './supabase';
 import { COLUMNAS_CLASE, aClase } from './curso-datos';
 import { modulosDelCurso } from './curso-modulos-datos';
 import type { ModuloCurso } from './curso-modulos';
-import { erroresDeCampos, tieneTarea, type Clase, type TipoClase } from './curso';
+import { erroresDeCampos, tieneTarea, videoDeLink, type Clase, type TipoClase } from './curso';
+import { accesoDeDrive, errorDeAccesoDrive } from './drive-acceso';
 import {
   validarClase, validarVideoEntrada, validarCamposEntrada, pathDeSubida, pathEsDelWorkspace, reordenar, clasesDeEtapa, siguienteOrden,
   ordenConClaseEn, esMimeVideo, TOPE_VIDEO_BYTES, TOPE_TITULO, TOPE_TEXTO, ERROR_OBLIGATORIA_SUELTO, ERROR_OBLIGATORIA_SIN_TAREA, TIPOS_CLASE,
@@ -35,6 +36,21 @@ import { saneaProductos } from './curso-invitar-reglas';
 
 /** El bucket privado de la mig 0202. */
 export const BUCKET_CURSO = 'curso-videos';
+
+/**
+ * Un video NUEVO de Google Drive tiene que poder verlo un alumno sin sesión (MAU-19, lib/drive-acceso.ts): el dueño lo
+ * ve en el editor aunque sea privado, porque está logueado en su Google. Lo llaman los TRES guardados de una clase
+ * (`guardarClase`, `guardarCampoClase` y `guardarLeccion`), que son también los de la API de MaKo. Si Drive no
+ * contesta, se guarda: «no pude preguntar» no es «el video está roto».
+ */
+async function frenoDeDrive(video: { video_tipo: string; video_url: string | null }): Promise<string | null> {
+  if (video.video_tipo !== 'drive' || !video.video_url) return null;
+  const id = videoDeLink(video.video_url)?.id;
+  if (!id) return null;
+  const a = await accesoDeDrive(id);
+  if (a == null) console.warn(`[curso-admin] no pude preguntarle a Drive por ${id}: se guarda igual`);
+  return errorDeAccesoDrive(a);
+}
 
 /** Cuánto vive el link para VER un video subido desde el editor: lo que dura revisarlo. */
 const VIDA_LECTURA_SEG = 10 * 60;
@@ -159,6 +175,10 @@ export async function guardarClase(raw: unknown): Promise<Resultado<{ clase: Cla
       // ataja el catch), así que `false` acá es «no llegó», no «no pude preguntar».
       const { data: hay } = await getSupabaseServer().storage.from(BUCKET_CURSO).exists(v.fila.video_path!);
       if (!hay) return { ok: false, error: 'El video no terminó de subir.' };
+    }
+    if (v.fila.video_url !== (previa?.videoUrl ?? null)) {
+      const freno = await frenoDeDrive(v.fila);
+      if (freno) return { ok: false, error: freno };
     }
 
     const db = await getTenantDb();
@@ -544,6 +564,10 @@ export async function guardarCampoClase(claseId: number, cambio: unknown): Promi
           const { data: hay } = await getSupabaseServer().storage.from(BUCKET_CURSO).exists(v.video.video_path!);
           if (!hay) return { ok: false, error: 'El video no terminó de subir.' };
         }
+        if (v.video.video_url !== c.videoUrl) {
+          const freno = await frenoDeDrive(v.video);
+          if (freno) return { ok: false, error: freno };
+        }
         fila = { ...v.video };
         // ⚠️ OTRO VIDEO, OTROS MINUTOS (item 12 del 08/10/2026: los minutos salen solos del video). Los
         //    de antes eran del video que se fue: quedan vacíos hasta que el reproductor del editor mida el
@@ -727,6 +751,10 @@ export async function guardarLeccion(claseId: number, rawCambios: unknown, rawAn
         // ⚠️ Lo mismo que `guardarClase`: la subida la hace el navegador y puede cortarse.
         const { data: esta } = await getSupabaseServer().storage.from(BUCKET_CURSO).exists(v.video.video_path!);
         if (!esta) return { ok: false, error: 'El video no terminó de subir.' };
+      }
+      if (v.video.video_url !== c.videoUrl) {
+        const freno = await frenoDeDrive(v.video);
+        if (freno) return { ok: false, error: freno };
       }
       Object.assign(fila, v.video);
       // OTRO VIDEO, OTROS MINUTOS (item 12 del 08/10/2026): los que midió el reproductor del video nuevo

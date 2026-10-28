@@ -225,7 +225,7 @@ export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string
 };
 
 /** El voseo con tilde de estos verbos, en el texto CRUDO: se marca con «§» antes de normalizar (la tilde se pierde). */
-const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté|animá|activá|desactivá|prendé|apagá|encendé|usá)(?=[\s,.;:!?"')]|$)/gi;
+const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté|animá|activá|desactivá|prendé|apagá|encendé|usá|subrayá|tachá|centrá|resaltá|alineá)(?=[\s,.;:!?"')]|$)/gi;
 const PRON_LANDING = '(?:mela|melo|nosla|noslo|la|lo|las|los|me|nos)';
 /** El verbo inequívoco: con la tilde marcada o con el pronombre pegado. */
 const verboFuerte = (raices: string) => `\\b(?:${raices})(?:§|${PRON_LANDING}\\b)`;
@@ -283,11 +283,21 @@ const RAICES_EDITAR = 'cambia|agrega|anade|anadi|pon|pone|quita|saca|oculta|esco
 const MODAL_EDITAR = 'cambiar|agregar|anadir|poner|quitar|sacar|ocultar|esconder|mostrar|mover|borrar|eliminar|editar|traducir|duplicar|conectar|verificar|compartir|subir|actualizar|modificar|reemplazar|corregir|arreglar|sumar|meter|crear|armar'
   + '|cambies|agregues|anadas|pongas|quites|saques|ocultes|escondas|muestres|muevas|borres|elimines|edites|traduzcas|dupliques|conectes|verifiques|compartas|subas|actualices|modifiques|reemplaces|corrijas|arregles|sumes|metas|crees|armes';
 /** Una pieza de la landing (o la landing misma). */
-const PIEZA_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?|secci(?:on|ones)|titular(?:es)?|titulos?|subtitulos?|botone?s?|formularios?|temas?|dominios?|videos?|vsl|agendas?|calendario|links?|enlaces?|textos?|imagen(?:es)?|fotos?|colores?|fuentes?|tipografias?|precios?|testimonios?|preguntas|faq|bloques?|encabezado|portada|hero|pie|footer|menu|logo|cta|direccion)\\b';
+const PIEZA_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?|secci(?:on|ones)|titular(?:es)?|titulos?|subtitulos?|botone?s?|formularios?|temas?|dominios?|videos?|vsl|agendas?|calendario|links?|enlaces?|textos?|imagen(?:es)?|fotos?|colores?|fuentes?|tipografias?|precios?|testimonios?|preguntas|faq|bloques?|encabezado|portada|hero|pie|footer|menu|logo|cta|direccion'
+  // El formato de un texto (27/10/2026): «pon en negrita el título de mi landing».
+  + '|negritas?|cursivas?|italicas?|subrayad[oa]s?|tachad[oa]s?|alineacion|tamanos?|letras?)\\b';
 /** Un objeto de OTRA área: entre el verbo y la pieza, o justo después de ella («el titular del anuncio»). */
 const OTRO_QUE_EDITAR = '(?:anuncios?|campanas?|posts?|publicacion(?:es)?|reels?|historias?|stor(?:y|ies)|e-?mails?|correos?|mails?|guion(?:es)?|copys?|automatizacion(?:es)?|flujos?|reunion(?:es)?|llamadas?|tareas?|creativos?|banners?|flyers?|disenos?|leads?|notas?|etiquetas?|etapas?|closer|setter|grupos?|chats?)\\b';
 const ART = `(?:${SEP_LANDING}(?:el|la|los|las|mi|mis|tu|tus|su|sus|este|esta|ese|esa))?`;
 const NO_DE_OTRO = `(?!${SEP_LANDING}(?:de|del|para|en)${ART}${SEP_LANDING}${OTRO_QUE_EDITAR})`;
+/**
+ * Los verbos que SON un formato (27/10/2026): «subrayá «Aprende a vender» en mi landing». La frase entre comillas deja
+ * la pieza a más de 3 palabras, así que no pasa por PEDIDO_EDITAR: va con la landing nombrada y sin otra área en el medio.
+ */
+const VERBOS_FORMATO = 'subraya|tacha|centra|resalta|alinea';
+/** Lo citado es el texto de la landing: «subrayá «Agenda tu llamada»» no habla de una llamada. */
+const sinCitas = (n: string): string => n.replace(/«[^»]*»|"[^"]*"|“[^”]*”/g, ' «» ');
+const PEDIDO_FORMATO = new RegExp(`^(?!.*\\b${OTRO_QUE_EDITAR})(?:.*\\b(?:${VERBOS_FORMATO})(?:§|${PRON_EDITAR}\\b)|(?:${VERBOS_FORMATO})\\b)`);
 const PEDIDO_EDITAR = new RegExp(`(?:${[
   `\\b(?:${RAICES_EDITAR})(?:§|${PRON_EDITAR}\\b)`, `\\bmostra§`,
   `^(?:${RAICES_EDITAR}|muestra)\\b(?![\\s,]+de\\b)`,
@@ -344,7 +354,7 @@ export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
   if (PEDIDO_REPLICAR.test(n)) return { tipo: 'replicar' };
   if (PEDIDO_ANALIZAR.test(n) || (PEDIDO_ANALIZAR_PARTE.test(n) && nombraLaLanding(n))) return { tipo: 'analizar' };
   if (PEDIDO_CREAR.test(n) || QUIERO_UNA_LANDING.test(n)) return { tipo: 'crear' };
-  if (PEDIDO_EDITAR.test(n) && nombraLaLanding(n)) return { tipo: 'editar' };
+  if ((PEDIDO_EDITAR.test(n) || PEDIDO_FORMATO.test(sinCitas(n))) && nombraLaLanding(n)) return { tipo: 'editar' };
   return null;
 }
 
@@ -474,7 +484,8 @@ const MODAL_COBRO = /\b(?:puedes|podes|podrias|quiero|queria|necesito|hay que|va
 const SEGUNDA_COBRO = /\b(?:le|les|me)\s+(?:mandas|envias|pasas|generas|creas|armas|haces|reembolsas|devolves|devuelves|cancelas|anulas)\b/;
 /** Lo que es del PLAN aunque nombre un cobro. Sin «pendiente», a diferencia de `ES_DEL_PLAN`:
  *  «anulá el link de pago pendiente de Ana» es un cobro, no una tarea. */
-const DEL_PLAN_COBRO = /\b(?:(?:al|el|mi|en el) plan|a la lista|tareas?|recordame|recuerdame|anotame|apuntame|no me olvide)\b/;
+// «El plan de pagos» de un lead no es el Plan (27/10/2026): «cambiá el plan de pagos de Ana a quincenal» salía de acá sin cobro.
+const DEL_PLAN_COBRO = /\b(?:(?:al|el|mi|en el) plan(?! de pagos?)|a la lista|tareas?|recordame|recuerdame|anotame|apuntame|no me olvide)\b/;
 
 // ── UNA CUOTA DEL PLAN (17/10/2026) ──────────────────────────────────────────────────────────────
 // El 14/10 el área `cobros` sumó nueve operaciones que escriben la tab Pagos campo por campo (editar_cuota,
@@ -500,6 +511,26 @@ const VERBO_CUOTA_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:cambiá|ajustá|mové|corr�
 const VERBO_CUOTA_SUELTO = /^(?:cambia|ajusta|mueve|corre|pon|pone|sube|baja|corrige|edita|actualiza|reprograma|posterga|adelanta|modifica|quita|saca|corta|manda|envia|pasa|genera|crea|arma)\b/;
 /** Con un modal: «¿puedes cambiar el vencimiento de la cuota 3?», «necesito mover la cuota 2». */
 const MODAL_CUOTA = /\b(?:puedes|podes|podrias|quiero|queria|necesito|hay que|vamos a|tenes que|tienes que)\s+(?:me\s+|le\s+|nos\s+)?(?:cambiar|ajustar|mover|corregir|editar|actualizar|reprogramar|postergar|adelantar|modificar|quitar|sacar|cortar|mandar|enviar|pasar|generar|crear|armar)\b/;
+/**
+ * La QUEJA de que no se puede cambiar (27/10/2026, los «no puedo» falsos de Leila): «No me deja editar sus cuotas», «No puedo
+ * cambiar la fecha de la cuota 2». Es un pedido de cambiarla: sin esto caían en la 9-bis («confirmación») con 0 herramientas.
+ */
+const QUEJA_CUOTA = /\bno\s+(?:me\s+)?(?:deja(?:n)?|dejo|puedo|pude|logro|consigo)\s+(?:cambiar|ajustar|mover|corregir|editar|actualizar|modificar|poner|cargar|reprogramar)\b/;
+/** Las cuotas DE ALGUIEN («sus cuotas», «mis cuotas»): un plan de pago, no la cuota de uso del negocio. */
+const CUOTAS_DE_ALGUIEN = /\b(?:sus|mis|tus)\s+cuotas\b/;
+/** Lo que es de la VISTA de la ficha (un bloque, una hoja, su lugar), no un dato: «pon las cuotas arriba de todo». */
+const DE_LA_VISTA = /\b(?:bloques?|hojas?|vista|estilo|columnas?|seccion(?:es)?|disenos?|arriba|abajo|ficha)\b/;
+/** ¿Nombra la VISTA de la ficha y no un dato? Lo usa el modo «Editar» del MaKo Analyst (lib/mako-analyst-lead-reglas.ts). */
+export const nombraLaVistaDeLaFicha = (texto: string): boolean => DE_LA_VISTA.test(norm(texto));
+/**
+ * EL PLAN DE PAGOS DE UN LEAD, sin la palabra «cuota» (27/10/2026, el ticket #13 de Leila): «las fechas y las cantidades de
+ * pago están mal: 300 cada quincena», «corregí la mensualidad de Ana». No sumaban el área cobros y el presupuesto sólo dejaba
+ * pasar `guardar_plan_pagos` (de 1 a 6 cuotas): MaKo dijo que no existía y el pedido terminó como ticket falso. Con un verbo de
+ * cambiar o un «está mal». La mensualidad de MaKo («mi mensualidad», «la de MaKo») no es esto.
+ */
+const OBJETO_PLAN_DE_PAGOS = /\bplan(?:es)? de pagos?\b|\b(?:fechas?|montos?|cantidades?|importes?|valores?)(?:\s+y\s+(?:las?\s+|los?\s+)?(?:fechas?|montos?|cantidades?|importes?|valores?))?\s+del?\s+(?:los\s+|sus\s+|las\s+)?(?:pagos?|cobros?|cuotas?)\b|\bquincena(?:s|l|les)?\b|\bmensualidad(?:es)?\b/;
+const ESTA_MAL = /\b(?:esta|estan)\s+mal\b|\bno\s+(?:es|son)\s+(?:de\s+)?\d|\bson\s+\d/;
+const PLAN_DE_MAKO = /\bmako\b|\bmi\s+(?:plan|suscripcion|mensualidad)\b/;
 
 // ── UN PAGO QUE LLEGÓ (17/10/2026) ──────────────────────────────────────────────────────────────
 // «Juan me pagó 500 mil pesos», «ya me pagó la cuota 2», «registrá un pago de 500 de Ana» salían `capturar`, dudosas
@@ -520,7 +551,7 @@ const REGISTRA_MODAL = /\b(?:puedes|podes|podrias|quiero|queria|necesito|hay que
 /** Lo que se registra: un pago, un cobro, un anticipo, o una cuota «como cobrada». */
 const OBJETO_A_REGISTRAR = /\b(?:pagos?|cobros?|anticipos?|adelantos?|senas?)\b|\bcuotas?\b.*\b(?:cobrad|pagad)\w*|\b(?:cobrad|pagad)\w*\b/;
 
-export type PedidoDeCobro = { tipo: 'link' | 'anular' | 'reembolso' | 'suscripcion' | 'cuota' | 'pago' };
+export type PedidoDeCobro = { tipo: 'link' | 'anular' | 'reembolso' | 'suscripcion' | 'cuota' | 'pago' | 'plan' };
 
 /** Lo que suma cada tipo a la relevancia del presupuesto: pone primero su herramienta (y, en
  *  un link, `listar_productos`, que da el productoId). */
@@ -531,6 +562,8 @@ export const RELEVANCIA_COBROS: Readonly<Record<PedidoDeCobro['tipo'], string>> 
   suscripcion: 'cancelar suscripcion cobro listar cobros',
   cuota: 'editar cuota vencimiento monto recordatorio cortar link cuota cobranza lead cobros pagos',
   pago: 'registrar pago suelto marcar pago cobrado cuota cobranza lead moneda del negocio cobros pagos',
+  // Corregir el plan de un lead: primero editar_venta_lead y editar_cuota. `guardar_cuotas` también lo marca GANADO (crm.def).
+  plan: 'editar venta lead monto suscripcion mensualidad editar cuota vencimiento monto cobranza lead cobros pagos',
 };
 
 /** Las áreas de cada tipo. Un link necesita además el CRM: el productoId sale de
@@ -544,6 +577,7 @@ export const AREAS_COBROS: Readonly<Record<PedidoDeCobro['tipo'], Area[]>> = {
   cuota: ['cobros', 'crm'],
   // Registrar un pago es del CRM (`registrar_pago_suelto`, `marcar_pago_cobrado`); `cobros` trae `ver_moneda_negocio`.
   pago: ['crm', 'cobros'],
+  plan: ['cobros', 'crm'],
 };
 
 /**
@@ -560,8 +594,9 @@ export function esPedidoDeCobro(texto: string): PedidoDeCobro | null {
   if (ENCABEZADO_VOLCADO.test(crudo) || INFINITIVO_TITULO.test(crudo) || esLista(crudo)) return null;
   const arranque = n.replace(PRELUDIO_CRM, '');
   // Una cuota del plan: lo suyo gana sólo si NO es uno de los cobros de arriba (un reembolso de la cuota 2 es un reembolso).
-  const cuota = (OBJETO_CUOTA.test(n) || CUOTA_Y_SU_DATO.test(n)) && !CUOTA_DE_USO.test(n)
-    && (VERBO_CUOTA_PEGADO.test(n) || VERBO_CUOTA_TILDE.test(crudo) || VERBO_CUOTA_SUELTO.test(arranque) || MODAL_CUOTA.test(n));
+  const verboCuota = VERBO_CUOTA_PEGADO.test(n) || VERBO_CUOTA_TILDE.test(crudo) || VERBO_CUOTA_SUELTO.test(arranque) || MODAL_CUOTA.test(n) || QUEJA_CUOTA.test(n);
+  const cuota = (OBJETO_CUOTA.test(n) || CUOTA_Y_SU_DATO.test(n) || (CUOTAS_DE_ALGUIEN.test(n) && !DE_LA_VISTA.test(n))) && !CUOTA_DE_USO.test(n) && verboCuota;
+  const plan = OBJETO_PLAN_DE_PAGOS.test(n) && (verboCuota || ESTA_MAL.test(n)) && !PLAN_DE_MAKO.test(n) && !DE_LA_VISTA.test(n) && !CUOTA_DE_USO.test(n);
   const verbo = VERBO_COBRO_PEGADO.test(n) || VERBO_COBRO_TILDE.test(crudo) || VERBO_COBRO_SUELTO.test(arranque) || MODAL_COBRO.test(n) || SEGUNDA_COBRO.test(n);
   // Un pago que llegó, dicho o pedido (no una pregunta): «Juan me pagó 500 mil pesos», «registrá un pago de 500».
   const esPregunta = /^[¿]/.test(crudo) || /\?\s*$/.test(crudo);
@@ -571,13 +606,13 @@ export function esPedidoDeCobro(texto: string): PedidoDeCobro | null {
     ((PAGO_DICHO_CON_PRONOMBRE.test(n) || PAGO_DICHO_CON_TILDE.test(crudo)) && OBJETO_DE_PAGO.test(sinElVerbo))
     || ((REGISTRA_TILDE.test(crudo) || REGISTRA_PEGADO.test(n) || REGISTRA_SUELTO.test(arranque) || REGISTRA_MODAL.test(n)) && OBJETO_A_REGISTRAR.test(n))
   );
-  if (!verbo) return cuota ? { tipo: 'cuota' } : pago ? { tipo: 'pago' } : null;
+  if (!verbo) return cuota ? { tipo: 'cuota' } : pago ? { tipo: 'pago' } : plan ? { tipo: 'plan' } : null;
   if (OBJETO_REEMBOLSO.test(n)) return { tipo: 'reembolso' };
   if (OBJETO_SUSCRIPCION.test(n) && VERBO_BAJA.test(n)) return { tipo: 'suscripcion' };
   const link = OBJETO_LINK_PAGO.test(n) || (NOMBRA_PASARELA.test(n) && /\bcobr/.test(n));
   if (link && VERBO_ANULAR.test(n)) return { tipo: 'anular' };
   if (link || OBJETO_SUSCRIPCION.test(n)) return { tipo: 'link' };
-  return cuota ? { tipo: 'cuota' } : pago ? { tipo: 'pago' } : null;
+  return cuota ? { tipo: 'cuota' } : pago ? { tipo: 'pago' } : plan ? { tipo: 'plan' } : null;
 }
 
 // ── Señales ──────────────────────────────────────────────────────────────────
@@ -675,6 +710,14 @@ const cuentaLinks = (s: string): number => (s.match(/https?:\/\/\S+/g) ?? []).le
 // es el guard que impide que un «sí» pelado invente tareas de la nada: con «sí»
 // acentuado no matchea, así que justo ahí el guard no protege.
 const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|claro|va|hacelo|cargalo|carg[áa]lo|agregalo|agreg[áa]lo|confirmo|adelante|de una|correcto|exacto|as[ií] es|no|nop|cancela|cancel[áa])(?![a-záéíóúñ])/i;
+/**
+ * La QUEJA de que algo no anda («No me deja…», «No puedo…», «No funciona…», 27/10/2026, los «no puedo» falsos de Leila): no
+ * es un «no» a lo que MaKo propuso ni charla. `CONFIRMACION` mira el ARRANQUE a propósito —la regla 1 y `corrigeAgenda`
+ * necesitan que tome «no, movela al viernes» (docs/hallazgos-comunicacion.md)— y no se toca: las reglas 1 y 9-bis la miran
+ * con esto al lado. Medido: limitar la 9-bis a una confirmación «pelada» mandaba a capturar «no, mejor el martes» y «No,
+ * gracias, eso es todo»; esto sólo saca las quejas.
+ */
+const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo|funciona|anda|sale|aparece|carga|abre|guarda|toma)\b/i;
 
 
 // ⚠️ La lista se AMPLÍA, no se reescribe. Le faltaban las aperturas rioplatenses
@@ -920,6 +963,17 @@ const RELEVANCIA_YA_HECHO = 'cerrar tareas plan hecha completada evidencia lista
 const CORRIGE_RECOMENDACION = /\bno (?:me |nos )?(?:vuelvas a |sigas )?(?:recomend|recomiend|sugier|suger)\w*|\b(?:descart|olvid|call|ignor|saca|quita)\w* (?:esa|esta|la|lo de la|las|esas|estas) (?:recomendaci|sugerenci)\w*|\b(?:esa|esta|la) (?:recomendaci|sugerenci)\w* no (?:aplica|sirve|va)\b/;
 const RELEVANCIA_CORRIGE_RECOMENDACION = 'decidir recomendacion descartar que recomienda';
 /**
+ * PIDE ARMAR O REDEFINIR EL AVATAR (27/10/2026, MAU-02 de Mauricio: «que redefina o defina mi avatar considerando los clientes
+ * que son ganados... no funciona al preguntar»). Caía en «consultar» y sólo viajaban lecturas: `generar_avatares` (que ahora
+ * lee los ganados, lib/avatares-ganados.ts) nunca llegaba. Sobre el texto normalizado (sin tildes).
+ * Es el avatar del NEGOCIO sólo con una señal de negocio (`AVATAR_DEL_NEGOCIO`): «creame un avatar en la oficina» o «hacé que mi
+ * avatar diga…» son el del video (AI Avatar, tests/ops-center-clasificador-app.test.ts) y siguen su camino, como `AVATAR_DE_VIDEO`.
+ */
+const PIDE_AVATAR = /\b(?:redefin|defin|arm|gener|crea|hac|haz|rehac|actualiz|mejor|ajust|cambi|rearm|regener)\w*\s+(?:\S+\s+){0,3}?(?:avatar(?:es)?|cliente ideal|buyer persona)\b/;
+const AVATAR_DEL_NEGOCIO = /\b(?:redefin|defin)\w*|\b(?:cliente ideal|buyer persona|clientes?|ganad[oa]s?|compr\w+|compradores|publico|audiencia|nicho)\b/;
+const AVATAR_DE_VIDEO = /\b(?:videos?|clips?|reels?|ai avatar|voz|voces|escenas?|guion(?:es)?|anuncios?|diga|digan|dice|decir|habl\w*)\b/;
+const RELEVANCIA_PIDE_AVATAR = 'generar avatares afinar avatares listar avatares negocio';
+/**
  * PIDE una recomendación (26/10/2026): «Mako, qué me recomendás hacer esta semana», «dame un consejo», «¿qué debería mejorar?».
  * Es una CONSULTA (`que_recomienda_mako`): sin signo de pregunta, en WhatsApp caía en `capturar` (una idea para el Plan), y en la
  * app, ante la duda, en `actuar` (con la escritura). En una consulta MaKo ofrece; la persona decide.
@@ -1048,7 +1102,7 @@ export function clasificarIntencion(
   //    y «no, movela al viernes a las 10» arrancan con una palabra de CONFIRMACION, y con
   //    una pendiente abierta se leían como un «no» — el turno llegaba sin las herramientas
   //    de agenda y corregir una propuesta sólo la cancelaba (08/10/2026).
-  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda && !pedidoLead && !pedidoCobro && !pedidoLanding) {
+  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !QUEJA_NO_ANDA.test(t) && !pedidoAgenda && !pedidoLead && !pedidoCobro && !pedidoLanding) {
     return { intencion: 'confirmar', dudosa: false, porque: 'confirmación con pendiente vigente' };
   }
 
@@ -1106,6 +1160,12 @@ export function clasificarIntencion(
   //            («no me recomiendes eso porque…»), y llega con `decidir_recomendacion` para que quede una tarjeta que se confirma.
   if (CORRIGE_RECOMENDACION.test(nPersona)) {
     return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'corrige una recomendación de MaKo', areas: ['mako'], relevancia: RELEVANCIA_CORRIGE_RECOMENDACION };
+  }
+  // 3-bis-av) PIDE ARMAR O REDEFINIR EL AVATAR (MAU-02, ver `PIDE_AVATAR`): un pedido, con `generar_avatares` (que propone y se
+  //           confirma en su pantalla).
+  // El avatar de un VIDEO (AI Avatar) o el de un guion de anuncios es otro: ésos siguen su camino.
+  if (PIDE_AVATAR.test(nPersona) && AVATAR_DEL_NEGOCIO.test(nPersona) && !AVATAR_DE_VIDEO.test(nPersona)) {
+    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'pide armar o redefinir el avatar', areas: ['negocio'], relevancia: RELEVANCIA_PIDE_AVATAR };
   }
   // 3-bis-rec2) PIDE UNA RECOMENDACIÓN (ver `PIDE_RECOMENDACION`): una consulta, con las áreas que nombre además («¿qué me
   //             recomiendas para la landing?» trae también las de la landing). Un pedido concreto que viene con ella gana su regla.
@@ -1301,7 +1361,8 @@ export function clasificarIntencion(
   // 9-bis) Un «sí/dale» suelto SIN nada esperando no es material: es ruido de
   //        charla. Capturarlo intentaría parir una tarea de la nada (lo frena
   //        `pareceConfirmacion` río abajo, pero llegar hasta ahí ya es un gasto).
-  if (CONFIRMACION.test(t) && t.length <= 60) {
+  //        Una QUEJA no (27/10/2026): «No me deja guardar el lead» arranca con «no» y no es charla.
+  if (CONFIRMACION.test(t) && t.length <= 60 && !QUEJA_NO_ANDA.test(t)) {
     return { intencion: 'charlar', dudosa: false, porque: 'confirmación sin nada pendiente' };
   }
 
@@ -1422,7 +1483,7 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // IA traen `como_conectar` y `ver_ia_del_negocio`. Antes no reconocía «conectar» y todavía nombraba el inbox oficial que se
   // retiró el 09/10. «instagram» o «facebook» solos no: van en cada pedido de anuncios, y el presupuesto del registro es uno.
   // ⚠️ Después de «conect…» va un lookahead y no `\b`: el `\b` de JavaScript es ASCII, y tras «conecté» no hay borde.
-  integraciones: /\b(integraci[oó]n(es)?|conect(ar|o|e|é|ado|ada|ados|adas|arlo|arla|arme|amos)(?![a-záéíóúñ])|conexi[oó]n(es)?|desconect|calendly|resend|google calendar|salud de meta|keys? de ia|claves? de (ia|api|openai|claude|gpt)|api key|zernio|chat ?gpt|\bgpt\b|mi claude|mako desktop|app de escritorio)/i,
+  integraciones: /\b(integraci[oó]n(es)?|conect(ar|o|e|é|ado|ada|ados|adas|arlo|arla|arme|amos)(?![a-záéíóúñ])|conexi[oó]n(es)?|desconect|calendly|resend|google calendar|salud de meta|access token|token de meta|keys? de ia|claves? de (ia|api|openai|claude|gpt)|api key|zernio|chat ?gpt|\bgpt\b|mi claude|mako desktop|app de escritorio)/i,
   equipo: /\b(equipo|usuarios?|roles?\b|setters?|notificaci[oó]n(es)?|reportes? (diario|semanal)|zona horaria)/i,
   cs: /\b(customer success|cartera|programa|alumnos?|clientes? activos?)/i,
   // El área «curso» sale SÓLO por HTTP (lib/api-mako/areas/curso.def.ts): nombrarla no le suma
@@ -1437,7 +1498,8 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // La pasarela de pagos (11/10/2026). Sin «pago» suelto, a propósito: «los pagos de Ana» son sus
   // CUOTAS del CRM (cobranza_lead, área crm), y sumar esta área a cada pregunta de cobranza gastaría
   // presupuesto en herramientas que no son.
-  cobros: /\b(cobros?\b|cobrar|links? (de|para) (pago|cobro|pagar)|checkout|stripe|mercado ?pago|reembols|devoluci[oó]n|suscripci[oó]n(es)?|pasarelas? de pago)/i,
+  // Los datos fiscales del trato (27/10/2026, la constancia fiscal de Leila): `editar_dato_deal` es de cobros y no llegaba nunca.
+  cobros: /\b(cobros?\b|cobrar|links? (de|para) (pago|cobro|pagar)|checkout|stripe|mercado ?pago|reembols|devoluci[oó]n|suscripci[oó]n(es)?|pasarelas? de pago|datos? fiscal(es)?|(constancia|situaci[oó]n|r[eé]gimen|domicilio) (de situaci[oó]n )?fiscal|raz[oó]n social|rfc\b|cuit\b|datos de facturaci[oó]n|deal details?)/i,
   // El Calendario (13/10/2026): lo que se agenda en la tab (publicaciones, bloques de trabajo). «calendario» también
   // trae la agenda del CRM (arriba): las dos áreas contestan cosas distintas del mismo día.
   calendario: /\b(calendario|publicaci[oó]n(es)? (?:de|para) (?:la semana|ma[ñn]ana|hoy|el)|programa(?:r|me|lo)? (?:un |una |el |la )?(?:reel|story|post|publicaci)|agend(?:ar|a|ame|alo) (?:un |una |el |la )?(?:reel|story|post|publicaci[oó]n|bloque)|bloques? de (?:trabajo|foco))/i,

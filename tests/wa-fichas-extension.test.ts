@@ -232,7 +232,8 @@ test('7. el puente: página → mako-puente → worker → pestaña de WhatsApp 
   const enWorker = worker.slice(desde, worker.indexOf('\n  }\n', desde)); // SÓLO este bloque: el return del siguiente no cuenta
   assert.ok(worker.includes("tipo === 'WA_FICHAS_PEDIDO'"), 'el worker no atiende el pedido');
   // Desde la 0.71.0 (25/10/2026) la pestaña la busca (y abre, despierta o repara) `pestanaDeWhatsappLista`, afuera del bloque.
-  assert.match(enWorker, /const lista = await pestanaDeWhatsappLista\(avisar\);/, 'el worker le pregunta a otra pestaña');
+  // Con su latido a la pantalla mientras espera (0.74.1): la pestaña es la misma.
+  assert.match(enWorker, /const lista = await conLatido\(pestanaDeWhatsappLista\(avisar\), origen, pedidoId\);/, 'el worker le pregunta a otra pestaña');
   assert.match(worker, /const esPestanaDeWhatsapp = \(t\) => !!t && t\.id != null && typeof t\.url === 'string' && t\.url\.startsWith\('https:\/\/web\.whatsapp\.com\/'\);/);
   // ⚠️ Sin barra-asterisco en el código del worker: los tests de la extensión quitan comentarios con una regex que, ante esa
   // secuencia dentro de un texto, se come el resto del archivo (y esos tests dan rojo por razones que no son las suyas).
@@ -276,7 +277,8 @@ test('9. la pantalla: «Extraer» la dispara la persona, con «Parar», y lo que
   assert.match(cuerpo, /alAvanzar: \(guardadas, total\) => avisarExtraccion\(id, \{ fase: 'guardando', guardados: guardadas, total \}\),/, 'sin avance visible');
   assert.match(cuerpo, /filter\(\(p\) => p\.enElCrm \|\| vanAEstar\.has\(p\.telefono\)\)/, 'pide fichas de gente que no va a estar en el CRM');
   // El corte va ADENTRO del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía (la revisión del 24/10).
-  assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/, 'un corte callado');
+  // Con leads nuevos abre el cartel de éxito (27/10/2026); sin, el nombre del grupo. La `cola` (los cortes) va en los dos.
+  assert.match(cuerpo, /setHecho\(titular \? `\$\{resumen\}\.\$\{cola\}` : `«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/, 'un corte callado');
   assert.match(cuerpo, /const corte = t\?\.corte \|\| a\?\.error \|\| \(a\?\.parado \? 'La paraste\.' : ''\);/);
   // «Parar» en el pie, al lado del avance, y también desde el desplegable (`alPararExtraccion`).
   assert.match(ui, /const pararAccion = extrayendo \? \{ texto: 'Parar', onClick: \(\) => \{ parar\.current = true; setAvance\('Parando…'\); \} \}/);

@@ -3,13 +3,14 @@
 // confirma que la cola lo cerró. Si esto pasa, lo único sin probar queda del
 // lado de Google. Temporal: se borra después.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require' });
+const sql = postgres(urlDeLaBase(), { ssl: 'require' });
 const WS = 3; // Cliente de Prueba
 const BASE = process.argv[2] || 'http://localhost:3001';
 

@@ -198,7 +198,7 @@ export type ArranqueIA = {
 export type AccionCaja =
   | { que: 'ia'; tipo: TipoCrear; arranque: ArranqueIA }
   | { que: 'analizar'; url?: string }
-  | { que: 'replicar'; url?: string; formato?: FormatoReplicar };
+  | { que: 'replicar'; url?: string; formato?: FormatoReplicar; adaptar?: boolean };
 
 /**
  * La derecha del Panel para lo que se eligió en la caja (tanda 6, punto 5: «si yo pego un link, me
@@ -217,7 +217,7 @@ export function derechaDeAccion(a: AccionCaja, docs: readonly LandingResumen[], 
     const propia = docDeUrl(url, docs, bases);
     return propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url };
   }
-  return a.url ? { tipo: 'replicar', url: a.url, ...(a.formato ? { formato: a.formato } : {}), auto: true } : { tipo: 'replicar' };
+  return a.url ? { tipo: 'replicar', url: a.url, ...(a.formato ? { formato: a.formato } : {}), ...(a.adaptar ? { adaptar: true } : {}), auto: true } : { tipo: 'replicar' };
 }
 
 /**
@@ -238,7 +238,7 @@ export type Derecha =
   | { tipo: 'papelera' }
   | { tipo: 'diagnostico'; docId?: number; url?: string }
   | { tipo: 'ia'; doc: TipoCrear; arranque: ArranqueIA }
-  | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; auto?: boolean };
+  | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; adaptar?: boolean; auto?: boolean };
 
 /** El modo del cuadro que muestra esa derecha, o null si no es el cuadro (un resultado, una galería). */
 export function modoCajaDe(d: Derecha): ModoCaja | null {

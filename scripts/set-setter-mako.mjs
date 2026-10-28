@@ -13,6 +13,7 @@
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 const argv = process.argv.slice(2);
@@ -23,8 +24,8 @@ const MAKO = 'MaKo';
 // Nutriciones AUTOMÁTICAS (sin 'manual'). Igual a NUTRI_AUTO_KEYS de lib/pipeline.ts.
 const NUTRI = ['nutri', 'noshow', 'noshow_r1', 'noshow_r2', 'noshow_r3', 'postagenda', 'postreunion', 'nopaga', 'nocompro', 'nutridiaria', 'reunion_excepcional', 'reactivacion'];
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
-try { const u = new URL(process.env.DATABASE_URL); console.log(`DB destino: ${u.host}${u.pathname}`); } catch { /* noop */ }
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
+try { const u = new URL(urlDeLaBase()); console.log(`DB destino: ${u.host}${u.pathname}`); } catch { /* noop */ }
 
 const criterio = (t) => t`workspace_id = ${WS} AND pipeline_stage = ANY(${NUTRI}) AND COALESCE(setter,'') <> ${MAKO}`;
 

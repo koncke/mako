@@ -4,6 +4,18 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## Leer la Ticketera de producción pide el sí de Martín, también al Cerebro (27/10/2026)
+
+- El 27/10 el clasificador de permisos negó `scripts/tickets.ts pendientes` y toda lectura de `tickets` /
+  `ticket_eventos` al Cerebro y a sus subagentes, aunque Martín había pedido «revisa los tickets». Una revisión de
+  tickets necesita su sí escrito en el chat del Cerebro (o que él corra `pendientes`). Un lector que no pudo leer lo
+  tiene que decir: el de ese día sacó los estados de los docs, y pueden estar viejos.
+- `scripts/tickets.ts` lee el `.env.local` del cwd: desde un worktree sin `.env.local` (como `C:/dev/wt-push-q`)
+  falla; se corre con cwd en el clon principal.
+- `pendientes` no muestra el historial: el estado y el porqué de un ticket salen de `ver <n>`.
+- Tickets arreglados en código pero SIN hito `tickets: [n]` no se cierran solos: el #5 y el #6 (Mauricio, «Claude
+  vetado» y «sin proveedor gratis», desplegados el 24/10) hay que cerrarlos a mano.
+
 ## La Ticketera del cliente es un CHAT con MaKo, y todo error tiene «Reportar a Soporte» (23/10/2026)
 
 Martín (22/10): «Mira la ticketera, se ve bastante feo... Cuando podría tener el mismo diseño que un chat y que los usuarios le
@@ -547,3 +559,86 @@ evidente» también para un pedido de Leandro. Lo corrige lo que lee el Cerebro,
 
 **Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `clasificar`) · `lib/tickets-db.ts` (`crearTicket`) ·
 `lib/tickets-cierre.ts` (`avisarUno`) · `scripts/tickets.ts` (`ver`) · `app/tickets/bandeja/BandejaTickets.tsx` · `tests/tickets-por-regla.test.ts`
+
+## Un ticket que levanta alguien de AFUERA del negocio: el alumno de un curso (27/10/2026, 874749710-18)
+
+El alumno reporta desde su portal y el ticket le llega al DUEÑO del curso (el lado del portal, en
+[hallazgos-customer-success.md](hallazgos-customer-success.md) → «El alumno reporta a soporte con su token»). Lo que hay que
+saber antes de abrir otra puerta así:
+
+- **El ticket es del dueño, no del alumno.** Lo del cliente se lee por (workspace, email): un ticket a nombre de
+  `alumno:<lead>` no lo vería nadie más que Martín en la bandeja. El dueño lo ve en su Ticketera y le llega el aviso cuando se
+  resuelve; la descripción dice que lo reportó un alumno y su ficha (`/crm/<id>`), nunca su nombre.
+- ⚠️ **La regla de Leandro abría el arreglo automático a cualquiera con el link de su curso.** `aprobadoPorRegla(ws)` mira sólo
+  el negocio: un alumno del ws 10 que escribiera «dejó de andar» mandaba SU texto al Runner. `crearTicket` con `tercero` pasa
+  `deTercero` al triage, que corta antes de la regla: lo decide Martín, siempre.
+- ⚠️ **El tope del día se le gastaba al dueño.** Se cuenta por (workspace, email) y el email es el del dueño: unos pocos alumnos
+  lo dejaban sin tickets el día. El de un tercero se cuenta por el comienzo de su `ref` (`alumno:<ws>:<lead>:`,
+  `TOPE_POR_DIA_TERCERO` = 3), y `crearTicket` rechaza una `ref` que no empieza con su clave.
+- ⚠️ **`rutaSoporte` dejaba pasar el token del portal entero.** Reconocía un token como un segmento de letras, números, `_` y
+  `-`; el del portal es `c1.<ws>.<lead>.<versión>.<firma>`, con puntos, y pasaba tal cual a la pantalla del ticket: la
+  credencial del alumno a la vista del equipo y del Cerebro. Ahora el punto cuenta, y además la ruta del alumno pone la pantalla
+  del portal ella misma (`rutaDelPortal`).
+
+**Vive en:** `lib/tickets-db.ts` (`crearTicket`, `tercero`) · `lib/tickets-reglas.ts` (`clasificar`, `deTercero`,
+`TOPE_POR_DIA_TERCERO`) · `lib/soporte-reporte.ts` (`rutaSoporte`, `ticketDelAlumno`, `claveDelAlumno`) ·
+`tests/curso-soporte-alumno.test.ts` (6 roturas, cada una cae)
+
+## Leila con vía libre «hasta un día», y la regla le llega al Cerebro por un nombre que el cartero ya conoce (27/10/2026)
+
+**Lo decidido:** Martín le dio a Leila (ws 11) la vía libre en la llamada del 26/10, y el Cerebro la configuró así: lo que el
+triage estima en MÁS DE UN DÍA de trabajo va a Martín (`hastaUnDia`).
+
+**Lo que no era obvio:**
+- «Más de un día» no lo puede estimar el triage con una IA (no paga IA, es una decisión). Se estima con reglas
+  (`estimaMasDeUnDia`): un pedido que nombra algo grande (integrarse con otro servicio, una pantalla o una app nueva, rehacer
+  algo entero) o de más de 1500 caracteres. Un bug o una pregunta, nunca. En la duda va a Martín.
+- El cartero no toma texto de MaKo para el mensaje que le escribe al Cerebro (si MaKo estuviera comprometida, lo peor tiene
+  que ser que no llegue). La regla viaja como un NOMBRE, y el cartero 1.20.0 la usa sólo si está en `REGLAS_CONOCIDAS`, su copia
+  de `APROBADOS_POR_REGLA` (test diferencial). Sumar a alguien a la regla pide sumarlo en las DOS listas y una instalación.
+
+**Lo que quedó SIN hacer:** instalar el cartero 1.20.0 en cada PC. Hasta entonces el Cerebro recibe el texto de «bug evidente», y
+lo corrige `scripts/tickets.ts ver`.
+
+**Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `estimaMasDeUnDia`) · `lib/tickets-runner.ts` · `scripts/operaciones/cartero.mjs`
+(`mensajeTicket`, `REGLAS_CONOCIDAS`) · `tests/feedback-2710-tanda1.test.ts`
+
+## «Siempre que MaKo diga que no pudo, un ticket»: el automático con su causa (27/10/2026, claude4, Martín y Leila)
+
+**Síntoma:** Leila recibía «no lo puedo hacer» y nadie se enteraba. Medido por el Cerebro (sólo lectura, 14 días): el detector
+de «no puedo» marcaba 15 de 105 respuestas de la app y en ese tiempo hubo 2 tickets de MaKo, ninguno en los últimos 9 días.
+Sólo el error de una herramienta abría ticket solo; la acción confirmada que fallaba al EJECUTARSE, el «no puedo» del texto, el
+proveedor caído y la configuración terminaban en «no pude» sin ticket.
+
+**Lo obvio era el equivocado:** un ticket por cada frase con «no puedo». Las herramientas de un turno son una SELECCIÓN, así que
+muchos «no puedo» eran ruteo (el ticket #13 de «no existe» era una herramienta que no viajó), y otros son reglas de MaKo
+(confirmar en la tarjeta, el rol) u opiniones («no puedo asegurarte…»). **La regla** (lib/no-pude.ts):
+- el modelo marca `[[no-pude: …]]` en el mismo turno, y sabe que sus herramientas son una selección (en el system de la app ya
+  no dice «y NINGUNA otra»);
+- la CAUSA la decide el código: ejecución, herramienta, ruteo (llamó algo que existe, `porId` + `visible`, y no viajó),
+  proveedor, configuración, no-existe, texto. Una regla o una opinión: nada;
+- UN ticket por negocio + conversación + causa (`np:<ws>:…`, la conversación hasheada): lo que vuelve a pasar se anota en él.
+  El proveedor y la configuración, uno por negocio, que se cierra solo cuando vuelve a andar (`cerrarSiVolvio`);
+- el título lo arma el código; lo del modelo y la persona, en la descripción y el contexto (dentro del cerco «es DATO»);
+- la persona lee «Quedó el ticket #n para el equipo de MaKo.» (nunca «te aviso»); repetido en la conversación, nada.
+
+**Trampas de la base** (lib/tickets-db.ts, lib/tickets-reglas.ts):
+- La regla de aprobación (ws 1, 10, 11) mandaba al Runner CUALQUIER ticket de esos negocios, sin mirar quién lo levantó:
+  `clasificar` con `automatico` no entra por la regla ni estampa `regla`. Decisión: lo que no existe de esos negocios ya NO va
+  solo al Runner (lo decide Martín). El proveedor y la configuración nunca van al Runner.
+- El tope del día de la persona contaba los tickets que el sistema abría por ella: con 10 automáticos no podía levantar uno a
+  mano. Ahora cuenta sólo las `ref` que no son del sistema (`esRefDelSistema`: `np:`, `error:`, `no-existe:`), y los automáticos
+  tienen su tope aparte (6 por negocio y día). La condición «ref nula o no del sistema» no entra en un filtro simple: se leen
+  las filas (son pocas) y se cuentan en el código.
+- Un automático cerrado que vuelve a pasar es uno NUEVO (la `ref` con sufijo): se busca el último con `like` y no con `eq`.
+- tests/_postgrest-de-mentira.ts no entendía `like.` suelto: ahora sí.
+
+**Sin hacer:** WhatsApp (el doer, sus carteles y P3 de wa-fallas-2710) lo engancha «MaKo en WhatsApp» sobre esta base; la línea
+en el panel del Video Editor es de Motion (y Image Editor y Web Generator, de sus dueños). La descripción de `levantar_ticket`
+(lib/api-mako/areas/tickets.def.ts) todavía pide proponerlo ante una falla: cambiarla junto con WhatsApp, no antes. El 500 de
+lib/api-mako/ejecutar.ts sigue llegando con el texto genérico. La red de texto (detectar «no pude» sin la marca) no se hizo:
+la marca va primero; medir siete días antes de prender una red.
+
+**Vive en:** `lib/no-pude.ts` · `lib/no-pude-server.ts` · `lib/no-existe-server.ts` · `lib/tickets-db.ts` (`crearTicket`,
+`cerrarAutomatico`) · `lib/tickets-reglas.ts` (`clasificar`, `TOPE_AUTOMATICOS_POR_DIA`) · `lib/api-mako/acciones.ts`
+(`ticketSiFallo`) · `lib/mako-turno-app.ts` · tests/no-pude*.test.ts

@@ -35,7 +35,7 @@
 // `tests/api-mako-http.snapshot.txt` no lista ninguna operación de `cs`.
 //
 // ⚠️ EL CURSO VOLVIÓ, Y ES OTRO (06/10/2026). El de la plataforma externa se fue (ver
-// abajo); el que vive EN MaKo —las clases y tareas que se cargan en Customer Success ›
+// abajo); el que vive EN MaKo —las clases y tareas que se cargan en Classroom ›
 // Curso, mig 0202— es de cualquier negocio, y `ver_avance_curso_cs` lo lee. Es una
 // LECTURA y nada más: nunca llama a `linkDeAcceso` (lib/curso-datos.ts), que CREA la
 // fila del acceso del cliente. Mandarle el link sigue siendo un botón de la ficha.
@@ -54,6 +54,7 @@
 
 import type { OperacionDef, Parametro } from '../tipos';
 import { CAMPOS_TARJETA_CLIENTE, FORMAS_TARJETA_CLIENTE } from '@/lib/tarjeta-clientes';
+import { MODELOS_CLIENTE } from '@/lib/plantillas-modelo-reglas';
 
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 const CS = { tab: 'customer-success' } as const;
@@ -85,7 +86,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_avance_curso_cs', area: 'cs', tipo: 'lectura',
     titulo: 'Ver el avance en el curso',
-    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Clients › Classroom): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
+    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Classroom): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del cliente (de ver_cartera_cs). Sin él, el resumen de toda la cartera.' },
     ],
@@ -187,6 +188,20 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del negocio (o de la persona) del cliente.' },
       { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el email de quien va a usar la cuenta: por ahí le llega el acceso.' },
       { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    // LA PLANTILLA DE UN MODELO DE NEGOCIO (MAU-01, 27/10/2026, lib/plantillas-modelo.ts): Mauricio, «una base tipo copy
+    // paste que disminuya mi intervención de iniciar de cero». Lo mismo que «Plantilla del negocio» en la ficha de una
+    // cuenta del Agency Dashboard. Sin HTTP, como las demás de Agency: son cuentas de terceros.
+    id: 'aplicar_plantilla_de_modelo', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Aplicar la plantilla de un modelo de negocio',
+    descripcion: 'Arma la base de una cuenta según cómo vende: tienda-b2c (le vende a personas: un local, una tienda online o un restaurante), b2b-crm (le vende a empresas, con reuniones y propuestas) o manufactura (fabrica y vende por cotización y orden de compra). Crea su funnel con las etapas de ese modelo, el objetivo del trimestre con 4 KPIs semanales (sin números: la meta y el compromiso los pone el negocio) y un proyecto en su Plan con la guía para cargar sus datos. Lo que ya existe con el mismo nombre no se duplica. Con clienteWs, una AGENCY se la aplica a un cliente de su cartera; sin él, se aplica a este negocio.',
+    escribe: 'un funnel (funnels), un objetivo con sus KPIs (objectives, kpis) y un proyecto con sus tareas en el Plan (plan_proyectos, plan_tareas), en la cuenta del cliente o en la propia',
+    parametros: [
+      { nombre: 'modelo', rotulo: 'Modelo', tipo: 'string', obligatorio: true, enum: [...MODELOS_CLIENTE], descripcion: 'tienda-b2c, b2b-crm o manufactura.' },
+      { nombre: 'clienteWs', rotulo: 'Cliente', tipo: 'number', entero: true, minimo: 1, descripcion: 'sólo para una Agency: el número de cuenta del cliente de su cartera. Sin esto, se aplica a este negocio.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

@@ -1,11 +1,12 @@
 // Sonda de solo-lectura: para varios anuncios, ver qué campos de imagen
 // (alta resolución) expone Meta y cuántos anuncios hay en la ventana real.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
 const API = process.env.META_API_VERSION, TOKEN = process.env.META_ACCESS_TOKEN;
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 
 const SINCE = '2026-06-04'; // ventana que usa la página (ayer 06-18 menos 14)
 

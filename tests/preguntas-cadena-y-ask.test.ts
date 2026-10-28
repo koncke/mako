@@ -42,7 +42,8 @@ test('1. una pregunta se supera con el turno de OTRA sesión del mismo chat (la 
   assert.equal(superarPreguntas([ask, wrap], sigue).filter(estaAbierta).length, 2);
   const [a, w] = superarPreguntas([ask, wrap], sigue, cadena);
   assert.equal(a.superada, '2026-10-24T02:00:00.000Z', 'la ask: el primer turno de la cuenta 1');
-  assert.equal(w.superada, '2026-10-24T02:05:00.000Z', 'la de wrap_up: lo que dijo Martín en la cuenta 1');
+  // Desde el 27/10 también lo que el chat escribe después (pasado el margen de su cierre): tests/preguntas-superadas-hueco.test.ts.
+  assert.equal(w.superada, '2026-10-24T02:00:00.000Z', 'la de wrap_up: lo primero de la cuenta 1 que vino después');
   // Un turno de OTRO chat no la toca, y uno de la cadena ANTERIOR a la pregunta tampoco.
   assert.equal(superarPreguntas([ask], [turno(OTRO, 'el', '2026-10-24T02:00:00.000Z'), turno(CUENTA1, 'el', '2026-10-23T20:00:00.000Z')], cadena)[0].superada, undefined);
 });
@@ -97,7 +98,7 @@ test('4. el cartero: «la última de cada chat» es sólo de wrap_up; una ask m�
   const ask2 = preg(CUENTA1, '2026-10-25T04:00:00.000Z', 'ask', '¿Qué moneda?');
   const { preguntas } = preguntasParaSubir([], [wrapViejo, wrap, ask1, ask2]);
   assert.deepEqual(new Set(preguntas.map((q: PreguntaChat) => q.id)), new Set([wrap.id, ask1.id, ask2.id]));
-  assert.ok(['1.18.1', '1.19.0'].includes(VERSION), 'la regla de «la última» llegó en la 1.18.1');
+  assert.ok(['1.18.1', '1.19.0', '1.20.0'].includes(VERSION), 'la regla de «la última» llegó en la 1.18.1');
 });
 
 test('5. sin la cadena (no se pudo leer), cada pregunta se supera como antes, por su sesión', () => {

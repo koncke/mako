@@ -24,6 +24,8 @@
 // «arregla» solo es una feature que nadie decidió. Lo contrario (un bug que espera a Martín) cuesta un clic.
 
 /** Los tres tipos, con las palabras de la pantalla (las mismas en el formulario y en la bandeja de Martín). */
+
+import { esCausaNoPude, esSuperficie, type CausaNoPude, type Superficie } from './no-pude';
 export const TIPOS = [
   { clave: 'bug', rotulo: 'Algo no anda', corto: 'Bug' },
   { clave: 'pedido', rotulo: 'Quiero pedir algo nuevo', corto: 'Pedido' },
@@ -51,6 +53,16 @@ export const TOPES = { titulo: 140, descripcion: 4000, nota: 2000, respuesta: 20
 
 /** Cuántos tickets puede levantar una persona por día: más que eso es un bucle o un abuso, no soporte. */
 export const TOPE_POR_DIA = 10;
+/**
+ * Cuántos reportes por día puede mandar alguien de AFUERA del negocio (el alumno de un curso, desde su portal: 27/10/2026).
+ * Se le cuentan a él, no al dueño a quien le llegan: si no, un alumno le gastaba el tope del día al dueño.
+ */
+export const TOPE_POR_DIA_TERCERO = 3;
+/**
+ * Cuántos tickets AUTOMÁTICOS (lib/no-pude.ts: lo que MaKo no pudo) abre un negocio por día. Aparte del de la persona: los
+ * automáticos no le gastan su tope, y un bucle del modelo no le llena la Ticketera a Martín.
+ */
+export const TOPE_AUTOMATICOS_POR_DIA = 6;
 /** Cuántos arreglos automáticos salen por día, en total: protegen la ventana de 5 horas del Cerebro. */
 export const TOPE_ARREGLOS_POR_DIA = 8;
 
@@ -88,6 +100,9 @@ export type ContextoTicket = {
   herramienta?: string;
   /** MaKo detectó que la persona pidió algo que la app todavía no tiene. */
   noExiste?: boolean;
+  /** Un ticket automático (lib/no-pude.ts): por qué no se pudo y dónde. Lo pone el código, nunca la persona. */
+  causa?: CausaNoPude;
+  superficie?: Superficie;
   /** La hora del dispositivo, su zona, el navegador, la pantalla y el idioma. */
   hora?: string;
   zona?: string;
@@ -122,6 +137,8 @@ export function sanearContexto(x: unknown): ContextoTicket {
     if (v) c[k] = v;
   }
   if (o.noExiste === true) c.noExiste = true;
+  if (esCausaNoPude(o.causa)) c.causa = o.causa;
+  if (esSuperficie(o.superficie)) c.superficie = o.superficie;
   const hora = txt(o.hora, 40);
   if (hora && Number.isFinite(Date.parse(hora))) c.hora = new Date(hora).toISOString();
   return c;
@@ -170,9 +187,31 @@ export type Confianza = 'alta' | 'media' | 'baja';
 // para que Martín lo vea igual. SIGUE ESPERANDO A MARTÍN lo que toca una zona delicada (cobros, accesos, borrados, envíos) o
 // pide una migración o una escritura en producción, y todo si Martín apagó el arreglo automático. Lo que choca con una
 // decisión de Martín no se ve en el texto: el chat que lo trabaja lo frena y le pregunta (scripts/tickets.ts ver lo dice).
-export const APROBADOS_POR_REGLA: Readonly<Record<number, string>> = { 10: 'Leandro' };
+// Leila (ws 11, 26/10/2026, en la llamada con Martín; lo configuró el Cerebro): la misma vía libre, pero lo que el triage estima
+// en MÁS DE UN DÍA de trabajo va a Martín (`hastaUnDia`, `estimaMasDeUnDia`). Sus arreglos se avisan en su grupo como los de Leandro.
+// Mauricio (ws 1, 27/10/2026, MAU-09): Martín se lo prometió por WhatsApp, «todos los pedidos que entren de tu parte los
+// implemente directamente, que no pregunte». El 100%, como Leandro.
+export type ReglaDeAprobacion = { nombre: string; hastaUnDia?: boolean };
+export const APROBADOS_POR_REGLA: Readonly<Record<number, ReglaDeAprobacion>> = {
+  1: { nombre: 'Mauricio' },
+  10: { nombre: 'Leandro' },
+  11: { nombre: 'Leila', hastaUnDia: true },
+};
+/** La regla del negocio (null = sus tickets los decide Martín, como siempre). */
+export const reglaDelNegocio = (ws: number | null | undefined): ReglaDeAprobacion | null => (ws != null && APROBADOS_POR_REGLA[ws]) || null;
 /** El nombre de la regla del negocio (null = sus tickets los decide Martín, como siempre). */
-export const aprobadoPorRegla = (ws: number | null | undefined): string | null => (ws != null && APROBADOS_POR_REGLA[ws]) || null;
+export const aprobadoPorRegla = (ws: number | null | undefined): string | null => reglaDelNegocio(ws)?.nombre ?? null;
+/** Lo que pide algo grande: una integración, una pantalla o una app nueva, rehacer algo entero. */
+const MAS_DE_UN_DIA = [/\b(integr\w* con|conect\w* con|nuev[oa]s? (tab|seccion|pantalla|app|aplicacion|plataforma|modulo|panel)|redise\w+|desde cero|reescrib\w+|todo el (sistema|crm|sitio|panel)|app (movil|nueva|propia)|marketplace|otro idioma|multi ?idioma|sistema (de|para))\b/];
+/**
+ * ¿El triage estima que esto lleva MÁS DE UN DÍA de trabajo? Sin IA, como el resto del triage: un pedido que nombra algo grande,
+ * o uno muy largo (más de 1500 caracteres suele ser un proyecto, no un ajuste). Un bug o una pregunta, nunca: se arreglan o se
+ * contestan en el día. En la duda va a Martín, que es lo que pidió Leila (lo grande se acuerda antes).
+ */
+export function estimaMasDeUnDia(tipo: TipoTicket, e: Pick<EntradaTriage, 'titulo' | 'descripcion'>): boolean {
+  if (tipo !== 'pedido') return false;
+  return `${e.titulo}\n${e.descripcion}`.length > 1500 || hay(MAS_DE_UN_DIA, norm(`${e.titulo}\n${e.descripcion}`));
+}
 /** Lo que, aun aprobado por regla, escribe en producción: eso lo decide Martín. */
 const ESCRIBE_EN_PRODUCCION = [/\b(migraci\w*|base de datos|tabla(s)?|corr\w+ (los|mis) datos|arregl\w+ (los|mis) datos|carg\w+ (los|mis) (datos|contactos|leads)|import\w+ (los|mis)|cambi\w+ (mi|el) plan)\b/];
 
@@ -240,8 +279,10 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
 /**
  * Clasifica un ticket. Puro y determinista: el mismo ticket da siempre el mismo veredicto, y cada veredicto dice por
  * qué. `apagado` = Martín apagó el arreglo automático; `arreglosHoy` = cuántos salieron hoy (el tope del día).
+ * `deTercero` = lo escribió alguien de AFUERA del negocio (el alumno de un curso, 27/10/2026): nunca va solo al arreglo, ni
+ * con la regla del negocio. La regla es de Leandro y su equipo, no de cualquiera que tenga el link de su curso.
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; aprobadoPorRegla?: string | null } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean; automatico?: boolean } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   const error = e.contexto.error?.trim();
@@ -300,10 +341,33 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
     autoArreglo = false;
     porque.push(`Ya salieron ${TOPE_ARREGLOS_POR_DIA} arreglos automáticos hoy: espera a Martín.`);
   }
+  // ── de afuera del negocio (27/10/2026): el texto lo escribió un tercero sin cuenta, así que lo decide Martín, siempre ──
+  if (opts.deTercero) {
+    porque.push('Lo reportó alguien de afuera del negocio (un alumno de su curso): no se arregla solo, lo decide Martín.');
+    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+  }
+  // ── automático (27/10/2026, lib/no-pude.ts): lo levantó MaKo solo, no una persona ──
+  // GUARDA DURA: nunca entra por la regla de aprobación de un negocio (esa vía libre es para lo que levanta la PERSONA: Leila,
+  // Leandro, Mauricio), así que tampoco lleva `regla`. GUARDA DURA: lo del proveedor o de la configuración del negocio no es
+  // código y nunca va al Runner; se cierra solo cuando vuelve a andar (`cerrarAutomatico`, lib/tickets-db.ts).
+  if (opts.automatico) {
+    const causa = e.contexto.causa;
+    if (causa === 'proveedor' || causa === 'configuracion') {
+      porque.push(causa === 'proveedor'
+        ? 'Es del proveedor de IA (caído o sin cupo), no del código: no va al arreglo automático. Se cierra solo cuando vuelve a contestar.'
+        : 'Es de la configuración del negocio, no del código: no va al arreglo automático. Se cierra solo cuando el negocio lo tiene.');
+      return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+    }
+    if (opts.aprobadoPorRegla?.trim()) porque.push(`Lo levantó MaKo solo: no entra por la regla de ${opts.aprobadoPorRegla.trim()}.`);
+    if (autoArreglo) porque.push('Bug evidente: va directo al arreglo, sin esperar a Martín.');
+    if (tipo === 'pedido') porque.push('Es algo nuevo: lo decide Martín.');
+    return { v: 1, tipo, autoArreglo, confianza, prioridad, porque };
+  }
   // ── aprobado por regla (26/10/2026): todo lo de ese negocio, salvo lo delicado, lo que escribe en producción y el interruptor ──
   const regla = opts.aprobadoPorRegla?.trim() || null;
   if (regla && !autoArreglo) {
-    const delicado = zonaSensible(e) ?? (hay(ESCRIBE_EN_PRODUCCION, texto) ? 'pide una migración o una escritura en producción' : null);
+    const delicado = zonaSensible(e) ?? (hay(ESCRIBE_EN_PRODUCCION, texto) ? 'pide una migración o una escritura en producción' : null)
+      ?? (opts.hastaUnDia && estimaMasDeUnDia(tipo, e) ? 'el triage lo estima en más de un día de trabajo' : null);
     if (opts.apagado) porque.push(`Aprobado por regla (${regla}), pero el arreglo automático está apagado: espera a Martín.`);
     else if (delicado) porque.push(`Aprobado por regla (${regla}), pero ${delicado}: eso lo decide Martín.`);
     else {

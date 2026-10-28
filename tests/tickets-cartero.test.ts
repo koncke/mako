@@ -34,6 +34,8 @@ test('el texto fijo al Cerebro es el MISMO en el cartero y en el servidor', asyn
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   for (const [n, repo] of [[1, '/repo'], [12, '/otro/clon'], [987654, '/r']] as const) {
     assert.equal(cartero.mensajeTicket(n, repo), mensajeTicket(n, repo), `el texto del ticket #${n} difiere entre los dos lados`);
+    // El de un aprobado por regla (1.20.0, 27/10/2026), y un nombre que no conoce: el de siempre, en los dos lados.
+    for (const regla of ['Leila', 'Mauricio', 'Juan', null]) assert.equal(cartero.mensajeTicket(n, repo, regla), mensajeTicket(n, repo, regla), `${regla}: difiere`);
   }
   for (const malo of [0, -3, 2.5, Number.NaN, 2e9, '12']) {
     assert.throws(() => cartero.mensajeTicket(malo, '/r'), `el cartero acepta ${String(malo)}`);
@@ -79,7 +81,7 @@ test('el cartero valida lo que viene de MaKo y arma el texto él; el aviso no es
   assert.match(cuerpo, /Number\.isInteger\(t\.numero\)/);
   assert.match(cuerpo, /DESTINO_RE\.test\(t\.destino\)/);
   assert.match(cuerpo, /yaSalio\(id\)/);
-  assert.match(cuerpo, /mensaje: mensajeTicket\(t\.numero, repo\)/);
+  assert.match(cuerpo, /mensaje: mensajeTicket\(t\.numero, repo, typeof t\.regla === 'string' \? t\.regla : null\)/);
   assert.doesNotMatch(cuerpo, /\bt\.(texto|titulo|descripcion|mensaje)\b/, 'el cartero no usa ningún texto que venga de MaKo');
   assert.match(c, /\/\^Un cliente levantó el ticket #\/\.test\(cuerpo\)/, 'el aviso al Cerebro no se muestra como lo que dijo un chat');
 });

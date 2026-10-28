@@ -41,12 +41,12 @@ export async function POST(req: Request) {
   if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
   if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
 
-  let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown };
+  let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown };
   try { body = await req.json(); } catch { return falla(400, 'body inválido'); }
   if (!body || typeof body !== 'object') return falla(400, 'body inválido');
 
   try {
-    const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto });
+    const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto, adaptar: body.adaptar });
     // `probar` (verificación de la tanda 6): el formato que sí puede andar, si el error lo propone; la pantalla
     // lo ofrece como botón («Replicar como Landing»).
     if (!r.ok) {

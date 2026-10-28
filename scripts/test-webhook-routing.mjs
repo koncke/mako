@@ -13,11 +13,12 @@
 // OJO: el driver crudo devuelve BIGINT como string; supabase-js lo da como
 // número. Por eso el Number() de abajo y el del código.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local'), quiet: true });
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 3 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 3 });
 
 // Mismo algoritmo que upsertRouting: reclama, y después mira quién quedó.
 async function reclamar(servicio, ident, ws) {

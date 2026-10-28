@@ -16,6 +16,9 @@ import { getUsuarioActual } from '@/lib/auth';
 import { sumarseComoAgency, type ResultadoSumarse } from '@/lib/agency';
 import { abrirCuentaDePartner, leadParaPartners, type CuentaAbierta } from '@/lib/partners';
 import { quienPagaDe } from '@/lib/agency-reglas';
+import { getSesionAdmin } from '@/lib/auth';
+import { aplicarPlantillaACliente, type ResultadoPlantilla } from '@/lib/plantillas-modelo';
+import { esModeloCliente } from '@/lib/plantillas-modelo-reglas';
 
 const emailDeQuienMira = () => getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
 
@@ -70,5 +73,23 @@ export async function leadParaAgencyAction(leadId: number): Promise<
     return { ok: true, nombre: l.nombre, email: l.email, clienteWs: l.clienteWs };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el lead.' };
+  }
+}
+
+/**
+ * Aplicarle a un cliente la plantilla de su modelo de negocio (MAU-01): funnel, tablero y la guía en su Plan
+ * (lib/plantillas-modelo.ts). La puerta: el admin de la agencia o el super admin; la cartera la repregunta el núcleo.
+ */
+export async function aplicarPlantillaAction(clienteWs: number, modelo: string): Promise<ResultadoPlantilla> {
+  try {
+    if (!esModeloCliente(modelo)) return { ok: false, error: 'Esa plantilla no existe.' };
+    const superAdmin = (await getSesionAdmin()) != null;
+    const agenciaWs = superAdmin ? null : await adminDeWorkspaceActual();
+    if (!superAdmin && !agenciaWs) return { ok: false, error: 'Sólo el admin de la agencia aplica plantillas.' };
+    const r = await aplicarPlantillaACliente({ agenciaWs, superAdmin }, Number(clienteWs), modelo);
+    if (r.ok) revalidatePath('/agency');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude aplicar la plantilla.' };
   }
 }

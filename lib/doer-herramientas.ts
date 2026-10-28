@@ -237,6 +237,8 @@ const INSTRUCCION_MOVER_SIN_OBJETO = `TE PIDEN MOVER ALGO A OTRO DÍA U HORA SIN
 
 export type Turno<T> = {
   tools: Array<T | ToolDef>; delRegistro: ToolDef[]; areas: Area[]; ofrece: boolean;
+  /** En una pregunta (`ofrece`), los NOMBRES de lo que escribe y se puede ofrecer: no viajan sus esquemas (27/10/2026). */
+  ofrecibles?: string[];
   /** Una línea más para el system de ESTE turno, o null. Hoy, sólo la de mover sin decir qué
    *  y la de «la tarea» cuando no viaja con qué cambiarle la fecha. */
   instruccion: string | null;
@@ -307,5 +309,18 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
     : v.mover === 'sin-decir-que' ? [INSTRUCCION_MOVER_SIN_OBJETO, sinFecha].filter(Boolean).join(' ')
     : v.mover === 'tarea' ? sinFecha
     : null;
-  return { tools, delRegistro, areas, ofrece, instruccion };
+  // LO QUE SE PUEDE OFRECER (27/10/2026, la constancia fiscal de Leila): en una pregunta, o con un adjunto para interpretar, las
+  // que escriben no viajan («la ofrece», arriba), y sin sus NOMBRES MaKo decía «no puedo» de lo que con un «sí» se hace. Sólo los
+  // nombres, de las áreas del pedido y por su relevancia: el esquema viaja con el «sí». Lo dice el turno de la app
+  // (lib/mako-turno-app.ts, `lineaDeOfrecibles`).
+  const ofrecibles = ofrece && areas.length
+    ? toolsDelRegistro({ vista: p.vista, areas, incluirAcciones: true, excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA })
+      .map((t) => t.name).filter((n) => escribe(n) && !tools.some((t) => t.name === n)).slice(0, 4)
+    : [];
+  return { tools, delRegistro, areas, ofrece, instruccion, ofrecibles };
+}
+
+/** La línea del system con lo que se puede ofrecer (`ofrecibles`). */
+export function lineaDeOfrecibles(nombres: readonly string[]): string {
+  return `LO QUE PUEDES OFRECER EN ESTE TURNO (no las tienes ahora: con su «sí» viajan): ${nombres.join(', ')}. Si lo que pide o lo que te mandó lleva a una de éstas, nunca digas que no se puede: contesta y OFRÉCELA en una línea.`;
 }

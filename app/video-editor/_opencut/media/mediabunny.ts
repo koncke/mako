@@ -20,7 +20,20 @@ export type VideoFileData = {
 	codec: VideoCodec | null;
 	canDecode: boolean;
 	thumbnailUrl: string | null;
+	/**
+	 * El error al decodificar el primer cuadro (la miniatura), o null. NO tumba la lectura (ticket #15, 27/10/2026): el
+	 * resto del archivo se leyó bien, y se importa avisando que puede verse mal, como un códec sin decodificador.
+	 */
+	errorDecodificar: string | null;
 };
+
+/** El archivo no tiene pista de video. `tieneAudio`: se puede importar como audio (media/importar-motivo.ts). */
+export class SinPistaDeVideo extends Error {
+	constructor(readonly tieneAudio: boolean) {
+		super("No video track found in the file");
+		this.name = "SinPistaDeVideo";
+	}
+}
 
 export async function readVideoFile({
 	file,
@@ -35,31 +48,42 @@ export async function readVideoFile({
 	try {
 		const duration = await input.computeDuration();
 		const videoTrack = await input.getPrimaryVideoTrack();
+		const audioTrack = await input.getPrimaryAudioTrack();
 
 		if (!videoTrack) {
-			throw new Error("No video track found in the file");
+			throw new SinPistaDeVideo(audioTrack !== null);
 		}
 
 		const canDecode = await videoTrack.canDecode();
-		const packetStats = await videoTrack.computePacketStats(100);
-		const audioTrack = await input.getPrimaryAudioTrack();
+		// Los cuadros por segundo son un dato de la grilla, no algo sin lo cual no se pueda importar.
+		let fps = Number.NaN;
+		try {
+			fps = (await videoTrack.computePacketStats(100)).averagePacketRate;
+		} catch {
+			/* sin la estadística, la grilla usa la del proyecto */
+		}
 
 		let thumbnailUrl: string | null = null;
+		let errorDecodificar: string | null = null;
 		if (canDecode) {
-			const sink = new VideoSampleSink(videoTrack);
-			const frame = await sink.getSample(1);
-			if (frame) {
-				try {
-					thumbnailUrl = renderThumbnailDataUrl({
-						width: videoTrack.displayWidth,
-						height: videoTrack.displayHeight,
-						draw: ({ context, width, height }) => {
-							frame.draw(context, 0, 0, width, height);
-						},
-					});
-				} finally {
-					frame.close();
+			try {
+				const sink = new VideoSampleSink(videoTrack);
+				const frame = await sink.getSample(1);
+				if (frame) {
+					try {
+						thumbnailUrl = renderThumbnailDataUrl({
+							width: videoTrack.displayWidth,
+							height: videoTrack.displayHeight,
+							draw: ({ context, width, height }) => {
+								frame.draw(context, 0, 0, width, height);
+							},
+						});
+					} finally {
+						frame.close();
+					}
 				}
+			} catch (error) {
+				errorDecodificar = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 			}
 		}
 
@@ -67,11 +91,12 @@ export async function readVideoFile({
 			duration,
 			width: videoTrack.displayWidth,
 			height: videoTrack.displayHeight,
-			fps: packetStats.averagePacketRate,
+			fps,
 			hasAudio: audioTrack !== null,
 			codec: videoTrack.codec,
 			canDecode,
 			thumbnailUrl,
+			errorDecodificar,
 		};
 	} finally {
 		input.dispose();

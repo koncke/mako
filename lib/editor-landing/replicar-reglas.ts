@@ -64,6 +64,19 @@ export const NOMBRE_FORMATO_REPLICAR: Record<FormatoReplicar, string> = {
 };
 
 /**
+ * «Replicar y adaptar» (27/10/2026, pedido de Leila en la llamada): el DISEÑO de la original (sus secciones, su orden,
+ * su estilo y sus imágenes) con el TEXTO reescrito para la oferta del negocio, la que dice su contexto
+ * (`buildLandingBrief`, que ia.ts ya le pasa a cada tanda). Va por bloques: la copia idéntica («Página web») es el HTML
+ * de la original y no se reescribe. El esquema de «Landing» sigue en «Conservar» (la estructura exacta) y la que
+ * reescribe es la tanda de secciones; la de «Presentación» ya pasa por la IA en las dos.
+ */
+export const INSTRUCCION_ADAPTAR = 'ADAPTAR A LA OFERTA DEL NEGOCIO: el esquema es la página de OTRO negocio. Conserva su estructura: las mismas secciones, en el mismo orden, con el mismo tipo de bloque y un largo parecido. Reescribe el texto para la oferta de ESTE negocio, según su contexto: su producto, su promesa, su audiencia, su precio y su llamado a la acción. De la original no pasa nada propio: ni su marca, ni sus nombres, ni sus testimonios, ni sus cifras, ni sus garantías. Si a una sección le falta un dato que el negocio no dio, escribe entre corchetes qué falta: "[testimonio real de un cliente]".';
+/** ¿Se puede adaptar en este formato? La copia idéntica no se reescribe. */
+export const adaptaElFormato = (f: FormatoReplicar): boolean => f !== 'web';
+/** El error de adaptar una copia idéntica (la pantalla ofrece «Landing» como botón, con `probar`). */
+export const ERROR_ADAPTAR_WEB = 'La copia idéntica no se adapta: para reescribirla con tu oferta, elige «Landing».';
+
+/**
  * El formato pedido. Sin `formato`, el `modo` viejo de la tanda 2 («bloques» = Landing, «fiel» = Página
  * web) mientras dure el deploy. null si no es ninguno.
  */
@@ -83,6 +96,10 @@ export type ConfigReplica = {
   params: Partial<ParamsGeneracion> | null;
   /** La configuración con que nace la landing nueva (formato, proporción y de dónde salió). */
   config: Partial<ConfigLanding>;
+  /** «Replicar y adaptar»: el texto se reescribe con la oferta del negocio. Sólo cuando se pidió. */
+  adaptar?: true;
+  /** Los parámetros de la tanda de secciones cuando no son los del esquema (adaptar una «Landing»). */
+  paramsSecciones?: Partial<ParamsGeneracion>;
 };
 
 /**
@@ -94,22 +111,30 @@ export type ConfigReplica = {
  * Las dos por bloques, con marcadores en vez de fotos de stock. `basadoEnUrl` en el origen es lo que
  * muestra «Ver instrucción de origen».
  */
-export function configDeReplica(formato: FormatoReplicar, url: string): ConfigReplica {
+export function configDeReplica(formato: FormatoReplicar, url: string, op: { adaptar?: boolean } = {}): ConfigReplica {
   const origen: NonNullable<ConfigLanding['origen']> = { modo: 'importar', basadoEnUrl: url };
+  const adaptar = op.adaptar === true && adaptaElFormato(formato);
   if (formato === 'presentacion') {
     return {
       formato,
       via: 'bloques',
-      params: { modoTexto: 'condensar', fuenteImagenes: 'marcadores', formato: 'presentacion', textoPorSeccion: 'breve', cantidad: 10 },
+      params: {
+        modoTexto: 'condensar', fuenteImagenes: 'marcadores', formato: 'presentacion', textoPorSeccion: 'breve', cantidad: 10,
+        ...(adaptar ? { instrucciones: INSTRUCCION_ADAPTAR } : {}),
+      },
       config: { formato: 'presentacion', proporcion: '16:9', origen },
+      ...(adaptar ? { adaptar: true as const } : {}),
     };
   }
   if (formato === 'landing') {
+    const params: Partial<ParamsGeneracion> = { modoTexto: 'conservar', fuenteImagenes: 'marcadores', formato: 'pagina' };
     return {
       formato,
       via: 'bloques',
-      params: { modoTexto: 'conservar', fuenteImagenes: 'marcadores', formato: 'pagina' },
+      params,
       config: { formato: 'pagina', origen },
+      // El esquema conserva la estructura exacta; la tanda de secciones reescribe (`generar`) con la oferta.
+      ...(adaptar ? { adaptar: true as const, paramsSecciones: { ...params, modoTexto: 'generar', instrucciones: INSTRUCCION_ADAPTAR } } : {}),
     };
   }
   return { formato, via: 'fiel', params: null, config: { formato: 'pagina', origen } };
@@ -121,7 +146,7 @@ export function configDeReplica(formato: FormatoReplicar, url: string): ConfigRe
  * persona. Cualquiera de los dos reemplaza la bajada, y sólo valen para Presentación y Landing (la
  * copia idéntica necesita el HTML). `modo` es el pedido viejo (tanda 2), aceptado durante el deploy.
  */
-export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string } | { url: string; modo: ModoReplicar };
+export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string; adaptar?: boolean } | { url: string; modo: ModoReplicar };
 /**
  * Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). En la falla, `probar` es el
  * formato que sí puede andar cuando el error lo propone («Prueba el formato «Landing».»): la pantalla lo

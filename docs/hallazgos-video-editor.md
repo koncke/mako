@@ -1733,3 +1733,23 @@ La propuesta va en el hueco `enMensaje`, y ahí también el `data-mensaje` que b
 - El rótulo del alcance ya no va en la burbuja de la persona (sigue en los chips), y el tope del pedido lo pone `enviar`.
 
 **Vive en:** app/video-editor/_opencut/chat/PanelChat.tsx · tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## «No se pudo importar» con sólo el nombre: el reporte iba SIN la causa (ticket #15, Leila, 27/10/2026)
+
+Leila reportó «No se pudo importar. ESP_Fabi sentada_limpio.mp4» desde el aviso, y el ticket llegó sin ningún error
+técnico. **La causa de SU archivo no se puede saber sin el archivo**; lo que sí estaba mal, y se arregló:
+
+- **El «Reportar a Soporte» del Toaster (`components/ui/sonner.tsx`) manda sólo el título y la descripción del aviso.** El
+  error real se iba a la consola. Un aviso que puede necesitar la causa trae su PROPIA acción con el detalle técnico
+  (`avisar` en `media/processing.ts`: el error, el tipo y el peso), nunca un texto que la persona tenga que leer.
+- **Una lectura fallida igual sumaba el clip a la biblioteca**, sin duración ni tamaño: roto en la línea de tiempo.
+  Ahora un video que mediabunny no puede leer NO se importa, y el aviso dice por qué y qué hacer
+  (`media/importar-motivo.ts`, puro y con test).
+- **La miniatura (decodificar el primer cuadro) tumbaba la importación entera** aunque el resto se hubiera leído. Ahora es
+  como un códec sin decodificador: se importa avisando que puede verse mal.
+- **Un archivo de OneDrive / Google Drive sin descargar** se lee como `NotReadableError` (o pesa 0): el porqué lo dice y
+  pide «Mantener siempre en este dispositivo». Se reconoce por el NOMBRE del error: el texto cambia con la versión y el
+  idioma de Chrome.
+
+**Vive en:** `media/importar-motivo.ts` · `media/processing.ts` · `media/mediabunny.ts` (`SinPistaDeVideo`,
+`errorDecodificar`) · tests/video-editor-importar-motivo.test.ts (6 roturas) · *27/10/2026, chat «Motion / Imagen» (claude5).*

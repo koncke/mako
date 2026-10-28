@@ -2527,6 +2527,20 @@ function conTope(promesa, ms) {
   return Promise.race([promesa, new Promise((resolve) => setTimeout(() => resolve({ tope: true }), ms))]);
 }
 
+/**
+ * MIENTRAS SE ESPERA A WHATSAPP WEB, UN LATIDO a la pantalla de MaKo que pidió, cada 10 s, sin texto (no cambia lo que dice).
+ * ⚠️ MEDIDO el 27/10/2026: la pantalla se rinde a los 30 s sin noticias («La extensión no contestó», SILENCIO_FICHAS_MS) y
+ * un paso podía tardar más (WhatsApp Web lento, o Chrome tapado por otra ventana): cortaba una extracción sana, y el recorrido
+ * seguía vivo en WhatsApp Web; la siguiente chocaba con él («ocupado») y terminaba en «0 nombres» sin decir nada. Lo que se
+ * espera ya tiene su tope acá (`conTope`): el latido sólo dice que el worker sigue.
+ */
+const LATIDO_MS = 10000;
+function conLatido(promesa, origen, id) {
+  if (origen == null || !id) return promesa;
+  const t = setInterval(() => { chrome.tabs.sendMessage(origen, { tipo: 'WA_FICHAS_AVANCE', id, paso: 'latido' }).catch(() => {}); }, LATIDO_MS);
+  return Promise.resolve(promesa).finally(() => clearInterval(t));
+}
+
 /** ¿Está el script de las fichas en esa pestaña? Su respuesta dice además si WhatsApp Web ya guardó su base. */
 async function pingWhatsapp(tabId) {
   try {
@@ -2617,6 +2631,8 @@ async function pestanaDeWhatsappLista(avisar) {
 // WhatsApp Web que YA está (⚠️ nunca una segunda: le cierra la sesión; sólo se abre una si no hay ninguna), abre el
 // desplegable y recorre el grupo (wa-recorrer.js). Cada paso queda en `extracciones` (storage), que el desplegable dibuja.
 const TOPE_REGISTRO = 30;
+/** Lo que se dice si WhatsApp Web corre oculta (Chrome tapado): la pantalla de MaKo y el desplegable. */
+const TEXTO_OCULTA = 'Chrome quedó tapado por otra ventana y así va lento: tráelo al frente.';
 /** Las extracciones en curso: de qué pestaña de MaKo vino cada una, y en qué pestaña de WhatsApp corre. */
 const extraccionesVivas = new Map();
 let colaRegistro = Promise.resolve();
@@ -2632,8 +2648,18 @@ function anotarExtraccion(id, cambios, crear = false) {
     const i = lista.findIndex((e) => e.id === id);
     const ahora = Date.now();
     const limpio = Object.fromEntries(Object.entries(cambios || {}).filter(([, v]) => v !== undefined));
-    if (i < 0) { if (!crear) return; lista.unshift({ id, cuando: ahora, estado: 'corriendo', ...limpio, actualizado: ahora }); }
-    else lista[i] = { ...lista[i], ...limpio, actualizado: ahora };
+    // ⚠️ EL TIEMPO DE CADA ETAPA, MEDIDO EN CADA CORRIDA (27/10/2026; Leandro: «se tarda mucho», y con Aaron se trabó): en qué
+    // segundo empezó cada fase (`tiempos`) y cuánto tardó todo (`duracion`). Así un «tarda» se lee en el registro de quien lo
+    // dijo, no se adivina.
+    const conTiempos = (e) => {
+      const seg = Math.round((ahora - (e.cuando || ahora)) / 1000);
+      const out = { ...e };
+      if (typeof limpio.fase === 'string' && limpio.fase && (out.tiempos || {})[limpio.fase] == null) out.tiempos = { ...(out.tiempos || {}), [limpio.fase]: seg };
+      if (typeof limpio.estado === 'string' && limpio.estado !== 'corriendo' && out.duracion == null) out.duracion = seg;
+      return out;
+    };
+    if (i < 0) { if (!crear) return; lista.unshift(conTiempos({ id, cuando: ahora, estado: 'corriendo', ...limpio, actualizado: ahora })); }
+    else lista[i] = conTiempos({ ...lista[i], ...limpio, actualizado: ahora });
     await chrome.storage.local.set({ extracciones: lista.slice(0, TOPE_REGISTRO) });
   }).catch(() => {});
   return colaRegistro;
@@ -3040,7 +3066,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         await chrome.storage.local.set({ popupVista: { pantalla: 'extraccion', id: pedidoId } }).catch(() => {});
       }
       try {
-        const lista = await pestanaDeWhatsappLista(avisar);
+        const lista = await conLatido(pestanaDeWhatsappLista(avisar), origen, pedidoId);
         if (lista.motivo) {
           if (visible) {
             void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: lista.motivo });
@@ -3054,17 +3080,31 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // A LA VISTA: la pestaña que ya está, al frente; el desplegable, abierto; y el grupo, recorrido.
         const vistas = [];
         let desplegable = null;
+        let ocupado = false;
         if (visible && grupos.length) {
           viva.waTab = lista.tab.id;
           await alFrente(lista.tab);
           desplegable = await abrirDesplegable(lista.tab.windowId);
           void anotarExtraccion(pedidoId, { desplegable: desplegable === true ? 'abierto' : desplegable });
           for (const g of grupos.slice(0, 3)) {
-            if (viva.parado) break;
-            const r = await conTope(chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_RECORRER', id: pedidoId, grupo: g }), 300000).catch(() => null);
+            if (viva.parado || viva.cerrada) break;
+            const r = await conLatido(conTope(chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_RECORRER', id: pedidoId, grupo: g }), 300000).catch(() => null), origen, pedidoId);
+            // Otro recorrido sigue en esa pestaña: se dice, no se sigue como si nada (antes: «0 nombres», sin recorrido ni perfiles).
+            if (r && r.motivo === 'ocupado') { ocupado = true; break; }
+            // Pasado su tope, que no quede andando: chocaría con el próximo.
+            if (r && r.tope) chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_RECORRER_PARAR', id: pedidoId }).catch(() => {});
             if (r && Array.isArray(r.filas)) vistas.push(...r.filas.slice(0, 5000));
             if (r && r.motivo === 'no_encontrado') void anotarExtraccion(pedidoId, { noEncontrado: g });
           }
+        }
+        // La pantalla de MaKo ya la dio por terminada (se rindió o la paró): ni se sigue ni se pisa su registro.
+        if (viva.cerrada) { responder({ ok: false, motivo: 'parado' }); return; }
+        if (ocupado) {
+          void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'ocupado' });
+          extraccionesVivas.delete(pedidoId);
+          volverAMako(viva, pedidoId);
+          responder({ ok: false, motivo: 'ocupado' });
+          return;
         }
         if (viva.parado) {
           void anotarExtraccion(pedidoId, { estado: 'parado', fase: 'parado' });
@@ -3074,13 +3114,13 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           return;
         }
         avisar('leyendo', grupos.length === 1 ? `Buscando el grupo «${grupos[0]}» en tu WhatsApp Web…` : grupos.length > 1 ? `Buscando ${grupos.length} grupos en tu WhatsApp Web…` : 'Leyendo tu WhatsApp Web…');
-        const r = await conTope(chrome.tabs.sendMessage(lista.tab.id, {
+        const r = await conLatido(conTope(chrome.tabs.sendMessage(lista.tab.id, {
           tipo: 'WA_FICHAS',
           telefonos: Array.isArray(msg.telefonos) ? msg.telefonos : [],
           pedidos: Array.isArray(msg.pedidos) ? msg.pedidos : undefined,
           grupos,
           vistas,
-        }), 90000);
+        }), 90000), origen, pedidoId);
         if (r && r.tope) {
           if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'sin_respuesta_wa' }); extraccionesVivas.delete(pedidoId); volverAMako(viva, pedidoId); }
           responder({ ok: false, motivo: 'sin_respuesta_wa' });
@@ -3115,13 +3155,13 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         if (!viva) { viva = { origen, waTab: null, parado: false }; extraccionesVivas.set(id, viva); }
         if (viva.parado) { responder({ ok: false, motivo: 'parado' }); return; }
         if (!id || !grupo || !candidatos.length) { responder({ ok: true, perfiles: [], diag: null }); return; }
-        const lista = await pestanaDeWhatsappLista(() => {});
+        const lista = await conLatido(pestanaDeWhatsappLista(() => {}), origen, id);
         if (lista.motivo) { responder({ ok: false, motivo: lista.motivo }); return; }
         viva.waTab = lista.tab.id;
         if (n(msg.desde) === 0) void anotarExtraccion(id, { fase: 'perfiles', perfilesTotal: n(msg.total), perfilesHechos: 0 });
-        const r = await conTope(chrome.tabs.sendMessage(lista.tab.id, {
+        const r = await conLatido(conTope(chrome.tabs.sendMessage(lista.tab.id, {
           tipo: 'WA_PERFILES', id, grupo, candidatos, tope: candidatos.length, desde: n(msg.desde), total: n(msg.total),
-        }), 4 * 60000).catch(() => null);
+        }), 4 * 60000).catch(() => null), origen, id);
         responder(r && !r.tope ? r : { ok: false, motivo: 'sin_respuesta_wa' });
       } catch (e) {
         responder({ ok: false, motivo: 'error', error: String(e?.message || e) });
@@ -3136,10 +3176,14 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     const viva = extraccionesVivas.get(id);
     if (!viva) return false;
     const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : undefined);
-    if (msg.paso === 'perfiles') void anotarExtraccion(id, { fase: 'perfiles', perfilesHechos: n(msg.hechos), perfilesTotal: n(msg.total), ahora: typeof msg.texto === 'string' ? msg.texto.slice(0, 160) : undefined });
-    else void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre) });
+    // Si WhatsApp Web corre OCULTA (Chrome tapado), se anota y se dice: es por qué se arrastra, y se arregla trayendo Chrome.
+    const oculta = msg.oculta === true;
+    if (msg.paso === 'perfiles') void anotarExtraccion(id, { fase: 'perfiles', perfilesHechos: n(msg.hechos), perfilesTotal: n(msg.total), ahora: typeof msg.texto === 'string' ? msg.texto.slice(0, 160) : undefined, oculta });
+    else void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre), oculta });
+    if (oculta) void anotarExtraccion(id, { vecesOculta: (viva.vecesOculta = (viva.vecesOculta || 0) + 1) });
     if (viva.origen != null) {
-      const texto = msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : msg.paso === 'perfiles' ? 'Leyendo los perfiles…' : typeof msg.texto === 'string' ? msg.texto : '';
+      const texto = oculta ? TEXTO_OCULTA
+        : msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : msg.paso === 'perfiles' ? 'Leyendo los perfiles…' : typeof msg.texto === 'string' ? msg.texto : '';
       chrome.tabs.sendMessage(viva.origen, { tipo: 'WA_FICHAS_AVANCE', id, paso: String(msg.paso || ''), texto }).catch(() => {});
     }
     return false;
@@ -3155,6 +3199,12 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     if (c.estado && c.estado !== 'corriendo') {
       const viva = extraccionesVivas.get(id);
       extraccionesVivas.delete(id);
+      // Lo que siga andando en WhatsApp Web para esta extracción, se para (MEDIDO 27/10: la pantalla se rindió y el recorrido
+      // siguió solo diez minutos; la extracción siguiente chocó con él).
+      if (viva) {
+        viva.cerrada = true;
+        if (viva.waTab != null) chrome.tabs.sendMessage(viva.waTab, { tipo: 'WA_RECORRER_PARAR', id }).catch(() => {});
+      }
       volverAMako(viva, id);
     }
     responder?.({ ok: true });

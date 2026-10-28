@@ -1,8 +1,9 @@
 import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 config({ path: resolve(process.cwd(), '.env.local') });
 const ver=process.env.META_API_VERSION, token=process.env.META_ACCESS_TOKEN;
 const ad='120240215335300570';
-const sql=postgres(process.env.DATABASE_URL,{ssl:'require',max:1});
+const sql=postgres(urlDeLaBase(),{ssl:'require',max:1});
 const [r]=await sql`SELECT ad_name, ad_thumbnail_url, ad_permalink FROM marketing_metrics_daily WHERE plataforma='meta' AND ad_id=${ad} AND ad_thumbnail_url IS NOT NULL ORDER BY fecha DESC LIMIT 1`;
 console.log('ad_name:', r?.ad_name);
 console.log('thumbnail_url (DB):', (r?.ad_thumbnail_url||'').slice(0,110));

@@ -171,6 +171,6 @@ test('la extracción de una reunión sanea los dos rótulos, y el prompt pide «
   assert.match(src, /dueno: d\.dueño,/);
   assert.match(src, /dueño: rotuloDePersona\(limpio\.dueno, conocidos, dicho\),/);
   assert.match(src, /dichoPor: rotuloDePersona\(/);
-  assert.match(src, /coerceCandidatas\(obj, proyectos, yo, participantes, dicho, control\)/);
+  assert.match(src, /coerceCandidatas\(obj, proyectos, yo, participantes, dicho, control(, hablantes)?\)/);
   assert.match(src, /QUIÉN ES CADA UNO:[^\n]*"Otra persona"[^\n]*NUNCA un rol que dedujiste/);
 });

@@ -1,9 +1,10 @@
 // Backfill #2: setter/closer = el ÚNICO vendedor, por workspace con 1 solo vendedor.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 try {
   // Vendedores por workspace (no admin, no suspendido, no MaKo).
   const rows = await sql`

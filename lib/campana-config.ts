@@ -73,8 +73,11 @@ export type CampanaAsignada = {
 export const CONFIG_KEY = 'meta.campanas';
 /** Cuántos funnels además de la casa: un negocio tiene pocos, y cada uno es una fila por lead. */
 export const MAX_TAMBIEN = 10;
-/** Holgado: una cuenta grande corre decenas de campañas, no cientos asignadas a mano. */
-export const MAX_ASIGNADAS = 200;
+/**
+ * Un techo de cordura, no un tope de uso: una cuenta grande corre decenas de campañas. Era 200 y recortaba CALLADO lo que
+ * pasaba (Martín, 27/10/2026, sobre las acciones en lote: «no tiene que haber limitaciones»).
+ */
+export const MAX_ASIGNADAS = 5000;
 
 /** Un id de Meta: sólo dígitos. Cualquier otra cosa es un nombre o basura. */
 const ID_META = /^\d{5,30}$/;

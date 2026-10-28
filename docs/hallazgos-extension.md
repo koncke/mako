@@ -267,13 +267,66 @@ Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales
   Lo de Leandro en sí: con una extensión de antes de la 0.72 (sin recorrido) sólo salen los de las tablas. Su versión no se
   midió (la lectura de `flow_puentes` en producción pide permiso).
 
+## La corrida que GUARDA perfiles (27/10/2026, 0.74.0 → 0.74.2): cinco corridas en su Chrome, y tres causas que no eran la obvia
+
+**Vive en:** `esperarDatos` y `escribirBusqueda` (extension/wa-recorrer.js) · `DOMINIO_RE` en `perfilDeInfo`
+(extension/wa-fichas-reglas.js) · `conLatido`, el «ocupado» y el PARAR de `WA_EXTRACCION` (extension/background.js) · el
+corte de los perfiles dicho (app/crm/TraerDeGrupoWA.tsx, app/crm/AccionesLoteLeads.tsx) · tests/wa-extraer-072 (3e, 3f, 7, 7d).
+
+El Cerebro: «la corrida que guarda perfiles ya se puede hacer de punta a punta». Grupo «Anuncio Ganador - 09,10,11 de
+Agosto»: sus 108 ya estaban en el CRM, así que no crea leads y sólo llena lo vacío; tiene 41 empresas.
+- **Corrida 1: «La extensión no contestó» a los 50 s, con el registro en «buscando».** El diagnóstico obvio (algo roto en la
+  0.74) era el equivocado. **La ventana de la app de Claude está maximizada y SIEMPRE VISIBLE (`WS_EX_TOPMOST`) encima de
+  Chrome**: Chrome la cuenta como tapada aunque sea la ventana del frente, sus pestañas quedan OCULTAS y Chrome frena sus
+  temporizadores (1 por segundo, y pasados 5 minutos ocultas, 1 POR MINUTO). Escribir el nombre del grupo letra por letra (36
+  letras) seguía andando diez minutos después. La pantalla de MaKo se rindió a los 30 s sin noticias, y el recorrido quedó
+  vivo en WhatsApp Web. Señal: la captura de pantalla muestra la pestaña en GRIS (Chrome no la dibuja) aunque su script
+  conteste en menos de un segundo.
+- **Corridas 2 y 3: «0 nombres» y nada más.** Chocaron con ese recorrido colgado («ocupado», en el recorrido y en los
+  perfiles) y siguieron como si nada: sin recorrido, sin perfiles, y el corte de los perfiles no se decía en ninguna parte.
+- **Corrida 4 (Claude minimizada): recorrió los 126 en ~15 s y abrió 42 perfiles de 60. Datos: 0.** Volvió a la pestaña de
+  origen (la 0.74.0 anda).
+- **Corrida 5 (0.74.1, con la web sin «https://»): 25 con datos guardados (21 webs, 18 correos, 1 Instagram, 2 redes)**,
+  verificados en la ficha de un lead (la web en «Redes y web», el correo en «Contacto»). Capturas: notas del Cerebro,
+  capturas-perfiles-guardados.
+- **Y otra vez el diagnóstico obvio era sólo una parte:** la primera hipótesis fue la web escrita sin «https://» (así estaba en
+  el texto del primer panel, y WhatsApp no la dibuja como link). Pero el MISMO primer panel, en la corrida 5, mostraba además la
+  web con «https://», el correo y la dirección, que en la corrida 4 no estaban: **los datos de una cuenta de empresa llegan un
+  instante DESPUÉS de abrir su panel** (WhatsApp los pide), y el lector leía en el acto. La 5 los encontró porque ya estaban
+  en la memoria de WhatsApp de la corrida anterior. La 0.74.2 espera a que el panel deje de cambiar (si es de empresa y no
+  muestra ningún dato, hasta 4 s) y lee el panel como quedó.
+- **Reglas:** (1) un lector de un panel que se llena solo espera a que deje de cambiar antes de leer; (2) un paso largo de la
+  extensión le manda un latido a la pantalla que espera (cada 10 s, sin texto), y cuando la pantalla da una extracción por
+  terminada, lo que siga andando en WhatsApp Web se PARA; (3) «ocupado» y un corte de los perfiles se DICEN; (4) con la pestaña
+  oculta no se escribe letra por letra; (5) una web sin «https://» se toma sólo con «www.» o una terminación que no sea una
+  palabra («viernes.De 9 a 18» no es una web), y nunca el dominio de un correo.
+- **Para probar algo a la vista en su Chrome desde un chat:** mirar qué ventana está al frente y qué la tapa (Claude es
+  siempre visible); minimizar Claude SÓLO si no tocó teclado ni mouse en los últimos 2 minutos (`GetLastInputInfo`), y
+  restaurarla al terminar. `open_application("Google Chrome")` NO trae su ventana: abre otra suelta (el selector de perfiles),
+  que hay que cerrar.
+
+## El tiempo de cada etapa y la pestaña oculta, en el registro (27/10/2026, 0.74.3) · el aviso de extensión vieja en toda la app
+
+**Vive en:** `anotarExtraccion` y `WA_RECORRER_AVANCE` (extension/background.js) · el `oculta` de wa-recorrer.js · el
+desplegable · `AvisoExtensionVieja` (app/_components) · tests/wa-extraer-072 (3g), aviso-extension-vieja-app.
+
+- Leandro: «se tarda mucho»; con Aaron se trabó; la corrida del 26/10 quedó en «11 de 126». **Medido el 27/10** en el
+  Chrome de Martín: a la vista, el recorrido de 126 miembros tarda ~15 s y cada perfil ~4,4 s (60 en ~4,5 min); con
+  Chrome TAPADO, escribir el nombre del grupo seguía diez minutos después. El trabón es la pestaña oculta (ver «La corrida
+  que GUARDA perfiles»). Ahora cada fila del registro guarda en qué segundo empezó cada etapa (`tiempos`) y cuánto tardó
+  (`duracion`), y si WhatsApp Web corrió oculta (`oculta`, `vecesOculta`); el desplegable y la pantalla de MaKo dicen
+  «Chrome quedó tapado por otra ventana y así va lento: tráelo al frente». Un «tarda» se lee en el registro de quien lo dijo.
+- **Leila estaba en la 0.70 con la 0.74 vigente.** El aviso de extensión vieja vivía sólo en las pantallas de video; ahora
+  va en la esquina de toda la app (con sesión), y lleva al instructivo. Que se actualice SOLA pide la tienda de Chrome al
+  día (`VERSION_EN_TIENDA`, lib/extension-tienda.ts): una descomprimida no se actualiza nunca. Es un paso de Martín.
+
 ## Sin hacer
 
-- **Los perfiles, de punta a punta**: MEDIDO en vivo con la 0.73.8 (26/10, grupo de agosto, sólo lectura): recorrido y en
-  seguida 12 perfiles → 12 paneles abiertos (el del contacto: su teléfono, «1 grupo en común», Bloquear/Reportar), 2 con datos
-  (2 webs, 1 red, 1 correo) y 4 con su nombre por la fila del buscador. Falta la corrida que GUARDA, con el server desplegado
-  (666fe43e1 y siguientes no están en main). ⚠️ En esa corrida el recorrido quedó un rato en «11 de 126» con la lista de
-  miembros en miniatura (terminó bien); Martín estaba usando otra ventana: mirar si una ventana sin foco frena la lista.
+- **Cuántos llegan sin teléfono** (Aaron: WhatsApp esconde números en grupos): medirlo en un grupo con la pantalla de
+  «Traer de grupo» (`sinNumero`) y en el registro, antes de construir nada.
+- **La 0.74.2 en vivo (la espera de los datos de empresa)**: copiada a su carpeta el 27/10, sin correr: Chrome se cerró
+  (RAM libre 0,7 GB) antes de la corrida. Probarla en un grupo que NADIE abrió (sin la memoria de WhatsApp), con todos ya en
+  el CRM para no crear leads: «16, 17 y 18 de JUNIO» (247) o «19, 20, 21 de Octubre» (158). Medir `conDatos` y `esperaMs`.
 - **La versión de la extensión de Leandro** (`flow_puentes.version` del negocio de Leandro, o su chrome://extensions): si es
   anterior a la 0.72, ahí está su «no extrajo nada». Y el `notifyName` de la 0.73.5 quedó sin uso (los mensajes no lo traen):
   sacarlo si en otro WhatsApp Web tampoco aparece.

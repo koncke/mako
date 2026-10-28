@@ -12,7 +12,8 @@ import type { AppDeEscritorio } from '@/lib/chat-mako-reglas';
 /** Lo que falta, en el campo apagado de la caja. */
 export const FRASE_APP = 'Instala MaKo para escribir';
 /** El paso siguiente, ya descargado (con lo que dice el sistema al abrirlo, en el `title` del botón). */
-export const FRASE_INSTALAR = 'Abre lo que descargaste';
+/** Tocado «Instalar MaKo» (27/10/2026): que se está bajando, y abrirlo al terminar. Lo que frena Chrome va en el aviso del botón. */
+export const FRASE_INSTALAR = 'Se está descargando: ábrelo al terminar';
 
 /** Lo que dijo el servidor. null = todavía no se sabe (no bloquea: decide el servidor, no la espera). */
 let estado: AppDeEscritorio | null = null;

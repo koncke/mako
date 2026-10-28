@@ -31,6 +31,8 @@ import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../
 import { FORMATO_CHAT, TOPES_CHAT, catalogoParaPrompt, validarOperaciones, type OperacionChat } from './chat-catalogo';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE, PROMPTS_CHAT_VIDEO } from './chat-prompts';
 import { senalesDelNegocio } from '../plantillas-sugeridas-server';
+import { reglaNoExisteEn } from '../no-existe';
+import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
 
 export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
 
@@ -101,10 +103,11 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
         linea: contenidoNoConfiable(linea, 'linea_de_tiempo'),
       }),
     ]);
-    const sys = await brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.system.key, CHAT_VIDEO_SYSTEM_TEMPLATE, {
+    // Lo que no existe en MaKo se dice y se marca en `resumen` (lib/no-existe.ts): abajo se saca y se levanta el pedido.
+    const sys = `${await brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.system.key, CHAT_VIDEO_SYSTEM_TEMPLATE, {
       catalogo: catalogoParaPrompt(senales),
       formato: FORMATO_CHAT,
-    }));
+    }))}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_CHAT_VIDEO,
@@ -115,7 +118,9 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
     const raw = await objetoConUnaReparacion(salida, reparador(hastaIA));
     const { operaciones, descartes } = validarOperaciones(raw.operaciones);
     if (descartes.length) console.warn(`[video-editor:chat] descartes: ${descartes.slice(0, 20).join(' · ')}`);
-    const resumenModelo = typeof raw.resumen === 'string' ? raw.resumen.trim().split('\n')[0].slice(0, 300) : '';
+    // La marca de lo que no existe sale ANTES de quedarse con la primera línea, y el pedido va solo a la Ticketera.
+    const ne = typeof raw.resumen === 'string' ? await conPedidoDeNoExisteDeLaSesion(raw.resumen, { chat: 'video-editor', ruta: '/video-editor', pedido: instruccion }) : null;
+    const resumenModelo = ne ? [ne.texto.trim().split('\n')[0].slice(0, 300), ne.linea].filter(Boolean).join(' ') : '';
     return { ok: true, resumen: resumenModelo || (operaciones.length ? 'Listo.' : 'Sin cambios.'), operaciones, descartes };
   } catch (err) {
     return { ok: false, error: await falloIA(err), status: 502 };

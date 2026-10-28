@@ -459,7 +459,11 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
 
   async youtube(v) {
     const id = v.YOUTUBE_VSL_VIDEO_ID || 'dQw4w9WgXcQ'; // cualquier video público valida la key
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(v.YOUTUBE_API_KEY)}`;
+    // Sin clave propia (ya no se pide, 27/10/2026) se prueba el VIDEO con la de MaKo: lo que importa es que se encuentre.
+    const { claveDeYoutube } = await import('./youtube');
+    const clave = v.YOUTUBE_API_KEY || (await claveDeYoutube());
+    if (!clave) return { ok: false, error: 'MaKo no tiene su clave de YouTube cargada. Avísale a Soporte.' };
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(clave)}`;
     const { status, body } = await fetchJson(url);
     if (status === 400 || status === 403) return { ok: false, error: 'API key inválida o sin la YouTube Data API habilitada.' };
     if (status >= 400) return { ok: false, error: `YouTube respondió ${status}.` };

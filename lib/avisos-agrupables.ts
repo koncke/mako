@@ -107,7 +107,7 @@ export function textoResumen(items: AvisoEnCola[]): { titulo: string; texto: str
   for (const a of items.slice(0, 12)) lineas.push(`• ${lineaDeAviso(a)}`);
   if (items.length > 12) lineas.push(`• …y ${items.length - 12} más`);
   lineas.push('');
-  lineas.push('Nada de esto necesitaba interrumpirte. Si quieres que alguno vuelva a llegar en el momento, se prende en Configuraciones › Notificaciones. — MaKo');
+  lineas.push('Nada de esto necesitaba interrumpirte. Si quieres que alguno vuelva a llegar en el momento, se prende en Settings › Notificaciones. — MaKo');
   return {
     titulo: `${items.length} ${items.length === 1 ? 'aviso' : 'avisos'} de ayer`,
     texto: lineas.join('\n'),

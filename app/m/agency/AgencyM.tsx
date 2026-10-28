@@ -19,7 +19,8 @@ import { emailUtilizable } from '@/lib/agencia-altas';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { ROTULO_QUIEN_PAGA, type QuienPaga } from '@/lib/agency-reglas';
 import type { CuentaPartner } from '@/lib/partners';
-import { abrirCuentaClienteAction } from '@/app/agency/actions';
+import { abrirCuentaClienteAction, aplicarPlantillaAction } from '@/app/agency/actions';
+import { MODELOS_CLIENTE, PLANTILLAS_MODELO, type ModeloCliente } from '@/lib/plantillas-modelo-reglas';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
@@ -66,6 +67,19 @@ export function AgencyM({ cuentas, usd, pagaSugerida, puedeAbrir, superAdmin, cu
   // pie del alta dice los dos caminos: mientras MaKo no pueda cobrarle, toda alta con «Mi cliente» queda pedida.
   const [hecho, setHecho] = useState<{ link: string | null; paga: QuienPaga; acceso: string | null } | null>(null);
   const [mal, setMal] = useState<string | null>(null);
+  // La plantilla de su modelo de negocio (MAU-01).
+  const [plantilla, setPlantilla] = useState(false);
+  const [modelo, setModelo] = useState<ModeloCliente>('tienda-b2c');
+  const [aplicando, setAplicando] = useState(false);
+  const [plantillaHecha, setPlantillaHecha] = useState<string | null>(null);
+  const aplicarPlantilla = async () => {
+    if (!c || aplicando) return;
+    setAplicando(true);
+    try {
+      const r = await aplicarPlantillaAction(c.ws, modelo);
+      if (r.ok) setPlantillaHecha(r.resumen); else toast(r.error);
+    } catch { toast('No pude aplicar la plantilla.'); } finally { setAplicando(false); }
+  };
 
   const activas = cuentas.filter((x) => x.estado === 'aprobado').length;
   const porPagar = cuentas.filter((x) => !!x.cobro?.pagar || (!!x.cobro?.renovacion && !x.cobro.renovacion.activada)).length;
@@ -163,7 +177,30 @@ export function AgencyM({ cuentas, usd, pagaSugerida, puedeAbrir, superAdmin, cu
               <FilaDatoM k="Acceso" v={reenviando ? 'Reenviando…' : `Reenviar a ${quien.nombre}`} azul
                 onClick={() => void reenviar(c.ws, quien)} />
             )}
+            {c.estado === 'aprobado' && (puedeAbrir || superAdmin) && (
+              <FilaDatoM k="Plantilla" v="Aplicar" azul onClick={() => { setPlantilla(true); setPlantillaHecha(null); }} />
+            )}
           </ListaM>
+        )}
+      </SheetM>
+
+      {/* La plantilla de su modelo de negocio (MAU-01, app/agency/PlantillaDeModelo.tsx en la computadora). */}
+      <SheetM abierto={plantilla && c != null} onCerrar={() => setPlantilla(false)} titulo="Plantilla del negocio" ocupado={aplicando}
+        pie={plantillaHecha ? undefined : (
+          <PieM consecuencia="Funnel, tablero y la guía para cargar sus datos, en su cuenta.">
+            <Button variant="primary" size="lg" full disabled={aplicando} onClick={() => void aplicarPlantilla()}>
+              {aplicando ? 'Aplicando…' : 'Aplicar plantilla'}
+            </Button>
+          </PieM>
+        )}>
+        {plantillaHecha ? (
+          <p className="m-agency-nota">{plantillaHecha}</p>
+        ) : (
+          <div className="m-agency-form">
+            <SegmentadoM<ModeloCliente> etiqueta="Modelo de su negocio" valor={modelo} onCambio={setModelo}
+              opciones={MODELOS_CLIENTE.map((id) => ({ id, label: PLANTILLAS_MODELO[id].nombre }))} />
+            <p className="m-agency-nota">{PLANTILLAS_MODELO[modelo].para}</p>
+          </div>
         )}
       </SheetM>
 

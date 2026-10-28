@@ -10,14 +10,15 @@
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 config({ path: resolve(process.cwd(), '.env.local') });
 const argv = process.argv.slice(2);
 const COMMIT = argv.includes('--commit');
 const WS = Number((argv.indexOf('--ws') >= 0 && argv[argv.indexOf('--ws') + 1]) || '1');
 const JUNK = ['nose', 'no se', 'n/a', 'na', '-', '--', '.', 'x', 'xx', 'ninguna', 'ninguno', 'no', 'sin empresa', 'sinempresa', 'no aplica', 'no aplica.', '?', 's/n', 'sn'];
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
-try { const u = new URL(process.env.DATABASE_URL); console.log(`DB destino: ${u.host}${u.pathname}`); } catch { /* noop */ }
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
+try { const u = new URL(urlDeLaBase()); console.log(`DB destino: ${u.host}${u.pathname}`); } catch { /* noop */ }
 
 const crit = (t) => t`workspace_id = ${WS} AND empresa IS NOT NULL AND lower(btrim(empresa)) = ANY(${JUNK})`;
 const rows = await sql`SELECT empresa, count(*)::int n FROM leads WHERE ${crit(sql)} GROUP BY 1 ORDER BY n DESC`;

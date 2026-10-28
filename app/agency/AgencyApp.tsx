@@ -29,6 +29,7 @@ import { ROTULO_QUIEN_PAGA, quienPagaSugerido, type PerfilAgency } from '@/lib/a
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
 import { ModalNuevoCliente } from './NuevoCliente';
+import { PlantillaDeModelo } from './PlantillaDeModelo';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
 type Tono = 'warn' | 'good' | 'neutral' | 'bad';
@@ -245,6 +246,13 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
           </dl>
           {abierta.paga === 'cliente' && abierta.cobro?.pagar && (
             <p className="ad-nota">Le aparece el pago al terminar su configuración. Cuando pague, puedes entrar a su cuenta.</p>
+          )}
+          {/* La plantilla de su modelo de negocio (MAU-01): sólo con la cuenta habilitada, como entrar a ella. */}
+          {abierta.estado === 'aprobado' && (puedeAbrir || superAdmin) && (
+            <>
+              <h3 className="ad-sub">Plantilla del negocio</h3>
+              <PlantillaDeModelo key={abierta.ws} clienteWs={abierta.ws} onError={(m) => show(m, undefined, 'bad')} />
+            </>
           )}
           <h3 className="ad-sub">Equipo</h3>
           {abierta.estado === 'aprobado' && quienManeja && (puedeAbrir || superAdmin) && (

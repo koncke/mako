@@ -33,7 +33,7 @@ import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, motivoDelTipo, type TipoReunion, type ClientesMako, type LeadDeReunion } from './reunion-clasificar';
 import { getWorkspaceActual, getWorkspace, listarWorkspaces } from './workspace';
-import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, aliasDelDueno, conNombreReal, type FuenteDicha, type AliasDelDueno } from './tarea-dueno';
+import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, aliasDelDueno, conNombreReal, duenoPorLaEtiqueta, hablantesDelTexto, type FuenteDicha, type AliasDelDueno } from './tarea-dueno';
 import { fuenteDeDatos, permitidosDe, limpiarLoDicho, type ControlDeLoDicho } from './detalle-sin-inventos';
 import { decidirRecurrente } from './plan-criterio-reglas';
 import { invitadosDeReunionPorFecha } from './google-calendar';
@@ -440,7 +440,7 @@ Saca los action items concretos, atribuye cada uno a su dueño, y devuelve el JS
 const PRIOS: PlanPrioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioridadOk = (p: unknown): PlanPrioridad => (PRIOS.includes(p as PlanPrioridad) ? (p as PlanPrioridad) : 'media');
 
-function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = [], dicho?: FuenteDicha, control?: ControlDeLoDicho): TareaCandidata[] {
+function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = [], dicho?: FuenteDicha, control?: ControlDeLoDicho, hablantes = 0): TareaCandidata[] {
   const ids = new Set(proyectos.map((p) => p.id));
   // Quiénes son conocidos, para que un rótulo de persona no sea un rol inventado («su socio»).
   const conocidos = [yo, ...participantes];
@@ -473,7 +473,9 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         dueño: rotuloDePersona(limpio.dueno, conocidos, dicho),
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
-        atribucionDudosa: d.atribucionDudosa,
+        // ⚠️ EL DUEÑO QUE SALE SÓLO DE LA ETIQUETA DEL HABLANTE (27/10/2026, lib/tarea-dueno.ts): Fathom cruza quién habla,
+        // y una tarea con dueño = quien «la dijo» no tiene otra prueba que esa etiqueta. Viaja marcada hasta el borrador.
+        atribucionDudosa: d.atribucionDudosa || duenoPorLaEtiqueta({ dueño: limpio.dueno, dichoPor: limpio.dichoPor }, hablantes) || undefined,
         // El prompt pide `dichoPor` desde siempre y ACÁ SE TIRABA A LA BASURA: no estaba
         // en el tipo ni en este map, así que el modelo lo escribía y nadie lo leía. Es un
         // campo que existe para OBLIGARLO a separar «quién habló» de «quién ejecuta», y
@@ -823,6 +825,8 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
 
   const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE, molde: MOLDE_DETALLE }));
   const partes = trocear(texto);
+  // Las voces de la reunión ENTERA (no de cada parte): con una sola no hay etiqueta que se pueda cruzar.
+  const hablantes = hablantesDelTexto(texto);
   // EL PLAZO de la lectura: el reloj de quien llama menos lo que hace falta para escribir lo leído (17/10/2026).
   const plazo = opts.hasta != null ? opts.hasta - MARGEN_ESCRITURA_MS : undefined;
   const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
@@ -879,7 +883,7 @@ ${texto}`);
       console.error(`[plan-fathom] parte ${i + 1}/${partes.length}: la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
       return { tareas: [], dudas: [], usage, fallo: true };
     }
-    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes, dicho, control), dudas: coerceDudas(obj), usage };
+    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes, dicho, control, hablantes), dudas: coerceDudas(obj), usage };
   };
 
   // En paralelo: son llamadas independientes y así una reunión de 2h no tarda 2 minutos.

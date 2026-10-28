@@ -22,6 +22,8 @@
 //     cambian mientras se conversa, y guardados en la sesión serían la foto del primer mensaje.
 // =============================================================================
 
+import { esPedidoDeCobro, nombraLaVistaDeLaFicha } from './mako-intencion';
+
 /** El prefijo de las claves por PERSONA de los chats de la app. Es el mismo string que
  *  `PREFIJO_CHART_MOVIL` (lib/mako-turno-app-reglas.ts): ese módulo trae el registro de la API y
  *  acá no se importa. tests/mako-analyst-lead.test.ts frena si se separan. */
@@ -247,6 +249,17 @@ export function contextoDelLead(p: { leadId: number; nombre: string; lecturas: r
  */
 export const PISTA_EDICION_FICHA = 'Cambia la ficha del CRM (sus bloques, hojas y estilo): ';
 
+/**
+ * EDITANDO, UN DATO DE PLATA NO ES LA VISTA (27/10/2026, los «no puedo» falsos de Leila). «No me deja editar sus cuotas» con la
+ * ficha en «Editar» se clasificaba como un cambio de la ficha: no viajaban editar_cuota ni editar_venta_lead, y MaKo dijo que en
+ * ese chat no tenía la herramienta. Si el pedido es de cobro (`esPedidoDeCobro`: una cuota, el plan de pagos, la mensualidad
+ * de un lead) y no nombra la vista (un bloque, una hoja, su lugar), la pista es la del dato. «Pon las cuotas arriba de todo» y
+ * «armá el bloque de cuotas con su vencimiento» siguen siendo la vista. Sin «ficha» en esta pista: esa palabra es de la vista.
+ */
+export const PISTA_DATO_DE_COBRO = 'Corrige el dato de cobro de este lead: ';
+export const pistaDeEdicion = (mensaje: string): string =>
+  esPedidoDeCobro(mensaje) && !nombraLaVistaDeLaFicha(mensaje) ? PISTA_DATO_DE_COBRO : PISTA_EDICION_FICHA;
+
 /** Dónde está la persona mientras edita: la hoja abierta (su clave de la API y su nombre) y el CRM de la ficha. */
 export type EdicionDeLaFicha = { tab: string; nombre: string; embudoId: number | null };
 
@@ -272,5 +285,6 @@ export function contextoDeEdicion(e: EdicionDeLaFicha): string {
     `- Lo que pide es un cambio en la ficha del CRM de este lead (${crm}), que se ve igual para TODOS sus leads. Este lead es sólo el ejemplo que tiene a la vista.`,
     `- Está en la hoja con clave «${e.tab}»${e.nombre ? ` (se llama ${JSON.stringify(e.nombre)})` : ''}. «Esta hoja» o «aquí» es esa. Para leerla, ver_ficha_funnel; para cambiarla, cambiar_ficha_funnel con tab «${e.tab}»${e.embudoId != null ? ` y embudoId ${e.embudoId}` : ''}; para rehacerla entera con un pedido, armar_tab_ficha (sólo en las cuatro tabs).`,
     '- Un cambio a la vez, y sólo lo que pidió. Si no se entiende qué bloque o qué hoja, pregúntale antes de proponer.',
+    '- Si lo que pide es corregir un DATO de este lead (una cuota, un monto, un vencimiento, el plan de pagos) y no la vista, eso no es la ficha: hazlo con las herramientas de cobro que tengas. Y dile que mientras la ficha está en «Editar» los montos de la pantalla quedan bloqueados: al salir de «Editar» se pueden cambiar a mano.',
   ].join('\n');
 }

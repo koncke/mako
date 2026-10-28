@@ -43,7 +43,7 @@ export function Calificacion({ ctx, titulo, diseno, epico }: PropsBloque) {
   const nota = noVino
     ? 'No vino a la reunión 1: no hay nada que calificar.'
     : noLlega
-      ? (<>No le llega a Meta: {adonde === 'sin_pixel' ? 'falta el píxel' : 'falta el token'}. <BotonIntegracion servicio="meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar →</BotonIntegracion></>)
+      ? (<>No le llega a Meta: {adonde === 'sin_pixel' ? 'falta el píxel' : 'falta conectar Meta con tu Facebook'}. <BotonIntegracion servicio="meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar →</BotonIntegracion></>)
       : 'Meta aprende de esto.';
   const tri = <TriEditable leadId={lead.id} campo="calificado" valor={lead.calificado} si="Calificado" no="No calificado" titulo="¿Era un lead calificado?" bloqueado={noVino} />;
   const botones = <TriBotones leadId={lead.id} campo="calificado" valor={lead.calificado} si="Calificado" no="No calificado" titulo="¿Era un lead calificado?" bloqueado={noVino} marca={marcaDato('calificado')} />;

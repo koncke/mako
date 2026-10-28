@@ -320,8 +320,8 @@ test('el window.open corre en el CLIC, antes de cualquier await: el Diagnóstico
   assert.ok(apl.indexOf('abrirEnElClic()') > 0 && apl.indexOf('abrirEnElClic()') < apl.indexOf('setParaAplicar(true)'));
   assert.match(apl, /void pedirReplica\(urlPegada, 'landing', lectura \? \{ lectura \} : \{ ventana \}, pasarYAbrir\)/);
   // El formulario de Replicar y su «Replicar como…»: en el submit / el clic, sin nada antes.
-  assert.match(REPLICAR, /onSubmit=\{\(e\) => \{ e\.preventDefault\(\); if \(url && !ocupado\) empezar\(url, formato, pideVentana\(formato\) \? abrirEnElClic\(\) : null\); \}\}/);
-  assert.match(REPLICAR, /onProbar=\{\(f\) => \{ if \(!pedida\) return; const v = pideVentana\(f\) \? abrirEnElClic\(\) : null; setFormato\(f\); empezar\(pedida, f, v\); \}\}/);
+  assert.match(REPLICAR, /onSubmit=\{\(e\) => \{ e\.preventDefault\(\); if \(url && !ocupado\) empezar\(url, formato, pideVentana\(formato\) \? abrirEnElClic\(\) : null, adaptar\); \}\}/);
+  assert.match(REPLICAR, /onProbar=\{\(f\) => \{ if \(!pedida\) return; const v = pideVentana\(f\) \? abrirEnElClic\(\) : null; setFormato\(f\); empezar\(pedida, f, v, adaptar\); \}\}/);
 });
 
 test('ningún camino que corre DESPUÉS de un await (o desde un efecto) abre una ventana propia', () => {
@@ -354,8 +354,8 @@ test('los arranques automáticos TOMAN la ventana reservada (y la sueltan si no 
   const montaje = bloque(PANEL, 'const reservada = ', 'else sinUsar();');
   assert.match(montaje, /const reservada = !deNuestra && url \? tomarVentanaReservada\(url\) : null;/);
   assert.match(montaje, /if \(!lista\.sugerencias\.length && !lista\.resumen\) void analizar\(\{ ventana: reservada \}\);\s*else sinUsar\(\);/);
-  const auto = bloque(REPLICAR, 'const arrancado = useRef(false);', '}, [auto, urlInicial, formatoInicial, empezar]);');
-  assert.match(auto, /if \(auto && u\) empezar\(u, f, pideVentana\(f\) \? tomarVentanaReservada\(u\) : null\);/);
+  const auto = bloque(REPLICAR, 'const arrancado = useRef(false);', '}, [auto, urlInicial, formatoInicial, adaptarInicial, empezar]);');
+  assert.match(auto, /if \(auto && u\) empezar\(u, f, pideVentana\(f\) \? tomarVentanaReservada\(u\) : null, adaptarInicial\);/);
 });
 
 test('con `enNavegador` la pantalla lee en la ventana: los dos pedidos preguntan lo mismo que el server contesta', () => {

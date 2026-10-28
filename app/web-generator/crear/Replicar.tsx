@@ -36,7 +36,7 @@ import {
   type SalidaSinLectura, type VentanaDelClic,
 } from '@/lib/editor-landing/lector-navegador';
 import {
-  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, formatoReplicar, type FormatoReplicar, type PedidoReplicar, type RespuestaReplicar,
+  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, adaptaElFormato, formatoReplicar, type FormatoReplicar, type PedidoReplicar, type RespuestaReplicar,
 } from '@/lib/editor-landing/replicar-reglas';
 import { AVISO_SCROLL } from '@/lib/editor-landing/replicar-animaciones';
 import { PLAZO_IA_MS, postJson } from '../cliente';
@@ -67,7 +67,7 @@ export type EstadoReplicar =
   | { fase: 'falla'; formato: FormatoReplicar; error: string; enNavegador: boolean; pegable: boolean; probar: FormatoReplicar | null; salida: SalidaSinLectura | null };
 
 /** Lo que se le pasa a `replicar`: la página ya leída o el texto pegado, o la ventana abierta en el clic (tanda 7). */
-export type ExtraReplicar = { lectura?: Lectura; texto?: string; ventana?: VentanaDelClic | null };
+export type ExtraReplicar = { lectura?: Lectura; texto?: string; ventana?: VentanaDelClic | null; adaptar?: boolean };
 
 /**
  * ¿Este Replicar puede necesitar la ventana de lectura? (Para abrirla en el clic SÓLO cuando sirve.) La «Página
@@ -96,7 +96,7 @@ export function useReplicar(): {
   const montado = useRef(true);
   useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
   const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: ExtraReplicar = {}, alListo?: AlReplicar) => {
-    const { ventana = null, ...dato } = extra;
+    const { ventana = null, adaptar = false, ...dato } = extra;
     const usaVentana = pideVentana(formato, dato);
     // Una ventana que este pedido no va a usar (no debería llegar: los clics preguntan `pideVentana`) no queda abierta.
     if (ventana && ventana !== 'bloqueada' && !usaVentana) cerrarVentana(ventana);
@@ -107,7 +107,9 @@ export function useReplicar(): {
       pedir: (lectura) => {
         // La segunda vuelta (ya leída): de «Leyendo la página…» a «Replicando…».
         if (lectura) setEstado({ fase: 'replicando', formato });
-        const cuerpo: PedidoReplicar = formato === 'web' ? { url, formato } : { url, formato, ...dato, ...(lectura ? { lectura } : {}) };
+        const cuerpo: PedidoReplicar = formato === 'web'
+          ? { url, formato }
+          : { url, formato, ...dato, ...(lectura ? { lectura } : {}), ...(adaptar ? { adaptar: true } : {}) };
         return postJson<RespuestaReplicar>('/api/landing-generator/replicar', cuerpo, PLAZO_IA_MS);
       },
       pideNavegador: (x) => !x.ok && (x as { enNavegador?: boolean }).enNavegador === true,
@@ -163,10 +165,12 @@ export function FallaReplicar({ error, probar, onProbar, deshabilitado, clase = 
 }
 
 /** Los 3 formatos de Replicar, con su ícono: un radiogroup con la cara de las pastillas «Landing | Presentación». */
-export function SelectorFormato({ valor, onCambio, deshabilitado }: {
+export function SelectorFormato({ valor, onCambio, deshabilitado, adaptar = false }: {
   valor: FormatoReplicar;
   onCambio: (f: FormatoReplicar) => void;
   deshabilitado?: boolean;
+  /** Adaptada a la oferta: la copia idéntica no se reescribe (`adaptaElFormato`). */
+  adaptar?: boolean;
 }) {
   return (
     <div className="gp-tipos" role="radiogroup" aria-label="Formato">
@@ -177,7 +181,7 @@ export function SelectorFormato({ valor, onCambio, deshabilitado }: {
           role="radio"
           className="gp-tipo"
           aria-checked={valor === f}
-          disabled={deshabilitado}
+          disabled={deshabilitado || (adaptar && !adaptaElFormato(f))}
           onClick={() => onCambio(f)}
         >
           <Ico n={ICONO_FORMATO[f]} t={15} />
@@ -189,16 +193,36 @@ export function SelectorFormato({ valor, onCambio, deshabilitado }: {
 }
 
 /**
+ * Las dos formas de replicar (27/10/2026, Leila: «Replicar y adaptar»): con el texto de la original, o con el texto
+ * reescrito para la oferta del negocio (el diseño queda: sus secciones, su estilo y sus imágenes).
+ */
+export function SelectorTexto({ adaptar, onCambio, deshabilitado }: { adaptar: boolean; onCambio: (a: boolean) => void; deshabilitado?: boolean }) {
+  return (
+    <div className="gp-tipos" role="radiogroup" aria-label="Texto">
+      {([[false, 'Tal cual', 'copiar'], [true, 'Adaptada a tu oferta', 'varita']] as const).map(([a, texto, icono]) => (
+        <button key={texto} type="button" role="radio" className="gp-tipo" aria-checked={adaptar === a} disabled={deshabilitado} onClick={() => onCambio(a)}>
+          <Ico n={icono} t={15} />
+          {texto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * «Replicar landing», a la derecha del Panel: la dirección, el formato y «Replicar». Con `auto` (el link pegado
  * en la caja con «Replica esta landing») arranca solo, UNA vez: el clic ya fue el ↑ de la caja.
  */
-export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, auto = false }: {
+export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, adaptar: adaptarInicial = false, auto = false }: {
   url?: string;
   formato?: FormatoReplicar;
+  /** «Replica y adapta a tu oferta» (la pastilla del link). */
+  adaptar?: boolean;
   auto?: boolean;
 }) {
   const [texto, setTexto] = useState(urlInicial ?? '');
   const [formato, setFormato] = useState<FormatoReplicar>(formatoInicial ?? FORMATO_INICIAL);
+  const [adaptar, setAdaptar] = useState(adaptarInicial);
   /** La página del último intento (la que se lee o se pega si el server no pudo). */
   const [pedida, setPedida] = useState<string | null>(null);
   const { estado, replicar } = useReplicar();
@@ -210,9 +234,9 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, au
    * Replicar `u` como `f`. `ventana`: la que se abrió EN EL CLIC (tanda 7). Los clics la abren ANTES de llamar a
    * esto (`abrirEnElClic`, sin nada antes); el arranque automático toma la que reservó el ↑ de la caja.
    */
-  const empezar = useCallback((u: string, f: FormatoReplicar, ventana: VentanaDelClic | null = null) => {
+  const empezar = useCallback((u: string, f: FormatoReplicar, ventana: VentanaDelClic | null = null, a = false) => {
     setPedida(u);
-    void replicar(u, f, { ventana });
+    void replicar(u, f, { ventana, ...(a && adaptaElFormato(f) ? { adaptar: true } : {}) });
   }, [replicar]);
 
   // El ref sobrevive al doble montaje del modo estricto: replicar se paga una sola vez (y la ventana se toma una).
@@ -222,9 +246,9 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, au
     arrancado.current = true;
     const u = urlParaAnalizar(urlInicial);
     const f = formatoInicial ?? FORMATO_INICIAL;
-    if (auto && u) empezar(u, f, pideVentana(f) ? tomarVentanaReservada(u) : null);
+    if (auto && u) empezar(u, f, pideVentana(f) ? tomarVentanaReservada(u) : null, adaptarInicial);
     else campo.current?.focus();
-  }, [auto, urlInicial, formatoInicial, empezar]);
+  }, [auto, urlInicial, formatoInicial, adaptarInicial, empezar]);
 
   return (
     <section className="gp-analizar gp-replicar" aria-label="Replicar landing">
@@ -233,7 +257,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, au
       <h1 className="gp-cabeza-titulo">Replicar landing</h1>
       <p className="gp-analizar-sub">Pega la dirección y elige el formato.</p>
       {/* La ventana se abre EN ESTE submit (el clic o el Enter), primera cosa y sin nada antes (tanda 7). */}
-      <form className="gp-analizar-fila" onSubmit={(e) => { e.preventDefault(); if (url && !ocupado) empezar(url, formato, pideVentana(formato) ? abrirEnElClic() : null); }}>
+      <form className="gp-analizar-fila" onSubmit={(e) => { e.preventDefault(); if (url && !ocupado) empezar(url, formato, pideVentana(formato) ? abrirEnElClic() : null, adaptar); }}>
         <input
           ref={campo}
           className="gp-campo"
@@ -251,7 +275,14 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, au
         </button>
       </form>
       <div className="gp-replicar-formato">
-        <SelectorFormato valor={formato} onCambio={setFormato} deshabilitado={ocupado} />
+        <SelectorFormato valor={formato} onCambio={setFormato} deshabilitado={ocupado} adaptar={adaptar} />
+      </div>
+      <div className="gp-replicar-formato">
+        <SelectorTexto
+          adaptar={adaptar}
+          deshabilitado={ocupado}
+          onCambio={(a) => { setAdaptar(a); if (a && !adaptaElFormato(formato)) setFormato(FORMATO_INICIAL); }}
+        />
       </div>
       {estado.fase === 'replicando' && (
         <p className="gp-analizar-sub gp-replicar-estado" role="status">
@@ -267,14 +298,14 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, au
           ocupado={false}
           accionTexto="Replicar este texto"
           salida={estado.salida}
-          onLectura={(lectura) => void replicar(pedida, estado.formato, { lectura })}
-          onTexto={(t) => void replicar(pedida, estado.formato, { texto: t })}
+          onLectura={(lectura) => void replicar(pedida, estado.formato, { lectura, adaptar })}
+          onTexto={(t) => void replicar(pedida, estado.formato, { texto: t, adaptar })}
         />
       ) : estado.fase === 'falla' ? (
         <FallaReplicar
           error={estado.error}
           probar={pedida ? estado.probar : null}
-          onProbar={(f) => { if (!pedida) return; const v = pideVentana(f) ? abrirEnElClic() : null; setFormato(f); empezar(pedida, f, v); }}
+          onProbar={(f) => { if (!pedida) return; const v = pideVentana(f) ? abrirEnElClic() : null; setFormato(f); empezar(pedida, f, v, adaptar); }}
         />
       ) : null}
     </section>

@@ -18,6 +18,7 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 config({ path: process.env.ENV_FILE ?? resolve(process.cwd(), '.env.local') });
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { preparaReunion } from '../lib/nutricion-familias';
 import { reentradaDe, ROTULO_REENTRADA } from '../lib/reentrada';
 import type { PasoGrafo } from '../lib/flujo-grafo';
@@ -25,7 +26,7 @@ import type { PasoGrafo } from '../lib/flujo-grafo';
 const APLICAR = process.argv.includes('--apply');
 
 async function main(): Promise<void> {
-  const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+  const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
   try {
     const filas = await sql<Array<{ id: number; workspace_id: number; nombre: string; activa: boolean; trigger_tipo: string; etapa: string | null; etapas: unknown; disparadores: unknown; pasos: unknown }>>`
       select id, workspace_id, nombre, activa, trigger_tipo, etapa, etapas, disparadores, pasos

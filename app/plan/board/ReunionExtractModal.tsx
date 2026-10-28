@@ -258,7 +258,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
         tareas: fs.map((f) => ({
           titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
           proyecto: labels.find((l) => l.id === f.proyectoId)?.name ?? f.proyectoNombre,
-          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro, duenoDudoso: f.dueñoDudoso,
           minuto: f.minuto, minutos: f.minutos,
           // LA REVISIÓN. `enriquece` y `ampliar` se caían del autosave, así que el
           // resultado del cruce no sobrevivía a cerrar el modal ni una vez.

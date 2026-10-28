@@ -26,7 +26,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ClaudeMark } from '@/app/_components/icons';
 import { SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
-import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, dondeEsta, estadoDeLaPc, yaPaso, type CuentaIA, type CuentasIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
+import { AVISO_CHROME, AVISO_GATEKEEPER, AVISO_SMARTSCREEN, dondeQuedaMaKo, dondeEsta, estadoDeLaPc, yaPaso, type CuentaIA, type CuentasIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
 
 /** «22/10»: cuándo se conectó un dispositivo (en la zona de quien mira). */
 const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' });
@@ -122,7 +122,8 @@ export function FilaDispositivo({ d, ahora, onDesconectar, children }: { d: Disp
 /**
  * Una cuenta conectada: arriba, como el selector de cuentas de Google, el logo, «Cuenta N» y debajo su email y su plan; su uso
  * en dos filas (la ventana y cuándo se reinicia, la barra, el %: la fila de claude.ai › Configuración › Uso, ver tus-cuentas-ia.css);
- * y abajo sus dispositivos, una fila cada uno.
+ * y abajo sus dispositivos, una fila cada uno. El plan dice «Suscripción Max», o «Suscripción» sin plan (27/10/2026, Leila: al
+ * lado de «Claves de API», «Max» solo no decía que es la suscripción, la que contesta desde la computadora).
  */
 export function BloqueCuenta({ cuenta, ahora, onDesconectar, nuevoDispositivo }: {
   cuenta: CuentaIA; ahora: number; onDesconectar?: (d: DispositivoIA) => Promise<unknown> | void; nuevoDispositivo?: ReactNode;
@@ -134,7 +135,7 @@ export function BloqueCuenta({ cuenta, ahora, onDesconectar, nuevoDispositivo }:
         {cuenta.proveedor === 'chatgpt' ? <SvcIcon k="openai" size={14} box={22} radius={6} /> : <ClaudeMark size={20} />}
         <div className="tci-nombres">
           <h3 className="tci-bloque__titulo">{titulo}</h3>
-          <span className="tci-email">{cuenta.email ?? (cuenta.proveedor === 'chatgpt' ? 'Tu cuenta de ChatGPT' : 'Tu cuenta de Claude')}{cuenta.plan && <span className="tci-plan">{cuenta.plan}</span>}</span>
+          <span className="tci-email">{cuenta.email ?? (cuenta.proveedor === 'chatgpt' ? 'Tu cuenta de ChatGPT' : 'Tu cuenta de Claude')}<span className="tci-plan">{cuenta.plan ? `Suscripción ${cuenta.plan}` : 'Suscripción'}</span></span>
         </div>
       </div>
       <Barra titulo="Sesión de 5 horas" pct={cuenta.usado5h} repone={cuenta.repone} ahora={ahora} />
@@ -201,10 +202,16 @@ export function DescargarMaKo({ className, onClick, texto, children }: { classNa
   );
 }
 
-/** Lo que dice el sistema al abrir el instalador sin firma, y cómo seguir (el de la computadora desde la que se mira). */
+/** Lo que dice Chrome al bajar el instalador sin firma y lo que dice el sistema al abrirlo, y cómo seguir (el de la computadora desde
+ *  la que se mira). Chrome primero: pasa antes (27/10/2026). */
 export function avisoAlAbrir(): string {
   const sistemas = sistemasDeEstaPc();
-  return sistemas[0] === 'mac' ? AVISO_GATEKEEPER : AVISO_SMARTSCREEN;
+  return `${AVISO_CHROME} ${sistemas[0] === 'mac' ? AVISO_GATEKEEPER : AVISO_SMARTSCREEN}`;
+}
+
+/** Dónde queda MaKo después de instalarlo, y cómo saber si quedó (27/10/2026, Leila: «no lo encuentro en mi compu»). */
+export function dondeQueda(): string {
+  return dondeQuedaMaKo(sistemasDeEstaPc()[0]);
 }
 
 /** «¿Es una Mac? Descárgalo para Mac» (o Windows): el instalador del OTRO sistema, a un toque. */

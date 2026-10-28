@@ -14,7 +14,10 @@
 //   · el campo crece y el scroll lo acompaña: la conversación sigue abajo si estaba abajo, y el campo sigue al cursor.
 // Lo que cambia de una pantalla a otra va por props: a quién se le escribe, qué se manda, qué va arriba (la cita, un
 // texto largo pegado) y qué va en el «+». El motor (a qué endpoint manda y qué devuelve) es de cada pantalla.
-// ⚠️ ARRASTRAR Y SOLTAR es de la PANTALLA: toda la conversación es la zona (`alSoltar` y `traeArchivos`, pegar.ts).
+// ⚠️ ARRASTRAR Y SOLTAR: la pantalla puede hacer de toda la conversación la zona (`alSoltar` y `traeArchivos`, pegar.ts), y
+// desde el 27/10/2026 la CAJA también lo toma (ticket #16 de Leila: «No me deja adjuntar un documento ni por arrastrar, ni
+// por adjuntar»; casi ninguna pantalla lo tenía). Y la pantalla SIN adjuntos propios adjunta igual: la caja lee cada archivo
+// y lo manda con el mensaje (./adjuntos-que-se-leen.ts). `sinAdjuntos` lo apaga donde adjuntar no tiene sentido.
 // La NOTA DE VOZ (20/10/2026, para el onboarding): con `voz`, sin nada escrito el botón GRABA en vez de dictar (el dictado
 // no aguanta un monólogo, y su respaldo usa las keys del negocio, que un cliente nuevo no tiene). Mientras graba, o con lo
 // grabado para escuchar, la fila es la barra de la grabación (`BarraGrabacion`): se termina, se escucha y recién ahí se
@@ -29,7 +32,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type
 import { Icon } from '@/app/_components/icons';
 import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { altoDelCampo, conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
-import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { useAdjuntosQueSeLeen } from './adjuntos-que-se-leen';
+import { juntarAdjuntos } from './juntar-adjuntos';
+import { useAvisarAdjuntos } from './soltar-en-la-caja';
 import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pegar';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
@@ -51,8 +57,11 @@ export type PropsCajaChat = {
   /** «Escribe a CRM», «Escríbele a MaKo»: también es su nombre accesible. */
   placeholder: string;
   tituloMandar?: string;
-  /** Las fotos y los PDF de la caja. Sin esto, el «+» sólo trae lo de `mas`. */
+  /** Los adjuntos de la PANTALLA (su motor los recibe). Sin esto, la caja adjunta sola: lee cada archivo y lo manda con el
+   *  mensaje (./adjuntos-que-se-leen.ts), salvo con `sinAdjuntos`. */
   adjuntos?: AdjuntosDeCaja;
+  /** Esta caja no adjunta nada (ni el «+» ni lo arrastrado). Sólo donde adjuntar no tiene sentido: tiene que decir por qué. */
+  sinAdjuntos?: boolean;
   /** Lo de abajo del «+» (la cuenta, el modelo, las tareas): como función recibe `cerrar`. */
   mas?: ReactNode | ((cerrar: () => void) => ReactNode);
   /** Lo que va arriba de las miniaturas: la cita de un mensaje, un texto largo pegado. */
@@ -121,9 +130,17 @@ function CajaConVoz(p: PropsCajaChat & { voz: NonNullable<PropsCajaChat['voz']> 
 
 function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: GrabacionVoz | null; nota?: NotaQueSeManda | null }) {
   const { texto, onTexto, ocupado = false, altoMax = 220 } = p;
-  // Pasando a texto una nota de voz: la caja está saliendo (el botón gira y no se escribe encima de lo que va a llegar).
+  // TODA CAJA TOMA TODO LO QUE MaKo SABE LEER (ticket #16, ./adjuntos-que-se-leen.ts): lo que la pantalla toma (su `accept`)
+  // va a SUS adjuntos; lo demás (un Word en el Second Brain, que sólo toma fotos y PDF; cualquier cosa donde la pantalla no
+  // adjunta) lo lee la caja al mandar y sale con el mensaje. `sinAdjuntos`: sólo lo de la pantalla.
+  const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic });
+  const adjuntos = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
+  const onMandar = leidos.mandar;
+  // Lo soltado sobre la conversación (PanelDeChat) también va acá (./soltar-en-la-caja.ts).
+  useAvisarAdjuntos(adjuntos);
+  // Pasando a texto una nota de voz, o leyendo lo adjuntado: la caja está saliendo (el botón gira y no se escribe encima).
   const transcribiendo = !!nota?.transcribiendo;
-  const enviando = !!p.enviando || transcribiendo;
+  const enviando = !!p.enviando || transcribiendo || leidos.leyendo;
   const apagado = !!p.apagado;
   /** El botón: gira saliendo un mensaje o mientras MaKo trabaja. El campo sólo se apaga con `enviando` o `apagado`. */
   const girando = enviando || ocupado;
@@ -140,13 +157,13 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   const [captura, setCaptura] = useState<{ file: File; url: string } | null>(null);
   useEffect(() => () => { if (captura) URL.revokeObjectURL(captura.url); }, [captura]);
   const ofrecerCaptura = () => {
-    if (!p.adjuntos?.puede || quieto || captura) return;
+    if (!adjuntos?.puede || quieto || captura) return;
     void capturaParaOfrecer(CAPTURAS_VISTAS).then((f) => { if (f) setCaptura({ file: f, url: URL.createObjectURL(f) }); });
   };
   const resolverCaptura = (pegar: boolean) => {
     if (!captura) return;
     CAPTURAS_VISTAS.add(firmaDeCaptura(captura.file));
-    if (pegar) p.adjuntos?.onSumar([captura.file]);
+    if (pegar) adjuntos?.onSumar([captura.file]);
     setCaptura(null);
   };
 
@@ -190,10 +207,10 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
     const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd, { conUno: !p.enterManda });
     if (l) { e.preventDefault(); cursor.current = l.cursor; onTexto(l.texto); return; }
-    if (p.enterManda) { e.preventDefault(); p.onMandar(); }
+    if (p.enterManda) { e.preventDefault(); onMandar(); }
   };
 
-  const hayQueMandar = !apagado && !p.bloqueo && (!!texto.trim() || !!p.adjuntos?.items.length || !!p.hayAlgoMas);
+  const hayQueMandar = !apagado && !p.bloqueo && (!!texto.trim() || !!adjuntos?.items.length || !!p.hayAlgoMas);
   /** Grabando, o con lo grabado para escuchar: la fila es la barra de la grabación. */
   const conBarra = !!grabacion && (grabacion.fase === 'grabando' || !!grabacion.revision || !!p.voz?.pendiente);
   // EL MISMO GESTO (21/10/2026, quinta revisión del onboarding): al mandar, el ➤ se vuelve micrófono EN EL MISMO LUGAR, y
@@ -227,14 +244,17 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
           </button>
         </div>
       )}
-      <ListaAdjuntos a={p.adjuntos} />
-      <div className={p.fila ?? 'co-caja__fila'}>
+      <ListaAdjuntos a={adjuntos} />
+      {/* Lo arrastrado sobre la caja entra como adjunto (ticket #16): sin esto, soltar un documento lo ABRÍA en la pestaña. */}
+      <div className={p.fila ?? 'co-caja__fila'} data-caja-adjunta={adjuntos ? '' : undefined}
+        onDragOver={(e) => { if (adjuntos && traeArchivos(e.dataTransfer)) e.preventDefault(); }}
+        onDrop={(e) => { if (!adjuntos || !traeArchivos(e.dataTransfer)) return; e.stopPropagation(); alSoltar(e, adjuntos); }}>
         {conBarra && grabacion ? (
           // El ▶ de escuchar, con el color de la nota de voz ya mandada en el hilo (HiloMako: `--primary`), no el verde de WhatsApp.
           <BarraGrabacion voz={grabacion} ocupado={girando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} colorPlay="var(--primary)" />
         ) : (<>
         {/* Sin nada que ofrecer (no se puede adjuntar ahora y no hay más), el «+» queda apagado: abría un panel vacío. */}
-        {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto || (!p.adjuntos?.puede && !p.mas)} resumen={null}>{p.mas}</MasCaja>}
+        {(adjuntos || p.mas) && <MasCaja a={adjuntos} apagado={quieto || (!adjuntos?.puede && !p.mas)} resumen={null}>{p.mas}</MasCaja>}
         {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
         {!p.bloqueo && <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={quieto} />}
         {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
@@ -254,7 +274,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
             }}
             onKeyDown={tecla}
             onFocus={ofrecerCaptura}
-            onPaste={(e) => { p.onPegar?.(e); if (!e.defaultPrevented) alPegar(e, p.adjuntos); }}
+            onPaste={(e) => { p.onPegar?.(e); if (!e.defaultPrevented) alPegar(e, adjuntos); }}
             placeholder={p.bloqueo ? p.bloqueo.frase : transcribiendo ? 'Pasando tu nota a texto…' : p.placeholder}
             aria-label={p.placeholder}
             disabled={quieto}
@@ -269,7 +289,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
           </button>
         ) : (
           <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} ocupado={ocupado} apagado={apagado || recien}
-            hayQueMandar={hayQueMandar} onMandar={p.onMandar} titulo={p.tituloMandar} />
+            hayQueMandar={hayQueMandar} onMandar={onMandar} titulo={p.tituloMandar} />
         )}
         </>)}
       </div>
@@ -277,6 +297,9 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       {p.estado !== undefined && <p className="co-caja__estado" aria-live="polite">{p.estado ?? ''}</p>}
       {/* Por qué no salió la nota, si la pantalla no tiene dónde decirlo (`onErrorMic`). */}
       {nota?.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{nota.error}<ReportarASoporte /></p>}
+      {/* Lo adjuntado que no se pudo tomar o leer, con el porqué (./adjuntos-que-se-leen.ts). */}
+      {leidos.leyendo && <p className="co-caja__estado" aria-live="polite">Leyendo lo que adjuntaste…</p>}
+      {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}<ReportarASoporte /></p>}
     </>
   );
 }
