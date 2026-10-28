@@ -58,6 +58,10 @@ cae sigue vivo comiendo RAM.
 - **«Correr igual» después de esperar es otra estampida (19:15, el mismo día):** un test colgado sin timeout retuvo el turno
   y siete trabajos de cinco chats iban a arrancar juntos a los 30 min. Sin turno, ninguno corre (99); el que tiene el turno
   se corta a los 60 min con su árbol entero (`taskkill /T`: en Windows `kill()` deja vivos a los nietos).
+- **Una sola fila para todo frena a todos (~20:00, el mismo día):** un barrido de tests de 30-60 min tenía el turno y los tsc
+  acotados de cinco chats (minutos cada uno) salían con 99 sin correr. La caída fue por tsc, no por tests: `con-turno` tiene
+  DOS filas, la de tipos (`mako-typecheck.lock`, la misma del push) y la de tests (`mako-tests.lock`: tests-afectados,
+  antes-de-subir, `--test`). Corre uno de cada a la vez.
 - Después de una caída, antes de retomar nada, se cortan los node huérfanos y los duplicados (`Get-CimInstance
   Win32_Process` con su padre: un padre que no existe es un huérfano).
 
