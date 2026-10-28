@@ -20,6 +20,7 @@
 // escritos con la forma genérica de su doc: falta medirlos con un cuerpo real.
 
 import { esTokenCobro } from './cobros-tipos';
+import { aUnidadMinima } from './pasarela-moneda';
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});
@@ -259,8 +260,14 @@ export function sesionDelCobro(
   if (s.metadata.mako_cobro !== c.token && s.id !== c.proveedor_ref) return { ok: false, motivo: 'la sesión no es la que MaKo armó para este cobro' };
   if (accion === 'fallido') return { ok: true };
   const pide = c.moneda.toUpperCase();
-  const alcanza = (monto: number | null | undefined, moneda: string | null | undefined) =>
-    monto != null && (moneda ?? '').toUpperCase() === pide && monto >= c.monto - 0.005;
+  // En UNIDAD MÍNIMA, como se lo pidió MaKo a Stripe (la verificación de a196d5a93): un cobro de 49900.4 CLP se arma por 49900, y
+  // comparar contra el 49900.4 abría un ticket falso por una sesión que cobró justo lo pedido.
+  const enUnidad = (monto: number | null | undefined, moneda: string): number | null => (monto != null && monto > 0 ? aUnidadMinima(monto, moneda) : null);
+  const pedido = enUnidad(c.monto, pide);
+  const alcanza = (monto: number | null | undefined, moneda: string | null | undefined) => {
+    const pagado = (moneda ?? '').toUpperCase() === pide ? enUnidad(monto, pide) : null;
+    return pagado != null && pedido != null && pagado >= pedido;
+  };
   if (alcanza(s.monto, s.moneda) || alcanza(s.montoOrigen, s.monedaOrigen)) return { ok: true };
   return { ok: false, motivo: `la sesión cobró ${s.monto ?? '—'} ${s.moneda ?? ''} y el cobro es de ${c.monto} ${pide}`.replace(/\s+/g, ' ') };
 }

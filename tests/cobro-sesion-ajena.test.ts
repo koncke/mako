@@ -71,6 +71,29 @@ test('una sesión que no es la de este cobro, o que cobró menos o en otra moned
   assert.deepEqual(sesionDelCobro(COBRO, { ...deMaKo, monto: 0 }, 'fallido'), { ok: true }, 'un pago diferido que falló no trae plata: no se mira el monto');
 });
 
+// La verificación de a196d5a93 (C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r3-monto-cero-decimales.ts): un cobro de 49900.4
+// CLP se arma en Stripe por 49900 (sin decimales), y comparar contra el 49900.4 abría un ticket falso por una sesión que cobró justo
+// lo pedido. Se compara en UNIDAD MÍNIMA, como se lo pidió MaKo a Stripe.
+test('el monto se compara como se lo pidió MaKo a Stripe: CLP y JPY sin decimales', () => {
+  const clp = { ...COBRO, monto: 49900.4, moneda: 'CLP' };
+  assert.deepEqual(sesionDelCobro(clp, { ...deMaKo, monto: 49900, moneda: 'CLP' }, 'aprobado'), { ok: true }, 'la sesión cobró los 49900 que se le pidieron');
+  assert.deepEqual(sesionDelCobro({ ...COBRO, monto: 4980.3, moneda: 'JPY' }, { ...deMaKo, monto: 4980, moneda: 'JPY' }, 'aprobado'), { ok: true });
+  assert.ok(!sesionDelCobro(clp, { ...deMaKo, monto: 49899, moneda: 'CLP' }, 'aprobado').ok, 'un peso menos de lo pedido, no');
+  assert.deepEqual(sesionDelCobro({ ...COBRO, monto: 49900.5, moneda: 'CLP' }, { ...deMaKo, monto: 49901, moneda: 'CLP' }, 'aprobado'), { ok: true });
+  assert.deepEqual(sesionDelCobro({ ...COBRO, monto: 10.004 }, { ...deMaKo, monto: 10 }, 'aprobado'), { ok: true }, '10.004 USD se pidió como 1000 centavos');
+});
+
+// Y lo que el aviso no asienta, el CRON tampoco (antes lo asentaba media hora después): la misma regla, con el mismo ticket.
+test('el cron (y el «marcar a mano») pasan por la misma regla antes de asentar una sesión pagada', () => {
+  const C = sinComentarios(fuente('lib/cobros.ts'));
+  const lee = C.slice(C.indexOf('async function pagoDelLinkEnLaPasarela('));
+  const pagada = lee.indexOf("if (s.estado === 'complete' && s.pagoEstado === 'paid' && s.referencia === c.token) {");
+  const regla = lee.indexOf("const deEste = sesionDelCobro(c, s, 'aprobado');");
+  const pagoId = lee.indexOf("const pagoId = c.tipo === 'suscripcion' ? s.invoice : s.paymentIntent;");
+  assert.ok(pagada > 0 && regla > pagada && pagoId > regla, 'la regla, antes de devolver el pago');
+  assert.match(lee, /if \(!deEste\.ok\) \{\n\s*await avisarSesionQueNoCuadra\(c\.workspace_id, c, s, deEste\.motivo\);\n\s*return null;/);
+});
+
 test('la sesión releída trae el monto de origen si Stripe convirtió la moneda', async () => {
   globalThis.fetch = (async () => new Response(JSON.stringify({
     id: 'cs_1', status: 'complete', payment_status: 'paid', currency: 'mxn', amount_total: 2_587_500, livemode: true,
@@ -96,7 +119,10 @@ test('el webhook lo mira ANTES de asentar el pago o el fallo, y si no cuadra dej
   assert.ok(mira < checkout.indexOf('aplicarPagoFallido('), 'antes de marcar el fallo');
   assert.ok(mira < checkout.indexOf('aplicarPagoAprobado('), 'antes de asentar el pago');
   assert.match(checkout, /if \(!deEste\.ok\) \{\n\s*if \(aviso\.accion !== 'fallido'\) await avisarSesionQueNoCuadra\(ws, c, s, deEste\.motivo\);\n\s*return ignorado\(deEste\.motivo, c\.id\);/);
-  const aviso = W.slice(W.indexOf('async function avisarSesionQueNoCuadra('));
+  // El ticket vive en su módulo desde el 28/10/2026 (lo usan el aviso y el cron).
+  assert.match(fuente('lib/cobros-webhook.ts'), /import \{ avisarSesionQueNoCuadra \} from '\.\/cobro-sesion-ajena';/);
+  const A = sinComentarios(fuente('lib/cobro-sesion-ajena.ts'));
+  const aviso = A.slice(A.indexOf('export async function avisarSesionQueNoCuadra('));
   const cuerpo = aviso.slice(0, aviso.indexOf('\n}\n'));
   assert.match(cuerpo, /crearTicket\(/);
   assert.match(cuerpo, /ref: `cobro-ajeno:\$\{s\.id\}`/, 'los reintentos de Stripe no abren otro ticket');
@@ -111,3 +137,6 @@ test('el webhook lo mira ANTES de asentar el pago o el fallo, y si no cuadra dej
 //   · sin el monto de origen de la conversión                                           → 4 / 1
 //   · `leerCheckoutStripe` sin leer `currency_conversion`                               → 4 / 1
 //   · el webhook sin mirar la sesión (el hueco de antes)                                → 4 / 1
+// Y los de a196d5a93 (base 7 / 0): el monto contra el del cobro, sin unidad mínima → 6 / 1; el cron sin la regla → 6 / 1. Con
+// r3-monto-cero-decimales.ts: 49900.4 CLP y 4980.3 JPY, antes ignorados con un ticket falso; ahora pagados con el aviso. Con
+// s1-sesion-ajena.ts: A3 y A4 (menos plata, otra moneda) ya no los asienta el cron media hora después; L1 a L7 siguen pagando.

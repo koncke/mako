@@ -51,7 +51,8 @@ import {
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
-import { motivoSinDatos, primerCobroDeLaPrueba, type FaseContracargo } from './cobros-eventos';
+import { motivoSinDatos, primerCobroDeLaPrueba, sesionDelCobro, type FaseContracargo } from './cobros-eventos';
+import { avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
@@ -580,10 +581,18 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
   // ⚠️ LA SESIÓN ANTERIOR, ANTES DE ARMAR OTRA (28/10/2026, la verificación de 3ca2d8328): se rehace a 5 minutos de vencer, y la
   // vieja seguía ABIERTA. Pagada en la pestaña vieja, la prueba no se activaba (se leía la nueva) y, si después pagaba también
   // la nueva, quedaban DOS suscripciones cobrando todos los meses; en un pago único, dos cobros. Completa, va a /listo;
-  // abierta, se expira primero, y si no se pudo cerrar no se arma otra.
+  // abierta, se expira primero, y si no se pudo cerrar no se arma otra. Si no se puede LEER, tampoco (no se sabe si sigue
+  // abierta); una que Stripe no tiene (404) no traba nada.
   if (c.proveedor_ref) {
     const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
-    if (s.ok && s.estado === 'complete') return { error: 'ya_pagado' };
+    if (!s.ok && s.status !== 404) {
+      const viva = !!c.url_proveedor && Date.parse(c.url_vence_at ?? '') > Date.now();
+      return viva ? { url: c.url_proveedor! } : { error: 'pasarela', detalle: s.error };
+    }
+    // ⚠️ UN PAGO DIFERIDO QUE FALLÓ (OXXO, Boleto, SEPA; la verificación de a196d5a93): su sesión queda `complete` SIN pagar y el
+    // cobro `fallido`, y /listo ofrece «Volver a intentar». Ahí se arma otra; antes era un bucle /pagar → /listo para siempre.
+    // Con el voucher todavía EN CURSO (el cobro sigue pendiente) no: se podría pagar dos veces.
+    if (s.ok && s.estado === 'complete' && !(c.estado === 'fallido' && s.pagoEstado === 'unpaid')) return { error: 'ya_pagado' };
     if (s.ok && s.estado === 'open') {
       const x = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
       if (!x.ok) {
@@ -1689,7 +1698,10 @@ const TOPE_DE_PRUEBAS = 500;
  *     su aviso (`avisoPagoPorLinkAnulado`), no queda escondido (15/10/2026).
  * Tope por corrida: 50 de cada tipo (20 de los anulados).
  */
-export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}): Promise<{ revisados: number; cambiados: number; errores: number }> {
+export async function reconciliarCobros(ws: number, opts: { dias?: number; hasta?: number } = {}): Promise<{ revisados: number; cambiados: number; errores: number }> {
+  // `hasta` (ms): cuándo dejar de mirar cobros (la verificación de a196d5a93: con cientos de pruebas, cada una son dos lecturas
+  // a Stripe en serie, y la vuelta se pasaba del `maxDuration` del cron). Lo que no entró sigue en la próxima vuelta.
+  const sinTiempo = () => opts.hasta != null && Date.now() > opts.hasta;
   const desde = new Date(Date.now() - (opts.dias ?? 14) * 86_400_000).toISOString();
   const db = getSupabaseServer();
   // ⚠️ LAS PRUEBAS DE UN PLAN, APARTE Y SIN EL TOPE DE 50 (28/10/2026, la verificación de 3ca2d8328): cada compra abierta en
@@ -1699,12 +1711,17 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   // sin activar (la persona cerró la pestaña antes de volver; una de hace más, abandonada, la activa su `invoice.paid`).
   const pruebaActivaDesde = new Date(Date.now() - 45 * 86_400_000).toISOString();
   const pruebaSinActivarDesde = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  // (La verificación de a196d5a93.) La ACTIVADA también puede estar `fallido`: la tarjeta se rechazó el día 8 y el reintento de
+  // Stripe la cobró después, con su aviso perdido. Y se leen de la más VIEJA a la más nueva: la que espera el día 8 es la vieja;
+  // con más que el seguro, la que espera es la que todavía está en su prueba.
   const pruebas = (activada: boolean) => {
     const q = db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
-      .eq('estado', 'pendiente').eq('tipo', 'suscripcion').like('creado_por', 'planes:%:prueba')
+      .eq('tipo', 'suscripcion').like('creado_por', 'planes:%:prueba')
       .gte('updated_at', activada ? pruebaActivaDesde : pruebaSinActivarDesde);
-    return (activada ? q.eq('suscripcion_estado', 'activa') : q.is('suscripcion_estado', null))
-      .order('updated_at', { ascending: false }).limit(TOPE_DE_PRUEBAS);
+    return (activada
+      ? q.in('estado', ['pendiente', 'fallido']).eq('suscripcion_estado', 'activa').order('updated_at', { ascending: true })
+      : q.eq('estado', 'pendiente').is('suscripcion_estado', null).order('updated_at', { ascending: false })
+    ).limit(TOPE_DE_PRUEBAS);
   };
   const [pend, pag, anul, pruebasActivas, pruebasSinActivar] = await Promise.all([
     db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
@@ -1730,7 +1747,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   if (pruebasSinActivar.error) throw new Error(`No pude leer las pruebas sin activar a reconciliar: ${pruebasSinActivar.error.message}`);
   for (const [r, cuales] of [[pruebasActivas, 'activadas'], [pruebasSinActivar, 'sin activar']] as const) {
     // El tope es un seguro, no un corte: si se llega, se dice (una lista que corta en silencio fue el problema de arriba).
-    if ((r.data ?? []).length >= TOPE_DE_PRUEBAS) console.error(`[cobros] reconciliar ws ${ws}: ${TOPE_DE_PRUEBAS} pruebas ${cuales} o más; las más viejas esperan a la próxima vuelta`);
+    if ((r.data ?? []).length >= TOPE_DE_PRUEBAS) console.error(`[cobros] reconciliar ws ${ws}: ${TOPE_DE_PRUEBAS} pruebas ${cuales} o más; las que no entraron esperan a que se resuelvan éstas`);
   }
   // Sin repetir: una prueba puede venir en dos lecturas.
   const vistos = new Set<number>();
@@ -1751,7 +1768,9 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   let errores = 0;
   const credsDe = credsPorCuenta(ws);
 
+  let cortado = false;
   for (const c of pagados) {
+    if (sinTiempo()) { cortado = true; break; }
     // El cliente de agencia que pagó y quedó sin habilitar (el aviso se cortó después del pago): compare-and-set, no tira.
     await habilitarClienteDeAgencia(c);
     // «Empezar mi plan ya» que se cobró y cuyo aviso se cortó antes de cerrar la prueba: idempotente, no tira.
@@ -1760,8 +1779,9 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
     const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
     // La compra a Meta de una VENTA EXTERNA que no salió (28/10/2026, la verificación de 3ca2d8328): el aviso la mandaba recién
     // al final, y una venta cortada en la cuota la perdía aunque este cron reparara la cuota. No depende de la cuota (la plata
-    // ya está asentada en el cobro), así que va antes del `continue`. Una vez por venta; nunca tira.
-    if (esCobroExterno(c)) await compraExternaQueFalto(c);
+    // ya está asentada en el cobro), así que va antes del `continue`. Una vez por venta; nunca tira. ⚠️ No si el cobro cambió
+    // hace menos de 10 minutos (la verificación de a196d5a93): el aviso puede estar mandándola en ese momento, y salían DOS.
+    if (esCobroExterno(c) && !avisoTrabajando(c)) await compraExternaQueFalto(c);
     if (!faltaCuota && !faltaAlta) continue;
     try {
       if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
@@ -1774,6 +1794,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   }
 
   for (const c of pendientes) {
+    if (cortado || sinTiempo()) { cortado = true; break; }
     // La PRUEBA autorizada y no vista (la persona cerró la pestaña antes de volver): se activa acá. Sin pago que buscar.
     if (esPruebaDePlan(c) && c.estado === 'pendiente' && !c.suscripcion_estado) {
       if (await activarPruebaSiAutorizo(c)) cambiados++;
@@ -1791,8 +1812,14 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
       console.error(`[cobros] reconciliar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
     }
   }
+  if (cortado) console.warn(`[cobros] reconciliar ws ${ws}: se acabó el tiempo de la vuelta; lo que faltó sigue en la próxima`);
   return { revisados: pendientes.length + pagados.length, cambiados, errores };
 }
+
+/** La venta externa que el aviso puede estar asentando ahora mismo: su cobro cambió hace menos de 10 minutos. */
+const AVISO_TRABAJANDO_MS = 10 * 60_000;
+const avisoTrabajando = (c: Pick<Cobro, 'created_at' | 'updated_at'>): boolean =>
+  Date.now() - Math.max(Date.parse(c.created_at) || 0, Date.parse(c.updated_at) || 0) < AVISO_TRABAJANDO_MS;
 
 type PagoDeLaPasarela = Parameters<typeof aplicarPagoAprobado>[1];
 
@@ -1836,6 +1863,13 @@ async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: 
       // FACTURA (después llega `invoice.paid` con ese mismo id), en un pago único el payment intent.
       // Sin factura todavía, no se aplica: entra por `invoice.paid` o en la próxima vuelta. Usar el
       // id de la sesión acá hacía que la factura se leyera después como una RENOVACIÓN.
+      // ⚠️ Y LA MISMA REGLA QUE EL AVISO (`sesionDelCobro`, la verificación de a196d5a93): lo que el aviso no asienta (una sesión
+      // ajena, o que cobró menos) el cron tampoco; antes lo asentaba media hora después. Queda el ticket, uno por sesión.
+      const deEste = sesionDelCobro(c, s, 'aprobado');
+      if (!deEste.ok) {
+        await avisarSesionQueNoCuadra(c.workspace_id, c, s, deEste.motivo);
+        return null;
+      }
       const pagoId = c.tipo === 'suscripcion' ? s.invoice : s.paymentIntent;
       if (pagoId) return { proveedorPagoId: pagoId, suscripcionId: s.subscription };
     }

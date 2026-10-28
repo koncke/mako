@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
   if (pedido.codigoEscrito && !(await esCodigoDePartner(pedido.codigoEscrito).catch(() => true))) {
     return Response.json({ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' }, { status: 400 });
   }
-  const ref = codigoDeLaCompra({ escrito: pedido.codigoEscrito, cookie: codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value), url: pedido.ref });
-  // El que trajo un link se guarda sólo si es de un partner (28/10/2026, `codigoQueCuenta`); si no se pudo leer, sigue.
-  const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, elegido: ref, url: pedido.ref }, (x) => esCodigoDePartner(x).catch(() => true));
+  // El que trajo un link (la cookie, después el `?ref=`) se guarda sólo si es de un partner (28/10/2026, `codigoQueCuenta`); si no
+  // se pudo leer, vale la cookie (la validó /r/<código>) y el `?ref=` crudo no.
+  const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, cookie: codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value), url: pedido.ref }, esCodigoDePartner);
 
   // «Lo quiero» sin pasarela (24/10/2026, sin Calendly): el pedido queda en el CRM de MaKo, con el plan, el origen y el
   // código de partner, y se da de alta a mano (lib/compra-plan.ts, `pedirPlanSinPasarela`). No abre ningún pago.

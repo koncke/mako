@@ -1424,10 +1424,45 @@ en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, 
   pago diferido que falló en un link ajeno tampoco marca el cobro.
 - **Trampa del doble, para quien lo vuelva a probar:** con un `data.object` recortado (sin `client_reference_id`) el cruce
   NO aparece. El evento real trae la sesión entera: un doble con el cuerpo recortado esconde toda búsqueda por referencia.
+- **El monto, en UNIDAD MÍNIMA (la verificación de a196d5a93).** Un cobro de 49900.4 CLP se arma en Stripe por 49900 (sin
+  decimales), y comparar contra el 49900.4 rechazaba una sesión que cobró justo lo pedido, con un ticket falso; el cron la
+  asentaba igual media hora después. Ahora se compara `aUnidadMinima` contra `aUnidadMinima`, como se lo pidió MaKo a Stripe,
+  y **el cron pasa por la misma regla** (`pagoDelLinkEnLaPasarela`; lo que el aviso no asienta, el cron tampoco, con el mismo
+  ticket). El ticket vive en lib/cobro-sesion-ajena.ts para que lo usen los dos.
 
 **Sin hacer:** una sesión de Payment Link que trae el token de un cobro de MaKo queda ignorada con su ticket, no registrada
 como venta externa (con el interruptor prendido, la venta de verdad no entra al CRM sola). La puerta es de Zernio
 (`ventaExternaStripe`). Con Mercado Pago no se midió un cruce parecido.
-**Vive en:** lib/cobros-eventos.ts (`sesionDelCobro`) · lib/cobros-webhook.ts (rama de checkout, `avisarSesionQueNoCuadra`) ·
-lib/stripe-api.ts (`leerCheckoutStripe`: `montoOrigen`, `monedaOrigen`) · tests/cobro-sesion-ajena.test.ts ·
-C:/dev/revisiones/scratch-3ca2/B-refuta/refuta.ts (bloque H2).
+**Vive en:** lib/cobros-eventos.ts (`sesionDelCobro`) · lib/cobros-webhook.ts (rama de checkout) · lib/cobros.ts
+(`pagoDelLinkEnLaPasarela`) · lib/cobro-sesion-ajena.ts (`avisarSesionQueNoCuadra`) · lib/stripe-api.ts (`leerCheckoutStripe`:
+`montoOrigen`, `monedaOrigen`) · tests/cobro-sesion-ajena.test.ts · C:/dev/revisiones/scratch-3ca2/B-refuta/refuta.ts (H2) ·
+C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r3-monto-cero-decimales.ts y s1-sesion-ajena.ts.
+
+## Una guarda nueva que vale para TODO cobro rompió un caso que no era el suyo: el pago diferido fallido (28/10/2026, a196d5a93)
+
+- **El síntoma:** después de un OXXO, Boleto o SEPA que FALLÓ, /pagar contestaba «ya pagado» y /listo ofrecía «Volver a
+  intentar», que volvía a /pagar: un bucle. El cobro quedaba `fallido` para siempre (y el link de una cuota también:
+  `crearCobro` devuelve el mismo cobro).
+- **La causa:** la guarda «sesión anterior `complete` → ya pagado» se escribió para la PRUEBA de Stripe (que queda `complete`
+  sin cobrar) y se extendió a todo cobro de Stripe para cerrar el doble pago de la sesión vieja. Un pago diferido también deja
+  la sesión `complete` sin pagar (`unpaid`), y ahí no significa «pagado» sino «falló».
+- **La regla:** al generalizar una guarda de un caso a todos, listar los ESTADOS que llegan a ella (acá: `complete` con
+  `paid`, `no_payment_required` y `unpaid`, con el cobro pendiente o fallido) y decidir cada uno. El arreglo: con el cobro
+  `fallido` y la sesión `unpaid`, se arma otra; con el voucher EN CURSO (el cobro pendiente) no, que se pagaría dos veces. Y si
+  Stripe no contesta la lectura de la anterior, no se arma otra (antes armaba B con A todavía abierta).
+
+**Vive en:** lib/cobros.ts (`urlParaPagar`) · tests/planes-stripe-afuera.test.ts ·
+C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r1-pagar-tras-fallo.ts.
+
+## La compra a Meta de una venta externa salía DOS veces si el cron y el aviso coincidían (28/10/2026, a196d5a93)
+
+- **El síntoma (z-meta.ts R2):** el cron corría mientras el aviso mandaba la compra a Meta; los dos miraban el historial («¿ya
+  salió?»), ninguno lo encontraba y salían dos `purchase:cs_…` con el mismo event_id. Meta los debería descartar, pero entre dos
+  eventos de SERVIDOR no lo garantiza (docs/hallazgos-ads.md).
+- **El arreglo:** el cron no manda la compra que falta de un cobro externo que cambió hace menos de 10 minutos (el aviso puede
+  estar trabajando); la manda en la vuelta siguiente. R2: antes 2 envíos, ahora 1.
+
+**Sin hacer:** si la línea del historial no se puede escribir NUNCA (lead_audit rota), cada vuelta del cron pasados los 10
+minutos la vuelve a mandar (R5). Lo arregla un reclamo escrito ANTES de mandar, en lib/cobros-externos-meta.ts (de Zernio).
+**Vive en:** lib/cobros.ts (`reconciliarCobros`, `avisoTrabajando`) · tests/venta-externa.test.ts (o, p) ·
+C:/dev/revisiones/scratch-a196/partners-zernio-refuta/z-meta.ts.

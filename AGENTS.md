@@ -3773,6 +3773,10 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   pagado un cobro de US$1.500. La sesión lleva la metadata de MaKo (o es la guardada en el cobro), no sale de un Payment Link,
   y el monto y la moneda alcanzan (`sesionDelCobro`, lib/cobros-eventos.ts); si no, se ignora con un ticket. Detalle:
   [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Un Payment Link con el token de un cobro de MaKo».
+  ⚠️ **Y una guarda que se extiende de un caso a TODOS los cobros se decide estado por estado** (28/10/2026): «sesión `complete`
+  → ya pagado», escrita para la prueba de Stripe, dejó en un bucle a un OXXO o SEPA que FALLÓ (también `complete`, pero `unpaid`).
+  Antes de generalizarla, listar qué estados llegan (`paid`, `no_payment_required`, `unpaid` × cobro pendiente o fallido) y
+  decidir cada uno ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Una guarda nueva que vale para TODO cobro…»).
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada

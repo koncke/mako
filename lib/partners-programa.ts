@@ -55,6 +55,8 @@ export async function codigoDe(ws: number): Promise<string | null> {
   const nombre = String((w as { nombre?: string } | null)?.nombre ?? 'partner');
   for (let i = 0; i < 6; i++) {
     const codigo = codigoDesdeNombre(nombre, i === 0 ? '' : String(ws * 7 + i).slice(-4));
+    // El de un partner que se fue y ya trajo compras no se hereda por el nombre (`codigoConCompras`): se prueba con sufijo.
+    if (await codigoConCompras(codigo).catch(() => false)) continue;
     const { error: e } = await db.from('partner_codigos').insert({ workspace_id: ws, codigo });
     if (!e) return codigo;
     if (e.code !== '23505') { console.warn(`[partners] no pude crear el código del negocio ${ws}: ${e.message}`); return null; }
@@ -89,6 +91,23 @@ async function codigosAnterioresDe(ws: number): Promise<string[]> {
   return error ? [] : ((data ?? []) as Array<{ codigo: string }>).map((x) => x.codigo);
 }
 
+/**
+ * ¿Ese código ya trajo COMPRAS (un cobro de la plataforma con `ref_codigo` = código)? (28/10/2026, la verificación de a196d5a93.)
+ * `acreditarReferidos` resuelve el código en cada vuelta: un partner que tomaba el texto de otro que se fue (al borrar su negocio
+ * se van sus códigos) heredaba sus referidos, las bienvenidas y el crédito. Con la 0341 ese texto se puede ELEGIR. Si no se puede
+ * leer, tira.
+ */
+async function codigoConCompras(codigo: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('cobros').select('id').eq('workspace_id', await wsSuperAdmin()).eq('ref_codigo', codigo).limit(1);
+  if (error) throw new Error(`No pude leer las compras con el código ${codigo}: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
+/** ¿Es el código actual del negocio, o uno que dejó? Volver a uno suyo siempre se puede. */
+async function esCodigoPropio(ws: number, codigo: string): Promise<boolean> {
+  return (await codigoSiExiste(ws)) === codigo || (await codigosAnterioresDe(ws)).includes(codigo);
+}
+
 /** El negocio dueño de un código: el actual, o el que lo usaba antes de cambiarlo. */
 async function wsDelCodigo(codigo: string): Promise<number | null> {
   const { data } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();
@@ -118,6 +137,8 @@ export async function cambiarCodigoPartner(ws: number, crudo: unknown): Promise<
     const v = codigoNuevoValido(crudo);
     if (!v.ok) return v;
     if (!(await altaDePartner(ws).catch(() => null))) return { ok: false, error: 'Todavía no eres partner: primero hazte partner en MaKo Partners.' };
+    // Un código que ya trajo compras y no es suyo no se elige (`codigoConCompras`): heredaría referidos y crédito ajenos.
+    if (!(await esCodigoPropio(ws, v.codigo)) && (await codigoConCompras(v.codigo))) return { ok: false, error: 'Ese código ya lo usa otro partner. Prueba con otro.' };
     const { data, error } = await getSupabaseServer().rpc('cambiar_codigo_partner', { p_ws: ws, p_nuevo: v.codigo });
     if (error) {
       // Sin la mig 0341 la función no existe: no se cambia nada (cambiar sin guardar el viejo le haría perder lo que ya mandó).

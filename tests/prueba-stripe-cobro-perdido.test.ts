@@ -137,9 +137,17 @@ test('el cron lee las pruebas de un plan APARTE y sin el tope de 50: las activad
   const cron = cuerpo('lib/cobros.ts', 'reconciliarCobros');
   const ayudante = cron.slice(cron.indexOf('const pruebas = (activada: boolean) => {'), cron.indexOf('const [pend, pag, anul, pruebasActivas, pruebasSinActivar]'));
   assert.ok(ayudante.length > 0, 'las pruebas tienen su lectura');
-  assert.match(ayudante, /\.eq\('estado', 'pendiente'\)\.eq\('tipo', 'suscripcion'\)\.like\('creado_por', 'planes:%:prueba'\)/);
-  assert.match(ayudante, /activada \? q\.eq\('suscripcion_estado', 'activa'\) : q\.is\('suscripcion_estado', null\)/);
+  assert.match(ayudante, /\.eq\('tipo', 'suscripcion'\)\.like\('creado_por', 'planes:%:prueba'\)/);
+  // La activada, también `fallido` (la tarjeta rechazada el día 8 y cobrada en un reintento con el aviso perdido) y de la más VIEJA
+  // a la más nueva (la que espera el día 8 es la vieja); la sin activar, sólo pendiente y la más nueva primero (la verificación de
+  // a196d5a93, r2-cron-pruebas.ts: «fallido» con 50 y 80 más nuevas, y b600).
+  assert.match(ayudante, /\? q\.in\('estado', \['pendiente', 'fallido'\]\)\.eq\('suscripcion_estado', 'activa'\)\.order\('updated_at', \{ ascending: true \}\)/);
+  assert.match(ayudante, /: q\.eq\('estado', 'pendiente'\)\.is\('suscripcion_estado', null\)\.order\('updated_at', \{ ascending: false \}\)/);
   assert.match(ayudante, /\.limit\(TOPE_DE_PRUEBAS\)/);
+  // Y la vuelta tiene su límite de tiempo: con cientos de pruebas son dos lecturas a Stripe por cada una, en serie.
+  assert.match(cron, /const sinTiempo = \(\) => opts\.hasta != null && Date\.now\(\) > opts\.hasta;/);
+  assert.equal((cron.match(/if \((?:cortado \|\| )?sinTiempo\(\)\) \{ cortado = true; break; \}/g) ?? []).length, 2, 'en las dos vueltas: los pagados y los pendientes');
+  assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /reconciliarCobros\(ws, \{ hasta: t0 \+ maxDuration \* 1000 - 2 \* RESERVA_MS \}\)/, 'el cron le pasa su límite');
   const tope = Number(/const TOPE_DE_PRUEBAS = (\d+);/.exec(fuente('lib/cobros.ts'))?.[1]);
   assert.ok(tope >= 500, `el seguro de la lectura (${tope}) no puede volver a ser un tope de trabajo`);
   assert.match(cron, /pruebas\(true\),\n\s*pruebas\(false\),\n\s*\]\);/, 'las dos lecturas van con las otras');
@@ -162,3 +170,6 @@ test('el cron lee las pruebas de un plan APARTE y sin el tope de 50: las activad
 // Y el de las pruebas sin el tope de 50 (28/10/2026, base 4 / 0): el seguro vuelve a 50 → 3 / 1; las pruebas leídas no
 // entran a la vuelta → 3 / 1. Con el código real (r1-cron-tope.ts apuntado a este árbol): sin las dos lecturas, i50 queda
 // pendiente sin cuota y j50 sin activar; con ellas, i50 pagado con in_ana_8, i50_mes2 con las DOS cuotas y j50 activada.
+// Y los de a196d5a93 (base 4 / 0): las activadas sólo pendientes → 3 / 1; de la más nueva a la más vieja → 3 / 1; el cron sin
+// límite de tiempo → 3 / 1. Con r2-cron-pruebas.ts: «fallido» con 50 y 80 más nuevas, antes 0 cambiados; ahora 1 y una cuota.
+// b600: antes las 100 viejas del día 8 no se pagaban nunca; ahora, las 100 en la primera vuelta.

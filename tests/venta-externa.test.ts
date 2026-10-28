@@ -210,8 +210,12 @@ test('una venta cortada en la cuota: el cron la repara y la compra a Meta sale, 
   assert.match(o.corte, /^200 tira: /, 'un CHECK no se arregla reintentando: la ruta contesta 200 y Stripe no vuelve');
   assert.deepEqual(o.trasLaCuota, { cobros: 1, leads: 1, cuotas: 0, meta: 0 });
   assert.equal(o.trasElCron.cuotas, 1, 'el cron repara la cuota');
-  assert.deepEqual(o.trasElCron.meta, ['purchase:cs_live_O'], 'y la compra a Meta que faltaba');
-  assert.deepEqual(o.meta.map((m: { event_id: string }) => m.event_id), ['purchase:cs_live_O'], 'la segunda pasada del cron no la repite');
+  // Dentro de los 10 minutos la compra la puede estar mandando el aviso: si la mandaba el cron también, salían DOS (la
+  // verificación de a196d5a93; z-meta.ts R2: antes 2 envíos, ahora 1). Se deja para la vuelta siguiente. Rota (el cron sin
+  // esperar al aviso): 14 / 1.
+  assert.deepEqual(o.trasElCron.meta, [], 'el cron no la manda mientras el aviso puede estar trabajando');
+  assert.deepEqual(o.trasElCron2.meta, ['purchase:cs_live_O'], 'pasados los 10 minutos, la compra a Meta que faltaba');
+  assert.deepEqual(o.meta.map((m: { event_id: string }) => m.event_id), ['purchase:cs_live_O'], 'la pasada siguiente del cron no la repite');
   assert.equal(o.historial.filter((h: string) => /\|Meta\|/.test(h)).length, 1);
 });
 

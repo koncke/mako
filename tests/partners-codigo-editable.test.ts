@@ -103,20 +103,41 @@ test('se CAMBIA desde el panel («Cambiar», con lo de antes que sigue contando)
 // La verificación de 3ca2d8328 (C:/dev/revisiones/scratch-3ca2/A-refuta/r4-partners.ts): el código que trae un LINK (la cookie de
 // /r/<código> o el `?ref=` de /planes/<plan>) entraba al cobro sin mirar. Con el código editable, un partner podía ELEGIR ese
 // texto después y `acreditarReferidos` le daba el crédito de una compra que no trajo (US$97 a Beto por `promo-octubre`).
-test('el código que trajo un link se guarda sólo si es de un partner; el escrito ya se validó; si no se pudo leer, sigue', async () => {
+test('el código que trajo un link se guarda sólo si es de un partner; el escrito ya se validó; sin poder leer, sólo la cookie', async () => {
   const partners = new Set(['ana', 'beto']);
   const esDe = async (x: string) => partners.has(x);
-  assert.equal(await codigoQueCuenta({ escrito: 'ana', elegido: 'ana', url: 'promo-octubre' }, esDe), 'ana', 'el escrito, tal cual');
-  assert.equal(await codigoQueCuenta({ escrito: null, elegido: 'promo-octubre', url: 'promo-octubre' }, esDe), null, 'un ?ref= de nadie no se guarda');
-  assert.equal(await codigoQueCuenta({ escrito: null, elegido: 'beto', url: 'promo-octubre' }, esDe), 'beto', 'la cookie de un partner gana');
-  assert.equal(await codigoQueCuenta({ escrito: null, elegido: 'viejo-borrado', url: 'ana' }, esDe), 'ana', 'la cookie de nadie no tapa el ?ref= de un partner');
-  assert.equal(await codigoQueCuenta({ escrito: null, elegido: null, url: null }, esDe), null);
-  // La ruta: si no se pudo leer, la compra sigue con el código (como el escrito); y a la compra va el que cuenta, nunca el crudo.
+  assert.equal(await codigoQueCuenta({ escrito: 'ana', cookie: 'beto', url: 'promo-octubre' }, esDe), 'ana', 'el escrito, tal cual');
+  assert.equal(await codigoQueCuenta({ escrito: null, cookie: null, url: 'promo-octubre' }, esDe), null, 'un ?ref= de nadie no se guarda');
+  assert.equal(await codigoQueCuenta({ escrito: null, cookie: 'beto', url: 'ana' }, esDe), 'beto', 'la cookie de un partner gana (el primero que lo trajo)');
+  assert.equal(await codigoQueCuenta({ escrito: null, cookie: 'viejo-borrado', url: 'ana' }, esDe), 'ana', 'la cookie de nadie no tapa el ?ref= de un partner');
+  assert.equal(await codigoQueCuenta({ escrito: null, cookie: null, url: null }, esDe), null);
+  // Sin poder leer (la verificación de a196d5a93, r4b caso E): la cookie vale (la validó /r/<código>), el ?ref= crudo no.
+  const caida = async () => { throw new Error('PGRST000'); };
+  assert.equal(await codigoQueCuenta({ escrito: null, cookie: null, url: 'promo-octubre' }, caida), null, 'con la base caída, un ?ref= no se guarda');
+  assert.equal(await codigoQueCuenta({ escrito: null, cookie: 'beto', url: 'promo-octubre' }, caida), 'beto', 'la cookie, sí');
+  // La ruta: a la compra va el que cuenta, nunca el crudo.
   const ruta = fuente('app/api/planes/comprar/route.ts');
-  assert.ok(ruta.includes('const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, elegido: ref, url: pedido.ref }, (x) => esCodigoDePartner(x).catch(() => true));'));
+  assert.ok(ruta.includes('const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, cookie: codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value), url: pedido.ref }, esCodigoDePartner);'));
   assert.ok(ruta.includes('pedirPlanSinPasarela({ ...pedido, ref: refQueCuenta })'), 'el pedido sin pasarela');
   assert.ok(ruta.includes('iniciarCompraDePlan({ ...pedido, ref: refQueCuenta }, {'), 'la compra');
   assert.ok(!ruta.includes('{ ...pedido, ref }'), 'ninguna puerta guarda el código crudo');
+});
+
+// La verificación de a196d5a93 (C:/dev/revisiones/scratch-a196/partners-zernio-refuta/p-partners.ts, H2): `acreditarReferidos`
+// resuelve el código en CADA vuelta. Al borrar el negocio de un partner se van sus códigos; otro partner elegía ese texto y
+// heredaba al referido (las dos bienvenidas a nombre de otro) y su crédito del 2º mes.
+test('un código que ya trajo compras y no es tuyo no se elige, ni se hereda por el nombre; uno tuyo, siempre', () => {
+  const p = 'lib/partners-programa.ts';
+  const con = cuerpo(p, 'codigoConCompras');
+  assert.match(con, /\.from\('cobros'\)\.select\('id'\)\.eq\('workspace_id', await wsSuperAdmin\(\)\)\.eq\('ref_codigo', codigo\)\.limit\(1\)/);
+  assert.match(con, /if \(error\) throw new Error\(/, 'sin poder leer, no se cambia');
+  assert.match(cuerpo(p, 'esCodigoPropio'), /\(await codigoSiExiste\(ws\)\) === codigo \|\| \(await codigosAnterioresDe\(ws\)\)\.includes\(codigo\)/);
+  const cambiar = cuerpo(p, 'cambiarCodigoPartner');
+  const mira = cambiar.indexOf('if (!(await esCodigoPropio(ws, v.codigo)) && (await codigoConCompras(v.codigo))) return { ok: false, error:');
+  assert.ok(mira > 0 && mira < cambiar.indexOf(".rpc('cambiar_codigo_partner'"), 'antes de cambiarlo en la base');
+  const nace = cuerpo(p, 'codigoDe');
+  const salta = nace.indexOf('if (await codigoConCompras(codigo).catch(() => false)) continue;');
+  assert.ok(salta > 0 && salta < nace.indexOf(".from('partner_codigos').insert("), 'el que nace del nombre prueba con sufijo');
 });
 
 // Probado rompiéndolo (27/10/2026), una rotura por vez sobre la base en verde (5 pases, 0 fallos), restaurando el texto con un
@@ -127,3 +148,6 @@ test('el código que trajo un link se guarda sólo si es de un partner; el escri
 //   · /r sin el código vigente                                                 → 4 / 1
 // Y el del link (28/10/2026, base 6 / 0): la ruta guarda el código crudo → 5 / 1; `codigoQueCuenta` sin mirar si es de un
 // partner → 5 / 1; la cookie de nadie tapa el `?ref=` → 5 / 1.
+// Y los de la verificación de a196d5a93 (28/10/2026, base 7 / 0): con la base caída se guarda el `?ref=` → 6 / 1; elegir un
+// código con compras de otro → 6 / 1; heredarlo por el nombre → 6 / 1. De punta a punta (p-partners.ts apuntado a este árbol):
+// H2, Beto ya no toma el código de Ana borrada (sin bienvenidas ni crédito a su nombre); H3, con la base caída el ref queda null.

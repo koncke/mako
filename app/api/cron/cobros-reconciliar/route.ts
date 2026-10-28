@@ -69,7 +69,9 @@ export async function GET(req: NextRequest) {
   for (const ws of orden) {
     if (Date.now() - t0 > maxDuration * 1000 - RESERVA_MS) { sinTurno.push(ws); continue; }
     try {
-      const r = await runWithWorkspace(ws, () => reconciliarCobros(ws));
+      // Con su propio límite (28/10/2026): uno con cientos de pruebas no se come la corrida ni lo que va después (agencia, accesos,
+      // Partners); lo que no entró sigue en la próxima.
+      const r = await runWithWorkspace(ws, () => reconciliarCobros(ws, { hasta: t0 + maxDuration * 1000 - 2 * RESERVA_MS }));
       resultados.push({ ws, ok: true, ...r });
       if (delDia) await runWithWorkspace(ws, () => mantenerAvisosStripe(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Stripe:`, msg(e)));
       if (r.cambiados || r.errores) {

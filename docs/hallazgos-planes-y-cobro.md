@@ -1635,6 +1635,14 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   activar de los últimos 2, con un seguro de 500 que, si se alcanza, lo dice. **La regla:** una lista con tope que alimenta
   una reparación corta en silencio lo que más importa; lo que no puede perderse se lee aparte. Probado de punta a punta con
   el código real (C:/dev/revisiones/scratch-3ca2/A-refuta/r1-cron-tope.ts, i50 / i50_mes2 / j50).
+- **Y la lectura aparte tenía tres agujeros (la verificación de a196d5a93).** (1) Sólo leía las pruebas `pendiente`: la que
+  quedó `fallido` porque la tarjeta se rechazó el día 8 y el reintento de Stripe la cobró después (con el aviso perdido)
+  volvía a la lista general de 50 y no se acreditaba: es el caso común de una tarjeta al terminar la prueba. (2) Las leía de
+  la más NUEVA a la más vieja: con más de 500, el seguro dejaba afuera justo las del día 8 (las viejas), y el aviso decía «las
+  más viejas esperan» cuando no se iban a leer nunca. (3) La vuelta no tenía reloj: cientos de pruebas son dos lecturas a Stripe
+  por cada una, en serie, y se pasaba del `maxDuration` del cron. Ahora: las activadas `pendiente` o `fallido`, de la más vieja
+  a la más nueva, y `reconciliarCobros(ws, { hasta })` corta a tiempo (el cron le deja 120 s a lo que sigue). r2-cron-pruebas.ts:
+  «fallido» con 50 y 80 más nuevas, antes 0, ahora 1 con una cuota; b600, antes las 100 viejas nunca, ahora en la primera vuelta.
 - **Rehacer el link dejaba la sesión vieja ABIERTA (la verificación, 28/10).** `urlParaPagar` rehace la sesión a 5 minutos de
   vencer y no cerraba la anterior: pagada en la pestaña vieja, la prueba no se activaba (se leía la nueva) y se cobraba el día
   8 sin prueba; pagadas las dos, quedaban DOS suscripciones cobrando todos los meses. Ahora, en todo cobro de Stripe (no sólo

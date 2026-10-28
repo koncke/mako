@@ -126,13 +126,17 @@ export const codigoDeLaCompra = (p: { escrito: string | null; cookie: string | n
  * EL CÓDIGO QUE SE GUARDA EN EL COBRO (28/10/2026, la verificación de 3ca2d8328): el escrito ya se validó (o no se pudo leer y
  * sigue); el que trajo un LINK (`elegido`: la cookie de /r/<código> o el `?ref=`), sólo si es de un partner. Antes entraba sin
  * mirar, y con el código editable un partner podía ELEGIR después ese texto (`promo-octubre`) y llevarse el crédito de una compra
- * que no trajo. Una cookie de nadie no tapa el `?ref=` de un partner. `esDePartner` decide qué hacer si no puede leer.
+ * que no trajo. Primero la cookie y después el `?ref=` (el primero que lo trajo gana, `codigoDeLaCompra`); una cookie de nadie no
+ * tapa el `?ref=` de un partner. ⚠️ Si no se puede LEER (la verificación de a196d5a93): la cookie vale (la dejó /r/<código>, que ya
+ * la validó con `codigoVigente`) y el `?ref=` crudo se descarta: guardarlo «por las dudas» era otra vez el código huérfano.
  */
 export async function codigoQueCuenta(
-  p: { escrito: string | null; elegido: string | null; url: string | null }, esDePartner: (codigo: string) => Promise<boolean>,
+  p: { escrito: string | null; cookie: string | null; url: string | null }, esDePartner: (codigo: string) => Promise<boolean>,
 ): Promise<string | null> {
   if (p.escrito) return p.escrito;
-  for (const x of [p.elegido, p.url]) if (x && (await esDePartner(x))) return x;
+  for (const [x, siNoSePuedeLeer] of [[p.cookie, true], [p.url, false]] as const) {
+    if (x && (await esDePartner(x).catch(() => siNoSePuedeLeer))) return x;
+  }
   return null;
 }
 
