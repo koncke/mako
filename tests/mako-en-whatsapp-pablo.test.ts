@@ -283,11 +283,12 @@ test('las groserías del 16/10 se ven, y la oración que las trae no sale', () =
 
 test('el doer sanea ANTES de mandar, con las herramientas que corrieron, y lo deja en el Saldo de IA', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  const i = doer.indexOf('sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, finDeTurno: true })');
+  // Desde el 27/10/2026 la llamada lleva también `enElGrupo` (tests/doer-hecho-grupo.test.ts), en varias líneas.
+  const i = doer.search(/sanearSalida\(respuesta, \{\s*corrioHerramientas: corridasDelTurno > 0, finDeTurno: true[,\s]/);
   assert.ok(i > 0, 'el doer no sanea la salida, o no le pasa si corrió alguna herramienta');
   assert.ok(i < doer.indexOf('const v = validarRespuestaDoer(respuesta'), 'el saneo quedó después de la compuerta');
   assert.ok(i < doer.indexOf('enviarAGrupoJid(jid, enviar[i])'), 'el saneo quedó después del envío');
-  assert.match(doer.slice(i - 400, i + 900), /recordUsage\('saneo-doer'/, 'lo saneado no queda en ningún lado: el vigía no lo ve');
+  assert.match(doer.slice(i - 400, i + 1400), /recordUsage\('saneo-doer'/, 'lo saneado no queda en ningún lado: el vigía no lo ve');
   // El contador se suma en CADA corrida (también lo que devuelve el memo: eso se hizo).
   const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const previo = memo.previo(name)'));
   assert.match(rt, /corridasDelTurno\+\+/, 'corridasDelTurno no cuenta las corridas');

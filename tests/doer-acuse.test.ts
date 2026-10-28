@@ -264,8 +264,9 @@ test('la espera con palabras va en `procesarDoer`, con el pedido entero, ANTES d
   assert.ok(iEspera < PROCESAR.indexOf('buildSystemPrompt('), 'la espera sale después de lo que tarda');
   assert.match(PROCESAR, /if \(espera && !\(await opts\.acuse\)\?\.dijoEspera\) \{\s*const env = await enviarAGrupoJid\(jid, espera\.frase, 0\);/);
   assert.match(PROCESAR, /trabajoLargoDe\(vigentes\.map\(\(p\) => porId\(p\.tipo\)\)\)/);
-  // Y la respuesta del modelo se sanea como FIN de turno: su espera, si la escribe, no sale.
-  assert.ok(PROCESAR.includes('sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, finDeTurno: true })'));
+  // Y la respuesta del modelo se sanea como FIN de turno: su espera, si la escribe, no sale. Desde el 27/10/2026 lleva
+  // también `enElGrupo` (el «hecho» sin respaldo, tests/doer-hecho-grupo.test.ts): por eso la cola queda abierta.
+  assert.match(PROCESAR, /sanearSalida\(respuesta, \{\s*corrioHerramientas: corridasDelTurno > 0, finDeTurno: true[,\s]/);
 });
 
 // ── ROTURAS (24/10/2026) ───────────────────────────────────────────────────────────────────────────────────────────────

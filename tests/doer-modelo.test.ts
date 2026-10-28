@@ -35,7 +35,9 @@ test('2. un pin a Groq (no contesta texto desde IA16) o a Claude (va por su cami
 
 test('3. bajar de modelo queda escrito en la base, y esa fila no cuenta como que su clave anduvo', () => {
   const ai = leer('lib/ai-cheap.ts');
-  assert.match(ai, /if \(paso\.modelo && paso\.modelo !== model\) void recordUsage\(opts\.feature \|\| 'ia-barata-tools', `\$\{PREFIJO_REBOTE\}\$\{model\}`/);
+  // Sin el 429: ése ya es una fila `rebote429:`, y `plegarUso` contaría el mismo pedido dos veces contra la cuota del día.
+  assert.match(ai, /if \(tipo !== 'cuota' && paso\.modelo && paso\.modelo !== model\) void recordUsage\(opts\.feature \|\| 'ia-barata-tools', `\$\{PREFIJO_REBOTE\}\$\{model\}`/,
+    'un 429 cubierto por el respaldo se anota dos veces (rebote429: y rebote:)');
   const e = estadoDeSuClave('gemini', [{ provider: 'gemini', model: 'rebote:gemini-flash-latest', motivo: '503 high demand → gemini-flash-lite-latest', created_at: '2026-10-26T10:00:00Z', cost_usd: 0 } as never]);
   assert.equal(e.anduvo, null, 'el rebote se leyó como que su Gemini contestó');
   const doer = leer('lib/mako-doer-in.ts');

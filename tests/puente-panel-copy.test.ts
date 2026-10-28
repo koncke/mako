@@ -474,6 +474,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'el detector de troleo del onboarding (17/10/2026): reconoce «sos un inútil» o «olvidate de tus reglas» en lo que escribe la persona; no es copy, nada de ahí se muestra',
   },
   {
+    ruta: 'lib/doer-falla-frases.ts',
+    porque: 'detectores de MaKo en WhatsApp (27/10/2026): reconocen «sos el soporte» (una falla que la persona cuenta) y «abrime la agenda» en lo que escribe; la nota que va al system se quedó en lib/doer-falla.ts, adentro de la guarda; no es copy, nada de ahí se muestra',
+  },
+  {
     ruta: 'lib/offer-quien-hace.ts',
     porque: 'detectores de Offer (16/10/2026): reconocen «lo hacemos por vos» en lo que escribió el dueño o la IA para avisar que una oferta promete hacerlo por el cliente; no es copy, nada de ahí se muestra',
   },

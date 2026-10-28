@@ -114,6 +114,14 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
   · `buscar_leads` compara el texto tal cual («+54 9 11…» contra «5491…»). El contacto ahora se busca por
     `telefono_normalizado` (los últimos 10 dígitos) antes de proponer nada (`lib/contacto-compartido*.ts`).
 
+**La entrega (claude4).**
+- **⚠️ El 49/49 no era un verde.** Los tests propios de la rama pasaban, y daban rojo 6 tests viejos que fijan la FORMA del doer
+  (`doer-acuse`, `doer-recetas`, `doer-su-ia`, `doer-turno-sin-tools`, `mako-en-whatsapp-pablo`, `mako-turno-app`) y la guarda
+  de voseo. Salen con `node scripts/tests-afectados.mjs --listar --explicar`, en «nombran un archivo cambiado».
+- **La guarda de voseo exceptúa archivos ENTEROS.** El detector de fallas reconoce «sos el soporte», y la nota que va al system
+  vivía en el mismo archivo. Los detectores pasaron a lib/doer-falla-frases.ts, exceptuado; la nota quedó adentro de la guarda.
+  **Regla: un detector que nombra formas de vos va en su propio archivo, nunca junto a un texto que lee el modelo o el cliente.**
+
 **Sin hacer:**
 - **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.
   Con `--si` escribe en producción (las pendientes y el Google del ws3), así que espera el sí de Martín. No se sabe si el ws3

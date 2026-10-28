@@ -19,6 +19,8 @@ test('1. las frases de Leila son un reporte de falla; un pedido o una pregunta, 
   for (const f of [
     'no puede analizar la llamada de fathom', 'ya van 4 veces, tras 4 intentos sigue igual', 'y tú eres el servicio técnico',
     'no me deja agendar', 'sigue sin funcionar', 'dejó de andar el CRM', 'me da error al publicar', 'se colgó la app',
+    // De vos también: por esto los detectores viven en lib/doer-falla-frases.ts, fuera de la guarda de voseo.
+    'vos sos el soporte, ¿no?',
   ]) assert.ok(reportaFalla(f), `«${f}» no se ve como falla`);
   for (const f of ['¿cuántos leads entraron esta semana?', 'pasale la segunda para mañana', 'gracias MaKo', 'publicá la del webinar'])
     assert.ok(!reportaFalla(f), `«${f}» se ve como falla`);

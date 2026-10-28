@@ -1475,8 +1475,9 @@ export async function chatCheapTools(
       if (tipo === 'cuota') void anotarRebote429(p.nombre, nroCuenta(p), model, detalle);
       // ⚠️ BAJAR DE MODELO QUEDA ESCRITO (27/10/2026): 38 de 42 turnos de MaKo en WhatsApp con Gemini salieron con flash-lite,
       // y el porqué (el 503 o el plazo de flash-latest) sólo estaba en los logs de Vercel. Una fila sin tokens, con el modelo
-      // que falló marcado `rebote:` y el motivo: se cuenta desde la base.
-      if (paso.modelo && paso.modelo !== model) void recordUsage(opts.feature || 'ia-barata-tools', `${PREFIJO_REBOTE}${model}`, {}, `${detalle.slice(0, 200)} → ${paso.modelo}`, p.nombre, nroCuenta(p)).catch(() => {});
+      // que falló marcado `rebote:` y el motivo: se cuenta desde la base. Un 429 no: ya quedó escrito arriba (`rebote429:<modelo>`),
+      // y `plegarUso` (lib/ia-cuotas-calculo.ts) suma cada fila como un pedido del día: con las dos, el mismo pedido contaba doble.
+      if (tipo !== 'cuota' && paso.modelo && paso.modelo !== model) void recordUsage(opts.feature || 'ia-barata-tools', `${PREFIJO_REBOTE}${model}`, {}, `${detalle.slice(0, 200)} → ${paso.modelo}`, p.nombre, nroCuenta(p)).catch(() => {});
       console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${model}: ${detalle.slice(0, 240)} → ${paso.accion}${paso.modelo && paso.modelo !== model ? ` a ${paso.modelo}` : ''}${paso.esperaMs ? ` en ${paso.esperaMs} ms` : ''}`);
       if (paso.esperaMs) await new Promise((r) => setTimeout(r, paso.esperaMs));
       model = paso.modelo || model;
