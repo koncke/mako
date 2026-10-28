@@ -654,3 +654,28 @@ test('8d. la copia de OTRA sesión no se cifra en esta base; cada copia vence po
   assert.match(sinComentarios(leer('app/api/sin-conexion/copia/route.ts')), /armarCopia\(\{ ws, persona: sesion\.nombre\?\.trim\(\) \|\| sesion\.email, email: sesion\.email \}\)/);
   assert.match(sinComentarios(leer('lib/sin-conexion/cascaron.ts')), /if \(!\(await existeBase\(nombre\)\)\) \{ await llaveDeLaClave\(clave, alAzar\(16\), VUELTAS\)/);
 });
+
+test('8e. después de un fallo se espera CADA_MS: cada vuelta a la pestaña ya no vuelve a pedir la copia entera', async () => {
+  const guardado = new Map<string, string>();
+  const previo = (globalThis as { localStorage?: unknown }).localStorage;
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (k: string) => guardado.get(k) ?? null, setItem: (k: string, v: string) => { guardado.set(k, v); }, removeItem: (k: string) => { guardado.delete(k); },
+  };
+  try {
+    const { tocaGuardar } = await import('../lib/sin-conexion/en-la-app');
+    const base = await nombreDeBase('ana@x.com');
+    const ahora = Date.parse('2026-10-28T14:00:00.000Z');
+    assert.equal(await tocaGuardar('ana@x.com', ahora), true, 'nunca se guardó: toca');
+    guardado.set('mako-sc-intento:' + base, '2026-10-28T13:58:00.000Z');
+    assert.equal(await tocaGuardar('ana@x.com', ahora), false, 'falló hace 2 min: espera');
+    assert.equal(await tocaGuardar('ana@x.com', ahora + 9 * 60_000), true, 'pasados los 10 min desde el fallo: toca');
+    guardado.set('mako-sc-ultima:' + base, '2026-10-28T13:55:00.000Z');
+    guardado.delete('mako-sc-intento:' + base);
+    assert.equal(await tocaGuardar('ana@x.com', ahora), false, 'guardó hace 5 min');
+  } finally {
+    (globalThis as { localStorage?: unknown }).localStorage = previo;
+  }
+  const app = sinComentarios(leer('lib/sin-conexion/en-la-app.ts'));
+  assert.match(app, /else if \(r !== 'sin-activar'\) localStorage\.setItem\(INTENTO \+ nombre, new Date\(\)\.toISOString\(\)\);/, 'un fallo anota el intento');
+  assert.match(sinComentarios(leer('app/_components/CopiaSinConexion.tsx')), /const tocaGuardar = \(\) => toca\(email\);/);
+});
