@@ -99,22 +99,30 @@ En `app_settings` del negocio, como los guiones del Ads Writer (`mako.razones`):
 
 ## D6 · Los tipos y sus estructuras (tanda 3)
 
-- `EstructuraGuion` suma `tipos` (los formatos a los que calza). Las siete de hoy son de **Ad**. Se suman las de **Reel**
-  (Gancho → Historia → Moraleja → CTA, y la de nicho Hook → Problema → Solución → CTA: `METODOLOGIA_REEL`), **Story**
-  (Gancho → Contexto → Moraleja → CTA: `METODOLOGIA_STORY`) y **YouTube**. ⚠️ YouTube no tiene fuente en el repo (YouTube
-  Writer es «pronto»): su estructura se le avisa a Martín antes de darla por buena.
-- Elegir el tipo y la estructura en las propiedades arma las secciones vacías del documento (un Título 2 por etiqueta, con
-  la guía de la estructura como texto gris de ayuda).
-- La biblioteca sigue siendo UNA (`/admin/guiones`): el Copywriter la lee, no la copia.
+- `EstructuraGuion` suma `tipos` (los formatos a los que calza). Las siete de antes, sin el campo, son de **Ad**. Se suman
+  las de **Reel** (`reel-viral`: Gancho → Historia → Moraleja → CTA; `reel-nicho`: Hook → Problema → Solución → CTA) y la
+  de **Story** (`story-dia`: Gancho → Contexto → Moraleja → CTA), sacadas de `METODOLOGIA_REEL` y `METODOLOGIA_STORY`
+  (lib/ig-formatos.ts, los cursos que ya usa MaKo). ⚠️ **YouTube NO tiene estructura**: no hay fuente en el repo (YouTube
+  Writer era «pronto»), y por la regla de copiar no se inventa: un guion de YouTube ofrece las de anuncios y lo dice
+  («Todavía no hay de YouTube»). Pendiente de Martín: de qué curso o referencia sale la de YouTube.
+- La biblioteca sigue siendo UNA (`/admin/guiones`, que suma «Para: Ad · Reel · Story · YouTube»). El Ads Writer lee sólo
+  las de anuncios (`getEstructurasGuion`); el Copywriter y el editor del super admin, todas (`getEstructurasTodas`). Un
+  override guardado antes recibe las de orgánico nuevas al final; para sacar una, se apaga.
+- Elegir el tipo y la estructura arma las secciones del documento (un Título 2 por etiqueta) si el cuerpo está vacío; una
+  página nueva de un tipo nace con la primera estructura de ese tipo.
 
 ## D7 · La mudanza de lo viejo (tanda 3)
 
-| Hoy | Qué pasa | Por qué |
+Mientras Martín no valide el Copywriter, NADA se apaga: lo viejo sigue andando y lleva al Copywriter a quien ya lo ve.
+
+| Hoy | Qué pasa ahora | El día que Martín lo valide |
 |---|---|---|
-| **Ads Writer** (`/ads-writer`, la matriz avatar × motivación) | **Se queda**. Cada guion suma «Abrir en Copywriter» (lo copia a un documento Ad). | La matriz es OTRA cosa (qué anuncios faltan) y la usan los clientes. El Copywriter es sólo del super admin hasta validarlo. |
-| **YouTube Writer** (`/youtube-writer`, «pronto», sólo super admin) | Su ruta lleva a `/copywriter` con un guion YouTube nuevo; sale de la barra (`SIN_FILA`). | No tenía nada: el Copywriter es su versión. |
-| **Stories** (`/stories`, sólo super admin) | Su ruta lleva a `/copywriter` con un guion Story nuevo; sale de la barra (`SIN_FILA`). Su metodología queda en la estructura Story. | Ya era sólo del super admin; su historial no se guardaba. |
-| **Ángulos y Estructuras** (`/admin/guiones`) | Se queda: es la biblioteca. Suma el campo «Tipos». | Una cosa, un lugar. |
+| **Ads Writer** (`/ads-writer`, la matriz avatar × motivación) | **Se queda**. El lector de cada guion suma «Abrir en Copywriter» (lo COPIA a un documento Ad con su ángulo y su estructura). | Sigue: la matriz es OTRA cosa (qué anuncios faltan) y la usan los clientes. |
+| **YouTube Writer** (`/youtube-writer`, «pronto», sólo super admin) | Quien ve el Copywriter va a `/copywriter?nuevo=youtube`; los demás, «pronto». | La fila sale de la barra (`SIN_FILA`, lo hace el jefe Sidebar). |
+| **Stories** (`/stories`, sólo super admin) | Sigue andando; la secuencia generada suma «Abrir en Copywriter» (un documento Story, un frame por Encabezado 3). | Su ruta lleva a `/copywriter?nuevo=story` y la fila sale de la barra; su metodología ya vive en la estructura Story. |
+| **Ángulos y Estructuras** (`/admin/guiones`) | Se queda: es la biblioteca. Suma «Para». | Igual. |
+
+`/copywriter?nuevo=<tipo>` abre la caja grande con ese tipo elegido: nada se crea por abrir un link.
 
 ## D8 · La API de MaKo (tanda 2)
 

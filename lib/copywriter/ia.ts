@@ -31,7 +31,7 @@ import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
 import { getAngulosGuion } from '../guion-angulos-store';
-import { getEstructurasGuion } from '../guion-estructuras-store';
+import { getEstructurasTodas } from '../guion-estructuras-store';
 import { ANGULOS_GUION_DEFAULT, instruccionesTexto } from '../guion-angulos';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../guion-estructuras';
 import { catalogosLite, estructurasDelTipo } from './catalogos';
@@ -201,7 +201,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
   try {
     const [acento, negocio, angulos, estructuras, refs] = await Promise.all([
       acentoConId(), contextoDelNegocio(instruccion),
-      getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasGuion().catch(() => ESTRUCTURAS_GUION_DEFAULT),
+      getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT),
       leerReferencias(p.referencias ?? []),
     ]);
     const lite = catalogosLite(angulos, estructuras);

@@ -10,7 +10,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { getEstructurasGuion, setEstructurasGuion, resetEstructurasGuion } from '@/lib/guion-estructuras-store';
+// TODA la biblioteca (anuncios, reels y stories, 28/10/2026): el Ads Writer lee sólo las suyas con getEstructurasGuion.
+import { getEstructurasTodas, setEstructurasGuion, resetEstructurasGuion } from '@/lib/guion-estructuras-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export async function GET() {
   if (!(await getSesionAdmin())) return Response.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
-    return Response.json({ ok: true, estructuras: await getEstructurasGuion() });
+    return Response.json({ ok: true, estructuras: await getEstructurasTodas() });
   } catch (e) {
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }

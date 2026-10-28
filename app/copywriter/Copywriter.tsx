@@ -45,9 +45,11 @@ export type PropsCopywriter = {
   catalogos: CatalogosCopy;
   /** Las rutas: escritorio (/copywriter) o el teléfono (/m/copywriter, que el proxy sirve en la misma URL). */
   base?: string;
+  /** El tipo elegido de entrada en la caja grande (`?nuevo=<tipo>`). */
+  tipoInicial?: TipoGuion | null;
 };
 
-export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter' }: PropsCopywriter) {
+export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null }: PropsCopywriter) {
   const router = useRouter();
   const [paginas, setPaginas] = useState<PaginaCopy[]>(iniciales);
   const [plegado, setPlegado] = useState(false);
@@ -155,7 +157,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
       ) : error ? (
         <div className="nt-doc"><div className="nt-inicio"><div className="nt-aviso" role="alert">{error}<ReportarASoporte /></div></div></div>
       ) : (
-        <Inicio creando={creando} onCrear={(t, pedido) => void crear(t, null, pedido)} arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} />
+        <Inicio creando={creando} onCrear={(t, pedido) => void crear(t, null, pedido)} arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} tipoInicial={tipoInicial} />
       )}
       <Toast state={toast} onClose={clear} />
     </div>

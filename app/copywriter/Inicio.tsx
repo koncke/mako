@@ -12,14 +12,16 @@
 import { useState } from 'react';
 import { INFO_TIPO, TIPOS_GUION, type TipoGuion } from '@/lib/copywriter/tipos';
 
-export function Inicio({ onCrear, creando, arbolPlegado = false, onDesplegarArbol }: {
+export function Inicio({ onCrear, creando, arbolPlegado = false, onDesplegarArbol, tipoInicial = null }: {
   onCrear: (tipo: TipoGuion, pedido: string) => void;
   creando: boolean;
   /** La barra de guiones plegada (ventana angosta): «»» la vuelve a abrir, como en las migas del documento. */
   arbolPlegado?: boolean;
   onDesplegarArbol?: () => void;
+  /** El tipo elegido de entrada (`/copywriter?nuevo=<tipo>`). */
+  tipoInicial?: TipoGuion | null;
 }) {
-  const [tipo, setTipo] = useState<TipoGuion>('ad');
+  const [tipo, setTipo] = useState<TipoGuion>(tipoInicial ?? 'ad');
   const [pedido, setPedido] = useState('');
   const ir = () => { if (!creando) onCrear(tipo, pedido.trim()); };
   return (

@@ -76,7 +76,20 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - ⚠️ **El `:is()` de app/m/m.css pesa (0,4,1)** (`[data-m] :is(input:not(…):not(…):not(…), textarea, select)`: un
   `:is()` vale lo que su argumento MÁS fuerte). Una regla de pantalla sobre un campo del teléfono necesita más que eso.
 
+## YouTube no tiene estructura, y no se inventa (28/10/2026)
+
+- Reel y Story salieron de `METODOLOGIA_REEL` / `METODOLOGIA_STORY` (lib/ig-formatos.ts, los cursos que ya usa MaKo).
+  Para YouTube no hay fuente en el repo (YouTube Writer era un «pronto» vacío): el guion de YouTube ofrece las de anuncios
+  y lo dice. Cuando Martín diga de qué curso sale, va a lib/guion-estructuras.ts con `tipos: ['youtube']`.
+- Que el selector «caiga» a otras estructuras es a propósito: un selector vacío deja el documento sin secciones, y MaKo
+  escribe peor sin ellas (`estructurasDelTipo`, `propias: false`).
+- La biblioteca de estructuras dejó de ser sólo de anuncios: lo que eso rompía está en
+  [hallazgos-ads.md](hallazgos-ads.md) («La biblioteca de estructuras era de anuncios sin decirlo»).
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
+- La estructura de YouTube (falta la fuente) y sacar de la barra Stories y YouTube Writer el día que Martín valide el
+  Copywriter (nav.ts es del jefe Sidebar): docs/diseno-copywriter.md, D6 y D7.
+- `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.

@@ -22,6 +22,25 @@ const sinAcentos = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,
 import { Input, NoResults, EmptyState, Tag, Button } from '../_ui';
 import { GuionCard, GuionCardFantasma, GUION_CARD_MIN, type GuionCardData } from './GuionCard';
 import { GuionLector } from './GuionLector';
+import { useRouter } from '../_ui/Link';
+import { pedirCrear, rutaGuion } from '../copywriter/cliente';
+import { docDeTexto } from '@/lib/copywriter/texto';
+import { ReportarASoporte } from '../_ui/ReportarASoporte';
+
+/**
+ * «Abrir en Copywriter» (28/10/2026, docs/diseno-copywriter.md, D7): el guion se COPIA a un documento Ad del Copywriter,
+ * con su ángulo y su estructura (la misma biblioteca) y las etiquetas como secciones. El de acá no se toca: la matriz
+ * sigue siendo la del Ads Writer. Devuelve el error si no se pudo (y no navega).
+ */
+async function copiarAlCopywriter(g: GuionItem, celdaNombre: string): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const r = await pedirCrear({
+    tipo: 'ad',
+    titulo: `${celdaNombre} · ${g.anguloNombre}`.slice(0, 120),
+    props: { angulo: g.anguloId || null, estructura: g.estructuraId || null },
+    contenido: docDeTexto(g.texto),
+  });
+  return r.ok ? { ok: true, id: r.pagina.id } : { ok: false, error: r.error };
+}
 import { masRecientePrimero } from './reglas';
 import {
   ESTADOS_GUION, ESTADO_GUION_LABEL, COLOR_ESTADO_GUION,
@@ -37,7 +56,7 @@ type AnguloLite = { id: string; nombre: string; emoji: string };
 
 type Fila = GuionCardData & { celdaId: string; avatarId: string };
 
-export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, onRetroceder, onBorrar, onIrAMatriz, onEditar, onEscribirPrimero }: {
+export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, onRetroceder, onBorrar, onIrAMatriz, onEditar, onEscribirPrimero, conCopywriter = false }: {
   celdas: Celda[];
   avatares: Avatar[];
   angulos: AnguloLite[];
@@ -52,8 +71,17 @@ export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, o
   onIrAMatriz: (celdaId: string) => void;
   onEditar: (celdaId: string, guionId: string, texto: string) => void;
   onEscribirPrimero: () => void;
+  /** Quien ya ve el Copywriter (28/10/2026): el lector ofrece «Abrir en Copywriter». */
+  conCopywriter?: boolean;
 }) {
+  const router = useRouter();
   const [q, setQ] = useState('');
+  const [errorCopy, setErrorCopy] = useState<string | null>(null);
+  const abrirEnCopywriter = async (g: GuionItem, celdaNombre: string) => {
+    setErrorCopy(null);
+    const r = await copiarAlCopywriter(g, celdaNombre);
+    if (r.ok) router.push(rutaGuion(r.id)); else setErrorCopy(`No se pudo abrir en el Copywriter: ${r.error}`);
+  };
   // Multi-selección: el pipeline es resumen y filtro a la vez. Vacío = todos.
   const [estadosOn, setEstadosOn] = useState<EstadoGuion[]>([]);
   const [fAngulo, setFAngulo] = useState(TODOS);
@@ -289,6 +317,7 @@ export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, o
         <NoResults query={q || undefined} onLimpiar={limpiar} />
       )}
 
+      {errorCopy && <div role="alert" style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)' }}>{errorCopy}<ReportarASoporte /></div>}
       {filaAbierta && (
         <GuionLector
           g={filaAbierta.g}
@@ -303,6 +332,7 @@ export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, o
           onCopiar={() => copiar(filaAbierta.g)}
           onDescargar={() => descargar(filaAbierta)}
           irAlAnuncio={() => { setAbierto(null); onIrAMatriz(filaAbierta.celdaId); }}
+          onAbrirEnCopywriter={conCopywriter ? () => void abrirEnCopywriter(filaAbierta.g, filaAbierta.celdaNombre) : undefined}
         />
       )}
     </div>
