@@ -81,6 +81,15 @@ export function recordarEnviadas(id: string, archivos: readonly File[], subidos:
   })();
 }
 
+/**
+ * Las fotos de un mensaje que todavía está SALIENDO (envios-en-curso.ts, 27/10/2026): se ven en el acto con el id local, sin
+ * subir nada. Cuando sale, `recordarEnviadas` las vuelve a anotar con el id de verdad y sube sus miniaturas.
+ */
+export function verFotosLocales(id: string, archivos: readonly File[]) {
+  const fotos = archivos.filter((f) => f.type.startsWith('image/'));
+  if (fotos.length) leidas.set(id, fotos.map((f) => ({ url: URL.createObjectURL(f), nombre: f.name })));
+}
+
 /** La primera vuelta a preguntar por las fotos que faltan, y hasta cuánto después de mandar se sigue preguntando. */
 export const PRIMER_REINTENTO_MS = 12_000;
 export const TOPE_REINTENTOS_MS = 3 * 60 * 1000;

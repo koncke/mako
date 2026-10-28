@@ -320,7 +320,31 @@ desplegable · `AvisoExtensionVieja` (app/_components) · tests/wa-extraer-072 (
   va en la esquina de toda la app (con sesión), y lleva al instructivo. Que se actualice SOLA pide la tienda de Chrome al
   día (`VERSION_EN_TIENDA`, lib/extension-tienda.ts): una descomprimida no se actualiza nunca. Es un paso de Martín.
 
+## La Chrome Web Store: la versión publicada se MIDE, y cada versión nueva la apaga (27/10/2026)
+
+**Vive en:** `VERSION_EN_TIENDA` → `EXTENSION_EN_TIENDA` (lib/extension-tienda.ts) · scripts/version-en-tienda.mjs · la rama
+`tienda-cws-2710` · tests/extension-sin-zip-con-tienda, extension-tienda-al-dia · la ficha para subir, en
+feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
+
+- **Tres números para el mismo dato, y dos eran recuerdos.** El pedido decía «la tienda tiene la 0.1.0» (una memoria), el
+  código decía 0.5.0 (medido el 02/09) y lo medido el 27/10 con `node scripts/version-en-tienda.mjs` fue la **0.39.1**. La
+  versión de la tienda se mide antes de decidir, nunca se copia de un comentario. Y `publicar-extension.mjs --estado` no
+  sirve para esto: devuelve el borrador (lo último que se subió), no lo que Google aprobó.
+- **Cada versión nueva de la extensión apaga la tienda** hasta que se sube y Google la aprueba: `EXTENSION_EN_TIENDA` es
+  «la tienda no va atrás del paquete», así que la 0.74.4 la vuelve a apagar sola (y la app vuelve a ofrecer el zip, que es
+  el modo de falla seguro). Por eso `tienda-cws-2710` (VERSION_EN_TIENDA = 0.74.3 y los avisos a la tienda) se mezcla SÓLO
+  con la ficha pública en 0.74.3, medida.
+- **Con la tienda al día, nadie ve el .zip** (Martín, 27/10): el instructivo, el perfil, los avisos y `/extension` ya le
+  preguntan al flag. tests/extension-sin-zip-con-tienda frena una pantalla nueva que enlace el zip sin preguntar (probado
+  rompiéndolo en 4 lugares). El zip queda para desarrollo: la carpeta de Martín y `/mako-puente.zip`.
+- **Google compara la ficha contra el manifest y contra la política.** Al escribir la ficha se vio que /privacidad/extension
+  no decía que, desde la 0.73, la extensión abre el perfil de cada miembro (71d0e5682 lo corrigió). Antes de subir una
+  versión, releer la política contra lo que hace esa versión.
+
 ## Sin hacer
+
+- **Subir la 0.74.3 a la tienda** (Martín, desde su Chrome, con feedback/chrome-web-store/). Cuando Google apruebe: medir
+  con `node scripts/version-en-tienda.mjs` y recién ahí mezclar `tienda-cws-2710`.
 
 - **Cuántos llegan sin teléfono** (Aaron: WhatsApp esconde números en grupos): medirlo en un grupo con la pantalla de
   «Traer de grupo» (`sinNumero`) y en el registro, antes de construir nada.

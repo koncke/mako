@@ -30,6 +30,30 @@ Misma rama `crm-extraer-2610`. Lo medido y las causas, en hallazgos-extension (�
   carpeta; Chrome se cerró antes de correrla.
 - ⚠️ La app de Claude es SIEMPRE VISIBLE y tapa a Chrome: sus pestañas quedan ocultas y frenadas. Ver la regla en hallazgos.
 
+## 0-Ω30. 27/10/2026 (chat «CRM y Chats», cuentas `claude5` → `claude4`): el feedback de Martín y Mauricio, y los tickets #13 y #14
+
+Rama `crm-chats-2710` (desde bbb459f33) en C:/dev/wt-crm-chats-2710. Lo aprendido, en hallazgos-crm, hallazgos-pagos y
+hallazgos-comunicacion; los requisitos de cada etapa, en docs/crm-requisitos-de-etapa.md (para que decida Martín).
+- Hecho (con tests, sin probar en vivo): los 7 puntos de Martín (pagos que se editan sin trámites y el total de Ganado con
+  las suscripciones; sin contrato al mover y R1 con la reunión a mano, que le gana a Calendly; el nombre de la agenda, nunca
+  el teléfono; sin la fila duplicada en Chats; el «⋯» con «Agregar al CRM»; la foto de WhatsApp en la tarjeta), los 3 de
+  Mauricio (filtro por funnel con sus etapas y conteos en Chats; el día de Tijuana y no el de UTC en la búsqueda de
+  reuniones, con el filtro de Calendly; el estado que contradice la columna), el ticket #13 (plan libre: quincenas en los
+  días elegidos, más de 6 cuotas, sin migración) y el #14 (los accesos sin guarda que rompían /crm: links de Fathom sin url,
+  leads sin nombre).
+- **La revisión adversarial de b335f972c** (1 alto y 2 medios de plata en Pagos) se arregló en la misma rama: el plan libre
+  ya no duplica lo cobrado, corregir una cobrada es explícito y un recordatorio cortado vuelve a la cobranza
+  (hallazgos-pagos, «La revisión de b335f972c»).
+- **El #14 no se reprodujo**: se arregló por búsqueda en el código. Después del despliegue, mirarlo en el ws3 (nunca el ws1)
+  y confirmar con Martín que no sale más el TypeError.
+- **Pide el sí de Martín (vía el Cerebro):** la fila del lead 2371 (ws1, «ganado» con la tarjeta en «Perdido»: primero el
+  SELECT, después el UPDATE condicionado) y el plan de Nadia (lead 2605, ws11), que Leila rehace desde la ficha con «Armar
+  el plan» cuando esté desplegado. Las consultas, en la nota de traspaso del Cerebro (crm-chats-claude5-27-10.md). Falta que
+  Leila diga cuántas quincenas son y si alguna de las 12 cuotas viejas está cobrada.
+- **Sin hacer:** «Enviar a todos» de una etapa (es de Automations), el panel «Qué escribir» (medir por qué tarda, con la
+  línea en vivo), cumpleaños (pide migración), y que nada pida R1/R2 si el negocio no las usa (lo que queda es «Tipo de
+  evento de R1» al conectar Calendly: es del chat de Integraciones).
+
 ## 0-Ω27. 26/10/2026 (chat «CRM», cuenta `claude5`): «Extraer» de un grupo, a la vista, con el desplegable (extensión 0.72)
 
 Rama `crm-extraer-2610` (desde origin/main ede2bbaab) en C:/dev/wt-crm-2510. Pedido textual en la bitácora. Lo medido y lo

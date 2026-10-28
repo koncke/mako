@@ -11,8 +11,10 @@
 
 import { after, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
-import { jidToNumero, registrarWebhookInstancia } from '@/lib/evolution';
+import { runWithWorkspace, getTenantDb, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
+import { fetchMediaBase64EnInstancia, jidToNumero, registrarWebhookInstancia } from '@/lib/evolution';
+import { grupoSeGuarda } from '@/lib/grupos-guardados';
+import { conMediaDelMomento } from '@/lib/grupos-guardados-media';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 import { taparClaves } from '@/lib/claves-en-el-chat';
 import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
@@ -266,6 +268,29 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // ── LOS GRUPOS QUE SE GUARDAN (lib/grupos-guardados.ts: Makito), 27/10/2026 (MK-01) ───────────────────────────────
+      // ⚠️ NUNCA SE GUARDABAN. El pedido del 27/09 se dio por hecho, pero los grupos se separaban acá arriba y sólo los 1-a-1
+      // llegaban a `guardarMensajeUpsert`: su puerta de grupos (lib/evolution-mensajes.ts) no se alcanzaba nunca, y el test
+      // la probaba a ella, no a esta ruta. Ahora se guardan SINCRÓNICO (como el 1-a-1: `after` no es durable), con la media
+      // bajada EN EL MOMENTO (el CDN de WhatsApp deja de servirla a los ~15 días) y en el workspace de la PLATAFORMA:
+      // ⚠️ nunca en `ws`, que para la línea de voz es OWNER_WS, el ws1 de Mauricio, un CLIENTE.
+      const aGuardar = grupos.filter((m) => grupoSeGuarda(((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? ''));
+      let grupoGuardados = 0;
+      if (aGuardar.length) {
+        const plataforma = await wsSuperAdmin().catch(() => null);
+        if (plataforma == null) console.error('[webhook:evolution] grupo guardado: no sé cuál es el workspace de la plataforma; no se guarda');
+        else {
+          await runWithWorkspace(plataforma, async () => {
+            for (const m of aGuardar) {
+              try {
+                await guardarMensajeUpsert(instance, (await conMediaDelMomento(instance, m, fetchMediaBase64EnInstancia)) as never);
+                grupoGuardados += 1;
+              } catch (e) { console.error(`[webhook:evolution] guardar grupo: ${e instanceof Error ? e.message : String(e)}`); }
+            }
+          });
+        }
+      }
+
       // 1-a-1 (espejo del inbox del cliente): rápido, sincrónico. La línea SuperAdmin no
       // espeja (sus DMs no se mezclan con los del cliente).
       let errores = 0;
@@ -277,7 +302,7 @@ export async function POST(req: NextRequest) {
         });
       }
       await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
-      return Response.json({ ok: true, guardados: unoAuno.length - errores });
+      return Response.json({ ok: true, guardados: unoAuno.length - errores, ...(aGuardar.length ? { grupoGuardados } : {}) });
     }
 
     // ⚠️ DE ACÁ PARA ABAJO NADA ES DEL DOER. Las líneas de MaKo (canal y voz) existen para

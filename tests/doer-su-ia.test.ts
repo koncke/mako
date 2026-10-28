@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pinDelDoer } from '../lib/doer-modelo';
 
 const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -33,7 +34,10 @@ test('1. con su IA, los candidatos del doer son su Gemini y su OpenAI (IA16: su 
   assert.match(DOER, /const iaDelNegocio = await negocioConSuIA\(wsData\);\s*const suIA = iaDelNegocio\.suIA;/);
   assert.match(DOER, /const cands = suIA \? \[\.\.\.PROVS_SU_IA\] : \[pinL\.provider, 'openai'\]/);
   assert.match(DOER, /import \{ PROVS_SU_IA \} from '@\/lib\/solo-su-ia';/);
-  assert.match(DOER, /const pinL = pin && pin\.provider !== 'anthropic' \? pin : suIA \? \{ provider: 'openai'/, 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');
+  // El pin vive en lib/doer-modelo.ts desde el 27/10/2026 (el modelo por defecto de la app, no `gpt-4o-mini` fijo).
+  assert.match(DOER, /const pinL = pinDelDoer\(pin, suIA\);/, 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');
+  assert.equal(pinDelDoer(null, true)?.provider, 'openai', 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');
+  assert.equal(pinDelDoer({ provider: 'anthropic', model: 'claude' }, true)?.provider, 'openai', 'un pin a Claude dejó sin loop barato');
 });
 
 test('2. después de su OpenAI, su Claude por la puerta 2 — sólo si el turno no ejecutó nada — y sin la red de la plataforma', () => {

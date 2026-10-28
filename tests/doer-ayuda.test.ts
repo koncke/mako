@@ -11,7 +11,7 @@
 //   1. el estado guardado vale 30 minutos y lo que no se reconoce es «no hay oferta»;
 //   2. qué cuenta como «sí», «no», «listo» y «no me sale» (y lo demás sigue su camino);
 //   3. la guía va de a un paso, con el link sólo al principio, y si es una clave dice que se pega en el link;
-//   4. al verificar: conectado → la que sigue; no conectado → el link de nuevo, y el ticket sólo si quedó propuesto;
+//   4. al verificar: conectado → la que sigue; no conectado → el link de nuevo, y el ticket sólo si se abrió;
 //   5. un problema en medio de la guía arma el ticket con lo que dijo y en qué paso;
 //   6. el doer lo atiende ANTES de la IA, deja la oferta en los carteles, propone el ticket al ofrecerlo y lo confirma con el «sí»;
 //   7. ningún texto pide una clave por el chat, ni promete, y todo va en tú.
@@ -22,6 +22,7 @@ import {
   leerEstadoAyuda, ofertaDeAyuda, guiaEn, ticketOfrecido, respuestaAyuda, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket,
   claveAyuda, VIGENCIA_AYUDA_MS, OFERTA_AYUDA, OFERTA_TICKET, NO_AHORA, ENTIENDO, ticketMandado, TICKET_NO_SALIO,
 } from '../lib/doer-ayuda';
+import { LINEA_YA_AVISADO } from '../lib/no-pude';
 import { conexion } from '../lib/conexiones-catalogo';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import { promesasDe } from '../lib/doer-salida';
@@ -73,7 +74,7 @@ test('3. la guía va de a un paso, con el link sólo al principio', () => {
   assert.match(textoDelPaso(conexion('whatsapp')!, [], 0, 'https://hola-mako.com/chats?conectar=whatsapp'), /responde «listo»/);
 });
 
-test('4. al verificar: conectado → la que sigue; no conectado → el link de nuevo, y el ticket sólo si quedó propuesto', () => {
+test('4. al verificar: conectado → la que sigue; no conectado → el link de nuevo, y el ticket sólo si se abrió', () => {
   const gpt = conexion('openai')!;
   const ok = despuesDeVerificar(gpt, true, ['openai', 'fathom'], LINK, AHORA);
   // El nombre real de la tarjeta («OpenAI API» desde el rediseño de Settings, 25/10/2026), del catálogo.
@@ -88,9 +89,11 @@ test('4. al verificar: conectado → la que sigue; no conectado → el link de n
   assert.match(no.texto, /\(la clave no es válida\)/);
   assert.match(no.ticket?.descripcion ?? '', /la clave no es válida/);
   assert.doesNotMatch(no.texto, /ticket/i, 'el texto ofrece un ticket que todavía no se propuso');
-  assert.match(conTicket(no.texto, true), /levanto un ticket/);
-  assert.match(conTicket(no.texto, false), /Reportar problema/);
-  assert.doesNotMatch(conTicket(no.texto, false), /Responde «sí»/, 'ofrece un «sí» sin nada que confirmar');
+  // Desde el 28/10/2026 el ticket se ABRE solo (la regla de Martín del 27/10): su número, «Ya estaba avisado», o el camino a mano.
+  assert.ok(conTicket(no.texto, { id: 51, nuevo: true }).endsWith('\n\nQuedó el ticket #51 para el equipo de MaKo.'));
+  assert.ok(conTicket(no.texto, { id: 51, nuevo: false }).endsWith(LINEA_YA_AVISADO));
+  assert.match(conTicket(no.texto, null), /Reportar problema/);
+  for (const t of [{ id: 51, nuevo: true }, { id: 51, nuevo: false }, null]) assert.doesNotMatch(conTicket(no.texto, t), /Responde «sí»|levanto un ticket/i, 'vuelve a ofrecer un ticket y esperar el «sí»');
   // «No pude comprobar» no es «no está conectado».
   assert.match(despuesDeVerificar(gpt, null, ['openai'], LINK, AHORA).texto, /No pude comprobar/);
 });
@@ -101,17 +104,20 @@ test('5. un problema en medio de la guía arma el ticket con lo que dijo y en qu
   assert.match(t.descripcion, /paso 2 .*«no me sale el botón de la API»/);
 });
 
-test('6. el doer lo atiende ANTES de la IA, deja la oferta en los carteles, propone el ticket y lo confirma con el «sí»', () => {
+test('6. el doer lo atiende ANTES de la IA, deja la oferta en los carteles y ABRE el ticket cuando la guía no alcanza', () => {
   const doer = sinComentarios(leer('../lib/mako-doer-in.ts'));
   const iAyuda = doer.indexOf('const ayuda = await atenderAyuda(');
   assert.ok(iAyuda > 0, 'el doer no atiende la oferta de ayuda');
   assert.ok(iAyuda < doer.indexOf('const ruta = { ...rutaBase'), 'la oferta se atiende después de rutear a la IA (sin IA no contesta nadie)');
   assert.ok((doer.match(/setSetting\(claveAyuda\(jid\), JSON\.stringify\(ofertaDeAyuda\(/g) ?? []).length >= 3, 'un cartel (texto, audio o lo que falta) no deja la oferta guardada');
-  // El ticket: se propone por el registro al ofrecerlo, y el «sí» siguiente lo confirma.
-  assert.match(doer, /runRegistro\(LEVANTAR_TICKET, \{ tipo: 'bug', titulo: t\.titulo, descripcion: t\.descripcion \}\)/);
+  // El ticket se ABRE solo (28/10/2026): uno por conversación, con lo que no le salió, y nada queda esperando un «sí».
+  assert.match(doer, /return ticketDeNoPude\('texto', \{ ws, actor: actor \?\? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido: texto \}/);
+  assert.equal((doer.match(/await guardar\(null\);\n\s*return conTicket\([^,]+, await abrirTicketDeLaGuia\(ws, jid, texto, actor, /g) ?? []).length, 2, 'un camino de la guía vuelve a proponer el ticket');
+  assert.doesNotMatch(doer, /runRegistro\(LEVANTAR_TICKET/, 'la guía vuelve a proponer el ticket y esperar el «sí»');
+  // Una oferta guardada antes de este cambio todavía se confirma con su «sí», mientras viva.
   assert.match(doer, /confirmarPendiente\(ctxAyuda, estado\.pendienteId\)/);
   // Lo atiende el código: nada de esto pasa por un modelo.
-  const fn = doer.slice(doer.indexOf('async function atenderAyuda('), doer.indexOf('async function proponerTicket('));
+  const fn = doer.slice(doer.indexOf('async function atenderAyuda('), doer.indexOf('async function abrirTicketDeLaGuia('));
   assert.doesNotMatch(fn, /chatCheap|chatClaude|transcribirAudio/, 'la guía llama a una IA');
 });
 
@@ -121,7 +127,7 @@ test('7. ningún texto pide una clave por el chat, ni promete, y todo va en tú'
   const textos = [
     OFERTA_AYUDA, OFERTA_TICKET, NO_AHORA, ENTIENDO, ticketMandado('Listo, es el ticket #42. Sigue…'), ticketMandado(null), TICKET_NO_SALIO,
     textoDelPaso(gpt, ['a', 'b'], 0, LINK), textoDelPaso(gpt, ['a', 'b'], 1, LINK),
-    despuesDeVerificar(gpt, true, ['openai', 'fathom'], LINK, AHORA).texto, conTicket(no, true), conTicket(no, false),
+    despuesDeVerificar(gpt, true, ['openai', 'fathom'], LINK, AHORA).texto, conTicket(no, { id: 51, nuevo: true }), conTicket(no, { id: 51, nuevo: false }), conTicket(no, null),
   ];
   assert.equal(ticketMandado('Listo, es el ticket #42. Sigue…'), 'Listo: el equipo de MaKo ya tiene tu ticket #42. Cuando esté resuelto, el aviso llega por este grupo.');
   for (const t of textos) {

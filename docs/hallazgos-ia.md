@@ -7105,6 +7105,27 @@ proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sost
 tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
 *2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*
 
+---
+
+## Cada fila de `anthropic_usage` es un pedido para la cuota del día: una marca nueva no puede repetir la de otra (27/10/2026)
+
+**Síntoma** (al entregar la rama de MaKo en WhatsApp, leyendo el código): un 429 de Gemini que cubría `flash-lite` dejaba DOS
+filas del mismo pedido: `rebote429:<modelo>` (`anotarRebote429`) y `rebote:<modelo>`, la nueva que cuenta las bajadas de modelo
+desde la base.
+
+**La trampa:** `plegarUso` (lib/ia-cuotas-calculo.ts) suma CADA fila como un pedido del día, también las de 0 tokens. Es a
+propósito: un rebote viajó y el proveedor lo contó. Con dos filas por pedido, la barra de la cuota se infla y `ordenarPorCuota`
+deja antes esa cuenta.
+
+**La regla:** antes de escribir una fila de marca nueva, se mira si otra fila ya anota ESE pedido. Si no es una llamada que
+contestó, va también en `MARCAS_NO_CONTESTO` (lib/su-clave-reglas.ts).
+
+**Vive en:** lib/ai-cheap.ts (`chatCheapTools`, la condición `tipo !== 'cuota'`) · lib/ia-cuotas-calculo.ts (`plegarUso`) ·
+tests/doer-modelo.test.ts ·
+*2026-10-27, chat «MaKo en WhatsApp: conexiones» (claude4)*
+
+---
+
 ## MaKo inventaba funciones, y el pedido no le llegaba a nadie (27/10/2026, claude5)
 
 **Síntoma:** Leandro (ticket 874749710-14): MaKo le describió «un bloque de Instagram con tope de comentarios» que no existe.
@@ -7239,6 +7260,29 @@ botón de ignorar cada uno, y lo ignorado no entra a ningún lado y se puede des
 Martín: hoy la regla de `mako-pc` es no tocarlo.
 
 **Vive en:** `scripts/ia-pc/mako-pc.mjs` (la cabecera: «no toca ~/.claude») · `lib/centro-turnos-db.ts`
+
+## Un «no puedo» de MaKo casi nunca es «no existe»: los 10 de Leila en dos días (27/10/2026, Cerebro)
+
+**Vive en:** `lib/mako-intencion.ts` · `lib/doer-herramientas.ts` · `lib/mako-analyst-lead.ts` · `lib/editor-video/chat-catalogo.ts`
+
+- **El síntoma:** Leila (ws11) pide editar algo y MaKo le dice que no puede, cuando sí se podía. Martín (27/10, 20:37):
+  «siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un ticket».
+- ⚠️ **Ninguno de los 10 era algo que no existe.** Las causas, medidas con los datos de producción:
+  - **El catálogo del chat no tiene lo que la pantalla sí:** «¿Puedes eliminar los silencios?» → «No puedo», con el botón
+    «Borrar silencios» ahí desde el 14/10. El prompt dice «SOLO PUEDES USAR ESTAS OPERACIONES» y la op no está.
+  - **La regla 9-bis del clasificador:** un mensaje que arranca con «No…» y tiene ≤60 caracteres da `charlar` y 0
+    herramientas («No me deja editar sus cuotas», «No puedo cambiar la fecha de la cuota 2»). La regex `CONFIRMACION`
+    NO es la que se arregla: la usan `corrigeAgenda` y la regla 1 (hallazgos-comunicacion, «no, movela al viernes»).
+  - **El modo «Editar» de la ficha se adueña del pedido:** `PISTA_EDICION_FICHA` lo vuelve «diseño» y no viajan
+    `editar_cuota`, `editar_venta_lead` ni `guardar_cuotas`; además la pantalla traba los montos en ese modo.
+  - **Las cuotas exigen la palabra «cuota»:** «fechas y cantidades de pago» o «quincena» no suman el área cobros, y el
+    presupuesto de 12000 deja afuera `guardar_cuotas`. Así nació el ticket #13, un «no existe» falso.
+  - **La IA del cliente sin crédito:** todo cae a gpt-4o-mini, que promete («Voy a…») sin mandar la op.
+- **La regla:** antes de declarar «no existe» (y de que un ticket automático lo diga), mirar el clasificador y el
+  catálogo de esa superficie. El ticket automático lleva su `causa` (no-existe, ruteo, herramienta, ejecución, texto), y
+  el título nunca es el texto del modelo.
+- **Quién:** MaKo inteligente (el ruteo y la base del ticket, sobre la rama c4), MaKo en WhatsApp y Motion. Diagnóstico:
+  workflow `wf_80b91164-275` del Cerebro.
 
 **La revisión del 28/10/2026 de los «no puedo» falsos (claude4):**
 - **En México «quincena» es de todos los días** («la segunda quincena», «las ventas de la quincena son 12»): sólo cuenta como

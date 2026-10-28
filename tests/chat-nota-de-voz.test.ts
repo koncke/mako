@@ -49,14 +49,14 @@ test('2. toda caja de chat graba: con `voz` la manda la pantalla; sin `voz`, se 
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <CajaConNota \{\.\.\.p\} \/>;/);
   assert.doesNotMatch(c, /grabacion=\{null\}/, 'ninguna caja sin grabación: el micrófono ya no dicta en un chat');
-  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic, onNota: p\.onNota \}\);/,
+  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic, onNota: p\.onNota, onGrabada: p\.onGrabada \}\);/,
     'manda con el `onMandar` de la pantalla (el Ops Center lo firma en el dispositivo)');
   assert.match(c, /const enviando = !!p\.enviando \|\| transcribiendo \|\| leidos\.leyendo;/, 'mientras se pasa a texto, la caja está saliendo');
   // Con «Reportar a Soporte» desde el 24/10/2026: un error es un aviso (tests/reportar-a-soporte.test.ts).
   assert.match(c, /\{nota\?\.error && !p\.onErrorMic && <p className="co-caja__estado" role="alert">\{nota\.error\}<ReportarASoporte \/><\/p>\}/, 'si no salió, se dice');
 
   const n = sinComentarios(leer('app/_chat/nota-que-se-manda.ts'));
-  assert.match(n, /mp3 = await notaEnMp3\(blob\);[\s\S]{0,200}?transcribirNota\(mp3, 90_000, 'chat'\)/, 'MP3 antes de transcribir: el webm de Chrome no lo toma');
+  assert.match(n, /mp3 = await notaEnMp3\(blob\);[\s\S]{0,200}?transcribirNota\(mp3, 300_000, 'chat'\)/, 'MP3 antes de transcribir: el webm de Chrome no lo toma');
   assert.match(n, /if \(listaParaMandar\(pendiente, texto\)\) \{ setPendiente\(null\); mandar\.current\(\); \}/);
   assert.match(n, /if \('error' in r\) \{ decir\(r\.error\); return; \}/, 'una nota fallida no pone nada en la caja');
 });
@@ -96,7 +96,7 @@ test('5. el dictado queda sólo donde se escribe un texto', () => {
 });
 
 test('6. la transcripción de una nota de chat se anota con su motivo', () => {
-  assert.match(leer('app/_components/useDictar.ts'), /if \(para\) fd\.append\('para', para\);/);
+  assert.match(leer('app/_components/transcribir-nota.ts'), /if \(para\) fd\.append\('para', para\);/);
   const r = leer('app/api/plan-dictado/route.ts');
   assert.match(r, /const motivo = form\.get\('para'\) === 'chat' \? 'Nota de voz de un chat' : 'Dictar una tarea del plan';/);
   assert.match(r, /transcribirAudio\(base64, file\.type \|\| 'audio\/webm', \{ motivo, pii: true \}\)/, 'sigue siendo un dato de un cliente (`pii`)');

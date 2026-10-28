@@ -71,8 +71,9 @@ export type EstadoSuClave = {
 export const textoDelGasto = (usd: number | undefined): string =>
   (usd && usd >= 0.005 ? `Gastó US$ ${usd.toFixed(2)} en los últimos 30 días` : 'Sin gasto en los últimos 30 días');
 
-/** Las filas que no son una llamada que contestó: los bloqueos del veto, los rebotes por cuota y los fallos. */
-const MARCAS_NO_CONTESTO = ['vetado:', 'rebote429:', PREFIJO_FALLO];
+/** Las filas que no son una llamada que contestó: los bloqueos del veto, los rebotes por cuota, los fallos y el modelo que
+ *  falló antes de su respaldo (`rebote:`, lib/ai-cheap.ts, 27/10/2026). */
+const MARCAS_NO_CONTESTO = ['vetado:', 'rebote429:', 'rebote:', PREFIJO_FALLO];
 const esLlamadaQueContesto = (f: FilaUsoClave): boolean => !MARCAS_NO_CONTESTO.some((m) => (f.model ?? '').startsWith(m));
 
 /**

@@ -200,5 +200,6 @@ test('CABLEADO: el movimiento de etapa arma su estado con estadoDelMovimiento (y
   const fn = cuerpoDe(sinComentarios(crudo('../lib/leads.ts')), 'export async function setPipelineStage(');
   assert.match(fn, /const sync: LeadUpdateInput = \{ \.\.\.estadoDelMovimiento\(antes\?\.estado_lead, estado\) \};/,
     'el movimiento volvió a armar el estado a mano');
-  assert.match(fn, /await updateLead\(id, sync\)/);
+  // `etapaAparte` (27/10/2026): la columna la escribe este mismo movimiento, justo después (tests/estado-contra-columna.test.ts).
+  assert.match(fn, /await updateLead\(id, sync, \{ etapaAparte: true \}\)/);
 });

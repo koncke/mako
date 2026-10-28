@@ -45,7 +45,9 @@ test('1. dos columnas: la Bandeja son chips arriba de la lista, y el contacto ar
   // Los filtros van ADENTRO de la lista (su cabecera), no como otra columna.
   assert.match(app, /filtros=\{\(\s*<FiltrosChats\b/, 'los filtros no van en la cabecera de la lista');
   const filtros = fuente('app/chats/FiltrosChats.tsx');
-  assert.equal((filtros.match(/<Dropdown\b/g) ?? []).length, 3, 'son tres chips: Todos, Canales y Etapa');
+  // Cuatro desde el 27/10/2026: «Funnel» entre Canales y Etapa, y sólo con dos o más funnels (Mauricio: el Sprint).
+  assert.equal((filtros.match(/<Dropdown\b/g) ?? []).length, 4, 'son los chips Todos, Canales, Funnel y Etapa');
+  assert.match(filtros, /\{funnels\.length > 1 && \(\s*<Dropdown/, 'el chip «Funnel» aparece con un solo funnel');
   // El contacto: cerrado salvo que la persona lo haya dejado abierto (clave nueva: la vieja lo abría solo).
   assert.match(app, /setDrawerAbierto\(leerLocal\(st, ws, 'contacto'\) === '1'\)/, 'el contacto no arranca cerrado');
   assert.doesNotMatch(app, /ANCHO_DRAWER|'drawer'/, 'volvió a abrirse solo en pantallas anchas');
@@ -58,7 +60,7 @@ test('1. dos columnas: la Bandeja son chips arriba de la lista, y el contacto ar
   assert.doesNotMatch(ventana, /Ico n="panel"/, 'volvió el botón del panel a la cabecera');
 });
 
-test('2. la cabecera del chat: el nombre, la etapa, Cerrar y «⋯»; asignar y posponer viven en el «⋯»', () => {
+test('2. la cabecera del chat: el nombre, la etapa, Cerrar con su flechita (posponer, con nota) y «⋯» (lo del CRM)', () => {
   const v = fuente('app/chats/VentanaChat.tsx');
   const cab = v.slice(v.indexOf('<header className="rio-cab rio-cab-v">'), v.indexOf('</header>'));
   assert.ok(cab.length > 500, 'no encontré la cabecera');
@@ -66,22 +68,34 @@ test('2. la cabecera del chat: el nombre, la etapa, Cerrar y «⋯»; asignar y 
   // Lo que se toca de un vistazo: el estado (Cerrar / Reanudar / Reabrir) y el «⋯».
   assert.match(cab, /onClick=\{\(\) => void cambiarEstado\('cerrar'\)\}/);
   assert.match(cab, /aria-label="Más acciones"/);
-  // Asignar, posponer y la nota de cierre son vistas del «⋯», con su ‹ para volver.
-  for (const vista of ['asignar', 'posponer', 'cerrar']) {
-    assert.match(cab, new RegExp(`\\{menu === '${vista}' && \\(`), `«${vista}» no es una vista del «⋯»`);
+  // Asignar, «Agregar al CRM en», posponer y la nota de cierre son vistas, con su ‹ para volver: las dos primeras al «⋯»,
+  // posponer a la flechita de «Cerrar» (27/10/2026, Martín: el «⋯» «no debería decir nada de "Cerrar" o posponer»).
+  for (const vista of ['asignar', 'agregar', 'posponer', 'cerrar', 'cierre']) {
+    assert.match(cab, new RegExp(`\\{menu === '${vista}' && `), `«${vista}» no es una vista`);
   }
-  assert.equal((cab.match(/className="rio-menu-volver" onClick=\{\(\) => setMenu\('mas'\)\}/g) ?? []).length, 2, 'Asignar y Posponer sin su ‹ volver');
+  assert.equal((cab.match(/className="rio-menu-volver" onClick=\{\(\) => setMenu\('mas'\)\}/g) ?? []).length, 2, 'Asignar y Agregar sin su ‹ volver');
+  assert.match(cab, /className="rio-menu-volver" onClick=\{\(\) => setMenu\('cierre'\)\}/, 'Posponer no vuelve a la flechita de Cerrar');
+  const mas = cab.slice(cab.indexOf("{menu === 'mas' && ("), cab.indexOf("{menu === 'asignar' && ("));
+  assert.ok(mas.length > 100, 'no encontré el «⋯»');
+  assert.doesNotMatch(mas, /setMenu\('posponer'\)|setMenu\('cerrar'\)|Cerrar con nota/, 'el «⋯» volvió a ofrecer cerrar o posponer');
+  assert.match(mas, /sePuedeAgregar\(chat\)/, 'el «⋯» no ofrece «Agregar al CRM»');
   // Abajo del nombre, de quién es (el asignado salió de la cabecera).
   assert.match(v, /chat\.asignado \? `Asignada a \$\{chat\.asignado\}` : 'Sin asignar'/);
 });
 
-test('3. «Agregar al CRM» está en UN lugar: la cabecera del chat', () => {
+test('3. el BOTÓN «Agregar al CRM» está en UN lugar (la cabecera); los «⋯» lo ofrecen como opción (27/10/2026)', () => {
   const conBoton = readdirSync(join(RAIZ, 'app/chats')).filter((f) => f.endsWith('.tsx'))
     .filter((f) => /<BotonAgregarAlCrm\b/.test(fuente(`app/chats/${f}`)));
   assert.deepEqual(conBoton, ['VentanaChat.tsx'], 'el botón de alta apareció en otra pieza de Chats');
   const v = fuente('app/chats/VentanaChat.tsx');
   assert.equal((v.match(/\{botonAlta\}/g) ?? []).length, 1, 'la ventana dibuja el alta más de una vez');
-  assert.doesNotMatch(v, /<ItemMenu[^>]*>Agregar al CRM<\/ItemMenu>/, 'el «⋯» volvió a ofrecer el alta');
+  // Martín (27/10/2026): en el «⋯» «deberían haber otras opciones, entre esas, la de agregar al CRM». El de la cabecera y el
+  // de cada fila de la lista, por el MISMO alta (app/chats/agregar-al-crm.ts).
+  assert.match(v, /'Agregar al CRM'\}/, 'el «⋯» de la cabecera no ofrece el alta');
+  const lista = fuente('app/chats/ListaChats.tsx');
+  assert.match(lista, /label: 'Agregar al CRM'/, 'el «⋯» de la fila no ofrece el alta');
+  assert.doesNotMatch(lista, /tipo: 'cerrar'|tipo: 'posponer'|opcionesPosponer/, 'el «⋯» de la fila volvió a cerrar o posponer');
+  assert.match(fuente('app/chats/ChatsApp.tsx'), /await agregarChatAlCrm\(c, a\.funnelId\)/, 'la fila no usa el alta compartida');
   // Un grupo no se agrega: sin identidad que dé de alta, no hay botón.
   assert.match(v, /\) : waIdent \|\| socialIdent \? \(\s*<div className="rio-alta-crm">\{botonAlta\}<\/div>\s*\) : null\}/);
   const comp = fuente('app/chats/Composer.tsx');

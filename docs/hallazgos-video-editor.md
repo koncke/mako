@@ -701,6 +701,32 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   el inicio del clip. La caché se indexa por lo que cambia el SONIDO, se descarta lo que nadie usa, y
   durante una vista previa (un arrastre) no se reinicia nada.
 
+## «Eliminar ruido» NO se copió de ningún repo: la distancia con CapCut es de método (27/10/2026, Cerebro)
+
+**Vive en:** `audio/dsp/ruido.ts` · `audio/cadena.ts` (`INTENSIDAD_RUIDO`) · `tests/video-editor-audio.test.ts`
+
+- **El síntoma:** Leila (ws11): «no funciona tan eficientemente como en CapCut». Martín: «lo copiamos de un repo, revisá si
+  lo copiamos bien o nos faltan cosas».
+- ⚠️ **La pregunta era la equivocada.** `ruido.ts` es propio (commit 7e4fb076e, 12/10): una compuerta espectral con un
+  perfil fijo del percentil 15. OpenCut no trae reducción de ruido (ni el classic ni la reescritura) y CapCut usa RNNoise, una
+  red neuronal. No hay constantes «mal copiadas» que volver al original. Corre igual en la vista previa
+  (`audio-manager.ts:663`) y en el export (`media/audio.ts:707`).
+- **Medido** con voz sintética a 48 kHz y la función real:
+  - con ruido rosa, las pausas bajan −11,5 dB contra un piso configurado de −27; deja «ruido musical» del 8 % (0,2 % en la
+    entrada), porque el 5,5 % de los bins de ruido pasa el umbral por azar;
+  - en estéreo, el perfil sale de la mezcla L+R: con ruido independiente por canal, −8,1 dB, y con el micrófono en un solo
+    canal, −4,9;
+  - con un ruido que cambia, casi nada (un perfil por clip); con las pausas en cero digital, nada (el percentil da 0);
+  - la intensidad no es la palanca: de 0,85 a 1 cambia ≤1,2 dB.
+- ⚠️ **El arreglo obvio rompe el audio limpio:** saltear los cuadros de menos de −80 dBFS para sacar el perfil lleva una
+  voz limpia de una SNR de 73,6 a 15,4 dB, porque el perfil sale de los cuadros con voz.
+- **La regla:** el perfil va POR CANAL con la ganancia enlazada, y un canal sin señal no vota en el máximo (si vota, la
+  ganancia queda en 1 y no reduce nada). Lo que acerca a CapCut es RNNoise en WASM, servido desde la app y con el retardo
+  MEDIDO (el worklet junta bloques de 128 en cuadros de 480). Un test de ruido tiene que probar también que una voz LIMPIA
+  queda intacta: el test 5 usa un seno de 440 Hz y no ve nada de esto.
+- **Quién:** el chat de la nube «Motion, Video e Image Editor» (etiquetas `nube/motion-2710-*`). Diagnóstico: workflow
+  `wf_80b91164-275` del Cerebro.
+
 ## El DSP de audio propio: cada fórmula de libro se midió, y estaba corrida
 
 **Vive en:** `audio/dsp/{ruido,intensidad,ritmos,tono}.ts` · `tests/video-editor-audio.test.ts`

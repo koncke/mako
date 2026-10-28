@@ -23,7 +23,7 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 });
 type Fila = { ws: number; estado: string; despacho: string | null; regla: string | null };
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as {
-  error?: string; uno: Fila[]; tres: { aMano: boolean; error: string | null };
+  error?: string; uno: Fila[]; tres: { aMano: boolean; error: string | null; automaticos: number; otros: number };
   ruteo: { causa?: string | null; tipo?: string | null; titulo?: string | null; respuestaMako?: string | null; error?: string };
 };
 

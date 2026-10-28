@@ -506,6 +506,35 @@ del archivo.
 conocen: `sanearReporte`, `ticketDeError` y `sanearContexto`. Ojo: `chat.donde` acepta como mucho 40 caracteres de `[a-z0-9-]`.
 Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
+## Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10/2026, 20:37)
+
+**Vive en:** `lib/no-existe*.ts` (rama `mako-inteligente-2710-c4`) · `lib/tickets-reglas.ts` · `lib/tickets-db.ts` · `lib/mako-turno-app.ts`
+
+- **La decisión de Martín:** «Siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un
+  ticket». Reemplaza, para ese caso, el «MaKo PROPONE la tarjeta» del 17/10.
+- **Medido en producción (14 días, sólo GET):** el detector de «no puedo» marcó 15 de 105 respuestas de la app y 11 de 192
+  de WhatsApp. En ese tiempo sólo se registraron 2 huellas de MaKo. Hoy abren ticket solos únicamente el error de una
+  herramienta y la falla de la IA nuestra. Quedan afuera:
+  - la acción confirmada que falla al ejecutarse;
+  - el «no puedo» que sólo está en el texto;
+  - los carteles de IA;
+  - los chats de los editores.
+- ⚠️ **El vigía no lo cubre:** el cron está apagado en producción, porque no existe la marca `mako.vigia.grupos`, y el
+  script de la sesión avisa por mensaje, no abre tickets.
+- **Decisiones del Cerebro:**
+  - Lo que falla por el proveedor (la IA sin crédito) o por la configuración SÍ abre ticket, como dijo Martín. Abre uno solo
+    por negocio y causa, se cierra solo cuando la condición se resuelve y nunca va al Runner. Un ticket que se cierra
+    sólo con el hito de un deploy quedaría abierto para siempre.
+  - Las negativas legítimas (cobros, borrados, permisos o rol) no abren ticket.
+  - Ningún ticket automático entra por la regla de aprobación de Leila, Leandro y Mauricio.
+  - El tope de los automáticos va aparte del de la persona.
+  - El cliente ve «Quedó el ticket #n», no la oferta con botón.
+- **Trampa:** la rama c4 (`REGLA_NO_EXISTE`) tickeaba sin confirmar los fallos de ruteo como «no existe», con el texto
+  del modelo como título. La base nueva generaliza esa marca a `[[no-pude]]` con la causa. Ver hallazgos-ia, «Un "no
+  puedo" de MaKo casi nunca es "no existe"».
+- **Quién:** MaKo inteligente (la base y la app), MaKo en WhatsApp (su P3 pasa de «propone» a «abre») y Motion (el panel
+  del Video Editor).
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
@@ -694,3 +723,48 @@ documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas,
   es escribir en producción: pide el sí de Martín.
 **La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
 (sólo lectura) y avisa si no está «en curso».
+
+## Soporte sin adjuntos: el «+» sólo daba emojis (28/10/2026)
+
+Martín (28/10): «las personas no están pudiendo usar la ticketera porque nuevamente el chat está mal configurado, solamente
+permite emojis, no permite adjuntar ni archivos ni capturas ni documentos».
+
+- **La causa:** la caja de Soporte (`CajaSoporte`, app/tickets/soporte/PiezasSoporte.tsx; el teléfono usa la misma) montaba la
+  caja compartida SIN `adjuntos`, y sin esa prop el «+» de `CajaChat` sólo ofrece emojis. No falló nada: nunca se cableó.
+  Regla: **una caja de chat nueva nace con adjuntos y voz, o dice por qué no** (lo barre el test de las cajas unificadas).
+- **Dónde quedan, sin migración:** los archivos suben al bucket privado `archivero`, en `<ws>/tickets/<uuid>`
+  (app/api/tickets/adjuntos/route.ts, con el negocio de la SESIÓN), y el ticket guarda sus referencias en el `datos` de su
+  evento (`ticket_eventos.datos`, jsonb, que en los comentarios estaba siempre vacío): el «creado» para lo de la conversación
+  nueva, cada «comentario» para lo de una respuesta. Cada referencia se valida contra el negocio de la sesión
+  (`sanearAdjuntosTicket`): un path de otro negocio no se guarda.
+- ⚠️ **`contexto` del ticket NO sirve para esto:** pasa por `sanearContexto`, una lista blanca que tira sin aviso cualquier clave
+  que no conoce.
+- **El Cerebro los ve** con `scripts/tickets.ts ver <n>` (la sección ADJUNTOS, con un link firmado de 1 hora), y el triage los
+  nombra en su «porque».
+
+### La revisión de 046d9e028: la foto se iba con el ticket SIGUIENTE, y el reintento grababa un «📎» falso (28/10/2026)
+
+La revisión del Cerebro (C:/dev/revisiones/2810-ticketera-046d9e028.md) corrió el hook real con la subida en pausa. Lo que se
+había anotado como «sin hacer» era peor de lo que decía:
+
+- **El síntoma:** en la conversación nueva, el ticket que se levanta mientras una foto sube salía SIN la foto, y la descripción
+  igual decía «📎 foto.jpg». Y la subida que terminaba después se sumaba a la conversación siguiente: la foto se iba con el
+  próximo ticket de esa persona. **La causa:** `mandar()` metía la línea «📎» al relato en el acto y subía con un `.then` suelto
+  que escribía en `delTicket` sin saber de qué conversación era; `mandarTicket` leía `delTicket` en el clic. **La regla:** el
+  mensaje con archivos se ve ya («Enviando…») pero entra al relato recién cuando subió; el ticket ESPERA las subidas en curso
+  («Subiendo archivos…»); una subida que termina en otra conversación (`ref.current` cambió) se descarta.
+- **El reintento:** el turno guardaba el texto VISTO («📎 captura.png»), y «Reintentar» lo mandaba como texto de la persona y sin
+  el archivo; en el historial del equipo no se distingue de un envío real. **La regla:** el turno guarda lo dicho, sus `File` y,
+  si ya subieron, sus referencias (`dicho`, `archivos`, `subidos` en `Turno`): el reintento manda lo mismo y no sube dos veces.
+- **Trampa al arreglarlo:** después de `await` de las subidas, React todavía no volvió a dibujar, así que la tarjeta «de ahora»
+  (un ref sincronizado en un efecto) puede estar vieja. La descripción se completa con los nombres de lo que va con el ticket.
+- **De paso:** el tope es POR TICKET en la conversación nueva (el alta recortaba el sexto en silencio; ahora la caja y las
+  acciones lo dicen); la persona ve sus archivos en el ticket aunque haya escrito algo (`paraElCliente`, sólo nombres); y la
+  ruta pone un tope por día por negocio (30 archivos o 50 MB), contado en el bucket y no en memoria (vale en todas las
+  instancias; si listar falla, no traba).
+- **Cómo se prueba:** `tests/ticketera-subidas.test.ts` arma el hook REAL con esbuild, un mini runtime de hooks (los efectos
+  corren después de cada dibujo) y la subida en pausa. Sirve de molde para probar otro hook sin levantar la app.
+
+**Sin hacer:** el barrido de los archivos huérfanos de `archivero/<ws>/tickets` (una conversación que no se levanta, una
+respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
+(lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.

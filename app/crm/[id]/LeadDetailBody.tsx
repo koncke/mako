@@ -162,7 +162,9 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // solo (lead-view/ProductoDelLead.tsx), sin wizard.
   const pickStage = (key: string) => {
     if (!key || key === currentStage) return;
-    if (pideWizardAlElegir(stages, key)) setMoveTo(key); else setMoverDirecto(key);
+    // La reunión ya cargada (a mano) no abre el wizard: se mueve directo (27/10/2026, `reunionYaCargada`).
+    const reuniones = { fechaJ1: lead.fecha_junta_1, fechaJ2: lead.fecha_junta_2, asistioJ1: lead.asistio_j1, asistioJ2: lead.asistio_j2 };
+    if (pideWizardAlElegir(stages, key, reuniones)) setMoveTo(key); else setMoverDirecto(key);
   };
 
   // ⚠️ LA CABECERA ES LA DEL POP-UP (lead-view/CabeceraLead.tsx), en su caja (`marco`): acá atrás

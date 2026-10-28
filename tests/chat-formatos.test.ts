@@ -59,8 +59,8 @@ test('2. lo que la pantalla toma va a SUS adjuntos y lo demás lo lee la caja; s
   const l = propio(ACCEPT_CHAT);
   l.items = [{ id: 'l1', file: archivo('guion.docx'), tipo: 'document', url: '' }];
   const j = juntarAdjuntos(p, l)!;
-  assert.deepEqual(faltanEnAccept(j.accept), [], 'el «+» y lo arrastrado tienen que ofrecer todo');
-  assert.ok(j.accept.startsWith(ACCEPT_CHAT), 'primero lo que MaKo lee');
+  assert.deepEqual(faltanEnAccept(j.accept ?? ''), [], 'el «+» y lo arrastrado tienen que ofrecer todo');
+  assert.ok((j.accept ?? '').startsWith(ACCEPT_CHAT), 'primero lo que MaKo lee');
   // Lo que la pantalla toma de más sigue en el «+»: el .zip de la carpeta de una landing en Offer.
   const offer = propio(`${ACCEPT_ADJUNTOS_CHAT},.zip`);
   const conZip = juntarAdjuntos(offer, l)!;

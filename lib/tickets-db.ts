@@ -16,6 +16,7 @@ import 'server-only';
 
 import { getSupabaseServer } from './supabase';
 import { taparClaves } from './claves-en-el-chat';
+import { lineaDeAdjuntos, type AdjuntoTicket } from './tickets-adjuntos';
 import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
@@ -195,6 +196,8 @@ async function arreglosDeHoy(): Promise<number> {
 // ── Crear ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 export type NuevoTicket = {
   identidad: Identidad;
+  /** Lo que adjuntó en el chat de Soporte (lib/tickets-adjuntos.ts), ya validado contra su negocio: va en el evento «creado». */
+  adjuntos?: readonly AdjuntoTicket[];
   tipo: TipoTicket | null;
   declaradoPor: 'mako' | 'persona' | 'sistema' | null;
   /** Un ticket que abre la app sola (un error, lib/errores-app.ts): no gasta el tope por día de la persona que lo vio. */
@@ -274,7 +277,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref,
@@ -289,7 +292,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
     return { ok: false, error: faltaTabla(error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
   }
   const id = Number(data.id);
-  await anotar(id, n.declaradoPor === 'sistema' ? 'sistema' : n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal });
+  await anotar(id, n.declaradoPor === 'sistema' ? 'sistema' : n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal, ...(n.adjuntos?.length ? { adjuntos: n.adjuntos } : {}) });
   await anotar(id, 'triage', 'clasificado', triage.porque.join(' '), { tipo: triage.tipo, autoArreglo: triage.autoArreglo, confianza: triage.confianza });
   return { ok: true, id, estado, triage, yaExistia: false };
 }
@@ -338,15 +341,16 @@ export async function miTicket(ws: number, email: string, id: number): Promise<{
 }
 
 /** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
-export async function comentarComoCliente(ws: number, email: string, id: number, texto: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const t = taparClaves(texto.trim()).texto;
+export async function comentarComoCliente(ws: number, email: string, id: number, texto: string, adjuntos: readonly AdjuntoTicket[] = []): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Con archivos (28/10/2026, lib/tickets-adjuntos.ts) puede ir sin texto: el historial dice cuáles.
+  const t = taparClaves(texto.trim()).texto || lineaDeAdjuntos(adjuntos.map((a) => a.nombre));
   if (!t) return { ok: false, error: 'Escribe tu respuesta' };
   if (t.length > TOPES.nota) return { ok: false, error: `Acórtala a ${TOPES.nota} caracteres` };
   const db = getSupabaseServer();
   const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).eq('usuario_email', email.trim().toLowerCase()).maybeSingle();
   if (!tk) return { ok: false, error: 'No encuentro ese ticket' };
   if (tk.estado === 'resuelto' || tk.estado === 'rechazado' || tk.estado === 'duplicado') return { ok: false, error: 'Ese ticket ya está cerrado: levanta uno nuevo' };
-  await anotar(id, 'cliente', 'comentario', t);
+  await anotar(id, 'cliente', 'comentario', t, adjuntos.length ? { adjuntos } : undefined);
   // Si Martín le había preguntado, la respuesta lo devuelve a la bandeja (Intercom: «Waiting on customer» → «In progress»).
   await db.from(T).update({ estado: tk.estado === 'esperando_cliente' ? 'esperando_decision' : tk.estado, updated_at: new Date().toISOString() }).eq('id', id);
   return { ok: true };

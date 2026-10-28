@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { MAKO_SETTER } from './pipeline';
-import type { CanalChat, ChatResumen, EstadoChat, FormatoMsg, IdentidadCanal, ParteTexto } from './chats-tipos';
+import type { CanalChat, ChatResumen, EstadoChat, EtapaEnFunnel, FormatoMsg, IdentidadCanal, ParteTexto } from './chats-tipos';
 import { normalizarEmail } from './chats-email-reglas';
 
 // ── Claves ──────────────────────────────────────────────────────────────────────
@@ -245,6 +245,8 @@ export type LeadDelChat = {
   closer: string | null;
   etapaKey: string | null;
   etapaLabel: string | null;
+  /** Su casa y los funnels a los que se lo agregó, con la etapa en cada uno (el filtro «Funnel» de Chats). */
+  funnels?: EtapaEnFunnel[];
 };
 
 export type ContextoContactos = {
@@ -344,6 +346,7 @@ export function agruparPorContacto(fuentes: readonly FuenteChat[], ctx: Contexto
       sinLeer: sinLeer(ultimaEntrante, ctx.leidos.get(clave)),
       borrador,
       bloqueado: suyas.some((f) => f.identidad.bloqueado),
+      ...(lead?.funnels ? { funnels: lead.funnels } : {}),
     });
   }
   return out.sort((a, b) => desc(a.ultimaFecha, b.ultimaFecha));
@@ -364,7 +367,13 @@ export type FiltroChats = {
   canal: CanalChat | null;
   /** Una cuenta de ese canal (la línea o la cuenta de Zernio), o null = todas las del canal. */
   cuenta: string | null;
-  /** Una etapa del CRM (`leads` → `etapaVigenteDe`), o null = todas. */
+  /**
+   * Un funnel del negocio (27/10/2026, Mauricio: «sólo muestra el funnel principal»), o null = el principal. La etapa se
+   * lee EN ese funnel: las claves de las etapas propias se numeran por funnel (st0, st1…), y la misma clave es otra
+   * etapa en otro producto.
+   */
+  funnel: number | null;
+  /** Una etapa del funnel elegido (`leads` → `etapaVigenteDe`, o la fila de `lead_funnel`), o null = todas. */
   etapa: string | null;
   mostrar: MostrarChats;
   orden: OrdenChats;
@@ -374,8 +383,27 @@ export type FiltroChats = {
 
 /** Lo que la pantalla muestra al entrar: la copia de «All, Newest» de respond.io con «Abiertas». */
 export const FILTRO_INICIAL: FiltroChats = {
-  vista: 'todos', canal: null, cuenta: null, etapa: null, mostrar: 'abiertas', orden: 'recientes', sinResponder: false,
+  vista: 'todos', canal: null, cuenta: null, funnel: null, etapa: null, mostrar: 'abiertas', orden: 'recientes', sinResponder: false,
 };
+
+/**
+ * ¿El contacto está en ese funnel (y en esa etapa de ese funnel)? `funnel` null = el principal (`principal`, su id; null si
+ * no se conoce). Un lead está en su casa y en cada funnel al que se lo agregó (`c.funnels`). Una respuesta sin `funnels`
+ * (vieja) compara la etapa de su casa por la clave, como antes del 27/10/2026.
+ */
+export function enFunnelYEtapa(c: Pick<ChatResumen, 'etapaKey' | 'funnels'>, funnel: number | null, etapa: string | null, principal: number | null = null): boolean {
+  const id = funnel ?? principal;
+  if (id == null || !c.funnels) {
+    if (funnel != null) return false;
+    return !etapa || c.etapaKey === etapa;
+  }
+  const enEse = c.funnels.filter((x) => x.funnelId === id);
+  if (funnel != null && !enEse.length) return false;
+  return !etapa || enEse.some((x) => x.etapaKey === etapa);
+}
+
+/** La clave de un conteo por etapa de UN funnel: `<funnelId>:<etapa>`. */
+export const claveEtapaEnFunnel = (funnelId: number, etapa: string): string => `${funnelId}:${etapa}`;
 
 const igual = (a: string | null | undefined, b: string | null | undefined): boolean => {
   const x = (a ?? '').trim(); const y = (b ?? '').trim();
@@ -435,11 +463,11 @@ export function ordenarChats(chats: readonly ChatResumen[], orden: OrdenChats): 
 }
 
 /** La lista de la pantalla: bandeja + canal/cuenta + etapa + Mostrar + Sin responder, en el orden pedido. */
-export function filtrarChats(chats: readonly ChatResumen[], f: FiltroChats, yo: { nombre: string }): ChatResumen[] {
+export function filtrarChats(chats: readonly ChatResumen[], f: FiltroChats, yo: { nombre: string }, principal: number | null = null): ChatResumen[] {
   return ordenarChats(chats.filter((c) =>
     enVista(c, f.vista, yo)
     && enCanal(c, f.canal, f.cuenta)
-    && (!f.etapa || c.etapaKey === f.etapa)
+    && enFunnelYEtapa(c, f.funnel ?? null, f.etapa, principal)
     && enMostrar(c, f.mostrar)
     && (!f.sinResponder || c.ultimoEntrante)), f.orden);
 }
@@ -473,6 +501,10 @@ export type ConteosBandeja = {
   porCuenta: Record<string, Conteo>;
   /** Por `etapaKey`. */
   porEtapa: Record<string, Conteo>;
+  /** Por funnel (su id): los contactos cuyo lead está en él (su casa o agregado). */
+  porFunnel: Record<number, Conteo>;
+  /** Por `claveEtapaEnFunnel(funnel, etapa)`: la etapa EN ese funnel. */
+  porEtapaEnFunnel: Record<string, Conteo>;
 };
 
 const cero = (): Conteo => ({ abiertas: 0, nuevos: 0 });
@@ -485,6 +517,7 @@ export function contarBandejas(chats: readonly ChatResumen[], yo: { nombre: stri
   const r: ConteosBandeja = {
     todos: cero(), mios: cero(), sinAsignar: cero(), mako: cero(), borradores: cero(), bloqueados: cero(),
     porCanal: { whatsapp: cero(), instagram: cero(), messenger: cero(), email: cero() }, porCuenta: {}, porEtapa: {},
+    porFunnel: {}, porEtapaEnFunnel: {},
   };
   const sumar = (k: Conteo, c: ChatResumen) => {
     if (c.estado === 'abierta') k.abiertas++;
@@ -498,6 +531,11 @@ export function contarBandejas(chats: readonly ChatResumen[], yo: { nombre: stri
     if (atiendeMako(c)) sumar(r.mako, c);
     if (c.borrador) sumar(r.borradores, c);
     if (c.etapaKey) sumar((r.porEtapa[c.etapaKey] ??= cero()), c);
+    const funnels = new Set<number>();
+    const etapasEn = new Set<string>();
+    for (const x of c.funnels ?? []) { funnels.add(x.funnelId); etapasEn.add(claveEtapaEnFunnel(x.funnelId, x.etapaKey)); }
+    for (const k of funnels) sumar((r.porFunnel[k] ??= cero()), c);
+    for (const k of etapasEn) sumar((r.porEtapaEnFunnel[k] ??= cero()), c);
     const canales = new Set<CanalChat>();
     const cuentas = new Set<string>();
     for (const i of c.canales) { canales.add(i.canal); cuentas.add(claveCuenta(i.canal, i.cuenta)); }
