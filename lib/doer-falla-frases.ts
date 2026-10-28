@@ -41,27 +41,68 @@ export function reportaFalla(texto: string): boolean {
  * perdía `agenda_del_dia` y `listar_tareas_plan` frente a las de cobros. Ahora:
  *   · las dos cifras valen sólo con PLATA en el mensaje (US$, $, monto, cuota, pago, mensualidad…), la foto o el PDF que la
  *     acompaña, o «no me deja editar/cambiar/corregir» (el literal de Leila);
- *   · la cifra es de 2 a 8 dígitos (o con miles: «4.235,29»), no pegada a «:» ni a «/» (una hora, una fecha), no un año 19xx o
- *     20xx, y no después de «las», «la», «el», «al» o «del» (las 15, el 20);
+ *   · la cifra es de 2 a 8 dígitos (o con miles: «4.235,29»), no pegada a «:» ni a «/» (una hora, una fecha), y no después de
+ *     «las», «la», «el», «al» o «del» (las 15, el 20);
  *   · «precio» no cuenta: el precio de un producto o de una landing es otra herramienta.
+ * Y LO DE ANTES (la verificación de 4d1d0a010): el seguimiento de Leila SIN foto («son 423, no 4235», después de la foto de la
+ * cuota) no nombra la plata. Si la plata está sólo en lo de antes (`antes`: la foto, la respuesta de MaKo), las cifras tienen que
+ * ser de 3 dígitos o más. Y en los dos casos, dos AÑOS no son un monto (`sonAnios`): un monto de 2000 sí lo es.
  */
-const CIFRA = String.raw`(?<![\d\p{L}:/.,])(?!(?:19|20)\d{2}(?![\d.,]))(?:\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{2,8}(?:[.,]\d{1,2})?)(?![\d\p{L}:/])`;
+const cifra = (minimo: number): string =>
+  String.raw`(?<![\d\p{L}:/.,])(?:\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{${minimo},8}(?:[.,]\d{1,2})?)(?![\d\p{L}:/])`;
 const NO_ES_HORA_NI_FECHA = String.raw`(?<!(?:las|la|el|al|del)\s+)`;
 /** «$423», «US$ 4235»: el signo pegado a la cifra. */
 const MONEDA = String.raw`(?:(?:us)?\$\s?)?`;
-const DOS_CIFRAS = new RegExp([
-  String.raw`${NO_ES_HORA_NI_FECHA}${MONEDA}${CIFRA}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${MONEDA}${CIFRA}`,
-  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${MONEDA}${CIFRA}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${MONEDA}${CIFRA}`,
+const dosCifras = (c: string): RegExp => new RegExp([
+  String.raw`${NO_ES_HORA_NI_FECHA}${MONEDA}${c}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${MONEDA}${c}`,
+  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${MONEDA}${c}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${MONEDA}${c}`,
 ].join('|'), 'iu');
-const HAY_PLATA = /(?:\$|(?<!\p{L})(?:usd|d[oó]lares?|pesos?|ars|mxn|montos?|cuotas?|pagos?|pagad[oa]s?|cobr\p{L}*|mensualidad(?:es)?|importes?|venta)(?!\p{L})|\(envi[oó] (?:una imagen|un pdf)|no me deja (?:editar|cambiar|corregir|modificar))/iu;
+/** Con la plata en el mensaje. */
+const DOS_CIFRAS = dosCifras(cifra(2));
+/** Con la plata sólo en lo de antes: más exigente (ni «10 no 12»). */
+const DOS_CIFRAS_POR_LO_DE_ANTES = dosCifras(cifra(3));
+const HAY_PLATA = /(?:\$|(?<!\p{L})(?:usd|d[oó]lares?|pesos?|ars|mxn|montos?|cuotas?|pagos?|pagad[oa]s?|cobr\p{L}*|mensualidad(?:es)?|importes?|venta)(?!\p{L})|\(envi[oó] (?:una imagen|un pdf)|\(en este mensaje mandé (?:una imagen|un pdf)|no me deja (?:editar|cambiar|corregir|modificar))/iu;
 const PIDE_CORREGIR = new RegExp([
   String.raw`(?<!\p{L})(?:correg|corrij|cambi|edit|arregl|modific)\p{L}*\s+(?:\p{L}+\s+){0,3}(?:montos?|cuotas?|mensualidad(?:es)?|importes?)(?!\p{L})`,
   String.raw`(?<!\p{L})(?:montos?|cuotas?|mensualidad(?:es)?|importes?)\s+(?:\p{L}+\s+){0,3}(?:est[aá]n?|qued[oó]|quedaron|vino|vinieron|sali[oó])\s+mal(?!\p{L})`,
 ].join('|'), 'iu');
 
-export function corrigeUnMonto(texto: string): boolean {
+/**
+ * ¿Las dos cifras son AÑOS? Las dos cerca del año en curso (±5): «la cuota de 2026 no 2025», «vence en 2026 no 2025». Por la
+ * palabra no se sabe: «una cuota de 2000» es un monto, y «de 2026» un año (la verificación de 8cb034a18: mirar el «de» volvía
+ * año a «la cuota es de 2000 no 1500»).
+ */
+function sonAnios(coincidencia: string, ahora: Date): boolean {
+  const n = (coincidencia.match(/\d+(?:[.,]\d+)*/g) ?? []).map((x) => (/^\d{4}$/.test(x) ? Number(x) : NaN));
+  const anio = ahora.getFullYear();
+  return n.length >= 2 && n.every((x) => Number.isFinite(x) && Math.abs(x - anio) <= 5);
+}
+/** Las dos cifras enfrentadas que NO son años, todas las del texto. */
+const correcciones = (re: RegExp, t: string, ahora: Date): string[] =>
+  [...t.matchAll(new RegExp(re.source, `${re.flags}g`))]
+    // Con la moneda pegada («$2024», «2024 no 2026 pesos»), son plata aunque estén cerca del año (la verificación de 9cef25dba).
+    .filter((m) => /\$/.test(m[0]) || CON_MONEDA.test(t.slice((m.index ?? 0) + m[0].length)) || !sonAnios(m[0], ahora))
+    .map((m) => m[0]);
+const CON_MONEDA = /^\s*(?:pesos?|usd|d[oó]lares?|ars|mxn)(?!\p{L})/iu;
+/**
+ * Con la plata sólo en lo de antes, el mensaje tiene que ser LA CORRECCIÓN: «son 423, no 4235», «pero son 423, no 4235,
+ * corregilo», «son 423, no 4235 por favor», «debería ser 423 no 4235», «la de Nadia es 423, no 4235 👍». «son 120 no 150 leads»,
+ * «el código postal es 3300 no 3301» u «oficina 302 no 303» hablan de otra cosa. (La verificación de 8cb034a18: sin el verbo de
+ * corregir ni «por favor», el seguimiento de Leila con una palabra más volvía a perder la corrección.)
+ */
+const SOLO_LA_CORRECCION = /^[\s,.!:;¿?]*(?:(?:pero|son|es|era|eran|no|que|y|o|ojo|perd[oó]n|che|mako|digo|o sea|osea|bueno|en realidad|realmente|ah|eh|ser[ií]an?|deber[ií]an?(?: ser)?|me|deja|editar|cambiar|corregir|modificar|correg[ií]\p{L}*|corr[ií]g\p{L}*|c[aá]mbi\p{L}*|arr[eé]gl\p{L}*|modif[ií]c\p{L}*|por favor|porfa|plis|gracias|lo|ya|pod[eé]s|puedes|est[aá]n?|mal|(?:la|el) de \p{L}+|el|la|los|las|de|del|monto|cuota|total)[\s,.!:;¿?]*)*$/iu;
+
+/** `antes`: lo último de la charla (lo que dijo la persona y lo que contestó MaKo), para el seguimiento que no nombra la plata. */
+export function corrigeUnMonto(texto: string, antes = '', ahora = new Date()): boolean {
   const t = texto || '';
-  return PIDE_CORREGIR.test(t) || (DOS_CIFRAS.test(t) && HAY_PLATA.test(t));
+  if (PIDE_CORREGIR.test(t)) return true;
+  if (HAY_PLATA.test(t)) return correcciones(DOS_CIFRAS, t, ahora).length > 0;
+  if (!antes || !HAY_PLATA.test(antes)) return false;
+  // Mensaje por mensaje: en un lote («ahí está» + «son 423, no 4235») cada uno va en su renglón (`sinPrefijoDeLote`).
+  return t.split(/\n+/).some((linea) => {
+    const [m] = correcciones(DOS_CIFRAS_POR_LO_DE_ANTES, linea, ahora);
+    return !!m && SOLO_LA_CORRECCION.test(linea.replace(m, ' ').replace(/\p{Extended_Pictographic}/gu, ' ').trim());
+  });
 }
 
 /**

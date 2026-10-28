@@ -701,6 +701,8 @@ Y además:
 - **Lo que levanta el SISTEMA** (un error de la app, `declaradoPor: 'sistema'`) tampoco entra por la regla de aprobación.
 Cada uno con su test rojo-verde (tests/no-pude*.test.ts).
 
+
+
 **La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
 - «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
   `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
@@ -768,6 +770,29 @@ había anotado como «sin hacer» era peor de lo que decía:
 **Sin hacer:** el barrido de los archivos huérfanos de `archivero/<ws>/tickets` (una conversación que no se levanta, una
 respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
 (lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.
+
+**La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
+- «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
+  `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
+  (Error guardando setting …)»); una negativa de estado o de configuración no. `esFallaTragada` (lib/no-pude-frases.ts) los separa.
+- La regla mirada en TODA la respuesta tapaba fallas que nombran «el token» o «tu pantalla»: se mira la oración que explica la
+  marca, y la regla tiene que tener forma de regla («se confirma en tu tarjeta», «pega tu clave»), no la palabra suelta. Sólo
+  apaga el «no pude», nunca el «no existe» de la misma respuesta.
+- `yaRegistrado` sólo cuando registrarError DEJÓ ticket, y sólo apaga el «no pude».
+- La clave de un fallo son sus dos primeras palabras con peso: «crear la tarea» y «crear la tarea en el plan» son el mismo.
+- Sin ticket no hay línea: el test rompe la base para probarlo (no alcanza con el tope, que devuelve el último).
+**La regla para medir:** cada arreglo de un detector se prueba también con las frases VECINAS de las del ticket, no sólo con ésas.
+
+**El #16 de Leila, en producción y sin cerrarse (28/10/2026, claude4).** El arreglo (toda caja de chat adjunta y lee cualquier
+documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas, y la obvia era sólo una:
+- No tenía hito: el número iba en el MENSAJE del commit («(ticket #16 de Leila)»), que el cron no lee. Sólo cuenta
+  `tickets: [n]` en el hito de la bitácora del área (ahora en app/admin/dev/second-brain/bitacora.ts).
+- Seguía en «esperando_decision»: `cerrarLosDesplegados` (lib/tickets-cierre.ts) sólo toma «en_curso» y «arreglado». Un
+  ticket que un chat arregla por el pedido de Martín, sin que pase por el mazo, no lo cierra el hito hasta que alguien lo
+  apruebe; aprobado, el cron lo cierra en la vuelta siguiente porque el hito ya está desplegado. Cambiarle el estado a mano
+  es escribir en producción: pide el sí de Martín.
+**La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
+(sólo lectura) y avisa si no está «en curso».
 
 **La otra mitad de base 7 (28/10/2026, claude4): la guarda de una herramienta es una regla aunque el modelo no la explique.**
 - El formato de la marca pide el QUÉ («borrar el lead de Juan»), no el porqué: la red de TEXTO (`esReglaUOpinion` sobre la marca y

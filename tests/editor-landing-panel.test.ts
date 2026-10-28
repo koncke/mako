@@ -336,7 +336,8 @@ test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (co
   assert.equal(modoCajaDe({ tipo: 'diagnostico' }), 'analizar', 'el Diagnóstico sin landing es el cuadro en Analizar');
   assert.equal(modoCajaDe({ tipo: 'diagnostico', docId: 3 }), null);
   // Verificación de la tanda 6: también la copia que ya existe de una página de afuera (`copiaParaAplicar`).
-  assert.match(src, /<PanelDiagnostico\s+key=\{`\$\{derecha\.docId \?\? ''\}\|\$\{derecha\.url \?\? ''\}`\}\s+docId=\{derecha\.docId\}\s+url=\{derecha\.url\}\s+copia=\{derecha\.url \? copiaParaAplicar\(derecha\.url, lista\) : null\}\s+onCerrar=\{cerrarDiagnostico\}\s+onAnalizada=\{sumarAnalizada\}\s+\/>/);
+  assert.match(src, /<PanelDiagnostico\s+key=\{`\$\{derecha\.docId \?\? ''\}\|\$\{derecha\.url \?\? ''\}`\}\s+docId=\{derecha\.docId\}\s+url=\{derecha\.url\}\s+copia=\{derecha\.url \? copiaParaAplicar\(derecha\.url, lista\) : null\}\s+onCerrar=\{cerrarDiagnostico\}\s+onAnalizada=\{sumarAnalizada\}\s+onReplicarPorPartes=\{\(u\) => abrirDerechaEnElClic\(\{ tipo: 'replicar', url: u, auto: true \}\)\}\s+\/>/);
+  // 28/10/2026: «Elegir qué replicar…» del Diagnóstico abre «Replicar landing» con esa página (tests/web-generator-replicar-partes.test.ts).
   // Integración (12/10/2026, PEDIDO 3 del Panel): una página de afuera recién analizada entra a la
   // barra sin recargar, comparada normalizada (no se duplica el renglón). Probado rompiéndolo: sin
   // el `onAnalizada` → 1 fallo; agregando sin comparar (`[{ url, … }, ...l]` siempre) → 1 fallo.

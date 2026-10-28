@@ -55,6 +55,8 @@ export const MAX_INSTRUCCIONES = 5_000;
 export const MAX_PUNTO = 300;
 export const MAX_PUNTOS = 8;
 export const MAX_TITULO_SECCION = 120;
+/** La nota de una sección del esquema (su molde y su ángulo al replicar otra página: `SeccionEsquema.nota`). */
+export const MAX_NOTA_SECCION = 400;
 /** Secciones nuevas que una edición puede agregar de una vez. */
 export const MAX_NUEVAS_POR_EDICION = 10;
 export const MAX_OPCIONES_DISENO = 3;
@@ -299,7 +301,8 @@ export function esquemaDelPedido(e: unknown): Esquema | null {
       // Topes del NODO y no del esquema generado: en «Conservar» un punto es un párrafo entero.
       const puntos = (Array.isArray(r.puntos) ? r.puntos : []).map((p) => str(p, TOPES.caracteresTexto)).filter(Boolean).slice(0, 60);
       const titulo = str(r.titulo, MAX_TITULO_SECCION);
-      return titulo || puntos.length ? { titulo, puntos } : null;
+      const nota = str(r.nota, MAX_NOTA_SECCION);
+      return titulo || puntos.length ? { titulo, puntos, ...(nota ? { nota } : {}) } : null;
     })
     .filter((s): s is SeccionEsquema => !!s)
     .slice(0, MAX_SECCIONES);
@@ -358,7 +361,8 @@ export function pedidoDeTanda(esquema: Esquema, indices: number[]): { esquema: s
     .map((i) => {
       const s = esquema.secciones[i];
       const puntos = s.puntos.length ? s.puntos.map((p) => `- ${p}`).join('\n') : '- (sin puntos: escríbela desde el título)';
-      return `[${i}] ${s.titulo}${i === 0 ? '  (es el HERO: la primera sección de la página)' : ''}${i === esquema.secciones.length - 1 ? '  (es el CIERRE: la última sección, con el llamado a la acción)' : ''}\n${puntos}`;
+      const nota = s.nota ? `\n(Molde de la referencia para esta sección: ${s.nota})` : '';
+      return `[${i}] ${s.titulo}${i === 0 ? '  (es el HERO: la primera sección de la página)' : ''}${i === esquema.secciones.length - 1 ? '  (es el CIERRE: la última sección, con el llamado a la acción)' : ''}${nota}\n${puntos}`;
     })
     .join('\n\n');
   return { esquema: `Título de la página: ${esquema.titulo}\n${mapa}`, pedidas: detalle };
@@ -440,6 +444,8 @@ export function tarjetaDesdeEsquema(s: SeccionEsquema, esPrimera: boolean): Json
  */
 const RE_BOTON_LEIDO = /^\[BOT[ÓO]N\]\s*(.+?)(?:\s*→\s*(.*))?$/i;
 const RE_DESPLEGABLE_LEIDO = /^\[(?:DESPLEGABLE|PESTAÑA)\]\s*(.+?)(?:\s*→\s*(.*))?$/i;
+/** Un subtítulo adentro de la sección (`### …`: las tarjetas de una grilla, los pasos; replicar-estructura.ts, 28/10/2026). */
+const RE_SUBTITULO_LEIDO = /^#{1,6}\s+(.+)$/;
 /** La viñeta que el lector pone adelante de un renglón de lista. */
 const RE_VINETA_LEIDA = /^[•▪]\s+/;
 /** Hasta cuántos botones van en una fila (los mismos que deja la IA: nodoBotones de ia-bloques.ts). */
@@ -456,6 +462,10 @@ export function hrefDeDestinoLeido(d: string | undefined): string {
 
 /** El bloque de un renglón con marca; 'sumado' si se sumó al bloque anterior (un botón más en la fila); null si no tiene. */
 function bloqueDeMarca(p: string, anterior: JsonNodo | undefined): JsonNodo | 'sumado' | null {
+  const sub = RE_SUBTITULO_LEIDO.exec(p.trim());
+  // El tope de un TEXTO y no el de un título de sección: hay páginas que escriben sus testimonios enteros en un h3
+  // (reportei.com, 28/10/2026: con 120 caracteres se perdían 124 palabras de sus citas).
+  if (sub) return titulo(sub[1].trim().slice(0, TOPES.caracteresTexto), 3);
   const b = RE_BOTON_LEIDO.exec(p.trim());
   if (b) {
     const href = hrefDeDestinoLeido(b[2]);
@@ -698,6 +708,57 @@ export function quitarPruebaInventada(t: JsonNodo, material: string): { tarjeta:
     return nodo.content ? { ...nodo, content: nodo.content.map((c) => caminar(c, citas, cifras)) } : nodo;
   };
   return { tarjeta: caminar(t, false, false), quitados };
+}
+
+/**
+ * La otra cara, para una RÉPLICA cuyo texto se escribe de nuevo para el negocio (28/10/2026, replicar-partes.ts): ahí el
+ * material ES la página de OTRO negocio, así que `quitarPruebaInventada` deja pasar justo lo que no puede pasar (sus
+ * testimonios y sus cifras «están en el material»). La regla «de la referencia no pasa nada propio» va en el prompt; lo
+ * que se puede chequear en código, acá:
+ *   · una cita cuyo arranque es TEXTUAL de la original → se vacía (queda el bloque con su placeholder);
+ *   · el `valor` de un ítem de estadísticas con los MISMOS números que la original (de 3 dígitos o más: «3 pasos» no
+ *     es una cifra de nadie) → se vacía el valor;
+ *   · `copiadas`: los renglones de 8 palabras o más que quedaron iguales a la original (no se tocan: sin estructura no
+ *     se sabe qué poner; se cuentan para el log y el aviso).
+ */
+export function quitarPruebaDeLaOriginal(t: JsonNodo, original: string): { tarjeta: JsonNodo; quitados: number; copiadas: number } {
+  const fuente = normalizar(original) + ' ' + String(original ?? '').replace(/\s+/g, ' ');
+  let quitados = 0;
+  let copiadas = 0;
+  const textual = (texto: string, minimo: number) => {
+    if (/\[[^\]]{2,}\]/.test(texto)) return false;
+    const c = normalizar(texto);
+    return c.length >= minimo && fuente.includes(c.slice(0, 40));
+  };
+  // Los números de la original como NÚMEROS ENTEROS («2.100» es 2100), no como subcadenas: con `includes`, «100%» del
+  // negocio se vaciaba porque «100» está adentro de «2.100», y «24/7» porque «24» y «7» aparecen sueltos en cualquier página
+  // (revisión del 28/10/2026). Una cifra es de la original si TODOS sus números están entre los de la original y al menos uno
+  // tiene 3 cifras o más y no es un número redondo de cualquier página (100, 1000).
+  const numerosDe = (t: string) => (String(t ?? '').match(/(?<![\d.,])\d+(?:[.,]\d{3})*(?:[.,]\d+)?(?![\d])/g) ?? []).map((d) => d.replace(/[.,]/g, ''));
+  const deLaOriginal = new Set(numerosDe(original));
+  const GENERICOS = new Set(['100', '1000']);
+  const cifraAjena = (valor: string) => {
+    if (/\[[^\]]*\]/.test(valor)) return false;
+    const nums = numerosDe(valor);
+    if (!nums.length || !nums.some((d) => d.length >= 3 && !GENERICOS.has(d))) return false;
+    return nums.every((d) => deLaOriginal.has(d));
+  };
+  const caminar = (n: JsonNodo, enCitas: boolean, enCifras: boolean): JsonNodo => {
+    if (n.type === 'blockquote' || (enCitas && n.type === NODO.optimizadoItem)) {
+      if (textual(textoDe(n, ' '), 12)) { quitados++; return vaciar(n); }
+    }
+    if ((n.type === 'paragraph' || n.type === 'heading') && textoDe(n, ' ').split(/\s+/).filter(Boolean).length >= 8 && textual(textoDe(n, ' '), 30)) copiadas++;
+    let nodo = n;
+    if (enCifras && n.type === NODO.optimizadoItem) {
+      const valor = String((n.attrs ?? {}).valor ?? '');
+      if (valor && cifraAjena(valor)) { quitados++; nodo = { ...n, attrs: { ...n.attrs, valor: '' } }; }
+    }
+    const variante = n.type === NODO.optimizado ? String((n.attrs ?? {}).variante ?? '') : '';
+    const citas = enCitas || VARIANTES_CITA.has(variante);
+    const cifras = enCifras || VARIANTES_CIFRA.has(variante);
+    return nodo.content ? { ...nodo, content: nodo.content.map((c) => caminar(c, citas, cifras)) } : nodo;
+  };
+  return { tarjeta: caminar(t, false, false), quitados, copiadas };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

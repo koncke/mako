@@ -68,6 +68,8 @@ export type ItemHilo =
       /** enviando · error (no llegó: se puede reintentar) · incierto (no sé si llegó) */
       estado?: 'enviando' | 'error' | 'incierto';
       error?: string;
+      /** una nota de voz que no se entendió: además de «Reintentar», se puede descartar (app/_chat/notas-en-el-acto.ts) */
+      descartable?: boolean;
       /** desde dónde lo escribió la persona («CRM › Ana»: la estrella de una tab, OC6, lib/chat-desde.ts) */
       desde?: string;
       /** los links a la pantalla donde se hace lo pedido (sólo de MaKo, y sólo en esta sesión de la pantalla: el

@@ -61,22 +61,30 @@ export const HERRAMIENTAS_CORRECCION = ['buscar_leads', 'cobranza_lead', 'editar
  * escrituras no viajan a propósito (se OFRECE): por eso no llegaban `editar_venta_lead` ni `editar_cuota` (Leila, hallazgo 6).
  *   · Sin corrección, o un «sí» a algo pendiente (`confirmar`): nada. Con una pendiente, otra `editar_cuota` dejaría dos
  *     pendientes con montos opuestos.
- *   · «capturar» (anotar), una duda, o un pedido de agenda o de mover: la intención queda como está, con su contrato, su
- *     candado de «una adivinanza no crea nada» y su presupuesto (agenda_del_dia, listar_tareas_plan). Las cuatro se suman
- *     después del presupuesto.
- *   · Lo demás («pensar», «consultar», «charlar», o un «actuar» de otra cosa): ACTUAR en cobros y CRM, con su relevancia.
+ *   · Un «capturar» EXPLÍCITO (anotar, sin duda) o un pedido de agenda o de mover: la intención queda como está, con su
+ *     contrato y su presupuesto (agenda_del_dia, listar_tareas_plan). Las cuatro se suman después del presupuesto.
+ *   · Lo demás, también una DUDA («pensar», «consultar», «charlar», un «capturar» dudoso): ACTUAR en cobros y CRM, sin la duda.
+ *     ⚠️ Respetar la duda (82ab77cd8) dejó al seguimiento de Leila sin foto («son 423, no 4235», capturar dudosa) en el camino
+ *     barato SIN herramientas (la verificación de 4d1d0a010). La duda se saca porque el detector ya exige plata a la vista.
+ *     Y ACTUAR trae lo de siempre (la verificación de bb41ede4a): `proponer_tareas_plan` (un borrador del plan, el bug del
+ *     25/08), `confirmar_accion` y `cancelar_accion` (que actúa sin tarjeta). En una corrección no van (`sinEstas`).
+ * `antes`: lo último de la charla, para el seguimiento que no nombra la plata (`corrigeUnMonto`).
  */
-export function laCorreccion(v: VeredictoIntencion, texto: string): { veredicto: VeredictoIntencion; herramientas: readonly string[] } {
-  if (v.intencion === 'confirmar' || !corrigeUnMonto(texto)) return { veredicto: v, herramientas: [] };
+export function laCorreccion(v: VeredictoIntencion, texto: string, antes = ''): { veredicto: VeredictoIntencion; herramientas: readonly string[]; sinEstas: readonly string[] } {
+  if (v.intencion === 'confirmar' || !corrigeUnMonto(texto, antes)) return { veredicto: v, herramientas: [], sinEstas: [] };
   const deAgenda = !!v.mover || (v.relevancia ?? '').includes(RELEVANCIA_AGENDA);
-  if (v.intencion === 'capturar' || v.dudosa || deAgenda) return { veredicto: v, herramientas: HERRAMIENTAS_CORRECCION };
+  if ((v.intencion === 'capturar' && !v.dudosa) || deAgenda) return { veredicto: v, herramientas: HERRAMIENTAS_CORRECCION, sinEstas: [] };
   const areas = [...new Set<Area>([...(v.areas ?? []), 'cobros', 'crm'])];
   const relevancia = [v.relevancia, 'editar venta cuota monto mensualidad cobranza'].filter(Boolean).join(' ');
   return {
-    veredicto: { ...v, intencion: 'actuar', areas, relevancia, porque: `corrige un monto (antes: ${v.porque})` },
+    veredicto: { ...v, intencion: 'actuar', dudosa: false, areas, relevancia, porque: `corrige un monto (antes: ${v.porque})` },
     herramientas: HERRAMIENTAS_CORRECCION,
+    sinEstas: FUERA_DE_LA_CORRECCION,
   };
 }
+
+/** Lo que ACTUAR trae de siempre y una corrección de monto no lleva: el plan y las que resuelven lo pendiente. */
+export const FUERA_DE_LA_CORRECCION = ['proponer_tareas_plan', 'confirmar_accion', 'cancelar_accion'] as const;
 
 const NOMBRE: Record<ProvSuClave, string> = { anthropic: 'tu Claude', openai: 'tu GPT', gemini: 'tu Gemini' };
 

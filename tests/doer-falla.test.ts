@@ -9,13 +9,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
-import { sacarNoPude } from '../lib/no-pude';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const AHORA = Date.parse('2026-10-26T19:00:00Z');
+/** Los años se reconocen por cercanía al año en curso (`corrigeUnMonto`): las pruebas lo fijan. */
+const HOY = new Date(AHORA);
 
 test('1. las frases de Leila son un reporte de falla; un pedido o una pregunta, no', () => {
   for (const f of [
@@ -90,26 +92,54 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   assert.match(c.veredicto.relevancia ?? '', /editar venta cuota monto/);
   assert.match(c.veredicto.porque, /^corrige un monto \(antes: adjunto para interpretar\)$/);
   assert.deepEqual([...c.herramientas], herr);
-  // Capturar y la duda quedan como están (su contrato, el candado de la adivinanza): sólo se suman las cuatro.
+  // Un «capturar» EXPLÍCITO queda como está (su contrato): sólo se suman las cuatro.
+  const anotar: VeredictoIntencion = { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' };
+  assert.equal(laCorreccion(anotar, 'no me deja editar que son 423, no 4235').veredicto, anotar);
+  assert.deepEqual([...laCorreccion(anotar, 'no me deja editar que son 423, no 4235').herramientas], herr);
+  // La DUDA no (la verificación de 4d1d0a010): con plata a la vista, el seguimiento de Leila iba al camino barato sin herramientas.
   for (const v of [
     { intencion: 'capturar', dudosa: true, porque: 'sin señal clara' },
-    { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' },
     { intencion: 'pensar', dudosa: true, porque: 'dudosa' },
   ] as VeredictoIntencion[]) {
     const r = laCorreccion(v, 'no me deja editar que son 423, no 4235');
-    assert.equal(r.veredicto, v, `${v.intencion}${v.dudosa ? ' (dudosa)' : ''} cambió de intención`);
+    assert.deepEqual([r.veredicto.intencion, r.veredicto.dudosa], ['actuar', false], `${v.intencion} (dudosa) quedó con la duda`);
     assert.deepEqual([...r.herramientas], herr);
   }
+  // El seguimiento SIN foto: la plata está en lo de antes (la foto y lo que contestó MaKo), no en «son 423, no 4235».
+  const antes = '(envió una imagen) — mirá\nVeo la cuota de Nadia en USD 4235,29.';
+  const seguimiento: VeredictoIntencion = { intencion: 'capturar', dudosa: true, porque: 'sin señal clara' };
+  for (const f of ['son 423, no 4235', 'pero son 423, no 4235']) {
+    const r = laCorreccion(seguimiento, f, antes);
+    assert.equal(r.veredicto.intencion, 'actuar', `«${f}» con la foto antes no se ve como corrección`);
+    assert.deepEqual([...r.herramientas], herr);
+    assert.deepEqual(laCorreccion(seguimiento, f).herramientas, [], `«${f}» sin nada antes se ve como corrección`);
+  }
+  // Con la plata sólo en lo de antes, más exigente: ni «10 no 12», ni un año.
+  for (const f of ['son 10 no 12 reuniones', 'el año es 2026, no 2025']) assert.ok(!corrigeUnMonto(f, antes, HOY), `«${f}» con plata antes`);
+  // La foto dentro de un lote, y un monto de 2000 con la plata en el mensaje (no es un año).
+  assert.ok(corrigeUnMonto('(en este mensaje mandé una imagen, pero llegó junto a otros mensajes…)\nson 423, no 4235'));
+  for (const f of ['la cuota es 2000 no 1500', 'la cuota es 1500 no 2000', 'cobrale 1990 no 1900 pesos']) assert.ok(corrigeUnMonto(f), `«${f}»`);
+  // La verificación de bb41ede4a: con plata sólo en lo de antes, el mensaje tiene que ser la corrección y nada más; y un año
+  // nombrado como año no es un monto, aunque haya plata en el mensaje.
+  const antesLeads = 'Llevas 14 leads, 3 ventas y 2 pagos pendientes.';
+  for (const [f, a] of [['son 120 no 150 leads', antesLeads], ['el código postal es 3300 no 3301', antes], ['la reunión es en la oficina 302 no 303', antes], ['el lote 145 no 146', antes]])
+    assert.ok(!corrigeUnMonto(f, a), `«${f}» con plata antes se ve como corrección`);
+  for (const f of ['la cuota de 2026 no 2025', 'el pago de 2025 no 2026', 'la cuota vence en 2026 no 2025', '(envió una imagen: el año es 2026, no 2025)'])
+    assert.ok(!corrigeUnMonto(f, '', HOY), `«${f}» toma el año como monto`);
+  // Y la corrección que cambia la intención no trae el plan ni lo que confirma o cancela lo pendiente.
+  assert.deepEqual([...laCorreccion(conFoto, '(envió una imagen) — no me deja editar que son 423, no 4235').sinEstas], [...FUERA_DE_LA_CORRECCION]);
+  assert.deepEqual([...FUERA_DE_LA_CORRECCION], ['proponer_tareas_plan', 'confirmar_accion', 'cancelar_accion']);
+  assert.deepEqual(laCorreccion(anotar, 'no me deja editar que son 423, no 4235').sinEstas, []);
   // Un pedido de agenda o de mover: sin el área ni la relevancia de cobros (el presupuesto es de la agenda).
   const agenda: VeredictoIntencion = { intencion: 'actuar', dudosa: false, porque: 'agenda', relevancia: RELEVANCIA_AGENDA, areas: ['crm'] };
   assert.equal(laCorreccion(agenda, 'la cuota es 423 no 4235').veredicto, agenda);
   // Un «sí» a algo pendiente: nada (otra editar_cuota dejaría dos pendientes con montos opuestos), y sin corrección, nada.
   const si: VeredictoIntencion = { intencion: 'confirmar', dudosa: false, porque: 'sí a lo pendiente' };
-  assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [] });
-  assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [] });
+  assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [], sinEstas: [] });
+  assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [], sinEstas: [] });
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\)\);\n\s*const intencion = correccion\.veredicto;/);
-  assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools, \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
+  assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const intencion = correccion\.veredicto;/);
+  assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools\.filter\(\(t\) => !correccion\.sinEstas\.includes\(t\.name\)\), \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 
 test('7. el ticket de la falla se ABRE solo (Martín, 27/10): la nota pide la marca, y nunca proponerlo ni un «sí»', () => {
@@ -139,10 +169,11 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   const doer = leer('lib/mako-doer-in.ts');
   const iSaneo = doer.indexOf('const saneo = sanearSalida(');
   // Con un error de herramienta ya registrado (la huella), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
-  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0 }, dondeDelGrupo(texto), {});');
+  // (Y con una guarda de herramienta, la regla: test 12.)
+  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), {});');
   assert.ok(iSaneo > 0 && iMarcas > iSaneo, 'las marcas se sacan antes del saneo, o no se sacan');
-  assert.match(doer.slice(iMarcas - 200, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
-  assert.match(doer.slice(iMarcas, iMarcas + 200), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
+  assert.match(doer.slice(iMarcas - 800, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
+  assert.match(doer.slice(iMarcas, iMarcas + 300), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
   assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
   assert.match(doer, /respuesta = conLaLineaDelTicket\(respuesta, await lineaDelCartel\(cartel, dondeDelGrupo\(texto\), errsIA\.join\(' · '\), 'responder'\), causaDelCartel\(cartel\)\);/);
@@ -154,4 +185,90 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   assert.match(doer, /const reglaDeLasMarcas = tools\.length \? `\\n\\n\$\{REGLA_NO_EXISTE\}` : '';/);
   // `levantar_ticket` es para cuando la persona lo pide: lo que falla sale solo.
   assert.match(leer('lib/api-mako/areas/tickets.def.ts'), /Úsala SÓLO cuando la persona lo pide/);
+});
+
+test('10. el seguimiento de Leila con una palabra más sigue siendo la corrección, y un monto 19xx/20xx después de «de» es un monto', () => {
+  // La verificación de 8cb034a18: SOLO_LA_CORRECCION no admitía el verbo de corregir, «por favor», «debería» ni «la de Nadia»,
+  // y en un lote miraba todo junto; y «de 2000» se leía como un año aunque fuera «una cuota de 2000».
+  const foto = '(en este mensaje mandé una imagen: la cuota de Nadia, USD 4235,29)';
+  for (const f of [
+    'es 423 no 4235, corregilo', 'son 423 no 4235, cambialo', 'son 423, no 4235 la de Nadia', 'la de Nadia es 423, no 4235',
+    'son 423, no 4235 por favor', 'en realidad son 423, no 4235 👍', 'son 423, no 4235. Arreglalo', 'debería ser 423 no 4235',
+    'ahí está\nson 423, no 4235', 'pero son 423, no 4235, corrígelo', 'son 2000, no 2500',
+  ]) assert.ok(corrigeUnMonto(f, foto, HOY), `«${f}» con la foto antes no se ve como corrección`);
+  // Lo que habla de otra cosa sigue sin serlo, con la foto antes.
+  for (const f of ['son 120 no 150 leads', 'el código postal es 3300 no 3301', 'oficina 302 no 303', 'vence en 2026 no 2025', 'son 10 no 12'])
+    assert.ok(!corrigeUnMonto(f, foto, HOY), `«${f}» con la foto antes se ve como corrección`);
+  for (const f of ['la cuota es de 2000 no 1500', 'la cuota es de 1500, no de 2000', 'cobrale una cuota de 2000 no de 2500', 'el monto para 2000 no 1500', 'el pago es de 2000 no 2099'])
+    assert.ok(corrigeUnMonto(f, '', HOY), `«${f}» toma el monto como año`);
+  // Dos años de verdad (cerca del año en curso) siguen sin ser un monto, con la plata en el mensaje o antes.
+  for (const f of ['la cuota vence en 2026 no 2025', 'el año es 2026, no 2025, de la cuota']) assert.ok(!corrigeUnMonto(f, '', HOY), `«${f}»`);
+  // Y el turno: con la foto antes, «son 423, no 4235 por favor» va a actuar con las cuatro.
+  const r = laCorreccion({ intencion: 'capturar', dudosa: true, porque: 'sin señal clara' }, 'son 423, no 4235 por favor', foto);
+  assert.deepEqual([r.veredicto.intencion, [...r.herramientas]], ['actuar', [...HERRAMIENTAS_CORRECCION]]);
+});
+
+test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la corrección, y «2024 no 2026 pesos» es plata', () => {
+  // La verificación de 9cef25dba: «son 423 no 4235, ¿lo podés cambiar?» y «cambialo ya» seguían sin verse, y con «pesos» pegado
+  // dos cifras cerca del año se leían como años.
+  const foto = '(en este mensaje mandé una imagen: la cuota de Nadia, USD 4235,29)';
+  for (const f of ['son 423 no 4235, ¿lo podés cambiar?', 'son 423 no 4235, ¿lo puedes cambiar?', 'son 423 no 4235, cambialo ya'])
+    assert.ok(corrigeUnMonto(f, foto, HOY), `«${f}» con la foto antes no se ve como corrección`);
+  assert.ok(corrigeUnMonto('cobrale 2024 no 2026 pesos', '', HOY));
+  assert.ok(corrigeUnMonto('la cuota es $2024 no $2026', '', HOY));
+  // Dos años sin moneda siguen siendo años.
+  assert.ok(!corrigeUnMonto('la cuota vence en 2026 no 2025', '', HOY));
+});
+
+test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pude», como en el turno de la app (base 7)', () => {
+  // MaKo inteligente, e6f58be78: un 400 de una herramienta (`esGuardaDeHerramienta`) cuenta como regla cuando nada falló de verdad.
+  // ⚠️ La verificación de 96e7840e8: con «hubo alguna guarda», una falla TRAGADA o un «no pude» de otra cosa quedaban sin ticket.
+  const guarda = JSON.stringify({ ok: false, error: 'Falta el monto de la venta.' });
+  const tragada = '❌ No se pudo aplicar (Error guardando la venta: duplicate key value violates unique constraint).';
+  const tragadaJson = JSON.stringify({ ok: false, error: 'No pude cargar la venta (Error guardando: timeout).' });
+  assert.ok(esGuardaDeHerramienta(guarda) && !esFallaTragadaDeHerramienta(guarda));
+  for (const t of [tragada, tragadaJson]) assert.ok(esFallaTragadaDeHerramienta(t) && !esGuardaDeHerramienta(t), t);
+  assert.ok(!esFallaTragadaDeHerramienta({ content: 'Error 500', isError: true }), 'un isError ya lo ve errorParaTicket');
+  // El turno: la regla sólo si la ÚLTIMA fue la guarda y nada falló de verdad.
+  // El turno, como lo arma el doer: cada salida pasa por `laUltimaFueGuarda` (una lectura que anduvo no cambia la última), y lo que
+  // REVIENTA (`REVIENTA`) apaga la última y cuenta como tragada (la verificación de tren-t).
+  const REVIENTA = Symbol('throw');
+  type Salida = unknown | [unknown, 'escribe' | 'lee'];
+  const turno = (salidas: Salida[], errores = 0) => {
+    let ultima = false; let tragadas = 0;
+    for (const s of salidas) {
+      if (s === REVIENTA) { ultima = false; tragadas++; continue; }
+      const [out, tipo] = Array.isArray(s) ? s : [s, 'escribe'];
+      ultima = laUltimaFueGuarda(ultima, { guarda: esGuardaDeHerramienta(out), tragada: esFallaTragadaDeHerramienta(out), error: (out as { isError?: unknown })?.isError === true, escribe: tipo === 'escribe' });
+      if (esFallaTragadaDeHerramienta(out)) tragadas++;
+    }
+    return esLaReglaDeUnaGuarda({ ultimaFueGuarda: ultima, errores, tragadas });
+  };
+  const leyoBien: Salida = [JSON.stringify([{ id: 5, nombre: 'Juan' }]), 'lee'];
+  assert.equal(turno([guarda]), true, 'la guarda sola es la regla');
+  assert.equal(turno([guarda, tragada]), false, 'la guarda + el reintento que se tragó el error de la base');
+  assert.equal(turno([guarda, tragadaJson]), false);
+  assert.equal(turno([tragada, guarda]), false, 'una falla tragada ANTES de la guarda: la guarda es la última, y la falla sigue');
+  assert.equal(turno([guarda, [JSON.stringify({ ok: true, id: 9 }), 'escribe']]), false, 'una guarda vieja, una escritura que anduvo y un «no pude» de otra cosa');
+  // La verificación de tren-t: una herramienta que REVIENTA después de la guarda es una falla (abre ticket)…
+  assert.equal(turno([guarda, REVIENTA]), false, 'la guarda + una herramienta que tira');
+  assert.equal(turno([guarda, leyoBien, REVIENTA]), false);
+  // …y una lectura que anduvo después de la guarda no cambia la última («me falta el monto» es la regla, no un ticket).
+  assert.equal(turno([guarda, leyoBien]), true, 'la guarda + una lectura que anduvo');
+  assert.equal(turno([guarda, [{ content: 'Error 500', isError: true }, 'lee']], 0), false, 'una lectura que falló sí la apaga');
+  assert.equal(turno([leyoBien]), false, 'una lectura sola no es una guarda');
+  assert.equal(turno([guarda], 1), false, 'con un error del turno');
+  // El doer: cada salida actualiza la última y cuenta las tragadas, y la regla sale de la función. Los detectores son los de
+  // lib/no-pude.ts (MaKo inteligente, ae1660f9a: los mismos del turno de la app), sin copia en lib/doer-falla.ts.
+  const doer = leer('lib/mako-doer-in.ts');
+  // (Y `laUltimaFueGuarda`, desde 5f0792446.)
+  assert.match(doer, /import \{ esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, [^}]*\} from '@\/lib\/no-pude';/);
+  assert.doesNotMatch(leer('lib/doer-falla.ts'), /(?:function|const) (?:esFallaTragadaDeHerramienta|esLaReglaDeUnaGuarda|laUltimaFueGuarda)\b/, 'volvió la copia de los detectores');
+  // Lo repetido del memo también es lo último que vio el modelo.
+  assert.match(doer, /if \(previo\) \{[\s\S]{0,400}?anotarLaUltima\(name, previo\.out\);\n\s*return previo\.out/);
+  assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*anotarLaUltima\(name, out\);\n\s*if \(esFallaTragadaDeHerramienta\(out\)\) tragadasDelTurno\+\+;/);
+  assert.match(doer, /ultimaFueGuarda = laUltimaFueGuarda\(ultimaFueGuarda, \{\n\s*guarda: esGuardaDeHerramienta\(out\), tragada: esFallaTragadaDeHerramienta\(out\),\n\s*error: [^\n]*escribe: escribeDeVerdad\(name\),/);
+  // Lo que revienta: la última se apaga y cuenta como tragada, y el error sigue al loop (el modelo lo ve).
+  assert.match(doer, /const out = await correr\(\)\.catch\(\(e: unknown\) => \{ ultimaFueGuarda = false; tragadasDelTurno\+\+; throw e; \}\);\n\s*memo\.anotar\(name, out\);/);
+  assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{\}\);/);
 });

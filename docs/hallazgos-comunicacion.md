@@ -157,13 +157,93 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     editar»); quedan afuera las cifras pegadas a «:» o «/», las de más de 8 dígitos, los años y las que van después de «las»
     o «el».
   · **Regla: la intención y las herramientas de un detector se deciden en UNA función, y se prueban con el turno real**
-    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. Capturar, la duda,
-    la agenda y el «sí» no cambian de intención.
-- **«He hecho», «he abierto» y «he escrito» también cuentan una lectura** (la revisión de 36e06b35f). «He hecho una búsqueda
-  en tu CRM» o «He abierto tu agenda y mañana tienes 2» salían como «Eso no lo llegué a hacer». Ahora «escrito» corta sólo
-  con a quién («le he escrito», «he escrito a Juan»), y en un turno que leyó, «hice» y «abrí» no cortan.
-- **El lote es texto plano y perdía las @menciones**: en modo «ventana», una mención a MaKo seguida de otro mensaje recibía
-  el 👍 y después silencio. Ahora el sintético lleva las menciones de todo el lote (`mencionesDelLote`).
+    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. El capturar
+    explícito, la agenda y el «sí» no cambian de intención.
+  · ⚠️ **Respetar la duda fue el arreglo equivocado** (la verificación de 4d1d0a010): el seguimiento de Leila SIN foto («son
+    423, no 4235», capturar dudosa) quedaba en el camino barato sin herramientas. La duda se saca, porque el detector ya pide
+    plata a la vista, y la plata puede estar en lo de antes (la foto, la respuesta de MaKo). En ese caso las cifras tienen
+    que ser de 3 dígitos o más y no un año, y el mensaje tiene que ser la corrección y nada más (`SOLO_LA_CORRECCION`: «son
+    120 no 150 leads» o «el código postal es 3300 no 3301» hablan de otra cosa).
+  · ⚠️ **La lista de lo que rodea la cifra tiene que traer cómo se PIDE corregir** (la verificación de 8cb034a18): sin
+    «corregilo», «por favor», «debería ser» ni «la de Nadia», «son 423, no 4235 por favor» volvía a capturar dudosa sin
+    `editar_cuota`. Ahora `SOLO_LA_CORRECCION` los admite (y los emojis), y en un lote mira renglón por renglón («ahí está» +
+    «son 423, no 4235»).
+  · ⚠️ **Por la palabra no se sabe si es un año**: «una cuota de 2000» lleva el mismo «de» que «vence en 2026», y mirar el
+    «de» (8cb034a18) volvía año a «la cuota es de 2000 no 1500». Ahora dos cifras son años sólo si las DOS están a ±5 del año
+    en curso (`sonAnios`), con la plata en el mensaje o antes. Las pruebas fijan la fecha (`corrigeUnMonto(t, antes, HOY)`).
+  · Y cuando la corrección pasa a ACTUAR, no trae el plan ni lo que confirma o cancela lo pendiente (`sinEstas`):
+    `cancelar_accion` actúa sin tarjeta.
+- **«He hecho», «he abierto» y «he escrito» dependen de QUÉ** (la revisión de 36e06b35f y sus dos verificaciones). Leer:
+  «He hecho una búsqueda», «He abierto la imagen y la cuota figura en…», «Te hice el cálculo», «He escrito un resumen».
+  Escribir: «He hecho el cambio de etapa», «He abierto un ticket», «Te abrí la reunión», «He escrito un mensaje a Juan».
+  · Sacarlos de la lista entera dejó pasar las escrituras, y una lista corta volvió a cortar lecturas, también la respuesta
+    a la foto de Leila. Ahora son dos listas, con plurales y artículos: lo que se HACE para leer (búsquedas, cuentas,
+    cálculos, chequeos) y lo que se ABRE para leer (imagen, archivo, PDF, chat, panel, reporte, campañas, Google Calendar).
+    «te/le abrí» nunca es leer; «te/le hice» sí.
+  · ⚠️ **Un reporte, una campaña, un chat o una planilla también se CREAN** (la verificación de 8cb034a18): sumarlos a lo que
+    se abre para leer perdonó «He abierto un reporte del error para el equipo», la misma mentira de Leila. Lo que distingue
+    es el determinante, no el sustantivo: con «un/una», «nuevo» PEGADO al objeto («la campaña nueva»; «la planilla de clientes
+    nuevos» se lee) o «para el equipo» (`LO_CREADO`) es escribir. Lo que MaKo
+    «dejó abierto» o «ya quedó abierto» nunca es lo que leyó. Y lo hecho PARA OTRO tampoco (`A_UN_TERCERO`): «Les hice un
+    resumen a todos por mail», «Le hice una consulta al equipo de soporte». «He hecho la verificación de tu número» es
+    escribir: «verificación» salió de la lista.
+- ⚠️ **El lote se decide MENSAJE POR MENSAJE, no con las menciones juntas.** Unir las menciones (36e06b35f) arregló el 👍 y
+  el silencio en «ventana», pero una @mención a Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍: era una
+  regresión contra producción.
+  · Ahora cada mensaje se clasifica con lo suyo (`paraQuienEsElMensaje`), lo que era para otra persona no entra al turno
+    si otro mensaje es para MaKo, y el sintético lleva la decisión (`paraQuienDelLote`), no las menciones.
+  · ⚠️ **Sacar un mensaje del lote le saca el contexto a su respuesta** (la verificación de bb41ede4a): Ana «@Pedro ¿lo
+    confirmo?» y Pedro «sí». Quedaba el «sí» solo, y con una pendiente se EJECUTABA, aunque fuera de plata.
+  · **Regla: la respuesta corta a un mensaje para otro también es para otro, y lo que es para otro no lo vuelve para MaKo
+    ni una pendiente ni su pregunta.** Sólo un acuse se lee como «sí».
+  · ⚠️ **«Respuesta corta» es el mensaje ENTERO, no el arranque** (la verificación de 8cb034a18): con sólo el «listo»,
+    «listo, agendá a Juan el lunes» o «si entra un lead nuevo avisame» (el «si» condicional) se volvían «a otro» detrás de
+    una mención, y quedaban con 👍 y silencio. Ahora es un acuse o una confirmación entera («sí», «dale, ya te lo mando»,
+    «ok 👍»), sin nombrar a MaKo ni preguntar (`esRespuestaCorta`).
+  · ⚠️ **Y «entera» incluye la confirmación CON VERBO** (la verificación de 9cef25dba, ALTA): anclar la regex sacó «sí, hacelo»,
+    «dale, confirmalo» o «sí, mandalo», que detrás de «@Pedro ¿lo confirmo?» volvieron a entrar al turno y a ejecutar lo que le
+    llega a un tercero. **Regla: lo que cuenta como respuesta a otro acepta todo lo que la puerta acepta como confirmación**
+    (`confirmaAOtro`, lib/confirmacion-pura.ts, que es `confirmacionPura` más «confirmalo vos»), y «sí Pedro», «sí, ya lo vi».
+  · **Y la escribe OTRA persona** (`conLasRespuestas`): Ana «@Leila mirá» y después Ana «sí» no se contesta a sí misma, ese
+    «sí» es para MaKo. Lo que sigue a una respuesta va con ella aunque sea del mismo (Pedro «sí» y Pedro «dale»). Sin el
+    autor, se toma como respuesta: es lo que no ejecuta nada.
+  · **El 👍 sale antes del lote y mensaje por mensaje**, así que mira la cola con la misma regla (`contestaAOtroEnLaCola`): sin
+    eso, el «sí» de Pedro a Ana recibía el 👍 con una pendiente viva.
+  · «sí, y avísale a @Pedro», con una pendiente o una pregunta de MaKo, es para MaKo (`confirmaYNombraAOtro`: la @ va después
+    de «a», «con» o «para»). «@Pedro sí» y «sí @Pedro» siguen siendo para Pedro.
+  · ⚠️ **Lo del lote no alcanza: el «sí» que llega más de 8 s después llega solo** (`VENTANA_MS`, lib/mako-doer-buffer.ts), y un
+    «sí» puro confirmaba la pendiente aunque fuera de plata; lo de Ana se salteó sin quedar en la memoria, así que el turno
+    del «sí» no sabe a quién le contestaba. La red no es otra regla del lote: es la PUERTA (`elSiEsDeQuienPidio`,
+    lib/confirmacion-pura.ts; lo decidió el Cerebro el 28/10, se lo cuenta a Martín). Una pendiente de plata en un grupo la
+    confirma quien la pidió, o un «sí» que le habla a MaKo («sí, MaKo», «@MaKo sí», la respuesta citada a un mensaje de
+    MaKo). Otro «sí» no ejecuta: MaKo pide «sí, MaKo» y la pendiente sigue viva. Lo que le llega a un tercero quedó afuera.
+    · Quién la pidió va en el `payload` (`__pidio`, sin migración) y sale al leerla (`toP`): ni la bandeja lo muestra ni la
+      acción lo recibe. Sin saber quién (una pendiente de antes, un lote de varios), pide «sí, MaKo».
+    · ⚠️ **«@MaKo sí» no confirmaba**: la @ escribe el número de la línea, que contaba como palabra en `confirmacionPura` y
+      tapaba el «sí» del arranque en el clasificador. El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): se saca la @ de la
+      línea y el «MaKo,» de delante de una confirmación, antes de clasificar.
+    · En la línea del dueño, lo suyo llega `fromMe` y puede venir sin `participant`: cuenta como «fromMe».
+    · ⚠️ **En la línea del dueño, la línea ES el dueño** (la verificación de 9cef25dba): «@Dueño sí» o citar un mensaje suyo
+      contaban como «sí a MaKo» y ejecutaban la de plata. Ahora la línea se anota como del dueño al ver un `fromMe` que no es
+      eco (`esLineaDelDueno`, 7 días), y ahí la @ no se saca ni le habla a MaKo; la cita cuenta sólo por su id (`idsEnviados`).
+    · ⚠️ **Y «un `fromMe` que no mandamos» sólo prueba algo si el anillo anti-eco ve TODO lo que sale** (la verificación de
+      991abd4af): los avisos, las insistencias, los flujos, el cierre de tickets y `enviarGrupoMaKo` salían por la línea de MaKo
+      sin anotarse, y el eco del primer aviso la marcaba «del dueño» en todos los grupos. El anillo pasó a lib/mako-grupo.ts y
+      se anota en cada envío; la línea de MaKo (`instanciaVoz`) nunca es la del dueño. La regla quedó en AGENTS.md.
+    · Y el anillo, con más escritores, necesita lo de cualquier contador compartido (la verificación de 96e7840e8): compare-and-set
+      con reintento (dos envíos a la vez perdían un id), lectura ESTRICTA (un error al leer era «anillo vacío» y pisaba los 39
+      anteriores), y entrar por el envío de más abajo (`enviarTextoVozMaKo`): el grupo SuperAdmin y la bienvenida quedaban afuera.
+      La voz se lee estricta también para decidir «es la línea de MaKo»: la otra convierte un error en «mako_ws1».
+      Cada vuelta del compare-and-set gana UNO: con 3 intentos, 4 envíos a la vez al mismo grupo perdían un id (tren-t). Son 6,
+      con una espera al azar; más de 6 a la vez todavía puede perder uno (lo cerraría un append atómico en la base).
+    · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
+      nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
+      ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
+    · Sacar el llamado («MaKo,», la @) sólo si lo que queda es una confirmación: de «mako listo el reporte?» quedaba «listo…»,
+      que con una pendiente viva es un «sí».
+    · En un lote, «le habla a MaKo» es el ÚLTIMO de lo que queda (`leHabla`): con «alguno», el «mako, ¿cuántos leads?» de Ana le
+      daba paso al «sí» de Pedro, y un audio contaba como hablarle.
+  · El sintético lleva el nombre y el autor del último mensaje que QUEDA, no del último de la cola.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
 levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09fa3c3, lib/no-pude*.ts).
@@ -179,8 +259,32 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
 - **Un ticket, una línea** (la revisión de la base, 28/10): con un error de herramienta ya registrado en el turno, la marca
   sólo se saca (`yaRegistrado`). El ticket de configuración anota qué faltaba (`ia:ninguna` o el cupo de `ia:auto`), y el
   cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
+- **Una guarda de herramienta es una regla** (base 7 de MaKo inteligente, e6f58be78): el grupo cuenta `esGuardaDeHerramienta` como el
+  turno de la app, y con una guarda y nada fallado de verdad, el «no pude» es esa regla y no abre ticket.
+  · ⚠️ **«Nada fallado de verdad» incluye lo que un runner se TRAGÓ** (la verificación de 96e7840e8): `errorParaTicket` sólo mira
+    `isError`, y «falta el monto» + un reintento que devolvió «❌ No se pudo aplicar (Error guardando …)» quedaba sin ticket. Con
+    «hubo alguna guarda», una guarda vieja también le comía el ticket a un «no pude» de otra cosa. Ahora es la regla sólo si la
+    ÚLTIMA herramienta fue la guarda y no hubo errores ni fallas tragadas (`esLaReglaDeUnaGuarda` y `esFallaTragadaDeHerramienta`,
+    lib/no-pude.ts: MaKo inteligente los movió ahí en ae1660f9a y arregló igual el turno de la app). Lo repetido del memo también
+    cuenta como lo último que vio el modelo.
+  · ⚠️ **Lo que REVIENTA no pasa por la salida** (la verificación de tren-t): «la última» se anotaba después del `await`, el throw
+    salía antes y la guarda vieja seguía siendo la última; el loop atrapa el throw sin `errorParaTicket`. Ahora lo que revienta
+    apaga la última y cuenta como tragada. Y una LECTURA que anduvo no cambia la última (`laUltimaFueGuarda`, lib/no-pude.ts):
+    «falta el monto» + `buscar_leads` + «me falta el monto» abría un ticket por una regla. El costo: guarda + lectura + un «no
+    pude» de otra cosa queda como la regla. El turno de la app quedó igual (MaKo inteligente, 5f0792446).
 
 **Sin hacer:**
+- **El anillo anti-eco no tiene tope de tiempo** (la verificación de tren-t): `enviarTextoVozMaKo` espera al anillo, y
+  `getSettingEstricto` / `cambiarSettingSi` no cortan. Con la base colgada, una alarma al grupo SuperAdmin o la bienvenida (ya
+  salidas) vuelven recién a los ~8 s. No duplica nada; sólo atrasa al que llama (lib/mako-grupo.ts, `anotarEnviadosAlGrupo`).
+- **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
+  se compara por el `participant` exacto, así que PN↔`@lid`, o el dueño con y sin `participant`, piden «sí, MaKo» aunque sea
+  quien la pidió (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); en un lote, la cita a MaKo se pierde (el sintético no
+  lleva `contextInfo`). No medido en producción.
+- **Decisión de producto: cobros sin `plata: true`** quedan fuera de la regla del «sí» de plata: `marcar_pago_cobrado`,
+  `registrar_pago_suelto`, `quitar_cobro_landing`, `cambiar_cobro_partners`, `anular_link_pago`, `cortar_recordatorio_cuota`,
+  `estado_suscripcion_manual` (y `crear_link_pago` / `crear_link_cuota`, que son `aTerceros`). Marcarlas es del registro de
+  cada área.
 - **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.
 - ~~**La guía de conexión** todavía PROPONE su ticket~~: desde el 28/10/2026 lo abre sola cuando la guía no alcanza
   (`abrirTicketDeLaGuia`, causa «texto», uno por conversación), y nada queda esperando un «sí». Una oferta guardada antes se
@@ -11477,3 +11581,22 @@ funciona…», «No sale…»), que sólo saca las quejas. tests/mako-no-puedo-f
 «No consigo turno» con una reunión propuesta SON un «no»: con `QUEJA_NO_ANDA` en la regla 1 se perdía cancelar_accion y MaKo podía
 apilar otra propuesta (lib/doer-hilo.ts cuenta con que un «no» de verdad llega como 'confirmar'). **La regla:** la regla 1 sólo deja
 pasar la queja con OBJETO de la app (`QUEJA_DE_LA_APP`: «no me deja editar…», «no funciona el…»); la 9-bis sigue sacando toda queja.
+
+## Cuatro vueltas de arreglos en el grupo de WhatsApp: cada regla nueva destapó otra, y lo que las frenó fue VERIFICAR (28/10/2026, Cerebro)
+
+**Vive en:** `lib/doer-para-quien.ts` · `lib/doer-salida.ts` · `lib/doer-falla-frases.ts` · `lib/confirmacion-pura.ts`
+
+- **El síntoma:** cada arreglo de la revisión de 92d23e11d resolvió lo que decía y rompió algo vecino. Pasó cuatro veces:
+  - 36e06b35f: «He hecho una búsqueda…» se cortaba como «no lo hice»;
+  - bb41ede4a: el lote mensaje por mensaje sacaba el contexto, y un «sí» que Pedro le decía a Ana confirmaba la pendiente de
+    PLATA de MaKo;
+  - 8cb034a18: esRespuestaCorta era demasiado ancha y un pedido corto para MaKo quedaba con 👍 y silencio;
+  - 12d297208: esRespuestaCorta se angostó y dejó de cubrir «sí, hacelo», que volvió a ejecutar lo aTerceros.
+- ⚠️ **Lo que frenó cada regresión fue verificar el arreglo con los mismos scripts del refutador,** sobre los dos sha.
+  Los tests de la rama no los veían: probaban la frase del informe, no la vecina.
+- **La regla para decidir qué sube:** entre dos regresiones, la que CALLA (MaKo no contesta) es menor que la que EJECUTA
+  (una acción sin el sí de quien corresponde). El 28/10 tren-q subió con 4d1d0a010 (callaba en un lote mezclado) y no con
+  bb41ede4a (ejecutaba). La plata en un grupo pide ahora el sí de quien la pidió o «sí, MaKo» (fbd947d4f).
+- **Para lo que venga:** son reglas de texto en cadena (ver la memoria «Errores en cadena: cambiá la red»). Si otra vuelta
+  destapa otra, la salida no es otra regex: es que el modelo reciba los mensajes marcados («no es para vos») y la puerta
+  dura quede en el código, donde ya está la de plata.

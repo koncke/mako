@@ -1974,4 +1974,48 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/ia-pc-reglas.ts — VERSION_PC · scripts/ia-pc/mako-pc.mjs — VERSION', 'tests/ia-pc-instalador-040.test.ts'],
   },
+  {
+    fecha: '27 oct', hora: '23:23', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat en el acto: tu audio y tus mensajes salen sin esperar',
+    pedido: '«Acabo de enviar un audio y no se envía y me dijo un unexpected error JSON» y «Apenas envío el audio, en todos los chats de todo MaKo, se debe enviar automáticamente; yo puedo reproducirlo... Recién se envió cuando terminó de transcribirlo todo, y como me fui para atrás y volví a la pestaña del Cerebro, no lo tomó» (Martín, por el Cerebro, 27/10 21:53).',
+    puntos: [
+      '**Tu audio sale apenas lo grabas:** se ve y se escucha en el chat, y la transcripción corre por detrás. Si cambias de chat o de tab, igual sale.',
+      '**Tus mensajes, igual:** se ven en el acto con «Enviando…»; si no salen, dicen por qué, con «Reintentar» y «Descartar».',
+      '**El «unexpected JSON» era un corte de Vercel:** un audio largo devuelve texto, no JSON. Ahora se lee como texto y se dice qué pasó.',
+      '**Los 3 puntos** mientras el chat trabaja, y un encargo del Cerebro se ve plegado como encargo, no como un mensaje tuyo.',
+      'En producción desde el 28/10 a las 00:58 (fd0d6fcbd).',
+    ],
+    archivos: ['app/admin/operaciones/envios-en-curso.ts · useCentro.ts · Hilo.tsx · Trabajando.tsx', 'app/_chat/preparar-nota.ts · nota-que-se-manda.ts — onGrabada · app/_components/transcribir-nota.ts', 'tests/chat-en-el-acto.test.ts'],
+  },
+  {
+    fecha: '27 oct', hora: '23:55', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado» dice qué se hizo, sin «cosas en marcha»',
+    pedido: '«No me pongas "cosas en marcha" ni nada de eso en el mensaje de COMPLETADO, literalmente pierde su funcionalidad... El cuadro de COMPLETADO debe ser dopamínico: se completó una funcionalidad, se debuggeó A, B, C» (Martín, por el Cerebro, 27/10 23:07).',
+    puntos: [
+      '**Lo que se hizo:** el cuadro muestra el resumen con que el chat cerró la ronda, no su último mensaje suelto.',
+      '**Sin «cosas en marcha»:** si al chat le queda trabajo de fondo vivo, sigue «Trabajando», y el cuadro llega cuando de verdad terminó.',
+      '**El cartero 1.21.0** marca dónde empieza y termina cada ronda; instalado en la PC el 28/10, después del servidor.',
+    ],
+    archivos: ['lib/centro-chats.ts — completadosDelChat · app/admin/operaciones/BloqueCompletado.tsx', 'scripts/operaciones/cartero.mjs — inicio, fin, resumen, fondo', 'tests/chat-en-el-acto.test.ts'],
+  },
+  {
+    fecha: '28 oct', hora: '05:42', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat nuevo lleva tus archivos: la PC los baja antes de abrirlo',
+    pedido: '«Revisa... que esté unificado, que se pueda utilizar el chat de la misma manera en todos lados» (Martín, 28/10, por el Cerebro). Era lo único que quedaba sin adjuntar.',
+    puntos: [
+      '**La caja del chat nuevo es la de todos los chats:** el «+» con Documento, Fotos, Cámara y Pegar, arrastrar, pegar una captura, los emojis y el micrófono.',
+      '**Tus archivos van con el primer mensaje:** si MaKo lo manda a un chat que ya existe, llegan como desde su caja. Si abre uno nuevo, la PC los baja, revisa que sean los que firmaste y el chat arranca con ellos.',
+      '**Sólo archivos, sin texto, también:** MaKo decide dónde van por sus nombres.',
+      '**Para usarlo:** el cartero 1.22.0 se instala en la PC después de desplegar el servidor. Con uno de antes, la caja del chat nuevo no ofrece adjuntar.',
+    ],
+    archivos: [
+      'app/admin/operaciones/CajaChatNuevo.tsx — la caja única · ChatNuevo.tsx — los archivos del primer mensaje',
+      'app/admin/operaciones/useCentro.ts — abrirChat y mandarTextoA con archivos',
+      'scripts/operaciones/cartero.mjs 1.22.0 — ciclo los baja, abrir los vuelve a mirar (adjuntosEnLaPc) · lib/operaciones-reglas.ts — aceptaAdjuntosEnNuevo',
+      'tests/centro-nuevo-con-adjuntos.test.ts',
+    ],
+  },
 ];

@@ -11,6 +11,8 @@
 // PURO y sin `server-only`: lo usan lib/mako-doer-in.ts y tests/doer-para-quien.test.ts.
 // =============================================================================
 
+import { confirmacionPura, confirmaAOtro } from './confirmacion-pura';
+
 /** Lo que sólo acusa recibo o agradece: el mensaje entero, sin nada más. */
 const ACUSE_PURO = /^(?:ok(?:ey|is)?|oka|dale|listo|genial|perfecto|gracias|muchas gracias|mil gracias|buen[ií]simo|b[aá]rbaro|joya|de una|(?:ja)+j?|(?:je)+j?|👍|🙏|👌|🙌|❤️|💪)(?:[\s,.!¡]+(?:ok|dale|listo|genial|perfecto|gracias|mako|crack|(?:ja)+|👍|🙏|👌))*[\s.!¡]*$/iu;
 
@@ -48,11 +50,137 @@ export function quienesMencionados(menciones: readonly string[], numeroLinea: st
   return { aMaKo, aOtros: aMaKo || aOtros.length < menciones.length ? [] : aOtros };
 }
 
+/**
+ * EL LLAMADO A MaKo NO ES CONTENIDO: «@MaKo sí» es un «sí» (la verificación de 8cb034a18). Elegir a MaKo con la @ escribe el número
+ * de su línea, y ese número contaba como una palabra más: `confirmacionPura` no lo daba por un «sí» solo, y el clasificador no
+ * veía el «sí» del arranque (capturar, dudosa, sin `confirmar_accion`). Se saca, al arranque de cada mensaje (también en un lote,
+ * «(2) @… sí»), la @ de la línea que recibe (al principio o al final: «sí @MaKo»), y un «MaKo,» de delante.
+ * ⚠️ SÓLO SI LO QUE QUEDA ES UNA CONFIRMACIÓN («sí», «dale», «no»; la verificación de 9cef25dba): sacar el «MaKo» de «mako listo el
+ * reporte?» o de «@MaKo ok, ¿cuántos leads?» los volvía «sí» con una pendiente viva. Un pedido queda como está. Sin la línea (o
+ * en la línea del dueño, donde la @ es él: `mako-doer-in.ts`), el texto queda como está; un `@lid` tampoco se compara.
+ */
+export function sinElLlamadoAMaKo(texto: string, numeroLinea: string | null): string {
+  const linea = numeroLinea ? ult10(numeroLinea.replace(/\D/g, '')) : '';
+  const esLaLinea = (m: string, d: string): string => (linea && ult10(d) === linea ? ' ' : m);
+  return (texto || '').split('\n').map((renglon) => {
+    const [, numero = '', resto = renglon] = /^(\(\d+\) )?([\s\S]*)$/.exec(renglon) ?? [];
+    let r = resto;
+    for (let i = 0; i < 3; i++) {
+      const antes = r;
+      r = r.replace(/^\s*@(\d{8,15})(?!\d)[\s,:.!]*/, esLaLinea).replace(/[\s,]*@(\d{8,15})(?!\d)[\s.!]*$/, esLaLinea).trim();
+      r = r.replace(/^mako[\s,:.!¡]+/iu, '').trim();
+      if (r === antes) break;
+    }
+    // También un acuse que confirma solo («@MaKo ok», «mako listo»): la puerta de plata y terceros lo repregunta igual (no es puro).
+    return r !== resto.trim() && (confirmacionPura(r) || /^(?:no|nop|mejor no|todav[ií]a no|ok(?:ey)?|listo|perfecto|claro|obvio|va|vale|bueno|de una)[\s.!]*$/iu.test(r)) ? `${numero}${r}` : renglon;
+  }).join('\n');
+}
+
+/** El mensaje que CITA (responder a un mensaje en WhatsApp): su id y quién lo escribió, de `contextInfo`. */
+export function citaDe(message: Record<string, unknown> | undefined): { id: string | null; autor: string | null } {
+  const ctx = ((message?.extendedTextMessage as { contextInfo?: { stanzaId?: unknown; participant?: unknown } } | undefined)?.contextInfo
+    ?? (message?.contextInfo as { stanzaId?: unknown; participant?: unknown } | undefined));
+  return {
+    id: typeof ctx?.stanzaId === 'string' && ctx.stanzaId ? ctx.stanzaId : null,
+    autor: typeof ctx?.participant === 'string' && ctx.participant ? ctx.participant : null,
+  };
+}
+
+/** Para quién es UN mensaje: 'mako' (lo nombra, lo menciona, o trae un audio o un adjunto: es deliberado), 'acuse' o 'a-otro'
+ *  (no es para MaKo), o null (un pedido que no lo nombra: en «libre» es para MaKo). */
+export type ParaQuien = 'mako' | 'acuse' | 'a-otro' | null;
+/** Lo que el lote decidió, mensaje por mensaje: si alguno nombra a MaKo, o por qué ninguno es para MaKo (null: alguno lo es). */
+export type ParaQuienDelLote = {
+  nombra: boolean; noEs: 'acuse' | 'a-otro' | null;
+  /** El ÚLTIMO de lo que queda le habla a MaKo (lo nombra o menciona su línea; un audio no): el «sí» de plata del lote. Lo pone el doer. */
+  leHabla?: boolean;
+};
+/** Un mensaje de la cola: su texto, para quién es solo, y quién lo escribió (el `participant`; sin él, no se sabe). */
+type ConAutor = { texto: string; para: ParaQuien; autor?: string | null };
+
+/**
+ * ⚠️ LA RESPUESTA A UN MENSAJE PARA OTRO TAMBIÉN ES PARA OTRO (la verificación de bb41ede4a): Ana «@Pedro ¿lo confirmo?» y Pedro
+ * «sí». Sacar sólo el de Ana dejaba el «sí» solo, que con una pendiente se leía como confirmar y la EJECUTABA, aunque fuera de
+ * plata. Una respuesta corta (`esRespuestaCorta`) que sigue a uno «a otro», sin uno para MaKo en el medio, va con él.
+ * Y nadie se contesta a sí mismo (la verificación de 8cb034a18): Ana «@Leila mirá, ya lo encontró» y después Ana «sí», ese «sí»
+ * es para MaKo. Lo que sigue a una RESPUESTA sí va con ella aunque sea del mismo: Pedro «sí» y Pedro «dale» le contestan los dos
+ * a Ana. Sin el autor de alguno de los dos, se toma como respuesta: es lo que no ejecuta nada.
+ * La usan el lote y el 👍 (que se decide mensaje por mensaje, antes del lote).
+ */
+export function conLasRespuestas<T extends ConAutor>(entrada: readonly T[]): T[] {
+  let previo: { autor?: string | null; aOtro: boolean; respuesta: boolean } = { aOtro: false, respuesta: false };
+  return entrada.map((m) => {
+    const otraPersona = previo.respuesta || !previo.autor || !m.autor || previo.autor !== m.autor;
+    const respuesta = m.para !== 'mako' && previo.aOtro && otraPersona && esRespuestaCorta(m.texto);
+    previo = { autor: m.autor, aOtro: respuesta || m.para === 'a-otro', respuesta };
+    return respuesta && m.para !== 'a-otro' ? { ...m, para: 'a-otro' as const } : m;
+  });
+}
+
+/**
+ * EL LOTE SE DECIDE MENSAJE POR MENSAJE (la verificación de 4d1d0a010). Con las menciones de todos juntas, una @mención a
+ * Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍 (regresión contra producción), y una @mención a MaKo hacía
+ * contestar en ventana cerrada también lo que era para Pedro. Ahora, si algún mensaje no es para otra persona, los que sí lo
+ * son no entran al turno; y el lote lleva la decisión en vez de las menciones.
+ */
+export function paraQuienDelLote<T extends ConAutor>(entrada: readonly T[]): { quedan: T[]; decision: ParaQuienDelLote } {
+  const mensajes = conLasRespuestas(entrada);
+  const quedan = mensajes.some((m) => m.para !== 'a-otro') ? mensajes.filter((m) => m.para !== 'a-otro') : [...mensajes];
+  const ningunoEs = quedan.every((m) => m.para === 'acuse' || m.para === 'a-otro');
+  return {
+    quedan,
+    decision: {
+      nombra: quedan.some((m) => m.para === 'mako'),
+      noEs: ningunoEs ? (quedan.some((m) => m.para === 'a-otro') ? 'a-otro' : 'acuse') : null,
+    },
+  };
+}
+
 /** Por qué el mensaje NO es para MaKo, o null si lo es. */
 export function noEsParaMaKo(p: { texto: string; menciones: readonly string[]; nombraAMaKo: boolean; makoPregunto: boolean; hayPendientes: boolean }): 'acuse' | 'a-otro' | null {
-  if (p.nombraAMaKo || p.hayPendientes || p.makoPregunto) return null;
-  if (p.menciones.length) return 'a-otro';
+  if (p.nombraAMaKo) return null;
+  // Una @mención a otra persona no es para MaKo AUNQUE haya algo pendiente (la verificación de bb41ede4a): «@Pedro sí,
+  // confirmalo vos» no es el «sí» de la pendiente. Lo pendiente o la pregunta de MaKo convierten en «sí» sólo un acuse.
+  // Salvo el «sí» a MaKo que nombra a otro como parte del pedido (la verificación de 8cb034a18): «sí, y avísale a @Pedro», con
+  // una pendiente o una pregunta de MaKo. «@Pedro sí» o «sí @Pedro» siguen siendo para Pedro.
+  if (p.menciones.length) return (p.hayPendientes || p.makoPregunto) && confirmaYNombraAOtro(p.texto) ? null : 'a-otro';
+  if (p.hayPendientes || p.makoPregunto) return null;
   return esAcusePuro(p.texto) ? 'acuse' : null;
+}
+
+/** Lo que confirma, acusa o niega, solo: «sí», «dale», «ok», «listo», «no». */
+const CONFIRMA = String.raw`(?:s[ií]+|sip|sep|no|nop|dale|ok(?:ey|is)?|oka|listo|claro(?:\s+que\s+s[ií])?|bueno|perfecto|de una|obvio|joya|va|vale|ya(?:\s+est[aá])?|hecho|confirmado|de acuerdo|genial|buen[ií]simo|b[aá]rbaro|(?:muchas\s+)?gracias|enseguida|ya mismo|ah[ií] va|todav[ií]a no|mejor no|eso|exacto|correcto|tal cual|se[nñ]ora?)`;
+/** Lo que agrega el que contesta a quien le pidió algo: «ya te lo mando», «ahora lo veo», «en un rato te lo paso». */
+const DEL_QUE_CONTESTA = String.raw`(?:(?:ya|ahora|ah[ií]|enseguida|en un rato|despu[eé]s|ma[nñ]ana)\s+)?(?:(?:te|se|les?)\s+)?(?:(?:lo|la|los|las)\s+)?(?:mando|paso|env[ií]o|hago|confirmo|reviso|miro|veo|subo|cargo|llamo|escribo|vi|hice|mand[eé]|pas[eé]|envi[eé]|confirm[eé]|revis[eé]|cargu[eé])`;
+/** «sí Pedro», «dale Ana»: la confirmación con el nombre de la persona a la que le contesta (con mayúscula: sin `i`). */
+const CON_SU_NOMBRE = /^(?:[Ss][IiÍí]+|[Dd]ale|[Oo][Kk]|[Ll]isto)[\s,]+\p{Lu}\p{Ll}+[\s.!]*$/u;
+/** Lo que con mayúscula NO es el nombre de una persona (la verificación de 991abd4af): un imperativo con su pronombre («Ok
+ *  Borralo», «Si Pausala»), a MaKo por su apodo («Dale Makito»), o algo de MaKo («Dale Meta», «Ok Calendly», «Sí, Leads»). */
+// (Por la raíz del verbo y no por la terminación: «Leila», «Paola» o «Marcela» terminan igual que «pausala».)
+const NO_ES_UN_NOMBRE = /(?<!\p{L})(?:borr|paus|cancel|carg|mand|pas|confirm|agend|activ|apag|prend|envi|hac|haz|pon|elimin|sac|cobr|mov|public|guard|cre|arm|edit|cambi|actualiz|agreg|anot|registr|mostr|abr|reprogram|resolv)\p{L}*(?:lo|la|los|las|le|les|me|nos)[\s.!]*$|(?<!\p{L})(?:mak\p{L}*|meta|calendly|leads?|google|zernio|whatsapp|instagram|facebook|stripe|fathom|zoom|drive|gmail|excel|crm|plan|ads|agenda|campañas?|landing)[\s.!]*$/iu;
+/** Los nombres de persona que esa lista se come (la verificación de 96e7840e8): «sí Pascuala» sigue siendo una respuesta. */
+const NOMBRE_QUE_PARECE = /(?<!\p{L})(?:pascuala|pasquale|mandela|guardiola|makena)[\s.!]*$/iu;
+const RESPUESTA_CORTA = new RegExp(String.raw`^${CONFIRMA}(?:[\s,.!¡;:]+(?:${CONFIRMA}|${DEL_QUE_CONTESTA}))*[\s,.!¡]*(?:\p{Extended_Pictographic}\uFE0F?\s*)*$`, 'iu');
+/**
+ * Una RESPUESTA corta: pegada a un mensaje para otra persona, le contesta a esa persona. Es un acuse o una confirmación ENTERA
+ * («sí», «sí, dale», «dale, ya te lo mando», «ok 👍»), sin nombrar a MaKo ni preguntar (la verificación de 8cb034a18: con sólo
+ * el arranque, «listo, agenda a Juan el lunes», «bueno, pásame los leads» o «si entra un lead nuevo avísame» se volvían «a otro»
+ * detrás de una mención, y quedaban con 👍 y sin respuesta).
+ */
+export function esRespuestaCorta(texto: string): boolean {
+  const t = (texto || '').trim();
+  // Y las confirmaciones CON VERBO («sí, hacelo», «dale, confirmalo», `confirmaAOtro`; la verificación de 9cef25dba): sin ellas,
+  // detrás de «@Pedro ¿lo confirmo?» entraban al turno y ejecutaban lo que le llega a un tercero.
+  return t.length <= 60 && !t.includes('?') && !/mako/i.test(t) && (esAcusePuro(t) || RESPUESTA_CORTA.test(t) || (CON_SU_NOMBRE.test(t) && (!NO_ES_UN_NOMBRE.test(t) || NOMBRE_QUE_PARECE.test(t))) || confirmaAOtro(t));
+}
+
+/** El arranque de un «sí» a MaKo («sí», «dale», «ok», «listo», «confirmo», «adelante»). */
+const EMPIEZA_CONFIRMANDO = /^(?:s[ií]+|dale|ok(?:ey)?|listo|confirm\p{L}*|adelante|de una|perfecto|bueno)(?!\p{L})/iu;
+/** ¿Confirma y nombra a otro como PARTE del pedido? Antes de la primera @ hay más que la confirmación, y la @ es el objeto
+ *  («… avísale a @Pedro», «… agéndalo con @Ana», «… mándalo para @Juan»): no le habla a esa persona. */
+export function confirmaYNombraAOtro(texto: string): boolean {
+  const antes = (texto || '').trim().split('@')[0].trim();
+  return EMPIEZA_CONFIRMANDO.test(antes) && /^\S+[\s,]+\S.*\s(?:a|al|con|para)$/iu.test(antes);
 }
 
 /** Quién escribe, para el system: el nombre de WhatsApp. Sin nombre (o uno que es un número), nada. */

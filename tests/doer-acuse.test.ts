@@ -231,7 +231,8 @@ test('el 👍 sale ANTES de procesar, sin esperarlo, y no a un eco ni a una re-e
 
 test('el 👍 va sólo a lo que MaKo va a contestar (prendido y enganchado), como la regla de `procesarDoer`', () => {
   // Desde el 27/10/2026 la regla recibe a quién mencionan (una @mención a la línea de MaKo es nombrarla, tests/doer-para-quien).
-  assert.match(BUFFER, /const engancha = activo && !soloClave && \(!!audio \|\| !!adjunto \|\| \(await enganchaElTexto\(wsData, jid, texto, await mencionadosEn\(instance, data\)\)\)\);/);
+  // Y desde el 28/10/2026, no al «sí» que le contesta a otra persona de la cola (`contestaAOtroEnLaCola`, tests/doer-para-quien).
+  assert.match(BUFFER, /const engancha = activo && !soloClave && \(!!audio \|\| !!adjunto \|\| \(\(await enganchaElTexto\(wsData, jid, texto, await mencionadosEn\(instance, data\)\)\)\n\s*&& !\(await contestaAOtroEnLaCola\(wsData, instance, jid, msgId, texto\)\)\)\);/);
   assert.match(BUFFER, new RegExp(`const reaccion = engancha \\? ${REACCION.replace(/[().]/g, '\\$&')}`));
   // La regla del texto es la de `procesarDoer`: el modo, el nombre, la ventana y las pendientes.
   const regla = cuerpo('async function enganchaElTexto(');

@@ -54,6 +54,10 @@ export type OpcionesLectura = {
    * siempre (`transcribirAudio`).
    */
   redDePlataforma?: boolean;
+  /** Cuánto puede esperar cada lectura por visión (`leerDocumentoIA`); sin esto, el default de cada proveedor (90-100 s). */
+  timeoutMs?: number;
+  /** Un PDF de más páginas se lee sólo hasta acá (los chats: la revisión de chats-unificados, 28/10/2026). Sin esto, entero, como siempre (importar al plan). */
+  topePaginas?: number;
 };
 
 /**
@@ -109,18 +113,21 @@ async function leerArchivo(file: File, opts: OpcionesLectura): Promise<LecturaAr
       if (typeof M.sumPrecise !== 'function') M.sumPrecise = (a) => a.reduce((x, y) => x + y, 0);
       const { extractText, getDocumentProxy } = await import('unpdf');
       const pdf = await getDocumentProxy(new Uint8Array(buf));
-      const { text } = await extractText(pdf, { mergePages: true });
+      // Con tope (los chats), sólo las primeras páginas, de a una: un PDF largo no se lee entero para tirar lo que pasa los 40 k.
+      const { text } = opts.topePaginas && pdf.numPages > opts.topePaginas
+        ? { text: await primerasPaginas(pdf, opts.topePaginas) }
+        : await extractText(pdf, { mergePages: true });
       if (text && text.trim().length > 80) return { texto: text, via: 'pdf' };
     } catch { /* sin capa de texto → es un escaneo, va por visión */ }
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs });
       return { texto: text, via: 'pdf-vision' };
     } catch (e) { return { texto: '', via: 'pdf-vision', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
   if (familia === 'imagen') {
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma, timeoutMs: opts.timeoutMs });
       return { texto: text, via: 'imagen' };
     } catch (e) { return { texto: '', via: 'imagen', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
@@ -138,3 +145,14 @@ async function leerArchivo(file: File, opts: OpcionesLectura): Promise<LecturaAr
   const porque = porQueNoPuedo(file.name);
   return { texto: '', via: 'no-soportado', warning: porque ? `«${file.name}» ${porque}` : `«${file.name}»: no sé leer ese formato todavía.` };
 }
+
+/** El texto de las primeras `n` páginas de un PDF ya abierto, de a una (el tope de páginas de `OpcionesLectura`). */
+async function primerasPaginas(pdf: { getPage: (i: number) => Promise<{ getTextContent: () => Promise<{ items: unknown[] }> }> }, n: number): Promise<string> {
+  const partes: string[] = [];
+  for (let i = 1; i <= n; i++) {
+    const { items } = await (await pdf.getPage(i)).getTextContent();
+    partes.push(items.map((it) => (it && typeof it === 'object' && 'str' in it ? String((it as { str: unknown }).str) : '')).join(' '));
+  }
+  return partes.join('\n');
+}
+
