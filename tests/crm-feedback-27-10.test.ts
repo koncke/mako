@@ -272,6 +272,7 @@ test('el plan libre: cada quincena en los días 1 y 15, más de 6 cuotas, y un 3
   assert.deepEqual(fechasDelPlan({ desde: '2026-11-01', cantidad: 2, cada: 'quincena', dias: [1] }), [], 'una quincena son dos días');
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /const libre = cada !== 'mes' \|\| cantidad > 6 \|\| \(dia != null && dia > 28\);/, 'el plan sigue atado a 1-6 cuotas y un día del 1 al 28');
-  assert.match(ui, /await guardarCuotasAction\(l\.id, cuotas, \{/, 'el plan libre no se guarda por lista');
+  // Con lo de aparte tal cual (el resto de un cobro por menos: revisión de 0b6d5b754, tests/pagos-revision-b335.test.ts).
+  assert.match(ui, /await guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], \{/, 'el plan libre no se guarda por lista');
   assert.match(ui, /<option value="quincena">Quincena<\/option>/);
 });
