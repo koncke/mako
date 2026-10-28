@@ -1,0 +1,132 @@
+// =============================================================================
+// Hijo de tests/credito-grupos.test.ts — NO es un test (no termina en .test.ts)
+// =============================================================================
+// El crédito de los planes 200 para TODOS los grupos de WhatsApp de MaKo (28/10/2026, Martín: «te pedí que habilites las API
+// que tenemos disponibles con todas las cuentas de planes 200»). Corre lo REAL (las cuentas y su reparto, el interruptor, la
+// puerta 2 y el chat con herramientas del doer) contra un PostgREST de mentira:
+//   · ws9 (la plataforma): su ANTHROPIC_API_KEY y las claves del crédito de las cuentas 1 y 2 (como producción, medido hoy);
+//   · ws10 (Leandro): una copia de la clave de Claude de la plataforma, que no es suya;
+//   · ws13: su clave de Claude propia.
+// Anthropic contesta 200 con la cuenta 2 y con la clave propia; con la cuenta 1, «credit balance is too low»; con otra, 401.
+// =============================================================================
+
+import { crearPostgrest } from './_postgrest-de-mentira';
+
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
+process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para-el-test';
+for (const k of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'ANTHROPIC_CREDITO_CUENTA1', 'ANTHROPIC_CREDITO_CUENTA2', 'ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4']) delete process.env[k];
+
+let n = 0;
+const pg = crearPostgrest({
+  tablas: ['credenciales', 'workspaces', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes', 'ia_pc_dispositivos'],
+  defaults: (tabla, f) => (tabla === 'anthropic_usage' ? { id: ++n, created_at: new Date(Date.now() + n).toISOString(), ...f } : f),
+});
+const PLATAFORMA = 9;
+const CLAUDE_MAKO = `sk-ant-api03-plataforma-${'p'.repeat(40)}`;
+const CREDITO1 = `sk-ant-api03-credito-cuenta1-${'c'.repeat(40)}`;
+const CREDITO2 = `sk-ant-api03-credito-cuenta2-${'d'.repeat(40)}`;
+const CREDITO3 = `sk-ant-api03-credito-cuenta3-${'e'.repeat(40)}`;
+const PROPIA = `sk-ant-api03-propia-del-ws13-${'m'.repeat(40)}`;
+
+let anthropic: Array<{ clave: string; modelo: string }> = [];
+let ajustesFallan = false;
+globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
+  const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
+  if (u.host === 'supa.test' && ajustesFallan && u.pathname.endsWith('/app_settings') && (init.method ?? 'GET') === 'GET') {
+    return new Response(JSON.stringify({ code: '57014', message: 'canceling statement due to statement timeout', details: null, hint: null }), { status: 500, headers: { 'content-type': 'application/json' } });
+  }
+  if (u.host === 'supa.test') return pg.responder(u, init);
+  const r = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  if (u.host === 'api.anthropic.com') {
+    const clave = new Headers(init.headers).get('x-api-key') ?? '';
+    let modelo = '';
+    try { modelo = String(JSON.parse(String(init.body ?? '{}')).model ?? ''); } catch { /* sin cuerpo */ }
+    anthropic.push({ clave: clave.slice(0, 29), modelo });
+    if (clave === CREDITO1) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
+    if (clave !== CREDITO2 && clave !== PROPIA) return r(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
+    return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: modelo, stop_reason: 'end_turn', content: [{ type: 'text', text: 'hola desde Claude' }], usage: { input_tokens: 1000, output_tokens: 200 } });
+  }
+  return r(500, { error: { message: 'red de mentira' } });
+}) as typeof fetch;
+
+const espera = () => new Promise((ok) => setTimeout(ok, 300));
+
+async function main() {
+  const { cifrarSecreto } = await import('../lib/credenciales');
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { setSetting } = await import('../lib/settings');
+  const { permisoDeLaClaveDelNegocio, chatClaudeTools } = await import('../lib/anthropic');
+  const { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } = await import('../lib/credito-negocio');
+  const { creditoQuePago } = await import('../lib/credito-api');
+  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, { id: 1, capa: 'completo', nombre: 'Mauricio' }, { id: 10, capa: 'cliente', nombre: 'Leandro' }, { id: 13, capa: 'cliente', nombre: 'ws13' });
+  const poner = (ws: number, clave: string, valor: string) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(valor, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
+  poner(PLATAFORMA, 'ANTHROPIC_API_KEY', CLAUDE_MAKO);
+  poner(PLATAFORMA, 'ANTHROPIC_CREDITO_CUENTA1', CREDITO1);
+  poner(PLATAFORMA, 'ANTHROPIC_CREDITO_CUENTA2', CREDITO2);
+  poner(10, 'ANTHROPIC_API_KEY', CLAUDE_MAKO);
+  poner(13, 'ANTHROPIC_API_KEY', PROPIA);
+  // Leandro eligió Sonnet para SU Claude: con el crédito de Martín va Haiku igual.
+  pg.db.app_settings.push({ workspace_id: 10, key: 'ia.su_claude.modelo', value: 'sonnet' });
+  const permiso = async (ws: number, feature: string, cuentaDeLosGrupos?: string) => {
+    const r = await runWithWorkspace(ws, () => permisoDeLaClaveDelNegocio(feature, { cuentaDeLosGrupos })).catch((e) => ({ tiro: String(e) }));
+    if (r && 'permiso' in r) return { clave: r.permiso.clave.slice(0, 29), modelo: r.permiso.model, esCredito: !!r.permiso.esCredito, cuenta: r.permiso.cuentaDelCredito ?? null };
+    return r ? Object.keys(r)[0] : null;
+  };
+  const chat = (ws: number, cuentaDeLosGrupos?: string) => runWithWorkspace(ws, () => chatClaudeTools('s', [{ role: 'user', content: 'Tal cual como lo hace manychat' }], [], async () => 'ok', {
+    feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos, motivo: `Claude del grupo${cuentaDeLosGrupos ? ` (${cuentaDeLosGrupos})` : ''}`,
+  })).then((r) => r.text, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  const out: Record<string, unknown> = {};
+
+  // ── Las cuentas, con su reparto: una distinta primero en cada turno ─────────────────────────────────────────────────
+  out.reparto = [await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos()];
+
+  // ── La puerta 2 ─────────────────────────────────────────────────────────────────────────────────────────────────────
+  out.ws10SinCuenta = await permiso(10, 'mako-doer-in');
+  out.ws10Cuenta2 = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws10OpsCenter = await permiso(10, 'mako-doer', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws10Plan = await permiso(10, 'plan-fathom', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws10OtraClave = await permiso(10, 'mako-doer-in', 'ANTHROPIC_API_KEY');
+  out.ws13ConLaSuya = await permiso(13, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA2');
+
+  // ── El chat del grupo con la cuenta 2: contesta, con Haiku, y el gasto va a la cuenta 2 ──────────────────────────────
+  anthropic = [];
+  out.chatCuenta2 = await chat(10, 'ANTHROPIC_CREDITO_CUENTA2');
+  out.chatCuenta2Anthropic = [...anthropic];
+  await espera();
+  const filas = pg.db.anthropic_usage.filter((f) => f.workspace_id === 10);
+  out.gasto = filas.map((f) => String(f.motivo ?? '').slice(0, 75));
+  out.pago = filas.map((f) => creditoQuePago({ workspace_id: Number(f.workspace_id), motivo: String(f.motivo ?? ''), cuenta: Number(f.cuenta ?? 1), provider: String(f.provider ?? 'anthropic') }, new Map()));
+
+  // ── La cuenta 1 sin crédito: tira, y su fallo NO va a la tarjeta del negocio ──────────────────────────────────────────
+  const antes = pg.db.anthropic_usage.length;
+  out.chatCuenta1 = await chat(10, 'ANTHROPIC_CREDITO_CUENTA1');
+  await espera();
+  out.filasDelFallo = pg.db.anthropic_usage.slice(antes).map((f) => `${f.workspace_id}:${String(f.motivo ?? '').slice(0, 60)}`);
+  marcarCuentaDeLosGruposSinCredito('ANTHROPIC_CREDITO_CUENTA1');
+  out.sinLaAgotada = await cuentasDelCreditoDeLosGrupos();
+
+  // ── Una cuenta por el entorno también cuenta ───────────────────────────────────────────────────────────────────────
+  process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
+  out.conLaDelEntorno = (await cuentasDelCreditoDeLosGrupos()).sort();
+  // La cuenta 3 no está en el crédito de la plataforma (`CLAVES_CREDITO_PLATAFORMA`): igual es de Martín, y va con Haiku.
+  out.ws10Cuenta3 = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA3');
+  delete process.env.ANTHROPIC_CREDITO_CUENTA3;
+
+  // ── El interruptor: apagado, ninguna; sin poder leerlo, ninguna ───────────────────────────────────────────────────────
+  ajustesFallan = true;
+  out.sinLeer = await cuentasDelCreditoDeLosGrupos();
+  ajustesFallan = false;
+  await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_grupos', 'apagado'));
+  out.apagado = await cuentasDelCreditoDeLosGrupos();
+  out.apagadoPermisoSigue = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA2');
+  await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_grupos', 'prendido'));
+  out.prendido = await cuentasDelCreditoDeLosGrupos();
+
+  // ── Sin ninguna clave cargada: ninguna ─────────────────────────────────────────────────────────────────────────────
+  pg.db.credenciales = pg.db.credenciales.filter((f) => !String(f.clave).startsWith('ANTHROPIC_CREDITO_'));
+  out.sinClaves = await cuentasDelCreditoDeLosGrupos();
+  process.stdout.write(`@@GRUPOS@@${JSON.stringify(out)}\n`);
+}
+
+main().then(() => process.exit(0), (e) => { process.stdout.write(`@@GRUPOS@@${JSON.stringify({ error: e instanceof Error ? e.stack : String(e) })}\n`); process.exit(0); });

@@ -1,0 +1,89 @@
+// =============================================================================
+// El crédito de los planes 200 para TODOS los grupos de WhatsApp de MaKo (28/10/2026, ws10, Leandro)
+// =============================================================================
+// Martín, textual: «Y falló Gemini cuando te pedí que deprequemos Gemini por los grupos de WhatsApp... Y te pedí que habilites
+// las API que tenemos disponibles con todas las cuentas de planes 200». Lo que fija este test (la parte de verdad,
+// tests/_credito-grupos-hijo.ts):
+//   1. las cuentas con clave, repartidas: una distinta primero en cada turno; la que se quedó sin crédito se saltea; la del
+//      entorno cuenta;
+//   2. la puerta 2 da la cuenta del grupo SÓLO al turno del grupo (`mako-doer-in`), nunca al Ops Center ni al Plan, nunca una
+//      clave que no es de la lista, y la clave propia del negocio gana; con Haiku y como crédito;
+//   3. el gasto va a la cuenta que pagó (antes, a la cuenta 1), y su fallo no va a la tarjeta del negocio ni se lee como «tu
+//      clave de Claude»;
+//   4. el interruptor: apagado o sin poder leerlo, ninguna cuenta, ni por la puerta; sin claves cargadas, ninguna.
+//
+// Probado rompiéndolo (28/10/2026, una rotura por vez, restaurada): ver el pie.
+// =============================================================================
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { CLAVES_CREDITO_DE_LOS_GRUPOS, FEATURE_DE_LOS_GRUPOS } from '../lib/veto-claude';
+import { CUENTAS_DEL_CREDITO } from '../lib/credito-api';
+
+let cache: Record<string, any> | null = null;
+function correr(): Record<string, any> {
+  if (cache) return cache;
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_credito-grupos-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 180_000 });
+  const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@GRUPOS@@'));
+  assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
+  cache = JSON.parse(linea.slice('@@GRUPOS@@'.length));
+  assert.equal(cache!.error, undefined, String(cache!.error));
+  return cache!;
+}
+const C1 = 'ANTHROPIC_CREDITO_CUENTA1';
+const C2 = 'ANTHROPIC_CREDITO_CUENTA2';
+
+test('1. las cuentas con clave, repartidas; la agotada se saltea; la del entorno cuenta', () => {
+  const r = correr();
+  assert.deepEqual(r.reparto, [[C1, C2], [C2, C1], [C1, C2]], 'todos los turnos empiezan por la misma cuenta');
+  assert.deepEqual(r.sinLaAgotada, [C2], 'la cuenta sin crédito se vuelve a probar en cada turno');
+  assert.deepEqual(r.conLaDelEntorno, [C2, 'ANTHROPIC_CREDITO_CUENTA3']);
+  assert.deepEqual(r.ws10Cuenta3, { clave: 'sk-ant-api03-credito-cuenta3-', modelo: 'claude-haiku-4-5', esCredito: true, cuenta: 3 },
+    'una cuenta que no es del crédito de la plataforma se pagó como clave del negocio (con Sonnet, sin la marca)');
+  // Las cuatro cuentas Max que el Uso conoce: una clave de grupo que el Uso no conoce sería gasto que no se ve.
+  assert.deepEqual([...CLAVES_CREDITO_DE_LOS_GRUPOS], CUENTAS_DEL_CREDITO.map((c) => c.clave));
+  assert.equal(FEATURE_DE_LOS_GRUPOS, 'mako-doer-in');
+});
+
+test('2. la puerta 2: sólo el turno del grupo, nunca el Plan ni el Ops Center; su clave propia gana', () => {
+  const r = correr();
+  assert.equal(r.ws10SinCuenta, null, 'sin cuenta, el ws10 tiene una copia de la clave de MaKo: no es su Claude');
+  assert.deepEqual(r.ws10Cuenta2, { clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-haiku-4-5', esCredito: true, cuenta: 2 });
+  assert.equal(r.ws10OpsCenter, null, 'el Ops Center usó el crédito de los grupos');
+  assert.equal(r.ws10Plan, null, 'el Plan pagó con el crédito de los grupos');
+  assert.equal(r.ws10OtraClave, null, 'la puerta entregó una clave que no es del crédito de los grupos');
+  assert.deepEqual(r.ws13ConLaSuya, { clave: 'sk-ant-api03-propia-del-ws13-', modelo: 'claude-haiku-4-5', esCredito: false, cuenta: null }, 'el crédito tapó su clave propia');
+});
+
+test('3. el gasto va a la cuenta que pagó; su fallo no es «tu clave de Claude» ni va a la tarjeta del negocio', () => {
+  const r = correr();
+  assert.equal(r.chatCuenta2, 'hola desde Claude', `el chat del grupo no contestó: ${r.chatCuenta2}`);
+  assert.deepEqual(r.chatCuenta2Anthropic, [{ clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-haiku-4-5' }]);
+  assert.equal(r.gasto.length, 1);
+  assert.match(r.gasto[0], /^⚠ crédito de Claude de la plataforma \(cuenta 2\) · Claude del grupo/);
+  assert.deepEqual(r.pago, [{ cuenta: 'claude2', negocio: null }], 'el Uso se lo anota a otra cuenta');
+  assert.match(r.chatCuenta1, /^tiró: falló la IA \(el crédito de Claude de MaKo, cuenta 1: Your credit balance is too low/);
+  assert.doesNotMatch(r.chatCuenta1, /tu clave de Claude/, 'el negocio leería que SU clave no tiene crédito');
+  assert.deepEqual(r.filasDelFallo, [], 'el fallo de una cuenta nuestra quedó en la tarjeta del negocio');
+});
+
+test('4. el interruptor: apagado o sin leerlo, ninguna cuenta, tampoco por la puerta; sin claves, ninguna', () => {
+  const r = correr();
+  assert.deepEqual(r.sinLeer, [], 'sin poder leer el interruptor, gastó el crédito');
+  assert.deepEqual(r.apagado, []);
+  assert.equal(r.apagadoPermisoSigue, null, 'apagado, la puerta 2 entregó la cuenta igual');
+  assert.deepEqual(r.prendido, [C2], 'prendido otra vez (la cuenta 1 sigue agotada)');
+  assert.deepEqual(r.sinClaves, []);
+});
+
+// ── Probado rompiéndolo (28/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
+//   R1 sin el reparto (`const i = 0`)                                                    → falla el 1
+//   R2 sin saltear la agotada                                                            → falla el 1
+//   R3 la puerta sin mirar la feature del grupo                                          → falla el 2
+//   R4 la cuenta del grupo antes que su clave propia                                     → falla el 2
+//   R5 sin `cuentaDelCredito` en la marca del gasto                                      → falla el 3
+//   R6 el fallo de la cuenta como «tu clave de Claude»                                   → falla el 3
+//   R7 `claveDeLaCuentaDeLosGrupos` sin mirar el interruptor                             → falla el 4
+//   R8 `cuentasDelCreditoDeLosGrupos` sin el interruptor                                 → falla el 4

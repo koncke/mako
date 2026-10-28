@@ -50,6 +50,7 @@ import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
+import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -104,6 +105,8 @@ const TICKET_TOOLS = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToo
 /** La agenda del día (crm): viaja cuando el mensaje pide VER la agenda y el turno no la trajo (lib/doer-falla.ts, 27/10/2026). */
 const AGENDA_DEL_DIA = 'agenda_del_dia';
 const AGENDA_TOOLS = (() => { const d = porId(AGENDA_DEL_DIA); return d ? [aToolDef(d)] : []; })();
+/** ⛔ En los grupos de WhatsApp, Gemini afuera (Martín, 28/10/2026): ni la charla barata (que lo prueba primero) ni los candidatos. */
+const SIN_GEMINI_EN_EL_GRUPO: boolean = true;
 /** Los tickets de la persona (lib/api-mako/areas/tickets.def.ts): viajan con un pedido de funcionalidad, para decir si ya hay uno. */
 const MIS_TICKETS = 'mis_tickets';
 const MIS_TICKETS_TOOLS = (() => { const d = porId(MIS_TICKETS); return d ? [aToolDef(d)] : []; })();
@@ -1818,7 +1821,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * sólo va si es charla de verdad o si la clasificación fue una duda.
      */
     const pideHerramientas = intencion.intencion !== 'charlar' && !intencion.dudosa;
-    if (ruta.tier === 'cheap' && !mediaBlocks && !pideHerramientas) {
+    // ⛔ En el grupo, Gemini AFUERA (Martín, 28/10/2026): la charla barata (`chatCheap`) prueba Gemini primero, así que ya no corre.
+    // La charla la contesta la cascada de abajo, que arranca por Claude.
+    if (SIN_GEMINI_EN_EL_GRUPO === false && ruta.tier === 'cheap' && !mediaBlocks && !pideHerramientas) {
       // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
       // falla la IA barata, caemos al doer normal (nunca dejamos al dueño sin respuesta).
       try {
@@ -1953,7 +1958,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
              */
             // IA16: sin Groq (sólo escucha audio); un pin a Groq de /modelos-ia lo saltea `chatCheapTools`. Con su IA, su Gemini
             // y su OpenAI (`PROVS_SU_IA`): desde el 22/10/2026 su Gemini es su IA, y con sólo `['openai']` no se probaba.
-            const cands = suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai'].filter((p, i, a) => p !== 'groq' && a.indexOf(p) === i);
+            // ⛔ Y sin Gemini (Martín, 28/10/2026, «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a Gemini.
+            const cands = (suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai']).filter((p, i, a) => p !== 'groq' && p !== 'gemini' && a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -1980,6 +1986,43 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // Lo pone el reintento de arriba: alguna IA escribió un link de borrador, o
             // sea que ENTENDIÓ que este turno cargaba tareas aunque el router no.
             let quisoBorrador = false;
+            // ── CLAUDE PRIMERO (Martín, 28/10/2026: «el texto del turno sale con Claude» en los grupos) ─────────────────────────
+            // Su Claude (por clave) o el crédito asignado (la puerta 2), y SÓLO si no tiene, el crédito de los planes 200
+            // repartido entre las cuentas con clave (`cuentasDelCreditoDeLosGrupos`), saltando la que se quedó sin crédito. Sólo
+            // mientras el turno no ejecutó nada: otro intento después de una escritura la duplicaría.
+            let claudeProbado = false;
+            /** Una vuelta de Claude: con su Claude (`cuenta` vacía) o con una cuenta del crédito de los grupos. */
+            const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {
+              try {
+                const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+                  feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500,
+                  motivo: `Claude del grupo${cuenta ? ` (${cuenta})` : ''} · ${ruta.motivo} «${recorte}»`,
+                });
+                claudeProbado = true;
+                if (!cuenta) { probadasCliente++; contestaronCliente++; }
+                if (text?.trim() && !text.startsWith('(')) respuesta = text.trim();
+                return 'listo';
+              } catch (e) {
+                const m = e instanceof Error ? e.message : String(e);
+                // Sin su Claude (y sin crédito asignado) no es un error: se prueba el crédito de los grupos.
+                if (!cuenta && /no tiene su clave de Claude/.test(m)) return 'sin_su_claude';
+                claudeProbado = true;
+                ultErr = e;
+                console.warn(`[mako-doer-in] ws=${wsData} Claude del grupo${cuenta ? ` (${cuenta})` : ''} no pudo: ${m}`);
+                // ⚠️ CON SU CLAUDE, EL QUE FALLÓ ES EL SUYO, y la puerta 2 le daría el suyo otra vez (su clave gana): no se pasa
+                // al crédito, que además marcaría «sin crédito» una cuenta nuestra por el saldo de SU clave.
+                if (!cuenta) { probadasCliente++; erroresIA.push(`anthropic/ANTHROPIC_API_KEY: ${m}`); return 'listo'; }
+                // El crédito de los grupos es NUESTRO: su error no elige el veredicto (ver `erroresPlataforma`).
+                if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
+                erroresPlataforma.push(`plataforma/anthropic (${cuenta}): ${m}`);
+                return 'otra_cuenta';
+              }
+            };
+            if (!respuesta && !linkBorrador && (await claudeDelGrupo()) === 'sin_su_claude') {
+              for (const cuenta of await cuentasDelCreditoDeLosGrupos()) {
+                if (respuesta || corridasDelTurno > 0 || (await claudeDelGrupo(cuenta)) === 'listo') break;
+              }
+            }
             // ⚠️ EL LOOP RECORRE CUENTAS, NO SÓLO PROVEEDORES. Acá se iteraba `orden` —la
             // lista de proveedores— y se llamaba a `chatCheapTools` sin `clave`, así que
             // resolvía siempre la key BASE de cada uno. Un cliente con dos cuentas de
@@ -2172,7 +2215,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // (las del grupo y las de la API del negocio); si no se pueden leer, cuentan.
             // ── WA1: CON SU IA, DESPUÉS DE SU OPENAI, SU CLAUDE (por clave, la puerta 2 del veto). Sólo si el turno no ejecutó
             // nada todavía: otro modelo después de una escritura la duplicaría (la misma regla de la cascada).
-            if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0) {
+            if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0 && !claudeProbado) {
               probadasCliente++;
               try {
                 const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {

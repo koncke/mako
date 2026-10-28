@@ -307,9 +307,34 @@ a «Tal cual como lo hace manychat», y a un audio de 31 s le puso 👍 y nada m
   · la que no se escucha lo dice, pide que la escriban y deja ticket, con UNA función para el suelto y los dos lotes
     (`avisarAudioSinEscuchar`), y si falló el Groq de la plataforma, la causa es nuestra, no «conecta tu IA»;
   · un pedido de FUNCIONALIDAD («como lo hace manychat», `pideUnaFuncionalidad`) trae sus tickets (`mis_tickets`) y una nota:
-    no se contesta con un consejo; si ya hay ticket, se dice en qué anda; si no existe, va la marca `[[no-existe]]`.
+    no se contesta con un consejo; si ya hay ticket, se dice en qué anda; si no existe, va la marca `[[no-existe]]`;
+  · el TEXTO del turno del grupo sale con Claude, y Gemini no entra (ni la charla barata, que lo probaba primero, ni los
+    candidatos): su Claude primero y, SÓLO si no tiene, el crédito de los planes 200 repartido entre las cuentas con clave
+    (`cuentasDelCreditoDeLosGrupos`, lib/credito-negocio.ts; Martín: «habilites las API que tenemos disponibles con todas las
+    cuentas de planes 200»). Con Haiku, por la puerta 2 y sólo para `mako-doer-in`; ni el Ops Center ni el Plan.
+
+**El crédito de los grupos: lo que el obvio «pasarle la cuenta a la puerta 2» no veía (28/10/2026).**
+- **El Uso se lo anotaba a la cuenta 1.** La marca «(su clave es el crédito)» no trae número, y `creditoQuePago`
+  (lib/credito-api.ts) lo resuelve por el negocio; un negocio sin crédito asignado caía en la cuenta 1. La cuenta del grupo va
+  en el permiso (`cuentaDelCredito`) y el gasto lleva «(cuenta N)», como `conCreditoDeLaPlataforma`.
+- **Su fallo se leía como «tu clave de Claude».** El throw de `chatClaudeTools` decía «tu clave de Claude: credit balance…», y
+  lib/errores-app-reglas.ts y lib/mako-turno-app-reglas.ts leen eso como SU clave sin crédito; además quedaba en la tarjeta de
+  «Tus cuentas de IA» del negocio. Ahora dice «el crédito de Claude de MaKo, cuenta N» y no va a la tarjeta. En el doer, el
+  error de una cuenta nuestra va a `erroresPlataforma`: no elige el cartel.
+- **Con SU Claude, no se pasa al crédito.** La puerta 2 le da su clave propia aunque se le pida una cuenta (su clave gana): el
+  segundo intento era su misma clave, y un «credit balance» de SU saldo marcaba sin crédito una cuenta NUESTRA por 6 h.
+- **El interruptor lo mira también la puerta** (`claveDeLaCuentaDeLosGrupos`), no sólo quien elige la cuenta: apagado
+  (`ia.credito_grupos` en el workspace de la plataforma), una cuenta pasada a mano igual pagaba.
+- **Medido en producción (28/10, sólo lectura):** en la plataforma (ws9) sólo hay clave para las cuentas 1 y 2. La 3 y la 4
+  esperan que Martín pegue la suya en SuperAdmin › Uso › API (`ANTHROPIC_CREDITO_CUENTA3`/`4`); la claude5 no tiene lugar en
+  `CUENTAS_DEL_CREDITO` (lib/credito-api.ts). La cuenta 1 es la org de Mauricio y la 2 la de Leandro (medido el 22/10, ver
+  `CUENTAS_DEL_CREDITO`): ahora también pagan los grupos de los demás negocios.
 
 **Sin hacer:**
+- **El crédito de los grupos:** la claude5 necesita su lugar en `CUENTAS_DEL_CREDITO` y en `CLAVES_CREDITO_DE_LOS_GRUPOS`
+  (lib/veto-claude.ts; tests/credito-api.test.ts fija cuatro). No hay interruptor en la pantalla de SuperAdmin para
+  `ia.credito_grupos`: sin fila está prendido, y apagarlo hoy es escribir la fila. En el grupo, los documentos y las fotos
+  (`archivoATexto`, lib/mako-doer-in.ts) todavía pasan por Gemini.
 - **En la línea del DUEÑO, el anillo es la única defensa del eco, y un error al leerlo lo vacía**: `idsEnviados` lee con
   `getSetting`, que convierte un error en null (anillo vacío), así que el eco de MaKo entra como el dueño escribiendo y se
   contesta. En la línea de MaKo no pasa (`esEcoDeMaKo`). Lo cerraría leerlo estricto y, si falla, saltear el `fromMe` en vez de

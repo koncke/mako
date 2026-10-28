@@ -29,10 +29,11 @@ const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const DOER = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8')).replace(/\r\n/g, '\n');
 
-test('1. con su IA, los candidatos del doer son su Gemini y su OpenAI (IA16: su Gemini es su IA)', () => {
+test('1. con su IA, el candidato del doer es su OpenAI: su Gemini, no (en el grupo, sin Gemini desde el 28/10/2026)', () => {
   // Con `conPc` a mano desde el 25/10/2026: el cartel de un negocio con su computadora y sin clave no dice «no tiene su IA».
   assert.match(DOER, /const iaDelNegocio = await negocioConSuIA\(wsData\);\s*const suIA = iaDelNegocio\.suIA;/);
-  assert.match(DOER, /const cands = suIA \? \[\.\.\.PROVS_SU_IA\] : \[pinL\.provider, 'openai'\]/);
+  // Sin Gemini desde el 28/10/2026 (Martín: «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a Gemini.
+  assert.match(DOER, /const cands = \(suIA \? \[\.\.\.PROVS_SU_IA\] : \[pinL\.provider, 'openai'\]\)\.filter\(\(p, i, a\) => p !== 'groq' && p !== 'gemini' && a\.indexOf\(p\) === i\);/);
   assert.match(DOER, /import \{ PROVS_SU_IA \} from '@\/lib\/solo-su-ia';/);
   // El pin vive en lib/doer-modelo.ts desde el 27/10/2026 (el modelo por defecto de la app, no `gpt-4o-mini` fijo).
   assert.match(DOER, /const pinL = pinDelDoer\(pin, suIA\);/, 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');
@@ -41,7 +42,8 @@ test('1. con su IA, los candidatos del doer son su Gemini y su OpenAI (IA16: su 
 });
 
 test('2. después de su OpenAI, su Claude por la puerta 2 — sólo si el turno no ejecutó nada — y sin la red de la plataforma', () => {
-  const i = DOER.indexOf('if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0) {');
+  // (Si Claude ya se probó primero, «Claude primero» del test 4, no se repite.)
+  const i = DOER.indexOf('if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0 && !claudeProbado) {');
   assert.ok(i > 0, 'falta el intento con su Claude (o perdió la guarda de «no ejecutó nada»)');
   const bloque = DOER.slice(i, i + 900);
   assert.match(bloque, /chatClaudeTools\(system, msgs, tools, nuevoIntento\(\), \{\s*feature: 'mako-doer-in', soloSuClaude: true,/);
@@ -62,4 +64,27 @@ test('3. `soloSuClaude` de verdad: su clave y su marca; sin su clave, «falló l
   assert.match(String(r.ws13.r), /^tiró: falló la IA \(el negocio no tiene su clave de Claude\)/);
   assert.deepEqual(r.ws13.pedidos, [], 'sin su clave no se le pide nada a nadie');
   for (const g of r.gasto as Array<{ motivo: string }>) assert.match(g.motivo, /^⚠ clave de Anthropic del negocio/);
+});
+
+test('4. el grupo contesta con CLAUDE PRIMERO: su Claude, o el crédito de los planes 200 repartido entre las cuentas', () => {
+  // Martín, 28/10/2026 (ws10, Leandro): «te pedí que habilites las API que tenemos disponibles con todas las cuentas de planes 200».
+  const i = DOER.indexOf("const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {");
+  const iOtras = DOER.indexOf('const instancias = (await Promise.all(');
+  assert.ok(i > 0 && iOtras > i, 'Claude no va antes de su OpenAI');
+  const bloque = DOER.slice(i, iOtras);
+  assert.match(bloque, /feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta,/);
+  assert.doesNotMatch(bloque, /model: '/, 'sin `model` explícito: eso va al veto de la plataforma');
+  // Su Claude primero; el crédito, SÓLO si no tiene (con el suyo, la puerta 2 le daría el suyo otra vez).
+  assert.match(bloque, /if \(!cuenta && \/no tiene su clave de Claude\/\.test\(m\)\) return 'sin_su_claude';/);
+  assert.match(bloque, /if \(!cuenta\) \{ probadasCliente\+\+; erroresIA\.push\(`anthropic\/ANTHROPIC_API_KEY: \$\{m\}`\); return 'listo'; \}/);
+  assert.match(bloque, /if \(!respuesta && !linkBorrador && \(await claudeDelGrupo\(\)\) === 'sin_su_claude'\) \{\n\s*for \(const cuenta of await cuentasDelCreditoDeLosGrupos\(\)\) \{\n\s*if \(respuesta \|\| corridasDelTurno > 0 \|\| \(await claudeDelGrupo\(cuenta\)\) === 'listo'\) break;/,
+    'otra cuenta después de una escritura la duplicaría');
+  // El crédito es NUESTRO: su error no elige el veredicto, y la cuenta sin crédito se saltea.
+  assert.match(bloque, /if \(\/credit balance is too low\/i\.test\(m\)\) marcarCuentaDeLosGruposSinCredito\(cuenta\);\n\s*erroresPlataforma\.push\(`plataforma\/anthropic \(\$\{cuenta\}\): \$\{m\}`\);\n\s*return 'otra_cuenta';/);
+  assert.match(bloque, /if \(!cuenta\) \{ probadasCliente\+\+; contestaronCliente\+\+; \}/, 'lo que contestó nuestro crédito contó como del cliente');
+  // La charla barata (que prueba Gemini primero) no corre en el grupo.
+  assert.match(DOER, /if \(SIN_GEMINI_EN_EL_GRUPO === false && ruta\.tier === 'cheap'/);
+  // La puerta 2 (lo de verdad, en tests/credito-grupos.test.ts): la cuenta del grupo pasa por ahí.
+  const ant = sinComentarios(readFileSync(join(RAIZ, 'lib/anthropic.ts'), 'utf8')).replace(/\r\n/g, '\n');
+  assert.match(ant, /permisoDeLaClaveDelNegocio\(opts\.feature, \{ modelo: opts\.modeloSuClaude, cuentaDeLosGrupos: opts\.cuentaDeLosGrupos \}\)/);
 });
