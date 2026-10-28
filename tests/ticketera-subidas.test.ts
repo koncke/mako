@@ -285,6 +285,23 @@ test('lo adjuntado es de SU conversación: no pasa al ticket cerrado (donde la c
   assert.deepEqual(nombres(), ['otra.png'], 'lo sin mandar se perdió al empezar otra conversación');
 });
 
+test('la caja de la conversación nueva tiene UNA clave: lo que la caja lee no queda huérfano al empezar otra ni al levantar el ticket', async (t) => {
+  // La verificación de d2f690673: la clave cambiaba con cada conversación nueva y useSoporte mudaba SUS adjuntos, pero lo que la
+  // caja lee (CajaChat → `conversacion`, un .pptx o un .heic) quedaba en la clave vieja: desaparecía sin aviso.
+  const p = await pantalla(t);
+  const nueva = p.r().claveCaja;
+  p.r().nuevo();
+  assert.equal(p.r().claveCaja, nueva, 'otra conversación nueva cambió la clave de la caja');
+  const s = p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
+  await s.mandarTicket();
+  assert.notEqual(p.r().claveCaja, nueva, 'levantado el ticket, la caja es la del ticket');
+  p.r().abrir('nuevo');
+  assert.equal(p.r().claveCaja, nueva, 'y la conversación nueva vuelve a la misma caja');
+  // Las notas de voz sí van por conversación (la revisión de chats-unificados): no salen en la siguiente.
+  assert.match(leer('app/tickets/soporte/useSoporte.ts'), /const claveNotas = typeof abierto === 'number' \? `soporte:\$\{abierto\}` : `soporte:nuevo:\$\{idConversacion\}`;/);
+  assert.match(leer('app/tickets/soporte/useSoporte.ts'), /clave: claveNotas,/);
+});
+
 test('el tope del día por negocio: lo cuenta la ruta en el bucket y lo dice en texto', () => {
   assert.equal(problemaDelDiaTicket([], [{ size: 10 }]), null);
   assert.match(problemaDelDiaTicket(Array.from({ length: TOPE_DIA_ARCHIVOS_TICKET }, () => ({ bytes: 1 })), [{ size: 1 }]) ?? '', /tope es 30 por día/);

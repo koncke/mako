@@ -7,7 +7,8 @@
 // mensaje del 9. Y lo que se estaba leyendo cuando la persona cambiaba de ticket salía como respuesta al ticket equivocado.
 // Esto corre el hook REAL (tests/hook-en-node.ts), con la subida y la lectura de mentira y en pausa.
 // Probado rompiéndolo: el hook de 05d7c3187 (una lista por caja) → rojo en los dos; sin mirar la conversación al terminar de
-// leer → rojo en el 2.
+// leer → rojo en el 2. Y (la verificación de d2f690673): el hook de d2f690673 (una lectura por caja) → rojo en el 4;
+// Conversacion.tsx o ChatsMovil.tsx sin `conversacion` → rojo en el 3.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -98,7 +99,32 @@ test('2. lo que se estaba leyendo cuando se cambió de conversación NO sale en 
   assert.match(p.e.mandados[0], /^soporte:7: mirá el deck[\s\S]*CONTENIDO DE deck\.pptx/);
 });
 
-test('3. Soporte le dice a la caja de qué conversación es', () => {
+test('3. Soporte y el Ops Center le dicen a la caja de qué conversación es', () => {
   assert.match(leer('app/tickets/soporte/PiezasSoporte.tsx'), /conversacion=\{s\.claveCaja\}/);
   assert.match(leer('app/_chat/CajaChat.tsx'), /useAdjuntosQueSeLeen\(\{[^}]*conversacion: p\.conversacion \}\)/);
+  // El Ops Center usa la misma caja para todos los chats (la verificación de d2f690673: un .m4a del chat A salía con el «hola B»).
+  assert.match(leer('app/admin/operaciones/Conversacion.tsx'), /conversacion=\{chat\.clave\}/);
+  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /<CajaChat [\s\S]{0,600}?conversacion=\{elegido\.clave\}/);
+});
+
+test('4. mientras una conversación lee, otra manda lo suyo EN EL ACTO (no queda esperando sin decir nada)', async () => {
+  const p = pantalla(await hook());
+  const l = lector();
+  p.ver('soporte:7').adjuntos.onSumar([new File(['x'], 'deck.pptx', { type: PPTX })]);
+  p.e.texto = 'mirá el deck';
+  p.ver().mandar();
+  await vuelta();
+  assert.equal(p.ver().leyendo, true, 'el 7 lee');
+  // En el 9 se adjunta otro, se escribe y se manda: lee lo suyo ya, sin esperar al 7.
+  p.ver('soporte:9').adjuntos.onSumar([new File(['y'], 'otro.pptx', { type: PPTX })]);
+  p.e.texto = 'esto es del 9';
+  p.ver().mandar();
+  await vuelta();
+  assert.equal(p.ver().leyendo, true, 'el 9 no arrancó a leer: Enter no hizo nada');
+  await l.soltar();
+  p.ver('soporte:9');
+  assert.equal(p.e.mandados.length, 1, 'el 9 no salió');
+  assert.match(p.e.mandados[0], /^soporte:9: esto es del 9[\s\S]*CONTENIDO DE otro\.pptx/);
+  assert.ok(!p.e.mandados[0].includes('deck.pptx'), 'lo del 7 salió en el 9');
+  assert.deepEqual(nombres(p.ver('soporte:7')), ['deck.pptx'], 'lo del 7 sigue en el 7');
 });

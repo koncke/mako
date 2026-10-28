@@ -345,7 +345,7 @@ test('9. la nota se lleva lo adjuntado ANTES de pasarse a texto: lo que cambia e
 });
 
 test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma lo soltado, y lo sigue mostrando', async () => {
-  const { adjuntosQuietos } = await import('../app/_chat/juntar-adjuntos');
+  const { adjuntosQuietos, ESPERA_PARA_ADJUNTAR } = await import('../app/_chat/juntar-adjuntos');
   const tocados: string[] = [];
   const a = { items: [{ id: 'x' }], puede: true, onSumar: () => { tocados.push('sumar'); }, onQuitar: () => { tocados.push('quitar'); } } as unknown as Parameters<typeof adjuntosQuietos>[0] & object;
   const enEspera: string[] = [];
@@ -372,8 +372,12 @@ test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma 
   assert.deepEqual(avisosPantalla, ['pantalla'], 'su aviso, no «Espera a que termine»');
   conMotivoQuieta.onSumar([new File([PNG], 'otro.png')]);
   assert.deepEqual(tocados, [], 'y no entra');
+  // Mientras la caja LEE, lo junto dice que no (juntarAdjuntos: puede = la pantalla && lo que se lee), pero la pantalla no:
+  // eso es salir y dice «Espera» (la verificación de d2f690673; antes ganaba la rama del motivo de la pantalla).
+  const leyendo = adjuntosQuietos({ ...a, puede: false }, { quieta: true, saliendo: true, onEspera, pantallaDiceQueNo: false })!;
+  assert.equal(leyendo.espera, ESPERA_PARA_ADJUNTAR, 'leyendo, la caja no dice que espera');
+  assert.equal(leyendo.onNoPuede, onEspera);
   // No se traga nada callada (la verificación de tren-t): dice que no toma y por qué, y lo soltado avisa.
-  const { ESPERA_PARA_ADJUNTAR } = await import('../app/_chat/juntar-adjuntos');
   assert.equal(quieta.puede, false, 'el panel no ofrece «Suelta para adjuntar»');
   assert.equal(quieta.espera, ESPERA_PARA_ADJUNTAR);
   const { alSoltar } = await import('../app/admin/operaciones/pegar');
@@ -385,7 +389,7 @@ test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma 
   assert.deepEqual(tocados, [], 'y no entra');
   // La caja única la usa con su `quieto` (el soltar y el aviso al panel pasan por `adjuntos`), y la ✕ se apaga.
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;[\s\S]{0,500}?const adjuntos = adjuntosQuietos\(deLaCaja, \{ quieta: quieto, saliendo: enviando, onEspera: avisarEspera \}\);\s*useAvisarAdjuntos\(adjuntos\);/);
+  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;[\s\S]{0,500}?const adjuntos = adjuntosQuietos\(deLaCaja, \{ quieta: quieto, saliendo: enviando, onEspera: avisarEspera, pantallaDiceQueNo: !!p\.adjuntos && !p\.adjuntos\.puede \}\);\s*useAvisarAdjuntos\(adjuntos\);/);
   // La espera es sólo de la caja que sale: apagada o bloqueada, el aviso de la caja no queda.
   assert.match(caja, /if \(enEspera && !enviando\) setEnEspera\(false\);/);
   assert.match(caja, /const avisarEspera = \(\) => \{ if \(p\.onErrorMic\) p\.onErrorMic\(ESPERA_PARA_ADJUNTAR\); else setEnEspera\(true\); \};/, 'lo dice la pantalla, o la caja');

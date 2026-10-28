@@ -158,7 +158,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   const [enEspera, setEnEspera] = useState(false);
   if (enEspera && !enviando) setEnEspera(false);
   const avisarEspera = () => { if (p.onErrorMic) p.onErrorMic(ESPERA_PARA_ADJUNTAR); else setEnEspera(true); };
-  const adjuntos = adjuntosQuietos(deLaCaja, { quieta: quieto, saliendo: enviando, onEspera: avisarEspera });
+  const adjuntos = adjuntosQuietos(deLaCaja, { quieta: quieto, saliendo: enviando, onEspera: avisarEspera, pantallaDiceQueNo: !!p.adjuntos && !p.adjuntos.puede });
   // Lo soltado sobre la conversación (PanelDeChat) también va acá (./soltar-en-la-caja.ts).
   useAvisarAdjuntos(adjuntos);
   /** El botón: gira saliendo un mensaje o mientras MaKo trabaja. El campo sólo se apaga con `enviando` o `apagado`. */

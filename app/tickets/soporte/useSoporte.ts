@@ -65,24 +65,18 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   // La conversación nueva de AHORA, como estado: la clave de sus notas de voz (la revisión de chats-unificados, 28/10/2026: con «soporte:nuevo» para todas, una
   // nota grabada antes de mandar el ticket salía como primer mensaje de la conversación SIGUIENTE).
   const [idConversacion, setIdConversacion] = useState(() => ref.current);
-  /** De qué conversación es lo de la caja (sus notas de voz y lo adjuntado): un ticket, o la conversación nueva de ahora. */
-  const claveCaja = typeof abierto === 'number' ? `soporte:${abierto}` : `soporte:nuevo:${idConversacion}`;
+  /** De qué conversación son las notas de voz: un ticket, o la conversación nueva de AHORA (cada una la suya). */
+  const claveNotas = typeof abierto === 'number' ? `soporte:${abierto}` : `soporte:nuevo:${idConversacion}`;
   // Lo adjuntado, POR CONVERSACIÓN (la verificación de tren-t): con una sola lista, lo adjuntado en un ticket abierto pasaba al
-  // ticket cerrado que se abría después, y ahí la caja apagada no dejaba quitarlo.
+  // ticket cerrado que se abría después, y ahí la caja apagada no dejaba quitarlo. La conversación NUEVA tiene UNA clave para
+  // todas (la verificación de d2f690673): lo que no se mandó pasa a la siguiente, como lo escrito, sin mudar nada. Mudar lo de
+  // la pantalla dejaba huérfano lo que la caja LEE (CajaChat → `conversacion`), y una lectura en curso al levantar el ticket
+  // terminaba en la clave vieja: el .pptx desaparecía.
+  /** De qué conversación es lo de la caja (lo adjuntado y lo que la caja lee): un ticket, o la conversación nueva. */
+  const claveCaja = typeof abierto === 'number' ? `soporte:${abierto}` : 'soporte:nuevo';
   const [adjuntosPor, setAdjuntosPor] = useState<Record<string, AdjuntoCaja[]>>({});
   const ponerAdjuntos = (c: string, f: (xs: AdjuntoCaja[]) => AdjuntoCaja[]) => setAdjuntosPor((m) => ({ ...m, [c]: f(m[c] ?? []) }));
-  /** Otra conversación nueva: lo adjuntado sin mandar en la de antes pasa a ésta, como lo escrito (no se pierde). */
-  const otraConversacion = () => {
-    const antes = `soporte:nuevo:${ref.current}`;
-    ref.current = uuid();
-    const ahora = `soporte:nuevo:${ref.current}`;
-    setIdConversacion(ref.current);
-    setAdjuntosPor((m) => {
-      if (!m[antes]?.length) return m;
-      const { [antes]: llevar, ...resto } = m;
-      return { ...resto, [ahora]: llevar };
-    });
-  };
+  const otraConversacion = () => { ref.current = uuid(); setIdConversacion(ref.current); };
   // ── Lo que se adjunta (28/10/2026, Martín: «no permite adjuntar ni archivos ni capturas ni documentos»): lib/tickets-adjuntos.ts.
   // `adjuntos`: lo elegido en la caja, antes de mandar. `delTicket`: lo que ya subió en la conversación NUEVA y viaja con el
   // ticket al levantarlo (en un ticket abierto, cada respuesta lleva los suyos).
@@ -280,7 +274,7 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
   // por `mandar`, como lo escrito: al equipo en un ticket, a MaKo en la conversación nueva. Lo escrito y lo adjuntado quedan en la caja.
   const nota = useNotaEnElActo({
-    clave: claveCaja,
+    clave: claveNotas,
     puede: !mandando && !(typeof abierto === 'number' && (!ticket || !ticket.puedeResponder)),
     mandar: (t) => mandar(t),
   });

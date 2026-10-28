@@ -74,9 +74,11 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   const [porConversacion, setPorConversacion] = useState<Record<string, AdjuntoCaja[]>>({});
   const items = porConversacion[conversacion] ?? SIN_ITEMS;
   const ponerItems = (c: string, f: (ya: AdjuntoCaja[]) => AdjuntoCaja[]) => setPorConversacion((m) => ({ ...m, [c]: f(m[c] ?? []) }));
-  /** La conversación cuyo mensaje se está leyendo (una por vez). */
-  const [leyendoEn, setLeyendoEn] = useState<string | null>(null);
-  const leyendo = leyendoEn === conversacion;
+  /** Las conversaciones cuyo mensaje se está leyendo: cada una el suyo (la verificación de d2f690673: con una por vez, Enter en el
+   *  ticket 9 mientras se leía el 7 no hacía nada y no decía nada). */
+  const [leyendoEn, setLeyendoEn] = useState<readonly string[]>([]);
+  const leyendo = leyendoEn.includes(conversacion);
+  const dejarDeLeer = (c: string) => setLeyendoEn((xs) => xs.filter((x) => x !== c));
   const actual = useRef(conversacion);
   actual.current = conversacion;
   const [error, setError] = useState<string | null>(null);
@@ -120,13 +122,13 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
 
   const mandar = () => {
     if (!items.length) { onMandar(); return; }
-    if (leyendoEn != null) return;
+    if (leyendo) return;
     const de = conversacion;
     const lista = items;
     const marcar = (id: string, estado: AdjuntoCaja['estado']) => ponerItems(de, (ya) => ya.map((x) => (x.id === id ? { ...x, estado } : x)));
     setError(null);
     setAviso(null);
-    setLeyendoEn(de);
+    setLeyendoEn((xs) => [...xs, de]);
     void (async () => {
       const leidos: string[] = [];
       for (const it of lista) {
@@ -137,19 +139,19 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
         } catch (e) {
           marcar(it.id, 'error');
           if (actual.current === de) decir(e instanceof Error ? e.message : `No pude leer «${it.file.name}».`);
-          setLeyendoEn(null);
+          dejarDeLeer(de);
           return;
         }
       }
       // Se cambió de conversación mientras se leía: no sale en la otra (iría al ticket equivocado). Queda en la suya, leído de
       // nuevo al mandarlo desde ahí.
-      if (actual.current !== de) { setLeyendoEn(null); return; }
+      if (actual.current !== de) { dejarDeLeer(de); return; }
       // Con el tope del motor de la pantalla, lo leído entra hasta ahí con su marca de cierre, y se DICE (la revisión del 27/10).
       const { mensaje: nuevo, afuera } = tope ? conPegadosHasta(texto, leidos, tope) : { mensaje: conPegados(texto, leidos), afuera: 0 };
       if (afuera) setAviso(`Este chat lee hasta ${tope!.toLocaleString('es')} caracteres: lo adjuntado no entró entero (quedaron afuera ${afuera.toLocaleString('es')}).`);
       for (const x of lista) if (x.url) URL.revokeObjectURL(x.url);
       ponerItems(de, (ya) => ya.filter((x) => !lista.some((y) => y.id === x.id)));
-      setLeyendoEn(null);
+      dejarDeLeer(de);
       setPendiente(nuevo);
       onTexto(nuevo);
     })();

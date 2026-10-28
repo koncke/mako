@@ -753,11 +753,16 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
   forma de sacarla hasta volver a un ticket abierto.
 - **La causa:** `useSoporte` tenía UNA lista de adjuntos para todo Soporte; `abrir` y `nuevo` no la tocaban. El defecto venía de
   antes: la caja quieta sólo lo hizo visible.
-- **La regla:** lo de la caja es de su conversación, con la misma clave que sus notas de voz (`claveCaja`: `soporte:<id>` o
-  `soporte:nuevo:<conversación>`). Al empezar otra conversación nueva, lo que no se mandó pasa a la siguiente, como lo escrito.
-  Si la persona levanta el ticket y le quedó algo sin mandar, no lo ve en el ticket: lo encuentra en la conversación nueva.
-- **Vive en:** app/tickets/soporte/useSoporte.ts (`claveCaja`, `adjuntosPor`, `otraConversacion`) ·
-  tests/ticketera-subidas.test.ts («lo adjuntado es de SU conversación»).
+- **La regla:** lo de la caja es de su conversación (`claveCaja`): `soporte:<id>` para un ticket, y UNA sola clave,
+  `soporte:nuevo`, para la conversación nueva, así lo que no se mandó sigue en la siguiente, como lo escrito. Si la persona
+  levanta el ticket y le quedó algo sin mandar, no lo ve en el ticket: lo encuentra en la conversación nueva. Las notas de
+  voz, en cambio, van por conversación (`claveNotas`, `soporte:nuevo:<id>`): una nota grabada no sale en la siguiente.
+- **El obvio era el equivocado (la verificación de d2f690673):** mudar lo adjuntado de la clave vieja a la nueva al empezar otra
+  conversación (`otraConversacion`). Mudaba lo de la pantalla, pero lo que la caja LEE (abajo) quedaba en la clave vieja, y una
+  lectura en curso al levantar el ticket también terminaba ahí: el .pptx desaparecía sin aviso. Con una clave fija no hay nada
+  que mudar.
+- **Vive en:** app/tickets/soporte/useSoporte.ts (`claveCaja`, `claveNotas`, `adjuntosPor`) ·
+  tests/ticketera-subidas.test.ts («lo adjuntado es de SU conversación» y «la caja de la conversación nueva tiene UNA clave»).
 - **Y lo que la caja LEE (la verificación de 05d7c3187):** lo de arriba cubría lo que toma la pantalla (fotos, PDF, Office); lo
   que la caja lee sola (.pptx, .md, audio, video) seguía pasando de un ticket a otro, y lo que se leía al cambiar de ticket salía
   en el otro. Ahora la caja también lo guarda por conversación (`conversacion={s.claveCaja}`, PiezasSoporte.tsx): ver

@@ -2026,7 +2026,8 @@ export const BITACORA: Hito[] = [
       '**Mientras sale tu mensaje, lo adjuntado no cambia:** la ✕ no se ofrece y lo que sueltas no entra. La caja te dice «Espera a que termine para adjuntar»; antes se perdía sin aviso. Si la caja está apagada (un ticket cerrado, sin la app), dice lo de siempre.',
       '**La captura que te ofrece la caja espera:** si la caja está ocupada, vuelve cuando se libera, en vez de perderse.',
       '**Si sales del chat nuevo con la nota a mitad** y no se entiende, la foto vuelve a la caja con su miniatura.',
-      '**En Soporte, cada ticket tiene su caja:** lo que adjuntas en uno ya no aparece en otro (en uno cerrado no se podía quitar), también un PowerPoint o un audio. Y lo que se estaba leyendo cuando cambias de ticket no sale en el otro: queda en el suyo.',
+      '**En Soporte, cada ticket tiene su caja:** lo que adjuntas en uno ya no aparece en otro (en uno cerrado no se podía quitar), también un PowerPoint o un audio. Y lo que se estaba leyendo cuando cambias de ticket no sale en el otro: queda en el suyo. Lo que dejas sin mandar en la conversación nueva sigue ahí en la siguiente.',
+      '**En el Ops Center, cada chat tiene su caja:** un audio adjuntado en un chat ya no sale con el mensaje de otro. Y si un chat está leyendo lo que adjuntaste, en otro puedes mandar en el acto.',
     ],
     archivos: [
       'app/_chat/juntar-adjuntos.ts — adjuntosQuietos · CajaChat.tsx · adjuntos-que-se-leen.ts — por conversación · app/admin/operaciones/PanelChat.tsx · centro.css',

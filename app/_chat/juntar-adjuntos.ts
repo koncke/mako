@@ -52,10 +52,15 @@ export const ESPERA_PARA_ADJUNTAR = 'Espera a que termine para adjuntar';
  *   · apagada o bloqueada (sin diseño, sin la app de escritorio), sin espera: nada va a terminar, y el panel dice lo de
  *     siempre («Este chat no recibe archivos»).
  */
-export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, c: { quieta: boolean; saliendo: boolean; onEspera?: () => void }): AdjuntosDeCaja | undefined {
+export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, c: {
+  quieta: boolean; saliendo: boolean; onEspera?: () => void;
+  /** La PANTALLA dice que no, por lo suyo. Sin esto, `!a.puede`. La caja lo pasa aparte: lo junto también dice que no mientras la
+   *  caja LEE (`juntarAdjuntos`), y eso es salir, no un motivo de la pantalla (la verificación de d2f690673). */
+  pantallaDiceQueNo?: boolean;
+}): AdjuntosDeCaja | undefined {
   if (!c.quieta || !a) return a;
   const nada = { onSumar: () => {}, onQuitar: () => {} };
-  if (!a.puede) return { ...a, ...nada };
+  if (c.pantallaDiceQueNo ?? !a.puede) return { ...a, ...nada };
   if (c.saliendo) return { ...a, ...nada, puede: false, espera: ESPERA_PARA_ADJUNTAR, onNoPuede: c.onEspera };
   return { ...a, ...nada, puede: false, onNoPuede: undefined };
 }

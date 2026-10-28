@@ -146,7 +146,20 @@ decía mal, y un hueco que venía de antes:
   tickets, y lo leído del 7 queda en la caja del 9. **La regla:** lo leído se guarda por conversación, y una lectura que
   termina con OTRA conversación a la vista no escribe ni manda nada: queda en la suya, para mandarla desde ahí (salía como
   respuesta al ticket equivocado, por el `onMandar` del último dibujo).
+- **Y la verificación de d2f690673:**
+  - **Cada conversación lee lo suyo a la vez.** Con una lectura por caja, Enter en el ticket 9 mientras se leía el 7 no hacía
+    nada y no decía nada. Ahora cada conversación lee su mensaje (`leyendoEn`, una lista), y la del 9 sale en el acto.
+  - **Mientras la caja LEE, «Espera».** Lo junto (`juntarAdjuntos`) dice `puede: false` mientras se lee, y `adjuntosQuietos` lo
+    tomaba por un motivo de la pantalla: el panel decía «Este chat no recibe archivos», y en el Ops Center el aviso falso
+    «Este chat aún no recibe imágenes». Ahora la caja le pasa aparte si la PANTALLA dice que no (`pantallaDiceQueNo`).
+  - **Toda pantalla con varias conversaciones y una caja pasa `conversacion`.** El Ops Center también (Conversacion.tsx y
+    ChatsMovil.tsx, con la clave del chat): un .m4a del chat A salía con el «hola B».
+  - **La clave tiene que ser FIJA mientras la conversación es la misma.** Soporte cambiaba la clave de su conversación nueva cada
+    vez que empezaba otra y mudaba lo suyo, pero lo que la caja lee quedaba en la clave vieja (hallazgos-ticketera.md).
 - **Vive en:** app/_chat/juntar-adjuntos.ts (`adjuntosQuietos`) · CajaChat.tsx · adjuntos-que-se-leen.ts · tests/caja-lee-por-conversacion.test.ts ·
   tests/centro-nuevo-con-adjuntos.test.ts (el 10).
-- **Sin hacer:** en Soporte, lo ESCRITO sigue siendo uno para todas las conversaciones (lo que se escribe en el ticket 7 se ve
-  en el 9). Es así desde antes; no lo tocó esta tanda.
+- **Sin hacer:**
+  - En Soporte, lo ESCRITO sigue siendo uno para todas las conversaciones (lo que se escribe en el ticket 7 se ve en el 9).
+    Es así desde antes.
+  - Revisar las otras cajas que atienden varias conversaciones sin remontarse y todavía no pasan `conversacion`: MakoChat
+    (sus sesiones, app/_components/MakoChat.tsx) y la tab Chats (Composer.tsx, una conversación por lead). No las medí.
