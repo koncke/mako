@@ -22,7 +22,7 @@ const SIN_CACHE = { 'Cache-Control': 'no-store, private' };
 const json = (x: unknown, status = 200) => Response.json(x, { status, headers: SIN_CACHE });
 
 export async function GET(req: NextRequest) {
-  if (!(await getUsuarioActual())) return json({ ok: false, desconectada: false, error: 'Entrá a MaKo para guardar una copia.' }, 401);
+  if (!(await getUsuarioActual())) return json({ ok: false, desconectada: false, error: 'Entra a MaKo para guardar una copia.' }, 401);
   const u = await usuarioPropio();
   if (!u) return json({ ok: false, desconectada: false, error: 'Esta sesión no es de una persona: MaKo sin conexión necesita tu cuenta.' }, 403);
   const dispositivo = req.nextUrl.searchParams.get('dispositivo') ?? '';

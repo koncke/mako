@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Perfil › Instalar la app › «Sin conexión»: activar MaKo sin conexión en ESTA computadora (28/10/2026)
+// Settings › Instalar la app › «Sin conexión»: activar MaKo sin conexión en ESTA computadora (28/10/2026)
 // =============================================================================
 // Martín le dijo a Teo (28/10): «si se llega a caer tenés tu aplicación de desktop, que eso funciona siempre». Esta fila lo
 // prende: la persona elige la clave de esta computadora y desde ahí la app guarda una copia cifrada del CRM y del Plan cada 10
@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { FilaAjustes } from '@/app/_ui/Ajustes';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { activarEnEstaComputadora, borrarLoGuardado, estaActivado, guardarAhora, ultimaCopia, ultimoResultado } from '@/lib/sin-conexion/en-la-app';
 import { deCuando, EVENTO_ACTIVADO, MIN_CLAVE } from '@/lib/sin-conexion/reglas';
 
@@ -78,7 +79,7 @@ export function SinConexion({ email, noDisponible }: {
   };
 
   const detalle = noDisponible
-    ?? (estado === 'activo' && otraLlave ? 'La copia dejó de renovarse: elegí la clave de nuevo.' : null)
+    ?? (estado === 'activo' && otraLlave ? 'La copia dejó de renovarse: elige la clave de nuevo.' : null)
     ?? (estado === 'activo'
       ? `Activado en esta computadora · copia con ${ultima ? deCuando(ultima, Intl.DateTimeFormat().resolvedOptions().timeZone) : 'la próxima vuelta'}`
       : 'Ver el CRM y el Plan aunque se corte internet o MaKo no responda');
@@ -101,7 +102,7 @@ export function SinConexion({ email, noDisponible }: {
           onSubmit={(ev) => { ev.preventDefault(); if (!ocupado) void guardarClave(); }}>
           {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
           <input type="email" autoComplete="username" value={email} readOnly hidden />
-          {error && <div className="aj-error" role="alert">{error}</div>}
+          {error && <div className="aj-error" role="alert">{error}<ReportarASoporte /></div>}
           <label className="aj-rotulo" htmlFor="sc-clave">La clave de esta computadora</label>
           <input id="sc-clave" className="aj-campo" type="password" autoComplete="new-password" value={clave} autoFocus
             onChange={(ev) => setClave(ev.target.value)} />

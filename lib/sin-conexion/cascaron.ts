@@ -64,7 +64,7 @@ function bloquear(motivo?: string) {
 /** Arranca (o reinicia) el reloj: sin tocar nada `BLOQUEO_INACTIVO_MS`, lo abierto se cierra solo. */
 function armarReloj() {
   if (relojInactividad) clearTimeout(relojInactividad);
-  relojInactividad = setTimeout(() => bloquear('Se cerró por inactividad. Volvé a entrar con tu clave.'), BLOQUEO_INACTIVO_MS);
+  relojInactividad = setTimeout(() => bloquear('Se cerró por inactividad. Vuelve a entrar con tu clave.'), BLOQUEO_INACTIVO_MS);
 }
 /** Cada toque o tecla con algo abierto reinicia el reloj; con la pantalla de entrar, no hay reloj. */
 const alTocar = () => { if (relojInactividad) armarReloj(); };
@@ -86,13 +86,13 @@ function pantallaEntrar(error?: string) {
   },
   h('h1', {}, 'MaKo sin conexión'),
   h('p', { class: 'bajada' }, motivo() === 'no-responde'
-    ? 'MaKo no responde ahora. Entrá con tu email y la clave de esta computadora para ver lo guardado.'
-    : 'Entrá con tu email y la clave de esta computadora para ver lo guardado.'),
+    ? 'MaKo no responde ahora. Entra con tu email y la clave de esta computadora para ver lo guardado.'
+    : 'Entra con tu email y la clave de esta computadora para ver lo guardado.'),
   aviso,
   h('label', { for: 'sc-email', class: 'rotulo' }, 'Tu email'), email,
   h('label', { for: 'sc-clave', class: 'rotulo' }, 'La clave de esta computadora'), clave,
   boton,
-  h('p', { class: 'nota' }, 'Se activa con conexión, en Perfil › Instalar la app › Sin conexión.'),
+  h('p', { class: 'nota' }, 'Se activa con conexión, en Settings › Instalar la app › Sin conexión.'),
   h('button', { type: 'button', class: 'boton-texto', onclick: () => location.reload() }, 'Reintentar con conexión'));
   pintar(form);
   email.focus();
@@ -107,12 +107,12 @@ async function entrar(emailCrudo: string, clave: string) {
   if (!(await existeBase(nombre))) return pantallaEntrar(NO_COINCIDE);
   const r = await abrir({ email, clave, almacen: almacenIdb(nombre) });
   if (!r.ok) {
-    if (r.motivo === 'vencida') return pantallaEntrar('Lo guardado tenía más de 30 días sin conexión y se borró. Volvé a activarlo con conexión.');
+    if (r.motivo === 'vencida') return pantallaEntrar('Lo guardado tenía más de 30 días sin conexión y se borró. Vuelve a activarlo con conexión.');
     return pantallaEntrar(NO_COINCIDE);
   }
   if (!r.copias.length) {
     return pantallaEntrar(r.viejas
-      ? 'Lo guardado es de una versión anterior. Abrí MaKo una vez con conexión para renovarlo.'
+      ? 'Lo guardado es de una versión anterior. Abre MaKo una vez con conexión para renovarlo.'
       : 'Todavía no hay una copia guardada. Se guarda sola con conexión, cada 10 minutos.');
   }
   if (r.copias.length === 1) return pantallaNegocio(r.copias[0], r.copias);
@@ -129,7 +129,7 @@ function pantallaElegir(copias: CopiaV1[]) {
 
 function cinta(copia: CopiaV1): HTMLElement {
   const m = motivo();
-  // Abierto con conexión desde «Probar» (Perfil › Instalar la app): la misma cinta, sin decir que no hay red.
+  // Abierto con conexión desde «Probar» (Settings › Instalar la app): la misma cinta, sin decir que no hay red.
   const texto = m === 'probando'
     ? `Así se ve MaKo sin conexión · lo que ves es ${deCuando(copia.hecha, copia.tz)}`
     : textoDeLaCinta({ motivo: m, hecha: copia.hecha, tz: copia.tz });

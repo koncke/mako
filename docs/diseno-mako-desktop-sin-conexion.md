@@ -134,7 +134,7 @@ entero en una ventana» (f04, docs/feedback-24-10.md), y como es el mismo perfil
 - Sin la clave de esa persona no se descifra nada.
 - El cascarón pide el email y la clave, como el login.
 
-**Dónde está activado.** Sólo en la computadora donde la persona eligió su clave, desde Perfil › Esta computadora, o desde
+**Dónde está activado.** Sólo en la computadora donde la persona eligió su clave, desde Settings › Instalar la app › Sin conexión, o desde
 el aviso de la primera vez. En una PC prestada no se guarda nada.
 
 **No se guarda:**

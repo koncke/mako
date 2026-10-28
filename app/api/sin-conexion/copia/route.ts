@@ -22,8 +22,8 @@ const json = (x: unknown, status = 200) => Response.json(x, { status, headers: S
 
 export async function GET() {
   const sesion = await getUsuarioActual();
-  if (!sesion) return json({ ok: false, error: 'Entrá a MaKo para guardar una copia.' }, 401);
-  if (await estaImpersonando()) return json({ ok: false, error: 'No se guarda una copia mientras mirás la cuenta de otro.' }, 409);
+  if (!sesion) return json({ ok: false, error: 'Entra a MaKo para guardar una copia.' }, 401);
+  if (await estaImpersonando()) return json({ ok: false, error: 'No se guarda una copia mientras miras la cuenta de otro.' }, 409);
   const ws = await getWorkspaceActual();
   if (ws == null) return json({ ok: false, error: 'Esta cuenta no tiene un negocio para guardar.' }, 409);
   return json({ ok: true, copia: await armarCopia({ ws, persona: sesion.nombre?.trim() || sesion.email }) });

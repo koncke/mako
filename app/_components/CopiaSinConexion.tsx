@@ -3,7 +3,7 @@
 // =============================================================================
 // <CopiaSinConexion> — renueva la copia de MaKo sin conexión mientras hay conexión (28/10/2026)
 // =============================================================================
-// No pinta nada. Sólo trabaja en un navegador donde la persona ACTIVÓ MaKo sin conexión (Perfil › Instalar la app): ahí
+// No pinta nada. Sólo trabaja en un navegador donde la persona ACTIVÓ MaKo sin conexión (Settings › Instalar la app): ahí
 // registra el service worker (el que sirve el cascarón sin red, public/sw.js) y guarda la copia al entrar si la última tiene
 // más de `CADA_MS`, cada `CADA_MS`, al volver la red y al volver a la pestaña. En una PC donde nadie lo activó no hace nada:
 // ni crea la base ni pide nada al servidor.

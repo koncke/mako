@@ -38,7 +38,7 @@ export async function activar(p: { email: string; clave: string; repetida?: stri
 
 /**
  * `otra-llave`: el servidor da hoy OTRA llave que la envuelta (se rotó su secreto). Una copia cifrada con ésa no abriría con
- * la clave de esta computadora: no se guarda, y la persona elige la clave de nuevo (Perfil › Instalar la app).
+ * la clave de esta computadora: no se guarda, y la persona elige la clave de nuevo (Settings › Instalar la app).
  */
 export type ResultadoGuardar = 'guardada' | 'sin-activar' | 'desconectada' | 'otra-llave' | 'sin-copia' | 'error';
 
