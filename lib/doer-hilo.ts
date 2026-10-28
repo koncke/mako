@@ -128,13 +128,14 @@ const RELEVANCIA_SIN_SENAL = 'qué hace MaKo capacidades funciones ticket pedido
  *   · lo demás es una CONSULTA con las áreas del hilo, MaKo (lo que hace y los tickets del negocio) y las lecturas del CRM.
  * Nunca el Plan por default.
  */
-export function enElGrupoSinSenal(v: VeredictoIntencion, mensaje: string, areasDelHilo: readonly Area[] = []): VeredictoIntencion {
+export function enElGrupoSinSenal(v: VeredictoIntencion, mensaje: string, areasDelHilo: readonly string[] = []): VeredictoIntencion {
   if (!v.sinSenal) return v;
   const propio = sinPrefijoDeLote(mensaje || '').trim();
   if (esAcusePuro(propio)) return { intencion: 'charlar', dudosa: false, porque: 'grupo: acuse o saludo' };
   return {
     intencion: 'consultar', dudosa: false, porque: 'grupo: sin señal clara; consulta (MaKo, sus pedidos y el CRM)',
-    areas: [...new Set<Area>([...areasDelHilo, ...AREAS_SIN_SENAL])], relevancia: RELEVANCIA_SIN_SENAL,
+    // Las del hilo salen de `areasDelMensaje` (`PedidoDelHilo.areas`), como en `conElHilo`.
+    areas: [...new Set<Area>([...(areasDelHilo as readonly Area[]), ...AREAS_SIN_SENAL])], relevancia: RELEVANCIA_SIN_SENAL,
   };
 }
 
