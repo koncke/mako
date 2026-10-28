@@ -147,14 +147,17 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic, tope: p.topeTexto, conversacion: p.conversacion });
   const deLaCaja = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
   const onMandar = leidos.mandar;
-  // La pantalla sabe que la caja está leyendo (y que dejó de leer, también si la caja se va en el medio).
+  // La pantalla sabe que la caja está leyendo (y que dejó de leer, también si la caja se va en el medio). Hasta que lo leído le
+  // LLEGA (`entregando`): avisar al terminar de leer, un dibujo antes, dejaba una ventana en la que el ticket de Soporte salía sin
+  // ese mensaje (la verificación de 5ddf1672a).
+  const leyendoParaLaPantalla = leidos.leyendo || leidos.entregando;
   const avisarLeyendo = useRef(p.onLeyendo);
   avisarLeyendo.current = p.onLeyendo;
   useEffect(() => {
-    if (!leidos.leyendo) return;
+    if (!leyendoParaLaPantalla) return;
     avisarLeyendo.current?.(true);
     return () => avisarLeyendo.current?.(false);
-  }, [leidos.leyendo]);
+  }, [leyendoParaLaPantalla]);
   // Pasando a texto una nota de voz, o leyendo lo adjuntado: la caja está saliendo (el botón gira y no se escribe encima).
   const transcribiendo = !!nota?.transcribiendo;
   const enviando = !!p.enviando || transcribiendo || leidos.leyendo;

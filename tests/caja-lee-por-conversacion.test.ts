@@ -175,3 +175,36 @@ test('6. MakoChat: lo juntado por la pantalla (fotos y PDF) también es de SU se
   assert.match(mako, /useAdjuntosDelChat\(\{ puede: !pensando && !!sessionId, onError: setErr, conversacion: sessionId \? String\(sessionId\) : '' \}\)/);
   assert.match(mako, /conversacion=\{sessionId \? `mako-chat:\$\{endpoint\}:\$\{chartKey\}:\$\{sessionId\}` : undefined\}/);
 });
+
+test('7. lo leído sigue «entregando» hasta que le LLEGA a la pantalla (no sólo hasta que termina de leerse)', async () => {
+  // La verificación de 5ddf1672a: la caja avisaba «dejé de leer» un dibujo antes de entregar el mensaje, y en esa ventana el
+  // ticket de Soporte salía sin él.
+  const p = pantalla(await hook());
+  const l = lector();
+  p.ver('g-soporte:7').adjuntos.onSumar([new File(['x'], 'deck.pptx', { type: PPTX })]);
+  p.e.texto = 'mirá el deck';
+  p.ver().mandar();
+  await l.soltar();
+  const recien = p.ver();
+  assert.equal(recien.leyendo, false, 'terminó de leer');
+  assert.equal((recien as Lee & { entregando: boolean }).entregando, true, 'leído y todavía sin entregar: la pantalla tiene que seguir esperando');
+  assert.equal(p.e.mandados.length, 1, 'en ese mismo dibujo se entrega');
+  assert.equal((p.ver() as Lee & { entregando: boolean }).entregando, false, 'y recién ahí deja de esperar');
+});
+
+test('8. una caja SIN conversación que se va mientras lee: lo leído queda en el campo de la pantalla y no se manda', async () => {
+  // La verificación de 5ddf1672a (X1): el Ops Center del cliente desmonta la caja al abrir Tickets. Sin `conversacion` lo adjuntado
+  // vivía en la caja y se iba con ella: el .pptx desaparecía sin aviso. Ahora queda en el campo, que vive en la pantalla.
+  const useAdjuntos = await hook();
+  const l = lector();
+  const caja = dibujador(useAdjuntos);
+  const e = { texto: 'mirá el deck', mandados: 0 };
+  const props = (): Omit<Props, 'conversacion'> & { conversacion?: string } => ({ activo: true, texto: e.texto, onTexto: (t) => { e.texto = t; }, onMandar: () => { e.mandados++; } });
+  caja.dibujar(props() as Props).adjuntos.onSumar([new File(['x'], 'deck.pptx', { type: PPTX })]);
+  caja.dibujar(props() as Props).mandar();
+  await vuelta();
+  caja.desmontar();
+  await l.soltar();
+  assert.equal(e.mandados, 0, 'se mandó con la caja desmontada');
+  assert.match(e.texto, /^mirá el deck[\s\S]*CONTENIDO DE deck\.pptx/, 'lo leído se perdió en vez de quedar en el campo');
+});

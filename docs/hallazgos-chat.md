@@ -175,3 +175,9 @@ decía mal, y un hueco que venía de antes:
     sin el mensaje que la caja estaba leyendo. La tarjeta dice «Leyendo lo que adjuntaste…».
   - **Lo juntado por la PANTALLA también va por conversación** cuando la pantalla cambia de conversación sin remontarse
     (`useAdjuntosDelChat` → `conversacion`): en MakoChat la foto de la sesión 1 salía con el «hola» de la 2.
+- **Y la verificación de 5ddf1672a:**
+  - **«Dejé de leer» no es «ya lo entregué».** Lo leído sale por el `onMandar` de la pantalla en el dibujo SIGUIENTE
+    (`pendiente`): avisar al terminar de leer dejaba una ventana. `onLeyendo` sigue en true mientras `entregando`.
+  - **Con la caja desmontada, el camino SIN `conversacion` no puede cortar callado.** Ahí lo adjuntado vivía en la caja y se fue
+    con ella; lo leído vuelve al campo de la pantalla (`onTexto`), que vive afuera, y no se manda. Con `conversacion`, queda
+    guardado para volver.

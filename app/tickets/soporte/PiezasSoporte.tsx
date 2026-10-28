@@ -59,8 +59,8 @@ export function TarjetaTicket({ s }: { s: Soporte }) {
       <p className="ch-tarjeta__nota sp-tarjeta__detalle">{b.descripcion}</p>
       {s.errorTarjeta && <p className="ch-tarjeta__nota sp-tarjeta__error" role="status">{s.errorTarjeta}</p>}
       <div className="ch-tarjeta__botones">
-        <button type="button" className="co-chip co-chip--primario" disabled={s.mandando || s.notasPendientes || s.leyendoCaja} onClick={() => void s.mandarTicket()}>
-          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : s.notasPendientes ? 'Esperando tu nota…' : s.leyendoCaja ? 'Leyendo lo que adjuntaste…' : 'Mandárselo al equipo'}
+        <button type="button" className="co-chip co-chip--primario" disabled={s.mandando || s.notasPendientes || s.mensajeEnCamino} onClick={() => void s.mandarTicket()}>
+          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : s.notasPendientes ? 'Esperando tu nota…' : s.leyendoCaja ? 'Leyendo lo que adjuntaste…' : s.mensajeEnCamino ? 'Esperando tu mensaje…' : 'Mandárselo al equipo'}
         </button>
         <span className="ch-tarjeta__nota">Como «{rotuloTipo(tipo)}». Te aviso aquí cuando conteste.</span>
       </div>

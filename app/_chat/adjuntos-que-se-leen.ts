@@ -52,6 +52,8 @@ export type AdjuntosQueSeLeen = {
   mandar: () => void;
   /** Leyendo los archivos: la caja gira y no se escribe encima. */
   leyendo: boolean;
+  /** Lo leído ya está en el campo y sale en el dibujo siguiente: todavía no le llegó a la pantalla. */
+  entregando: boolean;
   /** Por qué no salió (un archivo que no se pudo leer o no se toma). */
   error: string | null;
   /** Lo que salió recortado por el tope de la pantalla (`tope`): se dice, no se corta callado. */
@@ -160,11 +162,19 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
           return;
         }
       }
-      // Se cambió de conversación mientras se leía: no sale en la otra (iría al ticket equivocado). Queda en la suya, leído de
-      // nuevo al mandarlo desde ahí.
-      if (!vivo.current || actual.current !== de) { dejarDeLeer(de); return; }
       // Con el tope del motor de la pantalla, lo leído entra hasta ahí con su marca de cierre, y se DICE (la revisión del 27/10).
       const { mensaje: nuevo, afuera } = tope ? conPegadosHasta(texto, leidos, tope) : { mensaje: conPegados(texto, leidos), afuera: 0 };
+      // Se cambió de conversación mientras se leía: no sale en la otra (iría al ticket equivocado). Queda en la suya, leído de
+      // nuevo al mandarlo desde ahí.
+      if (vivo.current && actual.current !== de) { dejarDeLeer(de); return; }
+      // La caja se fue mientras leía: no se manda nada. Con `conversacion`, lo adjuntado sigue guardado para volver. SIN ella vivía
+      // en la caja y se iba con ella (la verificación de 5ddf1672a, el Ops Center del cliente al abrir Tickets): lo leído queda en
+      // el campo de la pantalla, que vive afuera, y sale con el próximo Enter.
+      if (!vivo.current) {
+        dejarDeLeer(de);
+        if (!de) onTexto(nuevo);
+        return;
+      }
       if (afuera) setAviso(`Este chat lee hasta ${tope!.toLocaleString('es')} caracteres: lo adjuntado no entró entero (quedaron afuera ${afuera.toLocaleString('es')}).`);
       for (const x of lista) if (x.url) URL.revokeObjectURL(x.url);
       ponerItems(de, (ya) => ya.filter((x) => !lista.some((y) => y.id === x.id)));
@@ -181,6 +191,8 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
     } : undefined,
     mandar: activo ? mandar : onMandar,
     leyendo,
+    // Leído y todavía sin entregar a la pantalla (sale en el dibujo siguiente): para quien espera ESE mensaje (Soporte).
+    entregando: pendiente != null,
     error,
     aviso,
   };

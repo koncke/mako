@@ -239,10 +239,13 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   // La caja está leyendo lo que se mandó con un mensaje (un .pptx, un audio: CajaChat → `onLeyendo`): el ticket espera ese
   // mensaje (la verificación de 1d586a686: se levantaba sin él, y el texto y los archivos quedaban para la conversación siguiente).
   const [leyendoCaja, setLeyendoCaja] = useState(false);
-  const leyendoCajaAhora = useRef(false);
-  useEffect(() => { leyendoCajaAhora.current = leyendoCaja; });
+  // Y mientras ese mensaje va camino a la tarjeta: sube su foto («enviando») o MaKo lo está contestando (los 3 puntos). Recién con
+  // la respuesta de MaKo la tarjeta lo tiene: encendida antes, el ticket salía sin él (la verificación de 5ddf1672a).
+  const mensajeEnCamino = leyendoCaja || escribiendo > 0 || turnos.some((x) => x.estado === 'enviando');
+  const mensajeEnCaminoAhora = useRef(false);
+  useEffect(() => { mensajeEnCaminoAhora.current = mensajeEnCamino; });
   const mandarTicket = useCallback(async () => {
-    if (!borrador || mandando || notasPendientes.current || leyendoCajaAhora.current) return;
+    if (!borrador || mandando || notasPendientes.current || mensajeEnCaminoAhora.current) return;
     const mal = borradorValido(borrador);
     if (mal) { setErrorTarjeta(mal); return; }
     setMandando(true); setErrorTarjeta(null);
@@ -293,6 +296,8 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     notasPendientes: nota.pendientes,
     /** La caja lee lo que se mandó con un mensaje: el ticket lo espera («Leyendo lo que adjuntaste…»). */
     leyendoCaja, onLeyendo: setLeyendoCaja,
+    /** Un mensaje de la conversación todavía no llegó a la tarjeta (se lee, sube o MaKo lo contesta): el ticket lo espera. */
+    mensajeEnCamino,
     /** Los 3 puntos de MaKo, sólo en la conversación nueva. */
     escribiendo: escribiendo > 0 && !ticket ? { segs: 0 } : null,
     /** De qué conversación es lo de la caja (también lo que la caja lee: CajaChat → `conversacion`). */
