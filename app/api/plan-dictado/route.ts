@@ -27,7 +27,9 @@ const SIN_OIDO_SU_IA = 'Con tu propio Claude, las notas de voz las escucho con t
 
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// 300 y no 60 (27/10/2026): una nota de voz de varios minutos tarda más de 60 s en transcribirse y Vercel la cortaba con un 504
+// de texto, que el chat leía como «unexpected JSON» (app/_components/useDictar.ts → porQueNoSeTranscribio).
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   // Cualquiera con sesión, no sólo el admin: el mismo botón de dictar vive en el alta del

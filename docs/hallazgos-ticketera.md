@@ -506,6 +506,35 @@ del archivo.
 conocen: `sanearReporte`, `ticketDeError` y `sanearContexto`. Ojo: `chat.donde` acepta como mucho 40 caracteres de `[a-z0-9-]`.
 Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
+## Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10/2026, 20:37)
+
+**Vive en:** `lib/no-existe*.ts` (rama `mako-inteligente-2710-c4`) · `lib/tickets-reglas.ts` · `lib/tickets-db.ts` · `lib/mako-turno-app.ts`
+
+- **La decisión de Martín:** «Siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un
+  ticket». Reemplaza, para ese caso, el «MaKo PROPONE la tarjeta» del 17/10.
+- **Medido en producción (14 días, sólo GET):** el detector de «no puedo» marcó 15 de 105 respuestas de la app y 11 de 192
+  de WhatsApp. En ese tiempo sólo se registraron 2 huellas de MaKo. Hoy abren ticket solos únicamente el error de una
+  herramienta y la falla de la IA nuestra. Quedan afuera:
+  - la acción confirmada que falla al ejecutarse;
+  - el «no puedo» que sólo está en el texto;
+  - los carteles de IA;
+  - los chats de los editores.
+- ⚠️ **El vigía no lo cubre:** el cron está apagado en producción, porque no existe la marca `mako.vigia.grupos`, y el
+  script de la sesión avisa por mensaje, no abre tickets.
+- **Decisiones del Cerebro:**
+  - Lo que falla por el proveedor (la IA sin crédito) o por la configuración SÍ abre ticket, como dijo Martín. Abre uno solo
+    por negocio y causa, se cierra solo cuando la condición se resuelve y nunca va al Runner. Un ticket que se cierra
+    sólo con el hito de un deploy quedaría abierto para siempre.
+  - Las negativas legítimas (cobros, borrados, permisos o rol) no abren ticket.
+  - Ningún ticket automático entra por la regla de aprobación de Leila, Leandro y Mauricio.
+  - El tope de los automáticos va aparte del de la persona.
+  - El cliente ve «Quedó el ticket #n», no la oferta con botón.
+- **Trampa:** la rama c4 (`REGLA_NO_EXISTE`) tickeaba sin confirmar los fallos de ruteo como «no existe», con el texto
+  del modelo como título. La base nueva generaliza esa marca a `[[no-pude]]` con la causa. Ver hallazgos-ia, «Un "no
+  puedo" de MaKo casi nunca es "no existe"».
+- **Quién:** MaKo inteligente (la base y la app), MaKo en WhatsApp (su P3 pasa de «propone» a «abre») y Motion (el panel
+  del Video Editor).
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |

@@ -77,9 +77,16 @@ test('2. la ruta la escucha con la IA del negocio ANTES de guardar nada; sin voz
 test('3. el turno guarda el MP3 con el mensaje (al final) y lo devuelve para escucharlo', () => {
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   // Con una clave DICTADA (tapada en el texto), el audio que la dice no se guarda.
-  assert.match(turno, /const voz = entrada\.voz && entrada\.guardarAdjuntos && !tapado\.tapadas \? await subirNotaDeVozDelChat\(ws, entrada\.voz\) : null;\n\s*const aGuardar = voz \? \[\.\.\.bloques, voz\] : bloques;/);
-  assert.match(turno, /msg = await appendMessage\(s\.id, 'user', conDesde\(textoMemoria, desde\), aGuardar\);/);
-  assert.match(turno, /await borrarAdjuntos\(aGuardar\.map\(\(b\) => b\.path\)\);/, 'si el mensaje no quedó, su nota tampoco');
+  // ⚠️ La lista se llama `conElPedido` desde el 24/10/2026: una const local `aGuardar` TAPABA la función `aGuardar` importada de
+  // lib/chat-bloques, y el `conElMensaje.map(aGuardar)` de la respuesta recibía un array y reventaba en ejecución. Este test
+  // fijaba el nombre viejo y quedó rojo en main (27/10/2026, df08aa5f9); cuida lo mismo con el nombre nuevo. Probado
+  // rompiéndolo, 1 fallo cada una: la nota al principio · sin borrar si el mensaje no quedó · sin borrar si quedó sin sus
+  // bloques · una const local que vuelve a llamarse `aGuardar`.
+  assert.match(turno, /const voz = entrada\.voz && entrada\.guardarAdjuntos && !tapado\.tapadas \? await subirNotaDeVozDelChat\(ws, entrada\.voz\) : null;\n\s*const conElPedido = voz \? \[\.\.\.bloques, voz\] : bloques;/, 'la nota no va AL FINAL, con el mensaje');
+  assert.match(turno, /msg = await appendMessage\(s\.id, 'user', conDesde\(textoMemoria, desde\), conElPedido\);/, 'la nota no se guarda con el mensaje');
+  assert.match(turno, /\} catch \(e\) \{\n\s*await borrarAdjuntos\(conElPedido\.map\(\(b\) => b\.path\)\);/, 'si el mensaje no quedó, su nota tampoco');
+  assert.match(turno, /if \(conElPedido\.length && !msg\.conBloques\) await borrarAdjuntos\(conElPedido\.map\(\(b\) => b\.path\)\);/, 'si el mensaje quedó sin sus bloques, la nota queda huérfana');
+  assert.doesNotMatch(turno, /\bconst aGuardar\b/, 'una const local `aGuardar` tapa la función importada y la respuesta revienta');
   assert.match(turno, /const conArchivos = msg\.conBloques && msg\.id != null \? adjuntosVisibles\(msg\.id, bloques\) : \[\];/, 'los adjuntos, sin la nota');
   assert.match(turno, /const conVoz = voz && msg\.conBloques && msg\.id != null \? \{ audio: \{ url: rutaDeVozDelChat\(msg\.id\), secs: voz\.secs \} \} : \{\};/);
   assert.match(turno, /\.\.\.\(voz && !audio \? \{ audio: \{ url: rutaDeVozDelChat\(m\.id\), secs: voz\.secs \} \} : \{\}\),/, 'y vuelve al recargar');

@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '26 de octubre de 2026';
+const ACTUALIZADO = '27 de octubre de 2026';
 
 export default function Page() {
   return (
@@ -80,6 +80,22 @@ export default function Page() {
         nombre y el teléfono que WhatsApp muestra de cada uno. <strong>Abrir el grupo marca
         como leídos los mensajes de ese grupo</strong> (no los de cada persona). No escribe en
         ningún chat. Al terminar cierra esa información y borra la búsqueda.
+      </p>
+      {/* ⚠️ DESDE LA 0.73 (26/10/2026) ABRE TAMBIÉN LA INFORMACIÓN DE CONTACTO DE CADA MIEMBRO (extension/wa-recorrer.js,
+          `leerPerfiles`; lo que se lee, `perfilDeInfo` en wa-fichas-reglas.js; lo que se escribe, `completarFichas`). Faltaba acá
+          (27/10/2026, al preparar la ficha de la Chrome Web Store, que compara la ficha contra esta página). */}
+      <p>
+        Desde el 26 de octubre de 2026, en esa misma corrida la extensión abre también la{' '}
+        <strong>información de contacto de cada miembro</strong>, de a uno y con pausas, como lo
+        harías tú, y lee lo que WhatsApp muestra ahí a cualquiera que la abra: su sitio web, su
+        correo, su Instagram y sus otras redes, y la dirección, la categoría y la descripción si es
+        una cuenta de empresa. Eso viaja a tu cuenta de MaKo sólo para esos contactos, y{' '}
+        <strong>sólo llena lo que está vacío</strong>: nunca pisa un dato que ya cargaste.
+      </p>
+      <p>
+        La extensión guarda en tu navegador un <strong>registro de tus últimas 30 extracciones</strong>{' '}
+        (el nombre del grupo, cuándo fue, cuánto tardó cada paso y cuántos nombres trajo) para
+        mostrártelo en su desplegable. Ese registro no sale de tu navegador.
       </p>
       <p>
         <strong>A tu cuenta de MaKo viaja sólo eso, y sólo de esos teléfonos.</strong> El

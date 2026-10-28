@@ -21,8 +21,8 @@
 // HTML del server y la hidratación tienen que decir lo mismo.
 
 import { Icon } from '@/app/_components/icons';
-import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import { agruparAvances, chatTrabajando, esYaEsta, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type GrupoDeAvances, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { ROTULO, type EstadoPedido, textoDelEncargo } from '@/lib/operaciones-reglas';
+import { agruparAvances, chatTrabajando, completadosDelChat, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type GrupoDeAvances, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { YaEstaMensaje } from './Avance';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { Cierre, TurnoChat } from '@/lib/operaciones-reglas';
@@ -38,6 +38,7 @@ import { textoDeDecision } from '@/lib/centro-preguntas-chat';
 import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
 import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
 import { VozEnviada } from './VozEnviada';
+import { descartarEnvio, reintentarEnvio } from './envios-en-curso';
 import { MiFoto } from './MiFoto';
 import { ConLinks } from './ConLinks';
 import { memo, useState, type ReactNode } from 'react';
@@ -48,6 +49,12 @@ import { Trabajando } from './Trabajando';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 // La hora de cada mensaje y la píldora del día, con el reloj de Argentina: lib/centro-fechas.ts (las usa también el «Completado»).
+
+/** Lo que todavía está SALIENDO (envios-en-curso.ts, 27/10/2026): el reloj de WhatsApp, y ✕ si no salió. */
+function TickLocal({ local }: { local: NonNullable<TrabajoP['local']> }) {
+  if (local.fase === 'fallo') return <span className="co-tick co-tick--mal" title="No salió"><Icon name="x" size={12} /></span>;
+  return <span className="co-tick co-tick--saliendo" title={local.fase === 'transcribiendo' ? 'Transcribiendo y mandando' : 'Mandando'}><Icon name="reloj" size={12} /></span>;
+}
 
 /** Los ticks de WhatsApp: ✓ escrito, ✓✓ entregado, ✓✓ azul hecho, ✕ no salió. */
 export function Tick({ estado }: { estado: EstadoPedido }) {
@@ -127,7 +134,8 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
   const mal = estado === 'no_entregado' || estado === 'incierto' || estado === 'cancelado';
   const c = w.cierre;
   // «Enviado» → «La PC lo recibió», y por qué tarda si tarda (Martín, 17/10/2026: «no pasó nada por varios segundos»).
-  const va = vivo ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora, !!vivo.trabado) : null;
+  // Lo que todavía está saliendo de este navegador no tiene nada de eso: su reloj alcanza (27/10/2026).
+  const va = vivo && !w.local ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora, !!vivo.trabado) : null;
   return (
     <>
       <Deslizable m={mensajeDeLinea(l, quien.titulo)} className="co-yo">
@@ -136,12 +144,21 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
           {w.adjuntos?.length ? <AdjuntosEnBurbuja key={w.id} id={w.id} nombres={w.adjuntos} fotos={w.fotos} creado={w.created_at} /> : null}
           {w.voz ? <NotaMia w={{ ...w, voz: w.voz }} lineas={wa.lineas} />
             : !(w.adjuntos?.length && w.texto === TEXTO_SOLO_ADJUNTOS) && <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />}
-          <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
+          <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}{w.local ? <TickLocal local={w.local} /> : <Tick estado={estado} />}</span>
         </div>
         <MiFoto />
         <ReaccionWA id={id} marcas={wa.marcas} />
         {/* Un aviso se ve como aviso (17/10/2026: «los mensajes especiales se tienen que ver más llamativos»). */}
         {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}<ReportarASoporte /></p>}
+        {/* Lo que no salió de este navegador dice qué falló y se reintenta en el lugar (27/10/2026). */}
+        {w.local?.fase === 'fallo' && (
+          <p className="co-nota co-nota--mal co-aviso co-envio-fallo" role="alert">
+            <span><Icon name="x" size={12} />{` No salió${w.local.error ? ` · ${w.local.error}` : ''}`}</span>
+            <button type="button" className="co-chip" onClick={() => reintentarEnvio(w.id)}>Reintentar</button>
+            <button type="button" className="co-chip co-chip--quieto" onClick={() => descartarEnvio(w.id)}>Descartar</button>
+            <ReportarASoporte />
+          </p>
+        )}
         {va && (
           <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
             <span className="co-envio__paso">{va.texto}</span>
@@ -252,7 +269,8 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
   const id = idDeLinea(l);
   const m = mensajeDeLinea(l, quien.titulo);
   // El «Ya está» es un mensaje aparte (17/10/2026, la C): qué cambió, dónde revisarlo, su tarea del Plan y responder.
-  if (t.rol === 'el' && esYaEsta(t.texto)) {
+  // Desde el 27/10/2026, el de su TRAMO (`completadosDelChat`): un «Ya está probado…» a mitad del trabajo no es la tarjeta.
+  if (t.rol === 'el' && wa.completados.has(t.uuid)) {
     return (
       <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} especial idTurno={`co-turno-${t.uuid}`}>
         <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto} />
@@ -274,6 +292,18 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
       </FilaDelChat>
     );
   }
+  // El encargo con el que otra sesión abrió este chat (27/10/2026, Martín: «Yo NO envié ese mensaje confuso y largo»): del
+  // Cerebro, con el ícono de chats y plegado. Nunca con la foto de Martín.
+  if (t.encargo) {
+    return (
+      <FilaMia m={m} marcas={wa.marcas} foto={<span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}>
+        <div className="co-burbuja co-burbuja--encargo">
+          <EncargoPlegado texto={t.texto} />
+          <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</span>
+        </div>
+      </FilaMia>
+    );
+  }
   return (
     <FilaMia m={m} marcas={wa.marcas} foto={t.rol === 'yo' ? undefined : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}>
       <div className={`co-burbuja${t.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
@@ -286,6 +316,21 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
         <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">En la app de Claude</span>}{hora}</span>
       </div>
     </FilaMia>
+  );
+}
+
+/** El encargo del Cerebro (`esEncargoDeOtraSesion`): plegado en qué se le pidió (su «Task:»), y tocarlo lo abre entero. */
+function EncargoPlegado({ texto }: { texto: string }) {
+  const [abierto, setAbierto] = useState(false);
+  const pedido = textoDelEncargo(texto);
+  return (
+    <>
+      <span className="co-burbuja__cita">Encargo del Cerebro</span>
+      <button type="button" className="co-avance co-avance--encargo" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} title={abierto ? 'Plegar' : 'Ver el encargo entero'}>
+        {primeraOracion(pedido)}
+      </button>
+      {abierto && <div className="co-avance__abierto co-el__md"><MarkdownDeTurno texto={texto} /></div>}
+    </>
   );
 }
 
@@ -370,7 +415,8 @@ const Avances = memo(AvancesSinMemo, (a, b) => a.quien === b.quien && a.wa.marca
   && a.g.avances.length === b.g.avances.length && a.g.avances.every((x, i) => x === b.g.avances[i]));
 
 /** Lo de WhatsApp que el hilo necesita para dibujar: las marcas de Martín y la conversación (para encontrar lo citado). */
-type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[] };
+/** `completados`: los turnos que son el «Completado» de su tramo (lib/centro-chats.ts → completadosDelChat, 27/10/2026). */
+type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[]; completados: ReadonlySet<string> };
 
 function LineaSinMemo({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
   if (l.tipo === 'turno') return <Turno l={l} t={l.turno} quien={quien} vivo={vivo} extras={extras} wa={wa} />;
@@ -481,7 +527,7 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas,
 } & ExtrasDelHilo) {
   // Lo que Martín eliminó para él no se dibuja (WhatsApp: «Eliminar para mí»).
   const lineas = sinOcultos(lineasDeConversacion(todas), marcas);
-  const wa: DelHiloWA = { marcas, lineas };
+  const wa: DelHiloWA = { marcas, lineas, completados: new Set(completadosDelChat(todas).map((x) => x.turno.uuid)) };
   const trabaja = vivo ? chatTrabajando(vivo.chat, todas, ahora) : false;
   if (!lineas.length) {
     return (

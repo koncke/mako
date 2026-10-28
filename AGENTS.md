@@ -1595,6 +1595,15 @@ código nuevo:
   - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
 
   Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **UN «COMPLETADO» DICE LO QUE SE TERMINÓ, NUNCA LO QUE ESTÁ EN MARCHA** (27/10/2026; Martín: «No me pongas "cosas en marcha"
+  ni nada de eso en el mensaje de COMPLETADO, literalmente pierde su funcionalidad... debe ser dopamínico: se completó una
+  funcionalidad, se debuggeó A, B, C»). El Centro muestra como COMPLETADO el último mensaje de cada turno de un chat:
+  - ese mensaje se escribe en pasado y concreto: qué funcionalidad quedó, qué se arregló, y la prueba (commit, deploy, medición);
+  - lo que sigue en curso no va en lista. Un turno que termina esperando trabajo de fondo cierra con UNA línea («Sigo con X») o
+    no escribe nada;
+  - `cartero.mjs cierre` igual: `--hecho` nombra lo TERMINADO. Un pedido que todavía no tiene nada terminado no se cierra:
+    se cierra cuando aterriza, con lo que aterrizó.
+
 - **«NUEVO CHAT» NUNCA ABRE UN MODAL NI PIDE NOMBRE ANTES** (17/10/2026; Martín: «jamás debe abrir un modal, eso es lo más
   contraintuitivo y contra IA que existe... que simplemente abra el chat y que al comenzar a escribir la IA vaya entendiendo dónde
   lo debe colocar, si debe ser un jefe o un empleado, qué nombre ponerle»). Abre un chat vacío con su caja (ChatNuevo.tsx, la misma
@@ -4089,6 +4098,24 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
   caminos que leen ese mapeo tienen que cortar explícitamente, y el corte va con test.
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
+
+# Lo que MaKo construye se ve CONSTRUYÉNDOSE, con un pequeño delay (Martín, 28/10/2026)
+
+Martín: «Me gusta mucho como se está mostrando una animación en la extensión de MaKo cuando se hace un scraping de WhatsApp:
+se muestra cómo van bajando los contactos, cómo se va entrando uno por uno. Eso es muy dopamínico… Quiero que todas las cosas
+que se hagan en la app se le muestren al usuario mientras se van haciendo… que se replique una parte de arriba, que se vaya
+replicando la parte de abajo, que cambien los textos… No tiene que ser a la velocidad de la luz: tiene que haber un pequeño
+delay, que no sea exagerado».
+
+- **Todo lo que MaKo arma por prompt muestra el paso a paso:** replicar o generar una landing (las secciones de arriba
+  primero, después las de abajo, los textos que cambian), Automations (el flujo que se arma nodo por nodo), el Web
+  Generator, el Video y el Image Editor, los dashboards y el onboarding. El molde es el scraping de la extensión.
+- **Si el resultado llega entero de una vez, igual se revela por partes,** con una cadencia corta (fracciones de segundo
+  por paso; el total, segundos y no minutos). Ni de golpe ni lento.
+- **El paso a paso nunca frena el trabajo real ni inventa un progreso que no pasa:** lo que se muestra es lo que se armó,
+  en el orden en que se armó. Si la persona quiere, puede saltearlo.
+- **Con «reducir movimiento» del sistema (`prefers-reduced-motion`), se muestra sin animación.**
+- Una función nueva que arma algo por prompt y lo muestra recién terminado no está terminada.
 
 # Todo aviso de error lleva «Reportar a Soporte»
 
@@ -6800,6 +6827,34 @@ escrita (cliente roto > plata > traba a Martín > features).
   dijo «eso está muy mal, estás cruzando workspace».
 - **Y cuando una pregunta sí corresponde, es UNA**, con opciones concretas y excluyentes, nunca una lista en
   prosa ni varias preguntas juntas.
+
+# Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10/2026)
+
+Martín: «Siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un ticket». Lo que gobierna
+código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallazgos-ia.md, 27/10):
+
+- **Una superficie de MaKo que pueda contestar un fracaso engancha el ticket automático con su `causa`.** Vale para un
+  chat, un editor, WhatsApp o una acción confirmada que falla. Ofrecer la tarjeta no alcanza. Las negativas legítimas
+  (cobros, borrados, permisos o rol) no abren ticket.
+- **Un chat con catálogo de operaciones nombra en su «no se puede» lo que sólo existe como BOTÓN, y dónde está.** «No
+  puedo» con el botón ahí al lado fue el caso de Leila con «Borrar silencios».
+- **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
+  uno de los 10 «no puedo» de Leila era algo que no existía.
+
+# En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
+
+Martín, desde el Ops Center: «Apenas envío el audio, en todos los chats de todo MaKo, se debe enviar automáticamente; yo
+puedo reproducirlo. Si tarda unos segundos después en leerlo, eso es un proceso interno». Y también: «Los procesos siempre
+se tienen que ejecutar en segundo plano: el usuario debe poder navegar por el resto de la aplicación mientras hay procesos
+ejecutándose, como la transcripción».
+
+- **Un audio, una foto o un mensaje aparecen en el chat al soltarlos, con su tilde.** Transcribir, subir, firmar o leer
+  van DESPUÉS y no frenan el envío.
+- **Un proceso no depende de que la pantalla siga abierta.** Si la persona cambia de chat o de tab, el audio igual llega.
+  Una transcripción atada al componente montado se pierde al volver atrás: le pasó a Martín el 27/10 con el Cerebro.
+- **Mientras el chat trabaja, MaKo «escribe»** (los 3 puntos).
+- **Un error dice qué falló.** «Unexpected error» de un `.json()` sobre una respuesta que no es JSON no le dice nada a
+  nadie.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 

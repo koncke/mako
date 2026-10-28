@@ -224,7 +224,7 @@ test('8. el cableado: la cola dice qué son fotos, la burbuja sabe cuántas espe
   assert.match(burbuja, /if \(tengo >= esperadas\) return;/, 'con todas, no pregunta más');
   assert.match(burbuja, /const espera = proximoIntento\(intento, desde, Date\.now\(\)\);/, 'mientras falte alguna, vuelve a preguntar con su espera');
   assert.match(burbuja, /if \(espera != null\) reloj = setTimeout\(mirar, espera\);/);
-  assert.match(leer('app/admin/operaciones/useCentro.ts'), /recordarEnviadas\(r\.id, archivos\.map\(\(a\) => a\.file\), subidos\)/, 'mandar pasa los refs');
+  assert.match(leer('app/admin/operaciones/useCentro.ts'), /recordarEnviadas\(r\.id, archivos, subidos\)/, 'mandar pasa los refs');
   // Y de verdad: sin fotos esperadas, ninguna ida al servidor.
   const g = globalThis as Record<string, unknown>;
   const antes = g.fetch;
