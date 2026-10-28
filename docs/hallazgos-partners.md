@@ -349,8 +349,15 @@ partner es de MaKo Pro (docs/hallazgos-planes-y-cobro.md, «La tabla de /planes 
   transacción). Un trigger impide que el código que nace del nombre (`codigoDe`) sea el viejo de otro: choca con 23505 y
   prueba con sufijo, como siempre. Sin la migración, «Cambiar» contesta «todavía no se puede» y no toca nada.
 
-**Sin hacer:** aplicar la mig 0341 en producción (la pide el Cerebro con el sí de Martín; era 0340 y chocó con la del editor de imágenes,
-de otra rama; si el tren suma otra antes, se renumera). El teléfono muestra el código sin «Cambiar» (como dónde cobra: se cambia en la computadora).
+- **Un `?ref=` que no era de nadie quedaba en el cobro, y el partner que después ELEGÍA ese texto se llevaba el crédito (la
+  verificación de 3ca2d8328, 28/10).** Sólo se validaba el código ESCRITO; el que trae un link (la cookie de /r/<código> o el
+  `?ref=` de /planes/<plan>) entraba sin mirar. Con el código editable, Beto eligió `promo-octubre` y cobró US$97 de una compra
+  que no trajo (r4-partners.ts, por la ruta real). Ahora se guarda sólo si es de un partner (`codigoQueCuenta`,
+  lib/compra-plan-reglas.ts), y una cookie de nadie no tapa el `?ref=` de uno. Si no se puede leer, la compra sigue con él.
+
+La mig 0341 quedó APLICADA en producción el 28/10 (el Cerebro, con el sí de Martín: era 0340 y chocó con la del editor de
+imágenes, de otra rama). **Sin hacer:** el teléfono muestra el código sin «Cambiar» (como dónde cobra: se cambia en la
+computadora). Un ref que ya quedó guardado de antes no se limpia (cuando se midió, más arriba, había 0 cobros con `ref_codigo`).
 **Vive en:** lib/partners-recursos.ts · app/partners/RecursosPartner.tsx · app/partners/PanelPartner.tsx ·
 app/m/partners/ReferidosM.tsx · lib/partners-reglas.ts (`codigoNuevoValido`) · lib/partners-programa.ts
 (`cambiarCodigoPartner`, `codigoVigente`) · app/r/[codigo]/route.ts · supabase/migrations/0341_partner_codigo_editable.sql ·

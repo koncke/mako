@@ -301,8 +301,9 @@ bienvenida: la `post_pago` del ws1 está archivada.
 - ⚠️ **§1 suponía mal que «si es un token real, `cobroDelAviso` ya lo encontró» era seguro** (la verificación de 3ca2d8328,
   28/10): el token es público y un Payment Link acepta `?client_reference_id=<token>`, y una venta de US$1 marcaba pagado un
   cobro de MaKo de US$1.500. La rama de MaKo exige ahora que la sesión sea la del cobro (`sesionDelCobro`,
-  lib/cobros-eventos.ts: la metadata `mako_cobro`, sin Payment Link, el mismo monto o el de origen); si no lo es, va a la venta
-  externa. Y el «otro aviso la está registrando» del §2 va con status 503: sin él la ruta contestaba 200 y Stripe no volvía.
+  lib/cobros-eventos.ts, de Planes: la metadata `mako_cobro` o la sesión guardada, sin Payment Link, el monto o el de origen);
+  si no lo es, se ignora y abre un ticket (NO va a la venta externa: esa venta se mira a mano). Y el «otro aviso la está
+  registrando» del §2 va con status 503: sin él la ruta contestaba 200 y Stripe no volvía.
 - **Apagado, la compra a Meta sale igual** (sin lead ni cobro): es lo que hacía 749086da2 antes de esto.
 - **Cómo se probó sin modo prueba:** tests/venta-externa.test.ts corre `procesarEventoStripe` REAL sobre la base, Stripe y
   Meta de mentira (los casos a–j del paso 4, más el corte a mitad y una suscripción). El ensayo de sólo lectura sobre los

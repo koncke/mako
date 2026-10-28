@@ -76,11 +76,15 @@ test('Stripe ARMA la prueba: 7 días con la tarjeta siempre; sin prueba, nada de
   assert.equal(f.get('mode'), 'subscription');
   assert.equal(f.get('subscription_data[trial_period_days]'), '7', 'el primer cobro, a los 7 días');
   assert.equal(f.get('payment_method_collection'), 'always', 'la prueba es CON tarjeta');
+  // Y SÓLO con tarjeta (28/10/2026, la verificación de 3ca2d8328): con Link o un débito bancario no hay `card.fingerprint`, la
+  // huella quedaba vacía y la misma persona sacaba otra prueba con otro email.
+  assert.deepEqual(f.getAll('payment_method_types[]'), ['card'], 'una prueba por tarjeta necesita una tarjeta');
   assert.equal(f.get('subscription_data[metadata][mako_cobro]'), TOKEN, 'la metadata sigue llegando a cada factura');
   llamadas = [];
   await crearCheckoutStripe(KEY, { ...base, tipo: 'suscripcion' });
   assert.equal(form(llamadas[0]).get('subscription_data[trial_period_days]'), null, 'una suscripción sin prueba cobra hoy');
   assert.equal(form(llamadas[0]).get('payment_method_collection'), null);
+  assert.deepEqual(form(llamadas[0]).getAll('payment_method_types[]'), [], 'sin prueba, los medios que tenga prendidos la cuenta');
   llamadas = [];
   await crearCheckoutStripe(KEY, { ...base, tipo: 'unico', diasDePrueba: 7 });
   assert.ok(![...form(llamadas[0]).keys()].some((k) => k.includes('trial') || k === 'payment_method_collection'), 'un pago único no tiene prueba');
@@ -137,6 +141,22 @@ test('un link de una prueba de Stripe ya empezada NO abre una segunda suscripci�
   assert.ok(guardia > 0 && completa > guardia && rehace > completa, 'las dos guardias, antes de rehacer la sesión');
 });
 
+// La verificación de 3ca2d8328 (C:/dev/revisiones/scratch-3ca2/A-refuta/r2r3-prueba-stripe.ts, casos k): el link se rehace a 5
+// minutos de vencer, y la sesión vieja seguía ABIERTA. Pagada en la pestaña vieja, la prueba no se activaba; pagadas las dos,
+// quedaban dos suscripciones cobrando. Con el arreglo, el script da `GET A → POST A/expire → POST nueva` y A queda `expired`.
+test('rehacer el link expira ANTES la sesión anterior que sigue abierta, en todo cobro de Stripe; si no se pudo, no arma otra', () => {
+  const f = cuerpo('lib/cobros.ts', 'urlParaPagar');
+  const guarda = f.indexOf('if (c.proveedor_ref) {');
+  assert.ok(guarda > 0, 'mira la sesión anterior de CUALQUIER cobro de Stripe, no sólo de una prueba');
+  const resto = f.slice(guarda);
+  const abierta = resto.indexOf("if (s.ok && s.estado === 'open') {");
+  const expira = resto.indexOf('const x = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);');
+  const rehace = resto.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
+  assert.ok(abierta > 0 && expira > abierta && rehace > expira, 'abierta → se expira → recién ahí la nueva');
+  assert.match(resto, /if \(!x\.ok\) \{\n\s*const otra = await leerCheckoutStripe\(stripe\.key, c\.proveedor_ref\);\n\s*if \(otra\.ok && otra\.estado === 'complete'\) return \{ error: 'ya_pagado' \};\n\s*return c\.url_proveedor \? \{ url: c\.url_proveedor \} : \{ error: 'pasarela', detalle: x\.error \};/,
+    'si no se pudo cerrar (o se completó en el medio), no se arma otra');
+});
+
 test('la ACTIVACIÓN de Stripe: checkout completo de ESTE cobro, suscripción en prueba, y el día del cobro de Stripe', () => {
   const s = cuerpo('lib/cobros.ts', 'pruebaAutorizadaStripe');
   assert.match(s, /if \(!s\.ok \|\| s\.estado !== 'complete' \|\| s\.referencia !== c\.token \|\| !s\.subscription\) return null;/);
@@ -189,3 +209,5 @@ test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel
 //   · Mercado Pago para todos los países                                       → 9 / 1
 //   · «XX» tomado como un país                                                 → 9 / 1
 //   · sin expandir la tarjeta (sin huella)                                     → 9 / 1
+// Y lo de la verificación de 3ca2d8328 (28/10/2026, base 11 / 0): sin expirar la sesión anterior → 10 / 1; la guarda sólo para
+// las pruebas, como antes → 10 / 1; la prueba con cualquier medio de pago (sin `payment_method_types`) → 10 / 1.

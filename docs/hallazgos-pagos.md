@@ -1304,23 +1304,14 @@ tests/venta-externa-no-toca-mako.test.ts.
 
 ### Lo que encontró la verificación de la rama unida con Planes (3ca2d8328, 28/10/2026)
 
-Informe del Cerebro: C:/dev/revisiones/2810-verificacion-3ca2d8328.md, «La venta externa». Lo arregló este chat en
-`lib/cobros-webhook.ts`, `lib/cobros-eventos.ts` (`sesionDelCobro`), `lib/stripe-api.ts`, `lib/cobros.ts` y el módulo nuevo
-`lib/cobros-externos-meta.ts`; lo prueban tests/venta-externa.test.ts (casos n, o, p y el reintento de l) y
-tests/cobros-eventos.test.ts.
+Informe del Cerebro: C:/dev/revisiones/2810-verificacion-3ca2d8328.md, «La venta externa». El ALTO (el cruce del
+`client_reference_id`) lo arregló Planes: ver «Un Payment Link con el token de un cobro de MaKo lo marcaba pagado», más abajo.
+Lo de acá lo arregló este chat en `lib/cobros.ts` y el módulo nuevo `lib/cobros-externos-meta.ts`; lo prueba
+tests/venta-externa.test.ts (el reintento de l, o, p, y el cruce de punta a punta en n).
 
-- ⚠️ **EL CRUCE (alto, ANTERIOR a MAU-10, estaba en producción): una venta de US$1 marcaba PAGADO un cobro de MaKo de
-  US$1.500.** El token del cobro es público (viaja en el link /pagar/<token>), un Payment Link acepta
-  `?client_reference_id=<token>` en la URL (el sitio de Mauricio lo copia del query a cada link), y el aviso buscaba el cobro
-  también por esa referencia. `esDelCobro` aceptaba la referencia sola y `confirmarCheckout` no miraba ni el monto ni el link.
-  El diseño lo daba por seguro («si es un token real, `cobroDelAviso` ya lo encontró»): **encontrar el cobro no prueba que la
-  sesión sea la suya.** La regla: la sesión de un cobro de MaKo se reconoce por la METADATA (`mako_cobro`; sólo el dueño de la
-  cuenta la escribe y MaKo la pone en todo checkout desde el 11/10), nunca por `client_reference_id`; nunca es un Payment Link;
-  y cobra lo mismo, en su moneda o en la de ORIGEN si Stripe la convirtió (`currency_conversion`, Adaptive Pricing: comparar
-  sólo `amount_total` rechazaría un pago legítimo en pesos). Si no es de MaKo, es una venta del negocio y va como tal. Un pago
-  diferido fallido en ese link tampoco marca fallido el cobro.
-- **Trampa para cualquier doble de Stripe:** un `data.object` recortado (sin `client_reference_id`) esconde toda búsqueda por
-  la referencia. El evento real trae la sesión ENTERA; el doble también.
+- **Los dos chats arreglaron el cruce a la vez, con la misma función** (`sesionDelCobro`): el Cerebro se lo pasó a los dos y
+  ninguno esperó la respuesta del otro antes de escribir. Se quedó la de Planes. Cuando un hallazgo se reparte entre dos chats,
+  el que lo toma lo dice ANTES de escribir, y el otro espera esa respuesta.
 - ⚠️ **«Todavía no, reintentá» sin status es un 200.** El error del reclamo («otro aviso está registrando esta venta») no
   llevaba status, `esErrorTransitorio` lo daba por definitivo, la ruta contestaba 200 y Stripe no volvía NUNCA: un «Reenviar»
   desde el panel de Stripe dentro de los 2 minutos dejaba la venta sin lead para siempre. Ahora va con status 503. **Regla:
@@ -1415,3 +1406,28 @@ en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, 
   de 4). Ahora la ficha le dice a `cuotasDelPlanLibre` si el plan GUARDADO tiene inicial (`planConInicial`); sin él, el #0 es
   una cuota. Y lo de aparte va `quedaComoEsta`: el server lo casa sin cambiarlo y, si ya no existe, no lo inserta (un resto
   quitado o cambiado en el medio revivía). El aviso del link anulado sale sólo si se anuló alguno.
+
+## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
+
+- **El síntoma (el refutador, por la ruta real):** una venta de US$1 por un Payment Link del negocio, con
+  `?client_reference_id=<token>`, dejaba PAGADO un cobro de MaKo de US$1.500, con su cuota, el lead ganado y el historial
+  «Pago de Programa: US$ 1.500 por Stripe». Igual con el interruptor de ventas externas apagado o prendido. Venía de main, de
+  antes de MAU-10.
+- **La causa, y por qué «releer» no alcanzaba:** el aviso busca el cobro por la metadata `mako_cobro` o, si no está, por el
+  `client_reference_id` (`avisoStripe`), y la rama de MaKo relee la sesión y compara la REFERENCIA (`esDelCobro`), que es justo
+  lo que el atacante puso. `confirmarCheckout` no miraba ni el monto ni de dónde salía la sesión. El token viaja en
+  /pagar/<token>, los Payment Links aceptan ese parámetro en la URL, y la landing de Mauricio lo copia a cada link de Stripe.
+- **El arreglo (`sesionDelCobro`, lib/cobros-eventos.ts, en la rama de MaKo del checkout):** la sesión tiene que llevar la
+  metadata de MaKo de ESE cobro, o ser la guardada en el cobro (`proveedor_ref`); nunca salir de un Payment Link; y el monto y
+  la moneda tienen que alcanzar los del cobro. Si Stripe convirtió la moneda (`currency_conversion`), vale el de origen
+  (`leerCheckoutStripe` lo trae). Si no cuadra, no se asienta y se abre un ticket, uno por sesión (`cobro-ajeno:<cs_>`). Un
+  pago diferido que falló en un link ajeno tampoco marca el cobro.
+- **Trampa del doble, para quien lo vuelva a probar:** con un `data.object` recortado (sin `client_reference_id`) el cruce
+  NO aparece. El evento real trae la sesión entera: un doble con el cuerpo recortado esconde toda búsqueda por referencia.
+
+**Sin hacer:** una sesión de Payment Link que trae el token de un cobro de MaKo queda ignorada con su ticket, no registrada
+como venta externa (con el interruptor prendido, la venta de verdad no entra al CRM sola). La puerta es de Zernio
+(`ventaExternaStripe`). Con Mercado Pago no se midió un cruce parecido.
+**Vive en:** lib/cobros-eventos.ts (`sesionDelCobro`) · lib/cobros-webhook.ts (rama de checkout, `avisarSesionQueNoCuadra`) ·
+lib/stripe-api.ts (`leerCheckoutStripe`: `montoOrigen`, `monedaOrigen`) · tests/cobro-sesion-ajena.test.ts ·
+C:/dev/revisiones/scratch-3ca2/B-refuta/refuta.ts (bloque H2).

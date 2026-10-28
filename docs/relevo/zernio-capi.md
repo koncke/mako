@@ -189,9 +189,10 @@ el árbol no tiene.
   3. Que el Payment Link del Sprint de Mauricio vuelva a la página de gracias con `?session_id={CHECKOUT_SESSION_ID}`: se
      cambia en SU Stripe («Después del pago»), no en el código.
 - **Pixel v28:** origin/main ya está en v28 (`SNIPPET_VERSION = 28`); esta rama no lo vuelve a tocar.
-- **La verificación de la rama unida con Planes (3ca2d8328, 28/10):** arreglados el cruce del `client_reference_id` (un Payment
-  Link con el token de un cobro de MaKo lo marcaba pagado; era anterior a MAU-10 y estaba en producción), el reintento enseguida
-  de una venta cortada (era un 200, ahora 503) y la compra a Meta de una venta cortada en la cuota (la manda el cron). Sigue sin
+- **La verificación de la rama unida con Planes (3ca2d8328, 28/10):** el cruce del `client_reference_id` (un Payment Link con
+  el token de un cobro de MaKo lo marcaba pagado; era anterior a MAU-10 y estaba en producción) lo arregló Planes (a5f61f0c8).
+  Este chat: el reintento enseguida de una venta cortada (era un 200, ahora 503) y la compra a Meta de una venta cortada en la
+  cuota (la manda el cron). Sigue sin
   hacer: completar una venta externa pagada SIN lead que terminó en 200 (el cron sólo repara pagados con lead).
 
 ## Rojos que no son de esta rama

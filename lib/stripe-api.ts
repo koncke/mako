@@ -259,8 +259,9 @@ export async function crearCheckoutStripe(
     // La metadata del Checkout NO baja sola a lo que crea: se repite en el pago o en la suscripción,
     // y de la suscripción llega a cada factura en `parent.subscription_details.metadata` (renovaciones).
     ...(sus ? { subscription_data: { metadata, ...(prueba ? { trial_period_days: prueba } : {}) } } : { payment_intent_data: { metadata } }),
-    // Con prueba, la tarjeta se pide SIEMPRE (es lo que la hace una prueba con tarjeta y no un mes regalado).
-    ...(prueba ? { payment_method_collection: 'always' } : {}),
+    // Con prueba, la tarjeta se pide SIEMPRE (es lo que la hace una prueba con tarjeta y no un mes regalado), y SÓLO tarjeta
+    // (28/10/2026): con Link o un débito bancario no hay `card.fingerprint`, la huella quedaba vacía y se repetía la prueba.
+    ...(prueba ? { payment_method_collection: 'always', payment_method_types: ['card'] } : {}),
     success_url: p.successUrl,
     cancel_url: p.cancelUrl,
     expires_at: Math.floor(Date.now() / 1000) + vence,
@@ -285,8 +286,8 @@ export type SesionStripe = {
   /** El teléfono que dejó el comprador (`customer_details.phone`), si Stripe lo pidió. */
   telefono?: string | null;
   /**
-   * Lo cobrado en la moneda de ORIGEN si Stripe la convirtió (`currency_conversion`, Adaptive Pricing: el comprador paga en la
-   * suya). Con eso se compara el cobro de MaKo (`sesionDelCobro`, lib/cobros-eventos.ts). Sin conversión, null.
+   * Si Stripe le cobró en OTRA moneda (`currency_conversion`, el precio adaptado al país): el monto y la moneda en que se armó
+   * la sesión. Lo compara `sesionDelCobro` (lib/cobros-eventos.ts) contra el cobro (28/10/2026). Sin conversión, null.
    */
   montoOrigen?: number | null;
   monedaOrigen?: string | null;
@@ -312,6 +313,8 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
     id: str(b.id) ?? id,
     estado: str(b.status),
     pagoEstado: str(b.payment_status),
+    montoOrigen: monedaOrigen && Number.isFinite(totalOrigen) ? deUnidadMinima(totalOrigen, monedaOrigen) : null,
+    monedaOrigen,
     paymentIntent: idDe(b.payment_intent),
     subscription: idDe(b.subscription),
     invoice: idDe(b.invoice),
@@ -323,8 +326,6 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
     metadata: metadataDe(b.metadata),
     modo: b.livemode === true ? 'real' : 'prueba',
     referencia: str(b.client_reference_id),
-    montoOrigen: monedaOrigen && cc.amount_total != null && Number.isFinite(totalOrigen) ? deUnidadMinima(totalOrigen, monedaOrigen) : null,
-    monedaOrigen,
   };
 }
 

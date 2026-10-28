@@ -251,7 +251,7 @@ async function main() {
 
   // (n) EL CRUCE (la verificación de 3ca2d8328): un cobro de MaKo de US$1.500 pendiente, y una venta de US$1 por un Payment Link
   //     del negocio abierto con `?client_reference_id=<el token del cobro>` (el token viaja en el link /pagar/<token>). El aviso
-  //     encuentra el cobro por esa referencia. NO puede marcarlo pagado: es una venta del negocio, y entra como tal.
+  //     encuentra el cobro por esa referencia. NO puede marcarlo pagado (lo arregló Planes en a5f61f0c8, `sesionDelCobro`).
   const T = 'TokTokTokTokTokTokTokTokTokTok77';
   const conCobroDeMako = (o: { prendido?: boolean } = {}) => {
     reset(o);

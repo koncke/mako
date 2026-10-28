@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
@@ -49,16 +49,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' }, { status: 400 });
   }
   const ref = codigoDeLaCompra({ escrito: pedido.codigoEscrito, cookie: codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value), url: pedido.ref });
+  // El que trajo un link se guarda sólo si es de un partner (28/10/2026, `codigoQueCuenta`); si no se pudo leer, sigue.
+  const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, elegido: ref, url: pedido.ref }, (x) => esCodigoDePartner(x).catch(() => true));
 
   // «Lo quiero» sin pasarela (24/10/2026, sin Calendly): el pedido queda en el CRM de MaKo, con el plan, el origen y el
   // código de partner, y se da de alta a mano (lib/compra-plan.ts, `pedirPlanSinPasarela`). No abre ningún pago.
   if (pedido.quiero) {
-    const q = await pedirPlanSinPasarela({ ...pedido, ref });
+    const q = await pedirPlanSinPasarela({ ...pedido, ref: refQueCuenta });
     return q.ok ? Response.json({ ok: true, pedido: true }) : Response.json({ error: q.error }, { status: q.status });
   }
   // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`. Mercado Pago,
   // sólo desde su país (27/10/2026: desde México rechazaba el pago); el país lo pone Vercel, no el formulario.
-  const r = await iniciarCompraDePlan({ ...pedido, ref }, {
+  const r = await iniciarCompraDePlan({ ...pedido, ref: refQueCuenta }, {
     conPrueba: (await getSesionAdmin().catch(() => null)) != null,
     pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
   });

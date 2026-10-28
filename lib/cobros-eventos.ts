@@ -20,7 +20,6 @@
 // escritos con la forma genérica de su doc: falta medirlos con un cuerpo real.
 
 import { esTokenCobro } from './cobros-tipos';
-import { mismoCentavo } from './cobro-etapa';
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});
@@ -212,36 +211,6 @@ export function tokenReleido(p: { metadata?: Record<string, string> | null; refe
  */
 export const esDelCobro = (tokenDelCobro: string, releido: string | null): boolean => !releido || releido === tokenDelCobro;
 
-/**
- * ¿La sesión de Checkout RELEÍDA es la que MaKo armó para ESTE cobro? (28/10/2026, la verificación de 3ca2d8328).
- *
- * ⚠️ EL CRUCE: el token del cobro viaja en el link /pagar/<token>, y un Payment Link del negocio acepta
- * `?client_reference_id=<token>` en la URL (el sitio de Mauricio lo copia del query de la página a cada link). El aviso
- * encontraba el cobro por esa referencia, `esDelCobro` la aceptaba, y una venta de US$1 marcaba PAGADO un cobro de MaKo de
- * US$1.500. Por eso, para el checkout no alcanza la referencia: MaKo arma TODA sesión con `metadata.mako_cobro` (la pone
- * `crearCheckoutStripe`, lib/stripe-api.ts, y sólo el dueño de la cuenta escribe metadata) y nunca arma un Payment Link. Y
- * tiene que cobrar lo mismo que el cobro: en su moneda, o en la de ORIGEN si Stripe la convirtió (Adaptive Pricing).
- *
- * `ajena`: la sesión no es de MaKo (un Payment Link o un checkout propio del negocio): es una venta del negocio, no del cobro.
- * Sin `ajena`: es de MaKo pero no cuadra (otro cobro, otro monto): no se aplica y queda dicho; el cron relee la sesión que el
- * cobro guarda, no ésta.
- */
-export function sesionDelCobro(
-  c: { token: string; monto: number; moneda: string },
-  s: { paymentLink?: string | null; metadata?: Record<string, string> | null; monto: number | null; moneda: string | null; montoOrigen?: number | null; monedaOrigen?: string | null },
-): { ok: true } | { ok: false; ajena: boolean; motivo: string } {
-  if (s.paymentLink) return { ok: false, ajena: true, motivo: 'la sesión es de un Payment Link del negocio, no de un cobro de MaKo' };
-  const marca = token(s.metadata?.mako_cobro);
-  if (!marca) return { ok: false, ajena: true, motivo: 'la sesión no la armó MaKo (no trae la marca del cobro)' };
-  if (marca !== c.token) return { ok: false, ajena: false, motivo: 'la sesión releída es de otro cobro' };
-  const moneda = c.moneda.toUpperCase();
-  const cuadra = (monto: number | null | undefined, mon: string | null | undefined) => monto != null && (mon ?? '').toUpperCase() === moneda && mismoCentavo(monto, c.monto);
-  if (!cuadra(s.monto, s.moneda) && !cuadra(s.montoOrigen, s.monedaOrigen)) {
-    return { ok: false, ajena: false, motivo: `la sesión cobró ${s.monto ?? '—'} ${s.moneda ?? ''} y el cobro es de ${c.monto} ${moneda}`.trim() };
-  }
-  return { ok: true };
-}
-
 /** ¿El aviso es del mismo modo (real/prueba) que el cobro? Un evento sin `livemode` no se juzga. */
 export function mismoModo(livemode: boolean | null, modo: 'real' | 'prueba'): boolean {
   return livemode == null || livemode === (modo === 'real');
@@ -271,6 +240,29 @@ export function confirmarCheckout(
       : { ok: false, motivo: 'suscripción sin factura todavía: se aplica con su invoice.paid' };
   }
   return s.paymentIntent ? { ok: true, proveedorPagoId: s.paymentIntent, suscripcionId: null } : { ok: false, motivo: 'la sesión pagada no trae el pago' };
+}
+
+/**
+ * ¿La sesión RELEÍDA es la que MaKo armó para ESTE cobro, y cobró lo que el cobro pide? (28/10/2026, la verificación de
+ * 3ca2d8328). El aviso encuentra el cobro por el `client_reference_id`, y un Payment Link lo acepta en su URL: una venta de US$1
+ * con `?client_reference_id=<token>` (el token viaja en /pagar/<token>) marcaba PAGADO un cobro de MaKo de US$1.500, con su
+ * cuota y el lead ganado. MaKo arma su sesión con `metadata.mako_cobro` y un solo ítem al monto del cobro, sin cupones ni
+ * impuestos (lib/stripe-api.ts, `crearCheckoutStripe`): se exige eso, y nunca un Payment Link. Si Stripe le cobró en otra
+ * moneda (`currency_conversion`), vale el monto de origen. Un pago diferido que FALLÓ no trae plata: ahí no se mira el monto.
+ */
+export function sesionDelCobro(
+  c: { token: string; monto: number; moneda: string; proveedor_ref: string | null },
+  s: { id: string; metadata: Record<string, string>; paymentLink?: string | null; monto: number | null; moneda: string | null; montoOrigen?: number | null; monedaOrigen?: string | null },
+  accion: 'aprobado' | 'fallido',
+): Confirmacion<object> {
+  if (s.paymentLink) return { ok: false, motivo: `la sesión salió de un Payment Link (${s.paymentLink}), no del checkout de MaKo de este cobro` };
+  if (s.metadata.mako_cobro !== c.token && s.id !== c.proveedor_ref) return { ok: false, motivo: 'la sesión no es la que MaKo armó para este cobro' };
+  if (accion === 'fallido') return { ok: true };
+  const pide = c.moneda.toUpperCase();
+  const alcanza = (monto: number | null | undefined, moneda: string | null | undefined) =>
+    monto != null && (moneda ?? '').toUpperCase() === pide && monto >= c.monto - 0.005;
+  if (alcanza(s.monto, s.moneda) || alcanza(s.montoOrigen, s.monedaOrigen)) return { ok: true };
+  return { ok: false, motivo: `la sesión cobró ${s.monto ?? '—'} ${s.moneda ?? ''} y el cobro es de ${c.monto} ${pide}`.replace(/\s+/g, ' ') };
 }
 
 /** La factura RELEÍDA confirma el aviso. Una renovación lleva el id de ESA factura (es otra cuota). */
