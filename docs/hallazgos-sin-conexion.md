@@ -200,5 +200,21 @@ cazó al menos un test. Los resultados están en C:/dev/revisiones/sin-conexion-
 - «Borrar lo guardado» saca también el caché del cascarón. El service worker queda, porque es el de los avisos.
 - «Probar» usa la precarga y no sale dos veces.
 
+**Probado rompiéndolo** (base: tests/sin-conexion.test.ts 22/22 y push-cableado 11/11; cada rotura sola, restaurada por
+sha256 y con el cascarón re-armado): las 23 cazadas.
+
+| Rotura | La cazó |
+|---|---|
+| R45. Las notas sin paginar · R46. Sin `recortado` · R47. El orden de las notas al revés | 8a |
+| R48. Lo de antes no vuelve · R50. Lo cubierto sigue «faltando» | 8b, 8c |
+| R49. La hora siempre la de la anterior · R51. Otro negocio presta lo suyo · R52. `listarFunnels` de nuevo · R53. Las notas que fallan no avisan | 8b |
+| R54. Guardar pisa · R67. El cascarón no dice de cuándo | 8c |
+| R55. La copia de otra sesión se guarda · R56. La copia no vence por su fecha · R59. Sin el PBKDF2 de relleno | 8d |
+| R57. La clave de 6 · R58. Las comunes pasan | 2c |
+| R60. El teléfono escucha los pedidos | 5c |
+| R61. La hora de renovar en una variable | 5, 5a, 5a2, 5d |
+| R62. Renueva sin caché · R63. «Probar» sale dos veces · R64. «Borrar» deja el caché | 5a2 |
+| R65. El fallo no espera · R66. El fallo no se anota | 8e |
+
 **Sin hacer:** la lista de computadoras con «Desconectar» sigue en la T3. Hoy la ruta de la llave nunca contesta
 `desconectada`.
