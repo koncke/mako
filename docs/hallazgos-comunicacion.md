@@ -262,8 +262,9 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   · ⚠️ **«Nada fallado de verdad» incluye lo que un runner se TRAGÓ** (la verificación de 96e7840e8): `errorParaTicket` sólo mira
     `isError`, y «falta el monto» + un reintento que devolvió «❌ No se pudo aplicar (Error guardando …)» quedaba sin ticket. Con
     «hubo alguna guarda», una guarda vieja también le comía el ticket a un «no pude» de otra cosa. Ahora es la regla sólo si la
-    ÚLTIMA herramienta fue la guarda y no hubo errores ni fallas tragadas (`esLaReglaDeUnaGuarda`, lib/doer-falla.ts). El turno de
-    la app tiene el mismo agujero (mako-turno-app.ts): avisado a MaKo inteligente el 28/10.
+    ÚLTIMA herramienta fue la guarda y no hubo errores ni fallas tragadas (`esLaReglaDeUnaGuarda` y `esFallaTragadaDeHerramienta`,
+    lib/no-pude.ts: MaKo inteligente los movió ahí en ae1660f9a y arregló igual el turno de la app). Lo repetido del memo también
+    cuenta como lo último que vio el modelo.
 
 **Sin hacer:**
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor

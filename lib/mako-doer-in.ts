@@ -34,7 +34,7 @@ import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/ma
 import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
-import { esGuardaDeHerramienta, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude, type TicketNoPude } from '@/lib/no-pude-server';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
@@ -50,7 +50,7 @@ import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
-import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, esFallaTragadaDeHerramienta, esLaReglaDeUnaGuarda, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
@@ -1607,7 +1607,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      */
     const propuestasDelTurno = new Map<number, PropuestaDelTurno>();
     /** ¿La ÚLTIMA herramienta del turno devolvió una GUARDA de MaKo (un 400, `esGuardaDeHerramienta`)? y cuántas fallas se TRAGARON
-     *  (`esFallaTragadaDeHerramienta`): el «no pude» es la regla de la guarda sólo así (`esLaReglaDeUnaGuarda`, lib/doer-falla.ts). */
+     *  (`esFallaTragadaDeHerramienta`): el «no pude» es la regla de la guarda sólo así (`esLaReglaDeUnaGuarda`, lib/no-pude.ts, el mismo del turno de la app). */
     let ultimaFueGuarda = false;
     let tragadasDelTurno = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
@@ -1615,6 +1615,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const previo = memo.previo(name);
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
+        // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
+        ultimaFueGuarda = esGuardaDeHerramienta(previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
       const out = await (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
