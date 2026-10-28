@@ -23,24 +23,24 @@ const hueco = (src: string) => src.slice(src.indexOf('const enMensaje = ('), src
 
 test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo y la caja única', () => {
   assert.match(imagen, /const QUIEN = \{ nombre: 'Image Editor' \};/);
-  assert.match(imagen, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(imagen, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(imagen);
   assert.match(h, /if \(!m \|\| m\.de !== 'mako'\) return null;/, 'lo de la persona no lleva propuesta');
   assert.match(h, /<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptarPropuesta\(editorRef\.current, m\)\}/);
-  assert.match(imagen, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => enviar\(texto\)\} ocupado=\{hilo\.corriendo\}/);
+  assert.match(imagen, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/);
   assert.doesNotMatch(imagen, /<textarea\b/);
 });
 
 test('el Video Editor: igual, con el foco del link en el hueco y los colores de CapCut', () => {
   assert.match(video, /const QUIEN = \{ nombre: "Video Editor" \};/);
-  assert.match(video, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(video, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(video);
   assert.match(h, /if \(!m \|\| m\.de !== "mako"\) return null;/);
   assert.match(h, /<div data-mensaje=\{m\.id\} [^>]*style=\{foco === m\.id \?/, 'el foco de `?propuesta=` busca el hueco');
   assert.match(h, /onAceptar=\{\(\) => void aceptar\(m\)\}/);
   assert.match(video, /<section role="complementary" className="cc-chat /, 'sin `.cc-chat`, las piezas salen con los colores de la app sobre el oscuro; con <aside>, la barra de la agencia lo estira');
   assert.match(video, /\.cc-chat\{--surface:var\(--cc-raised\);[^}]*--ink:var\(--cc-text\);/);
-  assert.match(video, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => enviar\(texto\)\} ocupado=\{hilo\.corriendo\}/);
+  assert.match(video, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/);
   assert.doesNotMatch(video, /<textarea\b/);
 });
 
@@ -49,6 +49,6 @@ test('los dos cargan la hoja del Centro (sin ella, el hilo y la caja no tienen f
 });
 
 test('los dos siguen recortando lo que se pide a su tope (la caja única no tiene `maxLength`)', () => {
-  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc\)/);
+  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, archivos\)/);
   assert.match(video, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT\.instruccion\), alc, op\)/);
 });
