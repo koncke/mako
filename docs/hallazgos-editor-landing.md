@@ -3517,3 +3517,22 @@ que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la r�
   - `quitarPruebaInventada` y `quitarPruebaDeLaOriginal` no miran el HTML de un diseño editable.
 - **La regla:** la fidelidad se mide con capturas lado a lado (1440 y 390) y el diff del texto visible, ANTES de elegir el
   formato del bloque.
+
+## El chat del Web Generator no sabía qué función de MaKo vende la landing (28/10/2026, claude4)
+
+**Síntoma:** Martín: «hacé de esta copia la landing de los Chats». El brief de Editar y Discutir (`buildLandingBrief`,
+lib/landing-writer.ts) era funnel + perfil del onboarding + 4 del RAG: «MaKo en general» (y en el ws 9 el perfil está vacío),
+nada de Chats. «Discutir» además lleva la regla de lo que no existe sin ningún catálogo: podía negar una función real.
+- **Lo que quedó:** en la PLATAFORMA, antes del perfil, todas las funciones en una línea (`catalogoCorto`) y la que vende ESTA
+  landing entera, por id con profundidad 0 y sus vecinos aparte (`funcionEntera`), con la regla de no prometer lo que figura
+  en «No hace»; el perfil pasa a ser «la marca que la vende». En un cliente el brief queda como siempre.
+- **Cómo se elige la función** (`funcionQueVende`, lib/cerebro-funciones.ts): la que nombra el PEDIDO (nombre 2, alias 1,
+  sin empate); si no nombra ninguna («cambia el hero»), la que la PÁGINA nombra al menos dos veces y el doble que la siguiente;
+  si no, ninguna. «Landing», «página», «web» nombran lo que se edita, no el Web Generator: no cuentan.
+- **Trampa:** «Tu oferta» de Replicar por partes NO se guarda en la landing (queda en el navegador). Lo que sí queda es la
+  original (`config.origen.basadoEnUrl`), pero Editar no la recibe. La copia idéntica ya viaja como «Diseño editable» y su
+  texto se lee (`textoDe`), así que la página de una copia de respond.io alcanza para elegir Chats.
+
+**Sin hacer:** guardar la función en la landing (MaKo pregunta con opciones del catálogo y Martín confirma, en el mismo flujo
+que el producto: `productoDelPedido`); usar la original como pista; los generadores de marketing con el mismo brief (Ads
+Manager, los writers de Instagram, Email) siguen sin la función.

@@ -377,5 +377,5 @@ export async function tabsPorConfigurar(capa: CapaDef): Promise<Array<{ key: str
 // ── Segundo cerebro ──────────────────────────────────────────────────────────
 
 /** Los nodos que son DATOS: sin la raíz, los de área ni los de nivel 1 (andamiaje del grafo). */
-export const nodosDeDatos = (nodos: NodoCerebro[]): NodoCerebro[] =>
+export const nodosDeDatos = <N extends Pick<NodoCerebro<string>, 'id'>>(nodos: readonly N[]): N[] =>
   nodos.filter((n) => n.id !== 'raiz' && !n.id.startsWith('area:') && !n.id.startsWith('n1:'));
