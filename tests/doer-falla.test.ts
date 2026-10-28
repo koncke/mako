@@ -9,9 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, comoFallaSiNoCorrio, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
+import { errorParaTicket } from '../lib/tickets-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -49,8 +50,9 @@ test('3. el doer: con un reporte, el ticket viaja aunque el turno no sea «actua
   assert.match(doer, /const reporta = reportaFalla\(sinPrefijoDeLote\(texto\)\);\n/);
   // El ticket viaja mientras `TICKET_DE_LA_FALLA` sea «propone» (con «abre», lo abre el código).
   assert.match(doer, /const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno\.some\(\(t\) => t\.name === LEVANTAR_TICKET\) \? \[\.\.\.delTurno, \.\.\.TICKET_TOOLS\] : delTurno;/);
-  assert.match(doer, /const tools = pideVerAgenda\(sinPrefijoDeLote\(texto\)\) && !conTicket\.some\(\(t\) => t\.name === AGENDA_DEL_DIA\) \? \[\.\.\.conTicket, \.\.\.AGENDA_TOOLS\] : conTicket;/);
-  assert.match(doer, /const ctxFalla = reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : '';/);
+  assert.match(doer, /const conAgenda = pideVerAgenda\(sinPrefijoDeLote\(texto\)\) && !conTicket\.some\(\(t\) => t\.name === AGENDA_DEL_DIA\) \? \[\.\.\.conTicket, \.\.\.AGENDA_TOOLS\] : conTicket;/);
+  // (Y un pedido de funcionalidad trae sus tickets y su nota: test 16.)
+  assert.match(doer, /const ctxFalla = \(reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : ''\)\n\s*\+ \(pideFuncion \? `\\n\\n\$\{NOTA_PEDIDO_DE_FUNCION\}` : ''\);/);
   assert.match(doer, /\$\{ctxFalla\}\$\{conMemoria\}`;/);
 });
 
@@ -175,7 +177,8 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   assert.match(doer.slice(iMarcas - 800, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
   assert.match(doer.slice(iMarcas, iMarcas + 300), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
-  assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
+  // (El del audio vive en `avisarAudioSinEscuchar`, la misma para el mensaje suelto y los lotes: test 15.)
+  assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, \{ \.\.\.d, pedido: '\(nota de voz\)' \}/);
   assert.match(doer, /respuesta = conLaLineaDelTicket\(respuesta, await lineaDelCartel\(cartel, dondeDelGrupo\(texto\), errsIA\.join\(' · '\), 'responder'\), causaDelCartel\(cartel\)\);/);
   assert.equal((doer.match(/await lineaDelCartel\('fallo_nuestro', dondeDelGrupo\(texto\)/g) ?? []).length, 2, 'falta el ticket de «ningún proveedor» o de la bloqueada');
   // La configuración se cierra sola sólo si faltaba la IA o el cupo de «auto» (el doer no elige cuenta), como en la app.
@@ -223,7 +226,8 @@ test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la co
 test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pude», como en el turno de la app (base 7)', () => {
   // MaKo inteligente, e6f58be78: un 400 de una herramienta (`esGuardaDeHerramienta`) cuenta como regla cuando nada falló de verdad.
   // ⚠️ La verificación de 96e7840e8: con «hubo alguna guarda», una falla TRAGADA o un «no pude» de otra cosa quedaban sin ticket.
-  const guarda = JSON.stringify({ ok: false, error: 'Falta el monto de la venta.' });
+  // (Con su marca explícita desde la verificación de 2cb1cf67e: test 13.)
+  const guarda = JSON.stringify({ ok: false, error: 'Falta el monto de la venta.', guarda: true });
   const tragada = '❌ No se pudo aplicar (Error guardando la venta: duplicate key value violates unique constraint).';
   const tragadaJson = JSON.stringify({ ok: false, error: 'No pude cargar la venta (Error guardando: timeout).' });
   assert.ok(esGuardaDeHerramienta(guarda) && !esFallaTragadaDeHerramienta(guarda));
@@ -271,4 +275,94 @@ test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pu
   // Lo que revienta: la última se apaga y cuenta como tragada, y el error sigue al loop (el modelo lo ve).
   assert.match(doer, /const out = await correr\(\)\.catch\(\(e: unknown\) => \{ ultimaFueGuarda = false; tragadasDelTurno\+\+; throw e; \}\);\n\s*memo\.anotar\(name, out\);/);
   assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{\}\);/);
+});
+
+test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con la misma forma no la lleva', () => {
+  // La verificación de 2cb1cf67e: esGuardaDeHerramienta no distinguía «te falta un dato» de «se rompió algo», y una falla real
+  // con forma de guarda («No pude registrar la acción pendiente», «No pude leer las pasarelas conectadas») no abría ticket.
+  const ej = leer('lib/api-mako/ejecutar.ts');
+  assert.match(ej, /if \('error' in v\) return \{ ok: false, status: 400, error: v\.error, faltan: v\.faltan, guarda: true \};/, 'la validación es una guarda');
+  // Desde el 28/10/2026 el error de un preparar ES guarda salvo `falla` (la verificación de 692368a60: tests/guarda-por-defecto).
+  assert.match(ej, /const guarda = prep\.falla \? \{\} : \{ guarda: true as const \};/);
+  assert.match(ej, /const esGuarda = guarda === true \|\| \(Array\.isArray\(faltan\) && faltan\.length > 0\);/, 'el legado marca sólo lo suyo');
+  assert.match(ej, /if \(r\.guarda\) cuerpo\.guarda = true;/, 'la marca no viaja al modelo ni al turno');
+  // Lo que NO es guarda: la pendiente que no entró, un throw (va como falla), la falla que el preparar marca (`falla`).
+  assert.match(ej, /if \('error' in c\) return \{ ok: false, status: 500, error: c\.error, \.\.\.\(c\.motivo \? \{ motivo: c\.motivo \} : \{\}\), noCorrio: true \};/);
+  assert.match(ej, /if \(!esNuestro\(msg\)\) return \{ ok: false, status: 400, error: msg \};/);
+  assert.match(leer('lib/api-mako/areas/cobros.run.ts'), /if \(!conectadas\) return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.', falla: true \};/);
+  // El runner viejo del doer: sus guardas llevan la marca; la pendiente que no entró y lo que reventó, no.
+  const viejo = leer('lib/mako-doer-acciones.ts');
+  assert.match(viejo, /if \('error' in c\) return JSON\.stringify\(\{ ok: false, error: 'No pude registrar la acción pendiente\.', noCorrio: true \}\);/);
+  for (const g of ["error: 'Falta el nombre.", "error: 'Faltan leadId o startIso.'", 'error: `No existe el lead #${leadId} en este workspace.`', "error: 'Falta secuenciaId.'"])
+    assert.ok(viejo.includes(`JSON.stringify({ ok: false, guarda: true, ${g}`), `sin marca: ${g}`);
+  assert.equal((viejo.match(/ok: false, guarda: true,/g) ?? []).length, 15, 'cambió cuántas guardas marca el runner viejo');
+  assert.equal((viejo.match(/JSON\.stringify\(\{ ok: false, error: e instanceof Error \? e\.message : String\(e\) \}\)/g) ?? []).length, 3, 'lo que revienta no es una guarda');
+  // requireLead (ficha_lead, reuniones_lead) devuelve la guarda en vez de tirar: un throw es una falla real para el turno.
+  const tools = leer('lib/mako-tools.ts');
+  assert.doesNotMatch(tools, /throw new Error\('Falta leadId|throw new Error\(`No existe un lead con id/);
+  assert.match(tools, /const guardaDelPedido = \(error: string\): string => JSON\.stringify\(\{ ok: false, error, guarda: true \}\);/);
+  assert.equal((tools.match(/const pedido = await requireLead\(input\);\n\s*if \('guarda' in pedido\) return pedido\.guarda;/g) ?? []).length, 2);
+  // Con el consumidor de MaKo inteligente (574107963): lo que sale de estos productores, leído como lo lee el turno.
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' })), false, 'la pendiente que no entró es una falla');
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' })), false, 'las pasarelas que no se leyeron son una falla');
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, error: 'No existe un lead con id 5 en este workspace.', guarda: true })), true, 'requireLead marca su guarda');
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, guarda: true, error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale".' })), true, 'una guarda del runner viejo');
+  // Los tipos: la marca existe en lo que prepara un runner y en el resultado.
+  assert.equal((leer('lib/api-mako/tipos.ts').match(/guarda\?: true/g) ?? []).length, 2);
+});
+
+test('14. la pendiente que no entró es una falla NUESTRA: va con isError por los dos caminos y deja su ticket por la huella', () => {
+  // MaKo inteligente, sobre la verificación de 2cb1cf67e: sin marca dejó de ser guarda, pero tampoco era un error a la vista, y
+  // si el modelo no marcaba [[no-pude]] no quedaba ticket. Ahora es como `proponerChat` (500, noCorrio).
+  const noEntro = JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.', noCorrio: true });
+  const enElDoer = comoFallaSiNoCorrio(noEntro);
+  assert.deepEqual(enElDoer, { content: noEntro, isError: true });
+  assert.equal(errorParaTicket('proponer_cambio_etapa', enElDoer)?.error, 'No pude registrar la acción pendiente.', 'el doer no la registra');
+  // Lo demás pasa tal cual: una guarda, una pendiente que entró, un texto.
+  for (const out of [JSON.stringify({ ok: false, guarda: true, error: 'Falta el nombre.' }), JSON.stringify({ ok: true, pendiente_id: 3 }), 'Listo.'])
+    assert.equal(comoFallaSiNoCorrio(out), out, out);
+  // El registro (la app y las heredadas por el registro): el legado con `noCorrio` es un 500, y un 500 va con isError.
+  const ej = leer('lib/api-mako/ejecutar.ts');
+  assert.match(ej, /if \(j\.noCorrio === true\) return \{ ok: false, status: 500, error: String\(j\.error \?\? crudo\), noCorrio: true \};/);
+  assert.match(ej, /return r\.status === 400 \? JSON\.stringify\(cuerpo\) : \{ content: JSON\.stringify\(cuerpo\), isError: true \};/);
+  // El doer, donde el runner viejo corre directo.
+  assert.match(leer('lib/mako-doer-in.ts'), /: NOMBRES_ACCION\.has\(name\) \? runnerAcciones\(name, input\)\.then\(comoFallaSiNoCorrio\)/);
+});
+
+test('15. la nota de voz de un grupo: Groq de la plataforma primero, Gemini nunca, y la que no se escucha lo dice y deja ticket', () => {
+  // ws10, Leandro, 28/10/2026: Gemini cortó por tiempo, MaKo contestó sólo el texto de al lado («Tal cual como lo hace manychat»)
+  // con un consejo inventado, y el segundo audio quedó en 👍 y silencio. Con el Groq de la plataforma salían en segundos.
+  const ai = leer('lib/ai-cheap.ts');
+  assert.match(ai, /const stt = CASCADA_STT\.filter\(\(x\) => !\(o\.sinGroq && x === 'groq'\) && !\(o\.notaDeVozDelGrupo && x === 'gemini'\)\);/, 'Gemini sigue en la cadena del grupo');
+  const iCero = ai.indexOf('if (o.notaDeVozDelGrupo && !o.sinGroq) {\n    for (const p of await groqDeLaPlataforma()) {');
+  const iNegocio = ai.indexOf('for (const nombre of orden as ProvName[]) {');
+  assert.ok(iCero > 0 && iCero < iNegocio, 'el Groq de la plataforma no va primero');
+  assert.match(ai, /if \(o\.notaDeVozDelGrupo\) throw new SttSinEscucha\(errores, erroresPlataforma\);/, 'la red (con Gemini) corre para el grupo');
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.equal((doer.match(/feature: 'MaKo · nota de voz', [^}]*pii: true, notaDeVozDelGrupo: true \}/g) ?? []).length, 2, 'una de las dos transcripciones del doer no es «del grupo»');
+  // La que no se escucha: UNA función para el suelto y los dos lotes; en el lote, el audio ya no desaparece.
+  assert.match(doer, /return \{ engaged: true, reply: await avisarAudioSinEscuchar\(wsData, jid, dondeDelGrupo\('\(nota de voz\)'\), e\) \};/);
+  assert.equal((doer.match(/if \(!\('texto' in oido\)\) \{ avisoDelAudio \?\?= await avisarElAudioDelLote\(/g) ?? []).length, 2, 'un lote todavía tira el audio sin avisar');
+  assert.match(doer, /return avisoDelAudio \? \{ engaged: true, reply: avisoDelAudio \} : \{ engaged: false, skip: 'nada legible en el lote' \};/, 'el lote de un audio solo termina en silencio');
+  assert.doesNotMatch(doer, /if \(!t && audioDe\(p\)\) t = await transcribirDeMensaje/, 'volvió el audio que se tira');
+  assert.match(doer, /const avisoBase = `Me llegó tu audio pero no lo pude escuchar\. ¿Me lo puedes escribir\?/);
+  // El ticket del audio: si el que no escuchó fue el Groq de la plataforma, la causa es nuestra, no «conecta tu IA».
+  assert.match(doer, /const groqNuestro = e instanceof SttSinEscucha && e\.erroresPlataforma\.length > 0;/);
+});
+
+test('16. un pedido de FUNCIONALIDAD no se contesta con un consejo: trae sus tickets y la marca de lo que no existe', () => {
+  for (const t of [
+    'Tal cual como lo hace manychat', 'que funcione como lo hace ManyChat', 'tal cual como lo hace la otra app', 'quiero que MaKo tenga un botón para mandar audios',
+    'estaría bueno que la app avise cuando entra un lead', 'se podría agregar una función de recordatorios', 'falta una función para exportar los leads',
+    'agreguen una opción para pausar todo',
+  ]) assert.ok(pideUnaFuncionalidad(t), `«${t}» no se ve como un pedido de funcionalidad`);
+  for (const t of [
+    'quiero que le mandes el link a Juan', '¿cómo lo hace Juan para cerrar tantas ventas?', 'mandale el presupuesto a Ana', '¿cuántos leads entraron hoy?',
+    'agendá a Pedro el lunes', 'sí, hacelo como te dije',
+  ]) assert.ok(!pideUnaFuncionalidad(t), `«${t}» se toma por un pedido de funcionalidad`);
+  assert.match(NOTA_PEDIDO_DE_FUNCION, /NO la contestes con un consejo/);
+  assert.match(NOTA_PEDIDO_DE_FUNCION, /mis_tickets/);
+  assert.match(NOTA_PEDIDO_DE_FUNCION, /\[\[no-existe: /);
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /const pideFuncion = pideUnaFuncionalidad\(sinPrefijoDeLote\(texto\)\);\n\s*const tools = pideFuncion && !conAgenda\.some\(\(t\) => t\.name === MIS_TICKETS\) \? \[\.\.\.conAgenda, \.\.\.MIS_TICKETS_TOOLS\] : conAgenda;/);
 });

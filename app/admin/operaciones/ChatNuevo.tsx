@@ -66,9 +66,11 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
     setArchivos(xs);
     return xs;
   };
-  /** Lo tomado vuelve a la caja tal cual, con sus vistas previas (la nota que no se entendió). */
+  /** Lo tomado vuelve a la caja (la nota que no se entendió) con vistas previas NUEVAS: si se salió del chat nuevo mientras la
+   *  nota se pasaba a texto, al desmontar se revocaron las suyas y la miniatura volvía rota (la verificación de tren-t). */
   const devolverArchivos = (xs: AdjuntoCaja[]) => {
-    k.devolverAdjuntos(CLAVE_CHAT_NUEVO, xs);
+    for (const a of xs) URL.revokeObjectURL(a.url);
+    k.devolverAdjuntos(CLAVE_CHAT_NUEVO, xs.map((a) => ({ ...a, url: URL.createObjectURL(a.file) })));
     setArchivos([]);
   };
   const vistas = useRef<AdjuntoCaja[]>([]);

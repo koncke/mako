@@ -36,11 +36,31 @@ export function juntarAdjuntos(propio: AdjuntosDeCaja | undefined, leidos: Adjun
   };
 }
 
+/** Lo que dice la caja quieta cuando se le suelta o se le pega algo (y el panel, mientras se arrastra). */
+export const ESPERA_PARA_ADJUNTAR = 'Espera a que termine para adjuntar';
+
 /**
  * La caja QUIETA (saliendo, apagada o bloqueada) no toca lo adjuntado (28/10/2026, la revisión de 0453923ab): ni se quita nada
  * ni entra lo soltado o pegado, y se sigue viendo. Con la nota del chat nuevo pasándose a texto, quitar una foto la dejaba salir
  * firmada igual (la pantalla ya la había tomado) y lo soltado quedaba para el chat siguiente.
+ * Y NO SE TRAGA NADA CALLADA (la verificación de tren-t): dice que no toma (`puede: false`), así el panel no ofrece «Suelta
+ * para adjuntar». POR QUÉ, según la caja (la verificación de 05d7c3187):
+ *   · si la pantalla ya dice que no (`puede: false`: un ticket cerrado, un Runner viejo, «Ya juntaste el máximo»), gana su
+ *     motivo y su aviso: la caja no lo pisa;
+ *   · SALIENDO (`saliendo`: manda, lee o pasa una nota a texto), «Espera a que termine para adjuntar» (`espera`), y lo soltado
+ *     avisa (`onEspera`): en segundos vuelve a tomar;
+ *   · apagada o bloqueada (sin diseño, sin la app de escritorio), sin espera: nada va a terminar, y el panel dice lo de
+ *     siempre («Este chat no recibe archivos»).
  */
-export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, quieta: boolean): AdjuntosDeCaja | undefined {
-  return quieta && a ? { ...a, onSumar: () => {}, onQuitar: () => {} } : a;
+export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, c: {
+  quieta: boolean; saliendo: boolean; onEspera?: () => void;
+  /** La PANTALLA dice que no, por lo suyo. Sin esto, `!a.puede`. La caja lo pasa aparte: lo junto también dice que no mientras la
+   *  caja LEE (`juntarAdjuntos`), y eso es salir, no un motivo de la pantalla (la verificación de d2f690673). */
+  pantallaDiceQueNo?: boolean;
+}): AdjuntosDeCaja | undefined {
+  if (!c.quieta || !a) return a;
+  const nada = { onSumar: () => {}, onQuitar: () => {} };
+  if (c.pantallaDiceQueNo ?? !a.puede) return { ...a, ...nada };
+  if (c.saliendo) return { ...a, ...nada, puede: false, espera: ESPERA_PARA_ADJUNTAR, onNoPuede: c.onEspera };
+  return { ...a, ...nada, puede: false, onNoPuede: undefined };
 }

@@ -12,11 +12,22 @@
 // · cortar también en el borde del clip → 2 fallos.
 // · recolocar corriendo también lo de ANTES → 1 fallo.
 // · el runner sin la guarda de «todo silencio» → 1 fallo (el cableado).
+//
+// CON RUIDO DE FONDO (28/10/2026, decisión del Cerebro): las pausas se buscan en el audio SIN RUIDO
+// (dsp/silencios-sin-ruido.ts, la cadena RNNoise de «Reducir el ruido») con el MISMO umbral, y se corta el
+// original. Medido con la voz del sistema (29 s, 12 pausas, en el scratchpad): con ruido rosa a 20, 15 y
+// 10 dB de la voz, hoy 0 pausas → las 12, con los bordes a ≤ 20 ms; con ventilador a 15 y 10 dB, 11 de 12
+// (la que falta dura 0,42 s, al límite del mínimo de 0,4: el error es dejar una pausa, nunca cortar voz);
+// la voz limpia que queda adentro de un corte, ≤ −57 dBFS, igual que sin ruido; voz limpia: idéntico a hoy.
+// Las roturas, al final del archivo.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MedidorVentanas, rangosDeSilencio, tramosQueQuedan, umbralEfectivo, segundosQuitados,
 } from '../app/video-editor/_opencut/audio/dsp/silencios';
+import { JuntadorDeTrozos, silenciosSinRuido } from '../app/video-editor/_opencut/audio/dsp/silencios-sin-ruido';
+import { instanciarRnnoise, URL_WASM_RNNOISE, type MotorRnnoise } from '../app/video-editor/_opencut/audio/dsp/rnnoise';
+import { TRAMOS, db, mezclar, rosa, ventilador, voz } from './_voz-y-ruido';
 
 const SR = 48000;
 
@@ -206,3 +217,86 @@ test('el comando usa Dividir y Eliminar de la casa, y es UN solo comando (un Des
   assert.equal((runner.match(/editor\.command\.execute\(/g) || []).length, 1, 'más de un comando: serían varios Deshacer');
   assert.match(runner, /if \(!quedaAlgo\(tramosQueQuedan\(\{ desde, hasta, silencios \}\)\)\) \{/);
 });
+
+// ── Con ruido de fondo: las pausas se buscan en el audio SIN RUIDO (28/10/2026) ──────────────────
+
+const motorCargado: { m: Promise<MotorRnnoise> | null } = { m: null };
+const motor = () => (motorCargado.m ??= instanciarRnnoise(readFileSync(resolve(import.meta.dirname, '..', 'public', URL_WASM_RNNOISE.slice(1)))));
+const hoy = (x: Float32Array) => {
+  const m = new MedidorVentanas();
+  m.agregar({ canales: [x], sampleRate: SR, inicio: 0 });
+  return rangosDeSilencio(m.resultado());
+};
+const sinRuido = async (x: Float32Array) => silenciosSinRuido({ audio: { canales: [x], sampleRate: SR, inicio: 0 }, motor: await motor() });
+/** El nivel más alto de la voz LIMPIA (ventanas de 20 ms) adentro de lo que se corta. */
+const vozCortada = (limpia: Float32Array, cortes: [number, number][]) => {
+  const w = Math.round(0.02 * SR);
+  let max = -300;
+  for (const [a, b] of cortes) for (let i = Math.round(a * SR); i + w <= Math.round(b * SR); i += w / 2) max = Math.max(max, db(limpia, i, i + w));
+  return max;
+};
+
+test('CON RUIDO DE FONDO: hoy no encuentra ninguna pausa; en el audio sin ruido, las mismas que en el limpio (±50 ms)', async () => {
+  const limpia = voz(SR, TRAMOS);
+  const ref = hoy(limpia);
+  assert.equal(ref.length, TRAMOS.length + 1, 'la voz sintética tiene sus pausas: antes, entre los tramos y al final');
+  // Ruido rosa a 20, 15 y 10 dB de la voz: las MISMAS pausas, con los bordes a ±50 ms.
+  for (const debajo of [20, 15, 10]) {
+    const sucia = mezclar(limpia, rosa(limpia.length, 61), debajo);
+    assert.equal(hoy(sucia).length, 0, `rosa a ${debajo} dB: el problema medido, sobre el original no hay pausas`);
+    const n = await sinRuido(sucia);
+    assert.equal(n.length, ref.length, `rosa a ${debajo} dB: ${n.length} pausas de ${ref.length}`);
+    ref.forEach(([a, b], i) => {
+      const [x, y] = n[i];
+      assert.ok(Math.abs(x - a) <= 0.05 && Math.abs(y - b) <= 0.05, `rosa a ${debajo} dB, pausa ${i + 1}: ${x.toFixed(2)}–${y.toFixed(2)} contra ${a.toFixed(2)}–${b.toFixed(2)}`);
+    });
+    assert.ok(vozCortada(limpia, n) <= -60, `rosa a ${debajo} dB: se corta voz a ${vozCortada(limpia, n).toFixed(1)} dBFS`);
+  }
+  // Un ventilador fuerte (zumbido + soplido) puede ACHICAR una pausa (con 10 dB, una arranca 180 ms tarde): el error
+  // tiene que ser siempre ése. Ningún corte fuera de una pausa del limpio, como mucho una que falte, y nada de voz.
+  for (const debajo of [20, 15, 10]) {
+    const n = await sinRuido(mezclar(limpia, ventilador(limpia.length, SR, 62), debajo));
+    assert.ok(n.length >= ref.length - 1, `ventilador a ${debajo} dB: ${n.length} pausas de ${ref.length}`);
+    for (const [x, y] of n) {
+      assert.ok(ref.some(([a, b]) => x >= a - 0.05 && y <= b + 0.05), `ventilador a ${debajo} dB: el corte ${x.toFixed(2)}–${y.toFixed(2)} sale de las pausas del limpio`);
+    }
+    assert.ok(vozCortada(limpia, n) <= -60, `ventilador a ${debajo} dB: se corta voz a ${vozCortada(limpia, n).toFixed(1)} dBFS`);
+  }
+});
+
+test('CON VOZ LIMPIA: lo mismo que hoy, con las pausas en cero digital y con el piso de un micrófono', async () => {
+  const limpia = voz(SR, TRAMOS);
+  assert.deepEqual(await sinRuido(limpia), hoy(limpia));
+  const grabada = mezclar(limpia, rosa(limpia.length, 63), 70);
+  assert.deepEqual(await sinRuido(grabada), hoy(grabada));
+});
+
+test('el juntador pone cada trozo en su lugar de la fuente: un hueco queda en silencio y un solape no se duplica', () => {
+  const j = new JuntadorDeTrozos();
+  const uno = (n: number, v: number) => new Float32Array(n).fill(v);
+  j.agregar({ canales: [uno(480, 0.1)], sampleRate: SR, inicio: 2 });
+  j.agregar({ canales: [uno(480, 0.2)], sampleRate: SR, inicio: 2 + 960 / SR }); // un hueco de 480
+  j.agregar({ canales: [uno(240, 0.3), uno(240, 0.4)], sampleRate: SR, inicio: 2 + 1200 / SR }); // pisa la mitad del anterior
+  const r = j.resultado()!;
+  assert.equal(r.inicio, 2);
+  assert.equal(r.canales.length, 2, 'los canales del trozo que más tiene');
+  assert.equal(r.canales[0].length, 1440);
+  assert.deepEqual([r.canales[0][0], r.canales[0][600], r.canales[0][1000], r.canales[0][1300]].map((x) => Math.round(x * 10) / 10), [0.1, 0, 0.2, 0.3]);
+  assert.equal(Math.round(r.canales[1][0] * 10) / 10, 0.1, 'un trozo mono llena los dos canales');
+  assert.equal(new JuntadorDeTrozos().resultado(), null);
+});
+
+test('el cableado: el botón y el chat buscan las pausas en el audio sin ruido, y cortan el original', () => {
+  const runner = fuente('audio', 'borrar-silencios.ts');
+  assert.match(runner, /const silencios = await silenciosSinRuido\(\{ audio, motor \}\);/);
+  assert.doesNotMatch(runner, /rangosDeSilencio\(/, 'quedó una búsqueda sobre el original');
+  assert.match(runner, /alTrozo: \(trozo\) => juntador\.agregar\(trozo\)/);
+  // Sin bajar el umbral: la búsqueda nueva usa el de siempre (rangosDeSilencio, con sus defaults).
+  assert.match(fuente('audio', 'dsp', 'silencios-sin-ruido.ts'), /return rangosDeSilencio\(medidor\.resultado\(\), opciones\);/);
+});
+
+// Roturas (28/10/2026, base 19/0), cada una sola y restaurada con su copia:
+// · S1 sin sacar el ruido (las pausas sobre el original) → 18/1 (CON RUIDO DE FONDO).
+// · S2 el juntador pega los trozos uno tras otro, sin su tiempo → 18/1 (el juntador).
+// · S3 el botón y el chat vuelven a medir el original → 18/1 (el cableado).
+// · S4 el umbral bajado (−30 dBFS, 15 dB bajo el p95) → 17/2 (CON VOZ LIMPIA y el cableado).

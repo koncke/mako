@@ -47,13 +47,19 @@ function str(input: Record<string, unknown>, key: string): string {
   return typeof v === 'string' ? v : '';
 }
 
-async function requireLead(input: Record<string, unknown>): Promise<Lead> {
+/**
+ * El lead del pedido, o la GUARDA que lo dice (`{ ok:false, error, guarda:true }`, lib/no-pude.ts `esGuardaDeHerramienta`): un
+ * `leadId` que falta o que no está es un pedido corregible. Tiraba (la verificación de 2cb1cf67e): para el turno, una herramienta
+ * que revienta es una falla real, y con otra guarda en el turno sobraba un ticket.
+ */
+async function requireLead(input: Record<string, unknown>): Promise<{ lead: Lead } | { guarda: string }> {
   const id = num(input, 'leadId');
-  if (id == null) throw new Error('Falta leadId (número). Primero usa buscar_leads para ubicarlo.');
+  if (id == null) return { guarda: guardaDelPedido('Falta leadId (número). Primero usa buscar_leads para ubicarlo.') };
   const lead = await getLead(id);
-  if (!lead) throw new Error(`No existe un lead con id ${id} en este workspace.`);
-  return lead;
+  if (!lead) return { guarda: guardaDelPedido(`No existe un lead con id ${id} en este workspace.`) };
+  return { lead };
 }
+const guardaDelPedido = (error: string): string => JSON.stringify({ ok: false, error, guarda: true });
 
 /**
  * Resumen compacto de un lead (para no gastar tokens de más en el tool_result).
@@ -222,7 +228,9 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     }
 
     case 'ficha_lead': {
-      const lead = await requireLead(input);
+      const pedido = await requireLead(input);
+      if ('guarda' in pedido) return pedido.guarda;
+      const { lead } = pedido;
       // DEL LEAD: las etapas con que la ficha dibuja la suya (`getPipelineStagesDeLead`, como
       // app/crm/[id]/page.tsx), así MaKo y el equipo dicen la misma etapa.
       const [respuestas, etapas, oferta] = await Promise.all([
@@ -250,7 +258,9 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     }
 
     case 'reuniones_lead': {
-      const lead = await requireLead(input);
+      const pedido = await requireLead(input);
+      if ('guarda' in pedido) return pedido.guarda;
+      const { lead } = pedido;
       // Sin Google Calendar: esto lo lee un modelo (lib/agenda-sin-ia.ts).
       const r = await buscarReunionesAutomatico(lead, { conGoogle: false }).catch(() => null);
       // Llamadas analizadas por el análisis de cierres → su recording_id sirve para el deep

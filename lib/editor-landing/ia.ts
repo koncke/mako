@@ -473,7 +473,8 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
     // Los archivos del mensaje van en el CONTEXTO, como datos (./adjuntos.ts): así también cuentan como respaldo de
     // lo que la IA cite (`quitarPruebaInventada` mira `fuente`, que lo incluye) y un testimonio del PDF no se vacía.
     const adjuntos = adjuntosDelPedido(p.adjuntos);
-    const contexto = contextoConAdjuntos(await buildLandingBrief(instruccion), adjuntos);
+    // La página va para saber qué función de MaKo vende cuando la instrucción no la nombra («cambia el hero»).
+    const contexto = contextoConAdjuntos(await buildLandingBrief(instruccion, { pagina: originales.map((t) => textoDe(t)).join('\n') }), adjuntos);
     const sys = await system(PROMPTS_EDITOR.editarSystem, { gramatica: GRAMATICA_IA, idioma: bloqueIdioma(params.idioma), formato: FORMATO_EDITAR });
     const user = await renderPrompt(PROMPTS_EDITOR.editarUser.key, PROMPTS_EDITOR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
@@ -676,7 +677,7 @@ export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respues
       foco: focoParaDiscutir(foco),
       secciones: contenidoNoConfiable(seccionesParaDiscutir(tarjetas.map((t) => ({ texto: textoDe(t) }))), 'secciones'),
       charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
-      contexto: contextoConAdjuntos(await buildLandingBrief(pregunta), adjuntosDelPedido(p.adjuntos)),
+      contexto: contextoConAdjuntos(await buildLandingBrief(pregunta, { pagina: tarjetas.map((t) => textoDe(t)).join('\n') }), adjuntosDelPedido(p.adjuntos)),
     });
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_EDITAR,

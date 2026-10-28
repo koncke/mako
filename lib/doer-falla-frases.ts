@@ -31,6 +31,26 @@ export function reportaFalla(texto: string): boolean {
 }
 
 /**
+ * ¿Pide una FUNCIONALIDAD de MaKo? (ws10, Leandro, 28/10/2026: «Tal cual como lo hace manychat», y MaKo le contestó un consejo
+ * de marketing inventado). Que MaKo haga algo como otra herramienta, que la app tenga o permita algo, o que se agregue una opción.
+ * Precisión antes que cobertura: «quiero que le mandes a Juan» es un pedido de hoy, no una función; por eso pide a MaKo o a la
+ * app como sujeto, o la comparación con otra herramienta.
+ */
+const FUNCIONALIDAD = new RegExp([
+  String.raw`(?<!\p{L})(?:tal cual |igual |así )?como (?:lo )?(?:hace|tiene|funciona|hacen|tienen) (?:en )?(?:manychat|many chat|gohighlevel|go high level|highlevel|hubspot|kommo|clientify|chatfuel|zapier|make|canva|capcut|notion|trello|clickup|calendly)(?!\p{L})`,
+  String.raw`(?<!\p{L})tal cual como (?:lo )?(?:hace|tiene|funciona)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:quiero|quisiera|necesito|necesitamos|me gustar[ií]a) que (?:mako|la app|la aplicaci[oó]n|el sistema|la plataforma) (?:\p{L}+ ){0,2}(?:haga|tenga|pueda|permita|muestre|mande|guarde|cargue)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:estar[ií]a|ser[ií]a) (?:bueno|ideal|genial|b[aá]rbaro|excelente) que (?:mako|la app|el sistema|se pueda)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:se (?:puede|podr[ií]a)|pueden|podr[ií]an|podemos) (?:agregar|sumar|habilitar|poner|crear) (?:una |un |la |el )?(?:funci[oó]n|opci[oó]n|bot[oó]n|posibilidad|pesta[nñ]a|integraci[oó]n|secci[oó]n)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:agreguen|sumen|habiliten|agregar|sumar|habilitar) (?:una |un |la |el )?(?:funci[oó]n|opci[oó]n|bot[oó]n|posibilidad|pesta[nñ]a|integraci[oó]n)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:le |a mako le |a la app le )?falta (?:una |la )?(?:funci[oó]n|opci[oó]n|posibilidad) (?:de|para|que)(?!\p{L})`,
+].join('|'), 'iu');
+
+export function pideUnaFuncionalidad(texto: string): boolean {
+  return FUNCIONALIDAD.test(texto || '');
+}
+
+/**
  * ¿Corrige un MONTO? «no me deja editar que son 423, no 4235» (Leila, 26/10/2026, con la foto de la cuota): MaKo dio consejos
  * y un «He reportado el error» que nunca se mandó, y no propuso corregirlo. Con la foto el pedido era «pensar» y el seguimiento
  * «capturar», y en ninguno viajan `editar_venta_lead` ni `editar_cuota` (la revisión del Cerebro, hallazgo 6). Dos cifras

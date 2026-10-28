@@ -323,8 +323,12 @@ test('el window.open corre en el CLIC, antes de cualquier await: el Diagnóstico
   // El formulario de Replicar y su «Replicar como…»: en el submit / el clic, sin nada antes.
   // 28/10/2026: el submit LEE la página (con la ventana del clic); la réplica sale de lo leído y no abre ninguna.
   assert.match(REPLICAR, /onSubmit=\{\(e\) => \{ e\.preventDefault\(\); if \(url && !ocupado\) leerPagina\(url, abrirEnElClic\(\)\); \}\}/);
-  const replicarLeida = bloque(REPLICAR, 'const replicarLeida = (f: FormatoReplicar) => {', '\n  };');
-  assert.doesNotMatch(replicarLeida, /abrirEnElClic\(|ventana/, 'la réplica no abre otra ventana: usa la lectura');
+  // 28/10/2026, la copia idéntica: «Replicar» en «Página web» abre la ventana EN ESE CLIC, primera cosa (ahí el lector saca
+  // la foto) y se la pasa a la réplica; la réplica por bloques no abre ninguna: usa la lectura.
+  assert.match(REPLICAR, /onClick=\{\(\) => replicarLeida\(formato, formato === 'web' \? abrirEnElClic\(\) : undefined\)\}/);
+  const replicarLeida = bloque(REPLICAR, 'const replicarLeida = (f: FormatoReplicar, ventanaFoto?: VentanaDelClic | null) => {', '\n  };');
+  assert.doesNotMatch(replicarLeida, /abrirEnElClic\(/, 'la réplica no abre otra ventana: la de la foto viene del clic');
+  assert.match(replicarLeida, /if \(f === 'web'\) \{ void replicar\(lectura\.url, f, \{\}, \{ ventanaFoto: ventanaFoto \?\? null \}\); return; \}/);
   assert.match(replicarLeida, /lectura\.leidaEnNavegador \? \{ lectura: lectura\.leidaEnNavegador \}/);
 });
 

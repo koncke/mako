@@ -54,7 +54,7 @@ import { EstilosG2, Flotante, Icono, SelectorDestino, VAR_COLOR, eliminarBloqueC
 import { SelectorIcono } from '../SelectorIcono';
 import { PanelInsertar } from './InsertadoVista';
 import { COLORES_TEMA, NODO, TOPES, esHex } from '@/lib/editor-landing/doc';
-import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editable';
+import { ATTR_RAIZ_EDITABLE, CLASE_LIBRE, documentoEditable, envoltoriosValidos } from '@/lib/editor-landing/html-editable';
 import { srcVideo } from '@/lib/editor-landing/especificacion';
 import { svgIcono } from '@/lib/editor-landing/iconos';
 import { varsDeTema } from '@/lib/editor-landing/temas';
@@ -122,9 +122,18 @@ type Vivo = { clave: string; tipo: 'embed' | 'red'; src: string; titulo: string;
 /** Lo vivo del documento, con su lugar (en px del iframe, que es el del marco). */
 function vivosDe(d: Document): Vivo[] {
   const out: Vivo[] = [];
+  // Recortado a la caja del iframe (verificación de 5004dba08, 28/10/2026): una agenda de una página copiada con
+  // `position:fixed` y 12.000 px se dibujaba en la app encima de TODO el lienzo, y los clics iban a la agenda.
+  const recortarALaCaja = (r: DOMRect) => {
+    const ancho = d.documentElement.clientWidth;
+    const alto = d.documentElement.clientHeight;
+    const x = Math.max(0, r.left);
+    const y = Math.max(0, r.top);
+    return { x, y, w: Math.min(ancho, r.right) - x, h: Math.min(alto, r.bottom) - y };
+  };
   const lugar = (el: Element) => {
-    const r = el.getBoundingClientRect();
-    return r.width < 8 || r.height < 8 ? null : { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    const r = recortarALaCaja(el.getBoundingClientRect());
+    return r.w < 8 || r.h < 8 ? null : { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) };
   };
   const sumar = (el: Element, texto: string, i: number) => {
     const e = embedDe(texto);
@@ -147,6 +156,10 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const ctx = useEditorLanding();
   const html = typeof node.attrs.html === 'string' ? node.attrs.html : '';
   const css = ctx.config.diseno?.css ?? '';
+  // La copia de una página (copia-identica.ts): sin la base de Tailwind, y la sección adentro de sus envoltorios.
+  const sinBase = ctx.config.diseno?.sinBase === true;
+  const envoltorios = envoltoriosValidos(node.attrs.envoltorios);
+  const claveEnv = envoltorios ? envoltorios.join('') : '';
   const marco = useRef<HTMLIFrameElement | null>(null);
   const emitido = useRef<string>(html);
   const [fuente, setFuente] = useState(html);
@@ -194,10 +207,13 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   useEffect(() => {
     if (html !== emitido.current) { emitido.current = html; setFuente(html); }
   }, [html]);
-  const doc = useMemo(() => documentoEditable(fuente, css), [fuente, css]);
+  const doc = useMemo(() => documentoEditable(fuente, css, { envoltorios, sinBase }), [fuente, css, claveEnv, sinBase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const documento = () => marco.current?.contentDocument ?? null;
-  const raiz = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
+  // Lo que se edita y se guarda: adentro de los envoltorios de una copia (los de afuera no son de la sección).
+  const raiz = () => documento()?.querySelector('[' + ATTR_RAIZ_EDITABLE + ']') ?? documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
+  /** La caja entera que se ve (con los envoltorios): su alto es el del iframe. */
+  const cajaLibre = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
 
   // Las capas vivas, con su lugar de ahora (se mueven si el diseño cambia de alto o de ancho).
   const medirVivos = useCallback(() => {
@@ -213,7 +229,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   // landings de MaKo), y una que se achicaba al cargar sus fuentes dejaba la diferencia. La raíz (`flow-root`) mide lo que
   // ocupa; su `scrollHeight` suma lo que se sale de ella.
   const medir = useCallback(() => {
-    const r = raiz() as HTMLElement | null;
+    const r = cajaLibre() as HTMLElement | null;
     if (!r) return;
     const caja = r.getBoundingClientRect();
     const h = Math.max(40, Math.ceil(Math.max(caja.bottom, caja.top + r.scrollHeight)));

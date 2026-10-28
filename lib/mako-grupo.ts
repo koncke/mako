@@ -189,7 +189,7 @@ async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: n
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   // Lo que sale a un GRUPO, al anillo anti-eco (`anotarEnviadosAlGrupo`): por acá pasan `enviarAGrupoJid`, el grupo SuperAdmin y la
   // bienvenida (la verificación de 96e7840e8: esos dos quedaban afuera). Un número suelto no es un grupo del doer.
-  if (r.ok && id && jidONumero.endsWith('@g.us')) await anotarEnviadosAlGrupo(OWNER_WS, jidONumero, [id]);
+  if (r.ok && id && jidONumero.endsWith('@g.us')) await anotarEnviadosConTope(OWNER_WS, jidONumero, [id]);
   return { ok: r.ok, id };
 }
 async function ponerNombre(jid: string, subject: string): Promise<void> {
@@ -690,6 +690,19 @@ export async function anotarEnviadosAlGrupo(ws: number, jid: string, ids: readon
   }
 }
 const INTENTOS_DEL_ANILLO = 6;
+
+/**
+ * El anillo, CON TOPE: el mensaje ya salió y no espera a la base (la verificación de 2cb1cf67e). Con la base colgada en
+ * `mako.doer.sent.*`, `enviarAGrupoJid` esperaba al anillo antes de volver: la respuesta en tres partes salía 1/3 y la espera no
+ * salía, hasta el corte de undici (300 s), cinco minutos de MaKo mudo en el grupo. Se espera hasta `TOPE_DEL_ANILLO_MS` y la
+ * anotación sigue sola; si el eco llega antes, entra como un mensaje (lo que pasaba antes del anillo). Nunca tira.
+ */
+export const TOPE_DEL_ANILLO_MS = 3000;
+export async function anotarEnviadosConTope(ws: number, jid: string, ids: readonly string[]): Promise<void> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const tope = new Promise<void>((r) => { t = setTimeout(r, TOPE_DEL_ANILLO_MS); });
+  try { await Promise.race([anotarEnviadosAlGrupo(ws, jid, ids), tope]); } finally { clearTimeout(t); }
+}
 const delAnillo = (raw: string | null): string[] => {
   if (!raw) return [];
   try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }
@@ -729,7 +742,7 @@ export async function enviarAlGrupoMaKo(ws: number, texto0: string): Promise<Env
   if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}` };
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   // Al anillo anti-eco: el eco de un aviso no es el dueño escribiendo (ver `anotarEnviadosAlGrupo`).
-  if (id) await anotarEnviadosAlGrupo(OWNER_WS, jid, [id]).catch(() => {});
+  if (id) await anotarEnviadosConTope(OWNER_WS, jid, [id]);
   return { ok: true, id };
 }
 
@@ -761,7 +774,7 @@ export async function enviarPartesAJid(
   if (!d.ev && !grupoConfigurado()) return { ok: false, salieron: 0, ids: [], error: 'Evolution no configurado' };
   const r = await enviarPartesPorEv(jid, partes, { ev: d.ev ?? ev, instancia: await instanciaVoz(), esperar: d.esperar, delayMs: d.delayMs });
   // Al anillo anti-eco, de una (`anotarEnviadosAlGrupo`). El test inyecta `ev` y no toca la base.
-  if (!d.ev && r.ids.length) await anotarEnviadosAlGrupo(OWNER_WS, jid, r.ids).catch(() => {});
+  if (!d.ev && r.ids.length) await anotarEnviadosConTope(OWNER_WS, jid, r.ids);
   return r;
 }
 

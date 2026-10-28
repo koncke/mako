@@ -283,20 +283,24 @@ async function leerReuniones(): Promise<ReunionViva[]> {
   }));
 }
 
-async function leerLoVivo(chatsMako?: ChatMakoVivo[]): Promise<LecturasVivas> {
+/** Un `.catch` que devuelve el vacío de esa lectura y AVISA (28/10/2026): el grafo de los chats (lib/cerebro-para-chat.ts) no
+ *  guarda en caché uno armado con una lectura caída. La pantalla no pasa `alFallar`: se degrada como siempre. */
+const vacioAvisando = <T>(alFallar: ((fuente: string) => void) | undefined, fuente: string, vacio: T) => (): T => { alFallar?.(fuente); return vacio; };
+
+async function leerLoVivo(chatsMako?: ChatMakoVivo[], alFallar?: (fuente: string) => void): Promise<LecturasVivas> {
   const [ofertas, ligasProducto, ligasFunnel, leadMagnets, funnels, leads, objetivos, kpis, chatsOffer, fechas, clientes, reuniones] = await Promise.all([
-    listarOfertas(true).catch(() => []),
-    productosDeOfertas().catch(() => []),
-    ofertasDeFunnels().catch(() => []),
-    listarLeadMagnets().catch(() => []),
-    listarFunnels().catch(() => []),
-    contarLeads().catch(() => null),
-    quarterActual().then(({ qt }) => listObjectives(qt)).catch(() => []),
-    listKpis(true).catch(() => []),
-    listarSesionesOffer().catch(() => []),
-    fechasDeAlta().catch(() => ({})),
-    leerClientes().catch(() => null),
-    leerReuniones().catch(() => []),
+    listarOfertas(true).catch(vacioAvisando(alFallar, 'listarOfertas', [])),
+    productosDeOfertas().catch(vacioAvisando(alFallar, 'productosDeOfertas', [])),
+    ofertasDeFunnels().catch(vacioAvisando(alFallar, 'ofertasDeFunnels', [])),
+    listarLeadMagnets().catch(vacioAvisando(alFallar, 'listarLeadMagnets', [])),
+    listarFunnels().catch(vacioAvisando(alFallar, 'listarFunnels', [])),
+    contarLeads().catch(vacioAvisando(alFallar, 'contarLeads', null)),
+    quarterActual().then(({ qt }) => listObjectives(qt)).catch(vacioAvisando(alFallar, 'quarterActual', [])),
+    listKpis(true).catch(vacioAvisando(alFallar, 'listKpis', [])),
+    listarSesionesOffer().catch(vacioAvisando(alFallar, 'listarSesionesOffer', [])),
+    fechasDeAlta().catch(vacioAvisando(alFallar, 'fechasDeAlta', ({}))),
+    leerClientes().catch(vacioAvisando(alFallar, 'leerClientes', null)),
+    leerReuniones().catch(vacioAvisando(alFallar, 'leerReuniones', [])),
   ]);
   return {
     ...LECTURAS_VACIAS,
@@ -318,7 +322,7 @@ async function leerLoVivo(chatsMako?: ChatMakoVivo[]): Promise<LecturasVivas> {
  *   son de la persona y no del negocio, así que el ZIP y la API —que no tienen persona— arman el grafo sin ellos, y
  *   eso es a propósito (no es el «parámetro opcional que sólo pasa uno» que se advierte abajo para el funnel).
  */
-export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } = {}): Promise<Cerebro> {
+export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[]; sinLayout?: boolean; alFallar?: (fuente: string) => void } = {}): Promise<Cerebro> {
   // ⚠️ El funnel se LEE ACÁ ADENTRO y no entra por parámetro, aunque la página ya lo
   // tenga a mano. `construirCerebro()` tiene DOS llamadores —la pantalla y la ruta que
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
@@ -339,15 +343,15 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
     getFunnelDefault(),
     // Las lecturas nuevas van con `.catch()` a un valor vacío: una fuente secundaria que
     // falle NO puede dejar sin mapa a un cliente. El grafo se degrada, no se cae.
-    getSecuenciasActivas().catch(() => []),
-    landingsParaCerebro().catch(() => []),
-    listAudios().catch(() => []),
-    getVozManual().catch(() => ({} as Record<string, string>)),
-    getVozEvidencia().catch(() => null),
-    listKnowledge().catch(() => []),
-    getSetting('objetivo_cierres').catch(() => null),
-    getSetting('objetivo_cash_usd').catch(() => null),
-    leerLoVivo(opciones.chatsMako).catch(() => ({ ...LECTURAS_VACIAS, chatsMako: opciones.chatsMako })),
+    getSecuenciasActivas().catch(vacioAvisando(opciones.alFallar, 'getSecuenciasActivas', [])),
+    landingsParaCerebro().catch(vacioAvisando(opciones.alFallar, 'landingsParaCerebro', [])),
+    listAudios().catch(vacioAvisando(opciones.alFallar, 'listAudios', [])),
+    getVozManual().catch(vacioAvisando(opciones.alFallar, 'getVozManual', ({} as Record<string, string>))),
+    getVozEvidencia().catch(vacioAvisando(opciones.alFallar, 'getVozEvidencia', null)),
+    listKnowledge().catch(vacioAvisando(opciones.alFallar, 'listKnowledge', [])),
+    getSetting('objetivo_cierres').catch(vacioAvisando(opciones.alFallar, 'getSetting', null)),
+    getSetting('objetivo_cash_usd').catch(vacioAvisando(opciones.alFallar, 'getSetting', null)),
+    leerLoVivo(opciones.chatsMako, opciones.alFallar).catch(vacioAvisando(opciones.alFallar, 'leerLoVivo', ({ ...LECTURAS_VACIAS, chatsMako: opciones.chatsMako }))),
   ]);
 
   const { answers, fuente } = computeEffective(files, manual);
@@ -1086,7 +1090,9 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   const reales = nodos.filter((n) => n.autoria !== 'pendiente' && !esArea(n));
   // UN cerebro, nunca dos: todo lo que quedó suelto cuelga de la raíz (ver arriba, 20/10/2026).
   aristas.push(...puentesARaiz(nodos, aristas, RAIZ));
-  const { posiciones, encuadre } = layoutCerebro(nodos, aristas);
+  // Un CHAT no usa posiciones (lib/cerebro-para-chat.ts): sin la física (400 ticks de d3) el grafo sale en lo que tardan
+  // las lecturas.
+  const { posiciones, encuadre } = opciones.sinLayout ? { posiciones: {}, encuadre: { x: 0, y: 0, lado: 1 } } : layoutCerebro(nodos, aristas);
   return {
     negocio: negocio || 'Tu negocio',
     nodos,

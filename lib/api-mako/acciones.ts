@@ -54,6 +54,7 @@ import { bloqueDeResultado } from '@/lib/chat-bloques';
 import { esReglaUOpinion, lineaDelTicket } from '../no-pude';
 import { esFallaTragada } from '../no-pude-frases';
 import { ticketDeNoPude } from '../no-pude-server';
+import { invalidarGrafoChat } from '../cerebro-cache-chat';
 
 /** Cuánto vive un «sí». Dos horas: alcanza para que el dueño conteste y no para que
  *  un «dale» de la tarde ejecute lo que se propuso a la mañana. */
@@ -191,6 +192,9 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     // escrito: volver a `pendiente` sería invitar a un segundo click sobre algo que
     // pudo haber escrito a medias.
     await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
+    // Lo que acaba de cambiar se lee en el turno siguiente: el grafo de los chats de este negocio se vuelve a armar (aun si
+    // falló: pudo escribir a medias). lib/cerebro-cache-chat.ts.
+    invalidarGrafoChat(ctx.ws);
     // Si falló al ejecutarse, el ticket (`ticketSiFallo`) y su línea van con el «No se pudo».
     const ticket = reventoAlEjecutar || (!r.ok && esFallaTragada(r.resumen)) ? await ticketSiFallo(ctx, def.titulo, def.id, r.resumen) : null;
     if (ticket) r = { ...r, resumen: `${r.resumen} ${lineaDelTicket(ticket)}` };
@@ -339,6 +343,8 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   if (r.paraLaPersona) ctx.aPersona?.(r.paraLaPersona);
   const quien =ctx.canal === 'http' ? ' (confirmado por la API)' : ctx.actor ? ` (confirmado por ${ctx.actor})` : '';
   await resolverPendiente(ctx.ws, p.id, r.ok ? 'ejecutada' : 'error', `${r.resumen}${quien}`);
+  // Lo que acaba de cambiar se lee en el turno siguiente (también el flujo y la escritura directa de la API, que pasan por acá).
+  invalidarGrafoChat(ctx.ws);
   // Si falló al ejecutarse, el ticket (`ticketSiFallo`): su línea va en el resumen, que leen la tarjeta de la app (también por
   // detrás, `enSegundoPlano`) y `confirmar_accion` de WhatsApp. El modelo la puede repetir: no dice «no pude» (anti-bucle).
   // O lo que el runner se TRAGÓ (`esFallaTragada`, lib/no-pude-frases.ts): los `sinLanzar`, ejecutarAccion, agendar.

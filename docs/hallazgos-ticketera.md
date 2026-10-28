@@ -771,6 +771,28 @@ había anotado como «sin hacer» era peor de lo que decía:
 respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
 (lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.
 
+### Lo adjuntado es de SU conversación (la verificación de tren-t, 28/10/2026)
+
+- **El síntoma:** una foto adjuntada en un ticket abierto aparecía en el ticket cerrado que se abría después. Ahí la caja está
+  apagada y, desde que la caja quieta no deja quitar (hallazgos-operaciones.md, «El chat nuevo lleva sus archivos»), no había
+  forma de sacarla hasta volver a un ticket abierto.
+- **La causa:** `useSoporte` tenía UNA lista de adjuntos para todo Soporte; `abrir` y `nuevo` no la tocaban. El defecto venía de
+  antes: la caja quieta sólo lo hizo visible.
+- **La regla:** lo de la caja es de su conversación (`claveCaja`): `soporte:<id>` para un ticket, y UNA sola clave,
+  `soporte:nuevo`, para la conversación nueva, así lo que no se mandó sigue en la siguiente, como lo escrito. Si la persona
+  levanta el ticket y le quedó algo sin mandar, no lo ve en el ticket: lo encuentra en la conversación nueva. Las notas de
+  voz, en cambio, van por conversación (`claveNotas`, `soporte:nuevo:<id>`): una nota grabada no sale en la siguiente.
+- **El obvio era el equivocado (la verificación de d2f690673):** mudar lo adjuntado de la clave vieja a la nueva al empezar otra
+  conversación (`otraConversacion`). Mudaba lo de la pantalla, pero lo que la caja LEE (abajo) quedaba en la clave vieja, y una
+  lectura en curso al levantar el ticket también terminaba ahí: el .pptx desaparecía sin aviso. Con una clave fija no hay nada
+  que mudar.
+- **Vive en:** app/tickets/soporte/useSoporte.ts (`claveCaja`, `claveNotas`, `adjuntosPor`) ·
+  tests/ticketera-subidas.test.ts («lo adjuntado es de SU conversación» y «la caja de la conversación nueva tiene UNA clave»).
+- **Y lo que la caja LEE (la verificación de 05d7c3187):** lo de arriba cubría lo que toma la pantalla (fotos, PDF, Office); lo
+  que la caja lee sola (.pptx, .md, audio, video) seguía pasando de un ticket a otro, y lo que se leía al cambiar de ticket salía
+  en el otro. Ahora la caja también lo guarda por conversación (`conversacion={s.claveCaja}`, PiezasSoporte.tsx): ver
+  hallazgos-chat.md, «La caja QUIETA».
+
 **La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
 - «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
   `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
@@ -814,6 +836,15 @@ documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas,
   guarda y el «me falta el monto» la apagaba y abría un ticket por una regla: `laUltimaFueGuarda` (lib/no-pude.ts) deja que sólo
   una guarda la prenda y que la apaguen una escritura, un error o una tragada. El costo: guarda + lectura + un «no pude» de otra
   cosa queda como regla.
+- **Y la guarda misma se adivinaba por el texto** (la verificación de 2cb1cf67e, D4): cualquier `ok:false` sin isError, o un
+  «❌ …», era guarda. Fallas NUESTRAS tenían esa forma y no abrían ticket: la pendiente que no se pudo guardar
+  (`crearRunnerAcciones`, lib/mako-doer-acciones.ts, que `traducirLegado` hace 400) y el 400 de las pasarelas (cobros.run.ts).
+  **La regla:** es guarda sólo lo que MARCA quien lo produce, `{ ok:false, error, guarda:true }` (lib/api-mako/ejecutar.ts y el
+  runner del doer lo ponen, lo hace el chat de WhatsApp); `esGuardaDeHerramienta` no mira el texto. Sin la marca, lo peor es un
+  ticket de más. Lo tragado sí se sigue leyendo por el texto: nadie lo marca.
+  ⚠️ **«Un ticket de más» eran cientos** (la verificación de 692368a60): ninguna área marcaba sus reglas, y «Quedó el ticket
+  #N» salía en el grupo del cliente por «Sólo se reembolsa un cobro pagado». Desde el 28/10 el productor marca al revés: el
+  error de un preparar ES guarda, y la falla lleva `falla: true` (docs/hallazgos-api-mako.md).
 **Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) todavía no pasa la señal (va
 con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
 Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda

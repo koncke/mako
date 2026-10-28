@@ -261,6 +261,16 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
       La voz se lee estricta también para decidir «es la línea de MaKo»: la otra convierte un error en «mako_ws1».
       Cada vuelta del compare-and-set gana UNO: con 3 intentos, 4 envíos a la vez al mismo grupo perdían un id (tren-t). Son 6,
       con una espera al azar; más de 6 a la vez todavía puede perder uno (lo cerraría un append atómico en la base).
+    · ⚠️ **El mensaje no espera al anillo** (la verificación de 2cb1cf67e). La de tren-t lo anotó como «sólo atrasa al que
+      llama», y era el diagnóstico equivocado: con la base colgada en `mako.doer.sent.*`, `enviarAGrupoJid` esperaba al anillo
+      ANTES de volver, así que la respuesta en tres partes salía 1/3 y la espera no salía, hasta el corte de undici (300 s): cinco
+      minutos de MaKo mudo en el grupo. Ahora todo lo que ya salió anota con tope (`anotarEnviadosConTope`, 3 s) y la anotación
+      sigue sola; si el eco llega antes, entra como un mensaje.
+    · ⚠️ **El anillo no alcanza como única defensa del eco** (la verificación de 8c1b7fa4e): el eco llega 1 o 2 s después de
+      mandar, y con la base lenta le gana a la escritura del id, espere o no el que mandó. El webhook le pasa al doer todo
+      mensaje de grupo, también los `fromMe`, así que MaKo le ponía 👍 a su propio mensaje y se contestaba, en bucle. En la línea
+      PROPIA de MaKo no escribe ninguna persona: ahí un `fromMe` es ella, esté o no en el anillo (`esEcoDeMaKo`, una sola función
+      para los dos chequeos, el de encolar y el de `procesarDoer`). En la línea del dueño sigue mandando el anillo.
     · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
       nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
       ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
@@ -297,11 +307,38 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     apaga la última y cuenta como tragada. Y una LECTURA que anduvo no cambia la última (`laUltimaFueGuarda`, lib/no-pude.ts):
     «falta el monto» + `buscar_leads` + «me falta el monto» abría un ticket por una regla. El costo: guarda + lectura + un «no
     pude» de otra cosa queda como la regla. El turno de la app quedó igual (MaKo inteligente, 5f0792446).
+  · ⚠️ **Por la FORMA no se sabe si es una guarda** (la verificación de 2cb1cf67e): «No pude registrar la acción pendiente» y «No
+    pude leer las pasarelas conectadas» volvían como `{ ok:false, error }`, igual que «falta el monto», y se tomaban por regla. La
+    marca es EXPLÍCITA: es guarda la salida con `guarda: true`. La ponen la validación de parámetros, el preparar que trae
+    `faltan`, `yaEstaba` o `falta` (o la marca el runner), el legado que la trae (lib/api-mako/ejecutar.ts), las guardas del
+    runner viejo del doer y `requireLead` (lib/mako-tools.ts), que dejó de tirar: un throw es una falla para el turno. Un error
+    suelto es una falla. Lo lee `esGuardaDeHerramienta` (lib/no-pude.ts, de MaKo inteligente).
+    La pendiente que no entró, además, es una falla NUESTRA a la vista (`noCorrio`): el registro la vuelve un 500 con isError
+    (`traducirLegado`, como `proponerChat`) y el doer también, donde corre el runner viejo directo (`comoFallaSiNoCorrio`). Así
+    deja su ticket por la huella aunque el modelo no marque [[no-pude]].
+
+**Leandro y los audios que MaKo no escuchó (ws10, 28/10/2026, 10:21-10:24).** MaKo le contestó un consejo de marketing inventado
+a «Tal cual como lo hace manychat», y a un audio de 31 s le puso 👍 y nada más.
+- **La causa:** la nota de voz fue a Gemini, que cortó por tiempo. El Gemini del ws10 es una copia de la clave de la plataforma
+  (no cuenta como propia), así que no quedaba otra IA del negocio. La red de la plataforma no corre con datos de clientes
+  (`pii`). El Groq de la plataforma (Whisper) los transcribía en segundos.
+- **⚠️ Y el lote TIRABA el audio que no se escuchaba.** `transcribirDeMensaje` devolvía '' tanto si fallaba como si no había audio,
+  y el lote lo salteaba sin decir nada. Con el texto al lado, MaKo contestaba sólo el texto; con el audio solo, «nada legible»:
+  👍 y silencio. El mensaje suelto sí tenía su aviso: el obvio, «falta el aviso», era el equivocado.
+- **Ahora:**
+  · la nota de voz de un grupo prueba primero el Groq de la plataforma (no entrena: vale con datos de clientes), después el
+    Groq o el OpenAI del negocio, y Gemini nunca (`notaDeVozDelGrupo`, lib/ai-cheap.ts; Martín: «deprequemos Gemini por los
+    grupos de WhatsApp», y el 22/10, «Groq sólo para las notas de voz»);
+  · la que no se escucha lo dice, pide que la escriban y deja ticket, con UNA función para el suelto y los dos lotes
+    (`avisarAudioSinEscuchar`), y si falló el Groq de la plataforma, la causa es nuestra, no «conecta tu IA»;
+  · un pedido de FUNCIONALIDAD («como lo hace manychat», `pideUnaFuncionalidad`) trae sus tickets (`mis_tickets`) y una nota:
+    no se contesta con un consejo; si ya hay ticket, se dice en qué anda; si no existe, va la marca `[[no-existe]]`.
 
 **Sin hacer:**
-- **El anillo anti-eco no tiene tope de tiempo** (la verificación de tren-t): `enviarTextoVozMaKo` espera al anillo, y
-  `getSettingEstricto` / `cambiarSettingSi` no cortan. Con la base colgada, una alarma al grupo SuperAdmin o la bienvenida (ya
-  salidas) vuelven recién a los ~8 s. No duplica nada; sólo atrasa al que llama (lib/mako-grupo.ts, `anotarEnviadosAlGrupo`).
+- **En la línea del DUEÑO, el anillo es la única defensa del eco, y un error al leerlo lo vacía**: `idsEnviados` lee con
+  `getSetting`, que convierte un error en null (anillo vacío), así que el eco de MaKo entra como el dueño escribiendo y se
+  contesta. En la línea de MaKo no pasa (`esEcoDeMaKo`). Lo cerraría leerlo estricto y, si falla, saltear el `fromMe` en vez de
+  procesarlo (lib/mako-doer-in.ts, `esEcoDeMaKoAhora`; lib/mako-grupo.ts, `idsEnviadosAlGrupo`).
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
   se compara por el `participant` exacto, así que PN↔`@lid`, o el dueño con y sin `participant`, piden «sí, MaKo» aunque sea
   quien la pidió (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); en un lote, la cita a MaKo se pierde (el sintético no
@@ -11666,3 +11703,26 @@ pasar la queja con OBJETO de la app (`QUEJA_DE_LA_APP`: «no me deja editar…»
 - **Para lo que venga:** son reglas de texto en cadena (ver la memoria «Errores en cadena: cambiá la red»). Si otra vuelta
   destapa otra, la salida no es otra regex: es que el modelo reciba los mensajes marcados («no es para vos») y la puerta
   dura quede en el código, donde ya está la de plata.
+
+## MaKo en WhatsApp contesta mal: el modelo era lo que MENOS pesaba (28/10/2026, Cerebro)
+
+**Vive en:** `lib/mako-intencion.ts:1407` · `lib/mako-context.ts` (`buildSystemPrompt`) · `lib/mako-doer-in.ts` (:1290, :1761, :1897, :2116) · `lib/mako-grupo.ts` (`enviarAlGrupoMaKo`)
+
+- **El síntoma:** Martín: «no sé si es que está corriendo con una inteligencia artificial que no tiene contexto, o que tiene
+  preseteado prompts que no debería tener… o con un modelo más viejo… pero que funcione bien». Se calificaron 58 respuestas
+  reales de 8 grupos, del 21 al 28/10: 9 BIEN (16 %), 21 FLOJAS y 28 MAL. Ningún turno corrió con Claude: el 96 % fue
+  gemini-flash-lite.
+- ⚠️ **El diagnóstico obvio (el modelo flojo) era el que MENOS pesaba: 5 de 49.** Las causas, en orden:
+  - el default del clasificador en el grupo es «capturar» dudosa, que deja sólo las herramientas del Plan (35 % de los turnos,
+    todo el soporte de Leila y el caso de Leandro). La app lo había arreglado el 20/10; el grupo no;
+  - el grupo usa el prompt del DASHBOARD («consultor IA de Martín Koncke», «CIERRA PROPONIENDO UN EXPERIMENTO»): 15 de 49;
+  - el turno no ve el grupo: lo que manda el equipo o una automatización no entra a la memoria, ni los tickets del negocio, ni
+    qué hace MaKo;
+  - herramientas que devuelven el dato crudo (la hora en UTC, sin día de semana);
+  - un audio que no se pudo transcribir desaparece del lote sin marca;
+  - el camino barato del grupo va sin historial ni el system del grupo, y lo que llega durante un turno espera al cron.
+- **La regla:** un canal nuevo de MaKo tiene su PROPIO núcleo de instrucciones, y su contexto lo arma el canal (quién escribe,
+  qué mandó el equipo, qué pedidos están abiertos, qué hace MaKo). Antes de cambiar de modelo para «que conteste mejor», se
+  califican respuestas reales y se mide qué pesa. Se mide con un banco de casos sacado de las conversaciones.
+- **Sin hacer (al 28/10):** todo, por tandas, en el chat «MaKo en WhatsApp». El informe completo, con el banco de casos y los 8
+  peores ejemplos, está en C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md.

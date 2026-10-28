@@ -2009,13 +2009,30 @@ export const BITACORA: Hito[] = [
       '**La caja del chat nuevo es la de todos los chats:** el «+» con Documento, Fotos, Cámara y Pegar, arrastrar, pegar una captura, los emojis y el micrófono.',
       '**Tus archivos van con el primer mensaje:** si MaKo lo manda a un chat que ya existe, llegan como desde su caja. Si abre uno nuevo, la PC los baja, revisa que sean los que firmaste y el chat arranca con ellos.',
       '**Sólo archivos, sin texto, también:** MaKo decide dónde van por sus nombres.',
-      '**Para usarlo:** el cartero 1.22.0 se instala en la PC después de desplegar el servidor. Con uno de antes, la caja del chat nuevo no ofrece adjuntar.',
+      'En producción desde el 28/10 (5eea455b7), con el cartero 1.22.0 ya instalado en la PC.',
     ],
     archivos: [
       'app/admin/operaciones/CajaChatNuevo.tsx — la caja única · ChatNuevo.tsx — los archivos del primer mensaje',
       'app/admin/operaciones/useCentro.ts — abrirChat y mandarTextoA con archivos',
       'scripts/operaciones/cartero.mjs 1.22.0 — ciclo los baja, abrir los vuelve a mirar (adjuntosEnLaPc) · lib/operaciones-reglas.ts — aceptaAdjuntosEnNuevo',
       'tests/centro-nuevo-con-adjuntos.test.ts',
+    ],
+  },
+  {
+    fecha: '28 oct', hora: '07:40', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo que adjuntas mientras un mensaje sale: no se pierde ni sale de más',
+    puntos: [
+      '**Mientras sale tu mensaje, lo adjuntado no cambia:** la ✕ no se ofrece y lo que sueltas no entra. La caja te dice «Espera a que termine para adjuntar»; antes se perdía sin aviso. Si la caja está apagada (un ticket cerrado, sin la app), dice lo de siempre.',
+      '**La captura que te ofrece la caja espera:** si la caja está ocupada, vuelve cuando se libera, en vez de perderse.',
+      '**Si sales del chat nuevo con la nota a mitad** y no se entiende, la foto vuelve a la caja con su miniatura.',
+      '**En Soporte, cada ticket tiene su caja:** lo que adjuntas en uno ya no aparece en otro (en uno cerrado no se podía quitar), también un PowerPoint o un audio. Y lo que se estaba leyendo cuando cambias de ticket no sale en el otro: queda en el suyo. Lo que dejas sin mandar en la conversación nueva sigue ahí en la siguiente.',
+      '**En el Ops Center, cada chat tiene su caja:** un audio adjuntado en un chat ya no sale con el mensaje de otro. Y si un chat está leyendo lo que adjuntaste, en otro puedes mandar en el acto.',
+    ],
+    archivos: [
+      'app/_chat/juntar-adjuntos.ts — adjuntosQuietos · CajaChat.tsx · adjuntos-que-se-leen.ts — por conversación · app/admin/operaciones/PanelChat.tsx · centro.css',
+      'app/admin/operaciones/ChatNuevo.tsx — devolverArchivos · app/tickets/soporte/useSoporte.ts — la caja por conversación',
+      'tests/centro-nuevo-con-adjuntos.test.ts (10 y 11) · tests/ticketera-subidas.test.ts · tests/caja-lee-por-conversacion.test.ts',
     ],
   },
 ];

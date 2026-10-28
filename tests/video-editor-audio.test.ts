@@ -15,8 +15,8 @@
 //   3. normalizar: apagada o sin medir no suma nada; el tope de +20 dB;
 //   4. ritmos: bombos sintéticos a 95, 120 y 140 BPM → el tempo a ±1 BPM, los
 //      golpes a menos de 10 ms de media, y Ritmo 1 la mitad que Ritmo 2;
-//   5. reducir el ruido: en la pausa de una voz con soplido baja ≥ 10 dB y el
-//      tono queda a menos de 1 dB;
+//   5. (reducir el ruido pasó a tests/video-editor-ruido.test.ts el 28/10/2026: es
+//      RNNoise y se mide con voz, ruido rosa, ventilador y estéreo);
 //   6. tono: +12 semitonos lleva 440 Hz a 880 Hz sin cambiar el largo;
 //   7. las listas de ritmos van y vuelven, y un clip sin nada no se procesa;
 //   8. bajar la tasa por TROZOS (como llega del decodificador) da lo mismo que
@@ -28,7 +28,6 @@
 //   · intensidad.ts con `peso = 1` (el mono sin duplicar)                 -> 7 / 1 (el 1: −23,0 en vez de −20)
 //   · puntosFundido sin el corte en `duracion - salida`                   -> 7 / 1 (el 2: 0,9987 en vez de 1)
 //   · ritmos.ts sin el corrimiento de 0,8 saltos en `aSegundos`           -> 7 / 1 (el 4: 8,9 ms de media)
-//   · ruido.ts sin la corrección de Rayleigh (`sigmaPorPercentil` = 1)    -> 7 / 1 (el 5: la pausa baja 6,8 dB)
 //   · tono.ts sin `st.pitchSemitones = semitonos`                         -> 7 / 1 (el 6: 440 Hz en vez de 880)
 //   · AcumuladorAnalisis tirando el resto de cada trozo                   -> 7 / 1 (el 8)
 
@@ -36,7 +35,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { intensidadIntegrada } from '../app/video-editor/_opencut/audio/dsp/intensidad';
 import { AcumuladorAnalisis, aMonoAnalisis, detectarRitmos } from '../app/video-editor/_opencut/audio/dsp/ritmos';
-import { reducirRuido } from '../app/video-editor/_opencut/audio/dsp/ruido';
 import { cambiarTono } from '../app/video-editor/_opencut/audio/dsp/tono';
 import {
   FUNDIDO_ENTRADA,
@@ -70,13 +68,6 @@ const azar = (semilla: number) => {
     s = (s * 16807) % 2147483647;
     return s / 2147483647 - 0.5;
   };
-};
-const rms = (a: Float32Array, desde: number, hasta: number) => {
-  const i0 = Math.round(desde * SR);
-  const i1 = Math.round(hasta * SR);
-  let s = 0;
-  for (let i = i0; i < i1; i++) s += a[i] * a[i];
-  return Math.sqrt(s / (i1 - i0));
 };
 const cerca = (a: number, b: number, tol: number, msg: string) =>
   assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
@@ -146,25 +137,6 @@ test('4: ritmos de bombos sintéticos: tempo y golpes en su lugar', async () => 
     assert.ok(Math.max(...errores) < 0.012, `${bpm}: error máximo ${(Math.max(...errores) * 1000).toFixed(1)} ms`);
     cerca(ritmos.ritmo1.length, ritmos.ritmo2.length / 2, 1, `${bpm}: Ritmo 1 es uno cada dos`);
   }
-});
-
-test('5: reducir el ruido baja el soplido de las pausas y deja la voz', async () => {
-  const dur = 6;
-  const limpio = new Float32Array(SR * dur);
-  const sucio = new Float32Array(SR * dur);
-  const r = azar(7);
-  for (let i = 0; i < limpio.length; i++) {
-    const t = i / SR;
-    // «Habla» medio segundo y calla medio segundo.
-    limpio[i] = Math.floor(t * 2) % 2 === 0 ? 0.3 * Math.sin(2 * Math.PI * 440 * t) : 0;
-    sucio[i] = limpio[i] + 0.05 * r();
-  }
-  const [salida] = await reducirRuido({ canales: [sucio], sampleRate: SR, intensidad: 0.85 });
-  assert.equal(salida.length, sucio.length);
-  const pausa = 20 * Math.log10(rms(salida, 0.55, 0.95) / rms(sucio, 0.55, 0.95));
-  const voz = 20 * Math.log10(rms(salida, 1.1, 1.4) / rms(sucio, 1.1, 1.4));
-  assert.ok(pausa <= -10, `la pausa bajó ${pausa.toFixed(1)} dB`);
-  assert.ok(Math.abs(voz) < 1, `la voz cambió ${voz.toFixed(2)} dB`);
 });
 
 test('6: el tono sube una octava sin cambiar el largo', async () => {

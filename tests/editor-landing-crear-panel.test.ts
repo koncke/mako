@@ -321,13 +321,14 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   assert.match(src, /setEstado\(\{\s*fase: 'falla', formato, error: f\.error, enNavegador: f\.enNavegador === true, pegable: f\.pegable === true,\s*probar: probar && probar !== formato \? probar : null, salida: sinLectura,\s*\}\);/);
   // Verificación de la tanda 6: si el server propone otro formato (`probar`, una app de Vite en «Página web»),
   // la falla lo ofrece como botón, acá y en el Diagnóstico (L5 al pie). Tanda 7: con la ventana abierta en ESE clic.
-  // 28/10/2026: la falla de la réplica viene DESPUÉS de leer la página: «Replicar como…» usa la lectura (sin ventana).
-  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{estado\.probar\}\s+onProbar=\{\(f\) => \{ setFormato\(f\); replicarLeida\(f\); \}\}/);
+  // 28/10/2026: la falla de la réplica viene DESPUÉS de leer la página: «Replicar como…» usa la lectura. La copia idéntica
+  // («Página web») abre la ventana EN ESE clic: ahí el lector saca la foto (copia-identica-script.ts).
+  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{estado\.probar\}\s+onProbar=\{\(f\) => \{ setFormato\(f\); replicarLeida\(f, f === 'web' \? abrirEnElClic\(\) : undefined\); \}\}/);
   assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
   // 28/10/2026: el lector (o el texto pegado) vuelve a LEER la página; la réplica sale después, de lo leído.
-  // Con la «Página web» de la caja, sin pagar los ángulos (revisión de 45a8e5234, 28/10/2026).
-  assert.match(src, /onLectura=\{\(l\) => void leer\(lectura\.url, \{ lectura: l, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
-  assert.match(src, /onTexto=\{\(t\) => void leer\(lectura\.url, \{ texto: t, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
+  // Con la copia idéntica (las cuatro partes), sin pagar los ángulos: no los usa (revisión de 45a8e5234 y la copia idéntica).
+  assert.match(src, /onLectura=\{\(l\) => void leer\(lectura\.url, \{ lectura: l, \.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
+  assert.match(src, /onTexto=\{\(t\) => void leer\(lectura\.url, \{ texto: t, \.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
   // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: la lectura se paga).
   assert.match(src, /if \(arrancado\.current\) return;\s*arrancado\.current = true;/);
   const dg = fuente(PANEL_DG);

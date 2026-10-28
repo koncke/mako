@@ -67,7 +67,12 @@ import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
 import { quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
-import { nuevoId, textoDe, type JsonNodo, type LandingContenido } from './doc';
+import { TOPES, nuevoId, textoDe, type JsonNodo, type LandingContenido } from './doc';
+import { sanearEnvoltorios, sanearHtmlEditable } from './html-editable-seguro';
+import { textoDeHtmlEditable } from './html-editable';
+import {
+  clasesDe, contenidoDeCopiaIdentica, fichasDeHtml, hojaDeLaFoto, partirParaCopia, podarCss, sanearInstantanea, sinDestinosAjenos,
+} from './copia-identica';
 import { CONFIG_DEFAULT, terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
 import {
@@ -122,6 +127,11 @@ export type EntradaReplicar = {
   partes?: unknown; tema?: unknown; angulos?: unknown;
   /** «Tu oferta» (28/10/2026): de qué habla la copia cuando el texto se escribe de nuevo. Manda sobre el perfil. */
   oferta?: unknown;
+  /**
+   * La FOTO de la página ya armada (28/10/2026, copia-identica-script.ts): la sacó el lector en el navegador de la persona.
+   * Con ella, la «Página web» es la copia idéntica EDITABLE; sin ella (la API de MaKo, que no tiene navegador), la de antes.
+   */
+  foto?: unknown;
 };
 
 /**
@@ -141,7 +151,7 @@ export async function replicar(p: EntradaReplicar, alProgreso?: AlProgreso): Pro
   if (!partes) return falla('Elige qué replicar: diseño, estructura, ángulos o texto.');
   if (!formatoConPartes(formato, partes)) return falla(ERROR_WEB_PARCIAL, 400, 'landing');
   const receta = configDeReplica(formato, url, { adaptar: p.adaptar === true });
-  if (receta.via === 'fiel') return replicarFiel(url, receta);
+  if (receta.via === 'fiel') return p.foto !== undefined && p.foto !== null ? replicarIdentica(url, p.foto, receta, avisar) : replicarFiel(url, receta);
   const texto = typeof p.texto === 'string' ? p.texto.trim().slice(0, MAX_TEXTO) : '';
   // Con memoria de cuelgues PROPIA (lib/ia-saturacion.ts): el modelo que se colgó en una tanda va al final de la lista en las
   // tandas que siguen y en la segunda vuelta de ESTA réplica, sin degradar a ningún otro pedido.
@@ -190,6 +200,70 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
     ok: true, id: creada.id, titulo: creada.titulo, secciones: copia.documentos.length, formato: receta.formato,
     ...(avisos.length ? { aviso: avisos.join(' ') } : {}),
     ...(scroll ? { avisoScroll: true as const } : {}),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La copia idéntica (la foto del navegador → secciones «Diseño editable»)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** El nombre de una sección de la copia para verla armarse: su primer título, o su primer texto. */
+function rotuloDeCopia(html: string, i: number): string {
+  const h = /<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/i.exec(html)?.[1];
+  const t = (h ? textoDeHtmlEditable(h) : '') || textoDeHtmlEditable(html);
+  const corto = t.replace(/\s+/g, ' ').trim().slice(0, 70);
+  return corto || `Sección ${i + 1}`;
+}
+
+/**
+ * La copia idéntica (28/10/2026, Martín: «Enfocate primero en replicar tal cual, tanto en diseño como copy»): el DOM que armó
+ * la página, sin su JavaScript, con SUS hojas podadas, partido en secciones «Diseño editable» que se tocan a la vista. El
+ * texto es el de la página, palabra por palabra y en su idioma: nada pasa por una IA. Las imágenes y las fuentes quedan en
+ * SU sitio (por su URL): la política de la página publicada deja pasar esos orígenes (`origenesDeMedios`).
+ */
+async function replicarIdentica(url: string, fotoCruda: unknown, receta: ConfigReplica, avisar: (e: EventoReplica) => void): Promise<ResultadoReplicar> {
+  const t0 = Date.now();
+  avisar({ fase: 'leer' });
+  const foto = sanearInstantanea(fotoCruda);
+  if (!foto) return falla('No llegó la foto de la página. Vuelve a intentar.', 400);
+  const hoja = await hojaDeLaFoto(foto, bajarHoja);
+  const crudas = partirParaCopia(foto);
+  // Una sección que pasa el tope de un «Diseño editable» no entra entera: se dice, no se corta a medias.
+  // Y lo que llevaría a la otra (sus enlaces, su agenda) pasa a «#» o se va (`sinDestinosAjenos`, verificación de 5004dba08).
+  let enlacesAjenos = 0;
+  let agendasAjenas = 0;
+  const secciones = crudas.map((s) => {
+    const limpio = s.html.length > TOPES.htmlEditable ? '' : sanearHtmlEditable(s.html);
+    const d = sinDestinosAjenos(limpio);
+    enlacesAjenos += d.enlaces;
+    agendasAjenas += d.agendas;
+    return { html: d.html, envoltorios: sanearEnvoltorios(s.envoltorios) ?? [] };
+  });
+  const fuera = secciones.filter((s) => !s.html).length;
+  const quedan = secciones.filter((s) => s.html);
+  if (!quedan.length) return falla('La página pesa demasiado para copiarla tal cual.', 422);
+  const rotulos = quedan.map((s, i) => rotuloDeCopia(s.html, i));
+  avisar({ fase: 'esquema', secciones: rotulos });
+  const fichas = fichasDeHtml(quedan.map((s) => s.envoltorios.join('') + s.html).join(''));
+  const podada = podarCss(hoja.css, fichas, clasesDe(foto.html.clase), clasesDe(foto.body.clase));
+  if (podada.despues > TOPES.cssDiseno) return falla('Los estilos de esta página pesan demasiado para copiarla tal cual.', 422);
+  rotulos.forEach((titulo, indice) => avisar({ fase: 'seccion', indice, titulo }));
+  avisar({ fase: 'diseno' });
+  const titulo = (foto.titulo || hostDe(url)).replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo);
+  const creada = await crearLanding(titulo, contenidoDeCopiaIdentica(quedan), { ...receta.config, diseno: { css: podada.css, sinBase: true } });
+  if ('ok' in creada) return creada;
+  const m = foto.medidas;
+  console.log(`[editor-landing/replicar] copia idéntica de ${url} → #${creada.id} (${quedan.length} secciones, ${fuera} fuera de tope; hoja ${podada.antes} → ${podada.despues}, ${hoja.bajadas} bajadas, ${hoja.fallidas.length} fallidas; ${m.imagenes} imágenes, ${m.campos} campos, ${m.marcos} marcos, ${m.lienzos} lienzos; ${Math.round((Date.now() - t0) / 1000)} s)`);
+  const avisos = [
+    fuera ? (fuera === 1 ? 'Una sección pesaba demasiado y no se copió.' : `${fuera} secciones pesaban demasiado y no se copiaron.`) : '',
+    m.campos ? 'Los formularios se copiaron como dibujo: no envían nada. Pon el tuyo.' : '',
+    enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
+    agendasAjenas ? 'La agenda de la original se sacó (quedó su lugar vacío): pon la tuya.' : '',
+    hoja.fallidas.length ? 'Una hoja de estilos de la original no se pudo bajar: algo puede verse distinto.' : '',
+  ].filter(Boolean);
+  return {
+    ok: true, id: creada.id, titulo: creada.titulo, secciones: quedan.length, formato: receta.formato,
+    ...(avisos.length ? { aviso: avisos.join(' ') } : {}),
   };
 }
 

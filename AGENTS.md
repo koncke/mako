@@ -1144,6 +1144,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **El `error` de un `preparar` (o de un `proponer`) es una REGLA, y una falla NUESTRA lleva `falla: true`**: «No pude leer
+  las pasarelas conectadas», un `catch` que vuelve `error` lo que reventó. Sin la marca, el «no pude» de MaKo después de esa
+  falla no abre ticket; con la marca en una regla, abre uno y sale «Quedó el ticket #N» en el grupo del cliente (28/10/2026,
+  tests/guarda-por-defecto.test.ts pide la marca en todo `return { error: 'No pude…' }`; docs/hallazgos-api-mako.md).
 - **`reversible: true` exige el camino de vuelta EN la API.** Si la descripción dice «se deshace desde el
   historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
   el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y
@@ -1604,6 +1608,17 @@ código nuevo:
   - `cartero.mjs cierre` igual: `--hecho` nombra lo TERMINADO. Un pedido que todavía no tiene nada terminado no se cierra:
     se cierra cuando aterriza, con lo que aterrizó.
 
+- **TODO LO QUE LE LLEGA A MARTÍN AL CENTRO SE ESCRIBE EN SUS PALABRAS, SIN JERGA Y FORMATEADO** (28/10/2026; Martín, con dos
+  capturas del teléfono: «Muy feas las respuestas que das por el ops Center... Por favor que sea más claro, más directo, menos
+  técnico, más texto formateado»). Lo lee en el teléfono. Vale para el cierre (`cartero.mjs cierre`) y para CADA texto del chat,
+  porque el Centro muestra los mensajes de la ronda como «Avance» y el último como «Completado»:
+  - qué cambia para él o para sus clientes, en castellano llano. Nada de nombres de tren, shas, versiones del cartero,
+    «refutador», cantidad de tests, rutas de archivos ni nombres de cuenta (claude4): eso va sólo en `--prueba`;
+  - un punto por renglón, con viñeta y lo clave en negrita (`- **Soporte:** ya no pierde los archivos`). Nunca un párrafo
+    de tres ideas con punto y coma;
+  - lo que necesita de él, en una lista numerada aparte, con la acción concreta y dónde se hace;
+  - nada de narrar en tercera persona («Martín pregunta cómo va todo»): o se le contesta, o no se escribe.
+  El pedido que baja el cartero lo recuerda desde la 1.22.1 (`mensaje` en scripts/operaciones/cartero.mjs).
 - **«NUEVO CHAT» NUNCA ABRE UN MODAL NI PIDE NOMBRE ANTES** (17/10/2026; Martín: «jamás debe abrir un modal, eso es lo más
   contraintuitivo y contra IA que existe... que simplemente abra el chat y que al comenzar a escribir la IA vaya entendiendo dónde
   lo debe colocar, si debe ser un jefe o un empleado, qué nombre ponerle»). Abre un chat vacío con su caja (ChatNuevo.tsx, la misma
@@ -1767,6 +1782,17 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+    - **El grafo de un chat sale de `grafoParaChat()`** (lib/cerebro-para-chat.ts, 28/10/2026), nunca de `construirCerebro()` a
+      secas: sin física, en caché por workspace y, en la plataforma, con «Lo que hace MaKo» (lib/cerebro-funciones.ts). Lo que
+      MaKo acaba de escribir se lee en el turno siguiente: un camino nuevo que EJECUTA una acción sin pasar por
+      lib/api-mako/acciones.ts llama a `invalidarGrafoChat(ws)` (lib/cerebro-cache-chat.ts). Una lectura nueva del grafo que
+      se degrada a vacío lo hace con `vacioAvisando` (un grafo con una lectura caída no se guarda).
+    - **Una tab o una capacidad nueva suma o cambia su entrada en lib/funciones-mako.ts en el MISMO commit** (28/10/2026,
+      Martín: «que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades»): qué hace, qué no hace
+      (lo que todavía no, como «Todavía no: …»), qué reemplaza y cómo le dice la gente. Es lo que un chat lee para no negar
+      una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts. ES LA FUENTE: una capacidad de
+      lib/mako-capacidades.ts (el «cómo se hace» del Perro) toma su tab de ahí, y `listar_capacidades_mako` devuelve esas
+      funciones; un catálogo nuevo AL LADO no va.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
@@ -6846,6 +6872,22 @@ código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallaz
 - **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
   uno de los 10 «no puedo» de Leila era algo que no existía.
 
+# Un ticket resuelto se CIERRA y se AVISA en el grupo del cliente, sin preguntarle a Martín (Martín, 28/10/2026)
+
+Martín: «Si ya están resueltos siempre ciérralos, no me preguntes y siempre envía mensaje al grupo avisando con un buen copy
+que ya está solucionado».
+
+- **Lo normal es que se cierre solo:** el hito de la bitácora con `tickets: [n]` llega en el deploy y lib/tickets-cierre.ts lo
+  cierra. Lo que quede abierto con el arreglo ya en producción (un ticket que esperaba decisión, uno sin hito) lo cierra el
+  Cerebro con `scripts/tickets-cerrar-resueltos.mjs`, sin preguntar.
+- **Cada cierre lleva su aviso al grupo de MaKo del negocio**, con `scripts/avisar-arreglo-al-grupo.mts`: primero sin
+  `--enviar` (prueba que el arreglo está en main y servido en hola-mako.com) y después con `--enviar`. El copy, en español
+  neutro con «tú» (sin voseo: la audiencia es México): qué quedó resuelto y cómo probarlo, sin promesas, en menos de 500
+  caracteres. La firma «Desarrollador de MaKo» la pone el script.
+- **«Resuelto» es resuelto PARA EL CLIENTE.** Si se arregló la herramienta pero el dato del cliente sigue mal (el plan de
+  pagos de una clienta de Leila, el 28/10), no se cierra: se dice qué falta.
+- **A Martín, un ticket se le nombra por quién y de qué trata** («Leila: no podía adjuntar un documento»), nunca por su número.
+
 # En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
 
 Martín, desde el Ops Center: «Apenas envío el audio, en todos los chats de todo MaKo, se debe enviar automáticamente; yo
@@ -10316,6 +10358,15 @@ módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
 
+# Un .wasm de un tercero se sirve desde `public/ve/wasm/`, con su sha256 en un test, y lo carga un pegamento propio
+
+Así están el motor de OpenCut (12/10) y RNNoise (28/10, «Reducir el ruido»): el cargador de wasm del bundler en Vercel pide un
+archivo que no existe (el `?dpl=`, `wasm/opencut.ts`), un CDN en tiempo de ejecución no se usa, y el pegamento de emscripten de un
+paquete suele ser «web,worker» y no corre en los tests de node. El binario va con la versión en el nombre y su licencia al lado;
+el test fija el hash (y, si los nombres vienen minimizados, las importaciones y exportaciones que usa el pegamento). Y un
+procesamiento de audio nuevo se prueba con una VOZ (no un seno) y con una voz LIMPIA que tiene que salir intacta
+(`tests/video-editor-ruido.test.ts`; lo que costó, en docs/hallazgos-video-editor.md, «Eliminar ruido»).
+
 # Un hilo de chat que se GUARDA: lo que se guarda tiene que poder volver a usarse
 
 Desde el 16/10/2026 los chats que vivían en la memoria de la pestaña empiezan a guardarse (etapa 3 de
@@ -10658,8 +10709,8 @@ lib/no-pude-server.ts). Un chat o un camino NUEVO que le dice a la persona «no 
 su causa): una acción que falla al ejecutarse, el proveedor, la configuración. Nunca un ticket con el texto del modelo de
 título, nunca por la regla de aprobación de un negocio, y una negativa legítima (una regla de MaKo, una opinión) no abre nada.
 Una negativa legítima la dice el CÓDIGO, no sólo el texto: un chat con su propio turno que corre herramientas le pasa
-`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un 400, `ok:false` sin
-isError) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
+`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un JSON
+`{ ok:false, error, guarda:true }` que MARCA quien lo produce; nunca se adivina por el texto) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
 lib/mako-turno-app.ts. Contar guardas solas le come el ticket a la falla que un runner se tragó. «La última» se lleva con
 `laUltimaFueGuarda` (una lectura que anduvo no la cambia), y una herramienta que REVIENTA cuenta como tragada (el `.catch` del
 `await`): el loop la atrapa sin pasar por `errorParaTicket`.

@@ -368,7 +368,8 @@ test('el lector: lee el estilo antes de tocar nada y lo manda; MaKo lo sanea y l
   assert.ok(JS_LECTOR.includes('function leerEstilo()'));
   const lee = JS_LECTOR.indexOf('estiloLeido = leerEstilo()');
   assert.ok(lee > 0 && lee < JS_LECTOR.indexOf('tocando = true;'), 'el estilo se lee después de tocar botones (con un modal abierto)');
-  assert.match(JS_LECTOR, /parcial: !!parcial \|\| tarde\(\), estilo: estilo \}\);/);
+  // (28/10/2026: el mensaje final suma la foto de la copia idéntica cuando MaKo la pidió)
+  assert.match(JS_LECTOR, /parcial: !!parcial \|\| tarde\(\), estilo: estilo \};\s*if \(foto\) final\.foto = foto;\s*mandar\(final\);/);
   const m = sanearMensajeLectura({ tipo: 'mako-lectura', id: 'abcdefghijklmnopQRSTUV_-12', fase: 'fin', camino: 'ventana', titulo: 'T', ms: 1, quieto: true, parcial: false,
     piezas: [{ tipo: 'texto', texto: '# Crece tu negocio hoy' }], estilo: LEIDO }, { id: 'abcdefghijklmnopQRSTUV_-12', url: URL_L });
   assert.ok(m?.fase === 'fin');
@@ -396,7 +397,8 @@ test('replicar.ts: el estilo en paralelo, el tema propio reusado, las imágenes 
   // `adaptar`) y sólo cambia el nombre: ya no es la de la original, no lleva su título. Desde el 28/10 el nombre lo decide
   // `nombreDeCopia` por las partes («Adaptada de …» con diseño y estructura; «Basada en …»; el título con el texto).
   assert.match(rep, /const puesto = estilo \? aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
-  const fiel = rep.slice(rep.indexOf('async function replicarFiel'), rep.indexOf('async function replicarComoBloques'));
+  // (28/10/2026: entre la copia fiel y la de bloques está ahora la copia IDÉNTICA, que trae su propia hoja: no es la fiel)
+  const fiel = rep.slice(rep.indexOf('async function replicarFiel'), rep.indexOf('function rotuloDeCopia'));
   assert.doesNotMatch(fiel, /estilo|subirImagenes|temaParaLaCopia/, 'la Página web es la copia fiel: no cambia');
   const srv = sinComentarios(leer('lib/editor-landing/estilo-server.ts'));
   assert.match(srv, /copiarUrlABucket\(u, BUCKET_LANDING, ws\)/, 'las imágenes con la baranda y los topes del área');

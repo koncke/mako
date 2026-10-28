@@ -96,7 +96,8 @@ test('el negocio: un racimo sin aristas laterales se engancha a la raíz por su 
   // Y lo hace el armado de verdad, antes del layout (si no, el racimo se dibuja aparte aunque la arista llegue después).
   const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
   const i = g.indexOf('aristas.push(...puentesARaiz(nodos, aristas, RAIZ));');
-  assert.ok(i > 0 && i < g.indexOf('const { posiciones, encuadre } = layoutCerebro(nodos, aristas);'), 'construirCerebro engancha todo antes del layout');
+  // Desde el 28/10/2026 los chats lo piden sin física (`sinLayout`, lib/cerebro-para-chat.ts): el enganche va antes igual.
+  assert.ok(i > 0 && i < g.indexOf('layoutCerebro(nodos, aristas);'), 'construirCerebro engancha todo antes del layout');
 });
 
 test('el cerebro unido: UNA raíz, la construcción colgada de ella, y desde ahí se llega a todo', () => {
