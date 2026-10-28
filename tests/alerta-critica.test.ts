@@ -109,7 +109,7 @@ test('Una cuenta publicitaria compartida se avisa UNA vez, no una por workspace'
   // producción: Mauricio y «Cliente de Diseño», la misma cuenta impaga, cada hora con media hora de diferencia).
   const loop = src.slice(src.indexOf('for (const inc of abiertos)'));
   const iToma = loop.indexOf('if (cuentaId) yaAvisadas?.add(cuentaId);');
-  assert.ok(iToma > 0 && iToma < loop.indexOf('if (!tocaAvisar(estado, minAbierto, veces, Date.now())) continue;'),
+  assert.ok(iToma > 0 && iToma < loop.indexOf('if (!tocaAvisar(estado, minAbierto, veces, Date.now(), tz)) continue;'),
     'la cuenta compartida se toma recién al emitir: el otro workspace avisa en las vueltas en que éste espera');
 });
 
@@ -318,8 +318,34 @@ test('⚠️ un incidente de varios días avisa UNA vez por día, y el «ya est�
   // El cron usa las piezas.
   const src = sinComentarios(leer('../lib/alerta-critica.ts'));
   assert.match(src, /const ventana = ventanaDelIncidente\(minAbierto\);/);
-  assert.match(src, /if \(!tocaAvisar\(estado, minAbierto, veces, Date\.now\(\)\)\) continue;/);
+  assert.match(src, /if \(!tocaAvisar\(estado, minAbierto, veces, Date\.now\(\), tz\)\) continue;/);
   assert.match(src, /const llegaronAlertas = llegoAlguno\(/);
+});
+
+test('⚠️ el recordatorio de cada día sale DE DÍA en la zona del negocio, no a la hora en que Meta frenó la cuenta (la revisión, 28/10)', async () => {
+  const { tocaAvisar, horaEnZona, enHorarioDeRecordatorio, MIN_DIA } = await import('../lib/alerta-critica-texto');
+  const BA = 'America/Argentina/Buenos_Aires';
+  // El caso del refutador: abierto el 20/10 a las 06:05 UTC (03:05 en Buenos Aires).
+  const T0 = Date.parse('2026-10-20T06:05:00.000Z');
+  const en = (min: number) => T0 + min * 60_000;
+  assert.equal(horaEnZona(T0, BA), 3);
+  // El día 0 avisa en el acto, aunque sea de madrugada: la cuenta acaba de frenarse.
+  assert.equal(tocaAvisar(null, 0, 0, en(0), BA), true);
+  // …y a la hora, el segundo del día 0 (04:05 en Buenos Aires), también.
+  assert.equal(tocaAvisar({ ultimaIso: new Date(en(0)).toISOString(), veces: 1, estado: 'Saldo impago', ventana: 0, total: 1 }, 61, 1, en(61), BA), true);
+  const d0 ={ ultimaIso: new Date(en(120)).toISOString(), veces: 3, estado: 'Saldo impago', ventana: 0, total: 3 };
+  // El día 1 a las 03:05 de Buenos Aires: todavía no (antes salía).
+  assert.equal(tocaAvisar(d0, MIN_DIA, 0, en(MIN_DIA), BA), false);
+  assert.equal(tocaAvisar(d0, MIN_DIA + 5 * 60, 0, en(MIN_DIA + 5 * 60), BA), false, '08:05');
+  // A las 09:05 sí, y a las 21:05 ya no.
+  assert.equal(tocaAvisar(d0, MIN_DIA + 6 * 60, 0, en(MIN_DIA + 6 * 60), BA), true, '09:05');
+  assert.equal(enHorarioDeRecordatorio(en(MIN_DIA + 18 * 60), BA), false, '21:05');
+  // Sin zona, como antes; con una zona que no existe, cuenta como UTC.
+  assert.equal(tocaAvisar(d0, MIN_DIA, 0, en(MIN_DIA)), true);
+  assert.equal(horaEnZona(T0, 'Marte/Olympus'), 6);
+  // El cron le pasa la zona del negocio.
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  assert.match(src, /const tz = abiertos\.length \? await zonaDelNegocio\(ws\)\.catch\(\(\) => null\) : null;/);
 });
 
 // Rotura: sin poder emitir, borrar la marca igual → 42 / 1, cae éste.

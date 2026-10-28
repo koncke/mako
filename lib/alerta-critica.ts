@@ -43,6 +43,7 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { getSetting, setSetting } from './settings';
+import { zonaDelNegocio } from './timezone';
 import { credWs } from './credenciales';
 import { emitirEventoDePlataforma } from './avisos';
 import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, tocaAvisar, ventanaDelIncidente, llegoAlguno, type Insistencia } from './alerta-critica-texto';
@@ -191,6 +192,8 @@ export async function insistirAlertasCriticas(
   const yaAvisadas = opts.cuentasYaAvisadas;
   const cuentaTomada = Boolean(cuentaId && yaAvisadas?.has(cuentaId));
   if (cuentaTomada) console.log(`[alerta-critica] ws=${ws} comparte la cuenta ${cuentaId} con otro workspace ya avisado — no repito`);
+  // La zona del negocio: el recordatorio de cada día sale de día ahí (`tocaAvisar`). Sin zona, como antes.
+  const tz = abiertos.length ? await zonaDelNegocio(ws).catch(() => null) : null;
 
 
   // ── Los que siguen abiertos: perseguir ────────────────────────────────────
@@ -216,7 +219,7 @@ export async function insistirAlertasCriticas(
       const ventana = ventanaDelIncidente(minAbierto);
       const veces = vecesDelEstado(estado, inc.status_label, ventana);
 
-      if (!tocaAvisar(estado, minAbierto, veces, Date.now())) continue; // todavía no toca
+      if (!tocaAvisar(estado, minAbierto, veces, Date.now(), tz)) continue; // todavía no toca
 
       // EL EVENTO DE LA PLATAFORMA (16/10/2026): los HECHOS del incidente, y la automatización de SuperAdmin dice qué
       // contar de cada estado y hasta cuántas veces (`anuncios_vez`, la CONDITION «Aviso número ≤ 3»). ⚠️ SIN `dedupTtlMin`,

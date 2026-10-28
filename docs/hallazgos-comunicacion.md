@@ -11621,6 +11621,11 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
   - «hace 12 días» y no «hace 288 h».
   La marca vieja de Mauricio (25, sin `ventana`) cuenta como del día 0: al desplegar, su cuenta frenada vuelve a avisar una
   vez por día. tests/alerta-critica.test.ts (5 roturas en rojo).
+- **⚠️ «Una vez por día» sin zona horaria (la revisión del Cerebro, 28/10):** el día del incidente son 24 h desde que se
+  abrió, así que el recordatorio caía a la hora en que Meta frenó la cuenta: abierto a las 03:05 de Buenos Aires, avisaba
+  «DETÉN TODO» todos los días a las 03:05. Ahora, desde el segundo día, sale de 9 a 21 en la zona del negocio
+  (`enHorarioDeRecordatorio`, `zonaDelNegocio`); el primer día sigue en el acto. La cuenta compartida se sigue tomando ANTES
+  de mirar el horario, así otro negocio de la misma cuenta no avisa con su reloj mientras éste espera las 9.
 - **El aviso de cancelación doble de Guillermo Wong (MAU-33) era del 13/10:** 17:21:59 y 17:22:35, el mismo texto. Fue una
   reentrega de Calendly, y el freno (`claveCancelada`, 24 h) entró el 17/10 en 6904a447f. Desde ese día los avisos de
   cancelación salen por su automatización y no quedan en `notificaciones`: no hay dato después que lo confirme, ni ningún doble.

@@ -65,14 +65,37 @@ export function vecesDelEstado(prev: Insistencia | null, estado: string | null, 
   return 0;
 }
 
+/** El horario del recordatorio de cada día, en la hora del NEGOCIO: de las 9 a las 21. */
+export const HORARIO_RECORDATORIO = { desde: 9, hasta: 21 } as const;
+
+/** La hora (0 a 23) de `ahoraMs` en la zona `tz`. Una zona que Intl no conoce cuenta como UTC. */
+export function horaEnZona(ahoraMs: number, tz: string): number {
+  try {
+    const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(ahoraMs));
+    if (Number.isFinite(h)) return h % 24;
+  } catch { /* zona desconocida: UTC */ }
+  return new Date(ahoraMs).getUTCHours();
+}
+
+/** ¿Es hora de mandar el recordatorio del día en la zona del negocio? */
+export const enHorarioDeRecordatorio = (ahoraMs: number, tz: string): boolean => {
+  const h = horaEnZona(ahoraMs, tz);
+  return h >= HORARIO_RECORDATORIO.desde && h < HORARIO_RECORDATORIO.hasta;
+};
+
 /**
  * ¿TOCA EMITIR AHORA? (27/10/2026, MAU-33). El primer día, cada `CADENCIA_MIN` (el techo lo pone la automatización). Desde el
  * segundo, UNO por día: si hoy ya llegó uno (`veces` del día), nada hasta mañana; si no llegó (la línea caída, sin grupo), se
  * reintenta cada `CADENCIA_MIN`, como antes, sin perder el aviso del día.
  */
-export function tocaAvisar(prev: Insistencia | null, minAbierto: number, veces: number, ahoraMs: number): boolean {
+export function tocaAvisar(prev: Insistencia | null, minAbierto: number, veces: number, ahoraMs: number, tz?: string | null): boolean {
   if (!prev) return true;
-  if (ventanaDelIncidente(minAbierto) > 0 && veces > 0) return false;
+  const dia = ventanaDelIncidente(minAbierto);
+  if (dia > 0 && veces > 0) return false;
+  // ⚠️ EL RECORDATORIO DE CADA DÍA, DE DÍA (la revisión del Cerebro, 28/10/2026): el día del incidente cuenta 24 h desde que se
+  // abrió, y sin esto el recordatorio caía a la hora en que Meta frenó la cuenta (las 03:05 de Argentina, todos los días). El
+  // primer día, no: la cuenta acaba de frenarse y se avisa en el acto, como siempre. Sin zona, como antes.
+  if (dia > 0 && tz && !enHorarioDeRecordatorio(ahoraMs, tz)) return false;
   const desdeUltimo = (ahoraMs - Date.parse(prev.ultimaIso)) / 60_000;
   return !(desdeUltimo < CADENCIA_MIN);
 }
