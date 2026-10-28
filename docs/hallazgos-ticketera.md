@@ -783,6 +783,12 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
   se traga un error de la base daba regla y la falla real quedaba sin ticket; una guarda vieja tapaba también otro «no pude». Es
   regla sólo si lo ÚLTIMO que corrió fue la guarda y no hubo errores ni tragadas (`esLaReglaDeUnaGuarda`,
   `esFallaTragadaDeHerramienta`, lib/no-pude.ts, que el doer de WhatsApp importa de ahí).
+- **Y «lo último» tenía dos agujeros más** (la verificación de tren-t): una herramienta que REVIENTA después de una guarda no
+  pasaba por «la última» (se anotaba después del `await`, y el loop atrapa el throw sin `errorParaTicket`): la guarda vieja le
+  comía el ticket. Ahora lo que revienta cuenta como tragada (el `.catch` del `await`). Al revés, una LECTURA que anduvo entre la
+  guarda y el «me falta el monto» la apagaba y abría un ticket por una regla: `laUltimaFueGuarda` (lib/no-pude.ts) deja que sólo
+  una guarda la prenda y que la apaguen una escritura, un error o una tragada. El costo: guarda + lectura + un «no pude» de otra
+  cosa queda como regla.
 **Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) todavía no pasa la señal (va
 con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
 Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda

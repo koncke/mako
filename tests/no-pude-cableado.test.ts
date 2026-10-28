@@ -77,10 +77,14 @@ test('3. los chats que procesaban lo que no existe pasan por el ticket automáti
 test('4. una guarda de una herramienta del turno es una regla (base 7) sólo si fue lo ÚLTIMO y nada falló, ni tragado, ni hubo ruteo', () => {
   const t = fuente('lib/mako-turno-app.ts');
   const run = t.slice(t.indexOf('const runTool = async'), t.indexOf('const nuevoIntento'));
-  assert.match(run, /ultimaFueGuarda = esGuardaDeHerramienta\(out\);/, 'el turno no mira si lo último fue una guarda');
+  // «La última» con `laUltimaFueGuarda` (una lectura que anduvo no la cambia), y escribe/error/tragada de ESA salida.
+  assert.match(t, /ultimaFueGuarda = laUltimaFueGuarda\(ultimaFueGuarda, \{\s*guarda: esGuardaDeHerramienta\(out\), tragada: esFallaTragadaDeHerramienta\(out\),\s*error: \(out as \{ isError\?: unknown \} \| null\)\?\.isError === true, escribe: escribe\(name\),/);
+  assert.match(run, /anotarLaUltima\(name, out\);/, 'el turno no mira si lo último fue una guarda');
   assert.match(run, /if \(esFallaTragadaDeHerramienta\(out\)\) tragadas\+\+;/, 'el turno no cuenta lo que sus herramientas se tragaron');
   // El repetido (el memo) también es lo último que vio el modelo.
-  assert.match(run, /if \(previo\) \{ ultimaFueGuarda = esGuardaDeHerramienta\(previo\.out\);/);
+  assert.match(run, /if \(previo\) \{ anotarLaUltima\(name, previo\.out\);/);
+  // Lo que REVIENTA es una falla de verdad: el loop la atrapa sin `errorParaTicket` (la verificación de tren-t).
+  assert.match(run, /await correr\(\)\.catch\(\(e: unknown\) => \{ ultimaFueGuarda = false; tragadas\+\+; throw e; \}\)/, 'una herramienta que revienta deja la guarda vieja como la última');
   // Con una falla de verdad (isError), una tragada o un ruteo en el mismo turno, el «no pude» puede ser de eso: decide la red de siempre.
   assert.match(t, /yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas \}\) && !noViajo\.length \}/);
   assert.doesNotMatch(t, /guardas > 0/, 'volvió la cuenta de guardas: una guarda vieja tapa otro «no pude»');
@@ -95,3 +99,6 @@ test('4. una guarda de una herramienta del turno es una regla (base 7) sólo si 
 //   5. (28/10) la regla aunque algo haya fallado de verdad en el turno     → rojo el 4.
 //   6. (28/10, verificación de 96e7840e8) el turno sin contar las tragadas → rojo el 4.
 //   7. el repetido (memo) sin marcar lo último                             → rojo el 4.
+//   8. (28/10, verificación de tren-t) lo que revienta no cuenta (sin el `.catch`) → rojo el 4.
+//   9. el repetido (memo) sin `anotarLaUltima`                                → rojo el 4.
+//  10. `anotarLaUltima` sin mirar si la herramienta escribe                   → rojo el 4.
