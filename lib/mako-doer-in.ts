@@ -622,13 +622,41 @@ async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, p
   return noEsParaMaKo({ texto, menciones: q.aOtros, nombraAMaKo: false, makoPregunto: pide, hayPendientes: pide });
 }
 
-/** ¿El mensaje CITA uno de MaKo (responder a su mensaje)? Por quién lo escribió (la línea que recibe) o por su id (lo que MaKo
- *  mandó queda en `idsEnviados`: cubre un autor `@lid`). */
-async function citaAMaKo(instance: string, data: MsgIn): Promise<boolean> {
-  const cita = citaDe(data.message as Record<string, unknown> | undefined);
-  if (!cita.id && !cita.autor) return false;
-  if (cita.autor && quienesMencionados([cita.autor], await numeroDeLaLinea(instance)).aMaKo) return true;
-  return !!cita.id && (await idsEnviados(OWNER_WS, data.key?.remoteJid ?? '').catch(() => [] as string[])).includes(cita.id);
+/** ¿El mensaje CITA uno de MaKo (responder a su mensaje)? Sólo por su id: lo que MaKo mandó queda en `idsEnviados`. Por el autor
+ *  no (la verificación de 9cef25dba): en la línea del dueño, la línea es él, y citarlo no le habla a MaKo. */
+async function citaAMaKo(data: MsgIn): Promise<boolean> {
+  const { id } = citaDe(data.message as Record<string, unknown> | undefined);
+  return !!id && (await idsEnviados(OWNER_WS, data.key?.remoteJid ?? '').catch(() => [] as string[])).includes(id);
+}
+
+/**
+ * ¿La línea que recibe es el número del DUEÑO? (su línea de voz: lo suyo llega `fromMe` y no es un eco, `idsEnviados`). Ahí una
+ * @mención a la línea es el dueño, no MaKo (la verificación de 9cef25dba: «@Dueño sí» de Pedro confirmaba la pendiente de plata de
+ * Ana). Se anota al ver un mensaje así (`anotarLineaDelDueno`) y vale 7 días; por proceso, se relee cada 10 min.
+ */
+const KEY_LINEA_DEL_DUENO = (instance: string) => `mako.doer.lineaDelDueno.${instance}`;
+const LINEA_DEL_DUENO_MS = 7 * 24 * 3600_000;
+const LINEA_DEL_DUENO = new Map<string, { es: boolean; hasta: number }>();
+async function esLineaDelDueno(instance: string): Promise<boolean> {
+  if (!instance) return false;
+  const ya = LINEA_DEL_DUENO.get(instance);
+  if (ya && ya.hasta > Date.now()) return ya.es;
+  const visto = Date.parse((await runWithWorkspace(OWNER_WS, () => getSetting(KEY_LINEA_DEL_DUENO(instance))).catch(() => null)) ?? '');
+  const es = Number.isFinite(visto) && Date.now() - visto < LINEA_DEL_DUENO_MS;
+  LINEA_DEL_DUENO.set(instance, { es, hasta: Date.now() + 10 * 60_000 });
+  return es;
+}
+async function anotarLineaDelDueno(instance: string): Promise<void> {
+  if (!instance || (await esLineaDelDueno(instance))) return;
+  LINEA_DEL_DUENO.set(instance, { es: true, hasta: Date.now() + 10 * 60_000 });
+  await runWithWorkspace(OWNER_WS, () => setSetting(KEY_LINEA_DEL_DUENO(instance), new Date().toISOString())).catch(() => {});
+}
+
+/** ¿El mensaje le HABLA a MaKo? Lo nombra, o menciona la línea (salvo que la línea sea la del dueño). Un audio o un adjunto son
+ *  deliberados, pero no le hablan (la verificación de 9cef25dba): para el «sí» de plata en un lote (`leHabla`). */
+async function leHablaAMaKo(instance: string, p: MsgIn, texto: string): Promise<boolean> {
+  if (nombraAMaKo(texto)) return true;
+  return (await mencionadosEn(instance, p)).aMaKo && !(await esLineaDelDueno(instance));
 }
 
 /** ¿MaKo acaba de preguntar algo en el grupo? (el «ok» que sigue es un sí) */
@@ -848,7 +876,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // VARIOS → un solo turno con todo junto. Los audios se transcriben ahora (uno por
     // uno) y el texto se arma numerado, para que el modelo entienda que fueron mensajes
     // separados y que el último puede corregir al primero.
-    const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; payload: MsgIn }> = [];
+    const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn }> = [];
     const pideUnSi = pideUnSiEn(wsData, jid);
     for (const m of cola) {
       const p = (m.payload as MsgIn) ?? {};
@@ -860,7 +888,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       const arch = await textoDeArchivo(instance, p);
       if (arch) t = arch.texto || arch.error || t;
       t = conLaMarcaDelAdjunto(p, t);
-      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null, payload: p });
+      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instance, p, t), payload: p });
     }
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
     // Para quién era cada mensaje (lib/doer-para-quien.ts): lo que era para otra persona no entra si otro es para MaKo.
@@ -876,7 +904,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
       pushName: ultimo.pushName,
       message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
-      paraQuien: lote.decision,
+      paraQuien: { ...lote.decision, leHabla: !!lote.quedan[lote.quedan.length - 1]?.leHabla },
       ...(autores.size !== 1 || autores.has('') ? { loteDeVarios: true } : {}),
     };
     console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
@@ -992,6 +1020,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     if (key?.fromMe) {
       const enviados = await idsEnviados(OPS, jid);
       if (msgId && enviados.includes(msgId)) return { engaged: false, skip: 'eco de mi propia respuesta' };
+      // No es un eco: lo escribió una persona desde la línea, que entonces es la del dueño (`esLineaDelDueno`).
+      await anotarLineaDelDueno(instance);
     }
     // Dedup de re-entregas.
     if (msgId) {
@@ -1038,7 +1068,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido,
     });
     // El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): «@MaKo sí» es un «sí», para el clasificador y para la puerta.
-    let texto = /@|mako/i.test(textoDirecto) ? sinElLlamadoAMaKo(textoDirecto, await numeroDeLaLinea(instance)) : textoDirecto;
+    // En la línea del dueño, la @ a la línea es él: no se saca (`esLineaDelDueno`).
+    const lineaDelDueno = await esLineaDelDueno(instance);
+    let texto = /@|mako/i.test(textoDirecto) ? sinElLlamadoAMaKo(textoDirecto, lineaDelDueno ? null : await numeroDeLaLinea(instance)) : textoDirecto;
     /** Lo que se leyó de la foto o el PDF, SÓLO para la memoria del grupo: si entraba a `texto`, la lista de un presupuesto
      *  en la imagen se volvía «cargar al plan» (`esCargaDePlan`, el clasificador; la revisión adversarial de 92d23e11d). */
     let leidoDelAdjunto = '';
@@ -1311,11 +1343,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * QUIÉN ESCRIBE Y SI LE HABLA A MaKo, para el «sí» de plata en el grupo (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`): lo que
      * se propone guarda quién lo pidió, y sólo esa persona o un «sí» a MaKo («sí, MaKo», «@MaKo sí», la respuesta citada a un
      * mensaje de MaKo) lo confirma. Un lote de varios no sabe quién: pide el «sí, MaKo». En un lote, «le habla a MaKo» es que
-     * alguno de sus mensajes lo nombró (`paraQuien.nombra`). En la línea del dueño, lo suyo llega `fromMe` y puede venir sin
-     * `participant`: ése es «fromMe» (lo de MaKo, también `fromMe`, es un eco y no llega acá).
+     * el ÚLTIMO de lo que queda le habla (`paraQuien.leHabla`): con «alguno», el «mako, ¿cuántos leads?» de Ana le daba paso al
+     * «sí» de Pedro, y un audio contaba como hablarle (la verificación de 9cef25dba). En la línea del dueño, la @ a la línea es
+     * él; y lo suyo llega `fromMe` y puede venir sin `participant`: ése es «fromMe» (lo de MaKo, también `fromMe`, es un eco).
      */
     const enElGrupo = jid.endsWith('@g.us')
-      ? { quien: data.loteDeVarios ? null : quienEnElGrupo(key?.participant) ?? (key?.fromMe ? 'fromMe' : null), aMaKo: quien.aMaKo || nombraAMaKo(textoDirecto) || nombraAMaKo(texto) || (await citaAMaKo(instance, data)) }
+      ? {
+        quien: data.loteDeVarios ? null : quienEnElGrupo(key?.participant) ?? (key?.fromMe ? 'fromMe' : null),
+        aMaKo: data.paraQuien ? !!data.paraQuien.leHabla
+          : (quien.aMaKo && !lineaDelDueno) || nombraAMaKo(textoDirecto) || nombraAMaKo(texto) || (await citaAMaKo(data)),
+      }
       : undefined;
     /**
      * LOS ERRORES DE MaKo EN ESTE TURNO (lib/tickets-reglas.ts, `errorParaTicket`): el código los registra solos al final,
@@ -2561,14 +2598,14 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           // La instancia viene del webhook (`body.instance`): `bufferearYResponder` la guarda en el payload al encolar. Sin ella, la
           // línea de MaKo no se conocía y ninguna @mención contaba (la verificación de bb41ede4a; ya pasaba antes).
           const instancia = cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
-          const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; payload: MsgIn }> = [];
+          const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn }> = [];
           const pideUnSi = pideUnSiEn(ws, jid);
           for (const m of cola) {
             const p = (m.payload as MsgIn) ?? {};
             let t = m.texto.trim();
             if (!t && audioDe(p)) t = await transcribirDeMensaje(instancia, p);
             t = conLaMarcaDelAdjunto(p, t);
-            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, payload: p });
+            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instancia, p, t), payload: p });
           }
           const lote = paraQuienDelLote(textos);
           const ultimo = lote.quedan[lote.quedan.length - 1]?.payload ?? ((cola[cola.length - 1].payload as MsgIn) ?? {});
@@ -2577,7 +2614,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
               key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
               pushName: ultimo.pushName,
               message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
-              paraQuien: lote.decision,
+              paraQuien: { ...lote.decision, leHabla: !!lote.quedan[lote.quedan.length - 1]?.leHabla },
             };
             console.log(`[mako-doer-in] cron: destrabando ${cola.length} mensaje(s) de ${jid}`);
             await procesarDoer(ws, instancia, sintetico);

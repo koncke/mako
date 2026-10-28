@@ -107,7 +107,7 @@ test('7. el lote se decide MENSAJE POR MENSAJE: una @mención a otro no calla lo
   const doer = leer('lib/mako-doer-in.ts');
   // Los dos lotes y el 👍 (`contestaAOtroEnLaCola`, test 8).
   assert.equal((doer.match(/textos\.push\(\{ texto: t, para: await paraQuienEsElMensaje\(/g) ?? []).length, 3, 'un lote no clasifica cada mensaje');
-  assert.equal((doer.match(/message: \{ conversation: unirMensajes\(lote\.quedan\.map\(\(m\) => \(\{ texto: m\.texto \}\)\)\) \},\n\s*paraQuien: lote\.decision,/g) ?? []).length, 2);
+  assert.equal((doer.match(/message: \{ conversation: unirMensajes\(lote\.quedan\.map\(\(m\) => \(\{ texto: m\.texto \}\)\)\) \},\n\s*paraQuien: \{ \.\.\.lote\.decision, leHabla: !!lote\.quedan\[lote\.quedan\.length - 1\]\?\.leHabla \},/g) ?? []).length, 2);
   assert.doesNotMatch(doer, /mencionesDelLote/, 'volvieron las menciones juntas del lote');
   assert.match(doer, /: data\.paraQuien \? \{ aMaKo: data\.paraQuien\.nombra, aOtros: \[\] \}/);
   assert.match(doer, /noEsParaMaKoAhora\(wsData, jid, textoDirecto, quien, async \(\) => vigentes\.length > 0, data\.paraQuien\)/);
@@ -179,5 +179,24 @@ test('9. «@MaKo sí» es un «sí»: el llamado a MaKo no es contenido, para el
   assert.deepEqual(citaDe({ extendedTextMessage: { text: 'sí', contextInfo: { stanzaId: 'ABC123', participant: `${LINEA}@s.whatsapp.net` } } }), { id: 'ABC123', autor: `${LINEA}@s.whatsapp.net` });
   assert.deepEqual(citaDe({ conversation: 'sí' }), { id: null, autor: null });
   // El doer limpia el texto antes de clasificarlo y de pasarlo a la puerta.
-  assert.match(leer('lib/mako-doer-in.ts'), /let texto = \/@\|mako\/i\.test\(textoDirecto\) \? sinElLlamadoAMaKo\(textoDirecto, await numeroDeLaLinea\(instance\)\) : textoDirecto;/);
+  assert.match(leer('lib/mako-doer-in.ts'), /let texto = \/@\|mako\/i\.test\(textoDirecto\) \? sinElLlamadoAMaKo\(textoDirecto, lineaDelDueno \? null : await numeroDeLaLinea\(instance\)\) : textoDirecto;/);
+});
+
+test('10. la respuesta a otro también es la confirmación CON VERBO; y el llamado a MaKo se saca sólo si lo que queda confirma', () => {
+  // La verificación de 9cef25dba (ALTA): sin los verbos, «@Pedro ¿lo confirmo?» + «sí, hacelo» entraba al turno y ejecutaba una
+  // pendiente que le llega a un tercero (la de plata la frena la puerta del grupo).
+  const m = (texto: string, para: ParaQuien, autor: string | null) => ({ texto, para, autor });
+  for (const si of ['sí, hacelo', 'dale, confirmalo', 'sí, mandalo', 'sí, agendalo', 'sí, confirmá', 'sí, confirmalo vos', 'sí Pedro', 'dale Ana', 'sí, ya lo vi', 'sí, eso', 'sí señor']) {
+    assert.ok(esRespuestaCorta(si), `«${si}» no es una respuesta`);
+    const lote = paraQuienDelLote([m('@Pedro ¿lo confirmo?', 'a-otro', 'ana'), m(si, null, 'pedro')]);
+    assert.deepEqual(lote.decision, { nombra: false, noEs: 'a-otro' }, `«${si}» de Pedro entra al turno`);
+  }
+  // Los pedidos a MaKo siguen sin serlo (el test 8), y nombrar a MaKo tampoco.
+  for (const t of ['sí, hacelo mako', 'dale, cargá la venta de Juan por 500', 'sí, agendá a Juan el lunes']) assert.ok(!esRespuestaCorta(t), t);
+  // Con una pendiente viva, sacar el «MaKo» de un pedido lo volvía «sí»: ahora sólo se saca si lo que queda es una confirmación.
+  for (const t of ['mako listo el reporte?', 'Mako ok pasame los leads', 'MaKo, dale con la campaña nueva', '@5493764002605 ok, ¿cuántos leads?'])
+    assert.equal(sinElLlamadoAMaKo(t, LINEA), t, t);
+  // Y la @ al final: «sí @MaKo» es un «sí».
+  assert.equal(sinElLlamadoAMaKo('sí @5493764002605', LINEA), 'sí');
+  assert.equal(sinElLlamadoAMaKo('MaKo, no', LINEA), 'no');
 });
