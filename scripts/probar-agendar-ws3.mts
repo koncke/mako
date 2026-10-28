@@ -80,9 +80,17 @@ await runWithWorkspace(WS, async () => {
   linea(`ws${WS}, mañana es`, manana);
 
   const antes = await agenda(manana);
-  if (/"falta"|no est[aá] conectad/i.test(antes)) {
+  // ⚠️ SIN GOOGLE, agenda_del_dia NO DICE «falta» (28/10/2026, la primera corrida con --si): contesta ok con el estado
+  // `eventos_sin_verificar` (lib/agenda-sin-ia.ts, `salidaDelDia`), y a la persona «No hay una agenda de Google conectada a este
+  // espacio» (lib/google-calendar.ts). Ese chequeo no lo veía, y la prueba siguió hasta dejar una pendiente (#498) que no podía
+  // crear nada. Ahora: sin Google, 3; la agenda ilegible por otra cosa, 1. En los dos casos, antes de proponer nada.
+  if (/"falta"|no est[aá] conectad|No hay una agenda de Google conectada/i.test(antes)) {
     console.error(`ws${WS} no tiene Google conectado: hay que conectarle una cuenta de prueba antes de probar.\n${antes.slice(0, 400)}`);
     process.exit(3);
+  }
+  if (/"estado":\s*"eventos_sin_verificar"/.test(antes)) {
+    console.error(`✗ la agenda de ws${WS} no se pudo leer: sin eso no se puede comprobar nada, así que no se propone nada.\n${antes.slice(0, 400)}`);
+    process.exit(1);
   }
   linea('agenda antes', antes.slice(0, 400));
 
