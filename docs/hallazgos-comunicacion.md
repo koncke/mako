@@ -11532,3 +11532,22 @@ funciona…», «No sale…»), que sólo saca las quejas. tests/mako-no-puedo-f
 «No consigo turno» con una reunión propuesta SON un «no»: con `QUEJA_NO_ANDA` en la regla 1 se perdía cancelar_accion y MaKo podía
 apilar otra propuesta (lib/doer-hilo.ts cuenta con que un «no» de verdad llega como 'confirmar'). **La regla:** la regla 1 sólo deja
 pasar la queja con OBJETO de la app (`QUEJA_DE_LA_APP`: «no me deja editar…», «no funciona el…»); la 9-bis sigue sacando toda queja.
+
+## Cuatro vueltas de arreglos en el grupo de WhatsApp: cada regla nueva destapó otra, y lo que las frenó fue VERIFICAR (28/10/2026, Cerebro)
+
+**Vive en:** `lib/doer-para-quien.ts` · `lib/doer-salida.ts` · `lib/doer-falla-frases.ts` · `lib/confirmacion-pura.ts`
+
+- **El síntoma:** cada arreglo de la revisión de 92d23e11d resolvió lo que decía y rompió algo vecino. Pasó cuatro veces:
+  - 36e06b35f: «He hecho una búsqueda…» se cortaba como «no lo hice»;
+  - bb41ede4a: el lote mensaje por mensaje sacaba el contexto, y un «sí» que Pedro le decía a Ana confirmaba la pendiente de
+    PLATA de MaKo;
+  - 8cb034a18: esRespuestaCorta era demasiado ancha y un pedido corto para MaKo quedaba con 👍 y silencio;
+  - 12d297208: esRespuestaCorta se angostó y dejó de cubrir «sí, hacelo», que volvió a ejecutar lo aTerceros.
+- ⚠️ **Lo que frenó cada regresión fue verificar el arreglo con los mismos scripts del refutador,** sobre los dos sha.
+  Los tests de la rama no los veían: probaban la frase del informe, no la vecina.
+- **La regla para decidir qué sube:** entre dos regresiones, la que CALLA (MaKo no contesta) es menor que la que EJECUTA
+  (una acción sin el sí de quien corresponde). El 28/10 tren-q subió con 4d1d0a010 (callaba en un lote mezclado) y no con
+  bb41ede4a (ejecutaba). La plata en un grupo pide ahora el sí de quien la pidió o «sí, MaKo» (fbd947d4f).
+- **Para lo que venga:** son reglas de texto en cadena (ver la memoria «Errores en cadena: cambiá la red»). Si otra vuelta
+  destapa otra, la salida no es otra regex: es que el modelo reciba los mensajes marcados («no es para vos») y la puerta
+  dura quede en el código, donde ya está la de plata.
