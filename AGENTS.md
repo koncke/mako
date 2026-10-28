@@ -4099,6 +4099,24 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
 
+# Lo que MaKo construye se ve CONSTRUYÉNDOSE, con un pequeño delay (Martín, 28/10/2026)
+
+Martín: «Me gusta mucho como se está mostrando una animación en la extensión de MaKo cuando se hace un scraping de WhatsApp:
+se muestra cómo van bajando los contactos, cómo se va entrando uno por uno. Eso es muy dopamínico… Quiero que todas las cosas
+que se hagan en la app se le muestren al usuario mientras se van haciendo… que se replique una parte de arriba, que se vaya
+replicando la parte de abajo, que cambien los textos… No tiene que ser a la velocidad de la luz: tiene que haber un pequeño
+delay, que no sea exagerado».
+
+- **Todo lo que MaKo arma por prompt muestra el paso a paso:** replicar o generar una landing (las secciones de arriba
+  primero, después las de abajo, los textos que cambian), Automations (el flujo que se arma nodo por nodo), el Web
+  Generator, el Video y el Image Editor, los dashboards y el onboarding. El molde es el scraping de la extensión.
+- **Si el resultado llega entero de una vez, igual se revela por partes,** con una cadencia corta (fracciones de segundo
+  por paso; el total, segundos y no minutos). Ni de golpe ni lento.
+- **El paso a paso nunca frena el trabajo real ni inventa un progreso que no pasa:** lo que se muestra es lo que se armó,
+  en el orden en que se armó. Si la persona quiere, puede saltearlo.
+- **Con «reducir movimiento» del sistema (`prefers-reduced-motion`), se muestra sin animación.**
+- Una función nueva que arma algo por prompt y lo muestra recién terminado no está terminada.
+
 # Todo aviso de error lleva «Reportar a Soporte»
 
 Martín (22/10/2026): *«en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte"»*.
