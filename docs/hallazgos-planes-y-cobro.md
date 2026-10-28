@@ -1626,8 +1626,15 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   la suscripción (`facturasPagadasStripe`) y toma la más VIEJA con plata de ESTE cobro (`primerCobroDeLaPrueba`, con el filtro
   del aviso, `confirmarFactura`), **con el id de la factura**, el mismo que usa el `invoice.paid`: si el aviso llega después, no
   es otra cuota. **La regla:** una pasarela que cobra DESPUÉS del checkout (prueba, cobro diferido) se reconcilia por lo que
-  cobra (la factura, el pago), nunca por la sesión, y con el id que usa su aviso. La ventana es la de siempre: 14 días desde
-  el último cambio del cobro (la activación), o sea del día 8 al 14.
+  cobra (la factura, el pago), nunca por la sesión, y con el id que usa su aviso.
+- **Y el cron no las VEÍA con 50 compras más nuevas (la verificación de 3ca2d8328, 28/10).** Leía los pendientes con
+  `.limit(50)` por `updated_at`, y cada compra abierta en /planes es un pendiente que nadie anula (`checkout.session.expired`
+  se ignora), y toda compra de Stripe arranca como prueba. Con 50 más nuevas, la prueba quedaba en el puesto 51: no se
+  activaba y, con el aviso del día 8 perdido, no se acreditaba nunca (si llegaba bien el del mes 2, se asentaba ése y el
+  mes 1 se perdía: Stripe 194, MaKo 97). Ahora las pruebas se leen APARTE: las activadas de los últimos 45 días y las sin
+  activar de los últimos 2, con un seguro de 500 que, si se alcanza, lo dice. **La regla:** una lista con tope que alimenta
+  una reparación corta en silencio lo que más importa; lo que no puede perderse se lee aparte. Probado de punta a punta con
+  el código real (C:/dev/revisiones/scratch-3ca2/A-refuta/r1-cron-tope.ts, i50 / i50_mes2 / j50).
 
 **Sin hacer:** «Empezar mi plan ya» en Stripe abre otra suscripción como en MP, aunque Stripe podría terminar la prueba
 (`trial_end=now`). Una renovación de Stripe (mes 2 en adelante) con el aviso perdido sigue sin cron: el cobro ya está pagado y

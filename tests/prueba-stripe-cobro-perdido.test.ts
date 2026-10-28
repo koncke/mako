@@ -129,6 +129,29 @@ test('el cron la busca cuando la sesión de una prueba quedó sin pago, y con el
   assert.match(cron, /if \(esPruebaDePlan\(c\) && c\.estado === 'pendiente' && !c\.suscripcion_estado\) \{/);
 });
 
+// El cron leía los pendientes con `.limit(50)`, y cada compra abierta en /planes es un pendiente que nadie anula (toda compra
+// de Stripe arranca como prueba): con 50 más nuevas, la prueba quedaba afuera y el cobro del día 8 no se acreditaba nunca, ni la
+// prueba se activaba (la verificación de 3ca2d8328; de punta a punta con el código real:
+// C:/dev/revisiones/scratch-3ca2/A-refuta/r1-cron-tope.ts, casos i50, i50_mes2 y j50).
+test('el cron lee las pruebas de un plan APARTE y sin el tope de 50: las activadas y las recién compradas', () => {
+  const cron = cuerpo('lib/cobros.ts', 'reconciliarCobros');
+  const ayudante = cron.slice(cron.indexOf('const pruebas = (activada: boolean) => {'), cron.indexOf('const [pend, pag, anul, pruebasActivas, pruebasSinActivar]'));
+  assert.ok(ayudante.length > 0, 'las pruebas tienen su lectura');
+  assert.match(ayudante, /\.eq\('estado', 'pendiente'\)\.eq\('tipo', 'suscripcion'\)\.like\('creado_por', 'planes:%:prueba'\)/);
+  assert.match(ayudante, /activada \? q\.eq\('suscripcion_estado', 'activa'\) : q\.is\('suscripcion_estado', null\)/);
+  assert.match(ayudante, /\.limit\(TOPE_DE_PRUEBAS\)/);
+  const tope = Number(/const TOPE_DE_PRUEBAS = (\d+);/.exec(fuente('lib/cobros.ts'))?.[1]);
+  assert.ok(tope >= 500, `el seguro de la lectura (${tope}) no puede volver a ser un tope de trabajo`);
+  assert.match(cron, /pruebas\(true\),\n\s*pruebas\(false\),\n\s*\]\);/, 'las dos lecturas van con las otras');
+  assert.match(cron, /\.\.\.\(pruebasActivas\.data \?\? \[\]\), \.\.\.\(pruebasSinActivar\.data \?\? \[\]\)\]/, 'y entran a la vuelta de los pendientes');
+  assert.match(cron, /\.filter\(\(c\) => !vistos\.has\(c\.id\) && \(vistos\.add\(c\.id\), true\)\)/, 'sin repetir la que viene en dos lecturas');
+  assert.match(cron, /console\.error\(`\[cobros\] reconciliar ws \$\{ws\}: \$\{TOPE_DE_PRUEBAS\} pruebas/, 'si se llega al seguro, se dice');
+  // El patrón del `like` es el de una prueba (`esPruebaDePlan`: /^planes:[a-z0-9-]{1,32}:prueba$/), no el de un plan pagado.
+  const like = /^planes:.*:prueba$/;
+  assert.ok(like.test('planes:pro:prueba') && like.test('planes:esencial-anual:prueba'));
+  assert.ok(!like.test('planes:pro') && !like.test('usuario:7'));
+});
+
 // Probado rompiéndolo (28/10/2026), una rotura por vez sobre la base en verde (3 pases, 0 fallos), restaurando el archivo
 // desde una copia (nunca git). Rota (pases / fallos):
 //   · la factura más NUEVA en vez de la más vieja (el mes 2 en lugar del día 8)        → 2 / 1
@@ -136,3 +159,6 @@ test('el cron la busca cuando la sesión de una prueba quedó sin pago, y con el
 //   · la factura en cero del inicio cuenta como pago                                    → 1 / 2
 //   · listar también las facturas abiertas (sin `status=paid`)                          → 2 / 1
 //   · el cron sin el camino de la prueba (el hueco de antes)                            → 2 / 1
+// Y el de las pruebas sin el tope de 50 (28/10/2026, base 4 / 0): el seguro vuelve a 50 → 3 / 1; las pruebas leídas no
+// entran a la vuelta → 3 / 1. Con el código real (r1-cron-tope.ts apuntado a este árbol): sin las dos lecturas, i50 queda
+// pendiente sin cuota y j50 sin activar; con ellas, i50 pagado con in_ana_8, i50_mes2 con las DOS cuotas y j50 activada.

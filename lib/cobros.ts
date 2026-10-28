@@ -1658,6 +1658,9 @@ export async function darDeBajaMiPlan(ws: number, autor: string): Promise<Result
 // Red de seguridad: el cron relee al proveedor lo que quedó pendiente
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Un seguro para la lectura de las pruebas (`reconciliarCobros`), no un tope de trabajo: si se llega, el cron lo dice. */
+const TOPE_DE_PRUEBAS = 500;
+
 /**
  * Un aviso se puede perder (un deploy, un 5xx de nuestro lado que el proveedor dejó de reintentar), y
  * los pagos de PRUEBA de Mercado Pago no mandan aviso a la notification_url. El cron hace tres cosas:
@@ -1676,7 +1679,21 @@ export async function darDeBajaMiPlan(ws: number, autor: string): Promise<Result
 export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}): Promise<{ revisados: number; cambiados: number; errores: number }> {
   const desde = new Date(Date.now() - (opts.dias ?? 14) * 86_400_000).toISOString();
   const db = getSupabaseServer();
-  const [pend, pag, anul] = await Promise.all([
+  // ⚠️ LAS PRUEBAS DE UN PLAN, APARTE Y SIN EL TOPE DE 50 (28/10/2026, la verificación de 3ca2d8328): cada compra abierta en
+  // /planes crea un cobro pendiente que nadie anula, y toda compra de Stripe arranca como prueba. Con 50 compras más nuevas, una
+  // prueba quedaba fuera de la lista: no se ACTIVABA, y si el aviso del día 8 se perdía la plata entraba en Stripe y MaKo no la
+  // acreditaba nunca. Las ACTIVADAS (esperan el cobro del día 8, que puede llegar tarde: 45 días) y las de los últimos 2 días
+  // sin activar (la persona cerró la pestaña antes de volver; una de hace más, abandonada, la activa su `invoice.paid`).
+  const pruebaActivaDesde = new Date(Date.now() - 45 * 86_400_000).toISOString();
+  const pruebaSinActivarDesde = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  const pruebas = (activada: boolean) => {
+    const q = db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
+      .eq('estado', 'pendiente').eq('tipo', 'suscripcion').like('creado_por', 'planes:%:prueba')
+      .gte('updated_at', activada ? pruebaActivaDesde : pruebaSinActivarDesde);
+    return (activada ? q.eq('suscripcion_estado', 'activa') : q.is('suscripcion_estado', null))
+      .order('updated_at', { ascending: false }).limit(TOPE_DE_PRUEBAS);
+  };
+  const [pend, pag, anul, pruebasActivas, pruebasSinActivar] = await Promise.all([
     db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
       .in('estado', ['pendiente', 'fallido']).gte('updated_at', desde)
       .order('updated_at', { ascending: false }).limit(50),
@@ -1690,11 +1707,23 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
     db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
       .eq('estado', 'anulado').not('proveedor_ref', 'is', null).gte('updated_at', desde)
       .order('updated_at', { ascending: false }).limit(20),
+    pruebas(true),
+    pruebas(false),
   ]);
   if (pend.error) throw new Error(`No pude leer los cobros pendientes a reconciliar: ${pend.error.message}`);
   if (pag.error) throw new Error(`No pude leer los cobros pagados a reparar: ${pag.error.message}`);
   if (anul.error) throw new Error(`No pude leer los cobros anulados a reconciliar: ${anul.error.message}`);
-  const pendientes = [...(pend.data ?? []), ...(anul.data ?? [])].map((x) => cobroDeFila(x as Record<string, unknown>));
+  if (pruebasActivas.error) throw new Error(`No pude leer las pruebas activadas a reconciliar: ${pruebasActivas.error.message}`);
+  if (pruebasSinActivar.error) throw new Error(`No pude leer las pruebas sin activar a reconciliar: ${pruebasSinActivar.error.message}`);
+  for (const [r, cuales] of [[pruebasActivas, 'activadas'], [pruebasSinActivar, 'sin activar']] as const) {
+    // El tope es un seguro, no un corte: si se llega, se dice (una lista que corta en silencio fue el problema de arriba).
+    if ((r.data ?? []).length >= TOPE_DE_PRUEBAS) console.error(`[cobros] reconciliar ws ${ws}: ${TOPE_DE_PRUEBAS} pruebas ${cuales} o más; las más viejas esperan a la próxima vuelta`);
+  }
+  // Sin repetir: una prueba puede venir en dos lecturas.
+  const vistos = new Set<number>();
+  const pendientes = [...(pend.data ?? []), ...(anul.data ?? []), ...(pruebasActivas.data ?? []), ...(pruebasSinActivar.data ?? [])]
+    .map((x) => cobroDeFila(x as Record<string, unknown>))
+    .filter((c) => !vistos.has(c.id) && (vistos.add(c.id), true));
   const pagados = (pag.data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
 
   // Qué pagados ya tienen su cuota en el CRM (una sola lectura).
