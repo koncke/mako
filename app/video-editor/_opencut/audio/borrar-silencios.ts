@@ -8,6 +8,9 @@
 //
 // Un clip que es todo silencio NO se borra: se avisa. Y no se reintenta solo.
 //
+// Las pausas se buscan en el audio SIN RUIDO (dsp/silencios-sin-ruido.ts, decisión del Cerebro del
+// 28/10): con el ruido de fondo a 20 dB de la voz no se encontraba ninguna. Se corta el original.
+//
 // Lo usan el botón de la barra (`borrarSilencios`, con sus avisos) y el chat «Editar con IA»
 // (`quitarSilencios`, chat/aplicar.ts: Leila se lo pidió a MaKo el 27/10 y MaKo contestó que no
 // podía). Las dos entradas son el MISMO trabajo; el chat además va contando lo que encuentra
@@ -28,7 +31,9 @@ import {
 	type PlanDeSilencios,
 } from "@/app/video-editor/_opencut/commands/timeline/element/borrar-silencios";
 import { recorrerFuente, type ClipConAudio } from "./decodificar";
-import { MedidorVentanas, rangosDeSilencio, tramosQueQuedan } from "./dsp/silencios";
+import { tramosQueQuedan } from "./dsp/silencios";
+import { JuntadorDeTrozos, silenciosSinRuido } from "./dsp/silencios-sin-ruido";
+import { motorRnnoise } from "./dsp/rnnoise";
 import { quedaAlgo, quedaAlgoEnLaLinea, silenciosEnLaLinea } from "./silencios-plan";
 
 /**
@@ -92,6 +97,7 @@ export async function quitarSilencios(
 	enCurso = true;
 	try {
 		const mediaAssets = editor.media.getAssets();
+		const motor = await motorRnnoise();
 		const planes: PlanDeSilencios[] = [];
 		let todoSilencio = 0;
 		let sinAudio = 0;
@@ -107,19 +113,20 @@ export async function quitarSilencios(
 				clipDuration: duracion,
 			});
 			const hasta = desde + tramo;
-			const medidor = new MedidorVentanas();
+			const juntador = new JuntadorDeTrozos();
 			const ok = await recorrerFuente({
 				element,
 				mediaAssets,
 				desde,
 				hasta,
-				alTrozo: (trozo) => medidor.agregar(trozo),
+				alTrozo: (trozo) => juntador.agregar(trozo),
 			});
-			if (!ok) {
+			const audio = juntador.resultado();
+			if (!ok || !audio) {
 				sinAudio++;
 				continue;
 			}
-			const silencios = rangosDeSilencio(medidor.resultado());
+			const silencios = await silenciosSinRuido({ audio, motor });
 			if (silencios.length === 0) continue;
 			if (!quedaAlgo(tramosQueQuedan({ desde, hasta, silencios }))) {
 				todoSilencio++;

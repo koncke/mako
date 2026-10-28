@@ -971,9 +971,17 @@ mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 
 - **`objetivosDeSilencios` caía al clip del cabezal si lo pedido quedaba vacío** (todo en una pista bloqueada): para el
   chat, `cabezal: false`. El botón y el chat corren el MISMO trabajo (`quitarSilencios`); el chat además cuenta cada
   silencio que encuentra y la tarjeta lo muestra de a uno (`chat/armado.ts` + `app/_ui/ArmadoEnVivo.tsx`).
-- ⚠️ **Con ruido de fondo a 20 dB o menos de la voz, NO encuentra ninguna pausa** (ni el botón): el umbral queda en
-  −40/−42 dBFS y las pausas con ruido, arriba (medido con la voz sintética y la del sistema: 4 y 7 silencios con 25 dB
-  de distancia, 0 con 20). Mide el audio ORIGINAL, no el que suena con «Reducir el ruido». En «sin hacer».
+- ⚠️ **Con ruido de fondo a 20 dB o menos de la voz, NO encontraba ninguna pausa** (ni el botón): el umbral queda en
+  −40/−42 dBFS y las pausas con ruido, arriba (4 y 7 silencios con 25 dB de distancia, 0 con 20). ⚠️ **Bajar el umbral
+  hasta el piso del ruido era el arreglo obvio, y se come las sílabas suaves** de un habla sin pausas. Desde el 28/10
+  (decisión del Cerebro) las pausas se buscan en el audio SIN RUIDO —la cadena RNNoise de «Reducir el ruido», sobre la
+  mezcla mono que mide el detector— con el MISMO umbral, y se corta el original (`dsp/silencios-sin-ruido.ts`), aunque el
+  clip no tenga «Reducir el ruido». Medido con la voz del sistema (12 pausas): ruido rosa a 20, 15 y 10 dB, de 0 a las
+  12, bordes a ≤ 20 ms; ventilador a 15 y 10 dB, 11 de 12 (falta una de 0,42 s, al límite del mínimo: el error es
+  dejar una pausa, no cortar voz); la voz que queda adentro de un corte, ≤ −57 dBFS, como sin ruido; voz limpia,
+  idéntico a hoy (la guarda de la cadena no toca lo que no tiene ruido). Cuesta lo de «Reducir el ruido» (~6 s por
+  minuto de clip) cada vez que se borran silencios. El audio del decodificador llega en trozos: se juntan en su lugar de
+  la fuente (`JuntadorDeTrozos`) porque la red necesita el clip de corrido.
 
 ## La API de MaKo y el chat al costado: el proyecto vive en el NAVEGADOR
 
@@ -1431,9 +1439,7 @@ la ruta compartida `app/api/mako/pedidos/route.ts` · el núcleo `lib/mako-pedid
 ## Lo que quedó SIN hacer
 
 **Del 28/10 (el ruido y los silencios de Leila)**
-- «Borrar silencios» con ruido de fondo fuerte no encuentra pausas (`audio/dsp/silencios.ts`, ver la entrada). Dos
-  caminos, a decidir: medir sobre el audio con «Reducir el ruido» aplicado, o un umbral que se apoye en el piso del
-  ruido (el riesgo: comerse sílabas suaves de un habla sin pausas).
+- «Borrar silencios» con ventilador fuerte (≤ 15 dB de la voz) deja alguna pausa al límite del mínimo de 0,4 s.
 - La reducción corre en el hilo principal (~6 s por minuto y canal): un clip de 10 min estéreo son ~2 min de CPU con
   el editor respondiendo a saltos. Un worker (`audio/dsp/ruido.ts` es puro y lo aguanta).
 - Con eco de sala largo en el canal limpio (≈1 s), las pausas del otro bajan −8 dB; y con la voz a 0 dB de su ruido en
