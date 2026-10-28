@@ -223,7 +223,8 @@ test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la co
 test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pude», como en el turno de la app (base 7)', () => {
   // MaKo inteligente, e6f58be78: un 400 de una herramienta (`esGuardaDeHerramienta`) cuenta como regla cuando nada falló de verdad.
   // ⚠️ La verificación de 96e7840e8: con «hubo alguna guarda», una falla TRAGADA o un «no pude» de otra cosa quedaban sin ticket.
-  const guarda = JSON.stringify({ ok: false, error: 'Falta el monto de la venta.' });
+  // (Con su marca explícita desde la verificación de 2cb1cf67e: test 13.)
+  const guarda = JSON.stringify({ ok: false, error: 'Falta el monto de la venta.', guarda: true });
   const tragada = '❌ No se pudo aplicar (Error guardando la venta: duplicate key value violates unique constraint).';
   const tragadaJson = JSON.stringify({ ok: false, error: 'No pude cargar la venta (Error guardando: timeout).' });
   assert.ok(esGuardaDeHerramienta(guarda) && !esFallaTragadaDeHerramienta(guarda));
@@ -297,6 +298,11 @@ test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con l
   assert.doesNotMatch(tools, /throw new Error\('Falta leadId|throw new Error\(`No existe un lead con id/);
   assert.match(tools, /const guardaDelPedido = \(error: string\): string => JSON\.stringify\(\{ ok: false, error, guarda: true \}\);/);
   assert.equal((tools.match(/const pedido = await requireLead\(input\);\n\s*if \('guarda' in pedido\) return pedido\.guarda;/g) ?? []).length, 2);
+  // Con el consumidor de MaKo inteligente (574107963): lo que sale de estos productores, leído como lo lee el turno.
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' })), false, 'la pendiente que no entró es una falla');
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' })), false, 'las pasarelas que no se leyeron son una falla');
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, error: 'No existe un lead con id 5 en este workspace.', guarda: true })), true, 'requireLead marca su guarda');
+  assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, guarda: true, error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale".' })), true, 'una guarda del runner viejo');
   // Los tipos: la marca existe en lo que prepara un runner y en el resultado.
   assert.equal((leer('lib/api-mako/tipos.ts').match(/guarda\?: true/g) ?? []).length, 2);
 });
