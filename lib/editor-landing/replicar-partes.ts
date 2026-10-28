@@ -149,17 +149,54 @@ export function dominioBase(urlOHost: string): string {
   return p.slice(dePais ? -3 : -2).join('.');
 }
 
+/** Lo que identifica un enlace: el host sin «www.» y el camino sin la barra final; la consulta y el ancla no cuentan. */
+function direccionDeEnlace(href: string): string {
+  try {
+    const u = new URL(href);
+    return `${u.hostname.toLowerCase().replace(/^www\./, '')}${u.pathname.replace(/\/+$/, '')}`;
+  } catch { return ''; }
+}
+
 /**
- * Los enlaces que llevan a la ORIGINAL (su dominio, con cualquier subdominio: la landing en «competidor.com» y el botón a
- * «app.competidor.com/signup»), en una copia escrita para el negocio: pasan a «#» (revisión del 28/10/2026: publicada, la
- * landing le mandaba los leads a la competencia, y el destino no se ve en el texto del editor). Los botones (`href`) y los
+ * Las direcciones que aparecen en el texto de la ORIGINAL: el destino de sus botones, su agenda («[CALENDARIO] Calendly
+ * (https://calendly.com/…)»), su WhatsApp. Un enlace de la copia que está acá es de la competencia aunque no sea de su
+ * dominio: el dominio sólo caza su página («app.competidor.com/signup»), no su Calendly ni su «wa.me/549…».
+ */
+export function enlacesDeLaOriginal(texto: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of String(texto ?? '').matchAll(/https?:\/\/[^\s()«»"'<>]+/gi)) {
+    const d = direccionDeEnlace(m[0].replace(/[.,;:!?]+$/, ''));
+    if (d) out.add(d);
+  }
+  return out;
+}
+
+/** Si `href` es una de `destinos`, o una dentro de la otra con camino («calendly.com/x» y «calendly.com/x/30min»). */
+function esDestinoDe(href: string, destinos: ReadonlySet<string>): boolean {
+  const d = direccionDeEnlace(href);
+  if (!d || !destinos.size) return false;
+  if (destinos.has(d)) return true;
+  for (const o of destinos) {
+    const [corto, largo] = o.length <= d.length ? [o, d] : [d, o];
+    // Un host pelado («calendly.com») no es de nadie: sin camino, no alcanza para decir que es de la original.
+    if (corto.includes('/') && largo.startsWith(`${corto}/`)) return true;
+  }
+  return false;
+}
+
+/**
+ * Los enlaces que llevan a la ORIGINAL, en una copia escrita para el negocio: pasan a «#» (revisión del 28/10/2026:
+ * publicada, la landing le mandaba los leads a la competencia, y el destino no se ve en el texto del editor). Son los de
+ * su dominio, con cualquier subdominio (la landing en «competidor.com» y el botón a «app.competidor.com/signup»), y los
+ * que aparecen en su texto (`destinos`, de `enlacesDeLaOriginal`: su Calendly, su WhatsApp). Los botones (`href`) y los
  * enlaces de un texto (la marca `link`). `cambiados`: cuántos, para el aviso. Puro: no muta.
  */
-export function sinEnlacesALaOriginal(t: JsonNodo, urlOriginal: string): { tarjeta: JsonNodo; cambiados: number } {
+export function sinEnlacesALaOriginal(t: JsonNodo, urlOriginal: string, destinos: ReadonlySet<string> = new Set()): { tarjeta: JsonNodo; cambiados: number } {
   const base = dominioBase(urlOriginal);
-  if (!base) return { tarjeta: t, cambiados: 0 };
+  if (!base && !destinos.size) return { tarjeta: t, cambiados: 0 };
   let cambiados = 0;
-  const ajeno = (href: unknown): boolean => typeof href === 'string' && /^https?:\/\//i.test(href) && dominioBase(href) === base;
+  const ajeno = (href: unknown): boolean => typeof href === 'string' && /^https?:\/\//i.test(href)
+    && ((!!base && dominioBase(href) === base) || esDestinoDe(href, destinos));
   const caminar = (n: JsonNodo): JsonNodo => {
     let nodo = n;
     const attrs = (n.attrs ?? {}) as Record<string, unknown>;

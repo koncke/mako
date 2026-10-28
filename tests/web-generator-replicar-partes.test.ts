@@ -23,7 +23,7 @@ import {
 } from '../lib/editor-landing/replicar-estructura';
 import {
   PARTES_ADAPTAR, PARTES_INICIALES, PARTES_TODAS, TOPE_INSTRUCCION, alternarParte, formatoConPartes, instruccionDePartes,
-  dominioBase, marcaDeUrl, mencionesDe, nombreDeCopia, partesDePedido, recetaDePartes, sinDestinoDeBoton, sinEnlacesALaOriginal,
+  dominioBase, enlacesDeLaOriginal, marcaDeUrl, mencionesDe, nombreDeCopia, partesDePedido, recetaDePartes, sinDestinoDeBoton, sinEnlacesALaOriginal,
 } from '../lib/editor-landing/replicar-partes';
 import { ANGULOS_SYSTEM_TEMPLATE, ANGULOS_USER_TEMPLATE, sanearAngulos, seccionesParaAngulos, textoDeAngulos } from '../lib/editor-landing/replicar-angulos';
 import { MAX_SECCIONES, esquemaDelPedido, pedidoDeTanda, quitarPruebaDeLaOriginal, slotsDe, tarjetaDesdeEsquema } from '../lib/editor-landing/ia-reglas';
@@ -78,6 +78,11 @@ const renglonesDe = (e: { secciones: { titulo: string; puntos: string[] }[] }) =
 //   R25 la «Página web» arranca en las partes de siempre .......... 20 / 1 (10d)
 //   R26 la lectura paga los ángulos siempre ....................... 20 / 1 (10d)
 //   R27 el «#» sigue abriendo otra pestaña ........................ 20 / 1 (10c)
+// Y con el 10e, los destinos de la original fuera de su dominio (base 22 / 0):
+//   R28 sin «una dentro de la otra» (la IA acorta el Calendly) .... 21 / 1 (10e)
+//   R29 un host pelado alcanza («calendly.com») ................... 21 / 1 (10e)
+//   R30 el punto final queda pegado a la dirección ................ 21 / 1 (10e)
+//   R31 replicar.ts no le pasa los destinos ....................... 21 / 1 (10d)
 test('1. la estructura: se corta en el nivel de sección, lo de adentro queda como subtítulo y no se pierde nada', () => {
   const texto = paginaLarga();
   const h3 = texto.split('\n').filter((l) => l.startsWith('### ')).length;
@@ -477,7 +482,8 @@ test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Pre
   assert.match(rep, /\.\.\.\(mismasSecciones && !partes\.texto \? \{ adaptar: true as const \} : \{\}\),/);
   // 3. La IA no ve el destino, y los enlaces a la original pasan a «#» en todas las tarjetas, las de respaldo también.
   assert.match(rep, /\.\.\.\(partes\.texto \? \{\} : \{ puntos: s\.puntos\.map\(sinDestinoDeBoton\) \}\),/);
-  assert.match(rep, /const tarjetas = partes\.texto \? tarjetasCrudas : tarjetasCrudas\.map\(\(t\) => \{\n\s*const r = sinEnlacesALaOriginal\(t, url\);/);
+  assert.match(rep, /const tarjetas = partes\.texto \? tarjetasCrudas : tarjetasCrudas\.map\(\(t\) => \{\n\s*const r = sinEnlacesALaOriginal\(t, url, destinosOriginal\);/);
+  assert.match(rep, /const destinosOriginal = mismasSecciones && !partes\.texto \? enlacesDeLaOriginal\(esq\.secciones\.flatMap\(\(s\) => s\.puntos\)\.join\('\\n'\)\) : new Set<string>\(\);/);
   // 6. El texto pegado se corta como la lectura que vio la persona.
   assert.match(rep, /pedirEsquema\(\{ modo: 'pegar', texto: entrada\.texto, params, corte: 'pagina' \}\)/);
   // 7. La «Página web» de la caja: arranca con todo y la lectura no paga los ángulos.
@@ -486,4 +492,29 @@ test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Pre
   assert.match(pantalla, /void leer\(u, \{ ventana, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)/);
   assert.match(pantalla, /\.\.\.\(sinAngulos \? \{ angulos: false \} : \{\}\)/);
   assert.match(fuente('lib/editor-landing/replicar-lectura.ts'), /p\.conAngulos === false \? Promise\.resolve\(\{ angulos: null \}\) : angulosDePagina\(esq, t\.url\)/);
+});
+
+test('10e. tampoco a la agenda ni al WhatsApp de la original, aunque no sean de su dominio (revisión, 3)', () => {
+  const original = [
+    '[BOTÓN] Agenda una demo → https://calendly.com/competidor/30min?utm_source=web',
+    '[BOTÓN] Escríbenos → https://wa.me/5491112345678?text=hola.',
+    'Míranos en https://www.youtube.com/@competidor.',
+  ].join('\n');
+  assert.deepEqual([...enlacesDeLaOriginal(original)].sort(), ['calendly.com/competidor/30min', 'wa.me/5491112345678', 'youtube.com/@competidor']);
+  const boton = (href: string) => ({ type: 'boton', attrs: { href, variante: 'primario', nuevaPestana: true }, content: [{ type: 'text', text: 'x' }] });
+  const hrefs = [
+    'https://calendly.com/competidor', // la IA lo vio en «[CALENDARIO]» y lo acortó: es de la original
+    'https://calendly.com/competidor/30min?utm_source=copia', // el del respaldo, con otra consulta
+    'https://wa.me/5491112345678',
+    'https://www.youtube.com/@competidor/',
+    'https://calendly.com/mi-negocio', // el del negocio: se queda
+    'https://calendly.com', // un host pelado no es de nadie
+    'https://wa.me/5491199999999', // otro número: se queda
+  ];
+  const t = { type: 'tarjeta', content: [{ type: 'botones', content: hrefs.map(boton) }] };
+  const r = sinEnlacesALaOriginal(t as never, 'https://competidor.com', enlacesDeLaOriginal(original));
+  assert.equal(r.cambiados, 4);
+  assert.deepEqual((r.tarjeta.content?.[0].content ?? []).map((n) => n.attrs?.href), ['#', '#', '#', '#', 'https://calendly.com/mi-negocio', 'https://calendly.com', 'https://wa.me/5491199999999']);
+  // Sin los destinos queda la regla del dominio sola: ninguno de éstos es de «competidor.com».
+  assert.equal(sinEnlacesALaOriginal(t as never, 'https://competidor.com').cambiados, 0);
 });

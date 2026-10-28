@@ -81,7 +81,7 @@ import { colorDeRelleno, temaPorId } from './temas';
 import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scrollEnHtml } from './replicar-animaciones';
 import {
   ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, TOPE_OFERTA, formatoConPartes, instruccionDePartes, listaDePartes, marcaDeUrl, mencionesDe,
-  nombreDeCopia, partesDePedido, recetaDePartes, sinDestinoDeBoton, sinEnlacesALaOriginal, type PartesReplica,
+  nombreDeCopia, partesDePedido, recetaDePartes, enlacesDeLaOriginal, sinDestinoDeBoton, sinEnlacesALaOriginal, type PartesReplica,
 } from './replicar-partes';
 import {
   acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
@@ -327,6 +327,9 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   let pruebaQuitada = 0;
   let frasesIguales = 0;
   let enlacesAjenos = 0;
+  // Los destinos que aparecen en la original (su agenda, su WhatsApp): con las mismas secciones, el esquema ES su texto.
+  // La IA no los ve en los botones, pero sí en un renglón como «[CALENDARIO] Calendly (https://…)».
+  const destinosOriginal = mismasSecciones && !partes.texto ? enlacesDeLaOriginal(esq.secciones.flatMap((s) => s.puntos).join('\n')) : new Set<string>();
   const tarjetasCrudas = esq.secciones.map((s, i) => {
     const t = porIndice.get(i);
     if (t) {
@@ -341,7 +344,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     return tarjetaDesdeEsquema(s, i === 0);
   });
   const tarjetas = partes.texto ? tarjetasCrudas : tarjetasCrudas.map((t) => {
-    const r = sinEnlacesALaOriginal(t, url);
+    const r = sinEnlacesALaOriginal(t, url, destinosOriginal);
     enlacesAjenos += r.cambiados;
     return r.tarjeta;
   });
@@ -395,7 +398,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     pruebaQuitada ? (pruebaQuitada === 1 ? 'Una cita o cifra de la original quedó vacía: pon la tuya.' : `${pruebaQuitada} citas o cifras de la original quedaron vacías: pon las tuyas.`) : '',
     frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
     menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
-    enlacesAjenos ? (enlacesAjenos === 1 ? 'Un botón llevaba a la página de la original: ahora va a «#», ponle tu enlace.' : `${enlacesAjenos} botones llevaban a la página de la original: ahora van a «#», ponles tu enlace.`) : '',
+    enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);
   return {
