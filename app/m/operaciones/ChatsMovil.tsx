@@ -372,7 +372,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026), la misma de la computadora: en el teléfono Enter baja de
             renglón y se manda con el botón. Arriba, la cita del mensaje que se responde; en el «+», con qué corre. */}
         <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} onGrabada={(g) => centro?.mandarNota(elegido, g.audio, g.segundos)} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
-          adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila"
+          adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila" conversacion={elegido.clave}
           arriba={cita ? <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} /> : null}
           mas={centro ? (cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></> : undefined} />
         {/* Lo elegido en el «+» que no es «Automático» (la cuenta, el modelo) va acá abajo y no al lado del «+»: la fila es

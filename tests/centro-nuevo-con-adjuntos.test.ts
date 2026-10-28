@@ -23,6 +23,11 @@
 // ChatNuevo.tsx de 0453923ab tal cual. Roturas: la nota sin tomar los archivos antes → 2 (el 8 y el 9); sin devolverlos si no se
 // entendió → 1 (el 8); la caja quieta deja tocar lo adjuntado → 2 (el 10 y chat-formatos); `adjuntosQuietos` deja pasar todo
 // → 1; la cruz de quitar sin apagarse → 1; la lista sin saber que la caja está quieta → 2.
+// Y la verificación de tren-t (28/10/2026, base de 43 con ticketera-subidas): con ChatNuevo.tsx, juntar-adjuntos.ts, CajaChat.tsx,
+// PanelChat.tsx o centro.css de e4d04e7fa, rojo (el 10 o el 11); y lo devuelto sin vista previa nueva → el 11; la caja quieta
+// que dice que toma, sin avisar lo soltado o descartando la captura → el 10.
+// Y la verificación de 05d7c3187: con juntar-adjuntos.ts o CajaChat.tsx de 05d7c3187, rojo (el 10); la caja apagada que dice
+// «Espera», la que pisa el motivo de la pantalla o el aviso que no se borra al apagarse → el 10.
 // =============================================================================
 
 import test from 'node:test';
@@ -340,20 +345,91 @@ test('9. la nota se lleva lo adjuntado ANTES de pasarse a texto: lo que cambia e
 });
 
 test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma lo soltado, y lo sigue mostrando', async () => {
-  const { adjuntosQuietos } = await import('../app/_chat/juntar-adjuntos');
+  const { adjuntosQuietos, ESPERA_PARA_ADJUNTAR } = await import('../app/_chat/juntar-adjuntos');
   const tocados: string[] = [];
   const a = { items: [{ id: 'x' }], puede: true, onSumar: () => { tocados.push('sumar'); }, onQuitar: () => { tocados.push('quitar'); } } as unknown as Parameters<typeof adjuntosQuietos>[0] & object;
-  const quieta = adjuntosQuietos(a, true)!;
+  const enEspera: string[] = [];
+  const onEspera = () => { enEspera.push('espera'); };
+  const quieta = adjuntosQuietos(a, { quieta: true, saliendo: true, onEspera })!;
   quieta.onSumar([new File([PNG], 'nuevo.png')]);
   quieta.onQuitar('x');
   assert.deepEqual(tocados, [], 'ni entra ni se quita nada');
   assert.equal(quieta.items, a.items, 'lo adjuntado se sigue viendo');
-  assert.equal(adjuntosQuietos(a, false), a, 'con la caja libre, los de siempre');
-  assert.equal(adjuntosQuietos(undefined, true), undefined);
+  assert.equal(adjuntosQuietos(a, { quieta: false, saliendo: false, onEspera }), a, 'con la caja libre, los de siempre');
+  assert.equal(adjuntosQuietos(undefined, { quieta: true, saliendo: true, onEspera }), undefined);
+  // Apagada o bloqueada (sin diseño, sin la app, un ticket cerrado): nada va a terminar, así que no dice «Espera» (la
+  // verificación de 05d7c3187): no toma, y el panel dice lo de siempre.
+  const apagada = adjuntosQuietos(a, { quieta: true, saliendo: false, onEspera })!;
+  assert.equal(apagada.puede, false);
+  assert.equal(apagada.espera, undefined, 'una caja apagada no tiene nada que esperar');
+  assert.equal(apagada.onNoPuede, undefined, 'y lo soltado no dice «Espera»');
+  // La pantalla ya dice que no por su motivo (un Runner sin 1.22.0, «Ya juntaste el máximo»): gana su motivo, también saliendo.
+  const avisosPantalla: string[] = [];
+  const conMotivo = { ...a, puede: false, onNoPuede: () => { avisosPantalla.push('pantalla'); } };
+  const conMotivoQuieta = adjuntosQuietos(conMotivo, { quieta: true, saliendo: true, onEspera })!;
+  assert.equal(conMotivoQuieta.espera, undefined, 'la caja pisó el motivo de la pantalla');
+  conMotivoQuieta.onNoPuede?.();
+  assert.deepEqual(avisosPantalla, ['pantalla'], 'su aviso, no «Espera a que termine»');
+  conMotivoQuieta.onSumar([new File([PNG], 'otro.png')]);
+  assert.deepEqual(tocados, [], 'y no entra');
+  // Mientras la caja LEE, lo junto dice que no (juntarAdjuntos: puede = la pantalla && lo que se lee), pero la pantalla no:
+  // eso es salir y dice «Espera» (la verificación de d2f690673; antes ganaba la rama del motivo de la pantalla).
+  const leyendo = adjuntosQuietos({ ...a, puede: false }, { quieta: true, saliendo: true, onEspera, pantallaDiceQueNo: false })!;
+  assert.equal(leyendo.espera, ESPERA_PARA_ADJUNTAR, 'leyendo, la caja no dice que espera');
+  assert.equal(leyendo.onNoPuede, onEspera);
+  // No se traga nada callada (la verificación de tren-t): dice que no toma y por qué, y lo soltado avisa.
+  assert.equal(quieta.puede, false, 'el panel no ofrece «Suelta para adjuntar»');
+  assert.equal(quieta.espera, ESPERA_PARA_ADJUNTAR);
+  const { alSoltar } = await import('../app/admin/operaciones/pegar');
+  let frenado = false;
+  const soltado = { dataTransfer: { types: ['Files'], files: [new File([PNG], 'soltado.png', { type: 'image/png' })], items: [] }, preventDefault: () => { frenado = true; } };
+  alSoltar(soltado as unknown as Parameters<typeof alSoltar>[0], quieta);
+  assert.ok(frenado, 'el navegador no abre lo soltado');
+  assert.deepEqual(enEspera, ['espera'], 'lo soltado con la caja quieta avisa');
+  assert.deepEqual(tocados, [], 'y no entra');
   // La caja única la usa con su `quieto` (el soltar y el aviso al panel pasan por `adjuntos`), y la ✕ se apaga.
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;\s*const adjuntos = adjuntosQuietos\(deLaCaja, quieto\);\s*useAvisarAdjuntos\(adjuntos\);/);
+  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;[\s\S]{0,500}?const adjuntos = adjuntosQuietos\(deLaCaja, \{ quieta: quieto, saliendo: enviando, onEspera: avisarEspera, pantallaDiceQueNo: !!p\.adjuntos && !p\.adjuntos\.puede \}\);\s*useAvisarAdjuntos\(adjuntos\);/);
+  // La espera es sólo de la caja que sale: apagada o bloqueada, el aviso de la caja no queda.
+  assert.match(caja, /if \(enEspera && !enviando\) setEnEspera\(false\);/);
+  assert.match(caja, /const avisarEspera = \(\) => \{ if \(p\.onErrorMic\) p\.onErrorMic\(ESPERA_PARA_ADJUNTAR\); else setEnEspera\(true\); \};/, 'lo dice la pantalla, o la caja');
+  assert.match(caja, /\{enEspera && <p className="co-caja__estado" aria-live="polite">\{ESPERA_PARA_ADJUNTAR\}<\/p>\}/);
   assert.match(caja, /<ListaAdjuntos a=\{adjuntos\} apagado=\{quieto\} \/>/);
   assert.match(caja, /onDrop=\{\(e\) => \{ if \(!adjuntos \|\| !traeArchivos\(e\.dataTransfer\)\) return; e\.stopPropagation\(\); alSoltar\(e, adjuntos\); \}\}/);
   assert.match(sinComentarios(leer('app/admin/operaciones/AdjuntosCaja.tsx')), /className="co-miniatura__quitar" onClick=\{\(\) => a\.onQuitar\(x\.id\)\} disabled=\{apagado\}/);
+  // El panel, al arrastrar, dice por qué no toma (y no «Suelta para adjuntar»).
+  assert.match(sinComentarios(leer('app/admin/operaciones/PanelChat.tsx')), /destino\(\)\?\.puede \? 'Suelta para adjuntar' : destino\(\)\?\.espera \?\? 'Este chat no recibe archivos'/);
+  // La ✕ apagada no se ofrece (ni al pasar el mouse ni en el teléfono): se veía igual que la activa.
+  assert.match(leer('app/admin/operaciones/centro.css'), /\.co-miniatura__quitar:disabled, \.co-miniatura:hover \.co-miniatura__quitar:disabled \{ opacity: 0; pointer-events: none; \}/);
+  // «Pegar la captura» espera con la caja quieta: ni se dibuja ni se descarta (anotarla como vista la perdía para siempre).
+  assert.match(caja, /\{captura && !quieto && \(/);
+  assert.match(caja, /const resolverCaptura = \(pegar: boolean\) => \{\s*if \(!captura \|\| quieto\) return;/);
+});
+
+test('11. salir del chat nuevo con la nota pasándose a texto, y que no se entienda: los archivos vuelven con su vista previa VIVA', async () => {
+  const hook = await motor();
+  const { dibujar, desmontar } = dibujador((k: unknown) => hook(k, () => {}));
+  const c = centro({ abre: ['claude1'], llevaArchivos: ['claude1'] });
+  reloj();
+  const revocadas = new Set<string>();
+  const revocar = URL.revokeObjectURL;
+  URL.revokeObjectURL = (u: string) => { revocadas.add(u); revocar(u); };
+  try {
+    c.poner('foto.png');
+    let fallo: (x: { error: string }) => void = () => {};
+    g.__preparar = () => new Promise((ok) => { fallo = ok; });
+    let s = dibujar(c.k);
+    s.mandarNota({ audio: new Blob(['x']), segundos: 3 });
+    s = dibujar(c.k);
+    const enLaNota = s.archivos.map((a) => a.url);
+    desmontar();
+    assert.ok(enLaNota.every((u) => revocadas.has(u)), 'al salir, las vistas previas de la burbuja se sueltan');
+    fallo({ error: 'No te escuché' });
+    await vuelta();
+    const vuelta1 = c.cajas[':chat-nuevo'];
+    assert.deepEqual(vuelta1.map((a) => a.file.name), ['foto.png'], 'la foto vuelve a la caja');
+    assert.ok(!revocadas.has(vuelta1[0].url), 'con una vista previa que sirve (no la revocada al salir)');
+  } finally {
+    URL.revokeObjectURL = revocar;
+  }
 });

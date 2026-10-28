@@ -11,6 +11,8 @@
 // Probado rompiéndolo (28/10/2026), una rotura por vez: el ticket sin esperar las subidas · el .then sin mirar la
 // conversación · la línea «📎» al relato antes de subir · el reintento con el texto visto y sin archivos · el reintento que
 // vuelve a subir lo ya subido · el tope por ticket sin contar lo que ya subió · la persona sin ver su archivo al responder.
+// Y (la verificación de tren-t): useSoporte.ts de e4d04e7fa, con una lista para todo Soporte → rojo; otra conversación nueva que
+// no se lleva lo sin mandar → rojo.
 // =============================================================================
 
 import { test, type TestContext } from 'node:test';
@@ -257,6 +259,47 @@ test('la persona ve sus archivos en el ticket aunque haya escrito algo (sólo lo
   const mia = t.lineas.find((l) => l.quien === 'tu' && l.texto.startsWith('mira esto'));
   assert.equal(mia?.texto, 'mira esto\n📎 captura.png');
   assert.ok(!JSON.stringify(t).includes('3/tickets'), 'el path del bucket llegó al cliente');
+});
+
+test('lo adjuntado es de SU conversación: no pasa al ticket cerrado (donde la caja apagada no deja quitarlo) y vuelve con su ticket', async (t) => {
+  // La verificación de tren-t (28/10/2026): con UNA lista para todo Soporte, la foto adjuntada en un ticket abierto pasaba al
+  // ticket cerrado que se abría después, y ahí la caja apagada (quieta) no dejaba quitarla.
+  const ahora = new Date().toISOString();
+  const abierto = { id: 7, titulo: 't', actualizado: ahora, puedeResponder: true, lineas: [], estado: 'tu_respuesta' };
+  const cerrado = { id: 8, titulo: 'c', actualizado: ahora, puedeResponder: false, lineas: [], estado: 'resuelto' };
+  const p = await pantalla(t, { tickets: [abierto, cerrado], inicial: 7, movil: false });
+  const foto = (n: string) => new File([new Uint8Array(10)], n, { type: 'image/png' });
+  const nombres = () => p.r().adjuntosCaja.items.map((a: { file: File }) => a.file.name);
+  p.r().adjuntosCaja.onSumar([foto('foto.png')]);
+  assert.deepEqual(nombres(), ['foto.png']);
+  p.r().abrir(8);
+  assert.equal(p.r().apagado, true, 'el ticket cerrado apaga la caja');
+  assert.deepEqual(nombres(), [], 'la foto del ticket abierto pasó al cerrado');
+  p.r().abrir(7);
+  assert.deepEqual(nombres(), ['foto.png'], 'la foto vuelve con su ticket');
+  // En la conversación nueva, lo que no se mandó pasa a la siguiente conversación nueva, como lo escrito.
+  p.r().abrir('nuevo');
+  assert.deepEqual(nombres(), [], 'la conversación nueva tiene su caja');
+  p.r().adjuntosCaja.onSumar([foto('otra.png')]);
+  p.r().nuevo();
+  assert.deepEqual(nombres(), ['otra.png'], 'lo sin mandar se perdió al empezar otra conversación');
+});
+
+test('la caja de la conversación nueva tiene UNA clave: lo que la caja lee no queda huérfano al empezar otra ni al levantar el ticket', async (t) => {
+  // La verificación de d2f690673: la clave cambiaba con cada conversación nueva y useSoporte mudaba SUS adjuntos, pero lo que la
+  // caja lee (CajaChat → `conversacion`, un .pptx o un .heic) quedaba en la clave vieja: desaparecía sin aviso.
+  const p = await pantalla(t);
+  const nueva = p.r().claveCaja;
+  p.r().nuevo();
+  assert.equal(p.r().claveCaja, nueva, 'otra conversación nueva cambió la clave de la caja');
+  const s = p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
+  await s.mandarTicket();
+  assert.notEqual(p.r().claveCaja, nueva, 'levantado el ticket, la caja es la del ticket');
+  p.r().abrir('nuevo');
+  assert.equal(p.r().claveCaja, nueva, 'y la conversación nueva vuelve a la misma caja');
+  // Las notas de voz sí van por conversación (la revisión de chats-unificados): no salen en la siguiente.
+  assert.match(leer('app/tickets/soporte/useSoporte.ts'), /const claveNotas = typeof abierto === 'number' \? `soporte:\$\{abierto\}` : `soporte:nuevo:\$\{idConversacion\}`;/);
+  assert.match(leer('app/tickets/soporte/useSoporte.ts'), /clave: claveNotas,/);
 });
 
 test('el tope del día por negocio: lo cuenta la ruta en el bucket y lo dice en texto', () => {
