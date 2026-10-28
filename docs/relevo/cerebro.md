@@ -26,28 +26,36 @@ preguntes: hacé esto en orden.
    otra sesión no puede abrir chats), cada uno con su worktree `C:/dev/wt-<área>-<fecha>`.
 4. **El estado de la cuenta anterior se VERIFICA con git, no se copia** (lectores Sonnet sobre la cronología + git).
 
-## Estado al escribir (28/10 ~01:00)
+## Estado al escribir (28/10 ~04:50, claude4)
 
-- **`main` = `fd0d6fcbd` (tren-p), Ready 00:58.** Trae el chat en el acto del Ops Center (audio, mensajes y capturas al
-  instante, los 3 puntos, el encargo del Cerebro plegado, el COMPLETADO que dice lo hecho y no sale con trabajo de fondo
-  vivo), la extensión con la tienda al día y las cosechas. **Cartero 1.21.0 instalado en la PC** (después del servidor).
-  tren-o (`df08aa5f9`, Ready 27/10 22:18) trajo MaKo Desktop 0.4.3 y 14 puntas más.
-- **`tren-q` en chequeo en `C:/dev/wt-push-q`:** MaKo en WhatsApp `4d1d0a010` (que trae adentro la rama c4 de MaKo
-  inteligente `aec4ed0d9`: los «no puedo» falsos de Leila, el ticket automático ante cada «no pude», MaKo no
-  descalifica) y los pagos del CRM `12fe516b8` (el plan quincenal de Leila, ticket #13). Revisadas y verificadas.
-  Quedan medios no-regresión para tren-r (C:/dev/revisiones/2810-verificacion-mi-wa.md).
-- **Revisiones:** cada informe está en `C:/dev/revisiones/` (fuera del repo). Las puntas pasan por revisión adversarial
-  + refutador antes del tren si tocan plata, privacidad, sesión o infra compartida; los arreglos se VERIFICAN.
-- **Chats vivos (claude4, bypass):** CRM y Chats (la Ticketera con adjuntos `046d9e028` espera dos medios; después las
-  22 cajas de chat unificadas), MaKo en WhatsApp y MaKo inteligente (lo de tren-r), «Web Generator: replicar landings»
-  (toda la noche: replicar por partes con las 5 landings de Martín, en el ws9 sólo borradores «[PRUEBA réplica]»), Runner
-  `local_84a12d47`. **Nube** (koncke/mako, entregan por etiqueta `nube/<área>-2710-<k>`, ninguna entregó todavía):
-  Zernio, Planes, Automations (+ ticket #17 de Leandro), Landings, Motion (+ silencios y ruido de Leila).
-- **Reglas nuevas del 27-28/10** (AGENTS.md): todo «no pude» abre ticket solo; en todo chat lo que se manda se ve en el
-  acto; el COMPLETADO dice lo terminado, nunca «en marcha»; **lo que MaKo construye se ve construyéndose, con un pequeño
-  delay** (Martín, 28/10).
-- **Hecho con el sí de Martín:** MK-02 (942/942 mensajes y 21 audios de Makito en el ws 9). MK-06 no probó nada: el ws3
-  no tiene Google (OAuth de Martín); el mensaje a Joan NO se mandó.
+- **`main` = `dbe271979` (tren-r).** En producción esta noche, en orden:
+  - tren-o (`df08aa5f9`, 22:18): MaKo Desktop 0.4.3 y 14 puntas;
+  - tren-p (`fd0d6fcbd`, 00:58): el chat en el acto del Ops Center (audio y mensajes al instante, los 3 puntos, el encargo
+    del Cerebro plegado, el COMPLETADO con lo hecho y sin trabajo de fondo vivo). Cartero 1.21.0 instalado en la PC;
+  - tren-q (`5b114031c`, 03:00): la Ticketera con adjuntos, el plan quincenal de Leila (#13), los «no puedo» falsos de
+    MaKo, el ticket automático ante cada «no pude» y WhatsApp que ve fotos y PDF;
+  - tren-r (`dbe271979`): replicar landings por partes (diseño, estructura, ángulos, texto) que se ve construyéndose
+    (ArmadoEnVivo), TODAS las cajas de chat con adjuntos y voz en el acto (lib/cajas-de-chat.ts), WhatsApp con el «sí» de
+    plata en grupo (fbd947d4f: lo confirma quien la pidió o «sí, MaKo»; DECISIÓN DEL CEREBRO, Martín puede revertirla
+    revirtiendo ese commit) y sin confirmar respuestas dirigidas a otro.
+- **Para el tren siguiente:**
+  - MaKo inteligente `e6f58be78` + `3a6c68d8d` (rama mako-inteligente-2710-c4): una guarda de herramienta cuenta como
+    regla. Verificación corta antes de mezclar; ojo con `lib/doer-salida.ts`, que ya resolvieron distinto dos ramas;
+  - MaKo en WhatsApp: el medio de la «línea del dueño» que cae sobre la línea de MaKo, los bajos y la señal
+    `esGuardaDeHerramienta` en su runTool (C:/dev/revisiones/2810-verificacion-wa-991abd4af.md).
+- **Esperando a Martín:**
+  - aprobar el #16 de Leila en el mazo: está en «esperando_decision» y el cron sólo cierra «en_curso»/«arreglado»;
+  - conectar un Google en el ws3 para MK-06 (el mensaje a Joan NO se mandó);
+  - el certificado de Windows.
+- **Revisiones:** cada informe está en `C:/dev/revisiones/`. Esta noche cada punta de plata, privacidad o sesión pasó por
+  revisión + refutador, y cada arreglo por una VERIFICACIÓN con los scripts del refutador. Así se frenaron cuatro
+  regresiones en cadena del grupo de WhatsApp (docs/hallazgos-comunicacion.md).
+- **Antes de cada VERDE, cada chat corre `node scripts/tsc-acotado.mjs` sobre sus .ts, tests incluidos:** el hook frenó
+  tren-o, tren-p y tren-q por tipos en tests; tren-r, chequeado así, pasó al primer intento.
+- **Chats vivos (claude4, bypass):** CRM y Chats, MaKo en WhatsApp, MaKo inteligente, «Web Generator: replicar landings»
+  (verifica el editor de la copia en producción) y el Runner `local_84a12d47`. Nube (koncke/mako, etiquetas
+  `nube/<área>-2710-<k>`, ninguna entregó todavía): Zernio, Planes, Automations (+ ticket #17 de Leandro), Landings,
+  Motion (+ silencios y ruido de Leila).
 
 ## Lo que NO se vuelve a discutir
 
