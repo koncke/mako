@@ -446,7 +446,8 @@ test('D1 video · «Discutir» contesta en texto y NUNCA devuelve operaciones, c
   assert.match(ia, /const d = salidaDeDiscutir\(salidaD\);/);
   // Con los adjuntos (28/10/2026) la instrucción puede venir de los archivos: lo que se fija es que la intención llega.
   assert.match(leer('app/api/video-editor/ia/route.ts'), /editarVideo\(\{ instruccion, linea: body\.linea, alcance: body\.alcance, archivos, intencion: body\.intencion \}\)/);
-  // Y que el panel la manda (hasta el 28/10, `pedirEdicion` la recibía y no la pasaba a la ruta).
+  // Y que el panel la manda (hasta el 28/10, `pedirEdicion` la recibía y no la pasaba a la ruta). Probado rompiéndolo
+  // (28/10, base 16/0): el `pedirIA` del panel sin la intención → 15/1.
   assert.match(leer('app/video-editor/_opencut/chat/PanelChat.tsx'), /pedirIA\(\{ instruccion: paraEditar, linea: vista\.json, alcance: alcanceReal, \.\.\.\(op\.intencion === "discutir" \? \{ intencion: "discutir" \} : \{\}\) \}/);
   assert.match(leer('lib/prompt-registry.ts'), /key: 'video_editor\.chat\.discutir'/);
 });

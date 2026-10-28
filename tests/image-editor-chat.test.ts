@@ -487,6 +487,7 @@ test('41: abrir el chat NO vuelve a guardar lo que ya está en la base (22/10/20
 
 test('42: la pantalla trae lo que propuso la API (con el foco del `?propuesta=`) y «Descartar» la cierra en la base (28/10/2026)', () => {
   // Hasta el 28/10 `iniciarPropuestasImagen` no la llamaba nadie: la API del Image Editor proponía y la pantalla nunca lo mostraba.
+  // Probado rompiéndolo (28/10, base 26/0): sin montar la búsqueda → 25/1; «Descartar» sólo en el hilo → 25/1.
   const panel = leer('app', 'image-editor', 'mako', 'chat', 'PanelMakoIA.tsx');
   assert.match(panel, /useEffect\(\(\) => iniciarPropuestasImagen\(editor, \{ foco: new URLSearchParams\(window\.location\.search\)\.get\('propuesta'\) \}\), \[editor\]\);/);
   // El link baja hasta su mensaje: el hueco lleva su id y el foco se limpia después de mostrarlo.

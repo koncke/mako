@@ -19,7 +19,10 @@ import { inicioPedazo } from './evaluar';
 import type { Capa, CapaCaja, CapaCifra, CapaForma, CapaTexto, Efecto, Escena, Tramo } from './tipos';
 
 export type AttrsHtml = { readonly [nombre: string]: string | undefined };
-export type NodoHtml = readonly [string, ...Array<AttrsHtml | NodoHtml | string>];
+// El hijo con nombre propio, como `HijoArbol` de grafico-svg.ts: con `Array<… | NodoHtml | …>` adentro de la tupla, el
+// alias se nombra a sí mismo y tsc no lo acepta (TS2456).
+export type HijoHtml = AttrsHtml | NodoHtml | string;
+export type NodoHtml = readonly [string, ...HijoHtml[]];
 
 const n2 = (x: number) => String(Math.round(x * 100) / 100);
 const n3 = (x: number) => String(Math.round(x * 1000) / 1000);
