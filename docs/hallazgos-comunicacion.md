@@ -162,17 +162,28 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
   · ⚠️ **Respetar la duda fue el arreglo equivocado** (la verificación de 4d1d0a010): el seguimiento de Leila SIN foto («son
     423, no 4235», capturar dudosa) quedaba en el camino barato sin herramientas. La duda se saca, porque el detector ya pide
     plata a la vista, y la plata puede estar en lo de antes (la foto, la respuesta de MaKo). En ese caso las cifras tienen
-    que ser de 3 dígitos o más y no un año. Con la plata en el mensaje, un 2000 es un monto.
-- **«He hecho», «he abierto» y «he escrito» dependen de QUÉ** (la revisión de 36e06b35f y su verificación). Leer: «He hecho
-  una búsqueda», «He abierto tu agenda y mañana tienes 2», «He escrito un resumen». Escribir: «He hecho el cambio de etapa»,
-  «He abierto un ticket», «Te abrí la reunión», «He escrito un mensaje a Juan».
-  · Sacarlos de la lista entera dejó pasar las escrituras. Ahora se mira el objeto (`LO_QUE_SE_LEE`), y «te/le abrí» nunca
-    es leer.
+    que ser de 3 dígitos o más y no un año, y el mensaje tiene que ser la corrección y nada más (`SOLO_LA_CORRECCION`: «son
+    120 no 150 leads» o «el código postal es 3300 no 3301» hablan de otra cosa). Con la plata en el mensaje, un 2000 es un
+    monto, salvo que se lo nombre como año («de 2026», «el año»).
+  · Y cuando la corrección pasa a ACTUAR, no trae el plan ni lo que confirma o cancela lo pendiente (`sinEstas`):
+    `cancelar_accion` actúa sin tarjeta.
+- **«He hecho», «he abierto» y «he escrito» dependen de QUÉ** (la revisión de 36e06b35f y sus dos verificaciones). Leer:
+  «He hecho una búsqueda», «He abierto la imagen y la cuota figura en…», «Te hice el cálculo», «He escrito un resumen».
+  Escribir: «He hecho el cambio de etapa», «He abierto un ticket», «Te abrí la reunión», «He escrito un mensaje a Juan».
+  · Sacarlos de la lista entera dejó pasar las escrituras, y una lista corta volvió a cortar lecturas, también la respuesta
+    a la foto de Leila. Ahora son dos listas, con plurales y artículos: lo que se HACE para leer (búsquedas, cuentas,
+    cálculos, chequeos) y lo que se ABRE para leer (imagen, archivo, PDF, chat, panel, reporte, campañas, Google Calendar).
+    «te/le abrí» nunca es leer; «te/le hice» sí.
 - ⚠️ **El lote se decide MENSAJE POR MENSAJE, no con las menciones juntas.** Unir las menciones (36e06b35f) arregló el 👍 y
   el silencio en «ventana», pero una @mención a Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍: era una
   regresión contra producción.
   · Ahora cada mensaje se clasifica con lo suyo (`paraQuienEsElMensaje`), lo que era para otra persona no entra al turno
     si otro mensaje es para MaKo, y el sintético lleva la decisión (`paraQuienDelLote`), no las menciones.
+  · ⚠️ **Sacar un mensaje del lote le saca el contexto a su respuesta** (la verificación de bb41ede4a): Ana «@Pedro ¿lo
+    confirmo?» y Pedro «sí». Quedaba el «sí» solo, y con una pendiente se EJECUTABA, aunque fuera de plata.
+  · **Regla: la respuesta corta a un mensaje para otro también es para otro, y lo que es para otro no lo vuelve para MaKo
+    ni una pendiente ni su pregunta.** Sólo un acuse se lee como «sí».
+  · El sintético lleva el nombre y el autor del último mensaje que QUEDA, no del último de la cola.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
 levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09fa3c3, lib/no-pude*.ts).

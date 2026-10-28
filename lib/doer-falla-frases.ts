@@ -67,12 +67,22 @@ const PIDE_CORREGIR = new RegExp([
   String.raw`(?<!\p{L})(?:montos?|cuotas?|mensualidad(?:es)?|importes?)\s+(?:\p{L}+\s+){0,3}(?:est[aá]n?|qued[oó]|quedaron|vino|vinieron|sali[oó])\s+mal(?!\p{L})`,
 ].join('|'), 'iu');
 
+/** Un AÑO nombrado como año («de 2026», «en 2025», «el año»): con eso, los 19xx/20xx no son montos, aunque haya plata en el
+ *  mensaje (la verificación de bb41ede4a: «la cuota vence en 2026 no 2025»). «la cuota es 2000 no 1500» sigue siendo un monto. */
+const HABLA_DE_ANIOS = /(?<!\p{L})años?(?!\p{L})|(?<!\p{L})(?:de|del|en|desde|hasta|para)\s+(?:19|20)\d{2}(?![\d.,])/iu;
+const DOS_CIFRAS_SIN_ANIOS = dosCifras(cifra(2, true));
+/** Con la plata sólo en lo de antes, el mensaje tiene que ser LA CORRECCIÓN y nada más: «son 423, no 4235», «pero son 423, no
+ *  4235». «son 120 no 150 leads», «el código postal es 3300 no 3301» u «oficina 302 no 303» hablan de otra cosa. */
+const SOLO_LA_CORRECCION = /^(?:(?:pero|son|es|era|eran|no|que|y|o|ojo|perd[oó]n|che|mako|digo|o sea|osea|bueno|en realidad|realmente|ah|eh|ser[ií]an?|me|deja|editar|cambiar|corregir|modificar|est[aá]n?|mal|el|la|los|las|de|del|monto|cuota|total)\s*[,.!:;]?\s*)*$/iu;
+
 /** `antes`: lo último de la charla (lo que dijo la persona y lo que contestó MaKo), para el seguimiento que no nombra la plata. */
 export function corrigeUnMonto(texto: string, antes = ''): boolean {
   const t = texto || '';
   if (PIDE_CORREGIR.test(t)) return true;
-  if (HAY_PLATA.test(t)) return DOS_CIFRAS.test(t);
-  return !!antes && HAY_PLATA.test(antes) && DOS_CIFRAS_POR_LO_DE_ANTES.test(t);
+  if (HAY_PLATA.test(t)) return (HABLA_DE_ANIOS.test(t) ? DOS_CIFRAS_SIN_ANIOS : DOS_CIFRAS).test(t);
+  if (!antes || !HAY_PLATA.test(antes)) return false;
+  const m = DOS_CIFRAS_POR_LO_DE_ANTES.exec(t);
+  return !!m && SOLO_LA_CORRECCION.test(t.replace(m[0], ' ').trim());
 }
 
 /**

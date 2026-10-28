@@ -118,9 +118,23 @@ test('8. «hecho», «abierto» y «escrito» dependen de QUÉ: una escritura se
   for (const f of ['Te dejé hecho el cambio de Juan.', 'Ya quedó abierto el ticket para el equipo.', 'Ya quedó hecho el cambio.']) {
     assert.ok(enElGrupo(f).texto.endsWith(SIN_HACER), `«${f}» salió igual`);
   }
-  // Y lo que se hace o se abre para LEER sigue pasando (test 7).
-  for (const f of ['He hecho la cuenta y llevas 14 leads este mes.', 'He abierto tu agenda y mañana tienes 2 reuniones.', 'Abrí tu agenda y mañana tienes 2 reuniones.'])
-    assert.equal(enElGrupo(f, false, false, true).texto, f);
+  // Y lo que se hace o se abre para LEER sigue pasando (test 7), con plurales, sin artículo y con «te/le hice» (la verificación
+  // de bb41ede4a: sin «imagen», la respuesta a la foto de Leila salía como «Eso no lo llegué a hacer»).
+  for (const f of [
+    'He hecho la cuenta y llevas 14 leads este mes.', 'He abierto tu agenda y mañana tienes 2 reuniones.',
+    'He abierto la imagen y la cuota de Nadia figura en USD 4235,29.', 'He abierto el archivo y dice que la cuota es USD 97.',
+    'He abierto la captura y se ve el error de Fathom.', 'He hecho las cuentas y llevas 14 leads este mes.', 'He hecho los cálculos y te quedan USD 300.',
+    'He abierto Google Calendar y mañana tienes 2 reuniones.', 'He abierto el panel y hay 3 leads nuevos.', 'He abierto el reporte de Meta y gastaste USD 40.',
+    'He abierto tus campañas y la del webinar va bien.', 'He hecho un chequeo y está todo en orden.', 'He hecho una comparación y octubre va mejor.',
+    'He abierto el chat de Juan y pidió la propuesta.', 'He abierto el PDF y dice que la cuota es USD 97.',
+  ]) for (const leyo of [false, true]) assert.equal(enElGrupo(f, false, false, leyo).texto, f, `«${f}» (leyó: ${leyo})`);
+  // Los pretéritos, con una lectura en el turno.
+  for (const f of [
+    'Abrí tu agenda y mañana tienes 2 reuniones.', 'Hice las cuentas y llevas 14 leads.', 'Te hice el cálculo y te quedan USD 300.', 'Le hice una búsqueda a Juan y está en Seguimiento.',
+    'Abrí tus campañas y la del webinar va bien.', 'Abrí la conversación con Juan y pidió la propuesta.', 'Abrí el Excel que mandaste y son 40 filas.',
+  ]) assert.equal(enElGrupo(f, false, false, true).texto, f, `«${f}»`);
+  // Lo que se CREA no es una lectura, aunque se nombre igual que algo que se abre.
+  assert.ok(enElGrupo('He hecho la campaña del webinar.', false, false, true).texto.endsWith(SIN_HACER));
 });
 
 test('6. el doer: cuenta lo que se escribió de verdad (no lo propuesto) y le pasa el respaldo al saneo', () => {

@@ -60,7 +60,16 @@ export type ParaQuienDelLote = { nombra: boolean; noEs: 'acuse' | 'a-otro' | nul
  * contestar en ventana cerrada también lo que era para Pedro. Ahora, si algún mensaje no es para otra persona, los que sí lo
  * son no entran al turno; y el lote lleva la decisión en vez de las menciones.
  */
-export function paraQuienDelLote<T extends { texto: string; para: ParaQuien }>(mensajes: readonly T[]): { quedan: T[]; decision: ParaQuienDelLote } {
+export function paraQuienDelLote<T extends { texto: string; para: ParaQuien }>(entrada: readonly T[]): { quedan: T[]; decision: ParaQuienDelLote } {
+  // ⚠️ LA RESPUESTA A UN MENSAJE PARA OTRO TAMBIÉN ES PARA OTRO (la verificación de bb41ede4a): Ana «@Pedro ¿lo confirmo?» y Pedro
+  // «sí». Sacar sólo el de Ana dejaba el «sí» solo, que con una pendiente se leía como confirmar y la EJECUTABA, aunque fuera de
+  // plata. Un «sí», un «dale» o un acuse que sigue a uno «a otro» (sin uno para MaKo en el medio) va con él.
+  let tras = false;
+  const mensajes = entrada.map((m) => {
+    const para: ParaQuien = m.para !== 'mako' && tras && esRespuestaCorta(m.texto) ? 'a-otro' : m.para;
+    tras = para === 'a-otro';
+    return para === m.para ? m : { ...m, para };
+  });
   const quedan = mensajes.some((m) => m.para !== 'a-otro') ? mensajes.filter((m) => m.para !== 'a-otro') : [...mensajes];
   const ningunoEs = quedan.every((m) => m.para === 'acuse' || m.para === 'a-otro');
   return {
@@ -74,9 +83,19 @@ export function paraQuienDelLote<T extends { texto: string; para: ParaQuien }>(m
 
 /** Por qué el mensaje NO es para MaKo, o null si lo es. */
 export function noEsParaMaKo(p: { texto: string; menciones: readonly string[]; nombraAMaKo: boolean; makoPregunto: boolean; hayPendientes: boolean }): 'acuse' | 'a-otro' | null {
-  if (p.nombraAMaKo || p.hayPendientes || p.makoPregunto) return null;
+  if (p.nombraAMaKo) return null;
+  // Una @mención a otra persona no es para MaKo AUNQUE haya algo pendiente (la verificación de bb41ede4a): «@Pedro sí,
+  // confirmalo vos» no es el «sí» de la pendiente. Lo pendiente o la pregunta de MaKo convierten en «sí» sólo un acuse.
   if (p.menciones.length) return 'a-otro';
+  if (p.hayPendientes || p.makoPregunto) return null;
   return esAcusePuro(p.texto) ? 'acuse' : null;
+}
+
+/** Una RESPUESTA corta («sí», «dale, ya te lo mando», «ok»): pegada a un mensaje para otra persona, le contesta a esa persona. */
+const RESPUESTA_CORTA = /^(?:s[ií]+|sip|dale|ok(?:ey|is)?|oka|listo|claro|bueno|perfecto|de una|obvio|joya|va|ya(?:\s+(?:te\s+)?lo)?|ah[ií] va|enseguida|ya mismo|gracias)(?!\p{L})/iu;
+export function esRespuestaCorta(texto: string): boolean {
+  const t = (texto || '').trim();
+  return t.length <= 60 && !t.includes('?') && (esAcusePuro(t) || RESPUESTA_CORTA.test(t));
 }
 
 /** Quién escribe, para el system: el nombre de WhatsApp. Sin nombre (o uno que es un número), nada. */

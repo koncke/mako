@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
 import { sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
@@ -117,16 +117,27 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   // La foto dentro de un lote, y un monto de 2000 con la plata en el mensaje (no es un año).
   assert.ok(corrigeUnMonto('(en este mensaje mandé una imagen, pero llegó junto a otros mensajes…)\nson 423, no 4235'));
   for (const f of ['la cuota es 2000 no 1500', 'la cuota es 1500 no 2000', 'cobrale 1990 no 1900 pesos']) assert.ok(corrigeUnMonto(f), `«${f}»`);
+  // La verificación de bb41ede4a: con plata sólo en lo de antes, el mensaje tiene que ser la corrección y nada más; y un año
+  // nombrado como año no es un monto, aunque haya plata en el mensaje.
+  const antesLeads = 'Llevas 14 leads, 3 ventas y 2 pagos pendientes.';
+  for (const [f, a] of [['son 120 no 150 leads', antesLeads], ['el código postal es 3300 no 3301', antes], ['la reunión es en la oficina 302 no 303', antes], ['el lote 145 no 146', antes]])
+    assert.ok(!corrigeUnMonto(f, a), `«${f}» con plata antes se ve como corrección`);
+  for (const f of ['la cuota de 2026 no 2025', 'el pago de 2025 no 2026', 'la cuota vence en 2026 no 2025', '(envió una imagen: el año es 2026, no 2025)'])
+    assert.ok(!corrigeUnMonto(f), `«${f}» toma el año como monto`);
+  // Y la corrección que cambia la intención no trae el plan ni lo que confirma o cancela lo pendiente.
+  assert.deepEqual([...laCorreccion(conFoto, '(envió una imagen) — no me deja editar que son 423, no 4235').sinEstas], [...FUERA_DE_LA_CORRECCION]);
+  assert.deepEqual([...FUERA_DE_LA_CORRECCION], ['proponer_tareas_plan', 'confirmar_accion', 'cancelar_accion']);
+  assert.deepEqual(laCorreccion(anotar, 'no me deja editar que son 423, no 4235').sinEstas, []);
   // Un pedido de agenda o de mover: sin el área ni la relevancia de cobros (el presupuesto es de la agenda).
   const agenda: VeredictoIntencion = { intencion: 'actuar', dudosa: false, porque: 'agenda', relevancia: RELEVANCIA_AGENDA, areas: ['crm'] };
   assert.equal(laCorreccion(agenda, 'la cuota es 423 no 4235').veredicto, agenda);
   // Un «sí» a algo pendiente: nada (otra editar_cuota dejaría dos pendientes con montos opuestos), y sin corrección, nada.
   const si: VeredictoIntencion = { intencion: 'confirmar', dudosa: false, porque: 'sí a lo pendiente' };
-  assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [] });
-  assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [] });
+  assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [], sinEstas: [] });
+  assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [], sinEstas: [] });
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const intencion = correccion\.veredicto;/);
-  assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools, \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
+  assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools\.filter\(\(t\) => !correccion\.sinEstas\.includes\(t\.name\)\), \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 
 test('7. el ticket de la falla se ABRE solo (Martín, 27/10): la nota pide la marca, y nunca proponerlo ni un «sí»', () => {

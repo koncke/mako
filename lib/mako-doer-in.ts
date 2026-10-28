@@ -597,6 +597,18 @@ async function numeroDeLaLinea(instance: string): Promise<string | null> {
   return numero;
 }
 
+/**
+ * Una imagen o un PDF NO entran en un lote: el turno sintético es texto plano y los bloques nativos no viajan. Antes
+ * desaparecían sin dejar rastro — mandabas la captura junto a un mensaje y MaKo contestaba como si no existiera. Ahora al menos
+ * se nombra, así MaKo puede pedirla de nuevo. El MISMO texto en el lote del turno y en el del cron (la verificación de
+ * bb41ede4a: el cron salteaba la imagen sin texto, y no contaba como para MaKo).
+ */
+function conLaMarcaDelAdjunto(p: MsgIn, t: string): string {
+  const otro = adjuntoDe(p);
+  if (!otro || otro.tipo === 'texto') return t;
+  return `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pídemela suelta si la necesitas)`;
+}
+
 /** Para quién es UN mensaje del lote (lib/doer-para-quien.ts, `paraQuienDelLote`): el sintético es texto plano, así que la
  *  decisión se toma acá, mensaje por mensaje, con sus menciones y su texto. Un audio o un adjunto son deliberados: para MaKo. */
 async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string): Promise<ParaQuien> {
@@ -621,7 +633,11 @@ async function noEsParaMaKoAhora(wsData: number, jid: string, texto: string, qui
   if (nombraAMaKo(texto) || quien.aMaKo || delLote?.nombra) return null;
   // Un lote ya lo decidió mensaje por mensaje (`paraQuienDelLote`): su texto unido no es un acuse, y sus menciones no viajan.
   const candidato = delLote ? delLote.noEs : noEsParaMaKo({ texto, menciones: quien.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
-  if (!candidato || (await hayPendientes())) return null;
+  // Lo que es para otra persona no lo vuelve para MaKo ni una pendiente ni su pregunta (la verificación de bb41ede4a: un «sí»
+  // a otro confirmaba la pendiente). Sólo un acuse se lee como «sí».
+  if (!candidato) return null;
+  if (candidato === 'a-otro') return candidato;
+  if (await hayPendientes()) return null;
   const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
   const pregunto = ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
   return pregunto ? null : candidato;
@@ -716,7 +732,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   const suyaTapada = !!tapado?.tapadas && escribioUnaClave(data);
   const soloClave = suyaTapada && soloLaClave(texto) && !audio && !adjunto;
   if (!soloClave) {
-    const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
+    // Con la instancia que lo recibió (`instance`, del webhook): el cron que destraba la cola la necesita para conocer la línea.
+    const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: { ...data, instance } as unknown });
     if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
   }
 
@@ -785,7 +802,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // VARIOS → un solo turno con todo junto. Los audios se transcriben ahora (uno por
     // uno) y el texto se arma numerado, para que el modelo entienda que fueron mensajes
     // separados y que el último puede corregir al primero.
-    const textos: Array<{ texto: string; para: ParaQuien }> = [];
+    const textos: Array<{ texto: string; para: ParaQuien; payload: MsgIn }> = [];
     for (const m of cola) {
       const p = (m.payload as MsgIn) ?? {};
       let t = m.texto.trim();
@@ -795,23 +812,18 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       // perdería el archivo — que es justo lo que pasaba.
       const arch = await textoDeArchivo(instance, p);
       if (arch) t = arch.texto || arch.error || t;
-      // Una imagen o un PDF NO entran en un lote: el turno sintético es texto plano y
-      // los bloques nativos no viajan. Antes desaparecían sin dejar rastro — mandabas
-      // la captura junto a un mensaje y MaKo contestaba como si no existiera. Ahora al
-      // menos se nombra, así MaKo puede pedirla de nuevo en vez de ignorarla.
-      const otro = adjuntoDe(p);
-      if (otro && otro.tipo !== 'texto') {
-        t = `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pídemela suelta si la necesitas)`;
-      }
-      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t) });
+      t = conLaMarcaDelAdjunto(p, t);
+      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t), payload: p });
     }
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
     // Para quién era cada mensaje (lib/doer-para-quien.ts): lo que era para otra persona no entra si otro es para MaKo.
     const lote = paraQuienDelLote(textos);
-    const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? data;
+    // El último de lo que QUEDA (la verificación de bb41ede4a): con el último de la cola, si era para otro, el system nombraba a
+    // Pedro («QUIÉN TE ESCRIBE AHORA») y el actor del ticket era Pedro, aunque el turno fuera el pedido de Ana.
+    const ultimo = lote.quedan[lote.quedan.length - 1]?.payload ?? data;
     // ¿Lo escribió UNA sola persona? El sintético lleva el `participant` del último: con dos autores, ése no prueba quién pidió
     // lo de arriba, y la computadora del dueño no lo atiende (docs/conexiones-y-ayuda.md, decisión 2).
-    const autores = new Set(cola.map((m) => ((m.payload as MsgIn) ?? {}).key?.participant ?? ''));
+    const autores = new Set(lote.quedan.map((m) => m.payload.key?.participant ?? ''));
     const sintetico: MsgIn = {
       // `participant`: quién escribió (el ticket lo lee, lib/doer-ticket.ts). Sin esto se perdía en todo lote.
       key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
@@ -1310,8 +1322,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const reporta = reportaFalla(sinPrefijoDeLote(texto));
     // Una corrección de monto («son 423, no 4235», Leila) trae con qué encontrar el lead y PROPONER el cambio, después del
     // presupuesto del registro: las que `laCorreccion` decidió (ninguna en un «sí» pendiente).
+    // Sin lo que ACTUAR trae de siempre y una corrección no lleva (`sinEstas`: el plan, confirmar y cancelar lo pendiente).
     const delTurno = correccion.herramientas.length
-      ? [...turno.tools, ...CORRECCION_TOOLS.filter((c) => correccion.herramientas.includes(c.name) && !turno.tools.some((t) => t.name === c.name))]
+      ? [...turno.tools.filter((t) => !correccion.sinEstas.includes(t.name)), ...CORRECCION_TOOLS.filter((c) => correccion.herramientas.includes(c.name) && !turno.tools.some((t) => t.name === c.name))]
       : turno.tools;
     const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno.some((t) => t.name === LEVANTAR_TICKET) ? [...delTurno, ...TICKET_TOOLS] : delTurno;
     // Y pedir VER la agenda trae `agenda_del_dia` aunque el clasificador no la haya puesto (P6: mandaba a calendar.google.com).
@@ -2487,16 +2500,19 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
         try {
           const cola = await pendientes(jid);
           if (!cola.length) return false;
-          const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? {};
-          const instancia = String((ultimo as { instance?: string }).instance ?? '');
-          const textos: Array<{ texto: string; para: ParaQuien }> = [];
+          // La instancia viene del webhook (`body.instance`): `bufferearYResponder` la guarda en el payload al encolar. Sin ella, la
+          // línea de MaKo no se conocía y ninguna @mención contaba (la verificación de bb41ede4a; ya pasaba antes).
+          const instancia = cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
+          const textos: Array<{ texto: string; para: ParaQuien; payload: MsgIn }> = [];
           for (const m of cola) {
             const p = (m.payload as MsgIn) ?? {};
             let t = m.texto.trim();
-            if (!t && audioDe(p)) t = await transcribirDeMensaje('', p);
-            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t) });
+            if (!t && audioDe(p)) t = await transcribirDeMensaje(instancia, p);
+            t = conLaMarcaDelAdjunto(p, t);
+            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t), payload: p });
           }
           const lote = paraQuienDelLote(textos);
+          const ultimo = lote.quedan[lote.quedan.length - 1]?.payload ?? ((cola[cola.length - 1].payload as MsgIn) ?? {});
           if (textos.length) {
             const sintetico: MsgIn = {
               key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },

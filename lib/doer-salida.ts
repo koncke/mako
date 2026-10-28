@@ -121,10 +121,17 @@ const DEJE_HECHO = /(?<!\p{L})dejé(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!
  * y se cortan. Sacarlos de la lista entera (36e06b35f) dejó pasar estas últimas.
  */
 const PARTICIPIO_ESCRITO = String.raw`(?:(?:mand|envi|agend|cre|arm|carg|public|cambi|borr|guard|configur|program|anot|actualiz|edit|agreg|elimin|activ|paus|apag|asign|cancel|confirm|marc|reprogram|avis|registr|report|levant|notific)ad|(?:mov|sub|prend|respond)id|inscript|inscrit)[oa]s?`;
-/** Lo que se hace o se abre para LEER: «una búsqueda», «la cuenta», «tu agenda», «la ficha». */
-const LO_QUE_SE_LEE = String.raw`(?:una|la|el|un|tu|su|sus|tus)\s+(?:búsqueda|busqueda|cuenta|revisión|revision|análisis|analisis|consulta|repaso|resumen|lectura|cálculo|calculo|agenda|calendario|crm|ficha|informe|métricas|metricas|tablero)(?!\p{L})`;
-/** «hecho» y «abierto», salvo sobre lo que se lee; y «te/le abrí» nunca es leer (es abrirle algo a alguien). */
-const HECHO_O_ABIERTO = String.raw`(?:hech|abiert)[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_LEE})`;
+/** El artículo o el posesivo, si hay («Abrí Google Calendar» no lleva). */
+const ARTICULO = String.raw`(?:(?:una|unas|un|unos|la|las|el|los|tu|tus|su|sus|mi|mis)\s+)?`;
+/** Lo que se HACE para leer («una búsqueda», «las cuentas», «los cálculos»): «hecho» o «hice» con esto es una lectura. Nunca
+ *  lo que se crea (una campaña, una tarea): eso es escribir. */
+const LO_QUE_SE_HACE_PARA_LEER = String.raw`${ARTICULO}(?:b[uú]squedas?|cuentas?|revisi(?:ón|on|ones)|an[aá]lisis|consultas?|repasos?|res[uú]men(?:es)?|lecturas?|c[aá]lculos?|chequeos?|comparaci(?:ón|on|ones)|verificaci(?:ón|on|ones))(?!\p{L})`;
+/** Lo que se ABRE para leer («la imagen», «el PDF», «tus campañas», «Google Calendar»): «abierto» o «abrí» con esto es leer.
+ *  La verificación de bb41ede4a: sin «imagen», la respuesta a la foto de Leila («He abierto la imagen y la cuota figura en USD
+ *  4235,29») salía como «Eso no lo llegué a hacer». */
+const LO_QUE_SE_ABRE_PARA_LEER = String.raw`${ARTICULO}(?:agendas?|calendarios?|google\s+calendar|crm|fichas?|informes?|m[eé]tricas?|tableros?|im[aá]gen(?:es)?|imagen|fotos?|capturas?|archivos?|pdfs?|excels?|planillas?|documentos?|chats?|conversaci(?:ón|on|ones)|panel(?:es)?|reportes?|campañas?|campanas?)(?!\p{L})`;
+/** «hecho» y «abierto», salvo sobre lo que se lee. */
+const HECHO_O_ABIERTO = String.raw`(?:hech[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_HACE_PARA_LEER})|abiert[oa]s?(?!\p{L})(?!\s+${LO_QUE_SE_ABRE_PARA_LEER}))`;
 /** «te lo dejo anotado», «te dejé agendada la reunión», «te dejé hecho el cambio». */
 const DEJE_ESCRITO = new RegExp(String.raw`(?<!\p{L})(?:dejé|dejo)(?:\s+\p{L}+){0,2}\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_ABIERTO})`, 'u');
 /** «He reportado el error al equipo», «le he avisado» (Leila): el pretérito perfecto, en primera persona. «He hecho el cambio»,
@@ -135,7 +142,8 @@ const ESCRITO_A = /(?<!\p{L})(?:(?:le|les)\s+he\s+escrito|he\s+escrito\s+(?:a|al
 /** Los pretéritos que también cuentan una LECTURA, SOBRE LO QUE SE LEE («Hice una búsqueda en tu CRM», «Abrí tu agenda y
  *  mañana tienes 2»): en el grupo, con una lectura en el turno, no cortan. «Hice el cambio de etapa», «Abrí un ticket» y «Te
  *  abrí la reunión», sí. */
-const PRETERITO_DE_LECTURA = new RegExp(String.raw`(?<!(?:te|le|les|me)\s)(?<!\p{L})(?:hice|abrí)(?=\s+${LO_QUE_SE_LEE})`, 'gu');
+// «Te hice el cálculo» y «Le hice una búsqueda a Juan» son lecturas; «Te abrí la reunión», no (abrirle algo a alguien).
+const PRETERITO_DE_LECTURA = new RegExp(String.raw`(?<!\p{L})(?:hice(?=\s+${LO_QUE_SE_HACE_PARA_LEER})|(?<!(?:te|le|les|me)\s)abrí(?=\s+${LO_QUE_SE_ABRE_PARA_LEER}))`, 'gu');
 /** «Ya quedó registrado que le escribiste», «ya quedó agendado el recordatorio», «ya quedó abierto el ticket»: con el «ya», MaKo
  *  lo da por hecho; sin él («quedó agendada para el lunes») puede ser lo que leyó, y se deja. */
 const YA_QUEDO = new RegExp(String.raw`(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+(?:${PARTICIPIO_ESCRITO}(?!\p{L})|${HECHO_O_ABIERTO})`, 'u');

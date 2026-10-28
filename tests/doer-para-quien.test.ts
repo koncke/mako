@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, esAcusePuro, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type ParaQuien } from '../lib/doer-para-quien';
+import { bloqueQuienEscribe, esAcusePuro, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type ParaQuien } from '../lib/doer-para-quien';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const base = { nombraAMaKo: false, makoPregunto: false, hayPendientes: false, menciones: [] as string[] };
@@ -87,6 +87,16 @@ test('7. el lote se decide MENSAJE POR MENSAJE: una @mención a otro no calla lo
   // «@MaKo …» + «@Pedro pasame el contrato» (ventana cerrada): contesta lo de MaKo, sin lo de Pedro.
   const b = paraQuienDelLote([m('@MaKo ¿cuántos leads?', 'mako'), m('@Pedro pasame el contrato de Juan', 'a-otro')]);
   assert.deepEqual([b.quedan.length, b.decision.nombra], [1, true]);
+  // ⚠️ La verificación de bb41ede4a: Ana «@Pedro ¿lo confirmo?» y Pedro «sí». Sacar sólo el de Ana dejaba el «sí» solo, que con
+  // una pendiente la EJECUTABA. La respuesta corta a un mensaje para otro también es para otro: el lote entero no es para MaKo.
+  const si = paraQuienDelLote([m('@Pedro ¿lo confirmo?', 'a-otro'), m('sí', null)]);
+  assert.deepEqual([si.quedan.length, si.decision], [2, { nombra: false, noEs: 'a-otro' }], 'el «sí» a Pedro quedó solo, para MaKo');
+  assert.deepEqual(paraQuienDelLote([m('@Pedro ¿me pasás el contrato?', 'a-otro'), m('dale, ya te lo mando', null)]).decision, { nombra: false, noEs: 'a-otro' });
+  // Con algo para MaKo en el lote, la pregunta a Pedro y su «sí» no entran; lo que viene DESPUÉS de lo de MaKo, sí.
+  const mezcla = paraQuienDelLote([m('mako, ¿cuántos leads entraron hoy?', 'mako'), m('@Pedro ¿lo confirmo?', 'a-otro'), m('sí', null)]);
+  assert.deepEqual(mezcla.quedan.map((x) => x.texto), ['mako, ¿cuántos leads entraron hoy?']);
+  assert.deepEqual(paraQuienDelLote([m('@Pedro mirá', 'a-otro'), m('mako, ¿y los leads?', 'mako'), m('sí', null)]).quedan.map((x) => x.texto), ['mako, ¿y los leads?', 'sí']);
+  assert.ok(esRespuestaCorta('sí') && esRespuestaCorta('dale, ya te lo mando') && !esRespuestaCorta('¿cuántos leads entraron hoy?'));
   // Todo para otro, o sólo acuses: no es para MaKo.
   assert.deepEqual(paraQuienDelLote([m('@Pedro ¿me pasás el contrato?', 'a-otro'), m('@Pedro dale', 'a-otro')]).decision, { nombra: false, noEs: 'a-otro' });
   assert.deepEqual(paraQuienDelLote([m('gracias', 'acuse'), m('genial', 'acuse')]).decision, { nombra: false, noEs: 'acuse' });
@@ -98,4 +108,13 @@ test('7. el lote se decide MENSAJE POR MENSAJE: una @mención a otro no calla lo
   assert.match(doer, /: data\.paraQuien \? \{ aMaKo: data\.paraQuien\.nombra, aOtros: \[\] \}/);
   assert.match(doer, /noEsParaMaKoAhora\(wsData, jid, textoDirecto, quien, async \(\) => vigentes\.length > 0, data\.paraQuien\)/);
   assert.match(doer, /const candidato = delLote \? delLote\.noEs : noEsParaMaKo\(/);
+  // Lo que es para otra persona no lo vuelve para MaKo ni una pendiente ni su pregunta: sólo un acuse se lee como «sí».
+  assert.match(doer, /if \(!candidato\) return null;\n\s*if \(candidato === 'a-otro'\) return candidato;\n\s*if \(await hayPendientes\(\)\) return null;/);
+  assert.equal(noEsParaMaKo({ ...base, texto: '@Pedro sí, confirmalo vos', menciones: ['5491100000000@s.whatsapp.net'], hayPendientes: true, makoPregunto: true }), 'a-otro');
+  // El sintético nombra a quien escribió lo que QUEDA (no al último de la cola), y el cron decide como el turno.
+  assert.match(doer, /const ultimo = lote\.quedan\[lote\.quedan\.length - 1\]\?\.payload \?\? data;/);
+  assert.match(doer, /const autores = new Set\(lote\.quedan\.map\(\(m\) => m\.payload\.key\?\.participant \?\? ''\)\);/);
+  assert.equal((doer.match(/t = conLaMarcaDelAdjunto\(p, t\);/g) ?? []).length, 2, 'el cron no marca la imagen sin texto');
+  assert.match(doer, /payload: \{ \.\.\.data, instance \} as unknown/, 'la cola no guarda la instancia: el cron no conoce la línea');
+  assert.match(doer, /const instancia = cola\.map\(\(m\) => String\(\(\(m\.payload as \{ instance\?: unknown \}\) \?\? \{\}\)\.instance \?\? ''\)\)\.find\(Boolean\) \?\? '';/);
 });
