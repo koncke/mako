@@ -196,7 +196,7 @@ async function main() {
   db.calendario_eventos.push(evento('ev3', { inicio: '2026-11-05T13:00:00.000Z', archivo: null, archivo_tipo: null }));
   db.calendario_eventos.push(evento('ev4', { inicio: '2026-11-20T13:00:00.000Z' }));
   db.calendario_eventos.push(evento('ev5', { inicio: '2026-11-06T13:00:00.000Z', dia_completo: true }));
-  const op = RUNNERS.programar_publicacion as { preparar: (i: Record<string, unknown>) => Promise<Record<string, unknown>>; ejecutar: (p: Record<string, unknown>) => Promise<Record<string, unknown>> };
+  const op = RUNNERS.programar_publicacion as unknown as { preparar: (i: Record<string, unknown>) => Promise<Record<string, unknown>>; ejecutar: (p: Record<string, unknown>) => Promise<Record<string, unknown>> };
   const prep = await enWs(() => op.preparar({ desde: '2026-11-02', hasta: '2026-11-08' }));
   const antesDeConfirmar = posts0().length;
   const ejec = 'payload' in (prep as object) ? await enWs(() => op.ejecutar((prep as { payload: Record<string, unknown> }).payload)) : null;
