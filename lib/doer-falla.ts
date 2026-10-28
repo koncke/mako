@@ -83,6 +83,17 @@ export function laCorreccion(v: VeredictoIntencion, texto: string, antes = ''): 
   };
 }
 
+/**
+ * ¿La «última» sigue siendo una guarda después de esta herramienta? (para `esLaReglaDeUnaGuarda`, lib/no-pude.ts). Una guarda la
+ * prende; una escritura, un error o una falla tragada la apagan; una LECTURA que anduvo no la cambia (la verificación de tren-t:
+ * «falta el monto» + un `buscar_leads` que anduvo + «me falta el monto» abría un ticket por una regla). El costo: después de una
+ * guarda y una lectura, un «no pude» de otra cosa queda como la regla.
+ */
+export function laUltimaFueGuarda(antes: boolean, s: { guarda: boolean; tragada: boolean; error: boolean; escribe: boolean }): boolean {
+  if (s.guarda) return true;
+  return s.escribe || s.tragada || s.error ? false : antes;
+}
+
 /** Lo que ACTUAR trae de siempre y una corrección de monto no lleva: el plan y las que resuelven lo pendiente. */
 export const FUERA_DE_LA_CORRECCION = ['proponer_tareas_plan', 'confirmar_accion', 'cancelar_accion'] as const;
 

@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, laUltimaFueGuarda, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
@@ -230,22 +230,44 @@ test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pu
   for (const t of [tragada, tragadaJson]) assert.ok(esFallaTragadaDeHerramienta(t) && !esGuardaDeHerramienta(t), t);
   assert.ok(!esFallaTragadaDeHerramienta({ content: 'Error 500', isError: true }), 'un isError ya lo ve errorParaTicket');
   // El turno: la regla sólo si la ÚLTIMA fue la guarda y nada falló de verdad.
-  const turno = (salidas: unknown[], errores = 0) => esLaReglaDeUnaGuarda({
-    ultimaFueGuarda: esGuardaDeHerramienta(salidas[salidas.length - 1]), errores, tragadas: salidas.filter(esFallaTragadaDeHerramienta).length,
-  });
+  // El turno, como lo arma el doer: cada salida pasa por `laUltimaFueGuarda` (una lectura que anduvo no cambia la última), y lo que
+  // REVIENTA (`REVIENTA`) apaga la última y cuenta como tragada (la verificación de tren-t).
+  const REVIENTA = Symbol('throw');
+  type Salida = unknown | [unknown, 'escribe' | 'lee'];
+  const turno = (salidas: Salida[], errores = 0) => {
+    let ultima = false; let tragadas = 0;
+    for (const s of salidas) {
+      if (s === REVIENTA) { ultima = false; tragadas++; continue; }
+      const [out, tipo] = Array.isArray(s) ? s : [s, 'escribe'];
+      ultima = laUltimaFueGuarda(ultima, { guarda: esGuardaDeHerramienta(out), tragada: esFallaTragadaDeHerramienta(out), error: (out as { isError?: unknown })?.isError === true, escribe: tipo === 'escribe' });
+      if (esFallaTragadaDeHerramienta(out)) tragadas++;
+    }
+    return esLaReglaDeUnaGuarda({ ultimaFueGuarda: ultima, errores, tragadas });
+  };
+  const leyoBien: Salida = [JSON.stringify([{ id: 5, nombre: 'Juan' }]), 'lee'];
   assert.equal(turno([guarda]), true, 'la guarda sola es la regla');
   assert.equal(turno([guarda, tragada]), false, 'la guarda + el reintento que se tragó el error de la base');
   assert.equal(turno([guarda, tragadaJson]), false);
   assert.equal(turno([tragada, guarda]), false, 'una falla tragada ANTES de la guarda: la guarda es la última, y la falla sigue');
-  assert.equal(turno([guarda, JSON.stringify({ ok: true, total: 3 })]), false, 'una guarda vieja y un «no pude» de otra cosa');
+  assert.equal(turno([guarda, [JSON.stringify({ ok: true, id: 9 }), 'escribe']]), false, 'una guarda vieja, una escritura que anduvo y un «no pude» de otra cosa');
+  // La verificación de tren-t: una herramienta que REVIENTA después de la guarda es una falla (abre ticket)…
+  assert.equal(turno([guarda, REVIENTA]), false, 'la guarda + una herramienta que tira');
+  assert.equal(turno([guarda, leyoBien, REVIENTA]), false);
+  // …y una lectura que anduvo después de la guarda no cambia la última («me falta el monto» es la regla, no un ticket).
+  assert.equal(turno([guarda, leyoBien]), true, 'la guarda + una lectura que anduvo');
+  assert.equal(turno([guarda, [{ content: 'Error 500', isError: true }, 'lee']], 0), false, 'una lectura que falló sí la apaga');
+  assert.equal(turno([leyoBien]), false, 'una lectura sola no es una guarda');
   assert.equal(turno([guarda], 1), false, 'con un error del turno');
   // El doer: cada salida actualiza la última y cuenta las tragadas, y la regla sale de la función. Los detectores son los de
   // lib/no-pude.ts (MaKo inteligente, ae1660f9a: los mismos del turno de la app), sin copia en lib/doer-falla.ts.
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /import \{ esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, [^}]*\} from '@\/lib\/no-pude';/);
-  assert.doesNotMatch(leer('lib/doer-falla.ts'), /esFallaTragadaDeHerramienta|esLaReglaDeUnaGuarda/, 'volvió la copia de los detectores');
+  assert.doesNotMatch(leer('lib/doer-falla.ts'), /(?:function|const) (?:esFallaTragadaDeHerramienta|esLaReglaDeUnaGuarda)\b/, 'volvió la copia de los detectores');
   // Lo repetido del memo también es lo último que vio el modelo.
-  assert.match(doer, /if \(previo\) \{[\s\S]{0,400}?ultimaFueGuarda = esGuardaDeHerramienta\(previo\.out\);\n\s*return previo\.out/);
-  assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*ultimaFueGuarda = esGuardaDeHerramienta\(out\);\n\s*if \(esFallaTragadaDeHerramienta\(out\)\) tragadasDelTurno\+\+;/);
+  assert.match(doer, /if \(previo\) \{[\s\S]{0,400}?anotarLaUltima\(name, previo\.out\);\n\s*return previo\.out/);
+  assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*anotarLaUltima\(name, out\);\n\s*if \(esFallaTragadaDeHerramienta\(out\)\) tragadasDelTurno\+\+;/);
+  assert.match(doer, /ultimaFueGuarda = laUltimaFueGuarda\(ultimaFueGuarda, \{\n\s*guarda: esGuardaDeHerramienta\(out\), tragada: esFallaTragadaDeHerramienta\(out\),\n\s*error: [^\n]*escribe: escribeDeVerdad\(name\),/);
+  // Lo que revienta: la última se apaga y cuenta como tragada, y el error sigue al loop (el modelo lo ve).
+  assert.match(doer, /const out = await correr\(\)\.catch\(\(e: unknown\) => \{ ultimaFueGuarda = false; tragadasDelTurno\+\+; throw e; \}\);\n\s*memo\.anotar\(name, out\);/);
   assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{\}\);/);
 });

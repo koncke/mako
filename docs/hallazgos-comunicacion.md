@@ -234,6 +234,8 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
       con reintento (dos envíos a la vez perdían un id), lectura ESTRICTA (un error al leer era «anillo vacío» y pisaba los 39
       anteriores), y entrar por el envío de más abajo (`enviarTextoVozMaKo`): el grupo SuperAdmin y la bienvenida quedaban afuera.
       La voz se lee estricta también para decidir «es la línea de MaKo»: la otra convierte un error en «mako_ws1».
+      Cada vuelta del compare-and-set gana UNO: con 3 intentos, 4 envíos a la vez al mismo grupo perdían un id (tren-t). Son 6,
+      con una espera al azar; más de 6 a la vez todavía puede perder uno (lo cerraría un append atómico en la base).
     · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
       nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
       ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
@@ -265,8 +267,16 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     ÚLTIMA herramienta fue la guarda y no hubo errores ni fallas tragadas (`esLaReglaDeUnaGuarda` y `esFallaTragadaDeHerramienta`,
     lib/no-pude.ts: MaKo inteligente los movió ahí en ae1660f9a y arregló igual el turno de la app). Lo repetido del memo también
     cuenta como lo último que vio el modelo.
+  · ⚠️ **Lo que REVIENTA no pasa por la salida** (la verificación de tren-t): «la última» se anotaba después del `await`, el throw
+    salía antes y la guarda vieja seguía siendo la última; el loop atrapa el throw sin `errorParaTicket`. Ahora lo que revienta
+    apaga la última y cuenta como tragada. Y una LECTURA que anduvo no cambia la última (`laUltimaFueGuarda`, lib/doer-falla.ts):
+    «falta el monto» + `buscar_leads` + «me falta el monto» abría un ticket por una regla. El costo: guarda + lectura + un «no
+    pude» de otra cosa queda como la regla. Avisado a MaKo inteligente para el turno de la app.
 
 **Sin hacer:**
+- **El anillo anti-eco no tiene tope de tiempo** (la verificación de tren-t): `enviarTextoVozMaKo` espera al anillo, y
+  `getSettingEstricto` / `cambiarSettingSi` no cortan. Con la base colgada, una alarma al grupo SuperAdmin o la bienvenida (ya
+  salidas) vuelven recién a los ~8 s. No duplica nada; sólo atrasa al que llama (lib/mako-grupo.ts, `anotarEnviadosAlGrupo`).
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
   se compara por el `participant` exacto, así que PN↔`@lid`, o el dueño con y sin `participant`, piden «sí, MaKo» aunque sea
   quien la pidió (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); en un lote, la cita a MaKo se pierde (el sintético no

@@ -673,17 +673,21 @@ export async function anotarEnviadosAlGrupo(ws: number, jid: string, ids: readon
   if (!jid || !nuevos.length) return;
   try {
     await runWithWorkspace(ws, async () => {
-      for (let intento = 0; intento < 3; intento++) {
+      // Cada vuelta gana UNO de los que compiten: con 3 intentos, 4 envíos a la vez perdían un id (la verificación de tren-t). Seis,
+      // con una espera al azar entre vuelta y vuelta para que no choquen otra vez.
+      for (let intento = 0; intento < INTENTOS_DEL_ANILLO; intento++) {
+        if (intento > 0) await new Promise((r) => setTimeout(r, 10 + Math.random() * 60));
         const raw = await getSettingEstricto(KEY_ENVIADOS(jid));
         const next = [...delAnillo(raw).filter((x) => !nuevos.includes(x)), ...nuevos].slice(-40); // ring buffer
         if (await cambiarSettingSi(KEY_ENVIADOS(jid), raw, JSON.stringify(next))) return;
       }
-      console.warn(`[mako-grupo] anti-eco de ${jid}: otro envío ganó tres veces; no se anotó ${nuevos.join(',')}`);
+      console.warn(`[mako-grupo] anti-eco de ${jid}: otro envío ganó ${INTENTOS_DEL_ANILLO} veces; no se anotó ${nuevos.join(',')}`);
     });
   } catch (e) {
     console.error(`[mako-grupo] anti-eco de ${jid}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
+const INTENTOS_DEL_ANILLO = 6;
 const delAnillo = (raw: string | null): string[] => {
   if (!raw) return [];
   try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }

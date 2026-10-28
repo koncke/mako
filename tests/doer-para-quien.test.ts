@@ -236,6 +236,9 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(anotar, /if \(await cambiarSettingSi\(KEY_ENVIADOS\(jid\), raw, JSON\.stringify\(next\)\)\) return;/);
   assert.match(anotar, /\} catch \(e\) \{/);
   assert.doesNotMatch(anotar, /setSetting\(/, 'el anillo volvió a escribir sin compare-and-set');
+  // Seis vueltas con una espera al azar: con tres, cuatro envíos a la vez perdían un id (la verificación de tren-t).
+  assert.match(grupo, /const INTENTOS_DEL_ANILLO = 6;/);
+  assert.match(anotar, /for \(let intento = 0; intento < INTENTOS_DEL_ANILLO; intento\+\+\) \{\n\s*if \(intento > 0\) await new Promise\(\(r\) => setTimeout\(r, 10 \+ Math\.random\(\) \* 60\)\);/);
   const maKo = grupo.slice(grupo.indexOf('export async function enviarAlGrupoMaKo('), grupo.indexOf('export async function enviarPartesAlGrupoMaKo('));
   assert.match(maKo, /if \(id\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[id\]\)\.catch\(\(\) => \{\}\);/);
   assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, r\.ids\)\.catch\(\(\) => \{\}\);/);
