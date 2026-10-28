@@ -144,6 +144,7 @@ const NO_LLEGAN: Record<string, string> = {
   avisar_al_equipo: 'es un aviso al grupo del negocio (el equipo), no al lead',
   marcar_visto_operaciones: '«No le manda nada al chat»: sólo pone el ✓ de «Ya lo vi» en el Ops Center de la plataforma',
   configurar_horario_envio: 'cambia el horario de oficina de las automatizaciones: a qué hora PUEDEN escribir, no manda nada al confirmarse',
+  volver_a_probar_lead_secuencia: '«No le manda nada ahora»: marca la inscripción terminada; le escribe recién lo próximo que la arranca (un comentario, un mensaje suyo)',
 };
 
 test('una acción de chat que dice que le escribe, le avisa o le manda algo a alguien está marcada, o su excepción dice por qué no', () => {
