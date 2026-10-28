@@ -48,6 +48,38 @@ export function quienesMencionados(menciones: readonly string[], numeroLinea: st
   return { aMaKo, aOtros: aMaKo || aOtros.length < menciones.length ? [] : aOtros };
 }
 
+/**
+ * EL LLAMADO A MaKo NO ES CONTENIDO: «@MaKo sí» es un «sí» (la verificación de 8cb034a18). Elegir a MaKo con la @ escribe el número
+ * de su línea, y ese número contaba como una palabra más: `confirmacionPura` no lo daba por un «sí» solo, y el clasificador no
+ * veía el «sí» del arranque (capturar, dudosa, sin `confirmar_accion`). Se saca, al arranque de cada mensaje (también en un lote,
+ * «(2) @… sí»), la @ de la línea que recibe, y un «MaKo,» que va delante de una confirmación («MaKo, sí»). Sin la línea, el texto
+ * queda como está; un `@lid` tampoco se compara.
+ */
+export function sinElLlamadoAMaKo(texto: string, numeroLinea: string | null): string {
+  const linea = numeroLinea ? ult10(numeroLinea.replace(/\D/g, '')) : '';
+  return (texto || '').split('\n').map((renglon) => {
+    const [, numero = '', resto = renglon] = /^(\(\d+\) )?([\s\S]*)$/.exec(renglon) ?? [];
+    let r = resto;
+    for (let i = 0; i < 3; i++) {
+      const antes = r;
+      r = r.replace(/^\s*@(\d{8,15})(?!\d)[\s,:.!]*/, (m, d: string) => (linea && ult10(d) === linea ? '' : m));
+      r = r.replace(/^\s*mako[\s,:.!¡]+(?=(?:s[ií]+|dale|ok(?:ey)?|listo|confirm\p{L}*|adelante|de una|no)(?!\p{L}))/iu, '');
+      if (r === antes) break;
+    }
+    return `${numero}${r}`;
+  }).join('\n');
+}
+
+/** El mensaje que CITA (responder a un mensaje en WhatsApp): su id y quién lo escribió, de `contextInfo`. */
+export function citaDe(message: Record<string, unknown> | undefined): { id: string | null; autor: string | null } {
+  const ctx = ((message?.extendedTextMessage as { contextInfo?: { stanzaId?: unknown; participant?: unknown } } | undefined)?.contextInfo
+    ?? (message?.contextInfo as { stanzaId?: unknown; participant?: unknown } | undefined));
+  return {
+    id: typeof ctx?.stanzaId === 'string' && ctx.stanzaId ? ctx.stanzaId : null,
+    autor: typeof ctx?.participant === 'string' && ctx.participant ? ctx.participant : null,
+  };
+}
+
 /** Para quién es UN mensaje: 'mako' (lo nombra, lo menciona, o trae un audio o un adjunto: es deliberado), 'acuse' o 'a-otro'
  *  (no es para MaKo), o null (un pedido que no lo nombra: en «libre» es para MaKo). */
 export type ParaQuien = 'mako' | 'acuse' | 'a-otro' | null;

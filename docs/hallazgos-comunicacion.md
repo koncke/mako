@@ -206,6 +206,18 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     eso, el «sí» de Pedro a Ana recibía el 👍 con una pendiente viva.
   · «sí, y avísale a @Pedro», con una pendiente o una pregunta de MaKo, es para MaKo (`confirmaYNombraAOtro`: la @ va después
     de «a», «con» o «para»). «@Pedro sí» y «sí @Pedro» siguen siendo para Pedro.
+  · ⚠️ **Lo del lote no alcanza: el «sí» que llega más de 8 s después llega solo** (`VENTANA_MS`, lib/mako-doer-buffer.ts), y un
+    «sí» puro confirmaba la pendiente aunque fuera de plata; lo de Ana se salteó sin quedar en la memoria, así que el turno
+    del «sí» no sabe a quién le contestaba. La red no es otra regla del lote: es la PUERTA (`elSiEsDeQuienPidio`,
+    lib/confirmacion-pura.ts; lo decidió el Cerebro el 28/10, se lo cuenta a Martín). Una pendiente de plata en un grupo la
+    confirma quien la pidió, o un «sí» que le habla a MaKo («sí, MaKo», «@MaKo sí», la respuesta citada a un mensaje de
+    MaKo). Otro «sí» no ejecuta: MaKo pide «sí, MaKo» y la pendiente sigue viva. Lo que le llega a un tercero quedó afuera.
+    · Quién la pidió va en el `payload` (`__pidio`, sin migración) y sale al leerla (`toP`): ni la bandeja lo muestra ni la
+      acción lo recibe. Sin saber quién (una pendiente de antes, un lote de varios), pide «sí, MaKo».
+    · ⚠️ **«@MaKo sí» no confirmaba**: la @ escribe el número de la línea, que contaba como palabra en `confirmacionPura` y
+      tapaba el «sí» del arranque en el clasificador. El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): se saca la @ de la
+      línea y el «MaKo,» de delante de una confirmación, antes de clasificar.
+    · En la línea del dueño, lo suyo llega `fromMe` y puede venir sin `participant`: cuenta como «fromMe».
   · El sintético lleva el nombre y el autor del último mensaje que QUEDA, no del último de la cola.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
@@ -224,14 +236,6 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
 
 **Sin hacer:**
-- **⚠️ El «sí» a otro que llega solo confirma la pendiente** (límite que ya estaba en producción, anotado en la verificación de
-  8cb034a18). El lote junta lo que entra en `VENTANA_MS` (8 s, lib/mako-doer-buffer.ts): si Pedro contesta «sí» a «@Pedro ¿lo
-  confirmo?» de Ana más tarde, el «sí» llega solo, y `rechazoSiNoEsConfirmacionPura` (lib/confirmacion-pura.ts) deja pasar un
-  «sí» puro aunque la pendiente sea de plata. Lo de Ana se salteó sin guardarse en la memoria, así que el turno del «sí» no
-  sabe a quién respondía. **Decisión de producto pendiente** (propuesta al Cerebro el 28/10): que una pendiente de PLATA en un
-  grupo se confirme sólo con el «sí» de quien la pidió, un «sí, MaKo», o la respuesta citada a la propuesta. Hoy la pendiente
-  no guarda quién la pidió (`mako_acciones_pendientes`, el `payload` es jsonb). ⚠️ «@MaKo sí» hoy tampoco confirma: el número
-  de la mención cuenta como palabra en `confirmacionPura`.
 - **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.
 - ~~**La guía de conexión** todavía PROPONE su ticket~~: desde el 28/10/2026 lo abre sola cuando la guía no alcanza
   (`abrirTicketDeLaGuia`, causa «texto», uno por conversación), y nada queda esperando un «sí». Una oferta guardada antes se

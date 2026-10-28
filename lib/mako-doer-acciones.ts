@@ -565,13 +565,15 @@ const pareceConfirmacion = (msg: string): boolean => {
   return CONFIRMACION_PELADA.test(t);
 };
 
-export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0, mensajeUsuario = ''): ToolRunner {
+/** `enElGrupo`: quién escribe y si le habla a MaKo (el mismo de `Ctx`): lo propuesto guarda quién lo pidió, y el «sí» de plata
+ *  pasa por `elSiEsDeQuienPidio` (lib/confirmacion-pura.ts). */
+export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0, mensajeUsuario = '', enElGrupo?: { quien: string | null; aMaKo: boolean }): ToolRunner {
   const proponer = async (tipo: string, payload: Record<string, unknown>, resumen: string): Promise<string> => {
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
     // Un paso de un flujo (lib/api-mako/flujo.ts) corre las heredadas por acá con la clave
     // `app:flujo:<origen>`: la fila lleva el flujo de origen, no «hola-mako».
     const origen = grupoJid.startsWith('app:flujo:') ? grupoJid.slice('app:'.length) : 'hola-mako';
-    const c = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart });
+    const c = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart, pidio: enElGrupo?.quien });
     // El motivo va al log con la pendiente (`crearPendiente`); al modelo, sólo que no entró: no es algo que la persona arregle.
     if ('error' in c) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
     return JSON.stringify({ ok: true, pendiente_id: c.id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
@@ -938,6 +940,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         // Misma puerta que lib/api-mako/acciones.ts: lo que le llega a un tercero se confirma con un «sí» y nada más.
         const rechazoATercero = rechazoSiNoEsConfirmacionPura({
           canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, plata: defReg && esAccion(defReg) ? defReg.plata : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
+          enElGrupo: enElGrupo ? { pidio: target.pidio ?? null, confirma: enElGrupo.quien, aMaKo: enElGrupo.aMaKo } : undefined,
         });
         if (rechazoATercero) return rechazoATercero;
         if (!(await reclamarPendiente(ws, target.id))) {

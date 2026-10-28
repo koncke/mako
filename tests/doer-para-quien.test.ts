@@ -9,7 +9,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type ParaQuien } from '../lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
+import { confirmacionPura } from '../lib/confirmacion-pura';
+import { clasificarIntencion } from '../lib/mako-intencion';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const base = { nombraAMaKo: false, makoPregunto: false, hayPendientes: false, menciones: [] as string[] };
@@ -158,4 +160,24 @@ test('8. la respuesta a otro es un acuse o una confirmación ENTERA, de OTRA per
   assert.equal((doer.match(/autor: p\.key\?\.participant \?\? null/g) ?? []).length, 3, 'un lote no pasa el autor');
   assert.match(doer, /const pide = q\.aOtros\.length > 0 && confirmaYNombraAOtro\(texto\) && \(await pideUnSi\(\)\);/);
   assert.match(leer('lib/doer-para-quien.ts'), /export function paraQuienDelLote<T extends ConAutor>\(entrada: readonly T\[\]\): \{ quedan: T\[\]; decision: ParaQuienDelLote \} \{\n\s*const mensajes = conLasRespuestas\(entrada\);/);
+});
+
+test('9. «@MaKo sí» es un «sí»: el llamado a MaKo no es contenido, para el clasificador ni para la puerta', () => {
+  // La verificación de 8cb034a18: elegir a MaKo con la @ escribe el número de su línea, que contaba como palabra (pura = falso) y
+  // tapaba el «sí» del arranque (capturar, dudosa, sin confirmar_accion). «MaKo, sí» tampoco confirmaba.
+  assert.ok(!confirmacionPura('@5493764002605 sí'), 'el bug ya no se reproduce: revisar la prueba');
+  for (const [t, limpio] of [['@5493764002605 sí', 'sí'], ['@5493764002605, dale', 'dale'], ['MaKo, sí', 'sí'], ['mako sí', 'sí'], ['@5493764002605 MaKo, sí', 'sí']] as const) {
+    assert.equal(sinElLlamadoAMaKo(t, LINEA), limpio, t);
+    assert.ok(confirmacionPura(sinElLlamadoAMaKo(t, LINEA)), `«${t}» no es una confirmación pura`);
+    assert.equal(clasificarIntencion(sinElLlamadoAMaKo(t, LINEA), { hayPendientes: true }).intencion, 'confirmar', `«${t}» con una pendiente no confirma`);
+  }
+  // En un lote, mensaje por mensaje; la @ de OTRO, sin la línea o un pedido que nombra a MaKo quedan como están.
+  assert.equal(sinElLlamadoAMaKo('[Te mandó 2 mensajes seguidos.]\n(1) hola\n(2) @5493764002605 sí', LINEA), '[Te mandó 2 mensajes seguidos.]\n(1) hola\n(2) sí');
+  for (const t of ['@5491100000000 sí', 'mako, ¿cuántos leads entraron hoy?', 'sí, MaKo']) assert.equal(sinElLlamadoAMaKo(t, LINEA), t, t);
+  assert.equal(sinElLlamadoAMaKo('@5493764002605 sí', null), '@5493764002605 sí');
+  // La respuesta citada: su id y su autor.
+  assert.deepEqual(citaDe({ extendedTextMessage: { text: 'sí', contextInfo: { stanzaId: 'ABC123', participant: `${LINEA}@s.whatsapp.net` } } }), { id: 'ABC123', autor: `${LINEA}@s.whatsapp.net` });
+  assert.deepEqual(citaDe({ conversation: 'sí' }), { id: null, autor: null });
+  // El doer limpia el texto antes de clasificarlo y de pasarlo a la puerta.
+  assert.match(leer('lib/mako-doer-in.ts'), /let texto = \/@\|mako\/i\.test\(textoDirecto\) \? sinElLlamadoAMaKo\(textoDirecto, await numeroDeLaLinea\(instance\)\) : textoDirecto;/);
 });

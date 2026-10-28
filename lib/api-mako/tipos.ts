@@ -366,6 +366,10 @@ export type Ctx = {
   mensajeUsuario?: string;
   /** quién confirma (email de la sesión), para el historial */
   actor?: string;
+  /** Sólo en un grupo de WhatsApp: quién escribe (el `participant`, lib/confirmacion-pura.ts `quienEnElGrupo`; null en un lote
+   *  de varios) y si el mensaje le habla a MaKo («sí, MaKo», «@MaKo», la respuesta citada a MaKo). Lo que se propone guarda quién
+   *  lo pidió, y una pendiente de plata sólo la confirma ésa persona o un «sí» a MaKo (`elSiEsDeQuienPidio`). */
+  enElGrupo?: { quien: string | null; aMaKo: boolean };
   /** Sólo en la app: la persona de la sesión que chatea (`usuarios.id` como `sub`). «Mi hoja» es la suya: el Dashboard
    *  y General leen el informe de quien chatea, como la pantalla, salvo que se nombre a otra persona (20/10/2026, Ops
    *  Center = lo principal, pieza 1.5). Se lee con `quienChatea(ctx)`, que lo ignora en otro canal. */

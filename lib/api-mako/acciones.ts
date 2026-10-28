@@ -97,6 +97,8 @@ export async function proponerChat(def: AccionDef, payload: Record<string, unkno
     origen: origenDe(ctx), ttlMin: TTL_PENDIENTE_MIN,
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
     mismoTurnoDesde: ctx.turnStart,
+    // En un grupo, quién la pidió: el «sí» de plata es de esa persona o le habla a MaKo (lib/confirmacion-pura.ts).
+    pidio: ctx.enElGrupo?.quien,
   });
   // El motivo VIAJA (23/10/2026, el ws13): un paso de una automatización lo escribe en `nutricion_envios.error`, y
   // «no pude registrarla» sin él costó diez días de avisos perdidos con la causa en un log que nadie lee. Va APARTE
@@ -296,6 +298,7 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   // lo reviso» no lo ejecuta. La pendiente sigue viva; el rechazo vuelve al modelo, que repregunta mostrando qué va a salir (lib/confirmacion-pura.ts).
   const rechazoATercero = rechazoSiNoEsConfirmacionPura({
     canal: ctx.canal, aTerceros: def && esAccion(def) ? def.aTerceros : undefined, plata: def && esAccion(def) ? def.plata : undefined, mensaje: ctx.mensajeUsuario, titulo: def?.titulo ?? p.tipo, resumen: p.resumen,
+    enElGrupo: ctx.enElGrupo ? { pidio: p.pidio ?? null, confirma: ctx.enElGrupo.quien, aMaKo: ctx.enElGrupo.aMaKo } : undefined,
   });
   if (rechazoATercero) return { error: rechazoATercero };
 

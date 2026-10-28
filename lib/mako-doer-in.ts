@@ -48,7 +48,8 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, confirmaYNombraAOtro, conLasRespuestas, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { quienEnElGrupo } from '@/lib/confirmacion-pura';
 import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -621,6 +622,15 @@ async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, p
   return noEsParaMaKo({ texto, menciones: q.aOtros, nombraAMaKo: false, makoPregunto: pide, hayPendientes: pide });
 }
 
+/** ¿El mensaje CITA uno de MaKo (responder a su mensaje)? Por quién lo escribió (la línea que recibe) o por su id (lo que MaKo
+ *  mandó queda en `idsEnviados`: cubre un autor `@lid`). */
+async function citaAMaKo(instance: string, data: MsgIn): Promise<boolean> {
+  const cita = citaDe(data.message as Record<string, unknown> | undefined);
+  if (!cita.id && !cita.autor) return false;
+  if (cita.autor && quienesMencionados([cita.autor], await numeroDeLaLinea(instance)).aMaKo) return true;
+  return !!cita.id && (await idsEnviados(OWNER_WS, data.key?.remoteJid ?? '').catch(() => [] as string[])).includes(cita.id);
+}
+
 /** ¿MaKo acaba de preguntar algo en el grupo? (el «ok» que sigue es un sí) */
 async function makoAcabaDePreguntar(wsData: number, jid: string): Promise<boolean> {
   const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
@@ -1027,7 +1037,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const dondeDelGrupo = (pedido: string): DondeNoPude => ({
       ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido,
     });
-    let texto = textoDirecto;
+    // El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): «@MaKo sí» es un «sí», para el clasificador y para la puerta.
+    let texto = /@|mako/i.test(textoDirecto) ? sinElLlamadoAMaKo(textoDirecto, await numeroDeLaLinea(instance)) : textoDirecto;
     /** Lo que se leyó de la foto o el PDF, SÓLO para la memoria del grupo: si entraba a `texto`, la lista de un presupuesto
      *  en la imagen se volvía «cargar al plan» (`esCargaDePlan`, el clasificador; la revisión adversarial de 92d23e11d). */
     let leidoDelAdjunto = '';
@@ -1297,6 +1308,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      */
     const paraLaPersona: string[] = [];
     /**
+     * QUIÉN ESCRIBE Y SI LE HABLA A MaKo, para el «sí» de plata en el grupo (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`): lo que
+     * se propone guarda quién lo pidió, y sólo esa persona o un «sí» a MaKo («sí, MaKo», «@MaKo sí», la respuesta citada a un
+     * mensaje de MaKo) lo confirma. Un lote de varios no sabe quién: pide el «sí, MaKo». En un lote, «le habla a MaKo» es que
+     * alguno de sus mensajes lo nombró (`paraQuien.nombra`). En la línea del dueño, lo suyo llega `fromMe` y puede venir sin
+     * `participant`: ése es «fromMe» (lo de MaKo, también `fromMe`, es un eco y no llega acá).
+     */
+    const enElGrupo = jid.endsWith('@g.us')
+      ? { quien: data.loteDeVarios ? null : quienEnElGrupo(key?.participant) ?? (key?.fromMe ? 'fromMe' : null), aMaKo: quien.aMaKo || nombraAMaKo(textoDirecto) || nombraAMaKo(texto) || (await citaAMaKo(instance, data)) }
+      : undefined;
+    /**
      * LOS ERRORES DE MaKo EN ESTE TURNO (lib/tickets-reglas.ts, `errorParaTicket`): el código los registra solos al final,
      * por la huella global (lib/errores-app.ts), aunque el modelo haya propuesto un ticket — el molde del chat de la app
      * (lib/mako-turno-app.ts). Sólo las fallas de MaKo: un 400 corregible o «no está disponible en este chat» no son un bug.
@@ -1305,7 +1326,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     /** Las conexiones que una herramienta dijo que faltan (`aFalta`): al final del turno, la oferta de ayuda (lib/doer-ayuda.ts). */
     const faltasDelTurno: string[] = [];
     const ctxApi: CtxApi = {
-      ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto,
+      ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto, enElGrupo,
       // Quién escribe, para el ticket: el doer no sabe su email (lib/doer-ticket.ts).
       actor: actorDeWhatsApp(key?.participant, data.pushName),
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
@@ -1441,7 +1462,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
-    const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now(), texto);
+    const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now(), texto, enElGrupo);
     // EL LINK DEL BORRADOR NO LO ESCRIBE EL MODELO.
     //
     // La tool devuelve el link con el id REAL; acá se lo guarda para corregir la
