@@ -185,7 +185,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     const v = vivo.current.leerVivo();
     return { titulo: v?.titulo ?? '', props: v?.props, contenido: vivo.current.editor?.getJSON() as JsonNodo };
   };
-  const notaNoLeidos = (r: { noLeidos?: unknown }) => (Array.isArray(r.noLeidos) && r.noLeidos.length ? `\n\n(No pude leer: ${r.noLeidos.join(', ')}.)` : '');
+  // `Record` y no `{ noLeidos?: unknown }`: un tipo con todo opcional es «débil», y TS no deja pasar la respuesta (que no lo
+  // nombra) aunque tenga índice (TS2559, lo vio el tsc acotado del 28/10).
+  const notaNoLeidos = (r: Record<string, unknown>) => (Array.isArray(r.noLeidos) && r.noLeidos.length ? `\n\n(No pude leer: ${r.noLeidos.join(', ')}.)` : '');
 
   /** «Discutir»: lo escrito (y lo adjuntado y citado) va a MaKo con el guion vivo; la respuesta queda en el hilo y en la base. */
   const pedirDiscusion = useCallback(async (pregunta: string, archivos: File[] = [], citadas: Referencia[] = []) => {
