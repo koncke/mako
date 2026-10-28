@@ -146,6 +146,12 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   { unidad: 'app/api/ia-del-negocio/probar-clave/route.ts#POST', usa: ['PROVS_SU_CLAVE', 'limitePorClave', 'personaDelRequest', 'probarSuClave'], porque: 'prueba la clave del negocio con un pedido que no cobra (lib/su-clave.ts): ninguna IA gratis' },
   // Llegó con el merge de main (Pagos en el chat, 2.27): lee la cobranza de la base y la arma, sin IA.
   { unidad: 'app/_chat/bloques/cobranza-actions.ts#leerCobranzaDelHilo', usa: ['TZ_DEFAULT', 'armarCobranza', 'cobrosDeFilas', 'getPorCobrar', 'getRolWsEfectivo', 'getWorkspaceActual', 'hoyEnWorkspace', 'tzDeWorkspace'], porque: 'lee «A quién cobrar» del hilo, de la base' },
+  // «Reportar a Soporte» del portal del ALUMNO (f78574342, 27/10/2026): el botón de toda la app (app/_ui/ReportarASoporte.tsx,
+  // que el Ops Center monta) lo nombra, por eso es del Ops Center. Llega a la cascada sólo DE PASO: `resolverAccesoPortal`
+  // vive en lib/curso-datos.ts → app/customer-success/entrega.ts → lib/nutricion.ts → lib/ai-cheap.ts. Lo que hace es validar
+  // el token del alumno y CREAR el ticket (lib/tickets-db.ts no llega a ninguna IA: /api/soporte/reportar, el mismo ticket con
+  // sesión, ni aparece en el grafo); su triage es con reglas (lib/tickets-reglas.ts), sin IA.
+  { unidad: 'app/api/compartido/curso/soporte/route.ts#POST', usa: ['SIN_ACCESO_PORTAL', 'TOPE_BYTES', 'claveDelAlumno', 'clientIp', 'crearTicket', 'emailDuenoWorkspace', 'identidadDe', 'leerJsonTopeado', 'leerTokenPortal', 'rateLimit', 'resolverAccesoPortal', 'runWithWorkspace', 'rutaDelPortal', 'sanearReporteSoporte', 'semillaDeRef', 'ticketDelAlumno'], porque: 'el alumno reporta un error: valida su token del portal y crea el ticket para el dueño del curso; no le pide nada a una IA' },
 ];
 
 /** Sus carpetas. Lo de app/ fuera de éstas (y de las compartidas, `app/_…`) es de OTRA tab. app/onboarding/ es suya por las

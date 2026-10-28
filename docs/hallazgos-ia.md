@@ -5039,6 +5039,12 @@ y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
   `anthropic` → `ai-cheap`). La guarda que sirve no es «llega» sino «prende el contexto o está decidida»:
   tests/d6b-rutas.test.ts recorre el grafo (resolviendo `@/` y siguiendo las llamadas, no una lista a mano), y lo que
   llaman las pantallas del Ops Center (app/second-brain, app/mako, app/onboarding, app/_chat…) no puede ir afuera.
+  - **Una ruta pública del portal del ALUMNO también puede ser «del Ops Center» (27/10/2026):** el botón compartido
+    app/_ui/ReportarASoporte.tsx (lo monta el Ops Center) nombra /api/compartido/curso/soporte, y toda ruta del portal
+    llega a la cascada DE PASO por `resolverAccesoPortal` (lib/curso-datos.ts → app/customer-success/entrega.ts →
+    lib/nutricion.ts → lib/ai-cheap.ts). Como del Ops Center, `FUERA_DE_D6B` no se acepta: si no le pide nada a una IA va
+    a `SIN_IA` con lo que usa fijado (así quedó: valida el token y crea el ticket; lib/tickets-db.ts no llega a ninguna IA,
+    su triage es con reglas).
 - **lib/transcribe.ts es una SEGUNDA cascada sin el corte de D6b**: va directo a Groq y Gemini con las keys del entorno.
   Envolver una ruta que la use no la protege. Hoy la usan ads-manager, cron/transcribe-ads, mako/knowledge y
   lib/onboarding-extract (ninguna del Ops Center).

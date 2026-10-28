@@ -389,7 +389,9 @@ test('replicar.ts: el estilo en paralelo, el tema propio reusado, las imágenes 
   assert.match(rep, /const tema = await temaParaLaCopia\(estilo, url\);/);
   assert.match(rep, /tema: `ws:\$\{tema\.tema\.id\}`/, 'la landing nace con el tema propio');
   assert.match(rep, /\.find\(\(t\) => t\.id === tema\.id\);\s*if \(ya\) return \{ ok: true, tema: ya \};/, 'el mismo estilo replicado otra vez pisaría el tema que la persona cambió');
-  assert.match(rep, /aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(esq\.titulo, contenido, config\)/);
+  // «Replicar y adaptar» (6da648600, 27/10/2026): la adaptada conserva el estilo de la original (el estilo no mira
+  // `adaptar`) y sólo cambia el nombre: ya no es la de la original, no lleva su título.
+  assert.match(rep, /const puesto = estilo \? aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(receta\.adaptar \? `Adaptada de \$\{hostDe\(url\)\}` : esq\.titulo, contenido, config\)/);
   const fiel = rep.slice(rep.indexOf('async function replicarFiel'), rep.indexOf('async function replicarComoBloques'));
   assert.doesNotMatch(fiel, /estilo|subirImagenes|temaParaLaCopia/, 'la Página web es la copia fiel: no cambia');
   const srv = sinComentarios(leer('lib/editor-landing/estilo-server.ts'));

@@ -82,6 +82,12 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 - **Regla:** antes de culpar al tren por un rojo, mirar si el test y los fuentes que lee cambiaron en el tren
   (`git diff --quiet <base> HEAD -- <archivo>`). Si no cambiaron, el rojo es de main: va a su dueño y no frena el tren.
   Quien arregla tipos renombrando, busca el nombre viejo en tests/ (`git grep`) en el mismo commit.
+- **Volvió en tren-o (27/10/2026), y el culpable que se nombró era otro:** dashboard-en-blanco se atribuyó a la plantilla
+  Inmobiliaria (1e1106021), pero era un SEXTO rojo del mismo 32f430356 (`informe={informe}` en la caja en blanco de
+  EditorInforme), rojo en main desde el 24/10. Los otros seis de esa tanda fueron puntas que cambiaron el código y no su
+  test (5178a7d46 el deshacer de lote de a tandas y «Están todos tus grupos», 6da648600 el nombre de la adaptada,
+  07a4a1449 el aviso de Chrome primero, b11601685 el CLI de Vercel fijo, f78574342 una ruta nueva sin decidir en D6b).
+  Ninguno era una regresión. Para nombrar la punta: `git log -S '<lo que el test esperaba>' -- <fuente>`, no la del tren.
 - **Y el fin de línea:** en `C:/dev/wt-push-q` (core.autocrlf=true) los fuentes llegan en CRLF. Un test que lee un fuente
   sin normalizar `\r\n` a `\n` da rojo ahí y verde en el worktree de su autor (pasó con editor-web-punta-a-punta-26-10).
   Esta misma línea salió rota en tren-l: se escribió con un heredoc de Bash, que se come las barras invertidas. Un texto
