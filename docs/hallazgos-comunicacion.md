@@ -187,10 +187,13 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   sigue confirmando con su «sí» mientras viva (30 minutos).
 - **La guarda de voseo, roja por la base:** `ES_REGLA` de lib/no-pude.ts nombra «confirmalo», «confirmala» y «tenes». Es de
   MaKo inteligente: se arregla allá y se vuelve a mergear.
-- **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.
-  Con `--si` escribe en producción (las pendientes y el Google del ws3), así que espera el sí de Martín. No se sabe si el ws3
-  tiene Google conectado: si no lo tiene, el script sale con 3. El mensaje a Joan está redactado y no se mandó.
-- **MK-02.** `scripts/subir-makito-recuperado.mts --aplicar` (21 audios) espera el sí de Martín.
+- **MK-06, agendar y reprogramar contra una agenda real: SIN PROBAR.** La corrió el Cerebro (28/10, con `--si`), pero el ws3
+  no tiene Google conectado, y conectarlo es un OAuth de Martín. El mensaje a Joan no se mandó: va sólo si la prueba da 0.
+  · ⚠️ **Sin Google, agenda_del_dia no dice «falta»:** contesta ok con `eventos_sin_verificar`, y a la persona «No hay una
+    agenda de Google conectada a este espacio». El script buscaba «falta», siguió de largo y dejó una pendiente (#498) que no
+    podía crear nada. Ahora sale con 3 antes de proponer nada.
+- ~~**MK-02**~~: hecho el 28/10 por el Cerebro. Quedaron guardados los 942 mensajes de Makito, con sus 21 audios, en el
+  workspace de la plataforma (instancia de voz `mako_superadmin_muylqv8r`).
 - **P11, la latencia desde el 24/10:** sin medir. Necesita leer producción, y el clasificador lo negó.
 - **«Misma pregunta, mismo número»** sólo está cubierto porque ahora viaja la herramienta: si el modelo elige otro rango de
   fechas, el número cambia.
