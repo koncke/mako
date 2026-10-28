@@ -562,7 +562,8 @@ export const HtmlEditable = Node.create<OpcionesNodo>({
   name: NODO.htmlEditable,
   ...atomo,
   addOptions: sinVista,
-  addAttributes() { return attrsSinParseo(attrsHtmlEditable({})); },
+  // `envoltorios` (la copia de una página) no está en los attrs de un bloque nuevo, pero TipTap tiene que conocerlo o lo tira.
+  addAttributes() { return attrsSinParseo({ ...attrsHtmlEditable({}), envoltorios: null }); },
   parseHTML() {
     return [{ tag: 'div.gm-editable', getAttrs: (el) => attrsDelJson(el as HTMLElement, NODO.htmlEditable) ?? attrsHtmlEditable({}) }];
   },

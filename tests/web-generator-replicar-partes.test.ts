@@ -170,10 +170,9 @@ test('3. las partes: el texto trae la estructura y los ángulos, nunca quedan la
   assert.deepEqual(partesDePedido('diseño, texto'), PARTES_TODAS);
   assert.deepEqual(partesDePedido({ estructura: true, angulos: true }), PARTES_INICIALES);
   assert.equal(partesDePedido([]), null);
-  // La pantalla, sin nada guardado, arranca en el caso de Martín: `partesDePedido(null)` es TODAS (el pedido viejo de la API),
-  // y así arrancaba con las cuatro prendidas (visto en la app, 28/10/2026).
+  // `partesDePedido(null)` es TODAS (el pedido viejo de la API). Y desde el 28/10/2026 (~09:40, Martín: «Enfocate primero en
+  // replicar tal cual») la pantalla arranca SIEMPRE en la copia idéntica: tests/web-generator-copia-identica.test.ts, el 13.
   assert.deepEqual(partesDePedido(null), PARTES_TODAS);
-  assert.match(fuente('app/web-generator/crear/Replicar.tsx'), /return guardadas == null \? PARTES_INICIALES : partesDePedido\(guardadas\) \?\? PARTES_INICIALES;/);
   assert.equal(partesDePedido(['marca']), null);
   // La copia idéntica es TODO.
   assert.equal(formatoConPartes('web', PARTES_TODAS), true);
@@ -488,8 +487,9 @@ test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Pre
   assert.match(rep, /pedirEsquema\(\{ modo: 'pegar', texto: entrada\.texto, params, corte: 'pagina' \}\)/);
   // 7. La «Página web» de la caja: arranca con todo y la lectura no paga los ángulos.
   const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
-  assert.match(pantalla, /if \(formatoInicial === 'web'\) return PARTES_TODAS;/);
-  assert.match(pantalla, /void leer\(u, \{ ventana, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)/);
+  // (la copia idéntica: desde el 28/10/2026 la pantalla arranca siempre con las cuatro partes y lee sin ángulos con ellas)
+  assert.match(pantalla, /useState<PartesReplica>\(\(\) => \(adaptarInicial \? PARTES_ADAPTAR : PARTES_TODAS\)\)/);
+  assert.match(pantalla, /void leer\(u, \{ ventana, \.\.\.\(sonTodas\(partesVivas\.current\) \? \{ sinAngulos: true \} : \{\}\) \}\)/);
   assert.match(pantalla, /\.\.\.\(sinAngulos \? \{ angulos: false \} : \{\}\)/);
   assert.match(fuente('lib/editor-landing/replicar-lectura.ts'), /p\.conAngulos === false \? Promise\.resolve\(\{ angulos: null \}\) : angulosDePagina\(esq, t\.url\)/);
 });

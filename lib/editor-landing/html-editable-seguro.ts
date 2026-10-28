@@ -6,7 +6,10 @@ import 'server-only';
 // El bloque `htmlEditable` (html-editable.ts) se publica EN LA PÁGINA, sin iframe: lo que pase acá llega
 // tal cual al HTML de hola-mako.site (y, para las landings de MaKo, al de hola-mako.com). Por eso este
 // saneo es la primera capa y la política de la página publicada (pagina-publica.ts: scripts sólo por hash)
-// la segunda. En el editor y en las miniaturas el bloque va en un iframe sin scripts ni mismo origen.
+// la segunda. En las miniaturas el bloque va en un iframe sin scripts y de origen opaco (`sandbox=""`); en el EDITOR, sin
+// scripts pero del MISMO origen que la app (`allow-same-origin`, para poder editarlo): lo que pida a nuestros dominios sale
+// con la sesión de quien edita. Por eso los medios y el CSS se miran como los lee el navegador (html-editable.ts,
+// `cssSinCargasAjenas`), y el iframe de una copia lleva su propia política (verificación de 5004dba08, 28/10/2026).
 //
 // LISTA BLANCA (como lib/html-seguro.ts, pero para MAQUETA y no para texto rico): pasan las etiquetas de
 // un diseño (cajas, texto, listas, tablas, imágenes, video, canvas, SVG en línea, botones) con `class`,
@@ -21,13 +24,13 @@ import 'server-only';
 import sanitizeHtml from 'sanitize-html';
 import { embedDe } from '../embeds';
 import { NODO, TOPES, type JsonNodo, type LandingContenido } from './doc';
-import { medioPermitido } from './html-editable';
+import { RE_ATTR_RAIZ, cssSinCargasAjenas, envoltoriosValidos, medioPermitido, regionCssSegura } from './html-editable';
 
 const ETIQUETAS = [
   // cajas y texto
   'div', 'section', 'header', 'footer', 'nav', 'main', 'article', 'aside', 'figure', 'figcaption', 'span', 'p', 'a',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i', 'u', 's', 'small', 'mark', 'sub', 'sup', 'br', 'hr',
-  'blockquote', 'code', 'pre', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'details', 'summary', 'abbr', 'time', 'label',
+  'blockquote', 'code', 'pre', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'details', 'summary', 'dialog', 'abbr', 'time', 'label',
   'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
   // medios
   'img', 'picture', 'source', 'video', 'canvas', 'iframe', 'button',
@@ -44,9 +47,10 @@ const SVG_ATTRS = [
   'preserveAspectRatio', 'mask', 'text-anchor', 'dominant-baseline', 'font-size', 'font-weight', 'font-family', 'letter-spacing',
 ];
 
-const COMUNES = ['class', 'id', 'style', 'title', 'role', 'hidden', 'tabindex', 'lang', 'dir', 'data-*', 'aria-*'];
+const COMUNES = ['class', 'id', 'style', 'title', 'role', 'hidden', 'popover', 'tabindex', 'lang', 'dir', 'data-*', 'aria-*'];
 
-const OPCIONES: sanitizeHtml.IOptions = {
+// `allowedEmptyAttributes` existe en sanitize-html 2.18 (lo usa: medido), pero sus tipos todavía no lo declaran.
+const OPCIONES: sanitizeHtml.IOptions & { allowedEmptyAttributes?: string[] } = {
   allowedTags: ETIQUETAS,
   allowedAttributes: {
     '*': COMUNES,
@@ -58,7 +62,7 @@ const OPCIONES: sanitizeHtml.IOptions = {
     iframe: ['src', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'frameborder', 'width', 'height', 'name'],
     button: ['type', 'disabled'],
     td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan', 'scope'], col: ['span'], colgroup: ['span'],
-    time: ['datetime'], details: ['open'],
+    time: ['datetime'], details: ['open'], dialog: ['open'],
     svg: SVG_ATTRS, g: SVG_ATTRS, path: SVG_ATTRS, circle: SVG_ATTRS, ellipse: SVG_ATTRS, rect: SVG_ATTRS, line: SVG_ATTRS,
     polyline: SVG_ATTRS, polygon: SVG_ATTRS, defs: SVG_ATTRS, lineargradient: SVG_ATTRS, radialgradient: SVG_ATTRS,
     stop: SVG_ATTRS, clippath: SVG_ATTRS, mask: SVG_ATTRS, text: SVG_ATTRS, tspan: SVG_ATTRS,
@@ -69,6 +73,9 @@ const OPCIONES: sanitizeHtml.IOptions = {
   allowedSchemesByTag: { a: ['http', 'https', 'mailto', 'tel', 'pagina'], img: ['https', 'data'], source: ['https'], video: ['https'], iframe: ['https'] },
   allowedSchemesAppliedToAttributes: ['href', 'src', 'poster', 'srcset'],
   allowProtocolRelative: false,
+  // VACÍOS que valen (28/10/2026): sanitize-html borra por defecto un `hidden=""` o un `popover=""` (los tiene por no
+  // booleanos), y lo que la página escondía aparecía en la copia (el menú de idiomas de respond.io, abierto).
+  allowedEmptyAttributes: ['alt', 'hidden', 'popover', 'open'],
   // Comentarios y el texto de lo que no pasa (un <script>) se van; el de una etiqueta desconocida queda.
   disallowedTagsMode: 'discard',
   nonTextTags: ['script', 'style', 'textarea', 'option', 'noscript', 'template'],
@@ -79,7 +86,9 @@ const OPCIONES: sanitizeHtml.IOptions = {
       const a = { ...attribs };
       // Un `pagina:` que no es un id de página no pasa (queda el enlace sin destino).
       if (typeof a.href === 'string' && /^\s*pagina:/i.test(a.href) && !RE_PAGINA.test(a.href.trim())) delete a.href;
-      if (a.target === '_blank') a.rel = 'noopener noreferrer';
+      // Con CUALQUIER target (`_BLANK`, `_Blank` o un nombre abren otra pestaña igual: el navegador no distingue mayúsculas),
+      // sin el opener: si no, la página abierta puede mandar la pestaña del cliente a un phishing (verificación de 5004dba08).
+      if (typeof a.target === 'string') a.rel = 'noopener noreferrer';
       return { tagName: tag, attribs: a };
     },
     // LO QUE ESCRIBE CHROME (26/10/2026): el tachado de `execCommand` sin `styleWithCSS` es un `<strike>` (y un pegado
@@ -114,12 +123,19 @@ const desescapar = (v: string) => v.replace(/&quot;/g, '"').replace(/&#x27;|&#39
 
 /** Saca de un estilo los `url()` que no son un medio permitido (quedan `url()`, que no carga nada). */
 function estiloSeguro(estilo: string): string {
-  return estilo.replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) ? todo : 'url()'));
+  // El literal primero, y después lo que el patrón no ve: escapes, image-set, cross-fade (html-editable.ts, `cssSinCargasAjenas`).
+  return cssSinCargasAjenas(estilo.replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) || /^\s*#[\w-]*\s*$/.test(url) ? todo : 'url()')));
 }
+
+/** Los atributos de presentación de un SVG que piden algo con url() (`mask="url(/api/x)"`): sólo un fragmento o un medio permitido. */
+const ATTRS_SVG_CON_URL = /\s(fill|stroke|mask|clip-path|filter|marker-start|marker-mid|marker-end|cursor)="([^"]*)"/gi;
 
 /** La segunda pasada sobre lo que dejó sanitize-html: los medios y los url() de los estilos (ver `medioPermitido`). */
 function endurecer(html: string): string {
   return html
+    // La marca de la raíz del editor la pone sólo el editor (html-editable.ts, `documentoEditable`).
+    .replace(RE_ATTR_RAIZ, '')
+    .replace(ATTRS_SVG_CON_URL, (todo: string, _a: string, v: string) => (regionCssSegura(desescapar(v)) ? todo : ''))
     .replace(/\s(src|poster)="([^"]*)"/g, (todo: string, _a: string, v: string) => (medioPermitido(desescapar(v)) ? todo : ''))
     .replace(/\ssrcset="([^"]*)"/g, (todo: string, v: string) => (desescapar(v).split(',').every((c) => medioPermitido(c.trim().split(/\s+/)[0] ?? '')) ? todo : ''))
     .replace(/\sstyle="([^"]*)"/g, (_t: string, v: string) => ` style="${estiloSeguro(desescapar(v)).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`);
@@ -131,10 +147,32 @@ export function sanearHtmlEditable(html: unknown): string {
   return endurecer(sanitizeHtml(html, OPCIONES)).trim();
 }
 
+/**
+ * Los envoltorios de una copia (copia-identica.ts), saneados con la MISMA lista que el HTML: cada etiqueta pasa por
+ * sanitize-html con su cierre y queda su apertura. Si una no pasa, ninguna (una pila a medias cambia la página). null si no hay.
+ */
+export function sanearEnvoltorios(raw: unknown): string[] | null {
+  const env = envoltoriosValidos(raw);
+  if (!env) return null;
+  const out: string[] = [];
+  for (const e of env) {
+    const tag = (/^<([a-z][a-z0-9]*)/i.exec(e)?.[1] ?? '').toLowerCase();
+    const limpio = endurecer(sanitizeHtml(`${e}</${tag}>`, OPCIONES)).trim();
+    const m = new RegExp(`^<${tag}\\b[^<>]*>`, 'i').exec(limpio);
+    if (!tag || !m) return null;
+    out.push(m[0]);
+  }
+  return out;
+}
+
 /** El contenido con cada «Diseño editable» saneado (no muta: devuelve otro). */
 export function sanearEditablesDe(c: LandingContenido): LandingContenido {
   const nodo = (n: JsonNodo): JsonNodo => {
-    if (n.type === NODO.htmlEditable) return { ...n, attrs: { ...(n.attrs ?? {}), html: sanearHtmlEditable(n.attrs?.html) } };
+    if (n.type === NODO.htmlEditable) {
+      const { envoltorios: _crudos, ...resto } = (n.attrs ?? {}) as Record<string, unknown>;
+      const envoltorios = sanearEnvoltorios(_crudos);
+      return { ...n, attrs: { ...resto, html: sanearHtmlEditable(n.attrs?.html), ...(envoltorios ? { envoltorios } : {}) } };
+    }
     return n.content ? { ...n, content: n.content.map(nodo) } : n;
   };
   return { ...c, paginas: c.paginas.map((p) => ({ ...p, doc: { ...p.doc, content: p.doc.content.map(nodo) } })) };

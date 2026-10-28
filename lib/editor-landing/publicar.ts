@@ -128,7 +128,7 @@ export function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'conf
   return {
     v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables),
     // «Diseño editable» (html-editable.ts): la base y la hoja del documento, congeladas con el HTML que las usa.
-    ...(tieneEditables(publicables) ? { cssDiseno: hojaDeDiseno(config.diseno?.css ?? '') } : {}),
+    ...(tieneEditables(publicables) ? { cssDiseno: hojaDeDiseno(config.diseno?.css ?? '', { sinBase: config.diseno?.sinBase === true }) } : {}),
     ...(publicadoAt !== null ? { pagos: productosDePago(publicables) } : {}),
   };
 }

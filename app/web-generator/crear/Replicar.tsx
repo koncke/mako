@@ -53,7 +53,7 @@ import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import type { TemaPropio } from '@/lib/editor-landing/api-tipos';
 import { TEMAS } from '@/lib/editor-landing/temas';
 import {
-  NOMBRE_PARTE, PARTES_ADAPTAR, PARTES_INICIALES, PARTES_REPLICA, PARTES_TODAS, alternarParte, formatoConPartes, listaDePartes, partesDePedido,
+  NOMBRE_PARTE, PARTES_ADAPTAR, PARTES_REPLICA, PARTES_TODAS, alternarParte, formatoConPartes, listaDePartes,
   type ParteReplica, type PartesReplica,
 } from '@/lib/editor-landing/replicar-partes';
 import { resumenDeMolde } from '@/lib/editor-landing/replicar-estructura';
@@ -62,7 +62,7 @@ import type { LecturaReplica, RespuestaLectura } from '@/lib/editor-landing/repl
 import { leerEventos, vistaDeEventos, type EventoReplica } from '@/lib/editor-landing/replicar-progreso';
 import { ArmadoEnVivo, useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import {
-  abrirEnElClic, cerrarVentana, pedirConVentana, tomarVentanaReservada,
+  abrirEnElClic, cerrarVentana, leerEnNavegador, pedirConVentana, tomarVentanaReservada,
   type SalidaSinLectura, type VentanaDelClic,
 } from '@/lib/editor-landing/lector-navegador';
 import {
@@ -105,6 +105,10 @@ export type ExtraReplicar = {
   /** «Tu oferta»: de qué habla la copia cuando el texto se escribe de nuevo. */
   oferta?: string;
 };
+
+/** Lo que puede medir el pedido de la copia idéntica: por arriba, la plataforma lo corta (4,5 MB) sin decir por qué. */
+const TOPE_PEDIDO_FOTO = 4_200_000;
+const sonTodas = (p: PartesReplica): boolean => p.diseno && p.estructura && p.angulos && p.texto;
 
 /**
  * ¿Este Replicar puede necesitar la ventana de lectura? (Para abrirla en el clic SÓLO cuando sirve.) La «Página
@@ -187,22 +191,36 @@ export function useReplicarEnVivo(): {
   estado: EstadoReplicar;
   eventos: readonly EventoReplica[];
   lista: { id: number } | null;
-  replicar: (url: string, formato: FormatoReplicar, extra?: Omit<ExtraReplicar, 'ventana'>) => Promise<void>;
+  replicar: (url: string, formato: FormatoReplicar, extra?: Omit<ExtraReplicar, 'ventana'>, op?: { ventanaFoto?: VentanaDelClic | null }) => Promise<void>;
 } {
   const [estado, setEstado] = useState<EstadoReplicar>({ fase: 'quieto' });
   const [eventos, setEventos] = useState<EventoReplica[]>([]);
   const [lista, setLista] = useState<{ id: number } | null>(null);
   const montado = useRef(true);
   useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
-  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: Omit<ExtraReplicar, 'ventana'> = {}) => {
+  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: Omit<ExtraReplicar, 'ventana'> = {}, op: { ventanaFoto?: VentanaDelClic | null } = {}) => {
     const { adaptar = false, ...dato } = extra;
     setEventos([]);
     setLista(null);
     setEstado({ fase: 'replicando', formato });
-    const cuerpo = { ...(formato === 'web' ? { url, formato } : { url, formato, ...dato, ...(adaptar ? { adaptar: true } : {}) }), enVivo: true };
+    const fallar = (error: string) => setEstado({ fase: 'falla', formato, error, enNavegador: false, pegable: false, probar: 'landing', salida: null });
+    // La copia idéntica (28/10/2026): la FOTO de la página ya armada, en el navegador de la persona (lector-script.ts), en
+    // la ventana que se abrió en el clic de «Replicar». Sin ventana (`ventanaFoto` ausente), la «Página web» de antes.
+    let foto: unknown;
+    if (formato === 'web' && op.ventanaFoto !== undefined) {
+      setEventos([{ fase: 'leer' }]);
+      const v = op.ventanaFoto;
+      const l = await leerEnNavegador(url, { foto: true, ...(v && v !== 'bloqueada' ? { ventana: v } : {}) });
+      if (!montado.current) return;
+      if (!l.ok || !l.foto) { fallar(l.ok ? 'No pude sacar la foto de la página. Vuelve a intentar.' : l.mensaje); return; }
+      foto = l.foto;
+    }
+    const cuerpo = { ...(formato === 'web' ? { url, formato, ...(foto ? { foto } : {}) } : { url, formato, ...dato, ...(adaptar ? { adaptar: true } : {}) }), enVivo: true };
+    const json = JSON.stringify(cuerpo);
+    if (json.length > TOPE_PEDIDO_FOTO) { fallar('La página pesa demasiado para copiarla tal cual.'); return; }
     let r: RespuestaReplicar = { ok: false, error: 'La réplica se cortó antes de terminar. Vuelve a intentar.' };
     try {
-      const res = await fetch('/api/landing-generator/replicar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(PLAZO_IA_MS) });
+      const res = await fetch('/api/landing-generator/replicar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, signal: AbortSignal.timeout(PLAZO_IA_MS) });
       if (res.body && /ndjson/.test(res.headers.get('content-type') ?? '')) {
         const lector = res.body.getReader();
         const dec = new TextDecoder();
@@ -476,17 +494,13 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   propios?: readonly TemaPropio[];
 }) {
   const [texto, setTexto] = useState(urlInicial ?? '');
-  // Sin nada guardado, el caso de Martín. ⚠️ No `partesDePedido(null)`: para el server, un pedido SIN partes es el de
-  // siempre (todas), y la pantalla arrancaba con las cuatro prendidas (visto en la app, 28/10/2026).
-  const [partes, setPartes] = useState<PartesReplica>(() => {
-    if (adaptarInicial) return PARTES_ADAPTAR;
-    // La «Página web» elegida en la caja es la copia idéntica: todo (revisión del 28/10/2026: arrancaba en «Landing»).
-    if (formatoInicial === 'web') return PARTES_TODAS;
-    const guardadas = leerLocal<unknown>(CLAVE_PARTES, null);
-    return guardadas == null ? PARTES_INICIALES : partesDePedido(guardadas) ?? PARTES_INICIALES;
-  });
-  // La «Página web» del link de la caja con partes que no son todas: arranca en «Landing» (la copia idéntica es TODO).
-  const [formato, setFormato] = useState<FormatoReplicar>(() => (formatoInicial && formatoConPartes(formatoInicial, partes) ? formatoInicial : FORMATO_INICIAL));
+  // Martín, 28/10/2026 (~09:40): «Enfocate primero en replicar tal cual, tanto en diseño como copy y luego vemos de
+  // personalizarlo». Replicar arranca SIEMPRE en la copia idéntica (las cuatro partes, «Página web»); personalizar es
+  // elegir otras partes, a mano. Sólo «Replica y adapta» (la pastilla del link) arranca adaptando.
+  const [partes, setPartes] = useState<PartesReplica>(() => (adaptarInicial ? PARTES_ADAPTAR : PARTES_TODAS));
+  const [formato, setFormato] = useState<FormatoReplicar>(() => (sonTodas(partes) ? 'web' : formatoInicial && formatoConPartes(formatoInicial, partes) ? formatoInicial : FORMATO_INICIAL));
+  const partesVivas = useRef(partes);
+  partesVivas.current = partes;
   const [tema, setTema] = useState<string>(() => temaInicialDeReplica(propios, leerLocal<string | null>(CLAVE_TEMA, null)));
   // De qué habla la copia escrita de nuevo. Sin ella (y sin el perfil del negocio cargado) la IA vuelve sobre la oferta de la
   // competencia: medido el 28/10/2026 en el ws9, la réplica de Reportei seguía hablando de Reportei.
@@ -510,8 +524,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   const ocupado = leyendo || replicando;
 
   /** Leer `u`. `ventana`: la que se abrió EN EL CLIC (el submit) o la que reservó el ↑ de la caja (el arranque). */
-  // Con la «Página web» de la caja, la lectura no paga los ángulos (la copia idéntica no los usa).
-  const leerPagina = useCallback((u: string, ventana: VentanaDelClic | null) => { void leer(u, { ventana, ...(formatoInicial === 'web' ? { sinAngulos: true } : {}) }); }, [leer, formatoInicial]);
+  // Con la copia idéntica (las cuatro partes), la lectura no paga los ángulos: no los usa.
+  const leerPagina = useCallback((u: string, ventana: VentanaDelClic | null) => { void leer(u, { ventana, ...(sonTodas(partesVivas.current) ? { sinAngulos: true } : {}) }); }, [leer]);
 
   // El ref sobrevive al doble montaje del modo estricto: la lectura se paga una sola vez (y la ventana se toma una).
   const arrancado = useRef(false);
@@ -523,9 +537,13 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
     else campo.current?.focus();
   }, [auto, urlInicial, leerPagina]);
 
-  /** Replicar lo leído como `f`, con las partes elegidas. Sin ventana: si hizo falta el navegador, ya se leyó. */
-  const replicarLeida = (f: FormatoReplicar) => {
+  /**
+   * Replicar lo leído como `f`, con las partes elegidas. La copia idéntica («Página web») lleva la ventana abierta EN EL CLIC
+   * (`ventanaFoto`): ahí el lector saca la foto de la página. Lo demás, sin ventana: si hizo falta el navegador, ya se leyó.
+   */
+  const replicarLeida = (f: FormatoReplicar, ventanaFoto?: VentanaDelClic | null) => {
     if (lectura.fase !== 'leida') return;
+    if (f === 'web') { void replicar(lectura.url, f, {}, { ventanaFoto: ventanaFoto ?? null }); return; }
     guardarLocal(CLAVE_PARTES, listaDePartes(partes));
     if (!partes.diseno) guardarLocal(CLAVE_TEMA, tema);
     const tuOferta = partes.texto ? '' : oferta.trim().slice(0, TOPE_OFERTA_PANTALLA);
@@ -542,7 +560,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   };
   const cambiarPartes = (p: PartesReplica) => {
     setPartes(p);
-    if (!formatoConPartes(formato, p)) setFormato(FORMATO_INICIAL);
+    if (sonTodas(p)) setFormato('web');
+    else if (!formatoConPartes(formato, p)) setFormato(FORMATO_INICIAL);
   };
 
   return (
@@ -583,8 +602,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
           ocupado={false}
           accionTexto="Leer este texto"
           salida={lectura.salida}
-          onLectura={(l) => void leer(lectura.url, { lectura: l, ...(formatoInicial === 'web' ? { sinAngulos: true } : {}) })}
-          onTexto={(t) => void leer(lectura.url, { texto: t, ...(formatoInicial === 'web' ? { sinAngulos: true } : {}) })}
+          onLectura={(l) => void leer(lectura.url, { lectura: l, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
+          onTexto={(t) => void leer(lectura.url, { texto: t, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
         />
       ) : lectura.fase === 'falla' ? (
         <p className="gp-error" role="alert">{lectura.error}<ReportarASoporte /></p>
@@ -621,7 +640,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
             <div className="gp-replicar-formato">
               <SelectorFormato valor={formato} onCambio={setFormato} deshabilitado={replicando} partes={partes} />
             </div>
-            <button type="button" className="gp-btn gp-btn-primario gp-rp-replicar" data-tam="lg" disabled={replicando} onClick={() => replicarLeida(formato)}>
+            <button type="button" className="gp-btn gp-btn-primario gp-rp-replicar" data-tam="lg" disabled={replicando} onClick={() => replicarLeida(formato, formato === 'web' ? abrirEnElClic() : undefined)}>
               {replicando ? <span className="gp-giro" aria-hidden /> : <Ico n="copiar" t={14} />} Replicar
             </button>
           </section>
@@ -640,7 +659,7 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
             <FallaReplicar
               error={estado.error}
               probar={estado.probar}
-              onProbar={(f) => { setFormato(f); replicarLeida(f); }}
+              onProbar={(f) => { setFormato(f); replicarLeida(f, f === 'web' ? abrirEnElClic() : undefined); }}
             />
           )}
         </>
