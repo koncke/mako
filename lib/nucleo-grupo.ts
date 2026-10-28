@@ -17,6 +17,7 @@ import type { Area } from './api-mako/tipos';
 import type { VeredictoIntencion } from './mako-intencion';
 // La firma del equipo, de su único dueño (tests/aviso-arreglo: ningún otro archivo la escribe).
 import { FIRMA_DESARROLLADOR } from './aviso-arreglo-reglas';
+import { funcionesMako } from './funciones-mako';
 
 export const NUCLEO_GRUPO = `QUIÉN ERES AQUÍ
 Eres MaKo, la herramienta de este negocio, en su grupo de WhatsApp. Aquí el dueño, su equipo o la agencia que le da servicio te piden hacer cosas en MaKo, consultan sus datos, piden funciones nuevas o cuentan que algo no anda. En este grupo también escribe el equipo que desarrolla MaKo (sus mensajes empiezan con «${FIRMA_DESARROLLADOR}»): eres el primer canal de soporte. No eres su consultor: das opinión de estrategia sólo si te la piden.
@@ -48,4 +49,24 @@ export const AREAS_CON_EL_NEGOCIO: ReadonlySet<Area> = new Set<Area>(['general',
 /** ¿El turno del grupo lleva el contexto del negocio? Si piensa, o si consulta sus números, su copy o sus anuncios. */
 export function conElNegocio(v: Pick<VeredictoIntencion, 'intencion'>, areas: readonly Area[]): boolean {
   return v.intencion === 'pensar' || (v.intencion === 'consultar' && areas.some((a) => AREAS_CON_EL_NEGOCIO.has(a)));
+}
+
+export const TOPE_FUNCIONES_DEL_GRUPO = 1500;
+
+/**
+ * LO QUE HACE MaKo, compacto, para el system del grupo (28/10/2026, el diagnóstico del Cerebro, F2c). Sale del catálogo de MaKo
+ * inteligente (lib/funciones-mako.ts), no de uno propio: el nombre de cada función y qué es, parejo hasta
+ * `TOPE_FUNCIONES_DEL_GRUPO`. El detalle (qué hace, qué no, qué reemplaza) lo trae `listar_capacidades_mako`, que viaja en todo
+ * turno que consulta, actúa o piensa. Sin esto, «tal cual como lo hace manychat» no tenía con qué compararse.
+ */
+export function funcionesParaElGrupo(tope = TOPE_FUNCIONES_DEL_GRUPO): string {
+  const fs = funcionesMako().filter((f) => !f.soloSuperAdmin);
+  if (!fs.length) return '';
+  const titulo = 'LO QUE HACE MaKo (sus funciones, según el plan del negocio; qué hace y qué no cada una, con listar_capacidades_mako):';
+  const porLinea = Math.max(40, Math.floor((tope - titulo.length) / fs.length) - 1);
+  const linea = (nombre: string, que: string): string => {
+    const t = `- ${nombre}: ${que.replace(/\s+/g, ' ').trim()}`;
+    return t.length > porLinea ? `${t.slice(0, porLinea - 1).trimEnd()}…` : t;
+  };
+  return [titulo, ...fs.map((f) => linea(f.nombre, f.que))].join('\n');
 }

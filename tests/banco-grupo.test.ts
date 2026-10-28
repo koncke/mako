@@ -121,6 +121,9 @@ test('2. F1: el system REAL del grupo empieza por NUCLEO_GRUPO, sin el dashboard
     assert.match(s[k], /NUNCA DESCALIFIQUES LO QUE TE PIDEN/, `${k} sin la regla de no descalificar`);
   }
   assert.match(s.grupo, /SOBRE MAKO|CÓMO FUNCIONA MAKO|HECHOS/i, 'el grupo perdió lo que MaKo sabe de sí misma');
+  // Y qué hace cada función (el catálogo de MaKo inteligente, compacto: F2c); la app no lo lleva así.
+  assert.match(s.grupo, /LO QUE HACE MaKo \(sus funciones[^\n]*\n- [^\n]+\n[\s\S]*- Automations: /, 'el grupo no sabe qué hace cada función de MaKo');
+  assert.doesNotMatch(s.app, /LO QUE HACE MaKo \(sus funciones/);
   // La app y los gráficos, igual que antes (y con sus overrides).
   assert.match(s.app, /consultor IA de Martín Koncke/);
   assert.match(s.app, /NUNCA termines con una pregunta/);

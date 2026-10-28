@@ -25,7 +25,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { bloqueDelEquipo, conElNuevo, TOPE_GUARDADOS } from '../lib/doer-equipo';
 import { bloqueDePedidos, sacarYaPedido } from '../lib/pedidos-del-negocio';
-import { NUCLEO_GRUPO } from '../lib/nucleo-grupo';
+import { NUCLEO_GRUPO, funcionesParaElGrupo, TOPE_FUNCIONES_DEL_GRUPO } from '../lib/nucleo-grupo';
+import { funcionDeKey } from '../lib/funciones-mako';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -134,3 +135,18 @@ test('4. F2c: lo que hace MaKo viaja en todo turno que consulta, actúa o piensa
 //   E8 `sacarYaPedido` acepta un número que no es de un pedido abierto                   → falla el 3
 //   E9 `sumarAlPedidoDelNegocio` sin el workspace                                        → falla el 3
 //   E10 sin `CAPACIDADES_TOOLS` en las de siempre                                        → falla el 4
+
+test('5. F2c: lo que hace MaKo sale del catálogo de MaKo inteligente, compacto; Automations dice Instagram y «manychat»', () => {
+  const t = funcionesParaElGrupo();
+  assert.ok(t.length <= TOPE_FUNCIONES_DEL_GRUPO, `el bloque de funciones pesa ${t.length} caracteres`);
+  assert.match(t, /^LO QUE HACE MaKo/);
+  assert.match(t, /\n- Automations: /);
+  assert.match(t, /\n- Chats: /);
+  // Del catálogo (lib/funciones-mako.ts), no de uno propio: la entrada de Automations, con lo que le faltó a Leandro.
+  const auto = funcionDeKey('setting');
+  assert.ok(auto, 'Automations no está en el catálogo');
+  assert.ok(auto!.hace.some((h) => /Instagram o Messenger: un comentario en la publicación, el Reel o el En vivo/.test(h)), 'el catálogo no dice que Automations arranca con un comentario de Instagram');
+  assert.ok(auto!.hace.some((h) => /botones/.test(h)), 'el catálogo no dice que el DM lleva botones');
+  assert.ok(auto!.alias.includes('manychat'), '«como lo hace manychat» no lleva a Automations');
+  assert.match(sinComentarios(leer('lib/mako-context.ts')), /if \(grupo\) base \+= `\\n\\n\$\{funcionesParaElGrupo\(\)\}`;/);
+});

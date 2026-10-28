@@ -11681,8 +11681,10 @@ a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplica
   herramientas.
 
 **Sin hacer:**
-- **El catálogo de MaKo inteligente** (lib/funciones-mako.ts y `grafoParaChat`, su 0c80dd3ce): va en tren-v y todavía no llegó a
-  origin/main. Cuando llegue, se mergea y el turno del grupo lo usa (no se arma uno propio).
+- ~~El catálogo de MaKo inteligente~~: desde el merge de tren-v, el system del grupo lleva «LO QUE HACE MaKo» compacto
+  (`funcionesParaElGrupo`, lib/nucleo-grupo.ts, ≤1.500 caracteres, del catálogo de lib/funciones-mako.ts) y el detalle viaja en
+  `listar_capacidades_mako`. La entrada de Automations sumó los disparadores de Instagram, los botones del DM y el alias
+  «manychat», que era justo lo que le faltó al turno de Leandro.
 - `conTicketsDeMaKo` no compara un [[no-existe]] con los títulos abiertos si el modelo no marca [[ya-pedido]]: el duplicado
   sigue posible si el modelo no lo reconoce.
 - F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).

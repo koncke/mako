@@ -91,7 +91,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const grupo = opts.canal === 'grupo';
   /** ¿Va el contexto del negocio? Siempre fuera del grupo; en el grupo, sólo si el turno lo usa. */
   const negocio = !grupo || !!opts.conElNegocio;
-  const { NUCLEO_GRUPO } = await import('./nucleo-grupo');
+  const { NUCLEO_GRUPO, funcionesParaElGrupo } = await import('./nucleo-grupo');
 
   // MODO LEAN (feedback jul-19, costo): para turnos que NO razonan (cargar tareas,
   // leer un dato con una tool, confirmar un "sí", charla) NO hace falta mandar TODO el
@@ -169,6 +169,8 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const { hechosMako } = await import('./hechos-mako');
   const { APP_BASE_URL } = await import('./app-url');
   base += `\n\n${hechosMako(APP_BASE_URL)}`;
+  // En el grupo, también qué hace cada función de MaKo (el catálogo de MaKo inteligente, compacto: F2c).
+  if (grupo) base += `\n\n${funcionesParaElGrupo()}`;
 
   // Tabs cuyo onboarding no está terminado (regla: toda tab tiene onboarding —
   // ver .claude/skills/tab-onboarding). Sin esta señal MaKo propone optimizar lo
