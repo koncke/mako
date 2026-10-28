@@ -12,7 +12,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { BUCKET_ADJUNTOS } from '@/lib/chart-chats';
-import { TOPE_NOMBRE_ADJUNTO, mimeDeArchivoTicket, problemaDeAdjuntosTicket, rutaDeAdjuntoTicket, type AdjuntoTicket } from '@/lib/tickets-adjuntos';
+import { TOPE_NOMBRE_ADJUNTO, mimeDeArchivoTicket, problemaDeAdjuntosTicket, problemaDelDiaTicket, rutaDeAdjuntoTicket, type AdjuntoTicket } from '@/lib/tickets-adjuntos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -28,6 +28,14 @@ export async function POST(req: Request) {
   const problema = problemaDeAdjuntosTicket(archivos);
   if (problema) return Response.json({ ok: false, error: problema }, { status: 400 });
   const bucket = getSupabaseServer().storage.from(BUCKET_ADJUNTOS);
+  // El tope del día por negocio (revisión de 046d9e028): se cuenta lo que hay en su carpeta, no en memoria, así vale en todas
+  // las instancias. Si listar falla, no se traba a nadie: el tope es contra el abuso, no contra la persona.
+  const { data: hechos, error: errLista } = await bucket.list(`${ws}/tickets`, { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+  if (errLista) console.error(`[tickets:adjunto] no pude contar lo subido hoy: ${errLista.message}`);
+  const desde = Date.now() - 24 * 3600_000;
+  const hoy = (hechos ?? []).filter((o) => Date.parse(o.created_at ?? '') >= desde).map((o) => ({ bytes: Number((o.metadata as { size?: number } | null)?.size) || 0 }));
+  const delDia = problemaDelDiaTicket(hoy, archivos);
+  if (delDia) return Response.json({ ok: false, error: delDia }, { status: 429 });
   const adjuntos: AdjuntoTicket[] = [];
   for (const f of archivos) {
     const mime = mimeDeArchivoTicket(f.name, f.type)!;

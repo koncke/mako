@@ -60,15 +60,22 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   const [adjuntos, setAdjuntos] = useState<AdjuntoCaja[]>([]);
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
   const delTicket = useRef<AdjuntoTicket[]>([]);
+  // Las subidas de la conversación NUEVA que no terminaron: el ticket las espera antes de salir (revisión de 046d9e028: salía sin
+  // los archivos, y la foto que terminaba de subir después se iba con el PRÓXIMO ticket de esa persona).
+  const subidas = useRef(new Set<Promise<void>>());
+  const [subiendo, setSubiendo] = useState(false);
   const sumarAdjuntos = useCallback((lista: readonly File[]) => {
     const validos = lista.filter((f) => mimeDeArchivoTicket(f.name, f.type));
     if (validos.length < lista.length) setErrorAdjunto('Sólo fotos, capturas, PDF, Word, Excel o texto.');
     if (!validos.length) return;
-    const mal = problemaDeAdjuntosTicket([...adjuntos.map((a) => a.file), ...validos]);
+    // En la conversación nueva el tope es por ticket: cuenta lo que ya subió y lo que está subiendo.
+    const yaVan = typeof abierto === 'number' ? 0
+      : delTicket.current.length + turnos.reduce((n, x) => n + (x.estado === 'enviando' ? x.archivos?.length ?? 0 : 0), 0);
+    const mal = problemaDeAdjuntosTicket([...adjuntos.map((a) => a.file), ...validos], yaVan);
     if (mal) { setErrorAdjunto(mal); return; }
     setErrorAdjunto(null);
     setAdjuntos((xs) => [...xs, ...validos.map((f): AdjuntoCaja => ({ id: id('a'), file: f, tipo: f.type.startsWith('image/') ? 'image' : 'document', url: URL.createObjectURL(f) }))]);
-  }, [adjuntos]);
+  }, [adjuntos, abierto, turnos]);
   const quitarAdjunto = useCallback((idA: string) => setAdjuntos((xs) => { const a = xs.find((x) => x.id === idA); if (a) URL.revokeObjectURL(a.url); return xs.filter((x) => x.id !== idA); }), []);
 
   const ticket = typeof abierto === 'number' ? tickets.find((t) => t.id === abierto) ?? null : null;
@@ -92,8 +99,9 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     setCharla(CHARLA_VACIA); setTurnos(saludo()); setTipoElegido(null); setErrorTarjeta(null); ref.current = uuid(); delTicket.current = []; setAbierto('nuevo');
   }, []);
 
-  /** Lo que escribe la persona en la conversación nueva: MaKo contesta en el acto (reglas, sin IA). */
-  const contar = useCallback((t: string) => {
+  /** Lo que escribe la persona en la conversación nueva: MaKo contesta en el acto (reglas, sin IA). `yaDibujado`: el turno de
+   *  la persona ya está en el hilo (sus archivos estaban subiendo) y sólo deja de decir «Enviando…». */
+  const contar = useCallback((t: string, yaDibujado?: string) => {
     const at = new Date().toISOString();
     const c1 = sumar(charla, t);
     const paso = queSigue(c1);
@@ -101,8 +109,9 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     setCharla(c2);
     setErrorTarjeta(null);
     setTurnos((xs) => [
-      ...xs,
-      { id: id('p'), de: 'persona', texto: t, at },
+      ...(yaDibujado
+        ? xs.map((x) => (x.id === yaDibujado ? { id: x.id, de: x.de, texto: x.texto, at: x.at } : x))
+        : [...xs, { id: id('p'), de: 'persona' as const, texto: t, at }]),
       ...(paso ? [{
         id: id('m'), de: 'mako' as const, texto: paso.texto, at,
         ...(paso.k === 'pregunta' && paso.opciones ? { opciones: paso.opciones } : {}),
@@ -110,21 +119,45 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
       }] : []),
     ]);
   }, [charla]);
+  // El `contar` de AHORA, para cuando termina una subida (el de su render ya no tiene lo que se contó después).
+  const contarRef = useRef(contar);
+  useEffect(() => { contarRef.current = contar; });
 
-  /** Lo que escribe la persona en un ticket: sale como respuesta al equipo. */
-  const contestar = useCallback(async (t: TicketCliente, x: string, archivos: readonly File[] = []) => {
-    // Se ve en el acto, con sus archivos dichos; suben y salen por detrás (lib/tickets-adjuntos.ts).
+  /** Un mensaje con archivos en la conversación NUEVA: se ve ya («Enviando…»), los archivos suben y RECIÉN AHÍ entra al relato
+   *  del ticket, con su «📎» (revisión de 046d9e028). Si la persona empezó otra conversación mientras subían, no se suman a ella; si
+   *  no subieron, el turno lo dice y se puede reintentar con los mismos archivos. */
+  const subirEnLaNueva = useCallback((t: string, archivos: readonly File[], idTurno?: string) => {
+    const conversacion = ref.current;
+    const visto = [t, lineaDeAdjuntos(archivos.map((f) => f.name))].filter(Boolean).join('\n');
+    const idP = idTurno ?? id('p');
+    const turno: Turno = { id: idP, de: 'persona', texto: visto, at: new Date().toISOString(), estado: 'enviando', dicho: t, archivos };
+    setTurnos((xs) => (idTurno ? xs.map((x) => (x.id === idTurno ? turno : x)) : [...xs, turno]));
+    const p = subirAdjuntosTicket(archivos).then((s) => {
+      if (ref.current !== conversacion) return;
+      if (!s.ok) { setTurnos((xs) => xs.map((x) => (x.id === idP ? { ...x, estado: 'error' as const, error: s.error } : x))); return; }
+      delTicket.current = [...delTicket.current, ...s.adjuntos];
+      contarRef.current(visto, idP);
+    });
+    subidas.current.add(p);
+    void p.finally(() => subidas.current.delete(p));
+  }, []);
+
+  /** Lo que escribe la persona en un ticket: sale como respuesta al equipo. `yaSubidos`: un reintento cuyos archivos ya subieron. */
+  const contestar = useCallback(async (t: TicketCliente, x: string, archivos: readonly File[] = [], yaSubidos?: readonly AdjuntoTicket[]) => {
+    // Se ve en el acto, con sus archivos dichos; suben y salen por detrás (lib/tickets-adjuntos.ts). El turno guarda lo dicho y
+    // los archivos: un reintento los vuelve a mandar, nunca la línea «📎» como si fuera texto.
     const visto = [x, lineaDeAdjuntos(archivos.map((f) => f.name))].filter(Boolean).join('\n');
-    const turno: Turno = { id: id('r'), de: 'persona', texto: visto, at: new Date().toISOString(), estado: 'enviando' };
+    const turno: Turno = { id: id('r'), de: 'persona', texto: visto, at: new Date().toISOString(), estado: 'enviando', dicho: x, archivos, ...(yaSubidos ? { subidos: yaSubidos } : {}) };
     setExtra((e) => ({ ...e, [t.id]: [...(e[t.id] ?? []), turno] }));
     const quitar = () => setExtra((e) => ({ ...e, [t.id]: (e[t.id] ?? []).filter((y) => y.id !== turno.id) }));
     const fallo = (error: string) => setExtra((e) => ({ ...e, [t.id]: (e[t.id] ?? []).map((y) => (y.id === turno.id ? { ...y, estado: 'error' as const, error } : y)) }));
     try {
-      let refs: AdjuntoTicket[] = [];
-      if (archivos.length) {
+      let refs: readonly AdjuntoTicket[] = yaSubidos ?? [];
+      if (archivos.length && !yaSubidos) {
         const s = await subirAdjuntosTicket(archivos);
         if (!s.ok) { fallo(s.error); return; }
         refs = s.adjuntos;
+        setExtra((e) => ({ ...e, [t.id]: (e[t.id] ?? []).map((y) => (y.id === turno.id ? { ...y, subidos: refs } : y)) }));
       }
       const r = await contestarTicketAction(t.id, x, refs);
       if (!r.ok) {
@@ -147,26 +180,26 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
       void contestar(ticket, t, archivos);
     } else if (archivos.length) {
       // En la conversación nueva, los archivos suben ya y viajan con el ticket cuando se levanta (`delTicket`).
-      contar([t, lineaDeAdjuntos(archivos.map((f) => f.name))].filter(Boolean).join('\n'));
-      void subirAdjuntosTicket(archivos).then((s) => {
-        if (s.ok) delTicket.current = [...delTicket.current, ...s.adjuntos];
-        else setErrorAdjunto(s.error);
-      });
+      subirEnLaNueva(t, archivos);
     } else {
       contar(t);
     }
     if (dicho === undefined) { setTexto(''); for (const a of adjuntos) URL.revokeObjectURL(a.url); setAdjuntos([]); setErrorAdjunto(null); }
     return true;
-  }, [texto, ticket, contar, contestar, adjuntos]);
+  }, [texto, ticket, contar, contestar, subirEnLaNueva, adjuntos]);
 
-  /** Un mensaje que no salió: se manda otra vez (el mismo texto), sacándolo del hilo. */
+  /** Un mensaje que no salió: se manda otra vez lo MISMO (lo escrito y sus archivos), sacándolo del hilo. */
   const reintentar = useCallback((idTurno: string) => {
-    if (!ticket) return;
+    if (!ticket) {
+      const turno = turnos.find((x) => x.id === idTurno && x.estado === 'error');
+      if (turno?.archivos?.length) subirEnLaNueva(turno.dicho ?? '', turno.archivos, idTurno);
+      return;
+    }
     const turno = (extra[ticket.id] ?? []).find((x) => x.id === idTurno);
     if (!turno) return;
     setExtra((e) => ({ ...e, [ticket.id]: (e[ticket.id] ?? []).filter((y) => y.id !== idTurno) }));
-    void contestar(ticket, turno.texto);
-  }, [ticket, extra, contestar]);
+    void contestar(ticket, turno.dicho ?? turno.texto, turno.archivos ?? [], turno.subidos);
+  }, [ticket, extra, turnos, contestar, subirEnLaNueva]);
 
   const idTarjeta = idDelBorrador(turnos);
   const borrador: Borrador | null = idTarjeta ? turnos.find((x) => x.id === idTarjeta)!.borrador! : null;
@@ -178,9 +211,18 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     if (mal) { setErrorTarjeta(mal); return; }
     setMandando(true); setErrorTarjeta(null);
     try {
+      // Lo que todavía sube va CON el ticket: se espera, con «Subiendo archivos…» en la tarjeta.
+      if (subidas.current.size) {
+        setSubiendo(true);
+        try { await Promise.all([...subidas.current]); } finally { setSubiendo(false); }
+      }
+      // La descripción nombra TODO lo que va con el ticket: lo que terminó de subir mientras se esperaba todavía no está en la
+      // tarjeta de este render. Y nunca un archivo que no va (lo que no subió no entró al relato).
+      const faltan = delTicket.current.map((a) => a.nombre).filter((n) => !borrador.descripcion.includes(n));
+      const descripcion = faltan.length ? `${borrador.descripcion}\n${lineaDeAdjuntos(faltan)}` : borrador.descripcion;
       const tipo = tipoElegido ?? borrador.tipo;
       const r = await levantarDesdeSoporteAction({
-        tipo, elegido: tipoElegido != null, titulo: borrador.titulo, descripcion: borrador.descripcion, movil,
+        tipo, elegido: tipoElegido != null, titulo: borrador.titulo, descripcion, movil,
         contexto: contextoDelNavegador(movil ? 'soporte-movil' : 'soporte'), ref: ref.current, adjuntos: delTicket.current,
       });
       if (!r.ok) { setErrorTarjeta(r.error); return; }
@@ -212,7 +254,7 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     /** La caja ofrece adjuntar: capturas, fotos, PDF y documentos (lib/tickets-adjuntos.ts). */
     adjuntosCaja: { items: adjuntos, puede: !(ticket && !ticket.puedeResponder), onSumar: sumarAdjuntos, onQuitar: quitarAdjunto, accept: ACCEPT_TICKET },
     errorAdjunto,
-    idTarjeta, borrador, tipoElegido, setTipoElegido, mandarTicket, mandando, errorTarjeta,
+    idTarjeta, borrador, tipoElegido, setTipoElegido, mandarTicket, mandando, subiendo, errorTarjeta,
     placeholder: placeholderDe(ticket, turnos.length > 1),
     apagado: !!ticket && !ticket.puedeResponder,
     cargando: typeof abierto === 'number' && !ticket,

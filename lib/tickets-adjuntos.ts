@@ -41,8 +41,12 @@ export function mimeDeArchivoTicket(nombre: string, tipo: string): string | null
 }
 
 /** Por qué no se pueden mandar estos archivos; null = se pueden. */
-export function problemaDeAdjuntosTicket(archivos: ReadonlyArray<{ name: string; type: string; size: number }>): string | null {
-  if (archivos.length > TOPE_ADJUNTOS_TICKET) return `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por mensaje.`;
+/** `yaVan`: en la conversación nueva el tope es POR TICKET, y cuenta lo que ya subió o está subiendo (revisión de 046d9e028: del
+ *  sexto en adelante, el alta lo recortaba sin decirlo). */
+export function problemaDeAdjuntosTicket(archivos: ReadonlyArray<{ name: string; type: string; size: number }>, yaVan = 0): string | null {
+  if (archivos.length + yaVan > TOPE_ADJUNTOS_TICKET) {
+    return yaVan ? `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por ticket: ya van ${yaVan}.` : `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por mensaje.`;
+  }
   const malo = archivos.find((f) => !mimeDeArchivoTicket(f.name, f.type));
   if (malo) return `«${malo.name}» no se puede adjuntar: fotos, capturas, PDF, Word, Excel o texto.`;
   if (archivos.reduce((s, f) => s + f.size, 0) > TOPE_BYTES_TICKET) return 'Los archivos pesan más de 4 MB juntos: manda menos, o en otro mensaje.';
@@ -66,4 +70,18 @@ export function sanearAdjuntosTicket(x: unknown, ws: number): AdjuntoTicket[] {
 }
 
 /** Cómo se dice en el hilo y en el historial que el mensaje trajo archivos. '' = ninguno. */
+/** Lo que un negocio sube a Soporte por día (revisión de 046d9e028: sin tope, una sesión podía llenar el bucket). */
+export const TOPE_DIA_ARCHIVOS_TICKET = 30;
+export const TOPE_DIA_BYTES_TICKET = 50 * 1024 * 1024;
+
+/** `hoy`: lo que el negocio subió en las últimas 24 h (la ruta lo lista del bucket, así vale en todas las instancias). */
+export function problemaDelDiaTicket(hoy: ReadonlyArray<{ bytes: number }>, nuevos: ReadonlyArray<{ size: number }>): string | null {
+  if (hoy.length + nuevos.length > TOPE_DIA_ARCHIVOS_TICKET) {
+    return `Hoy ya se subieron ${hoy.length} archivos a Soporte y el tope es ${TOPE_DIA_ARCHIVOS_TICKET} por día. Cuéntalo con palabras: si hace falta la captura, el equipo te la pide.`;
+  }
+  const bytes = hoy.reduce((s, a) => s + a.bytes, 0) + nuevos.reduce((s, f) => s + f.size, 0);
+  if (bytes > TOPE_DIA_BYTES_TICKET) return 'Hoy ya se subieron más de 50 MB a Soporte. Cuéntalo con palabras: si hace falta la captura, el equipo te la pide.';
+  return null;
+}
+
 export const lineaDeAdjuntos = (nombres: readonly string[]): string => (nombres.length ? `📎 ${nombres.join(', ')}` : '');
