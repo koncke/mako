@@ -15893,7 +15893,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/conexiones` — Cómo se conecta algo
 
-Cómo se conecta UNA cosa, para guiar a la persona: qué destraba, si ya está conectada, quién la conecta, que se hace desde la computadora, los pasos oficiales y el link que abre justo esa conexión. Sirve para las tarjetas de Integraciones (Fathom, Zernio, Calendly, su GPT…) y para lo que no es una tarjeta: MaKo en su computadora (MaKo Desktop), «Tus cuentas de IA» y su número de WhatsApp. Úsala ante «¿cómo conecto X?», «ayúdame a conectar…» o cuando una herramienta devolvió `falta`. Pasa los pasos de a uno y nunca pidas una clave por el chat.
+Cómo se conecta UNA cosa, para guiar a la persona: qué destraba, si ya está conectada, quién la conecta, que se hace desde la computadora, los pasos oficiales y el link que abre justo esa conexión. Sirve para las tarjetas de Integraciones (Fathom, Zernio, Calendly, su GPT…) y para lo que no es una tarjeta: MaKo en su computadora (MaKo Desktop), «Tus cuentas de IA» y su número de WhatsApp. Meta se conecta con Facebook, por Zernio: el método de antes se retiró y no se explica. Úsala ante «¿cómo conecto X?», «ayúdame a conectar…» o cuando una herramienta devolvió `falta`. Pasa los pasos de a uno y nunca pidas una clave por el chat.
 
 - **Ruta por operación:** `GET /api/v1/integraciones/como_conectar`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
@@ -15916,7 +15916,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/meta/conexion` — Conexión de Meta del negocio
 
-Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por el token de antes, y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.
+Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por la conexión anterior (se apaga el 03/11), y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/integraciones/ver_conexion_meta`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
@@ -15938,7 +15938,7 @@ curl -L \
 
 ### `PUT /api/v1/integraciones/meta/cuenta` — Elegir la cuenta publicitaria de Meta
 
-PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Con el token de antes, la cuenta se elige en Integraciones (link_configurar_integracion).
+PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Sin esa conexión, primero se conecta (como_conectar «meta»).
 
 - **Ruta por operación:** `POST /api/v1/integraciones/elegir_cuenta_meta`
 - **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
