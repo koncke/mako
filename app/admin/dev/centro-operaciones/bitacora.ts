@@ -1961,4 +1961,17 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/centro-chats.ts — pedidosDelCompletado · app/admin/operaciones/BloqueCompletado.tsx · Avance.tsx · Conversacion.tsx · app/m/operaciones/ChatsMovil.tsx · centro.css', 'lib/api-mako/areas/operaciones.run.ts — contexto', 'tests/completado-responder-y-contexto.test.ts · completado-arriba.test.ts'],
   },
+  {
+    fecha: '27 oct', hora: '23:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en tu computadora 0.4.3: lista para publicar',
+    pedido: '«No me pidas permiso para publicar esas cosas, solo hazlo» (Martín, en el chat del Cerebro, 27/10). Y Leila: «instalé supuestamente el MaKo Desktop, pero no lo encuentro en mi compu».',
+    puntos: [
+      '**«MaKo» en el menú Inicio y en el escritorio de Windows:** después de instalar, se abre desde ahí.',
+      '**Entrar con otra cuenta de Claude:** lo que le pasaba a Leandro.',
+      '**La pantalla de descarga** dice dónde queda MaKo y cómo saber si se instaló.',
+      '**Sin firma todavía:** Chrome y Windows lo pueden frenar hasta que llegue el certificado; la pantalla dice qué tocar.',
+    ],
+    archivos: ['lib/ia-pc-reglas.ts — VERSION_PC · scripts/ia-pc/mako-pc.mjs — VERSION', 'tests/ia-pc-instalador-040.test.ts'],
+  },
 ];
