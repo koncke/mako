@@ -283,6 +283,9 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     `faltan`, `yaEstaba` o `falta` (o la marca el runner), el legado que la trae (lib/api-mako/ejecutar.ts), las guardas del
     runner viejo del doer y `requireLead` (lib/mako-tools.ts), que dejó de tirar: un throw es una falla para el turno. Un error
     suelto es una falla. Lo lee `esGuardaDeHerramienta` (lib/no-pude.ts, de MaKo inteligente).
+    La pendiente que no entró, además, es una falla NUESTRA a la vista (`noCorrio`): el registro la vuelve un 500 con isError
+    (`traducirLegado`, como `proponerChat`) y el doer también, donde corre el runner viejo directo (`comoFallaSiNoCorrio`). Así
+    deja su ticket por la huella aunque el modelo no marque [[no-pude]].
 
 **Sin hacer:**
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor

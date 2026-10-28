@@ -9,9 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, comoFallaSiNoCorrio, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
+import { errorParaTicket } from '../lib/tickets-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -288,7 +289,7 @@ test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con l
   assert.match(leer('lib/api-mako/areas/cobros.run.ts'), /if \(!conectadas\) return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.' \};/);
   // El runner viejo del doer: sus guardas llevan la marca; la pendiente que no entró y lo que reventó, no.
   const viejo = leer('lib/mako-doer-acciones.ts');
-  assert.match(viejo, /if \('error' in c\) return JSON\.stringify\(\{ ok: false, error: 'No pude registrar la acción pendiente\.' \}\);/);
+  assert.match(viejo, /if \('error' in c\) return JSON\.stringify\(\{ ok: false, error: 'No pude registrar la acción pendiente\.', noCorrio: true \}\);/);
   for (const g of ["error: 'Falta el nombre.", "error: 'Faltan leadId o startIso.'", 'error: `No existe el lead #${leadId} en este workspace.`', "error: 'Falta secuenciaId.'"])
     assert.ok(viejo.includes(`JSON.stringify({ ok: false, guarda: true, ${g}`), `sin marca: ${g}`);
   assert.equal((viejo.match(/ok: false, guarda: true,/g) ?? []).length, 15, 'cambió cuántas guardas marca el runner viejo');
@@ -305,4 +306,22 @@ test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con l
   assert.equal(esGuardaDeHerramienta(JSON.stringify({ ok: false, guarda: true, error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale".' })), true, 'una guarda del runner viejo');
   // Los tipos: la marca existe en lo que prepara un runner y en el resultado.
   assert.equal((leer('lib/api-mako/tipos.ts').match(/guarda\?: true/g) ?? []).length, 2);
+});
+
+test('14. la pendiente que no entró es una falla NUESTRA: va con isError por los dos caminos y deja su ticket por la huella', () => {
+  // MaKo inteligente, sobre la verificación de 2cb1cf67e: sin marca dejó de ser guarda, pero tampoco era un error a la vista, y
+  // si el modelo no marcaba [[no-pude]] no quedaba ticket. Ahora es como `proponerChat` (500, noCorrio).
+  const noEntro = JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.', noCorrio: true });
+  const enElDoer = comoFallaSiNoCorrio(noEntro);
+  assert.deepEqual(enElDoer, { content: noEntro, isError: true });
+  assert.equal(errorParaTicket('proponer_cambio_etapa', enElDoer)?.error, 'No pude registrar la acción pendiente.', 'el doer no la registra');
+  // Lo demás pasa tal cual: una guarda, una pendiente que entró, un texto.
+  for (const out of [JSON.stringify({ ok: false, guarda: true, error: 'Falta el nombre.' }), JSON.stringify({ ok: true, pendiente_id: 3 }), 'Listo.'])
+    assert.equal(comoFallaSiNoCorrio(out), out, out);
+  // El registro (la app y las heredadas por el registro): el legado con `noCorrio` es un 500, y un 500 va con isError.
+  const ej = leer('lib/api-mako/ejecutar.ts');
+  assert.match(ej, /if \(j\.noCorrio === true\) return \{ ok: false, status: 500, error: String\(j\.error \?\? crudo\), noCorrio: true \};/);
+  assert.match(ej, /return r\.status === 400 \? JSON\.stringify\(cuerpo\) : \{ content: JSON\.stringify\(cuerpo\), isError: true \};/);
+  // El doer, donde el runner viejo corre directo.
+  assert.match(leer('lib/mako-doer-in.ts'), /: NOMBRES_ACCION\.has\(name\) \? runnerAcciones\(name, input\)\.then\(comoFallaSiNoCorrio\)/);
 });

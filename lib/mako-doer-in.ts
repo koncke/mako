@@ -50,7 +50,7 @@ import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
-import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
@@ -1629,7 +1629,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
       const correr = async () => (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
-        : NOMBRES_ACCION.has(name) ? runnerAcciones(name, input)
+        // El runner viejo devuelve texto: la falla nuestra (`noCorrio`) va con isError, como por el registro (`comoFallaSiNoCorrio`).
+        : NOMBRES_ACCION.has(name) ? runnerAcciones(name, input).then(comoFallaSiNoCorrio)
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       // Una herramienta que REVIENTA es una falla de verdad (la verificación de tren-t): el loop la atrapa sin pasar por

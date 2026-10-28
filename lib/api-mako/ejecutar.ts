@@ -171,6 +171,8 @@ function traducirLegado(crudo: string): Resultado {
   if (j.ok === true && typeof j.pendiente_id === 'number') {
     return { ok: true, tipo: 'pendiente', pendiente: { id: j.pendiente_id, resumen: String(j.resumen ?? ''), venceEnMin: Number(j.vence_en_min ?? TTL_PENDIENTE_MIN), url: linkPantalla(RUTA_BANDEJA) } };
   }
+  // La pendiente que no entró (`noCorrio`, mako-doer-acciones.ts `proponer`) es una falla nuestra: un 500, como `proponerChat`.
+  if (j.noCorrio === true) return { ok: false, status: 500, error: String(j.error ?? crudo), noCorrio: true };
   const { ok: _ok, error, faltan, guarda, ...resto } = j;
   void _ok;
   // La tool vieja marca su GUARDA (`guarda: true`, o qué falta); «No pude registrar la acción pendiente» no la trae: es una falla.

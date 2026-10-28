@@ -83,6 +83,21 @@ export function laCorreccion(v: VeredictoIntencion, texto: string, antes = ''): 
   };
 }
 
+/**
+ * Lo que el runner viejo del doer devuelve como texto cuando NO CORRIÓ por una falla nuestra (`{ ok:false, error, noCorrio:true }`:
+ * la pendiente que no entró), como lo devuelve el registro: con isError. Sin esto, en el grupo `errorParaTicket` no la veía y no
+ * dejaba ticket por la huella (la verificación de 2cb1cf67e). Lo demás pasa tal cual.
+ */
+export function comoFallaSiNoCorrio<T>(out: T): T | { content: string; isError: true } {
+  if (typeof out !== 'string') return out;
+  try {
+    const j = JSON.parse(out) as { ok?: unknown; noCorrio?: unknown };
+    return j && j.ok === false && j.noCorrio === true ? { content: out, isError: true } : out;
+  } catch {
+    return out;
+  }
+}
+
 /** Lo que ACTUAR trae de siempre y una corrección de monto no lleva: el plan y las que resuelven lo pendiente. */
 export const FUERA_DE_LA_CORRECCION = ['proponer_tareas_plan', 'confirmar_accion', 'cancelar_accion'] as const;
 

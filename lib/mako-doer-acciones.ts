@@ -575,7 +575,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
     const origen = grupoJid.startsWith('app:flujo:') ? grupoJid.slice('app:'.length) : 'hola-mako';
     const c = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart, pidio: enElGrupo?.quien });
     // El motivo va al log con la pendiente (`crearPendiente`); al modelo, sólo que no entró: no es algo que la persona arregle.
-    if ('error' in c) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
+    // `noCorrio`: es una falla NUESTRA (la verificación de 2cb1cf67e), no una guarda: el registro la vuelve un 500 con isError
+    // (`traducirLegado`, como `proponerChat`) y el doer también (`comoFallaSiNoCorrio`), así deja su ticket por la huella.
+    if ('error' in c) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.', noCorrio: true });
     return JSON.stringify({ ok: true, pendiente_id: c.id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
   };
 
