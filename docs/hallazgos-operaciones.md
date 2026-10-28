@@ -48,6 +48,11 @@ probado rompiéndolo (13 roturas, cada una atrapada).
   Y el cierre sube el `resumen` de su wrap_up (la app pide escribir el cierre DESPUÉS del wrap_up, así que el resumen se perdía):
   la tarjeta lo muestra primero, en llano, con la respuesta entera plegada abajo.
 
+- **tests/ops-center-voz-chat estaba ROJO en main** (df08aa5f9): fijaba `const aGuardar = voz ? [...bloques, voz] : bloques;`, y el 24/10 esa
+  const pasó a llamarse `conElPedido` porque TAPABA la función `aGuardar` importada de lib/chat-bloques (la respuesta reventaba
+  en ejecución). Un test que fija un NOMBRE fija también el error que el nombre causaba: ahora fija lo que cuida (la nota al final,
+  con el mensaje, y borrada si el mensaje no quedó) y que ninguna const local vuelva a llamarse `aGuardar`.
+
 **Lo que quedó SIN hacer:**
 - **Instalar el cartero 1.21.0 en cada PC** (después de desplegar el servidor que acepta `resumen`, `inicio` y `fin`). Sin él, el
   Completado es como antes. Lo ya guardado no tiene rondas: el del CRM del 26/10 sigue mostrando el de las 13:59.
