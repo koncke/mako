@@ -249,7 +249,7 @@ export function PanelMakoIA() {
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
           <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
         </div>
       </div>
     </div>

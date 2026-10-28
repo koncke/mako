@@ -91,7 +91,7 @@ test('1. la caja única tiene todo lo de la caja del Ops Center', () => {
     ['<BotonEmojis ', 'los emojis'],
     ['<BotonMandar ', 'UN botón: el micrófono sin nada escrito, la flecha con algo'],
     ['<ListaAdjuntos ', 'las miniaturas de lo adjuntado, arriba'],
-    ['alPegar(e, p.adjuntos)', 'pegar una imagen'],
+    ['alPegar(e, adjuntos)', 'pegar una imagen'],
     ['conVinetas(', 'las viñetas mientras se escribe'],
     ['enterEnLista(', 'Enter adentro de una lista'],
     ['estaAbajo(', 'el scroll que acompaña lo que se escribe'],

@@ -22,6 +22,7 @@ import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto } from './fase-store';
 import { getPanorama } from './archivero';
+import { bloqueDeGanados, leerGanadosParaAvatar } from './avatares-ganados';
 import { getSetting, setSetting } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible, errorDeCascada } from './ai-cheap';
 
@@ -129,17 +130,22 @@ export type GenResult = { ok: true; avatares: Avatar[]; uso: Uso } | { ok: false
 
 export async function generarAvatares(): Promise<GenResult> {
   try {
-    const [brief, fase, panorama, contexto] = await Promise.all([perfilNegocioTexto(), faseNegocioTexto(), getPanorama(), getContextoAvatares()]);
+    // Los clientes GANADOS del CRM, agregados (MAU-02, lib/avatares-ganados.ts): la prueba de a quién le vende de verdad.
+    // Una lectura que falla no frena los avatares: se arman como antes, sin ese bloque.
+    const [brief, fase, panorama, contexto, ganados] = await Promise.all([
+      perfilNegocioTexto(), faseNegocioTexto(), getPanorama(), getContextoAvatares(), leerGanadosParaAvatar().catch(() => []),
+    ]);
+    const deLosGanados = bloqueDeGanados(ganados);
     if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
       return { ok: false, error: 'Primero carga tu negocio en El Archivero: de ahí salen los avatares.' };
     }
     const sys = await renderPrompt('avatares.system', AVATARES_SYSTEM_TEMPLATE, {});
-    const user = await renderPrompt('avatares.user', AVATARES_USER_TEMPLATE, {
+    const user = `${await renderPrompt('avatares.user', AVATARES_USER_TEMPLATE, {
       brief,
       panorama: panorama.trim() ? `\nPANORAMA (lo que MaKo entendió del negocio):\n${panorama.slice(0, 6000)}\n` : '',
       fase: fase ? `\nFASE DEL NEGOCIO (para el tono/urgencia):\n${fase}\n` : '',
       contexto: contexto.trim() ? `\nLO QUE EL CLIENTE PRECISÓ sobre a quién le vende (respeta esto por sobre inferencias):\n${contexto}\n` : '',
-    });
+    })}${deLosGanados ? `\n\n${deLosGanados}` : ''}`;
     // IA GRATIS del cliente (Gemini primero, luego Groq/…), NO Claude: esto es
     // "encontrar segmentos", no copywriting fino. `validar` rescata si un modelo
     // devuelve JSON roto. maxTokens holgado: 3 avatares × 5 campos.
@@ -148,6 +154,8 @@ export async function generarAvatares(): Promise<GenResult> {
       system: sys, user, json: true, maxTokens: 2600,
       feature: 'avatares', motivo: 'Definir 3 avatares segmentables del negocio',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneAvatares, erroresOut: errores, redDePlataforma: true,
+      // Con los ganados adentro lleva datos de los clientes del negocio: sólo IA que no entrena con lo que recibe.
+      ...(deLosGanados ? { pii: true } : {}),
     });
     // El mensaje lo arma `errorDeCascada` (lib/ia-mensajes.ts). Acá vivía una copia
     // que hacía lo mismo, y esa duplicación es lo que dejó a `razones` diciendo lo

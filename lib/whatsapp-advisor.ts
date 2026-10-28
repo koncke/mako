@@ -15,6 +15,7 @@ import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
 import { perfilNegocioTexto } from './onboarding';
 import { nombreDelNegocioActual } from './mako-context';
 import { rotuloDelNegocio } from './negocio-rotulo';
+import { REGLA_NO_DESCALIFICAR } from './no-existe';
 import { metodologiaDeArea } from './mako-knowledge';
 import { META_RULES_TEXT } from './meta-rules';
 import { VARIABLES_LEAD } from './template-vars';
@@ -143,7 +144,8 @@ async function buildAdvisorSystem(query: string): Promise<string> {
     metodologia: metodologia || '(todavía no hay metodología de mensajes cargada; usa buen criterio de reactivación y sé honesto.)',
     metaRules,
   });
-  let out = `${persona}\n\n${nucleo}\n\n${system}`.trim();
+  // Lo que pide el dueño nunca se descalifica (crítica de Leila, 27/10/2026; lib/no-existe.ts): fijo, después de lo editable.
+  let out = `${persona}\n\n${nucleo}\n\n${REGLA_NO_DESCALIFICAR}\n\n${system}`.trim();
   // El nombre del negocio, no «Martín» (1.5, lib/mako-context.ts → rotuloDelNegocio).
   if (perfil) out += `\n\n${rotuloDelNegocio(nombreNegocio)}:\n${perfil}`;
   return out;

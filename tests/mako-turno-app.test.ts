@@ -299,7 +299,8 @@ test('el doer de WhatsApp usa las piezas compartidas SIN cambiar lo que hacía',
   assert.equal(placeholderDeAdjunto('image', 'menú', 'cárgalo'), '(envió una imagen: menú) — cárgalo');
   assert.equal(placeholderDeAdjunto('document', '', ''), '(envió un PDF)');
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /mediaBlocks = bloquesDeAdjuntos\(\[\{ tipo: adjunto\.tipo, mime: adjunto\.mime, base64: b64 \}\], textoDirecto \|\| adjunto\.caption\);/);
+  // Desde el 27/10/2026 el texto del bloque suma lo que el lector sacó de la foto o el PDF (tests/doer-adjunto-leido.test.ts).
+  assert.match(doer, /mediaBlocks = bloquesDeAdjuntos\(\[\{ tipo: adjunto\.tipo, mime: adjunto\.mime, base64: b64 \}\], \[textoDirecto \|\| adjunto\.caption, loQueDice\]\.filter\(Boolean\)\.join\('\\n\\n'\)\);/);
   assert.match(doer, /mime: mimeImagenWhatsApp\(img\.mimetype\)/);
   assert.doesNotMatch(doer, /Mira esta imagen|image\\\/\(jpeg\|png/, 'quedó una segunda copia en el doer');
 });

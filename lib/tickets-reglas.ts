@@ -24,6 +24,8 @@
 // «arregla» solo es una feature que nadie decidió. Lo contrario (un bug que espera a Martín) cuesta un clic.
 
 /** Los tres tipos, con las palabras de la pantalla (las mismas en el formulario y en la bandeja de Martín). */
+
+import { esCausaNoPude, esSuperficie, type CausaNoPude, type Superficie } from './no-pude';
 export const TIPOS = [
   { clave: 'bug', rotulo: 'Algo no anda', corto: 'Bug' },
   { clave: 'pedido', rotulo: 'Quiero pedir algo nuevo', corto: 'Pedido' },
@@ -56,6 +58,11 @@ export const TOPE_POR_DIA = 10;
  * Se le cuentan a él, no al dueño a quien le llegan: si no, un alumno le gastaba el tope del día al dueño.
  */
 export const TOPE_POR_DIA_TERCERO = 3;
+/**
+ * Cuántos tickets AUTOMÁTICOS (lib/no-pude.ts: lo que MaKo no pudo) abre un negocio por día. Aparte del de la persona: los
+ * automáticos no le gastan su tope, y un bucle del modelo no le llena la Ticketera a Martín.
+ */
+export const TOPE_AUTOMATICOS_POR_DIA = 6;
 /** Cuántos arreglos automáticos salen por día, en total: protegen la ventana de 5 horas del Cerebro. */
 export const TOPE_ARREGLOS_POR_DIA = 8;
 
@@ -93,6 +100,9 @@ export type ContextoTicket = {
   herramienta?: string;
   /** MaKo detectó que la persona pidió algo que la app todavía no tiene. */
   noExiste?: boolean;
+  /** Un ticket automático (lib/no-pude.ts): por qué no se pudo y dónde. Lo pone el código, nunca la persona. */
+  causa?: CausaNoPude;
+  superficie?: Superficie;
   /** La hora del dispositivo, su zona, el navegador, la pantalla y el idioma. */
   hora?: string;
   zona?: string;
@@ -127,6 +137,8 @@ export function sanearContexto(x: unknown): ContextoTicket {
     if (v) c[k] = v;
   }
   if (o.noExiste === true) c.noExiste = true;
+  if (esCausaNoPude(o.causa)) c.causa = o.causa;
+  if (esSuperficie(o.superficie)) c.superficie = o.superficie;
   const hora = txt(o.hora, 40);
   if (hora && Number.isFinite(Date.parse(hora))) c.hora = new Date(hora).toISOString();
   return c;
@@ -270,7 +282,7 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
  * `deTercero` = lo escribió alguien de AFUERA del negocio (el alumno de un curso, 27/10/2026): nunca va solo al arreglo, ni
  * con la regla del negocio. La regla es de Leandro y su equipo, no de cualquiera que tenga el link de su curso.
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean; automatico?: boolean } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   const error = e.contexto.error?.trim();
@@ -333,6 +345,23 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   if (opts.deTercero) {
     porque.push('Lo reportó alguien de afuera del negocio (un alumno de su curso): no se arregla solo, lo decide Martín.');
     return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+  }
+  // ── automático (27/10/2026, lib/no-pude.ts): lo levantó MaKo solo, no una persona ──
+  // GUARDA DURA: nunca entra por la regla de aprobación de un negocio (esa vía libre es para lo que levanta la PERSONA: Leila,
+  // Leandro, Mauricio), así que tampoco lleva `regla`. GUARDA DURA: lo del proveedor o de la configuración del negocio no es
+  // código y nunca va al Runner; se cierra solo cuando vuelve a andar (`cerrarAutomatico`, lib/tickets-db.ts).
+  if (opts.automatico) {
+    const causa = e.contexto.causa;
+    if (causa === 'proveedor' || causa === 'configuracion') {
+      porque.push(causa === 'proveedor'
+        ? 'Es del proveedor de IA (caído o sin cupo), no del código: no va al arreglo automático. Se cierra solo cuando vuelve a contestar.'
+        : 'Es de la configuración del negocio, no del código: no va al arreglo automático. Se cierra solo cuando el negocio lo tiene.');
+      return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+    }
+    if (opts.aprobadoPorRegla?.trim()) porque.push(`Lo levantó MaKo solo: no entra por la regla de ${opts.aprobadoPorRegla.trim()}.`);
+    if (autoArreglo) porque.push('Bug evidente: va directo al arreglo, sin esperar a Martín.');
+    if (tipo === 'pedido') porque.push('Es algo nuevo: lo decide Martín.');
+    return { v: 1, tipo, autoArreglo, confianza, prioridad, porque };
   }
   // ── aprobado por regla (26/10/2026): todo lo de ese negocio, salvo lo delicado, lo que escribe en producción y el interruptor ──
   const regla = opts.aprobadoPorRegla?.trim() || null;

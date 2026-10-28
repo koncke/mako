@@ -201,7 +201,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       filas.push(
         <DeMako key={x.id} quien={quien} hora={hora(x.at) || null} m={wa(x)} marcas={marcas}>
           {suyo?.arriba}
-          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} /></div>}
+          {/* `iconos` (27/10/2026, ticket 874749710-12): el botón o la tab que MaKo nombra entre «» sale con su ícono de verdad. */}
+          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} iconos /></div>}
           {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
           {!!x.irA?.length && (
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>

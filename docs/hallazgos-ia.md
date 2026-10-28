@@ -7105,6 +7105,96 @@ proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sost
 tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
 *2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*
 
+---
+
+## Cada fila de `anthropic_usage` es un pedido para la cuota del día: una marca nueva no puede repetir la de otra (27/10/2026)
+
+**Síntoma** (al entregar la rama de MaKo en WhatsApp, leyendo el código): un 429 de Gemini que cubría `flash-lite` dejaba DOS
+filas del mismo pedido: `rebote429:<modelo>` (`anotarRebote429`) y `rebote:<modelo>`, la nueva que cuenta las bajadas de modelo
+desde la base.
+
+**La trampa:** `plegarUso` (lib/ia-cuotas-calculo.ts) suma CADA fila como un pedido del día, también las de 0 tokens. Es a
+propósito: un rebote viajó y el proveedor lo contó. Con dos filas por pedido, la barra de la cuota se infla y `ordenarPorCuota`
+deja antes esa cuenta.
+
+**La regla:** antes de escribir una fila de marca nueva, se mira si otra fila ya anota ESE pedido. Si no es una llamada que
+contestó, va también en `MARCAS_NO_CONTESTO` (lib/su-clave-reglas.ts).
+
+**Vive en:** lib/ai-cheap.ts (`chatCheapTools`, la condición `tipo !== 'cuota'`) · lib/ia-cuotas-calculo.ts (`plegarUso`) ·
+tests/doer-modelo.test.ts ·
+*2026-10-27, chat «MaKo en WhatsApp: conexiones» (claude4)*
+
+---
+
+## MaKo inventaba funciones, y el pedido no le llegaba a nadie (27/10/2026, claude5)
+
+**Síntoma:** Leandro (ticket 874749710-14): MaKo le describió «un bloque de Instagram con tope de comentarios» que no existe.
+Automations ya lo frenaba (`lugarInventado`, lib/flujo-ia-intencion.ts) y ofrecía un botón; los otros chats, nada.
+
+**Lo obvio era el equivocado:** agrandar `lugarInventado` con más palabras. Un detector de frases inventadas sólo ve las
+inventadas que alguien ya vio; la próxima trae otro nombre. **La regla:** el modelo dice que no existe y lo MARCA
+(`[[no-existe: …]]`, `REGLA_NO_EXISTE` de lib/no-existe.ts, y `reglaNoExisteEn(campo)` para los chats que contestan en
+JSON); el CÓDIGO saca la marca, levanta el pedido sin preguntar y escribe la línea con el número (lib/no-existe-server.ts).
+Así el modelo nunca promete ni inventa un número de ticket, y la persona nunca ve la marca.
+
+- **Dónde va:** el Ops Center (`turnoApp`: también el teléfono, el CRM y el Analyst del lead), Offer y el onboarding, «Discutir»
+  del Web Generator, los chats del Image Editor y del Video Editor, y Automations (su `falta` sale sola; el botón «Pedírselo al
+  equipo» queda de respaldo si el ticket no salió). tests/mako-no-existe.test.ts exige la regla y el procesado en cada uno.
+- **Trampa:** los editores de imagen y video se quedaban con la PRIMERA línea de `resumen`: la marca se saca ANTES de cortar.
+- **Un pedido es UN ticket:** `refDeNoExiste` (negocio, chat y el pedido sin mayúsculas ni tildes).
+- **WhatsApp** (mako-wa-conexiones, P3) usa el mismo criterio para lo que FALLA (ahí se propone el ticket, hay algo que
+  confirmar); lo que no existe en el grupo puede usar `conPedidoDeNoExiste` con `actor: whatsapp:…` y `canal: 'whatsapp'`.
+
+**Sin hacer:** la corrida con el MODELO REAL (`scripts/probar-no-existe.mts`): el clasificador de permisos negó leer las claves
+locales («Credential Exploration»), así que la corre quien tenga el permiso. El Dashboard no se tocó: no es un chat donde se
+pidan funciones (arma análisis de los datos).
+
+## «Eso es una distracción total»: MaKo descalificaba lo que le pedían (27/10/2026, claude4, la crítica de Leila)
+
+**Síntoma:** a «¿tenemos registro de cumpleaños de los clientes activos?» MaKo le contestó a Leila «eso es una distracción
+total». La frase no está en el código: sale de la persona (lib/mako-persona.ts: «honestidad radical», «el orden importa más que
+las tácticas»), que se edita desde la app y la guardada le gana al default.
+
+**Lo obvio era el equivocado, dos veces.** Corregir la persona no alcanza (la de cada negocio puede estar guardada), y ponerlo en
+`MAKO_NUCLEO` tampoco: su comentario decía «Núcleo FIJO — reglas duras, no editables» y NO lo es, porque `buildSystemPrompt` lo
+lee con `getPromptText('mako.nucleo', MAKO_NUCLEO)` y un override guardado lo reemplaza entero (el comentario ya lo dice).
+**La regla:** lo que no se puede sacar va como constante del código DESPUÉS de lo editable: `REGLA_NO_DESCALIFICAR`
+(lib/no-existe.ts) en `buildSystemPrompt` (lean y completo: la app, WhatsApp y su red, /api/mako-doer) y en el asesor de
+WhatsApp (lib/whatsapp-advisor.ts). Nunca «distracción», «no importa», «no es prioridad»: primero contesta, si no existe lo dice
+y propone cómo, y lo urgente va después como sugerencia. tests/mako-no-descalifica.test.ts, con la pregunta de cumpleaños.
+
+**Sin hacer:** medirlo con el MODELO REAL: `scripts/probar-no-existe.mts` ya trae la pregunta de cumpleaños con la persona de
+verdad y `descalificaElPedido`, y no se corrió (pide las claves de IA y registra el uso en la base). El campo de cumpleaños
+lo hace CRM/Chats.
+
+## Los «no puedo» falsos de la app: la herramienta existía y no viajaba (27/10/2026, claude4, Leila)
+
+**Síntoma:** MaKo le dijo «no puedo» a Leila con cosas que sí hace: editar las cuotas de un lead, corregir su plan de pagos
+(terminó en el ticket #13 como «no existe»), guardar los datos de una constancia fiscal. El diagnóstico (sólo lectura, con el
+selector real) mostró que en los tres casos la herramienta no llegaba al turno.
+
+**Lo que no se ve en el modelo, se ve en el selector:** las herramientas de un turno son una SELECCIÓN (clasificador +
+presupuesto de 12.000). Medirlo con `deSiempre: []` miente: libera presupuesto y da otra selección; el test usa
+`MAKO_TOOLS` + `MAKO_ACCION_TOOLS` de verdad.
+
+- **El plan de pagos sin la palabra «cuota»** (lib/mako-intencion.ts): «las fechas y cantidades de pago», «cada quincena», «la
+  mensualidad de Ana», «el plan de pagos» no sumaban cobros. Ahora son el tipo `plan` (editar_venta_lead y editar_cuota
+  primero; `guardar_cuotas` también marca GANADO). Trampa: `DEL_PLAN_COBRO` tomaba «el plan de pagos» como la tab Plan. La
+  mensualidad de MaKo («mi mensualidad») no entra.
+- **La ficha en «Editar»** (lib/mako-analyst-lead*.ts): la pista de diseño va adelante a propósito, pero se adueñaba de un DATO.
+  `pistaDeEdicion` elige la pista del dato si es un cobro que no nombra la vista. Sin «ficha» en esa pista: es una palabra de la
+  vista. Además, en «Editar» la pantalla bloquea los montos (bloques-cobro.tsx, `bloqueado={editando}`): MaKo ahora lo dice.
+- **Los datos fiscales** no sumaban ningún área: `editar_dato_deal` (cobros) no llegaba ni pedido explícito. Y con la constancia
+  ADJUNTA el turno es «pensar», donde lo que escribe no viaja por diseño («la ofrece»): sin sus NOMBRES, MaKo no tenía qué
+  ofrecer y decía «no puedo». **La regla:** `herramientasDelTurno` devuelve `ofrecibles` (los nombres, sin esquema) y el turno
+  de la app los dice en el system. WhatsApp todavía no los usa.
+- **«Anotado» sin escribir nada** (el horario, dos veces): `afirmacionesDeHecho` sólo miraba pretéritos; ahora también
+  «Anotado», «queda guardado», «lo recordaré», mirando la oración ENTERA (en «Anotado: X» el «:» no presenta, afirma).
+
+**Sin hacer:** en la PANTALLA, un aviso junto a los montos bloqueados en «Editar» (es del CRM: app/crm/lead-view/ficha/pagos/
+bloques-cobro.tsx:504). Corregir un dato YA cargado del perfil desde el chat: `guardar_campo_perfil` sólo completa vacíos
+(negocio.def.ts:431), se corrige en el Archivero. WhatsApp: la edición de montos con una foto (regla 9, media → pensar) es de
+«MaKo en WhatsApp». Los datos de Nadia (lead 2605, 12 cuotas de 4235.29) son producción de ws 11: los decide Martín.
 ## Con la computadora del cliente APAGADA: qué deja de andar y qué no (27/10/2026, Infra)
 
 Aaron (llamada del 26/10) preguntó qué pasa con la PC del usuario apagada. Leído en el código (no probado apagando una PC):
@@ -7193,3 +7283,13 @@ Martín: hoy la regla de `mako-pc` es no tocarlo.
   el título nunca es el texto del modelo.
 - **Quién:** MaKo inteligente (el ruteo y la base del ticket, sobre la rama c4), MaKo en WhatsApp y Motion. Diagnóstico:
   workflow `wf_80b91164-275` del Cerebro.
+
+**La revisión del 28/10/2026 de los «no puedo» falsos (claude4):**
+- **En México «quincena» es de todos los días** («la segunda quincena», «las ventas de la quincena son 12»): sólo cuenta como
+  frecuencia de PAGO («cada quincena», «quincenal»), la mensualidad sólo si es de alguien («de Ana», «su»; en la ficha del lead,
+  `delLead`), una pregunta sin verbo de cambiar no es un pedido, y la agenda le gana al plan. Medir con frases de la clienta, no
+  sólo con las del ticket: la señal ancha recreaba el «no puedo» falso en la agenda.
+- **Lo que se ofrece no lleva destructivas** (reembolsar, dar de baja, despublicar) y en modo «analizar» no se ofrece nada: con el
+  «sí» lo que escribe no viaja. Un ofrecible es una promesa: tiene que pasar las mismas puertas que la herramienta.
+- **«Anotado» sin sujeto, sí; un estado LEÍDO, no** («La cuota 13 quedó registrada como cobrada» es un dato de cobranza_lead). La
+  regla de precisión de lib/doer-salida.ts ya lo decía: un estado puede ser lo que MaKo leyó.

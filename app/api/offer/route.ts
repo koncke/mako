@@ -71,6 +71,8 @@ import { after, type NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { adminDeWorkspaceActual, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { sacarNoExiste } from '@/lib/no-existe';
+import { conPedidoDeNoExiste } from '@/lib/no-existe-server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { registrarDocumentoSinPisar, type RegistroArchivero } from '@/lib/archivero';
@@ -939,7 +941,17 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
   if (!ia.ok && plan.modo !== 'forzar') return no(502, ia.error, { sesion: await vistaSesion(fila) });
-  const turnoIA = ia.ok ? ia.valor : null;
+  let turnoIA = ia.ok ? ia.valor : null;
+  // LO QUE NO EXISTE EN MaKo (lib/no-existe.ts, ticket 874749710-14 de Leandro): la marca nunca le llega al dueño, el pedido
+  // sale solo a la Ticketera y la línea que lo dice la escribe el código.
+  if (turnoIA?.respuesta) {
+    const [wsAhora, sesion] = await Promise.all([getWorkspaceActual(), getUsuarioActual().catch(() => null)]);
+    const pedido = [...fila.mensajes].reverse().find((m) => m.de === 'yo')?.texto ?? '';
+    const ne = wsAhora != null && sesion?.email
+      ? await conPedidoDeNoExiste(turnoIA.respuesta, { ws: wsAhora, actor: sesion.email, nombre: sesion.nombre ?? '', chat: p.arranque ? 'onboarding (Offer)' : 'offer', ruta: '/offer', pedido })
+      : { ...sacarNoExiste(turnoIA.respuesta), linea: null };
+    turnoIA = { ...turnoIA, respuesta: [ne.texto, ne.linea].filter(Boolean).join('\n\n') };
+  }
 
   // La fuente es 'doc' si el turno trajo documentos: de ahí sale casi todo lo que se anota en él.
   const fuente = p.nuevos.length ? 'doc' : 'chat';

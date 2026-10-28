@@ -631,3 +631,72 @@ lo corrige `scripts/tickets.ts ver`.
 
 **Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `estimaMasDeUnDia`) · `lib/tickets-runner.ts` · `scripts/operaciones/cartero.mjs`
 (`mensajeTicket`, `REGLAS_CONOCIDAS`) · `tests/feedback-2710-tanda1.test.ts`
+
+## «Siempre que MaKo diga que no pudo, un ticket»: el automático con su causa (27/10/2026, claude4, Martín y Leila)
+
+**Síntoma:** Leila recibía «no lo puedo hacer» y nadie se enteraba. Medido por el Cerebro (sólo lectura, 14 días): el detector
+de «no puedo» marcaba 15 de 105 respuestas de la app y en ese tiempo hubo 2 tickets de MaKo, ninguno en los últimos 9 días.
+Sólo el error de una herramienta abría ticket solo; la acción confirmada que fallaba al EJECUTARSE, el «no puedo» del texto, el
+proveedor caído y la configuración terminaban en «no pude» sin ticket.
+
+**Lo obvio era el equivocado:** un ticket por cada frase con «no puedo». Las herramientas de un turno son una SELECCIÓN, así que
+muchos «no puedo» eran ruteo (el ticket #13 de «no existe» era una herramienta que no viajó), y otros son reglas de MaKo
+(confirmar en la tarjeta, el rol) u opiniones («no puedo asegurarte…»). **La regla** (lib/no-pude.ts):
+- el modelo marca `[[no-pude: …]]` en el mismo turno, y sabe que sus herramientas son una selección (en el system de la app ya
+  no dice «y NINGUNA otra»);
+- la CAUSA la decide el código: ejecución, herramienta, ruteo (llamó algo que existe, `porId` + `visible`, y no viajó),
+  proveedor, configuración, no-existe, texto. Una regla o una opinión: nada;
+- UN ticket por negocio + conversación + causa (`np:<ws>:…`, la conversación hasheada): lo que vuelve a pasar se anota en él.
+  El proveedor y la configuración, uno por negocio, que se cierra solo cuando vuelve a andar (`cerrarSiVolvio`);
+- el título lo arma el código; lo del modelo y la persona, en la descripción y el contexto (dentro del cerco «es DATO»);
+- la persona lee «Quedó el ticket #n para el equipo de MaKo.» (nunca «te aviso»); repetido en la conversación, nada.
+
+**Trampas de la base** (lib/tickets-db.ts, lib/tickets-reglas.ts):
+- La regla de aprobación (ws 1, 10, 11) mandaba al Runner CUALQUIER ticket de esos negocios, sin mirar quién lo levantó:
+  `clasificar` con `automatico` no entra por la regla ni estampa `regla`. Decisión: lo que no existe de esos negocios ya NO va
+  solo al Runner (lo decide Martín). El proveedor y la configuración nunca van al Runner.
+- El tope del día de la persona contaba los tickets que el sistema abría por ella: con 10 automáticos no podía levantar uno a
+  mano. Ahora cuenta sólo las `ref` que no son del sistema (`esRefDelSistema`: `np:`, `error:`, `no-existe:`), y los automáticos
+  tienen su tope aparte (6 por negocio y día). La condición «ref nula o no del sistema» no entra en un filtro simple: se leen
+  las filas (son pocas) y se cuentan en el código.
+- Un automático cerrado que vuelve a pasar es uno NUEVO (la `ref` con sufijo): se busca el último con `like` y no con `eq`.
+- tests/_postgrest-de-mentira.ts no entendía `like.` suelto: ahora sí.
+
+**Sin hacer:** WhatsApp (el doer, sus carteles y P3 de wa-fallas-2710) lo engancha «MaKo en WhatsApp» sobre esta base; la línea
+en el panel del Video Editor es de Motion (y Image Editor y Web Generator, de sus dueños). La descripción de `levantar_ticket`
+(lib/api-mako/areas/tickets.def.ts) todavía pide proponerlo ante una falla: cambiarla junto con WhatsApp, no antes. El 500 de
+lib/api-mako/ejecutar.ts sigue llegando con el texto genérico. La red de texto (detectar «no pude» sin la marca) no se hizo:
+la marca va primero; medir siete días antes de prender una red.
+
+**Vive en:** `lib/no-pude.ts` · `lib/no-pude-server.ts` · `lib/no-existe-server.ts` · `lib/tickets-db.ts` (`crearTicket`,
+`cerrarAutomatico`) · `lib/tickets-reglas.ts` (`clasificar`, `TOPE_AUTOMATICOS_POR_DIA`) · `lib/api-mako/acciones.ts`
+(`ticketSiFallo`) · `lib/mako-turno-app.ts` · tests/no-pude*.test.ts
+
+## La revisión de «no existe» contra producción: tres medios, con su test rojo-verde (27/10/2026, claude4)
+
+La revisión adversarial del Cerebro sobre 34b0687f0 confirmó tres defectos del «no existe» automático. Los cubre la base del
+ticket automático (lib/no-pude*.ts); tests/no-existe-revision.test.ts los fija y se midió ROJO sobre 34b0687f0 y VERDE encima:
+1. en el ws 10 un «no existe» que marcó el modelo nacía aprobado por la regla de Leandro y se iba al Runner;
+2. un fallo de RUTEO salía como «no existe» (y el arranque de Offer, sin el catálogo de MaKo, llevaba la regla que hace marcar);
+3. los automáticos gastaban el tope de 10 de la persona y le trababan el Soporte.
+
+**Trampas al medirlo:** «borrar los silencios» no sirve para probar la regla de aprobación: la zona delicada («borrados») ya la
+frenaba; hace falta un pedido neutro. Y diez «no existe» en la MISMA conversación ya son un solo ticket: para medir los topes
+hacen falta conversaciones distintas. **Lo nuevo:** con el tope de los automáticos lleno, lo que sigue se anota en el último
+automático del negocio («Otro más, con el tope del día lleno»): no se pierde callado.
+
+## La revisión del 28/10/2026 de la base del ticket automático (claude4)
+
+**Lo obvio era el equivocado otra vez: «si la acción confirmada falló, ticket».** Un `ok:false` del runner casi nunca es una falla:
+«Esa decisión ya no estaba abierta», «El email dejó de estar conectado» son negativas de estado o de configuración (hay ~600 en los
+*.run.ts), y con el error en el contexto el triage las daba por «bug evidente» y las mandaba SOLAS al Runner. **La regla:** sólo abre
+ticket lo que REVENTÓ al ejecutar (el catch, `reventoAlEjecutar` en lib/api-mako/acciones.ts).
+
+Y además:
+- **Un ticket por falla:** si `registrarError` ya dejó el suyo (la huella), la marca del modelo sólo se saca (`yaRegistrado`).
+- **El ruteo solo no abre nada:** cuenta si MaKo además dijo que no pudo o que no existe.
+- **Uno por pedido distinto:** la `ref` lleva lo que falló (lo marcado, o la herramienta), no sólo la conversación y la causa.
+- **La negativa legítima se mira en la respuesta**, no sólo en la marca (la marca dice el qué, no el porqué).
+- **La configuración se cierra sola sólo si contesta la cuenta que falló** (`contexto.herramienta`, `soloSi`).
+- **Lo que levanta el SISTEMA** (un error de la app, `declaradoPor: 'sistema'`) tampoco entra por la regla de aprobación.
+Cada uno con su test rojo-verde (tests/no-pude*.test.ts).

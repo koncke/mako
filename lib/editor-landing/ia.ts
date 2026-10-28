@@ -62,6 +62,8 @@ import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from '
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
 import { adjuntosDelPedido, contextoConAdjuntos } from './adjuntos';
+import { REGLA_NO_EXISTE } from '../no-existe';
+import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
 
 /**
  * T3 (tanda 2): ¿el pedido es para una PRESENTACIÓN? Se lee del pedido CRUDO porque
@@ -660,7 +662,8 @@ export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respues
   const foco = typeof p.enFoco === 'string' ? tarjetas.findIndex((t) => attrsDe(t).id === p.enFoco) : -1;
   const charla = charlaParaDiscutir(p.charla);
   try {
-    const sys = await system(PROMPTS_EDITOR.discutirSystem, { idioma: bloqueIdiomaDelTexto() });
+    // Lo que no existe en MaKo se dice y se marca (lib/no-existe.ts): abajo se saca la marca y se levanta el pedido.
+    const sys = `${await system(PROMPTS_EDITOR.discutirSystem, { idioma: bloqueIdiomaDelTexto() })}\n\n${REGLA_NO_EXISTE}`;
     const user = await renderPrompt(PROMPTS_EDITOR.discutirUser.key, PROMPTS_EDITOR.discutirUser.tpl, {
       pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
       foco: focoParaDiscutir(foco),
@@ -675,7 +678,9 @@ export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respues
       thinking: false,
       hastaMs: t0 + PLAZOS.discutir.ia,
     });
-    const respuesta = limpiarTextoDelModelo(salida).slice(0, 2_000);
+    // Lo que no existe en MaKo (lib/no-existe.ts): la marca no le llega a la persona y el pedido sale solo a la Ticketera.
+    const ne = await conPedidoDeNoExisteDeLaSesion(limpiarTextoDelModelo(salida), { chat: 'web-generator (Discutir)', ruta: '/web-generator', pedido: pregunta });
+    const respuesta = [ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n');
     if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
     return { ok: true, respuesta };
   } catch (err) {

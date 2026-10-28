@@ -68,6 +68,8 @@ const SEGUIMIENTOS: Array<[string, string, string, string]> = [
   // El de Florencia (ws21, 22/10, literal) y lo que le contesta MaKo desde el 25/10.
   ['Estas analizando mis fathom?', 'Para analizar tus reuniones de Fathom primero hay que conectarlo 👇 https://hola-mako.com/integraciones?abrir=fathom', 'ya lo conecté, analizá la última', 'panorama_closing'],
   ['¿cuántos leads entraron esta semana?', 'Entraron 14 leads esta semana; 5 vienen de la campaña del webinar.', 'mandales un mensaje a esos 5', 'recomendar_mensajes_whatsapp'],
+  // Código Inmobiliario, 26/10: pidió los nombres de los no-shows y MaKo contestó «no se lista nominalmente…».
+  ['¿cuántos no-shows tuve este mes?', 'Este mes tuviste 25 no-shows y 14 reuniones sin marcar.', '¿cuáles son? pasame sus nombres', 'listar_leads_embudo_maduro'],
 ];
 
 test('1. lo medido: el seguimiento SOLO no llegaba con su herramienta', () => {
@@ -90,6 +92,8 @@ test('2. con el hilo, cada seguimiento sigue el pedido y trae la herramienta que
   assert.deepEqual(turno(SEGUIMIENTOS[2][0], SEGUIMIENTOS[2][1], SEGUIMIENTOS[2][2]).areas, ['landing']);
   assert.deepEqual(turno(SEGUIMIENTOS[1][0], SEGUIMIENTOS[1][1], SEGUIMIENTOS[1][2]).areas, ['ads']);
   assert.deepEqual(turno(SEGUIMIENTOS[0][0], SEGUIMIENTOS[0][1], SEGUIMIENTOS[0][2]).areas, ['plan']);
+  // La pregunta sola por los no-shows ya trae la que lista (el área de métricas los nombra desde el 27/10).
+  assert.ok(turno('hola', 'Hola', '¿cuántos no-shows tuve este mes?', false).nombres.includes('listar_leads_embudo_maduro'));
   // Una acción del hilo PROPONE: por WhatsApp sigue pasando por el «sí» (lo que no cambia de esta red).
   const pausa = turno(SEGUIMIENTOS[1][0], SEGUIMIENTOS[1][1], SEGUIMIENTOS[1][2]);
   assert.equal(pausa.veredicto.intencion, 'actuar');
@@ -227,18 +231,20 @@ test('8. el conocimiento del negocio se busca por el tema de la charla, no sólo
 test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el tema y los hechos sólo en su system', () => {
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /const memoria = await memoriaDelGrupo\(wsData, jid, \{ turnos: 12, dias: DIAS_DE_HECHOS \}\);\n\s*const historial = memoria\.reciente;/);
-  assert.doesNotMatch(doer, /historialGrupo\(wsData/, 'el doer volvió a leer la memoria sin lo de antes');
-  assert.match(doer, /const conHilo = conElHilo\(delMensaje, texto, pedidoDelHilo\(historial\), typeof ultimoDeMako === 'string' \? ultimoDeMako : null\);\n\s*const intencion = conHilo\.veredicto;/);
+  // (`historialGrupo(wsData, jid, 1)` sí: es el último turno, para saber si un «ok» contesta una pregunta, lib/doer-para-quien.ts.)
+  assert.doesNotMatch(doer, /const historial = await historialGrupo\(/, 'el doer volvió a leer la memoria sin lo de antes');
+  // (Desde el 27/10/2026 pasa también por la corrección de monto: tests/doer-falla.test.ts.)
+  assert.match(doer, /const conHilo = conElHilo\(delMensaje, texto, pedidoDelHilo\(historial\), typeof ultimoDeMako === 'string' \? ultimoDeMako : null\);\n(?:\s*\/\/[^\n]*\n)*\s*(?:const correccion = laCorreccion\(conHilo\.veredicto, [^\n]*\n\s*const intencion = correccion\.veredicto|const intencion = conHilo\.veredicto);/);
   assert.match(doer, /veredicto: intencion, texto, contextoDelSi, hilo: conHilo\.hilo,/, 'las herramientas no reciben el hilo');
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
   assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
-  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
+  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxContacto, )?ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
-  assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
+  assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*(?:escribioDelTurno\+\+|leyoDelTurno = true);\n)*\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
   assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
   assert.match(doer, /const refsGuardadas = await getSetting\(CLAVE_REFS\(jid\)\)\.catch\(\(\) => null\);\n\s*const ctxMostrado = bloqueLoQueMostraste\(refsGuardadas, Date\.now\(\)\);/);
-  assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}\$\{conMemoria\}`;/);
+  assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}(?:\$\{ctxFalla\})?\$\{conMemoria\}`;/);
   assert.match(doer, /armarSystem\(toolsRed, [^\n]*, baseRed\)/);
   // La marca de contexto le dice que resuelva lo que señala con lo de arriba.
   assert.match(doer, /si el último mensaje se refiere a algo de acá \(«pausala», «la segunda», «esos 5», el dato que pediste\), resuélvelo con esto y no vuelvas a preguntar lo que ya te dijeron/);

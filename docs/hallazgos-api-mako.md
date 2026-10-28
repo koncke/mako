@@ -2694,3 +2694,21 @@ tests no es un verde de tipos.
   No era el runner de vender un plan el que estaba mal.
 - **Regla:** en lib/api-mako/areas/cobros.run.ts, un runner nuevo va ANTES de `vender_plan_mako`. El bloque de Customers
   se movió ahí, con un comentario que lo dice.
+
+## Frenar «Customer Success» no frenaba los OTROS nombres viejos (27/10/2026, claude5)
+
+**Síntoma:** MaKo mandó a Leandro a una tab que ya no existe (ticket 874749710-19). tests/clients-nombre-en-mako.test.ts ya
+frenaba «Customer Success» en la API, y pasaba.
+
+**Lo obvio era el equivocado:** buscar la palabra. El test frenaba UN nombre; los caminos viejos seguían en otros lados y
+con otras palabras: «Clients › Classroom» (al revés: hoy es Classroom, con Clients adentro) en dos descripciones de la API,
+«Configuraciones › Notificaciones» (hoy es Settings) en tres de equipo, en los avisos agrupados, en el pie del mail y en la
+tarjeta de MaKo, y «Configuraciones › Integraciones» en los errores de Calendly.
+
+**La regla:** el freno no es una lista de nombres prohibidos sino la barra de HOY. tests/mako-nombres-de-tabs.test.ts toma los
+`label` de app/_components/nav.ts y exige que toda ruta «X › Y» del código (sin comentarios, fuera de las bitácoras) empiece por
+uno de ellos. Las rutas del sistema del teléfono o la PC («Ajustes › Safari») van en una lista con su porqué. Renombrar una tab
+en la barra pone en rojo cada texto que la nombra con el nombre de antes.
+
+**Ojo:** «Configuraciones» también es el panel de la tuerca de Automations, y ahí los tests prueban que MaKo NO lo nombre (lo
+muestra con el ícono). Esos textos de los tests no se tocan.

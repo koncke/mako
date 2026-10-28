@@ -134,8 +134,10 @@ test('6. el tope del día de un tercero se le cuenta a él (por su ref), no al d
   const crear = db.slice(db.indexOf('export async function crearTicket('), db.indexOf('export type Lectura<'));
   assert.match(crear, /const tercero = n\.tercero \? `\$\{n\.tercero\.clave\}:` : null;/);
   assert.match(crear, /if \(tercero && !n\.ref\?\.startsWith\(tercero\)\) return \{ ok: false/, 'una ref que no es suya se contaría a otro');
-  assert.match(crear, /await \(tercero \? delDia\.like\('ref', `\$\{tercero\}%`\) : delDia\.eq\('usuario_email', n\.identidad\.email\)\)/);
-  assert.match(crear, /const tope = tercero \? TOPE_POR_DIA_TERCERO : TOPE_POR_DIA;/);
+  // Desde el 27/10/2026 los automáticos (lib/no-pude.ts) también se cuentan por su ref; la persona, por su email (sin lo del sistema).
+  assert.match(crear, /if \(tercero \|\| automatico\) \{\s*const r = await db\.from\(T\)\.select\('id', \{ count: 'exact', head: true \}\)\.eq\('workspace_id', n\.identidad\.ws\)\.gte\('created_at', hace24\)\.like\('ref', `\$\{tercero \?\? automatico\}%`\);/);
+  assert.match(crear, /\.eq\('workspace_id', n\.identidad\.ws\)\.eq\('usuario_email', n\.identidad\.email\)\.gte\('created_at', hace24\)/);
+  assert.match(crear, /const tope = tercero \? TOPE_POR_DIA_TERCERO : automatico \? TOPE_AUTOMATICOS_POR_DIA : TOPE_POR_DIA;/);
 });
 
 // ROTURAS (27/10/2026, una por vez y restaurada; base 6 / 0):
