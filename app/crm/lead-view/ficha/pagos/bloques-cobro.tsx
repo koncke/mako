@@ -479,7 +479,7 @@ function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegidas: Re
             : `Total del plan: ${usd(total)}`}
         </span>
       )}
-      {libre && armado && !armado.ok && cantidad > 0 && <span style={{ fontSize: 13, color: 'var(--warn)' }}>{armado.error}</span>}
+      {libre && armado && !armado.ok && cantidad > 0 && !err && <span style={{ fontSize: 13, color: 'var(--warn)' }}>{armado.error}</span>}
       {err && <Aviso tono="rojo">{err}</Aviso>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="secondary" size="sm" onClick={() => onListo(null)} disabled={pending}>Cancelar</Button>
