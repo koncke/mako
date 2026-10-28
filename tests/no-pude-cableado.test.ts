@@ -74,12 +74,16 @@ test('3. los chats que procesaban lo que no existe pasan por el ticket automáti
   assert.doesNotMatch(np, /registrarError/, 'un ticket que no se pudo levantar no puede abrir otro (bucle)');
 });
 
-test('4. una guarda de una herramienta del turno es una regla (base 7): se cuenta al correr y apaga el «no pude» si nada falló ni hubo ruteo', () => {
+test('4. una guarda de una herramienta del turno es una regla (base 7) sólo si fue lo ÚLTIMO y nada falló, ni tragado, ni hubo ruteo', () => {
   const t = fuente('lib/mako-turno-app.ts');
   const run = t.slice(t.indexOf('const runTool = async'), t.indexOf('const nuevoIntento'));
-  assert.match(run, /if \(esGuardaDeHerramienta\(out\)\) guardas\+\+;/, 'el turno no cuenta las guardas de sus herramientas');
-  // Con una falla de verdad (isError) o un ruteo en el mismo turno, el «no pude» puede ser de eso: decide la red de siempre.
-  assert.match(t, /yaRegistrado: registroConTicket, regla: guardas > 0 && !erroresDelTurno\.length && !noViajo\.length \}/);
+  assert.match(run, /ultimaFueGuarda = esGuardaDeHerramienta\(out\);/, 'el turno no mira si lo último fue una guarda');
+  assert.match(run, /if \(esFallaTragadaDeHerramienta\(out\)\) tragadas\+\+;/, 'el turno no cuenta lo que sus herramientas se tragaron');
+  // El repetido (el memo) también es lo último que vio el modelo.
+  assert.match(run, /if \(previo\) \{ ultimaFueGuarda = esGuardaDeHerramienta\(previo\.out\);/);
+  // Con una falla de verdad (isError), una tragada o un ruteo en el mismo turno, el «no pude» puede ser de eso: decide la red de siempre.
+  assert.match(t, /yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas \}\) && !noViajo\.length \}/);
+  assert.doesNotMatch(t, /guardas > 0/, 'volvió la cuenta de guardas: una guarda vieja tapa otro «no pude»');
 });
 
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
@@ -89,3 +93,5 @@ test('4. una guarda de una herramienta del turno es una regla (base 7): se cuent
 //   3. (28/10) el ticket con cualquier ok:false (`r.ok ? null :`)        → rojo el 1.
 //   4. (28/10, base 7) el turno sin contar las guardas                    → rojo el 4.
 //   5. (28/10) la regla aunque algo haya fallado de verdad en el turno     → rojo el 4.
+//   6. (28/10, verificación de 96e7840e8) el turno sin contar las tragadas → rojo el 4.
+//   7. el repetido (memo) sin marcar lo último                             → rojo el 4.
