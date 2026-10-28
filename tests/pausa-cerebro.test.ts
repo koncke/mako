@@ -66,7 +66,7 @@ test('esperarSinPausa espera mientras está prendida y sigue cuando el Cerebro l
     let vueltas = 0;
     const dicho: string[] = [];
     const ok = await esperarSinPausa({
-      quien: 'test', archivo: f, ahora: () => reloj, out: (t) => dicho.push(t),
+      quien: 'test', archivo: f, ahora: () => reloj, out: (t) => { dicho.push(t); return true; },
       dormir: async () => { reloj += 5000; if (++vueltas === 3) rmSync(f); },
     });
     assert.equal(ok, true);
@@ -84,7 +84,7 @@ test('esperarSinPausa nunca bloquea para siempre: pasado el tope, corre igual y 
     let reloj = Date.now();
     const dicho: string[] = [];
     const ok = await esperarSinPausa({
-      quien: 'test', archivo: f, esperaMaxMs: 20_000, ahora: () => reloj, out: (t) => dicho.push(t),
+      quien: 'test', archivo: f, esperaMaxMs: 20_000, ahora: () => reloj, out: (t) => { dicho.push(t); return true; },
       dormir: async () => { reloj += 5000; },
     });
     assert.equal(ok, false);
