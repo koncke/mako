@@ -8,6 +8,8 @@
 // lib/mako-adjuntos.ts). Una foto grande se achica antes de subir (Vercel corta un POST de más de ~4,5 MB, en texto); una
 // captura chica va tal cual, que su texto se lee mejor en PNG. El servidor los lee (lib/adjuntos-del-chat.ts). Lo usan el
 // asesor de WhatsApp, Editar con MaKo y ChartIA; el molde es el del CRM (app/crm/lead-view/MakoAnalystLead.tsx).
+// ⚠️ POR CONVERSACIÓN (28/10/2026, la verificación de 1d586a686): una pantalla que cambia de conversación sin remontarse (las
+//    sesiones de MakoChat) pasa `conversacion`: lo juntado en la sesión 1 salía con el «hola» de la sesión 2.
 // =============================================================================
 
 import { useRef, useState } from 'react';
@@ -20,21 +22,29 @@ import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 /** Una captura de hasta esto va tal cual; una foto más grande se achica (el criterio del Ops Center, useCentro.ts). */
 const TAL_CUAL_BYTES = 1_500_000;
 let secuencia = 0;
+const SIN_ITEMS: AdjuntoCaja[] = [];
 
-export function useAdjuntosDelChat({ puede, onError }: {
+export function useAdjuntosDelChat({ puede, onError, conversacion = '' }: {
   /** ¿Se puede sumar ahora? (no mientras MaKo contesta: lo juntado sale con el PRÓXIMO mensaje). */
   puede: boolean;
   /** Por qué no entró (la línea de error de la pantalla); null la limpia. */
   onError: (m: string | null) => void;
+  /** De qué conversación es lo juntado, en una pantalla que cambia de conversación sin remontarse. Sin esto, una sola. */
+  conversacion?: string;
 }) {
-  const [items, setItems] = useState<AdjuntoCaja[]>([]);
-  // Lo juntado, para decidir afuera de un updater (un updater no avisa errores).
-  const ref = useRef<AdjuntoCaja[]>([]);
+  // Lo juntado de cada conversación, también en un ref para decidir afuera de un updater (un updater no avisa errores).
+  const [porConversacion, setPorConversacion] = useState<Record<string, AdjuntoCaja[]>>({});
+  const ref = useRef<Record<string, AdjuntoCaja[]>>({});
+  const actual = useRef(conversacion);
+  actual.current = conversacion;
+  const items = porConversacion[conversacion] ?? SIN_ITEMS;
   const [preparando, setPreparando] = useState(0);
-  const poner = (l: AdjuntoCaja[]) => { ref.current = l; setItems(l); };
+  const poner = (c: string, l: AdjuntoCaja[]) => { ref.current = { ...ref.current, [c]: l }; setPorConversacion(ref.current); };
 
   const sumar = async (lista: File[]) => {
     if (!lista.length) return;
+    // Lo que se suma es de la conversación donde se soltó, aunque achicar una foto tarde y se cambie en el medio.
+    const de = conversacion;
     onError(null);
     setPreparando((p) => p + lista.length);
     const nuevos: AdjuntoCaja[] = [];
@@ -49,15 +59,16 @@ export function useAdjuntosDelChat({ puede, onError }: {
       }
     } finally { setPreparando((p) => Math.max(0, p - lista.length)); }
     if (!nuevos.length) return;
-    const todos = [...ref.current, ...nuevos];
+    const todos = [...(ref.current[de] ?? []), ...nuevos];
     const problema = problemaDeSeleccion(todos.map((a) => a.file.size));
     if (problema) { for (const a of nuevos) URL.revokeObjectURL(a.url); onError(problema); return; }
-    poner(todos);
+    poner(de, todos);
   };
   const quitar = (id: string) => {
-    const a = ref.current.find((x) => x.id === id);
+    const ya = ref.current[conversacion] ?? [];
+    const a = ya.find((x) => x.id === id);
     if (a) URL.revokeObjectURL(a.url);
-    poner(ref.current.filter((x) => x.id !== id));
+    poner(conversacion, ya.filter((x) => x.id !== id));
   };
 
   const caja: AdjuntosDeCaja = {
@@ -73,8 +84,9 @@ export function useAdjuntosDelChat({ puede, onError }: {
     preparando: preparando > 0,
     /** Lo juntado, para mandarlo con el mensaje: la caja queda vacía. */
     tomar: (): File[] => {
-      const l = ref.current;
-      poner([]);
+      const c = actual.current;
+      const l = ref.current[c] ?? [];
+      poner(c, []);
       for (const a of l) URL.revokeObjectURL(a.url);
       return l.map((a) => a.file);
     },

@@ -124,12 +124,13 @@ test('1: el ticket ESPERA a la foto que sube («Subiendo archivos…») y sale c
   assert.equal(p.ultimoMio(s).estado, 'enviando');
   assert.match(p.ultimoMio(s).texto ?? '', /acá va la captura\n📎 foto\.jpg/, 'se ve en el acto, con su archivo');
   assert.doesNotMatch(s.borrador?.descripcion ?? '', /📎/, 'el «📎» entró al relato antes de que la foto subiera');
-  const mandado = s.mandarTicket();
-  s = p.r();
-  assert.equal(s.subiendo, true, 'la tarjeta no dice que espera los archivos');
+  // Desde la verificación de 5ddf1672a la tarjeta ni se enciende mientras el mensaje va camino (su foto sube, MaKo lo contesta):
+  // espera más que antes («Subiendo archivos…» al apretarla), y el ticket nunca sale sin la foto ni sin lo escrito.
+  assert.equal(s.mensajeEnCamino, true, 'la tarjeta no dice que espera los archivos');
+  await s.mandarTicket();
   assert.equal(p.e.levantados.length, 0, 'el ticket salió sin esperar la foto');
   await p.soltar(0, 'bien');
-  await mandado;
+  await p.r().mandarTicket();
   assert.deepEqual(p.e.levantados[0].adjuntos, ['foto.jpg']);
   assert.match(p.e.levantados[0].descripcion, /foto\.jpg/, 'la descripción no nombra lo que va con el ticket');
 });
@@ -300,6 +301,59 @@ test('la caja de la conversación nueva tiene UNA clave: lo que la caja lee no q
   // Las notas de voz sí van por conversación (la revisión de chats-unificados): no salen en la siguiente.
   assert.match(leer('app/tickets/soporte/useSoporte.ts'), /const claveNotas = typeof abierto === 'number' \? `soporte:\$\{abierto\}` : `soporte:nuevo:\$\{idConversacion\}`;/);
   assert.match(leer('app/tickets/soporte/useSoporte.ts'), /clave: claveNotas,/);
+});
+
+test('el ticket ESPERA lo que la caja está leyendo (un .pptx, un audio mandado con Enter): no se levanta sin ese mensaje', async (t) => {
+  // La verificación de 1d586a686 (F2L): «Mandárselo al equipo» con la caja leyendo levantaba el ticket SIN ese mensaje; el texto
+  // quedaba en el campo del ticket nuevo y los archivos en la conversación siguiente.
+  const p = await pantalla(t);
+  const s = p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
+  s.onLeyendo(true);
+  let ahora = p.r();
+  assert.equal(ahora.leyendoCaja, true);
+  await ahora.mandarTicket();
+  assert.equal(p.e.levantados.length, 0, 'el ticket salió mientras la caja leía el mensaje');
+  ahora.onLeyendo(false);
+  ahora = p.r();
+  await ahora.mandarTicket();
+  assert.equal(p.e.levantados.length, 1, 'terminada la lectura, el ticket sale');
+  // La tarjeta lo dice, y la caja le avisa a Soporte (también si se va en el medio).
+  const piezas = leer('app/tickets/soporte/PiezasSoporte.tsx');
+  assert.match(piezas, /disabled=\{s\.mandando \|\| s\.notasPendientes \|\| s\.mensajeEnCamino\}/);
+  assert.match(piezas, /s\.leyendoCaja \? 'Leyendo lo que adjuntaste…' : s\.mensajeEnCamino \? 'Esperando tu mensaje…'/);
+  assert.match(piezas, /onLeyendo=\{s\.onLeyendo\}/);
+  // Hasta que lo leído LLEGA a la pantalla (`entregando`), no sólo hasta que termina de leerse.
+  const caja = leer('app/_chat/CajaChat.tsx');
+  assert.match(caja, /const leyendoParaLaPantalla = leidos\.leyendo \|\| leidos\.entregando;/);
+  assert.match(caja, /if \(!leyendoParaLaPantalla\) return;\n\s*avisarLeyendo\.current\?\.\(true\);\n\s*return \(\) => avisarLeyendo\.current\?\.\(false\);/);
+});
+
+test('el ticket espera el mensaje hasta que LLEGA a la tarjeta: mientras sube su foto o MaKo lo contesta, no se levanta sin él', async (t) => {
+  // La verificación de 5ddf1672a (T2, R1): la tarjeta se encendía al terminar de leer, antes de que el mensaje entrara a la charla
+  // (sube su foto y MaKo contesta en 700 ms); apretarla ahí levantaba el ticket SIN «mirá el deck», y el mensaje se perdía.
+  const p = await pantalla(t);
+  p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
+  // MaKo contestando un mensaje (los 3 puntos): la tarjeta espera.
+  p.r().setTexto('y además se cierra sola');
+  p.r().mandar();
+  let s = p.r();
+  assert.equal(s.mensajeEnCamino, true, 'MaKo está contestando y la tarjeta no lo sabe');
+  await s.mandarTicket();
+  assert.equal(p.e.levantados.length, 0, 'el ticket salió antes de que el mensaje llegara a la tarjeta');
+  t.mock.timers.tick(p.demora);
+  s = p.r();
+  assert.equal(s.mensajeEnCamino, false);
+  // Un mensaje con foto, subiendo: también espera.
+  s = p.adjuntarYMandar(['foto.png'], 'mirá esto');
+  assert.equal(s.mensajeEnCamino, true, 'la foto sube y la tarjeta no lo sabe');
+  await s.mandarTicket();
+  assert.equal(p.e.levantados.length, 0);
+  s = await p.soltar(0, 'bien');
+  s = p.r();
+  assert.equal(s.mensajeEnCamino, false);
+  await s.mandarTicket();
+  assert.equal(p.e.levantados.length, 1, 'con el mensaje en la tarjeta, sale');
+  assert.match(p.e.levantados[0].descripcion, /se cierra sola/, 'y lleva lo que se escribió');
 });
 
 test('el tope del día por negocio: lo cuenta la ruta en el bucket y lo dice en texto', () => {
