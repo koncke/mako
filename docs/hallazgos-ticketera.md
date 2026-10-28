@@ -778,5 +778,7 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
 - Lo que un runner se TRAGÓ también vuelve como 400 (el catch de `ejecutarOperacion` manda a 400 lo que no huele a
   infraestructura): con el error técnico entre paréntesis (`esFallaTragada`) NO es una guarda.
 - `regla` apaga sólo el «no pude»: lo que no existe sigue, y con un ruteo es un ruteo (`causaDelNoPude`).
-**Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) y los chats que pasan por
-`conPedidoDeNoExiste` (Offer, Web Generator, los editores) todavía no pasan la señal: sus herramientas no corren por este turno.
+**Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) todavía no pasa la señal (va
+con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
+Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda
+que mirar; su red es la del texto. Si uno suma herramientas, cuenta las guardas como el turno de la app (AGENTS.md).
