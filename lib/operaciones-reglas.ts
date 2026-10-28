@@ -743,6 +743,17 @@ export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoCh
  *    abrirlo no había bloque ni ✓ que dar, y la fila dejaba de decirlo: su «Ya está» era del 23/10, de una sesión vieja, y sus
  *    6 sesiones juntas pasaban los 60 turnos. Al cerrarlo volvía a decir «Completado»: no había forma de darlo por visto.
  */
+/**
+ * El CIERRE de la ronda de un «Ya está» (cartero 1.21.0: `inicio` y `fin`), si el «Ya está» no la cierra él mismo. Es el que
+ * la conversación muestra como «Completado» (lib/centro-chats.ts → completadosDelChat): los recortes de la fila y de la
+ * conversación lo tienen que traer, o la fila, la API y el chat abierto eligen distinto (revisión de 928bdde0d, media).
+ */
+export function cierreDeLaRonda(turnos: readonly TurnoChat[], ya: TurnoChat): TurnoChat | null {
+  if (ya.fin) return null;
+  const ronda = ya.inicio ?? ya.uuid;
+  return turnos.find((t) => t.rol === 'el' && t.fin && t.inicio === ronda && Date.parse(t.at) >= Date.parse(ya.at)) ?? null;
+}
+
 export function turnosDeLaConversacion(todos: readonly TurnoChat[], esYa: (texto: string) => boolean): TurnoChat[] {
   const unidos = unirTurnos([], todos);
   const orden = [...new Map(todos.map((t) => [t.uuid, t])).values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
@@ -755,7 +766,7 @@ export function turnosDeLaConversacion(todos: readonly TurnoChat[], esYa: (texto
   const tramo = antes.slice(ip + 1);
   const estan = new Set(unidos.map((t) => t.uuid));
   const faltan = new Map<string, TurnoChat>();
-  for (const t of [orden[iy], antes[ip], tramo.findLast(deMartin), tramo.findLast((x) => x.rol === 'otro'), antes.findLast(deMartin)]) {
+  for (const t of [orden[iy], cierreDeLaRonda(orden, orden[iy]), antes[ip], tramo.findLast(deMartin), tramo.findLast((x) => x.rol === 'otro'), antes.findLast(deMartin)]) {
     if (t && !estan.has(t.uuid)) faltan.set(t.uuid, t);
   }
   return faltan.size ? [...faltan.values(), ...unidos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : unidos;
@@ -784,7 +795,12 @@ export function resumirTurnos(
   const orden = turnos.filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const ultimos = orden.slice(-ULTIMOS_POR_CHAT);
   const ya = esYa ? [...orden].reverse().find((t) => t.rol === 'el' && esYa(t.texto)) : undefined;
-  return (ya && !ultimos.includes(ya) ? [ya, ...ultimos] : ultimos).map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
+  // Y el cierre de su ronda (revisión de 928bdde0d): es el «Completado» que la fila tiene que ofrecer y cerrar con su ✓.
+  const cierre = ya ? cierreDeLaRonda(orden, ya) : null;
+  const extra = [ya, cierre].filter((t): t is TurnoChat => !!t && !ultimos.includes(t));
+  // El resumen del wrap_up también va recortado: la lista viaja en cada refresco (revisión de 928bdde0d, baja).
+  return [...extra, ...ultimos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+    .map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO), ...(t.resumen ? { resumen: t.resumen.slice(0, ULTIMOS_TEXTO) } : {}) }));
 }
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */

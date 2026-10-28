@@ -32,8 +32,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { porQueNoSeTranscribio } from '../app/_components/useDictar';
 import { conLoQueSale, descartarEnvio, enviosEnCurso, escucharEnvios, esEnvioLocal, ponerEnCamino, reintentarEnvio, type EnvioLocal } from '../app/admin/operaciones/envios-en-curso';
-import { esEncargoDeOtraSesion, esParaMartin, sanearTurnos, type TurnoChat } from '../lib/operaciones-reglas';
-import { chatTrabajando, completadoSinVer, completadosDelChat, hechoDelCompletado, lineasDeConversacion, nodoDeCompletado, turnosParaOtro, type LineaChat, type TrabajoP } from '../lib/centro-chats';
+import { ULTIMOS_TEXTO, esEncargoDeOtraSesion, esParaMartin, resumirTurnos, sanearTurnos, turnosDeLaConversacion, type TurnoChat } from '../lib/operaciones-reglas';
+import { chatTrabajando, completadoSinVer, esYaEsta, completadosDelChat, hechoDelCompletado, lineasDeConversacion, nodoDeCompletado, turnosParaOtro, type LineaChat, type TrabajoP } from '../lib/centro-chats';
 import { Trabajando } from '../app/admin/operaciones/Trabajando';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -274,4 +274,38 @@ test('5c. un turno que termina con trabajo de fondo vivo no es Completado: sigue
     cierre: { decidido: '', hecho: 'Se arregló A, se debuggeó B y quedó C.', comprobado: '', sigue: '', prueba: null } } };
   assert.equal(hechoDelCompletado([trabajo, ...lineas], { at: at(21) }), 'Se arregló A, se debuggeó B y quedó C.');
   assert.match(leer('app/admin/operaciones/BloqueCompletado.tsx'), /<Respuesta key=\{t\.uuid\} t=\{t\} hecho=\{hechoDelCompletado\(lineas, t\)\} \/>/);
+});
+
+// ── 6 · la revisión de 928bdde0d (Cerebro, 27/10): C:/dev/revisiones/2710-chat-en-el-acto-928bdde0d.md ──────────────────
+
+test('6a. la fila, la API y el chat abierto eligen el MISMO Completado aunque el chat escriba 3 cosas después del cierre', () => {
+  const at = (m: number) => `2026-10-28T00:${String(m).padStart(2, '0')}:00Z`;
+  const el = (uuid: string, m: number, texto: string, ronda: Partial<TurnoChat> = {}): TurnoChat => ({ local: LOCAL, uuid, rol: 'el', de: null, texto, at: at(m), trabajo: null, ...ronda });
+  const turnos: TurnoChat[] = [
+    el('t-ya-000001', 1, 'Ya está probado: el test falla al romperlo. Ahora dejo escrito lo aprendido.', { inicio: 't-ya-000001' }),
+    el('t-fin-00001', 3, '**Punta: 1234567** en la rama `x`.', { inicio: 't-ya-000001', fin: true, resumen: 'Arreglé A, B y C. '.repeat(40) }),
+    el('t-otro-0001', 5, 'Recibido, sigo con lo otro.', { inicio: 't-otro-0001' }),
+    el('t-otro-0002', 6, 'Miro el log.', { inicio: 't-otro-0002' }),
+    el('t-otro-0003', 7, 'Sigo.', { inicio: 't-otro-0003' }),
+  ];
+  const lineas = (ts: readonly TurnoChat[]): LineaChat[] => ts.map((t) => ({ tipo: 'turno', instante: Date.parse(t.at), turno: t }));
+  const completo = completadoSinVer(lineas(turnos), null)?.uuid;
+  assert.equal(completo, 't-fin-00001');
+  const fila = resumirTurnos(turnos, Date.parse(at(10)), esYaEsta);
+  assert.equal(completadoSinVer(lineas(fila), null)?.uuid, completo, 'la fila (y la API) pierden el Completado: el cierre de la ronda no viaja');
+  assert.ok((fila.find((t) => t.uuid === 't-fin-00001')?.resumen ?? '').length <= ULTIMOS_TEXTO, 'el resumen viaja entero en cada refresco');
+  // El chat abierto, con más turnos que los que guarda la conversación.
+  const muchos = [...turnos, ...Array.from({ length: 70 }, (_, i) => el(`t-mas-${String(i).padStart(5, '0')}`, 11 + i % 40, 'Sigo trabajando.', { inicio: `t-mas-${i}` }))];
+  assert.equal(completadoSinVer(lineas(turnosDeLaConversacion(muchos, esYaEsta)), null)?.uuid, completo, 'el chat abierto no trae el cierre de la ronda');
+});
+
+test('6b. lo escrito vuelve a la caja si el envío no quedó firmado (recarga o falla); y Reintentar una nota no la vuelve a transcribir', () => {
+  const c = leer('app/admin/operaciones/useCentro.ts');
+  const mandar = c.slice(c.indexOf('  function mandar(c: ChatCentro) {'), c.indexOf('  function mandarNota('));
+  assert.doesNotMatch(mandar, /limpiarBorrador\(c\.clave\)/, 'el borrador guardado se borra ANTES de saber que salió');
+  assert.match(mandar, /const salio = vaciarCajaHastaQueSalga\(c\.clave\);/);
+  assert.ok(mandar.indexOf('salio();') > mandar.indexOf('if (!r.ok) return r;'), 'el borrador guardado se borra aunque no salga');
+  assert.match(c, /return \(\) => \{ if \(\(editado\.current\[clave\] \?\? 0\) <= desde\) limpiarBorrador\(clave\); \};/, 'pisa lo que se escribió después');
+  const nota = c.slice(c.indexOf('  function mandarNota('), c.indexOf('  /** Reenviar un mensaje a otros chats'));
+  assert.match(nota, /if \(!preparada\) \{\n\s*const p = await prepararNota\(audio\);/, 'Reintentar vuelve a transcribir');
 });

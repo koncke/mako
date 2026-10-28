@@ -91,14 +91,15 @@ test('B: la caja con un solo «+», sin «Sólo esto», con listas en vivo, en l
   assert.match(codigo('app/admin/operaciones/Visor.tsx'), /co-ver__pdf/, 'un PDF también se amplía antes de mandar');
 });
 
-test('B: lo escrito no se pierde (queda en su burbuja y se reintenta), y lo que sale es Markdown', () => {
+test('B: el borrador GUARDADO se borra sólo cuando el mensaje SALIÓ, y lo que sale es Markdown', () => {
   const src = codigo('app/admin/operaciones/useCentro.ts');
   const cuerpo = src.slice(src.indexOf('  function mandar('), src.indexOf('  function mandarNota('));
-  // Desde el 27/10/2026 (tests/chat-en-el-acto.test.ts): se borra al ponerlo EN CAMINO, con el texto adentro de su burbuja; si
-  // no sale, la burbuja lo dice y «Reintentar» lo manda entero (envios-en-curso.ts).
-  const enCamino = cuerpo.indexOf('ponerEnCamino(w, async () => {');
-  const limpia = cuerpo.indexOf('limpiarBorrador(c.clave)');
-  assert.ok(enCamino > 0 && limpia > enCamino, 'se limpia antes de que el mensaje quede en su burbuja');
+  // Desde el 27/10/2026 (tests/chat-en-el-acto.test.ts) la caja se vacía A LA VISTA en el acto (el texto va en su burbuja), y lo
+  // guardado se borra cuando el envío quedó firmado (`salio()`): si la pestaña se recarga o falla, vuelve a la caja.
+  const vacia = cuerpo.indexOf('const salio = vaciarCajaHastaQueSalga(c.clave);');
+  const firmado = cuerpo.indexOf('if (!r.ok) return r;');
+  const limpia = cuerpo.indexOf('salio();');
+  assert.ok(vacia > 0 && firmado > vacia && limpia > firmado, 'se limpia después de saber que salió');
   assert.match(cuerpo, /texto: queSale,/, 'la burbuja no lleva lo escrito');
   assert.match(codigo('app/admin/operaciones/envios-en-curso.ts'), /export function reintentarEnvio\(id: string\)/);
   // Desde el 17/10 con la cita arriba si responde a un mensaje (lo de WhatsApp: lib/centro-mensajes.ts → armarConCita).

@@ -62,6 +62,14 @@ probado rompiéndolo (13 roturas, cada una atrapada).
   ⚠️ Lo de fondo vive en el `pendiente` del cartero, que pasa de un turno al siguiente: una tarea lanzada en un turno termina
   en otro.
 
+- **La revisión de 928bdde0d (dos medios):** (1) los RECORTES de la fila y de la conversación (`resumirTurnos`,
+  `turnosDeLaConversacion`) guardaban el «Ya está» por su texto y no el cierre de su ronda: con 3 turnos después, la fila, el
+  globito y la API perdían el Completado que el chat abierto mostraba. Ahora traen también el cierre (`cierreDeLaRonda`). Regla:
+  **un recorte que alimenta una decisión tiene que traer todo lo que esa decisión mira**. (2) El borrador GUARDADO se borraba al
+  mandar, y lo que está en camino vive en memoria: con una recarga o una falla el texto se perdía. Ahora la caja se vacía a la
+  vista y lo guardado se borra recién cuando el envío quedó firmado (`vaciarCajaHastaQueSalga`). Una nota de voz en camino sí
+  se pierde con una recarga (el audio no se guarda): queda SIN hacer.
+
 **Lo que quedó SIN hacer:**
 - **Instalar el cartero 1.21.0 en cada PC** (después de desplegar el servidor que acepta `resumen`, `inicio` y `fin`). Sin él, el
   Completado es como antes. Lo ya guardado no tiene rondas: el del CRM del 26/10 sigue mostrando el de las 13:59.

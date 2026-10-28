@@ -453,6 +453,21 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     void guardarAdjuntos(dir, []);
   };
 
+  /**
+   * La caja se vacía A LA VISTA al mandar, pero lo GUARDADO (el borrador y los adjuntos, acá y en MaKo) se borra recién cuando
+   * el mensaje quedó firmado (revisión de 928bdde0d, media): lo que está en camino vive en memoria, y si la pestaña se recarga
+   * o el envío falla, el texto vuelve a la caja al abrirla. Devuelve lo que hay que llamar cuando salió; si mientras tanto se
+   * escribió otra cosa en la caja, no la pisa.
+   */
+  const vaciarCajaHastaQueSalga = (clave: string): (() => void) => {
+    setBorradores((b) => ({ ...b, [clave]: '' }));
+    const e = relojes.current[clave];
+    if (e) { window.clearTimeout(e.local); window.clearTimeout(e.remota); }
+    const desde = Date.now();
+    editado.current[clave] = desde;
+    return () => { if ((editado.current[clave] ?? 0) <= desde) limpiarBorrador(clave); };
+  };
+
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
 
@@ -590,6 +605,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       local: { fase: 'enviando', clave: c.clave },
     };
     const mandarFirmado = firma.mandar;
+    const salio = vaciarCajaHastaQueSalga(c.clave);
     ponerEnCamino(w, async () => {
       // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
       let subidos: AdjuntoPedido[] = [];
@@ -603,6 +619,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       // La nota y las fotos, con el id de verdad: su MP3 y sus miniaturas suben para verlas en otro dispositivo.
       if (nota) recordarVozEnviada(r.id, nota.audio);
       if (subidos.length) recordarEnviadas(r.id, archivos, subidos);
+      salio();
       refrescar();
       return {
         ok: true, trabajo: {
@@ -612,7 +629,6 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       };
     });
     vaciarAdjuntos(c.clave);
-    limpiarBorrador(c.clave);
     citar(c.clave, null);
     setModelo(null);
     setEsfuerzo(null);
@@ -637,12 +653,18 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const id = idDeEnvioLocal();
     verVozLocal(id, audio);
     const mandarFirmado = firma.mandar;
+    let preparada: { mp3: Blob; texto: string } | null = null;
     ponerEnCamino({
       id, destino: sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: new Date().toISOString(), texto: '', estado: 'escrito',
       motivo: null, cierre: null, voz, local: { fase: 'transcribiendo', clave: c.clave },
     }, async (fase) => {
-      const p = await prepararNota(audio);
-      if ('error' in p) return { ok: false, error: p.error };
+      // Reintentar no vuelve a transcribir lo que ya se transcribió (revisión de 928bdde0d, baja): si falló la firma, sólo firma.
+      if (!preparada) {
+        const p = await prepararNota(audio);
+        if ('error' in p) return { ok: false, error: p.error };
+        preparada = p;
+      }
+      const p = preparada;
       fase('enviando');
       const texto = armarConCita(cita, p.texto);
       const r = await mandarFirmado({ sesion, cuenta: d.cuenta, titulo: c.titulo, tope }, texto, 'solo_esto', como, [], voz);
