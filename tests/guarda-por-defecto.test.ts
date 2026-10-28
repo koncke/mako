@@ -119,3 +119,5 @@ test('4. la acción confirmada que falla: con su ticket (o sin falla tragada) es
 //   G7 confirmar_accion sin la marca en lo que no se confirma                             → falla el 1 (y T3)
 //   G8 cancelar_accion sin la marca                                                       → falla el 1
 //   G9 la confirmada con su ticket, sin la marca                                          → falla el 4 (y T4: dos tickets)
+//   G10 las pasarelas ilegibles de `conPasarelaConectada` sin `falla`                     → falla el 3 (y R6 de productores.cts)
+//   G11 `cobroDe` vuelve a dar «No existe el cobro» con la base caída                     → falla el 3 (y R7)

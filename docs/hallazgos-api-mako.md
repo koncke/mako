@@ -2732,6 +2732,8 @@ marca, y unas 734 son reglas («Sólo se reembolsa un cobro pagado», «es un pa
   tests/guarda-por-defecto.test.ts pide la marca en todo `return { error: 'No pude…' }` de un preparar;
 - lo que REVIENTA sigue siendo falla (el catch); la pendiente que no entró, también (`noCorrio`);
 - una lectura con `falta` (lo que falta conectar) es guarda, como en un preparar;
+- un helper que el preparar devuelve ENTERO lleva su `falla` (cobros.run.ts: `conPasarelaConectada`, y `cobroDe`, que con la
+  base caída decía «No existe el cobro» y MaKo le mentía al dueño);
 - `confirmar_accion` y `cancelar_accion` (mako.run.ts) marcan lo que no se confirma. La confirmada que falla también: ya dejó
   SU ticket (`ticket`), o es una negativa del runner; el «no pude» que la sigue abría un SEGUNDO ticket. Sin ticket y con la
   falla tragada (`esFallaTragada`: no se pudo abrir el suyo), no.
@@ -2748,4 +2750,4 @@ ticket; T4 deja uno solo (el #12 de la ejecución). Los 36 casos de tren-t dan l
 - Una lib que TIRA un mensaje legible va como 400 sin marca (ejecutar.ts, el catch): es falla aunque la lib describa un pedido
   mal hecho. Ninguna regla se lo come.
 - `getLead(...).catch(() => null)` del runner viejo (mako-doer-acciones.ts, `proponer_agendar_reunion` y `proponer_cambio_etapa`)
-  vuelve «No existe el lead» con `guarda: true` cuando la base se cae; igual `cobroDe` (cobros.run.ts) da «No existe el cobro».
+  vuelve «No existe el lead» con `guarda: true` cuando la base se cae (como en producción).
