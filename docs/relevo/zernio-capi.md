@@ -201,7 +201,9 @@ el árbol no tiene.
    Publicación se programa en la red, por Zernio»). Antes de usarlo en un cliente: aplicar la 0342 y una primera publicación
    real que confirme el Cerebro (el cuerpo para TikTok y YouTube no se midió con una cuenta real).
 2. La fuente de Instagram orgánico y la lectura por WhatsApp (`ver_rendimiento_redes`): HECHO; pide el complemento PAGO de Analytics de Zernio. Las plantillas del Dashboard y el reporte de agencia, SIN HACER (docs/hallazgos-integraciones.md, «Instagram orgánico por Zernio»).
-3. Conectar Instagram y Facebook sin pegar la clave de Zernio (la cuenta de la plataforma, un perfil por negocio): SIN HACER.
+3. Conectar Instagram y Facebook sin pegar la clave de Zernio: HECHO el núcleo (`cfg` cae a la cuenta de la plataforma con un perfil
+   por negocio), APAGADO detrás de `zernio.cuenta_de_la_plataforma`: prenderlo es plata de MaKo y lo decide Martín. Falta la pantalla
+   (el modal de /integraciones pide la key) y el paso del onboarding (docs/hallazgos-integraciones.md, «Conectar … sin pegar»).
 4. La prueba de punta a punta con un Instagram real: hace falta una cuenta (la pide el Cerebro a Martín).
 
 ## Rojos que no son de esta rama

@@ -2160,3 +2160,26 @@ ninguna fuente de redes orgánicas. Chat «Zernio y CAPI», pedido del Cerebro (
 - **El id de la operación no nombra la red:** tests/sin-instagram.test.ts prohíbe `/instagram|zernio/` en los ids.
 - **Sin hacer:** las plantillas de Instagram del Dashboard (Reels, Historias, DMs) y el reporte de agencia sobre esta fuente; los
   DMs (Zernio no los da como métrica); medir la forma real con una cuenta que tenga el complemento.
+
+## Conectar Instagram y Facebook sin pegar una clave de Zernio: la cuenta de la plataforma, detrás de un interruptor (28/10/2026)
+
+Martín a Teo (28/10, 00:27:36): «te logueás con Instagram y Facebook, escaneás el QR y ya tiene acceso a todo». El Cerebro: sin
+pegar una clave de Zernio, con la cuenta de la plataforma y un perfil por negocio. Chat «Zernio y CAPI».
+
+**Vive en:** `lib/zernio.ts` (`cfg`, `plataformaPrestaSuCuenta`, `keyDeSeguimiento`) · tests/zernio-plataforma.test.ts ·
+tests/zernio-sin-respaldo.test.ts (la regla nueva).
+
+- ⚠️ **Da vuelta una decisión del 23/10** («que cada usuario traiga su API de Zernio», lo fijaba tests/zernio-sin-respaldo.test.ts).
+  No se reconstruyó nada: el modo de la cuenta de la plataforma seguía vivo para el ws1 (el perfil `mako_ws_<ws>` que acuña
+  `ensureProfile`, el ruteo por perfil y el webhook firmado con el secreto maestro). Faltaba sólo que `cfg` cayera a esa key.
+- **La regla:** la key propia gana; sin ella, la de la plataforma (`byok: false` → su perfil por negocio) SÓLO si el negocio de
+  la plataforma prende `zernio.cuenta_de_la_plataforma` = '1' (app_settings). Nunca para el negocio de la plataforma. «No pude
+  leer» el interruptor tira (no es «apagado»). La clave de «¿te sigue?» es la misma de `cfg`.
+- ⚠️ **Apagado por defecto, porque es PLATA:** con la cuenta de la plataforma, cada cuenta conectada de cada cliente (Zernio cobra
+  desde la 3.ª) y el complemento de Analytics los paga MaKo. Prenderlo es una decisión de Martín, en producción.
+- **Los anuncios no cambian:** `claveZernioAnuncios` (lib/zernio-ads.ts) sigue con la key del negocio.
+- **Sin hacer:** en /integraciones el modal de Zernio sigue pidiendo la key (`ConectarRedes` sólo se ve con una key cargada,
+  app/integraciones/ServicioConfigForm.tsx) y su nota dice «Zernio te cobra a ti»: con el interruptor prendido, hay que mostrar
+  «Conectar» sin key y decir quién paga. El onboarding no tiene todavía un paso «Conectá Instagram y Facebook» (y
+  tests/sin-instagram.test.ts prohíbe un paso de onboarding cuyo texto nombre Instagram: hay que decidir cómo se llama). El aviso
+  de «la 3.ª cuenta se paga» (`aceptaCobro`) es de la cuenta del negocio: con la de la plataforma no le corresponde.
