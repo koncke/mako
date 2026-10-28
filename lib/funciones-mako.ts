@@ -9,7 +9,10 @@
 // LA REGLA:
 //   · acá va sólo el CONTENIDO (qué hace, qué no, qué reemplaza, cómo le dice la gente, con qué se conecta), indexado por
 //     las `key` del nav. El nombre, la ruta, la familia y quién la ve salen de app/_components/nav.ts: no se copian;
-//   · lista cerrada: una función que no está en el nav (o que está «pronto») no existe para un chat;
+//   · lista cerrada: una función que no está en el nav (la barra y el menú de la foto) o que está «pronto» no existe para un
+//     chat;
+//   · ES LA FUENTE: CAPACIDADES (lib/mako-capacidades.ts, los «cómo se hace» del Perro) toma de acá el nombre de su tab, y
+//     `listar_capacidades_mako` devuelve estas funciones además de esos pasos;
 //   · el estado es honesto: lo que todavía no hace va en `noHace` («Todavía no: …»), no se promete;
 //   · una tab o una capacidad nueva suma o cambia su entrada en el MISMO commit (tests/funciones-mako.test.ts falla si una
 //     key del nav no tiene entrada, si una conexión apunta a una función que no existe o si una fuente no está).
@@ -17,7 +20,7 @@
 // PURO y sin `server-only`: lo leen el grafo (lib/cerebro-funciones.ts), los chats y los tests.
 // =============================================================================
 
-import { FAMILIAS, itemsDe, TODOS_LOS_ITEMS, type NavItem } from '@/app/_components/nav';
+import { FAMILIAS, itemsDe, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
 
 export type EstadoFuncion = 'lista' | 'parcial';
 
@@ -205,7 +208,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Subir creativos, prender, pausar, cambiar el presupuesto y renombrar',
       'Lo nuevo se publica en pausa: lo prendes tú',
     ],
-    reemplaza: 'el Ads Manager de Meta',
+    reemplaza: 'Ads Manager de Meta',
     alias: ['ads manager', 'anuncios', 'ads', 'meta', 'facebook', 'campañas', 'pauta', 'media buyer'],
     conecta: [{ a: 'ads-writer', motivo: 'Los guiones de los anuncios' }, { a: 'crm', motivo: 'Las ventas de cada anuncio' }],
     estado: 'lista', slugDev: 'ads-manager', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
@@ -278,10 +281,48 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     conecta: [{ a: 'video-generator', motivo: 'Genera por el mismo puente a Google Flow' }],
     estado: 'parcial', slugDev: 'ai-avatar', fuentes: [AREAS],
   },
+  // ── El menú de la foto (Settings) ──
+  {
+    keys: ['perfil', 'configuraciones', 'integraciones'],
+    que: 'La configuración del negocio y la tuya: tu perfil, el equipo, las notificaciones, las identidades fiscales y el método, e Integraciones, donde conectas tus cuentas y el Pixel de MaKo.',
+    hace: [
+      'Tu perfil: nombre, contacto, zona horaria y foto',
+      'Business settings: general, equipo con sus roles, notificaciones, identidades fiscales y método',
+      'Integraciones: conectar tus cuentas (tu IA, Fathom, tus redes, tu agenda, el email) y ver cuáles están sanas',
+      'El Pixel de MaKo: instalarlo en tu página, grabar las visitas y probarlo en vivo',
+      'Cuánto gasta MaKo por proveedor',
+    ],
+    noHace: ['Tu número de WhatsApp no se conecta aquí: va en Chats'],
+    alias: ['settings', 'configuracion', 'ajustes', 'perfil', 'equipo', 'roles', 'notificaciones', 'integraciones', 'integrations', 'conectar', 'conexiones', 'pixel'],
+    conecta: [{ a: 'chats', motivo: 'El número de WhatsApp se conecta en Chats' }],
+    estado: 'lista', slugDev: 'integraciones', fuentes: [AREAS],
+  },
+  {
+    keys: ['api-mako'],
+    que: 'La API de MaKo, con el aspecto de GitHub: todo lo que un agente (tu Claude Code, una integración) puede leer o hacer en MaKo, sus tokens y su registro de uso.',
+    hace: ['La documentación de cada operación', 'Tokens detallados y clásicos', 'El registro de lo que hizo cada token'],
+    alias: ['api', 'tokens', 'agente', 'claude code', 'integracion'],
+    estado: 'parcial', slugDev: 'api-mako', fuentes: [AREAS],
+  },
+  {
+    keys: ['tickets'],
+    que: 'Reportar un problema: le cuentas a MaKo qué pasó, queda un ticket para el equipo, y te avisa por donde lo levantaste cuando está resuelto.',
+    hace: ['Levantar un ticket desde el chat de MaKo o desde «Report a problem»', 'Seguir tus tickets y contestar lo que pregunte el equipo', 'El aviso cuando el arreglo ya está funcionando'],
+    alias: ['soporte', 'ticket', 'tickets', 'reportar problema', 'ayuda', 'error', 'bug'],
+    estado: 'parcial', slugDev: 'reportar-problema', fuentes: [AREAS, 'docs/diseno-ticketera-usuarios.md'],
+  },
+  {
+    keys: ['partners', 'agency'],
+    que: 'MaKo Partners y Agency Dashboard: los referidos que traes a MaKo y, si te sumas como agencia con el plan Pro, las cuentas de MaKo de tus clientes.',
+    hace: ['Ver tus referidos', 'Sumarte como agencia (con el plan Pro activo)', 'Las cuentas de MaKo de tus clientes'],
+    alias: ['partners', 'referidos', 'agency', 'agencia'],
+    estado: 'parcial', fuentes: ['app/_components/nav.ts'],
+  },
 ];
 
-/** La familia de la barra («Today», «Sales»…); lo de arriba (Ops Center) es «MaKo». */
+/** La familia de la barra («Today», «Sales»…); lo de arriba (Ops Center) es «MaKo» y el menú de la foto, «Settings». */
 export const FAMILIA_ARRIBA = 'MaKo';
+export const FAMILIA_SETTINGS = 'Settings';
 
 export type FuncionMako = Omit<EntradaFuncion, 'keys'> & {
   /** La key principal (la primera): el id de su nodo es `fn:<key>`. */
@@ -294,11 +335,13 @@ export type FuncionMako = Omit<EntradaFuncion, 'keys'> & {
   soloSuperAdmin: boolean;
 };
 
-const itemPorKey = (key: string): NavItem | undefined => TODOS_LOS_ITEMS.find((i) => i.key === key);
+/** Los ítems que son funciones: la barra (con lo que dejó de ser fila) y el menú de la foto. */
+const ITEMS: readonly NavItem[] = [...TODOS_LOS_ITEMS, ...USER_NAV];
+const itemPorKey = (key: string): NavItem | undefined => ITEMS.find((i) => i.key === key);
 
 function familiaDe(keys: readonly string[]): string {
   for (const f of FAMILIAS) if (itemsDe(f).some((i) => keys.includes(i.key))) return f.label;
-  return FAMILIA_ARRIBA;
+  return USER_NAV.some((i) => keys.includes(i.key)) ? FAMILIA_SETTINGS : FAMILIA_ARRIBA;
 }
 
 let cache: FuncionMako[] | null = null;
@@ -320,3 +363,9 @@ export function funcionesMako(): FuncionMako[] {
 
 /** La función de una key del nav (cualquiera de las suyas), o undefined. */
 export const funcionDeKey = (key: string): FuncionMako | undefined => funcionesMako().find((f) => f.keys.includes(key));
+
+/** La función que abre una ruta (sin la query): la del primer ítem del nav cuyo `match` la acepta, como la barra. */
+export function funcionDeRuta(ruta: string): FuncionMako | undefined {
+  const item = ITEMS.find((i) => i.match(ruta.split(/[?#]/)[0]));
+  return item ? funcionDeKey(item.key) : undefined;
+}

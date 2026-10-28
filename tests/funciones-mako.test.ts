@@ -7,7 +7,9 @@
 //   2. lo derivado sale del nav: nombre, ruta, familia y quién la ve;
 //   3. las conexiones apuntan a otra función, el área de obra existe y las fuentes están en el repo;
 //   4. lo que reemplaza cada una es lo que dice AGENTS.md («se nombra por su fuente»), y lo que Chats no hace es lo de
-//      docs/diseno-chats.md.
+//      docs/diseno-chats.md;
+//   5. ES LA FUENTE: cada capacidad (lib/mako-capacidades.ts) cae en una función y su tab es el nombre de esa función, sin
+//      nombres a mano; `listar_capacidades_mako` devuelve las funciones del negocio.
 //
 // Probado rompiéndolo (28/10/2026): al pie del archivo.
 // =============================================================================
@@ -15,16 +17,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ENTRADAS, funcionDeKey, funcionesMako } from '../lib/funciones-mako';
-import { TODOS_LOS_ITEMS } from '../app/_components/nav';
+import { ENTRADAS, funcionDeKey, funcionDeRuta, funcionesMako } from '../lib/funciones-mako';
+import { CAPACIDADES } from '../lib/mako-capacidades';
+import { TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
 import { AREAS } from '../app/admin/dev/areas';
 
 const RAIZ = join(import.meta.dirname, '..');
+const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+/** La barra (con lo que dejó de ser fila) y el menú de la foto. */
+const ITEMS = [...TODOS_LOS_ITEMS, ...USER_NAV];
 
 test('1. cada key viva del nav es de exactamente una función, y ninguna función nombra una key que no existe', () => {
-  const vivas = TODOS_LOS_ITEMS.filter((i) => !i.comingSoon).map((i) => i.key);
-  const pronto = new Set(TODOS_LOS_ITEMS.filter((i) => i.comingSoon).map((i) => i.key));
-  const todas = new Set(TODOS_LOS_ITEMS.map((i) => i.key));
+  const vivas = ITEMS.filter((i) => !i.comingSoon).map((i) => i.key);
+  const pronto = new Set(ITEMS.filter((i) => i.comingSoon).map((i) => i.key));
+  const todas = new Set(ITEMS.map((i) => i.key));
   for (const k of vivas) {
     const de = ENTRADAS.filter((e) => e.keys.includes(k));
     assert.equal(de.length, 1, `la key «${k}» del nav es de ${de.length} funciones: súmala a lib/funciones-mako.ts (o sácala de la que sobra)`);
@@ -39,7 +45,7 @@ test('1. cada key viva del nav es de exactamente una función, y ninguna funció
 
 test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   for (const f of funcionesMako()) {
-    const item = TODOS_LOS_ITEMS.find((i) => i.key === f.key)!;
+    const item = ITEMS.find((i) => i.key === f.key)!;
     assert.equal(f.nombre, item.label);
     assert.equal(f.ruta, item.href);
     assert.ok(f.familia, `«${f.key}» sin familia`);
@@ -49,6 +55,12 @@ test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   assert.equal(funcionDeKey('chats')?.familia, 'Today');
   assert.equal(funcionDeKey('ai-avatar-voces')?.soloSuperAdmin, true);
   assert.equal(funcionDeKey('crm')?.soloSuperAdmin, false);
+  assert.equal(funcionDeKey('integraciones')?.familia, 'Settings');
+  // La función de una ruta: la que se enciende en la barra al llegar.
+  assert.equal(funcionDeRuta('/whatsapp')?.key, 'chats');
+  assert.equal(funcionDeRuta('/general')?.key, 'graphics', '/general es la hoja Focus del Dashboard');
+  assert.equal(funcionDeRuta('/dashboard?hoja=closing')?.key, 'graphics');
+  assert.equal(funcionDeRuta('/integraciones')?.familia, 'Settings');
 });
 
 test('3. las conexiones apuntan a otra función, el área de obra existe, las fuentes están y nada va vacío', () => {
@@ -83,6 +95,19 @@ test('4. lo que reemplaza cada una es lo de AGENTS.md, y lo que Chats no hace es
   assert.equal(chats.estado, 'parcial', 'Chats todavía no hace todo lo de respond.io: el estado es honesto');
 });
 
+test('5. es la fuente: cada capacidad cae en una función y su tab es el nombre de ésa; listar_capacidades_mako trae las funciones', () => {
+  for (const c of CAPACIDADES) {
+    assert.ok(c.funcion, `la capacidad «${c.id}» (${c.ruta}) no cae en ninguna función del catálogo`);
+    assert.equal(c.tab, funcionDeKey(c.funcion!)!.nombre, `la capacidad «${c.id}» nombra una tab que no es la de su función`);
+  }
+  const fuenteCap = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-capacidades.ts'), 'utf8'));
+  assert.doesNotMatch(fuenteCap, /\btab: '/, 'una capacidad volvió a escribir su tab a mano');
+  const run = sinComentarios(readFileSync(join(RAIZ, 'lib/api-mako/areas/mako.run.ts'), 'utf8'));
+  const listar = run.slice(run.indexOf('listar_capacidades_mako: {'), run.indexOf('listar_chats_mako: {'));
+  assert.match(listar, /const funciones = id \? \[\] : funcionesMako\(\)\.filter\(\(f\) => disponible\(f\.ruta\)\)/, 'la herramienta no lee el catálogo (o no filtra por el plan)');
+  assert.match(listar, /no_hace: f\.noHace/, 'la herramienta no dice lo que una función no hace');
+});
+
 // ── Probado rompiéndolo (28/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. Chats sin la key `email`                                            → rojo el 1.
@@ -90,3 +115,7 @@ test('4. lo que reemplaza cada una es lo de AGENTS.md, y lo que Chats no hace es
 //   3. una conexión a una key que no existe                                 → rojo el 3.
 //   4. el Video Editor «reemplaza a Premiere»                              → rojo el 4.
 //   5. Chats sin «Llamadas de voz» en lo que no hace                       → rojo el 4.
+//  12. Settings sin la key `integraciones`                                   → rojo el 1 y el 2.
+//  13. la tab de una capacidad con la key y no el nombre de su función        → rojo el 5.
+//  14. `listar_capacidades_mako` sin lo que una función no hace               → rojo el 5.
+//  15. las funciones de la herramienta sin el filtro del plan                  → rojo el 5.

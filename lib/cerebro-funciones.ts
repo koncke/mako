@@ -21,8 +21,10 @@
 // PURO y sin `server-only`: sin base y sin física. Lo junta con el negocio lib/cerebro-para-chat.ts.
 // =============================================================================
 
+import { coincide, paraBuscar } from './buscar-tareas';
 import { CAPA_FUNCIONES, type AristaCerebro, type Cerebro, type NodoCerebro, type Taxonomia } from './cerebro-modelo';
-import { FAMILIA_ARRIBA, funcionesMako, type FuncionMako } from './funciones-mako';
+import { recuperar } from './cerebro-recuperar';
+import { FAMILIA_ARRIBA, FAMILIA_SETTINGS, funcionesMako, type FuncionMako } from './funciones-mako';
 
 export { CAPA_FUNCIONES };
 /** La carpeta madre de la capa: lo que cuelga de la raíz del negocio en el grafo de los chats. */
@@ -39,6 +41,7 @@ const FAMILIAS: ReadonlyArray<readonly [string, string, string]> = [
   ['Sales', 'var(--grafo-oferta)', 'Lo que vende: los leads, la agenda, las automatizaciones y los clientes.'],
   ['Marketing', 'var(--grafo-cliente)', 'La oferta, las landings y los anuncios.'],
   ['Create', 'var(--grafo-razones)', 'Lo que crea contenido: video, imagen y guiones.'],
+  [FAMILIA_SETTINGS, 'var(--grafo-documentos)', 'La configuración, las conexiones, la API y el soporte.'],
 ];
 
 export function taxonomiaFunciones(fs: readonly FuncionMako[] = funcionesMako()): Taxonomia {
@@ -101,4 +104,49 @@ let cache: Cerebro<string> | null = null;
 export function funcionesDeMako(): Cerebro<string> {
   cache ??= armarFunciones();
   return cache;
+}
+
+// ── La función que vende una landing (el Web Generator de la plataforma, 28/10/2026) ──────────────────────────────────
+// El caso de Martín: «hacé de esta copia la landing de los Chats». El brief del editor traía el perfil del negocio (MaKo en
+// general) y nada de Chats. Con esto, el pedido que la nombra trae la función entera, y el que no («cambia el hero») la
+// toma de la página si ella nombra CLARAMENTE una sola.
+
+/** Las palabras que nombran lo que se está editando, no lo que se vende: «la landing de los Chats» no habla del Web Generator. */
+const DE_LA_PAGINA = new Set(['landing', 'landings', 'pagina', 'web', 'sitio', 'presentacion']);
+
+/** Cuánto nombra un texto a una función: su nombre vale 2 y cada alias 1, como palabras enteras (con plurales). */
+export function menciones(f: Pick<FuncionMako, 'nombre' | 'alias'>, texto: string): number {
+  const nombre = paraBuscar(f.nombre);
+  let n = coincide(texto, `${nombre} `) ? 2 : 0;
+  for (const a of new Set(f.alias.map(paraBuscar))) if (a !== nombre && !DE_LA_PAGINA.has(a) && coincide(texto, `${a} `)) n += 1;
+  return n;
+}
+
+/** Lo que se vende: ni lo que sólo ve el super admin ni el menú de la foto (la configuración no es una landing). */
+const lasQueSeVenden = (): FuncionMako[] => funcionesMako().filter((f) => !f.soloSuperAdmin && f.familia !== FAMILIA_SETTINGS);
+
+/**
+ * La función que vende una landing: la que más nombra el PEDIDO (sin empate); si el pedido no nombra ninguna, la que la
+ * PÁGINA nombra al menos dos veces y el doble que la siguiente. Si no, ninguna: una landing de MaKo en general no se ata a
+ * una función por una palabra suelta.
+ */
+export function funcionQueVende(p: { pedido: string; pagina?: string }, fs: readonly FuncionMako[] = lasQueSeVenden()): FuncionMako | null {
+  const ranking = (texto: string) => fs.map((f) => ({ f, n: menciones(f, texto) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+  const delPedido = ranking(p.pedido);
+  if (delPedido.length) return delPedido.length === 1 || delPedido[0].n > delPedido[1].n ? delPedido[0].f : null;
+  const dePagina = ranking((p.pagina ?? '').slice(0, 4_000));
+  const [a, b] = dePagina;
+  return a && a.n >= 2 && a.n >= 2 * (b?.n ?? 0) ? a.f : null;
+}
+
+/** Una línea con todas las funciones que se venden y lo que reemplazan: que un chat no niegue una que existe. */
+export function catalogoCorto(fs: readonly FuncionMako[] = lasQueSeVenden()): string {
+  return fs.map((f) => `${f.nombre}${f.reemplaza ? ` (en vez de ${f.reemplaza})` : ''}`).join(' · ');
+}
+
+/** La función entera (qué hace, qué no y qué reemplaza), del grafo que se le pase: el de los chats o el de las funciones. */
+export function funcionEntera(grafo: Pick<Cerebro<string>, 'negocio' | 'nodos' | 'aristas' | 'taxonomia'>, f: Pick<FuncionMako, 'key'>, presupuesto = 900): string {
+  const id = idFuncion(f.key);
+  const nodo = grafo.nodos.find((n) => n.id === id || n.id === `${CAPA_FUNCIONES}:${id}`);
+  return nodo ? recuperar(grafo, { ids: [nodo.id], profundidad: 0, presupuesto }).texto : '';
 }

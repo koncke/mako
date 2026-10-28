@@ -17,6 +17,7 @@ import { propuestasPendientes } from '@/lib/propuestas';
 import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
+import { funcionesMako } from '@/lib/funciones-mako';
 import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { chatsDelSecondBrain, hiloDelSecondBrain } from '@/lib/chat-mako-indice';
 import { arbolDelJefe, JEFE_SECOND_BRAIN, sesionDelCanal, tituloDe } from '@/lib/chat-mako-reglas';
@@ -280,7 +281,14 @@ export const RUNNERS: Runners = {
       if (id && !pedidas.length) return fallo(`No existe la capacidad «${id}».`);
       const visibles = pedidas.filter((c) => disponible(c.ruta));
       if (id && !visibles.length) return fallo(`«${id}» no está disponible en este negocio (su tab no está en el plan contratado o no la ve tu rol).`);
+      // Las FUNCIONES de este negocio, del catálogo (lib/funciones-mako.ts, 28/10/2026): qué hace cada una, qué no y qué
+      // reemplaza. Con un id se pide UNA capacidad: van sólo sus pasos.
+      const funciones = id ? [] : funcionesMako().filter((f) => disponible(f.ruta)).map((f) => ({
+        funcion: f.nombre, url: linkPantalla(f.ruta), que: f.que,
+        ...(f.noHace?.length ? { no_hace: f.noHace } : {}), ...(f.reemplaza ? { en_vez_de: f.reemplaza } : {}),
+      }));
       return json({
+        ...(funciones.length ? { funciones } : {}),
         capacidades: visibles.map((c) => ({ id: c.id, tab: c.tab, url: linkPantalla(c.ruta), que: c.que, como: c.como })),
         ...(visibles.length < pedidas.length ? { fuera_de_este_negocio: pedidas.length - visibles.length } : {}),
       });

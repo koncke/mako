@@ -18,10 +18,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CAPA_FUNCIONES, funcionesDeMako, ID_RAIZ_FUNCIONES, idFuncion, PUENTE_FUNCIONES } from '../lib/cerebro-funciones';
-import { funcionesMako } from '../lib/funciones-mako';
+import {
+  CAPA_FUNCIONES, catalogoCorto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, idFuncion, menciones, PUENTE_FUNCIONES,
+} from '../lib/cerebro-funciones';
+import { funcionDeKey, funcionesMako } from '../lib/funciones-mako';
 import { esEstructura } from '../lib/cerebro-areas';
-import { indiceDelCerebro, recuperar } from '../lib/cerebro-recuperar';
+import { indiceDelCerebro, recuperar, tokensDe } from '../lib/cerebro-recuperar';
 import { conCapa } from '../lib/cerebro-union';
 import type { Cerebro } from '../lib/cerebro-modelo';
 
@@ -109,6 +111,43 @@ test('5. las herramientas del Second Brain leen grafoParaChat: sin física, con 
   assert.match(fuente('lib/cerebro-grafo.ts'), /opciones\.sinLayout \? \{ posiciones: \{\}, encuadre: \{ x: 0, y: 0, lado: 1 \} \} : layoutCerebro\(nodos, aristas\)/);
 });
 
+test('6. la función que vende una landing: la que nombra el pedido; si no, la que la página nombra claramente; si no, ninguna', () => {
+  for (const [pedido, pagina, fn] of [
+    ['hacé de esta copia la landing de los Chats', '', 'chats'],
+    ['la landing de la bandeja unificada', '', 'chats'],
+    ['quiero la landing del Web Generator', '', 'landing-writer'],
+    ['una landing para el editor tipo capcut', '', 'video-editor'],
+    // «Cambia el hero» no nombra nada: la toma de la página, si ella nombra claramente una sola (una copia de respond.io).
+    ['cambiá el hero', 'Turn conversations into customers. respond.io unifies WhatsApp, Instagram and Messenger in one inbox.', 'chats'],
+  ] as const) {
+    assert.equal(funcionQueVende({ pedido, pagina })?.key ?? null, fn, `«${pedido}» no eligió ${fn}`);
+  }
+  // Una landing de MaKo en general, un empate o nada: ninguna (no se ata la landing a una función por una palabra suelta).
+  assert.equal(funcionQueVende({ pedido: 'cambiá el hero', pagina: 'MaKo: el CRM, los chats, las automatizaciones y el web generator en una sola app.' }), null);
+  assert.equal(funcionQueVende({ pedido: 'la landing del CRM y los chats' }), null, 'un empate eligió una');
+  assert.equal(funcionQueVende({ pedido: 'cambiá el hero' }), null);
+  // «landing» habla de lo que se edita, no del Web Generator.
+  assert.equal(menciones(funcionDeKey('landing-writer')!, 'cambia la landing'), 0);
+  // Lo que sólo ve el super admin no se vende.
+  assert.equal(funcionQueVende({ pedido: 'la landing de AI Avatar como heygen' }), null);
+});
+
+test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan, y la función entera viaja del grafo unido', () => {
+  const corto = catalogoCorto();
+  for (const x of ['Chats (en vez de respond.io)', 'Web Generator (en vez de Gamma)', 'Video Editor (en vez de CapCut)', 'CRM', 'Automations']) assert.ok(corto.includes(x), `falta «${x}»`);
+  assert.doesNotMatch(corto, /AI Avatar|Reels|Customers/, 'nombra una función que sólo ve el super admin');
+  assert.ok(tokensDe(corto) < 150, 'el catálogo corto dejó de ser corto');
+  const negocio: Cerebro<string> = {
+    negocio: 'MaKo', nodos: [{ id: 'raiz', area: 'norte', etiqueta: 'MaKo', detalle: '', fuente: '', autoria: 'usuario' }], aristas: [],
+    cuenta: { total: 0, mako: 0, usuario: 0, pendientes: 0 }, vacias: [], posiciones: {}, encuadre: { x: 0, y: 0, lado: 1 },
+  };
+  const u = conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES });
+  const chats = funcionEntera(u, funcionDeKey('chats')!);
+  assert.match(chats, /No hace:\n\s+- Llamadas de voz/);
+  assert.ok(tokensDe(chats) <= 900, `Chats entera pesa ${tokensDe(chats)} tokens`);
+  assert.equal(funcionEntera(negocio, funcionDeKey('chats')!), '', 'un negocio sin la capa (un cliente) recibió la función');
+});
+
 // ── Probado rompiéndolo (28/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   6. la raíz `fn:raiz` (cuenta como dato)                                → rojo el 1 y el 2.
@@ -117,3 +156,6 @@ test('5. las herramientas del Second Brain leen grafoParaChat: sin física, con 
 //   9. `conCapa` sin la arista de la raíz (dos cerebros)                    → rojo el 4.
 //  10. el índice con `construirCerebro()`                                   → rojo el 5.
 //  11. el grafo de los chats con la física                                  → rojo el 5.
+//  16. «landing» cuenta como el Web Generator                                → rojo el 6.
+//  17. una palabra suelta de la página alcanza para elegir                    → rojo el 6.
+//  18. se vende lo que sólo ve el super admin                                 → rojo el 6 y el 7.

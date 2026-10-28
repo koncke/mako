@@ -2877,7 +2877,12 @@ chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `
 - **Medido** (sin base): el índice de las 20 funciones pesa ~198 tokens; «qué no hace la bandeja» trae sólo Chats (273);
   Chats entera, con lo que hace y lo que no, 350.
 
-**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); `listar_capacidades_mako`
-sigue leyendo CAPACIDADES y no el catálogo; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
+- **CAPACIDADES ya llegaba a los chats** (`listar_capacidades_mako`, también por REST, y el Perro): no es «nadie la llama».
+  Por eso el catálogo es la FUENTE y no otro al lado: cada capacidad cae en su función por la ruta (`funcionDeRuta`, el primer
+  ítem del nav cuyo `match` la acepta) y su tab es el nombre de esa función. Se fueron cinco nombres que la barra ya no tiene
+  («WhatsApp», «Content Machine», «General», «Integraciones», «Configuraciones»). La `ruta` se queda: es más fina que una tab
+  (`?hoja=closing`).
+
+**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
 MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
 lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.
