@@ -72,18 +72,18 @@ export async function codigoSiExiste(ws: number): Promise<string | null> {
   return data ? (data as { codigo: string }).codigo : null;
 }
 
-// ── LOS CÓDIGOS ANTERIORES (27/10/2026, mig 0340): un partner puede cambiar su código, y lo de antes sigue contando ──────
+// ── LOS CÓDIGOS ANTERIORES (27/10/2026, mig 0341): un partner puede cambiar su código, y lo de antes sigue contando ──────
 // Los links /r/<viejo> que ya mandó, la cookie de quien ya entró y los cobros con `ref_codigo = <viejo>` son SUYOS: cada
 // lectura que va de un código a un negocio mira primero el actual (`partner_codigos`) y después los que dejó
 // (`partner_codigos_anteriores`). Sin la migración, la tabla no existe: los anteriores son ninguno y cambiar no se ofrece.
 
-/** El negocio que usaba ese código antes de cambiarlo, o null (también sin la mig 0340). */
+/** El negocio que usaba ese código antes de cambiarlo, o null (también sin la mig 0341). */
 async function wsDeCodigoAnterior(codigo: string): Promise<number | null> {
   const { data, error } = await getSupabaseServer().from('partner_codigos_anteriores').select('workspace_id').eq('codigo', codigo).maybeSingle();
   return !error && data ? Number((data as { workspace_id: number }).workspace_id) : null;
 }
 
-/** Los códigos que el negocio dejó de usar (ninguno sin la mig 0340). */
+/** Los códigos que el negocio dejó de usar (ninguno sin la mig 0341). */
 async function codigosAnterioresDe(ws: number): Promise<string[]> {
   const { data, error } = await getSupabaseServer().from('partner_codigos_anteriores').select('codigo').eq('workspace_id', ws).limit(50);
   return error ? [] : ((data ?? []) as Array<{ codigo: string }>).map((x) => x.codigo);
@@ -110,7 +110,7 @@ export async function codigoVigente(codigo: string): Promise<string | null> {
 
 /**
  * Cambiar el código (Leila, Fathom 876470842-06): único entre los actuales y los anteriores de OTROS, atómico en la base
- * (`cambiar_codigo_partner`, mig 0340). El viejo sigue acreditándole. Sólo un partner (con alta) y nunca la plataforma.
+ * (`cambiar_codigo_partner`, mig 0341). El viejo sigue acreditándole. Sólo un partner (con alta) y nunca la plataforma.
  */
 export async function cambiarCodigoPartner(ws: number, crudo: unknown): Promise<{ ok: true; codigo: string; link: string } | { ok: false; error: string }> {
   try {
@@ -120,7 +120,7 @@ export async function cambiarCodigoPartner(ws: number, crudo: unknown): Promise<
     if (!(await altaDePartner(ws).catch(() => null))) return { ok: false, error: 'Todavía no eres partner: primero hazte partner en MaKo Partners.' };
     const { data, error } = await getSupabaseServer().rpc('cambiar_codigo_partner', { p_ws: ws, p_nuevo: v.codigo });
     if (error) {
-      // Sin la mig 0340 la función no existe: no se cambia nada (cambiar sin guardar el viejo le haría perder lo que ya mandó).
+      // Sin la mig 0341 la función no existe: no se cambia nada (cambiar sin guardar el viejo le haría perder lo que ya mandó).
       console.warn(`[partners] no pude cambiar el código del negocio ${ws}: ${error.message}`);
       return { ok: false, error: 'Todavía no se puede cambiar el código. Prueba más tarde.' };
     }
@@ -380,7 +380,7 @@ export async function resumenDelPrograma(): Promise<ResumenPrograma> {
   const [altas, codigos, anteriores, compras, libro] = await Promise.all([
     db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_ALTA_PARTNERS).limit(TOPE),
     db.from('partner_codigos').select('workspace_id, codigo').limit(TOPE),
-    // Los que cada partner dejó (mig 0340): una compra con el código viejo sigue contando para él. Sin la migración, ninguno.
+    // Los que cada partner dejó (mig 0341): una compra con el código viejo sigue contando para él. Sin la migración, ninguno.
     db.from('partner_codigos_anteriores').select('workspace_id, codigo').limit(TOPE),
     // El MISMO filtro que `acreditarReferidos`: la compra que TRAJO al negocio (`COMPRA_QUE_TRAJO`: la que creó la cuenta o
     // la de «Empezar mi plan ya» que la reemplaza), pagada (o devuelta después).

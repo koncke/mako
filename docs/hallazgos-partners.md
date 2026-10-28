@@ -339,7 +339,7 @@ partner es de MaKo Pro (docs/hallazgos-planes-y-cobro.md, «La tabla de /planes 
 - **Lo que falta de material (lo graba Martín), y NO se muestra hasta que exista:** audios de WhatsApp (presentación de 1
   minuto, respuesta a «¿cuánto cuesta?», respuesta a «no tengo tiempo»), videos (demo de 3 minutos de MaKo por dentro, un caso
   real con números) y capturas para estados e historias. Se suman en lib/partners-recursos.ts.
-- **El código editable (mig 0340), y el diagnóstico obvio era el equivocado: «es un update de `partner_codigos`».** Un update
+- **El código editable (mig 0341), y el diagnóstico obvio era el equivocado: «es un update de `partner_codigos`».** Un update
   suelto dejaba sin dueño todo lo que el partner ya había mandado: los links /r/<viejo> por WhatsApp, la cookie de 60 días y
   los cobros con `ref_codigo = <viejo>`, que `acreditarReferidos` resuelve por código. El viejo pasa a
   `partner_codigos_anteriores` y CADA lectura que va de un código a un negocio mira también ahí: `wsDelCodigo` (acreditar y
@@ -349,9 +349,9 @@ partner es de MaKo Pro (docs/hallazgos-planes-y-cobro.md, «La tabla de /planes 
   transacción). Un trigger impide que el código que nace del nombre (`codigoDe`) sea el viejo de otro: choca con 23505 y
   prueba con sufijo, como siempre. Sin la migración, «Cambiar» contesta «todavía no se puede» y no toca nada.
 
-**Sin hacer:** aplicar la mig 0340 en producción (la pide el Cerebro con el sí de Martín; el número puede chocar con otra rama
-del tren y renumerarse). El teléfono muestra el código sin «Cambiar» (como dónde cobra: se cambia en la computadora).
+**Sin hacer:** aplicar la mig 0341 en producción (la pide el Cerebro con el sí de Martín; era 0340 y chocó con la del editor de imágenes,
+de otra rama; si el tren suma otra antes, se renumera). El teléfono muestra el código sin «Cambiar» (como dónde cobra: se cambia en la computadora).
 **Vive en:** lib/partners-recursos.ts · app/partners/RecursosPartner.tsx · app/partners/PanelPartner.tsx ·
 app/m/partners/ReferidosM.tsx · lib/partners-reglas.ts (`codigoNuevoValido`) · lib/partners-programa.ts
-(`cambiarCodigoPartner`, `codigoVigente`) · app/r/[codigo]/route.ts · supabase/migrations/0340_partner_codigo_editable.sql ·
+(`cambiarCodigoPartner`, `codigoVigente`) · app/r/[codigo]/route.ts · supabase/migrations/0341_partner_codigo_editable.sql ·
 lib/api-mako/areas/negocio.* · tests/partners-recursos.test.ts · tests/partners-codigo-editable.test.ts.

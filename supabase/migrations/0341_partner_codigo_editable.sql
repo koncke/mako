@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0340_partner_codigo_editable — el partner cambia su código, y los links viejos siguen contando (27/10/2026)
+-- 0341_partner_codigo_editable — el partner cambia su código, y los links viejos siguen contando (27/10/2026)
 -- =============================================================================
 -- Leila en la llamada con Martín (Fathom 876470842-06): el código de MaKo Partners nace del nombre del negocio y no se podía
 -- cambiar (app/partners/PanelPartner.tsx sólo lo copiaba). Cambiarlo tiene que dejar el nuevo ÚNICO y que lo de antes siga
@@ -27,7 +27,7 @@ create table if not exists partner_codigos_anteriores (
   hasta        timestamptz not null default now()
 );
 create index if not exists partner_codigos_anteriores_ws on partner_codigos_anteriores (workspace_id);
-comment on table partner_codigos_anteriores is 'Los códigos de MaKo Partners que un negocio dejó de usar: siguen acreditándole (mig 0340).';
+comment on table partner_codigos_anteriores is 'Los códigos de MaKo Partners que un negocio dejó de usar: siguen acreditándole (mig 0341).';
 
 alter table partner_codigos_anteriores enable row level security;
 revoke all on partner_codigos_anteriores from anon, authenticated;

@@ -4,7 +4,7 @@
 // Leila en la llamada con Martín (Fathom 876470842-06): el código nace del nombre del negocio y el panel sólo dejaba copiarlo.
 // Listo = editable, único, y los links viejos siguen acreditando. Lo que se cuida acá:
 //   · lo que escribe el partner se limpia y se valida como la base (lo puro, se ejecuta);
-//   · la mig 0340: los anteriores en su tabla, el cambio atómico y serializado, y un código viejo que nunca pasa a otro;
+//   · la mig 0341: los anteriores en su tabla, el cambio atómico y serializado, y un código viejo que nunca pasa a otro;
 //   · cada lectura que va de un código a un negocio mira también los anteriores: /r/<viejo>, el código escrito al pagar,
 //     el panel del partner, el programa del super admin y la acreditación;
 //   · sin la migración, cambiar NO se hace (perdería lo que ya mandó) y las lecturas siguen como antes;
@@ -42,8 +42,8 @@ test('lo que escribe el partner: se limpia como el nombre y cumple lo mismo que 
   for (const reservado of ['mako', 'Admin', 'hola-mako']) assert.equal(codigoNuevoValido(reservado).ok, false, reservado);
 });
 
-test('la mig 0340: los anteriores, el cambio atómico y serializado, y un código viejo nunca pasa a otro negocio', () => {
-  const sql = fuente('supabase/migrations/0340_partner_codigo_editable.sql').replace(/--.*$/gm, '');
+test('la mig 0341: los anteriores, el cambio atómico y serializado, y un código viejo nunca pasa a otro negocio', () => {
+  const sql = fuente('supabase/migrations/0341_partner_codigo_editable.sql').replace(/--.*$/gm, '');
   assert.match(sql, /create table if not exists partner_codigos_anteriores \(\s*codigo\s+text primary key check \(codigo ~ '\^\[a-z0-9-\]\{3,32\}\$'\),\s*workspace_id bigint not null references workspaces\(id\) on delete cascade,/);
   assert.match(sql, /revoke all on partner_codigos_anteriores from anon, authenticated;/);
   const f = sql.slice(sql.indexOf('create or replace function cambiar_codigo_partner'));
