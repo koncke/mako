@@ -54,7 +54,7 @@ export function bloqueDelEquipo(guardado: string | null | undefined, ahora: Date
   const vivos = leer(guardado).filter((d) => Date.parse(d.at) >= desde).slice(-MAX_EN_EL_BLOQUE);
   if (!vivos.length) return '';
   return [
-    `LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO (últimos ${DIAS_DEL_EQUIPO} días; lo escribió el equipo que desarrolla MaKo, no tú). Si la persona contesta a esto, el contexto está acá: no lo contradigas.`,
+    `LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO (últimos ${DIAS_DEL_EQUIPO} días; lo escribió el equipo que desarrolla MaKo, no tú). Si la persona contesta a esto, el contexto está aquí: no lo contradigas.`,
     ...vivos.map((d) => `- ${cuando(d.at, ahora, tz)} — «${enUnaLinea(d.texto, LARGO_DEL_EQUIPO)}»`),
   ].join('\n');
 }
