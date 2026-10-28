@@ -85,7 +85,7 @@ test('⚠️ proponer ACTIVAR valida antes de dejar la pendiente: el «sí» no 
   // propuesta → 6 pasan / 1 falla (éste).
   const DOER = leer('lib/mako-doer-acciones.ts');
   const caso = cuerpo(DOER, "case 'proponer_toggle_nutricion': {", "case 'proponer_renombrar_campana': {");
-  assert.match(caso, /if \(activa\) \{\s*try \{\s*await runWithWorkspace\(ws, \(\) => validarActivacion\(secuenciaId\)\);\s*\} catch \(e\) \{\s*if \(e instanceof PasosInvalidosError\) return JSON\.stringify\(\{ ok: false, error: e\.message \}\);\s*throw e;\s*\}\s*\}/);
+  assert.match(caso, /if \(activa\) \{\s*try \{\s*await runWithWorkspace\(ws, \(\) => validarActivacion\(secuenciaId\)\);\s*\} catch \(e\) \{\s*if \(e instanceof PasosInvalidosError\) return JSON\.stringify\(\{ ok: false, (?:guarda: true, )?error: e\.message \}\);\s*throw e;\s*\}\s*\}/);
   assert.ok(caso.indexOf('validarActivacion(secuenciaId)') < caso.indexOf("proponer('nutricion_toggle'"), 'valida ANTES de crear la pendiente');
   // La API de MaKo (y un paso «⚡ Acción») proponen por ESE runner: no hay otro que se lo saltee.
   const RUN = leer('lib/api-mako/areas/chatbot.run.ts');
