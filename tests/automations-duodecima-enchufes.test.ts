@@ -101,7 +101,7 @@ test('Publicar muestra el `aviso` del PATCH después de «Publicado ✓»', () =
   assert.match(pub, /aviso = typeof rp\.aviso === 'string' && rp\.aviso \? rp\.aviso : null;/);
   assert.match(pub, /flashOk\('Publicado ✓'\); onCambio\(\);\n\s*if \(aviso\) setErr\(aviso\);/);
   // El server lo manda así (app/api/whatsapp/secuencias/route.ts).
-  assert.match(leer('app/api/whatsapp/secuencias/route.ts'), /return Response\.json\(aviso \? \{ ok: true, aviso \} : \{ ok: true \}\);/);
+  assert.match(leer('app/api/whatsapp/secuencias/route.ts'), /return Response\.json\(\{ ok: true, \.\.\.\(aviso \? \{ aviso \} : \{\}\)/);
 });
 
 test('la tarjeta CRON se siembra con lo que guardó el server (`disparadorDeValorIA`), entero', () => {
