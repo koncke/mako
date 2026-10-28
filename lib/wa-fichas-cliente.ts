@@ -287,6 +287,7 @@ export function motivoDeFichas(motivo: string): string {
     case 'sin_respuesta_wa': return 'WhatsApp Web no contestó. Recarga esa pestaña y vuelve a tocar.';
     case 'extension': return 'No encontré la extensión de MaKo en este navegador.';
     case 'sin_respuesta': return 'La extensión no contestó. Recarga esta página y vuelve a tocar.';
+    case 'ocupado': return 'WhatsApp Web todavía está terminando otra extracción: espera un minuto y vuelve a tocar.';
     case 'parado': return 'La paraste.';
     default: return 'No pude leer tu WhatsApp Web.';
   }

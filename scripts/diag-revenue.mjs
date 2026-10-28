@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl:'require', max:1 });
+const sql = postgres(urlDeLaBase(), { ssl:'require', max:1 });
 const [crm] = await sql`SELECT count(*)::int n, sum(monto_cierre_usd)::int total FROM leads WHERE estado_lead='ganado'`;
 console.log('CRM ganado (estado_lead): n=', crm.n, 'sum monto=', crm.total);
 const [sold] = await sql`SELECT count(*)::int n, sum(monto_cierre_usd)::int total FROM leads WHERE cerro=true AND fecha_cierre IS NOT NULL`;

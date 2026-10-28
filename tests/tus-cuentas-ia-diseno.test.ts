@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { agruparPorCuenta } from '../lib/ia-pc-reglas';
+import { AVISO_CHROME, AVISO_SMARTSCREEN, agruparPorCuenta } from '../lib/ia-pc-reglas';
 import { Barra, CuentasYDispositivos, DescargarMaKo, NuevoDispositivo, avisoAlAbrir } from '../app/integraciones/CuentasYDispositivos';
 import { VistaCredito } from '../app/admin/operaciones/UsoCredito';
 import type { LecturaCredito } from '../lib/credito-api';
@@ -105,7 +105,10 @@ test('3. «Nuevo dispositivo», una fila que abre el tutorial; la descarga, sól
   const descarga = renderToStaticMarkup(createElement(DescargarMaKo, { className: 'x' }));
   // Desde el 24/10/2026 con su `title` (el botón «Instalar MaKo» de la caja dice corto y el `title`, el sistema).
   assert.equal(descarga, '<a class="x" href="/api/ia-pc/descargar?os=windows" title="Descargar MaKo para Windows">Descargar MaKo para Windows</a>', 'sin navegador, Windows');
-  assert.match(avisoAlAbrir(), /^Si Windows dice «protegió su PC»/);
+  // Desde el 27/10/2026 (07a4a1449, la tanda 1 del feedback del 26/10): primero lo que hace Chrome al bajarlo sin firma (pasa
+  // antes), después lo que dice Windows al abrirlo. La Mac, con Gatekeeper: tests/ia-pc-mac-app.test.ts.
+  assert.equal(avisoAlAbrir(), `${AVISO_CHROME} ${AVISO_SMARTSCREEN}`, 'sin navegador, Windows: Chrome primero y SmartScreen después');
+  assert.match(avisoAlAbrir(), /^Si Chrome lo frena[^]*Si Windows dice «protegió su PC»: Más información › Ejecutar de todas formas\.$/);
 });
 
 test('4. cada ventana en una fila, como claude.ai › Uso, sin cambiar el orden del marcado; «Medido hace X» arriba a la derecha', () => {

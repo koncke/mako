@@ -1,11 +1,12 @@
 // Sonda solo-lectura: descubrir el action_type de "Programaciones"/agendas en
 // los insights de Meta, y ver cobertura de previews en el rango completo.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
 const API = process.env.META_API_VERSION, TOKEN = process.env.META_ACCESS_TOKEN;
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 const SINCE = '2025-11-01', UNTIL = '2026-06-19';
 
 try {

@@ -37,13 +37,14 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { createClient } from '@supabase/supabase-js';
 
 const APLICAR = process.argv.includes('--apply');
 const WS = 11;
 const BACKUP_KEY = 'mako.backup.chatbot.2026-08-10';
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 const log = (s = '') => console.log(s);
 
 /** El pipeline de la plantilla `presencial` (lib/pipeline.ts), con su layout. */

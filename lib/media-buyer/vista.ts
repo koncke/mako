@@ -19,7 +19,8 @@ import { getRazones } from '@/lib/razones';
 import { deTusAnuncios } from '@/lib/calculadora-presupuesto-ads';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { diasAntes } from './senales';
-import { etiquetaDeFunnel, lienzo, mapaDeProductos, mejoresAnuncios, type AnuncioDestacado } from './productos';
+import { campanasRetenidas, etiquetaDeFunnel, lienzo, mapaDeProductos, mejoresAnuncios, type AnuncioDestacado } from './productos';
+import { avisoSinCampanasNuevas, ultimaCreada } from '@/lib/meta-cuenta-leida';
 import type { ProductoArranque, RespuestasArranque } from './arranque';
 import type { KpiMediaBuyer } from './tipos';
 import { CLAVE_AGENTES, leerAgentes, type AgentePropio } from './agentes-propios';
@@ -88,13 +89,20 @@ export async function lienzoMediaBuyer(ws: number, kpi: KpiMediaBuyer, objetivo:
       ok(leerCampanasAsignadas(), []),
       hasta >= desdeMes ? ok(getSenalesRecon(desdeMes, hasta), []) : Promise.resolve([]),
     ]);
-    const campanas = datos.arbol.filter((n) => n.nivel === 'campaign' && n.configurado !== 'DELETED').map((c) => ({
+    const vivas = datos.arbol.filter((n) => n.nivel === 'campaign' && n.configurado !== 'DELETED');
+    const retenidas = campanasRetenidas(datos.arbol);
+    const campanas = vivas.map((c) => ({
       id: c.id, nombre: c.nombre, prendida: c.configurado === 'ACTIVE', presupuestoDia: c.presupuestoDia,
       conjuntos: datos.arbol.filter((s) => s.nivel === 'adset' && s.parentId === c.id && s.configurado !== 'DELETED').length,
+      ...(retenidas.has(c.id) ? { retenida: true } : {}),
     }));
+    // QUÉ cuenta se leyó, como la muestra Meta, y la frase si no tiene campañas nuevas (MK-03, 27/10/2026: «no veo las
+    // campañas» era otra cuenta o un borrador). La frase sólo con la cuenta leída ENTERA: a medias no se sabe si hay.
+    const cuenta = datos.adAccountId ? { id: datos.adAccountId, nombre: datos.cuentaNombre ?? null } : null;
+    const aviso = datos.parcial ? null : avisoSinCampanasNuevas({ hayCampanas: vivas.length > 0, ultima: ultimaCreada(vivas.map((c) => c.creada)) });
     const fs = funnels.map((f) => ({ id: f.id, nombre: f.nombre, producto: f.producto, esDefault: f.esDefault }));
     const asig = asignadas.map((a) => ({ tipo: a.tipo, id: a.id, nombre: a.nombre, funnelId: a.funnelId, ...(a.campanaId ? { campanaId: a.campanaId } : {}) }));
-    return { ...lienzo(campanas, senalesMes, asig, fs, kpi, objetivo), fuente: datos.fuente, moneda: datos.moneda };
+    return { ...lienzo(campanas, senalesMes, asig, fs, kpi, objetivo), fuente: datos.fuente, moneda: datos.moneda, cuenta, aviso };
   });
 }
 

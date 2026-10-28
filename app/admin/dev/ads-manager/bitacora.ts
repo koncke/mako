@@ -539,4 +539,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '27 oct', hora: '18:20', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«No veo las campañas»: la pestaña Campañas vuelve a decir qué cuenta lee',
+    puntos: [
+      'Joan no veía las campañas de tres de sus clientes. El 23/10 se midió que Meta no las tenía en la cuenta conectada (otra cuenta, o sin publicar) y la pantalla pasó a decir qué cuenta leía. **El 25/10 esa pantalla se borró con el Media Buyer y la pestaña Campañas volvió a no decirlo**: no había con qué comparar.',
+      'Ahora, al pie de Campañas: «Cuenta Nombre · número», como Meta la muestra arriba a la izquierda, la frase si la cuenta no tiene campañas nuevas, y «Revisar y publicar en Meta ↗» a las campañas de esa cuenta.',
+      'Un borrador del Administrador de anuncios no existe para la API: MaKo no lo puede listar por nombre. Lo que Meta SÍ devuelve sin publicar (lo que retuvo esperando que un admin lo apruebe) se ve en su tarjeta: «Retenida en Meta: falta publicar» con «Publicar ↗».',
+      'Falta lo de Joan: el número de cuenta que ve en Meta y si las campañas están publicadas. Medir de nuevo con el token de cada cliente lo frenó el clasificador.',
+    ],
+    archivos: [
+      'app/ads-manager/Lienzo.tsx — el pie con la cuenta y la tarjeta retenida',
+      'lib/media-buyer/vista.ts · lib/media-buyer/datos.ts · lib/media-buyer/productos.ts — la cuenta, el aviso y lo retenido',
+      'lib/meta-cuenta-leida.ts — el link a las campañas de la cuenta en Meta',
+      'tests/media-buyer-borradores.test.ts — 6 tests, cada uno probado rompiéndolo',
+    ],
+    revisar: '/ads-manager?vista=campanas',
+  },
 ];

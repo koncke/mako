@@ -236,7 +236,7 @@ export function renderEmailHtml(params: RenderEmailParams): string {
     : '';
 
   const pieMako = conMarca
-    ? `<div style="margin-top:${fromName ? '10px' : '0'};color:${C.tenue};">Te lo manda MaKo porque lo tienes activado en Configuraciones › Notificaciones.</div>`
+    ? `<div style="margin-top:${fromName ? '10px' : '0'};color:${C.tenue};">Te lo manda MaKo porque lo tienes activado en Settings › Notificaciones.</div>`
     : '';
 
   const unsub = params.unsubscribeUrl

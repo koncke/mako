@@ -252,7 +252,6 @@ export function guardarLocal(st: Almacen | null, ws: number | null, nombre: stri
 export function fusionarRecientes(enPantalla: readonly ChatResumen[], recientes: readonly ChatResumen[]): ChatResumen[] {
   const antes = new Map(enPantalla.map((c) => [c.clave, c]));
   const vinieron = new Set(recientes.map((c) => c.clave));
-  const idCanal = (x: ChatResumen['canales'][number]) => `${x.canal}|${x.cuenta ?? ''}|${x.ref}`;
   const fusionados = recientes.map((c) => {
     const viejo = antes.get(c.clave);
     if (!viejo) return c;
@@ -260,5 +259,29 @@ export function fusionarRecientes(enPantalla: readonly ChatResumen[], recientes:
     const faltan = viejo.canales.filter((x) => !tiene.has(idCanal(x)));
     return faltan.length ? { ...c, canales: [...c.canales, ...faltan] } : c;
   });
-  return [...fusionados, ...enPantalla.filter((c) => !vinieron.has(c.clave))];
+  // ⚠️ LA QUE SE VOLVIÓ LEAD NO SE QUEDA (27/10/2026, Martín: «se duplica en CHATS hasta que doy refresh»). Un contacto sin
+  // lead (`wa:…`) que alguien agregó al CRM vuelve como `lead:<id>`, con la MISMA identidad adentro: la fila vieja no vino
+  // (cambió de clave) y quedaba al lado de la nueva. Una fila sin lead cuyas identidades ya están TODAS en una que vino es
+  // la misma persona: se va. Una con identidades que la nueva no trae se queda (no se sabe si es la misma).
+  const yaVinieron = new Set(recientes.filter((c) => c.leadId != null).flatMap((c) => c.canales.map(idCanal)));
+  const absorbida = (c: ChatResumen) => c.leadId == null && c.canales.length > 0 && c.canales.every((x) => yaVinieron.has(idCanal(x)));
+  return [...fusionados, ...enPantalla.filter((c) => !vinieron.has(c.clave) && !absorbida(c))];
+}
+
+const idCanal = (x: ChatResumen['canales'][number]) => `${x.canal}|${x.cuenta ?? ''}|${x.ref}`;
+
+/**
+ * UNA CONVERSACIÓN QUE CAMBIÓ DE CLAVE, EN LA LISTA QUE YA ESTÁ (27/10/2026): se agregó al CRM (`wa:…` → `lead:<id>`) o el
+ * hilo descubrió su lead. Si la clave nueva ya tiene su fila, la vieja se suma a ésa (sus identidades) y se va; si no, la
+ * vieja se RENOMBRA en su lugar, con su lead. Así no hay un instante con dos filas de la misma persona ni uno sin ninguna.
+ */
+export function cambiarClaveEnLista(chats: readonly ChatResumen[], vieja: string, nueva: string, leadId: number | null): ChatResumen[] {
+  if (vieja === nueva) return [...chats];
+  const fila = chats.find((c) => c.clave === vieja);
+  if (!fila) return [...chats];
+  const destino = chats.find((c) => c.clave === nueva);
+  if (!destino) return chats.map((c) => (c.clave === vieja ? { ...c, clave: nueva, leadId: leadId ?? c.leadId } : c));
+  const tiene = new Set(destino.canales.map(idCanal));
+  const suma = fila.canales.filter((x) => !tiene.has(idCanal(x)));
+  return chats.filter((c) => c.clave !== vieja).map((c) => (c.clave === nueva && suma.length ? { ...c, canales: [...c.canales, ...suma] } : c));
 }

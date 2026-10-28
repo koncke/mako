@@ -233,6 +233,19 @@ en:** app/calendario/ListaLlamadas.tsx · app/calendario/Pestanas.tsx · app/cal
 app/m/calendario/LlamadasM.tsx · lib/calendario-llamadas.ts · lib/calendario.ts (`leerLlamadasDeVenta`,
 `leerTareasConFecha`) · tests/calendario.test.ts.
 
+## Un lead con emoji en el nombre tiraba /calendario entero (27/10/2026, ticket #10)
+
+**Síntoma:** con el lead de prueba del ws3 (su nombre empieza con un emoji), «Llamadas» se caía con React #418.
+**Causa:** la inicial de la fila salía de `l.nombre.trim().charAt(0)`, que es la primera UNIDAD UTF-16: con «🧪 Lead», media
+pieza del emoji. El HTML del server no puede llevar medio emoji (sale «�») y el navegador sí lo tiene: React ve dos textos
+distintos al hidratar y tira la pantalla, no sólo el avatar.
+⚠️ **Por qué sobrevivió al barrido del 25/10:** la guarda de toda la app (tests/iniciales-con-emoji.test.ts) busca las formas
+de las copias viejas (`split(/\s+/).map((w) => w[0])`, `${p[0][0]}${p[1][0]}`), no `charAt(0)` ni `trim()[0]`. Una inicial de
+UNA letra no tenía esa forma.
+**Regla:** la inicial sale de `iniciales(nombre, 1, '·')` (lib/unicode-seguro.ts). `tests/calendario-classroom-iniciales.test.ts`
+barre el Calendario y el Classroom (escritorio y teléfono) buscando cualquier primera unidad recortada o sola en mayúscula;
+`charAt(0).toUpperCase() + x.slice(1)` (poner la mayúscula) no rompe y no se marca. **Vive en:** app/calendario/ListaLlamadas.tsx.
+
 ## Lo que quedó SIN hacer
 
 - **Las TAREAS de Google** (decisión de Martín del 14/10: después de la aprobación de la verificación). Piden el permiso

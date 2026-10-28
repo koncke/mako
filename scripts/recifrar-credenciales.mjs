@@ -17,6 +17,7 @@
 // OJO: .env.local apunta a PROD. Correr en seco primero y mirar lo que dice.
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 
@@ -25,7 +26,7 @@ config({ path: resolve(process.cwd(), '.env.local'), quiet: true });
 const M = await import('../lib/cripto-credenciales.ts');
 const APLICAR = process.argv.includes('--aplicar');
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
 
 // OJO: `credenciales` NO es la única tabla con secretos cifrados. El refresh_token
 // de Google Calendar vive en `app_settings` y se cifra con la MISMA función. Si el

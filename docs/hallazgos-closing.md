@@ -35,6 +35,14 @@ Una entrada por tema; lo que quedó sin hacer dice dónde vive.
 - En la llamada con Leila del 05/10 las etiquetas de quién habla venían cruzadas: frases de ella
   firmadas por Martín y al revés. Una cita se atribuye por lo que dice, no por la etiqueta.
 - Todo lo que dependa de «qué dijo el cliente» (objeciones, puntajes del Closing) hereda ese error.
+- **También el dueño de una tarea del Plan (27/10/2026):** «Comprar el certificado SSL» salió a nombre de Leandro y
+  era de Martín. Un dueño que sale sólo de la etiqueta ahora viaja marcado y se confirma antes de mandárselo a nadie:
+  docs/hallazgos-plan.md → «El dueño de una tarea no puede salir sólo de la etiqueta del hablante».
+  Las 3 propuestas del ws9 de esas llamadas (`propmvn5jk0zn4wsz`, `propmvpmpjspdh5oi`, `propmvq00r7ecld37`) se leyeron
+  antes del arreglo y no traen la marca: se corrigen a mano o con «Volver a analizar» después del deploy.
+- **El RESUMEN de Fathom también se equivoca de sentido.** El de la llamada con Aaron (876825880) invierte quién trae
+  y quién cobra (Aaron trae clientes y cobra US$300 por cada Acelerador de 1.500 que se cierra). Un acuerdo de plata
+  se lee en el transcript, nunca en el resumen.
 
 ## El análisis falla en silencio cuando la IA del cliente se queda sin crédito (26/10/2026)
 
@@ -72,6 +80,14 @@ Una entrada por tema; lo que quedó sin hacer dice dónde vive.
   **Trampa:** sin la fila de esa automatización en el ws9, `emitirEventoDePlataforma` devuelve `filas: 0` y
   no sale nada. Por eso `avisadoAt` se pone sólo si `filas > 0`: si no, quedaba «avisado» sin haber avisado.
   Y el aviso del catálogo nace `porDefecto: 'on'`: con `'off'` la mudanza crea la fila **pausada**.
+- **Trampa (27/10/2026): avisar por WhatsApp no alcanza, la hoja también tiene que decirlo.** El aviso único le
+  llegó al grupo de Leila el 26/10, pero la hoja «Closing» seguía quieta con 193 llamadas sin analizar, y ella
+  preguntó por qué Fathom no tenía los datos de Ana: el síntoma se leía como un problema del grabador. Ahora la
+  hoja (escritorio y teléfono) dice la causa, desde cuándo, el paso y cuántas esperan (`avisoDeIaCaida`; el
+  incidente guarda `pendientes`).
+- **«Conectar su suscripción» NO arregla el Closing.** Anthropic no deja que otra app use los tokens de Pro/Max, y
+  «Mi computadora» sólo contesta el chat. Lo que sí sirve con Claude Max es su crédito de API mensual, que va a la
+  cuenta de la clave: eso dice el paso para arreglarlo.
 - **Sin hacer:**
   1. Crear la fila de la plataforma después del deploy, con el sí de Martín:
      `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=closing_ia_caida`.

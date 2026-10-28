@@ -32,10 +32,6 @@ export function actorDeWhatsApp(participant: string | null | undefined, pushName
   return nombre ? `whatsapp:${nombre}` : undefined;
 }
 
-/**
- * Lo que el CÓDIGO le agrega a la respuesta cuando una herramienta de MaKo falló y el error quedó registrado como ticket
- * (lib/errores-app.ts): sin preguntar, porque Martín pidió que lo que falla se registre solo (17/10/2026). Dice lo que YA
- * pasó: la del chat de la app («te aviso por aquí cuando esté arreglado») promete, y el saneo y el vigía la leerían como
- * una promesa sin hacer. El aviso de arreglado llega solo, firmado por el Desarrollador (lib/aviso-arreglo.ts).
- */
-export const LINEA_ERROR_AVISADO = 'Esto falló de nuestro lado y ya quedó avisado al equipo de MaKo. Cuando esté arreglado, el aviso llega por este grupo.';
+// Lo que el CÓDIGO le agrega a la respuesta cuando algo falló y quedó un ticket vive desde el 27/10/2026 en lib/no-pude.ts
+// (`lineaDelTicket`, `LINEA_YA_AVISADO`): la misma línea en todos los chats, con el número. El aviso de arreglado sigue
+// llegando solo, firmado por el Desarrollador (lib/aviso-arreglo.ts).

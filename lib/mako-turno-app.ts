@@ -33,7 +33,7 @@ import 'server-only';
 import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { aToolDef, gatingOk, porId } from '@/lib/api-mako/registro';
+import { aToolDef, gatingOk, porId, visible } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
@@ -48,7 +48,7 @@ import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { clasificarIntencion, makoPreguntoAlgo } from '@/lib/mako-intencion';
-import { preguntoReunionOTarea } from '@/lib/doer-herramientas';
+import { lineaDeOfrecibles, preguntoReunionOTarea } from '@/lib/doer-herramientas';
 import { recetasDelTurno } from '@/lib/doer-recetas';
 import { bloqueAgendaGoogle, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones, MARGEN_RELOJ_MS } from '@/lib/turno-sin-duplicar';
@@ -81,8 +81,11 @@ import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
 import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pistaDesde, type Desde } from '@/lib/chat-desde';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
+import { REGLA_NO_EXISTE } from '@/lib/no-existe';
+import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
 import { puedeVerKey } from '@/lib/movil-rutas';
-import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
+import { bloquesDeAdjuntos, pedidoConLecturas, placeholderDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
@@ -97,9 +100,6 @@ const FEATURE = 'mako-doer';
 /** Cuánto texto ESCRITO de la persona entra por mensaje (lo pegado tiene el suyo, lib/chat-pegado.ts). Eran 8.000 y Martín
  *  (18/10): «tiene que dejar mensajes mucho más largos». Lo que pasa de acá se dice y queda entero en El Archivero. */
 const TOPE_MENSAJE = 20_000;
-/** Cuánto de lo leído de los archivos entra al turno. El loop re-manda la conversación en
- *  cada paso: 40.000 caracteres son ~10 páginas, y lo que se corta SE DICE. */
-const TOPE_LECTURA = 40_000;
 
 // ── Quién habla ──────────────────────────────────────────────────────────────
 
@@ -465,7 +465,6 @@ async function iaConFila(): Promise<string[]> {
 const LEVANTAR_TICKET = 'levantar_ticket';
 const TICKET_TOOLS: ToolDef[] = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToolDef(d)] : []; })();
 /** Lo que el CÓDIGO le dice a la persona cuando lo que falló ya entró a la Ticketera (no lo escribe el modelo). */
-const AVISE_AL_EQUIPO = 'Le avisé al equipo de MaKo: te aviso por aquí cuando esté arreglado.';
 const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
 
 /**
@@ -587,10 +586,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Con archivos y nada legible ni escrito, no hay pedido: no se gasta el modelo.
     if (adjuntos.length && !lecturas.length && !textoPersona) return vacio(avisos.join(' ') || AVISO_NO_PUDE);
 
-    let lectura = lecturas.map((l) => `[Lo que dice «${l.nombre}», leído por el sistema:]\n${l.texto}`).join('\n\n');
-    if (lectura.length > TOPE_LECTURA) lectura = `${lectura.slice(0, TOPE_LECTURA)}\n[…el archivo sigue; se cortó aquí por largo]`;
-    const pedido = textoPersona || (adjuntos.length ? promptDeAdjunto(adjuntos[0].tipo) : '');
-    const textoModelo = lectura ? `${pedido}\n\n${lectura}` : pedido;
+    // Lo leído, encerrado como dato con su regla (lib/mako-adjuntos.ts → lecturaDeArchivos, la revisión de chats-unificados, 28/10/2026).
+    const textoModelo = pedidoConLecturas(textoPersona, lecturas, adjuntos[0]?.tipo);
     const userContent: RichMsg['content'] = adjuntos.length
       ? bloquesDeAdjuntos(adjuntos.map((a) => ({ tipo: a.tipo, mime: a.mime, base64: Buffer.from(a.bytes).toString('base64') })), textoModelo)
       : textoModelo;
@@ -622,7 +619,6 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Los errores de MaKo en ESTE turno (lib/tickets-reglas.ts, `errorParaTicket`): van al ticket que se proponga, y
     // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
     const erroresDelTurno: ErrorDelTurno[] = [];
-    let ticketPropuesto = false;
     /** Lo que dibujaron las herramientas del turno (`ctx.aDibujar`), y si vino de una que escribe. */
     const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
     let herramientaActual = '';
@@ -680,12 +676,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
     const ctxPuntos = avisoDePuntos(textoPersona);
     const bloqueTools = tools.length
-      ? `\n\n${TOOLS_APP}${recetasDelTurno(permitidas, turno.ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\n${CANAL_APP}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+      ? `\n\n${TOOLS_APP}${recetasDelTurno(permitidas, turno.ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\n${CANAL_APP}\n\nLAS QUE TIENES EN ESTE TURNO (y ninguna otra en este turno: son una selección para este pedido, no todo lo que MaKo hace): ${tools.map((t) => t.name).join(', ')}.`
       : `\n\n${SIN_TOOLS_APP}`;
+    // Lo que en una pregunta no viaja pero se ofrece (27/10/2026, `ofrecibles`): sin esto MaKo decía «no puedo».
+    // En modo «analizar» no (la revisión del 28/10/2026): con el «sí» lo que escribe tampoco viaja (`herramientasDelModo`).
+    const ctxOfrece = turno.ofrece && turno.ofrecibles?.length && desde?.modo !== 'analizar' ? `\n\n${lineaDeOfrecibles(turno.ofrecibles)}` : '';
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
@@ -701,10 +700,26 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     let leidas = 0;
     /** Los CONTROLES que escribieron de verdad en el turno (`cancelar_accion` sin error): respaldan «ya la cancelé». */
     let escribieron = 0;
+    /** Lo que el modelo llamó y no viajó, aunque existe y la persona lo puede usar: un RUTEO (el ticket con su causa). */
+    const noViajo: string[] = [];
+    /** Si lo ÚLTIMO que corrió devolvió una GUARDA de MaKo (un 400: `esGuardaDeHerramienta`), y cuántas se TRAGARON una falla:
+     *  el «no pude» es la regla de la guarda sólo si fue lo último y nada falló (`esLaReglaDeUnaGuarda`). */
+    let ultimaFueGuarda = false;
+    let tragadas = 0;
+    /** «La última» después de esta salida (`laUltimaFueGuarda`): una lectura que anduvo no la cambia. */
+    const anotarLaUltima = (name: string, out: unknown): void => {
+      ultimaFueGuarda = laUltimaFueGuarda(ultimaFueGuarda, {
+        guarda: esGuardaDeHerramienta(out), tragada: esFallaTragadaDeHerramienta(out),
+        error: (out as { isError?: unknown } | null)?.isError === true, escribe: escribe(name),
+      });
+    };
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
       if (!permitidas.has(name)) {
+        // RUTEO (27/10/2026, lib/no-pude.ts): existe, esta persona la puede usar y no viajó. confirmar_accion no viaja a propósito.
+        const def = porId(name);
+        if (def && name !== 'confirmar_accion' && visible(def, vista) && !noViajo.includes(def.titulo)) noViajo.push(def.titulo);
         return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
       }
       // La entidad que la persona tiene abierta, por defecto (OC6): «movelo a Ganado» desde la ficha de Ana es ESE lead.
@@ -717,21 +732,25 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // Lo rechazado no cuenta: no corrió.
       corridas++;
       const previo = memo.previo(name);
-      if (previo) return previo.out as Awaited<ReturnType<typeof runRegistro>>;
+      if (previo) { anotarLaUltima(name, previo.out); return previo.out as Awaited<ReturnType<typeof runRegistro>>; }
       // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
       // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
       // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
+      const correr = async () => (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input));
       // Lo que DIBUJE (`ctx.aDibujar`) queda anotado con el nombre de esta herramienta: con una pregunta, lo de una que
       // escribe se retira. Las herramientas del turno corren de a una (chatClaudeTools las espera en orden).
       herramientaActual = name;
-      const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
+      // Una herramienta que REVIENTA es una falla de verdad (la verificación de tren-t): el loop la atrapa sin pasar por
+      // `errorParaTicket`, y la guarda de antes quedaba como «la última». Se cuenta como tragada.
+      const out = conInstruccionDeTarjeta(await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadas++; throw e; }));
       memo.anotar(name, out);
+      anotarLaUltima(name, out);
+      if (esFallaTragadaDeHerramienta(out)) tragadas++;
       if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       if (porId(name)?.tipo === 'control' && salioBien(out)) escribieron++;
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);
-      else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
       const sigue = agendaQueSigue(name, input, out, Date.now());
       if (sigue) await setSetting(claveAgenda, JSON.stringify(sigue)).catch(() => {});
       else if (agendaSeCierra(name, out)) await setSetting(claveAgenda, '').catch(() => {});
@@ -864,11 +883,19 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // No poder leer la PC sí es de MaKo (la base), si por eso no hubo respuesta.
       ...(pcIlegible && !texto ? [{ nombre: 'leer-la-pc', mensaje: `no pude leer la computadora: ${pcIlegible}`, etiqueta: 'ver tu computadora' }] : []),
     ];
-    if (fallasDeMako.length && !ticketPropuesto) {
+    // Desde el 27/10/2026 también si el modelo propuso un ticket (antes, si el modelo lo proponía se apagaba el registro y la falla
+    // dependía de que la persona tocara el botón): su tarjeta queda, por si lo pidió ella. La línea la escribe el código.
+    /** Lo que no fue de MaKo sino del proveedor de IA (un 503, el cupo): `esRuido` no lo registra, y es su propio ticket. */
+    let delProveedor = false;
+    /** registrarError DEJÓ ticket (no sólo «hubo una falla»): el «no pude» del modelo no abre otro. */
+    let registroConTicket = false;
+    if (fallasDeMako.length) {
       const quien = await identidadDe(ws, persona.actor).catch(() => null);
       const r = await registrarError({ origen: 'mako', ...fallasDeMako[0], hilo: String(s.id) }, quien);
-      if (r.ok && r.ticketId) paraLaPersona.push(AVISE_AL_EQUIPO);
+      if (r.ok && r.ticketId) { registroConTicket = true; paraLaPersona.push(r.nuevo ? lineaDelTicket(r.ticketId) : LINEA_YA_AVISADO); }
+      delProveedor = !r.ok && r.motivo === 'ruido' && fallasDeMako[0].nombre === 'responder';
     }
+    const dondeDelTurno: DondeNoPude = { ws, actor: persona.actor, superficie: 'ops-center', conv: String(s.id), pedido: textoPersona, ...(desde?.pantalla ? { ruta: desde.pantalla } : {}) };
 
     // ── Lo que sale ────────────────────────────────────────────────────────────
     const delTurno = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
@@ -929,6 +956,19 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;
     }
+    // LO QUE NO EXISTE Y LO QUE NO PUDO (lib/no-existe.ts, lib/no-pude.ts; Leandro y Leila, 27/10/2026): las marcas nunca le
+    // llegan a la persona, el ticket sale solo a la Ticketera con su causa (un RUTEO si llamó algo que existe y no viajó), y la
+    // línea que lo dice la escribe el código. Repetido en la misma conversación: nada.
+    if (respuesta) {
+      // Si lo que falló ya dejó su ticket (registrarError), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
+      // Si lo último que corrió fue una GUARDA y nada falló (a la vista o tragado) ni hubo ruteo, el «no pude» es esa regla, la
+      // diga o no el modelo (base 7: el formato de la marca pide el QUÉ, no el porqué).
+      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas }) && !noViajo.length }, dondeDelTurno, { operacion: noViajo[0] ?? null });
+      respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n') || null;
+    }
+    // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio).
+    // La configuración, sólo si contestó la MISMA cuenta que había fallado (o el negocio no tenía IA y ahora contestó una).
+    if (respuesta && !fallo) await Promise.all([cerrarSiVolvio(ws, 'proveedor'), cerrarSiVolvio(ws, 'configuracion', `ia:${ia?.cuenta ?? 'auto'}`)]);
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
     // La pregunta va con el mensaje de MaKo (al recargar vuelve); sin texto, el mensaje ES la pregunta.
     if (pregunta && !respuesta) respuesta = pregunta.pregunta;
@@ -962,6 +1002,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
         await anotarEnHilo(s.id, porQue, [{ t: 'porque', ...(boton ? { conectar: boton } : {}) }]);
       }
       aviso = [aviso, porQue ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+      // EL PROVEEDOR Y LA CONFIGURACIÓN TAMBIÉN DEJAN TICKET (27/10/2026, Martín: «siempre»): uno por negocio y causa, que nunca
+      // va al Runner (lib/tickets-reglas.ts) y se cierra solo cuando vuelve a andar. Va pegado al aviso de siempre.
+      const causaSin = sinIA || deSuCuenta ? 'configuracion' : delProveedor ? 'proveedor' : null;
+      if (causaSin) {
+        const t = await ticketDeNoPude(causaSin, dondeDelTurno, { operacion: sinIA ? 'una IA propia' : deSuCuenta ? 'su cuenta de IA' : null, error: fallo?.slice(0, 300) ?? null,
+          // Qué cuenta falló: la configuración se cierra sola sólo cuando contesta ESA (`cerrarSiVolvio`).
+          ...(causaSin === 'configuracion' ? { herramienta: sinIA ? 'ia:ninguna' : `ia:${ia?.cuenta ?? 'auto'}` } : {}) });
+        if (t) aviso = `${aviso} ${lineaCortaDelTicket(t.id)}`;
+      }
     }
     let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuCuenta?.conectar ?? null);
     // La clave tapada se le dice, con el botón del servicio que se reconoció. ⚠️ ESE BOTÓN GANA (22/10/2026, la prueba de

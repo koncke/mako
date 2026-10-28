@@ -62,6 +62,9 @@ import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from '
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
 import { adjuntosDelPedido, contextoConAdjuntos } from './adjuntos';
+import { REGLA_NO_EXISTE } from '../no-existe';
+import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
+import { esquemaDeReplica } from './replicar-estructura';
 
 /**
  * T3 (tanda 2): ¿el pedido es para una PRESENTACIÓN? Se lee del pedido CRUDO porque
@@ -220,7 +223,11 @@ function esTarjeta(n: unknown): n is JsonNodo {
  * con JavaScript o que no deja leerse a nuestro servidor. Llega del navegador sin forma confiable: la
  * sanea `sanearLectura`.
  */
-export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion> };
+/**
+ * `corte: 'pagina'` (28/10/2026): un texto pegado que es una PÁGINA (el de una réplica) se corta con `esquemaDeReplica`, como
+ * la lectura que vio la persona; sin él, «Pegar texto» corta como siempre.
+ */
+export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion>; corte?: 'pagina' };
 
 /**
  * El esquema de la landing. Tres puertas, como la pantalla de crear de Gamma:
@@ -280,9 +287,11 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     return invalido('Modo desconocido.');
   }
 
-  // «Conservar»: el texto de la persona ES el esquema, palabra por palabra.
+  // «Conservar»: el texto de la persona ES el esquema, palabra por palabra. Una página LEÍDA se corta en su nivel de
+  // sección y sin tope que tire texto (`esquemaDeReplica`, 28/10/2026: con `esquemaConservado` una landing de 33 títulos
+  // perdía las 13 últimas secciones); lo pegado, como siempre.
   if (p.modo !== 'generar' && params.modoTexto === 'conservar') {
-    const e = esquemaConservado(texto, tituloFallback);
+    const e = p.modo === 'importar' || p.corte === 'pagina' ? esquemaDeReplica(texto, tituloFallback) : esquemaConservado(texto, tituloFallback);
     if (!e.secciones.length) return invalido('No encontré secciones en el texto.');
     await marcarGenerar();
     return { ok: true, esquema: e };
@@ -660,7 +669,8 @@ export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respues
   const foco = typeof p.enFoco === 'string' ? tarjetas.findIndex((t) => attrsDe(t).id === p.enFoco) : -1;
   const charla = charlaParaDiscutir(p.charla);
   try {
-    const sys = await system(PROMPTS_EDITOR.discutirSystem, { idioma: bloqueIdiomaDelTexto() });
+    // Lo que no existe en MaKo se dice y se marca (lib/no-existe.ts): abajo se saca la marca y se levanta el pedido.
+    const sys = `${await system(PROMPTS_EDITOR.discutirSystem, { idioma: bloqueIdiomaDelTexto() })}\n\n${REGLA_NO_EXISTE}`;
     const user = await renderPrompt(PROMPTS_EDITOR.discutirUser.key, PROMPTS_EDITOR.discutirUser.tpl, {
       pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
       foco: focoParaDiscutir(foco),
@@ -675,7 +685,9 @@ export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respues
       thinking: false,
       hastaMs: t0 + PLAZOS.discutir.ia,
     });
-    const respuesta = limpiarTextoDelModelo(salida).slice(0, 2_000);
+    // Lo que no existe en MaKo (lib/no-existe.ts): la marca no le llega a la persona y el pedido sale solo a la Ticketera.
+    const ne = await conPedidoDeNoExisteDeLaSesion(limpiarTextoDelModelo(salida), { chat: 'web-generator (Discutir)', ruta: '/web-generator', pedido: pregunta });
+    const respuesta = [ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n');
     if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
     return { ok: true, respuesta };
   } catch (err) {

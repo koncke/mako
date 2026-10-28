@@ -130,6 +130,7 @@ test('4. la descarga, el bucket y el tutorial: «Descargar para Mac», la línea
   // La descarga de MaKo (el cartel del chat sin la app, app/_chat/AppPrimero.tsx): la Mac también, y su aviso.
   const nd = sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx'));
   assert.match(nd, /href=\{`\/api\/ia-pc\/descargar\?os=\$\{sistemas\[0\]\}`\}/);
-  assert.match(nd, /return sistemas\[0\] === 'mac' \? AVISO_GATEKEEPER : AVISO_SMARTSCREEN;/);
+  // Desde el 27/10, con lo que hace Chrome primero (AVISO_CHROME, tests/feedback-2710-tanda1.test.ts): la Mac sigue con Gatekeeper.
+  assert.match(nd, /return `\$\{AVISO_CHROME\} \$\{sistemas\[0\] === 'mac' \? AVISO_GATEKEEPER : AVISO_SMARTSCREEN\}`;/);
   assert.match(nd, /href=\{`\/api\/ia-pc\/descargar\?os=\$\{sistemas\[1\]\}`\}/, 'el otro sistema, a un toque');
 });

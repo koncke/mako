@@ -85,11 +85,11 @@ test('3. la nota sale como nota sólo si lo que se manda es ESA transcripción',
   assert.ok(caja.indexOf('onNota?.(') > -1 && caja.indexOf('onNota?.(') < caja.indexOf('onTexto(r.texto)'), 'la nota llega después que el texto');
   const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
   assert.match(motor, /const nota = notaQueSale\(notas\.current\[c\.clave\], borradorDe\(c\.clave\)\);/);
-  assert.match(motor, /firma\.mandar\([^;]*subidos, voz\);/, 'la nota no va firmada');
+  assert.match(motor, /mandarFirmado\([^;]*subidos, voz\);/, 'la nota no va firmada');
   assert.match(motor, /if \(nota\) recordarVozEnviada\(r\.id, nota\.audio\);/, 'el audio no sube');
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
     // Las props llevan `=>`: se mira el renglón de la caja, no hasta el primer «>».
-    assert.match(sinComentarios(leer(f)), /<CajaChat [^\n]*onNota=\{/, `${f}: la caja no le da la nota`);
+    assert.match(sinComentarios(leer(f)), /<CajaChat [^\n]*onGrabada=\{/, `${f}: la caja no le da la nota`);
   }
 });
 

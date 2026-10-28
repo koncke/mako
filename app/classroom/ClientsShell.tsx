@@ -45,6 +45,8 @@ import { conWs } from '@/lib/ws-tab';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ACENTOS, ACENTO_DEFAULT, TOPE_TITULO_CURSO, hexValido, tapaDe, varsDeAcento } from '@/lib/curso-estilo';
 import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
+// La inicial del sello, de la pieza de la casa: `trim()[0]` de «🎸 Fiesta» es media pieza del emoji (React #418).
+import { iniciales } from '@/lib/unicode-seguro';
 import { varsDeFuente } from '@/app/_cursos/fuentes';
 import { SelectorFuente, useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { guardarEstiloCursoAction } from '@/app/customer-success/curso/actions';
@@ -332,7 +334,7 @@ function Sello({ p }: { p: ProgramaClients }) {
   const color = hexValido(p.acento) ?? ACENTO_DEFAULT;
   return (
     <span className="cls-sello" aria-hidden style={{ backgroundColor: color, ...fondo }}>
-      {t.tapa || t.fondo ? null : (p.nombre.trim()[0] ?? '·').toUpperCase()}
+      {t.tapa || t.fondo ? null : iniciales(p.nombre, 1, '·')}
     </span>
   );
 }

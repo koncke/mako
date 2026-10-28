@@ -4,23 +4,33 @@ import { formatStorageBytes } from "@/app/video-editor/_opencut/services/storage
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import { ALL_FORMATS, BlobSource, Input } from "mediabunny";
-import { readVideoFile } from "./mediabunny";
-import type { VideoFileData } from "./mediabunny";
+import { reportarASoporte } from "@/app/_ui/ReportarASoporte";
+import { ROTULO_MANDADO, ROTULO_REPORTAR } from "@/lib/soporte-reporte";
+import { readVideoFile, SinPistaDeVideo } from "./mediabunny";
+import { decidirImportacionVideo, detalleTecnico, motivoDeLectura, type ResultadoLectura } from "./importar-motivo";
 import { renderThumbnailDataUrl } from "./thumbnail";
 
 export interface ProcessedMediaAsset extends Omit<MediaAsset, "id"> {}
 
-const getUnsupportedVideoDescription = ({
-	codec,
-}: {
-	codec: VideoFileData["codec"];
-}): string => {
-	const codecLabel = codec ? codec.toUpperCase() : "este códec";
-
-	return codec === "hevc"
-		? `Este navegador no decodifica ${codecLabel}: el clip puede verse mal. Conviértelo a MP4 H.264 o ábrelo en Safari.`
-		: `Este navegador no decodifica ${codecLabel}: el clip puede verse mal. Conviértelo a MP4 H.264 e impórtalo de nuevo.`;
-};
+/**
+ * El aviso de un archivo, con «Reportar a Soporte» que lleva el DETALLE TÉCNICO (ticket #15, 27/10/2026): el botón del
+ * Toaster sólo manda el título y la descripción, y así el reporte de Leila llegó sin la causa.
+ */
+function avisar({ titulo, descripcion, tecnico, tipo = "error" }: { titulo: string; descripcion: string; tecnico: string; tipo?: "error" | "warning" }) {
+	const mostrar = tipo === "error" ? toast.error : toast.warning;
+	mostrar(titulo, {
+		description: descripcion,
+		duration: 12000,
+		action: {
+			label: ROTULO_REPORTAR,
+			onClick: () => {
+				void reportarASoporte({ error: `${titulo}. ${descripcion} · Técnico: ${tecnico}` }).then((r) =>
+					r.ok ? toast.success(`${ROTULO_MANDADO} · ticket #${r.id}`) : toast.error(r.error),
+				);
+			},
+		},
+	});
+}
 
 const getStorageLimitDescription = ({
 	fileSize,
@@ -119,6 +129,7 @@ export async function processMediaAssets({
 		}
 
 		const url = URL.createObjectURL(file);
+		let tipo: typeof fileType = fileType;
 		let thumbnailUrl: string | undefined;
 		let duration: number | undefined;
 		let width: number | undefined;
@@ -133,27 +144,37 @@ export async function processMediaAssets({
 				width = result.width;
 				height = result.height;
 			} else if (fileType === "video") {
+				// Lo que se pudo leer decide (media/importar-motivo.ts): importar, importar avisando, como audio, o no
+				// importar diciendo por qué. Antes, una lectura fallida igual sumaba el clip, sin duración ni tamaño.
+				let lectura: ResultadoLectura;
+				let videoData: Awaited<ReturnType<typeof readVideoFile>> | null = null;
 				try {
-					const videoData = await readVideoFile({ file });
+					videoData = await readVideoFile({ file });
+					lectura = { ok: true, canDecode: videoData.canDecode, codec: videoData.codec, errorDecodificar: videoData.errorDecodificar };
+				} catch (error) {
+					console.error("[importar] no se pudo leer el video", file.name, error);
+					lectura = { ok: false, error, sinImagenConAudio: error instanceof SinPistaDeVideo && error.tieneAudio };
+				}
+				const decision = decidirImportacionVideo(lectura, file);
+				if (decision.accion === "rechazar") {
+					avisar({ titulo: "No se pudo importar", descripcion: `${file.name}: ${decision.motivo}`, tecnico: decision.tecnico });
+					URL.revokeObjectURL(url);
+					continue;
+				}
+				if (decision.accion === "como-audio") {
+					tipo = "audio";
+					duration = await medirDuracion({ file });
+					toast.info(`${file.name}: ${decision.aviso}`);
+				} else if (videoData) {
 					duration = videoData.duration;
 					width = videoData.width;
 					height = videoData.height;
-					fps = Number.isFinite(videoData.fps)
-						? Math.round(videoData.fps)
-						: undefined;
+					fps = Number.isFinite(videoData.fps) ? Math.round(videoData.fps) : undefined;
 					hasAudio = videoData.hasAudio;
 					thumbnailUrl = videoData.thumbnailUrl ?? undefined;
-
-					if (!videoData.canDecode) {
-						toast.error(`No se puede previsualizar ${file.name}`, {
-							description: getUnsupportedVideoDescription({
-								codec: videoData.codec,
-							}),
-						});
+					if (decision.accion === "importar-con-aviso") {
+						avisar({ titulo: `No se puede previsualizar ${file.name}`, descripcion: decision.aviso, tecnico: decision.tecnico, tipo: "warning" });
 					}
-				} catch (error) {
-					console.error("[importar] no se pudo leer el video", file.name, error);
-					toast.error("No se pudo importar", { description: file.name });
 				}
 			} else if (fileType === "audio") {
 				duration = await getMediaDuration({ file });
@@ -167,7 +188,7 @@ export async function processMediaAssets({
 
 			processedAssets.push({
 				name: file.name,
-				type: fileType,
+				type: tipo,
 				file,
 				url,
 				thumbnailUrl,
@@ -187,7 +208,7 @@ export async function processMediaAssets({
 			}
 		} catch (error) {
 			console.error("Error processing file:", file.name, error);
-			toast.error("No se pudo importar", { description: file.name });
+			avisar({ titulo: "No se pudo importar", descripcion: `${file.name}: ${motivoDeLectura(error, file)}`, tecnico: detalleTecnico(error, file) });
 			URL.revokeObjectURL(url);
 		}
 	}

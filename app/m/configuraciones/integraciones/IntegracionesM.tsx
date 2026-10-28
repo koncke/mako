@@ -45,7 +45,7 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
       {/* Lo mismo que la computadora, en el mismo orden (24/10/2026): «Tus cuentas de IA» arriba —su casa es /m/cuenta/ia—,
           «Conectadas», «Sin conectar» y el «Historial de problemas». */}
       <ListaM>
-        <FilaM titulo="Tus cuentas de IA" segunda="Tu Claude, tu GPT o tu Gemini" href="/perfil/ia" />
+        <FilaM titulo="Tus cuentas de IA" segunda="Tu Claude o tu GPT" href="/perfil/ia" />
       </ListaM>
       {conectadas.length > 0 && (
         <SeccionM titulo="Conectadas">

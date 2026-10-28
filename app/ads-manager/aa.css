@@ -97,6 +97,12 @@
 .aa-chica-cambio em:not([data-tono]):not([data-sube]) { background: var(--bg); color: var(--dim); }
 .aa-pie-mako { width: 100%; margin-top: 28px; display: flex; align-items: center; gap: 12px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--aa-borde); border-radius: 16px; }
 .aa-pie-mako p { flex: 1; min-width: 0; margin: 0; font-size: 13.5px; line-height: 1.55; }
+.aa-pie-texto { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.aa-pie-mako .aa-pie-cuenta { font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.aa-pie-cuenta a { color: var(--primary); font-weight: 500; text-decoration: none; }
+.aa-pie-cuenta a:hover { text-decoration: underline; }
+a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration: none; }
+.aa-chica[data-estado='retenida'] .aa-chica-quien small { color: var(--warn); }
 .aa-pie-mako .aa-aplicar { flex: none; }
 /* La captura 2: «¿En qué te ayudo hoy?» con cuatro sugerencias en 2×2 y la caja. */
 .aa-nuevo { max-width: 640px; margin: 0 auto; padding: 9vh 0 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
@@ -119,7 +125,7 @@
 .aa.aa-hoja { padding: 0; min-height: 0; background: none; }
 .aa-mes-hoja { margin: 0 0 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .aa-hoja-fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--aa-borde); font-size: 13px; color: var(--dim); }
-.aa-hoja-cambio { display: block; width: 100%; padding: 10px 0; text-align: left; border-top: 1px solid var(--aa-borde); font-size: 13.5px; font-weight: 600; color: var(--primary); }
+.aa-hoja-cambio { display: block; width: 100%; padding: 10px 0; text-align: left; border-top: 1px solid var(--aa-borde); font-size: 13.5px; font-weight: 600; color: var(--primary); text-decoration: none; }
 .aa-hoja .aa-card { border: 0; padding: 0; background: none; }
 .aa-act ul { list-style: none; margin: 0; padding: 0; display: grid; }
 .aa-act li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--aa-borde); }

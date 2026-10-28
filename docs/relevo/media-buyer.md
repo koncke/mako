@@ -59,6 +59,13 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 
 ## Lo que falta, en orden
 
+0. **MK-03 (27/10/2026), abierto del lado de Joan:** la pestaña Campañas volvió a decir qué cuenta lee (el rediseño del
+   25/10 lo había borrado con `CampanasBrowser.tsx`) y lleva a «Revisar y publicar en Meta»; lo retenido por Meta dice
+   «Retenida en Meta: falta publicar». Para cerrar hace falta lo de Joan: el número de cuenta que ve arriba a la izquierda
+   en las campañas de Sergio (ws20) y Patricia (ws22), y si están publicadas. ws21 (Florencia) no tiene Meta conectado.
+   Re-medir con el token de cada cliente lo frena el clasificador («Production Reads»): lo corre quien tenga el permiso,
+   en el orden de `docs/hallazgos-ads.md` → «Creé la campaña en Meta y no me aparece». Pendiente también: probar
+   `addrafts` con v25.0 en sólo lectura; si trae los borradores del Administrador, se pueden dibujar por nombre.
 1. **Hecho el 25/10/2026:** la 0332 aplicada en producción (el Cerebro, con `tacticas`); la cuenta de MaKo conectada a
    Zernio (cuenta de Zernio `6ade25185b6c93612b7cc6a1`); **la medición que escribe**: una decisión real lanzada por Zernio,
    recortada por el tope, leída en Meta y deshecha (`docs/hallazgos-ads.md` → «La medición que escribe, en la cuenta de

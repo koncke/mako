@@ -13,6 +13,10 @@ import { tabEnCapa } from '@/lib/capas';
 import { comentarComoCliente, crearTicket, identidadDe, misTickets, miTicket } from '@/lib/tickets-db';
 import { paraElCliente, sanearAlta, type TicketCliente } from '@/lib/tickets-reglas';
 import { contextoDeSoporte } from '@/lib/soporte-chat';
+import { TOPE_ADJUNTOS_TICKET, sanearAdjuntosTicket } from '@/lib/tickets-adjuntos';
+
+/** Más archivos que el tope: se dice, nunca se recorta en silencio (revisión de 046d9e028). */
+const deMas = (x: unknown) => Array.isArray(x) && x.length > TOPE_ADJUNTOS_TICKET;
 
 type Yo = { ws: number; email: string; nombre: string };
 async function yo(): Promise<Yo | null> {
@@ -33,9 +37,12 @@ const SIN_SESION = 'Vuelve a entrar a MaKo para mandarlo';
  */
 export async function levantarDesdeSoporteAction(entrada: {
   tipo: string | null; elegido: boolean; titulo: string; descripcion: string; movil: boolean; contexto?: unknown; ref?: string;
+  /** Lo que subió en la conversación (app/api/tickets/adjuntos): se valida contra el negocio de la sesión. */
+  adjuntos?: unknown;
 }): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const quien = await yo();
   if (!quien) return { ok: false, error: SIN_SESION };
+  if (deMas(entrada.adjuntos)) return { ok: false, error: `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por ticket.` };
   const a = sanearAlta({ tipo: entrada.elegido ? entrada.tipo : null, titulo: entrada.titulo, descripcion: entrada.descripcion });
   if (!a.ok) return { ok: false, error: a.motivo };
   const ref = typeof entrada.ref === 'string' && /^[A-Za-z0-9-]{8,80}$/.test(entrada.ref) ? `soporte-chat:${entrada.ref}` : null;
@@ -43,6 +50,7 @@ export async function levantarDesdeSoporteAction(entrada: {
     identidad: await identidadDe(quien.ws, quien.email, quien.nombre),
     tipo: a.alta.tipo, declaradoPor: a.alta.tipo ? 'persona' : null,
     titulo: a.alta.titulo, descripcion: a.alta.descripcion, canal: entrada.movil ? 'chat_movil' : 'chat_app', contexto: contextoDeSoporte(entrada.contexto, entrada.movil), ref,
+    adjuntos: sanearAdjuntosTicket(entrada.adjuntos, quien.ws),
   });
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
 }
@@ -71,11 +79,12 @@ export async function verMiTicketAction(id: number): Promise<TicketCliente | nul
 }
 
 /** Contestar su ticket (cuando el equipo le preguntó algo, o para sumar un dato). */
-export async function contestarTicketAction(id: number, texto: string): Promise<{ ok: true; ticket: TicketCliente | null } | { ok: false; error: string }> {
+export async function contestarTicketAction(id: number, texto: string, adjuntos?: unknown): Promise<{ ok: true; ticket: TicketCliente | null } | { ok: false; error: string }> {
   const quien = await yo();
   if (!quien) return { ok: false, error: SIN_SESION };
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'No encuentro ese ticket' };
-  const r = await comentarComoCliente(quien.ws, quien.email, id, texto);
+  if (deMas(adjuntos)) return { ok: false, error: `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por mensaje.` };
+  const r = await comentarComoCliente(quien.ws, quien.email, id, texto, sanearAdjuntosTicket(adjuntos, quien.ws));
   if (!r.ok) return r;
   const t = await miTicket(quien.ws, quien.email, id);
   return { ok: true, ticket: t ? paraElCliente(t.ticket, t.eventos) : null };

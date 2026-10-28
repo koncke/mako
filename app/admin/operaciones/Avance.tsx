@@ -22,7 +22,7 @@ import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
 import { listasEnRenglones } from '@/lib/respuesta-como-claude';
-import { CUERPO_PLEGABLE, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
+import { CUERPO_PLEGABLE, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, nodoDeCompletado, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 
@@ -50,7 +50,7 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
   /** «Responder sobre esto» (26/10/2026): cita ESTE «Ya está» arriba de la caja, como responder un mensaje. */
   onFeedback?: (t: TurnoChat) => void;
 }) {
-  const [n] = yaEstaDelChat([{ tipo: 'turno', instante: Date.parse(t.at), turno: t }]);
+  const n = nodoDeCompletado(t, Date.parse(t.at));
   const destino = n ? destinoDeReview(n, chat, TABS_DEL_MENU) : null;
   // El título de la tarjeta es el primer renglón ENTERO y el cuerpo es todo lo demás (lib/centro-chats.ts → partesDeYaEsta):
   // `n.titulo` es el de la FILA de una lista (72 caracteres y «…») y acá cortaba lo más importante (Martín, 17/10/2026).

@@ -162,7 +162,8 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
       try {
         const { avisarArregloAlGrupo } = await import('./aviso-arreglo');
         const prueba = pruebaDeProduccion({ ticket: f.id, hito: hito.titulo, area: hito.area, commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null, deploy: process.env.VERCEL_URL ?? null });
-        const r = await avisarArregloAlGrupo({ ws, clave: `ticket:${f.id}`, texto: textoArregloAlGrupo(f), prueba, origen: 'ticketera' });
+        // El ws 1 (Mauricio) va con `ws1Seguro`: es SU ticket y SU grupo (27/10/2026, MAU-09), no una lista que se arma sola.
+        const r = await avisarArregloAlGrupo({ ws, clave: `ticket:${f.id}`, texto: textoArregloAlGrupo(f), prueba, origen: 'ticketera', ws1Seguro: ws === 1 });
         if (r.ok) salio.push(`grupo de ws ${ws}`);
         else if (r.motivo !== 'ya-avisado') console.error(`[tickets] aviso al grupo de ws ${ws} por #${f.id}: ${r.motivo} — ${r.detalle}`);
       } catch (e) { console.error(`[tickets] aviso al grupo de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }

@@ -38,7 +38,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion,
   type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
-import { chartKeyDelLead, contextoDelLead, contextoDeEdicion, leadIdDe, LECTURAS_DEL_LEAD, PISTA_EDICION_FICHA, type LecturaHecha } from '@/lib/mako-analyst-lead-reglas';
+import { chartKeyDelLead, contextoDelLead, contextoDeEdicion, leadIdDe, LECTURAS_DEL_LEAD, pistaDeEdicion, type LecturaHecha } from '@/lib/mako-analyst-lead-reglas';
 
 export type AnalystDelLead = { persona: PersonaChat; lead: { id: number; nombre: string; funnelId: number | null } };
 export type FalloAnalyst = { error: string; status: 400 | 401 | 403 | 404 };
@@ -135,7 +135,8 @@ export async function turnoDelLead(
   return turnoApp(a.persona, sid, {
     ...resto,
     contexto: `${contexto}\n\n${contextoDeEdicion({ ...edicion, embudoId: a.lead.funnelId })}`,
-    pista: PISTA_EDICION_FICHA,
+    // La de la vista, salvo que pida corregir un dato de cobro (`pistaDeEdicion`, 27/10/2026).
+    pista: pistaDeEdicion(resto.mensaje),
   });
 }
 

@@ -125,7 +125,7 @@ function Mensaje({ m, sesionId, ws, onError, enviando = false }: {
           ? <div className="m-offer-transcripcion">{texto}</div>
           : tuyo
             ? <div className="m-offer-texto">{m.texto}</div>
-            : <div className="m-offer-md"><Markdown text={m.texto} compacto /></div>)}
+            : <div className="m-offer-md"><Markdown text={m.texto} compacto iconos /></div>)}
         {!tuyo && !!m.adjuntos?.length && <Adjuntos lista={m.adjuntos} />}
       </div>
     </li>

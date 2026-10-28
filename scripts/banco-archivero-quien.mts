@@ -13,6 +13,7 @@
 // =============================================================================
 export {};
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 type Espera = 'llena' | 'llena-oferta' | 'sin-que-hace';
 // Cada documento por su id (no por su título: nombraría a personas). Lo que es, en `porque`.
@@ -26,7 +27,7 @@ const CASOS: Array<{ ws: number; sesion: number; doc: string; espera: Espera; po
 ];
 const PLATAFORMA = 9;
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 const { runWithWorkspace } = await import('../lib/workspace');
 const { extraerDeArchivo } = await import('../lib/onboarding');
 const { camposParaExtraer } = await import('../lib/archivero');

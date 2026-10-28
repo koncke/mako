@@ -86,7 +86,17 @@ Google aprobó la app (Martín, 26/10). La política de privacidad lee el MISMO 
 redesplegar. Lo pide el Cerebro a Martín cuando esta rama esté en main. Con eso, el login pide el calendario (destildable) y
 la política pasa sola a «una sola vez, al entrar».
 
+## Las llamadas de Leila y Leandro (sexta tanda, 27/10, rama `settings-llamadas-2710` desde origin/main bbb459f33)
+
+- **Leila: la clave no es la suscripción.** En «Tus cuentas de IA», cada fila de «Claves de API» es sólo la clave («Clave cargada» /
+  «Sin clave», abre el modal de su clave), con un «?» en el título que dice la diferencia; cada cuenta de la computadora dice
+  «Suscripción Max». Gemini ya no se ofrece: se ve sólo donde está cargada, gris, «ya no se ofrece» (11 negocios la tienen y MaKo
+  la usa). Guard: tests/clave-y-suscripcion-27-10.test.ts.
+- **Leandro: «todo difuminado y MaKo me pide un código»:** sin reproducir, y no es el 2FA (docs/hallazgos-seguridad.md, la primera
+  entrada). Falta la grabación del 24/10, min 33:28-35:41.
+
 ## Pendiente (detalle en docs/hallazgos-ajustes.md y docs/hallazgos-integraciones.md, «SIN HACER»)
+- Leandro (24/10, f24): ver la grabación para saber qué difuminó y qué código pedía.
 - `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (arriba).
 - La entrada del super admin a los prompts de MaKo (hoy sólo por su link): dónde va lo decide el chat de la barra.
 - El criterio de reuniones de Mauricio sigue prendido: apagarlo es un cambio de dato (no se hizo).

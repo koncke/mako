@@ -28,6 +28,7 @@ const REPO = process.cwd();
 const ENV = arg('--env') ?? 'C:/Users/marti/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing/.env.local';
 const SCOPE = 'mbustos-4239s-projects';
 const DOMINIO = 'hola-mako.com';
+const VERSION_VERCEL = '65.3.1';
 
 const ws = Number(arg('--ws'));
 const clave = arg('--clave') ?? '';
@@ -51,8 +52,11 @@ function vercel(...a: string[]): string {
   // ⚠️ LA TABLA SALE POR STDERR. El CLI de Vercel imprime por stdout sólo las URLs sueltas y la tabla (con «Ready» y
   // «Production») por stderr: leyendo stdout, el primer aviso real (18/10/2026) contestó «ningún despliegue Ready
   // contiene el arreglo» con el despliegue de producción en Ready. Se leen las dos.
+  // ⚠️ LA VERSIÓN VA FIJA. Con `vercel` a secas, npx busca la ÚLTIMA publicada: el 27/10/2026 salió la 65.4.0, que no
+  // estaba en la caché, `--no-install` la rechazó sin decir nada por stdout, y el aviso Meta → Zernio dio «no pude saber
+  // qué despliegue sirve» en 4 de 5 negocios con el despliegue sano.
   const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['--no-install', 'vercel', ...a, '--scope', SCOPE],
+    ['--yes', `vercel@${VERSION_VERCEL}`, ...a, '--scope', SCOPE],
     { cwd: REPO, encoding: 'utf8', timeout: 90_000, shell: process.platform === 'win32' });
   const salida = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
   return salida;

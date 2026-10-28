@@ -37,7 +37,7 @@ const dotenv = await import(pathToFileURL(path.join(REPO, 'node_modules', 'doten
 (dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
 
 const { getSupabaseServer } = await imp('lib/supabase.ts');
-const { incidentesDe, incidentesDeErrores, lineaDe, ESPERA_RESPUESTA_MS } = await imp('lib/vigia-mako-grupos.ts');
+const { incidentesDe, incidentesDeErrores, incidentesDeVencidas, lineaDe, ESPERA_RESPUESTA_MS } = await imp('lib/vigia-mako-grupos.ts');
 type Incidente = import('../lib/vigia-mako-grupos').Incidente;
 
 type Estado = { marca: string; vistos: string[] };
@@ -69,7 +69,10 @@ try {
   const { data: errs, error: eErr } = await db.from('errores_app')
     .select('id, origen, titulo, veces, primera_vez, ultima_vez, afectados, ticket_id').gte('primera_vez', leerDesde).limit(200);
   if (eErr) throw new Error(`errores_app: ${eErr.message}`);
-  const nuevos: Incidente[] = ([...incidentesDe(conv, usos, ahora), ...incidentesDeErrores(errs ?? [])] as Incidente[])
+  // Las propuestas que vencieron sin el «sí» (27/10/2026, P10), como en app/api/cron/vigia-grupos/route.ts.
+  const pend = await todo<any>('mako_acciones_pendientes', 'id, workspace_id, grupo_jid, tipo, resumen, estado, vence_at, origen, created_at',
+    (q) => q.gte('vence_at', leerDesde).lte('vence_at', new Date(ahora).toISOString()).in('estado', ['pendiente', 'vencida']));
+  const nuevos: Incidente[] = ([...incidentesDe(conv, usos, ahora), ...incidentesDeVencidas(pend, ahora), ...incidentesDeErrores(errs ?? [])] as Incidente[])
     .filter((i) => !estado.vistos.includes(i.clave));
 
   // La marca avanza hasta lo último leído (o se queda), y lo contado se recuerda.

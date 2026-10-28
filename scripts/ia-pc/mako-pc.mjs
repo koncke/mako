@@ -40,7 +40,8 @@ import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { dirname, join } from 'node:path';
 
-export const VERSION = '0.4.2';
+// 0.4.3 (27/10/2026): «MaKo» en el menú Inicio y en el escritorio (`abrir`) y entrar con otra cuenta de Claude (b10eb3b04).
+export const VERSION = '0.4.3';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
 const REGISTRO = join(CARPETA, 'registro.txt');
