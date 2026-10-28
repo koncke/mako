@@ -117,6 +117,7 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
     case 'cortar_frase': return `Sin ${comillas(op.frase)}`;
     case 'cortar_tramo': return `Sin el tramo ${entre(op.inicio, op.fin)}`;
     case 'eliminar_muletillas': return 'Sin muletillas';
+    case 'borrar_silencios': return 'Sin los silencios (se buscan al aceptar)';
     case 'reemplazar_clip': return `Con el archivo ${els.get(op.medio)?.nombre ?? op.medio}`;
     case 'usar_plantilla': return `La plantilla ${comillas(op.id)}, con ${Object.keys(op.textos).length} textos y ${Object.keys(op.clips).length} clips`;
     default: {

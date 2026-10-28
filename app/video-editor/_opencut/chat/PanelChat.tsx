@@ -13,7 +13,9 @@
 //     redondo; mientras la IA trabaja, «Espera a que la IA termine» y el cuadrado de detener;
 //   · el alcance en chips: «Todo el video» o lo elegido en la línea de tiempo;
 //   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado», que se acepta o se
-//     descarta entero; después de aceptar, «Restaurar» lo vuelve atrás.
+//     descarta entero; después de aceptar, «Restaurar» lo vuelve atrás;
+//   · lo que tarda al aceptar (borrar los silencios) se ve construyéndose: la fase y cada silencio
+//     que se encontró, de a uno (app/_ui/ArmadoEnVivo.tsx, ./armado.ts).
 // El hilo es por proyecto y, desde el 16/10, queda GUARDADO por persona (chat/hilo.ts, mig 0298):
 // al recargar vuelve, con las propuestas pendientes todavía para aceptar. Nada se aplica sin
 // «Aceptar»: lo fija tests/video-editor-chat.test.ts.
@@ -41,7 +43,10 @@ import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CHAT, validarOperaciones } from "@/lib/editor-video/chat-catalogo";
-import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } from "./linea";
+import { resumenDeCambios, revisarOperaciones, textoSegundos, vistaDeLinea, type CambioChat } from "./linea";
+import { anotarProgreso, empezarArmado, useArmado, type ArmadoChat } from "./armado";
+import { ArmadoEnVivo } from "@/app/_ui/ArmadoEnVivo";
+import { fasesDesde } from "@/app/_ui/armado-en-vivo";
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
@@ -233,7 +238,29 @@ const rotuloSeleccion = (n: number) => (n === 1 ? "1 elemento elegido" : `${n} e
 const ETIQUETA_CAMBIO: Record<CambioChat["tipo"], string> = { cambia: "Cambia", agrega: "Nuevo", quita: "Se quita" };
 const MAX_FILAS = 8;
 
+/** «Borrar los silencios» mientras se aplica: qué está escuchando, cada silencio que encontró y el corte. */
+function SilenciosEnVivo({ armado }: { armado: ArmadoChat }) {
+	const fases = fasesDesde(
+		[
+			{ id: "escuchando", texto: armado.escuchando ? `Escuchar ${armado.escuchando}` : "Escuchar el audio" },
+			{ id: "cortando", texto: "Cortar y pegar lo que queda" },
+		],
+		armado.fase === "listo" || armado.fase === "fallo" ? "cortando" : armado.fase,
+		{ terminado: armado.fase === "listo", fallo: armado.fase === "fallo" },
+	);
+	return (
+		<ArmadoEnVivo
+			titulo={armado.fase === "listo" && armado.segundos !== undefined ? `Se quitaron ${textoSegundos(armado.segundos)}` : "Borrando los silencios"}
+			fases={fases}
+			piezas={armado.silencios.map((s, i) => ({ id: String(i), texto: `${textoSegundos(s.desde)} → ${textoSegundos(s.hasta)}`, detalle: `${s.titulo} · ${textoSegundos(s.hasta - s.desde)}` }))}
+			unidad="silencios"
+			terminado={armado.fase === "listo"}
+		/>
+	);
+}
+
 function RevisionPropuesta({
+	mensajeId,
 	cambios,
 	descartes,
 	estado,
@@ -245,6 +272,7 @@ function RevisionPropuesta({
 	onDescartar,
 	onRestaurar,
 }: {
+	mensajeId: string;
 	cambios: CambioChat[];
 	descartes?: string[];
 	estado: EstadoPropuesta;
@@ -258,6 +286,7 @@ function RevisionPropuesta({
 	onRestaurar: () => void;
 }) {
 	const [vista, setVista] = useState<"original" | "modificado">("modificado");
+	const armado = useArmado(mensajeId);
 	const filas = cambios.slice(0, MAX_FILAS);
 	const boton = "flex h-7 cursor-pointer items-center rounded-[4px] px-3 text-[12px] font-medium";
 	return (
@@ -303,6 +332,7 @@ function RevisionPropuesta({
 				})}
 			</ul>
 			{cambios.length > MAX_FILAS && <span className="text-[11px] text-(--cc-text-3)">y {cambios.length - MAX_FILAS} más</span>}
+			{armado && <SilenciosEnVivo armado={armado} />}
 			{descartes && descartes.length > 0 && (
 				<p className="m-0 rounded-[6px] bg-(--cc-panel) px-2.5 py-1.5 text-[11.5px] text-(--cc-text-3)">
 					No se aplica: {descartes.slice(0, 3).join(" · ")}
@@ -362,6 +392,7 @@ const SUGERENCIAS: Sugerencia[] = [
 	{ rotulo: "Corta en el cabezal", instruccion: "Corta lo elegido donde está el cabezal.", necesitaSeleccion: true },
 	{ rotulo: "Transiciones suaves", instruccion: "Pon la transición Mezclar en cada corte de la pista principal." },
 	{ rotulo: "Quita las muletillas", instruccion: "Quita las muletillas del video." },
+	{ rotulo: "Borra los silencios", instruccion: "Borra los silencios del video." },
 	{ rotulo: "Baja la música", instruccion: "Baja a la mitad el volumen de los audios." },
 	{ rotulo: "Silencia los videos", instruccion: "Silencia el sonido original de los videos." },
 	{ rotulo: "Alarga los textos", instruccion: "Haz que cada texto dure un segundo más, sin pisar a los demás." },
@@ -444,7 +475,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const aceptar = async (m: MensajeMako, sinVersion = false) => {
 		if (!m.propuesta) return;
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicando", aviso: undefined });
-		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion });
+		empezarArmado(m.id);
+		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) });
 		if (!r.ok) {
 			cambiarMensaje(proyectoId, m.id, { estado: r.sinVersion ? "sin-version" : "pendiente", aviso: r.error });
 			return;
@@ -508,6 +540,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 					)}
 					{m.propuesta && m.cambios && m.estado ? (
 						<RevisionPropuesta
+							mensajeId={m.id}
 							cambios={m.cambios}
 							descartes={m.descartes}
 							estado={m.estado}

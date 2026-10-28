@@ -701,30 +701,52 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   el inicio del clip. La caché se indexa por lo que cambia el SONIDO, se descarta lo que nadie usa, y
   durante una vista previa (un arrastre) no se reinicia nada.
 
-## «Eliminar ruido» NO se copió de ningún repo: la distancia con CapCut es de método (27/10/2026, Cerebro)
+## «Eliminar ruido»: RNNoise decide la ganancia, y se aplica sobre el audio original (27–28/10/2026)
 
-**Vive en:** `audio/dsp/ruido.ts` · `audio/cadena.ts` (`INTENSIDAD_RUIDO`) · `tests/video-editor-audio.test.ts`
+**Vive en:** `audio/dsp/ruido.ts` · `audio/dsp/rnnoise.ts` · `audio/cadena.ts` ·
+`public/ve/wasm/rnnoise-0.2-jitsi-0.2.1.wasm` · `tests/video-editor-ruido.test.ts`
 
 - **El síntoma:** Leila (ws11): «no funciona tan eficientemente como en CapCut». Martín: «lo copiamos de un repo, revisá si
   lo copiamos bien o nos faltan cosas».
-- ⚠️ **La pregunta era la equivocada.** `ruido.ts` es propio (commit 7e4fb076e, 12/10): una compuerta espectral con un
-  perfil fijo del percentil 15. OpenCut no trae reducción de ruido (ni el classic ni la reescritura) y CapCut usa RNNoise, una
-  red neuronal. No hay constantes «mal copiadas» que volver al original. Corre igual en la vista previa
-  (`audio-manager.ts:663`) y en el export (`media/audio.ts:707`).
-- **Medido** con voz sintética a 48 kHz y la función real:
-  - con ruido rosa, las pausas bajan −11,5 dB contra un piso configurado de −27; deja «ruido musical» del 8 % (0,2 % en la
-    entrada), porque el 5,5 % de los bins de ruido pasa el umbral por azar;
-  - en estéreo, el perfil sale de la mezcla L+R: con ruido independiente por canal, −8,1 dB, y con el micrófono en un solo
-    canal, −4,9;
-  - con un ruido que cambia, casi nada (un perfil por clip); con las pausas en cero digital, nada (el percentil da 0);
-  - la intensidad no es la palanca: de 0,85 a 1 cambia ≤1,2 dB.
-- ⚠️ **El arreglo obvio rompe el audio limpio:** saltear los cuadros de menos de −80 dBFS para sacar el perfil lleva una
-  voz limpia de una SNR de 73,6 a 15,4 dB, porque el perfil sale de los cuadros con voz.
-- **La regla:** el perfil va POR CANAL con la ganancia enlazada, y un canal sin señal no vota en el máximo (si vota, la
-  ganancia queda en 1 y no reduce nada). Lo que acerca a CapCut es RNNoise en WASM, servido desde la app y con el retardo
-  MEDIDO (el worklet junta bloques de 128 en cuadros de 480). Un test de ruido tiene que probar también que una voz LIMPIA
-  queda intacta: el test 5 usa un seno de 440 Hz y no ve nada de esto.
-- **Quién:** el chat de la nube «Motion, Video e Image Editor» (etiquetas `nube/motion-2710-*`). Diagnóstico: workflow
+- ⚠️ **La pregunta era la equivocada (27/10, Cerebro).** El `ruido.ts` de hasta el 28/10 era propio (7e4fb076e): una
+  compuerta espectral con un perfil fijo por clip. OpenCut no trae reducción de ruido y CapCut usa RNNoise, una red. No
+  había constantes «mal copiadas». Medido con la voz del sistema (Windows, «Helena», en el scratchpad) a 15 dB del ruido:
+  pausas −16,3 dB con ruido rosa, −18,9 con ventilador, −1,5 con un ruido que cambia, −7 con el ruido en un solo canal
+  (el perfil salía de L+R). Ahora: −40,4 · −42,3 · −39,9 · −40,1; la voz, ±0,1 dB; los bordes, 0,01 del salto de la
+  entrada (antes 0,5–0,85).
+- ⚠️ **El arreglo obvio, «pasar el audio por RNNoise», daña la voz:** la red RE-SINTETIZA, y una voz LIMPIA sale con una
+  SNR de 11 dB contra la entrada (modelo 0.1). Por eso la red sólo DECIDE: por cuadro de 10 ms y por sus 21 bandas,
+  ganancia = √(energía que dejó / energía que entró), y esa ganancia se aplica con una STFT propia al audio original, a
+  su tasa (lo que suena nunca se remuestrea). Donde la ganancia es 1, sale idéntico.
+- **El retardo no es el que se supone:** 480 muestras el modelo 0.1 y **960** el 0.2 (correlación de una voz contra la
+  salida). No hay worklet: el clip se procesa entero, igual en la vista previa y en el export (44,1 kHz), y la red
+  escucha una copia llevada a 48 kHz (Lanczos-4).
+- **El modelo se eligió midiendo:** con un ruido que cambia, el 0.1 (los wasm de 150 KB de shiguredo y
+  web-noise-suppressor) bajaba −18 dB y el 0.2 −42. El 0.2 sólo viene EMBEBIDO en base64 en
+  `@jitsi/rnnoise-wasm@0.2.1/dist/rnnoise-sync.js`; se extrajo tal cual (sha1 del tarball = el de npm) a
+  `public/ve/wasm/` con su licencia, y el test cuida el sha256. Su pegamento es «web,worker» (no corre en node) y el
+  binario importa sólo dos funciones de memoria con nombres minimizados (`a.a`, `a.b`; el mapa sale de
+  `rnnoise-sync.js`): el pegamento son 40 líneas propias. No se agregó dependencia.
+- ⚠️ **RNNoise se come las fricativas** («s», «f») de una voz limpia: SNR 24,6 dB con ellas, 113 sin ellas. La guarda:
+  un canal cuyo piso (el cuadro más bajo en ±2 s, sin contar el silencio digital) está bajo −75 dBFS no recibe
+  ganancia. ⚠️ El silencio digital NO cuenta como «sin ruido» (una intro muda en un clip ruidoso dejaba 2 s sin
+  limpiar): una voz con las pausas en cero (ya pasada por una compuerta) sigue procesada.
+- ⚠️ **La regla del 27/10 («ganancia enlazada por máximo») falla con un canal limpio que tiene eco de sala:** su cola
+  vota 1 y deja pasar el ruido del otro (pausas −17 dB con un eco de 0,3 s, −8 con uno de 1 s). Se enlaza donde los dos
+  canales llevan LO MISMO (coherencia por banda, en ±2 cuadros): con 0,4 s de eco, −29,7. Lo que cuesta, medido: con la
+  voz a 0 dB de su ruido en un canal, la imagen se corre 1,6 dB (todo enlazado: 0,3, pero el eco vuelve a −13,8). Una
+  curva más firme (coherencia 0,5 = enlazado) arregla la imagen y rompe el eco (−24): se dejó la lineal.
+- **La rodilla:** una banda que la red baja menos de 6 dB se deja entera. Lleva la voz limpia de 19 a 35 dB de SNR y la
+  voz con ruido de −0,6 a −0,1 dB, sin mover las pausas.
+- **«Borrar silencios» y el salto entre piezas:** cada pieza se procesa sola y la red arranca de cero. Con un espejo de
+  3 s (el principio al revés) el principio de cada pieza baja ≥ 25 dB, como una pausa, y queda a 3,9 dB de procesarlo
+  de corrido (con la compuerta vieja, 13,8: cada pieza sacaba su perfil). Con 1 s, hasta 18 dB.
+- **Cuesta ~6 s por minuto de audio y canal distinto** (la red, ~0,7 ms por cuadro): 8 veces lo de antes, en el hilo
+  principal, soltándolo cada 40 cuadros. Un estéreo con los dos lados iguales se escucha una vez.
+- **La regla:** un test de ruido usa una VOZ (la sintética de `tests/video-editor-ruido.test.ts`, con formantes y
+  fricativas: RNNoise le da 0,97 de probabilidad de voz) y prueba que una voz LIMPIA queda intacta. Un seno no prueba
+  nada de esto.
+- **Quién:** el chat «Video Editor: el ruido y los silencios de Leila» (rama `editor-leila-2810`). Diagnóstico: workflow
   `wf_80b91164-275` del Cerebro.
 
 ## El DSP de audio propio: cada fórmula de libro se midió, y estaba corrida
@@ -733,7 +755,8 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
 
 - ⚠️ **«El percentil bajo de la magnitud es el piso del ruido» era falso**: subestima la potencia del
   ruido unas 5 veces, y la pausa bajaba sólo 3,6 dB. La magnitud de un ruido en una banda sigue una
-  Rayleigh, y el percentil se corrige con esa distribución (`ruido.ts`).
+  Rayleigh, y el percentil se corrige con esa distribución (la compuerta vieja de `ruido.ts`, que desde el
+  28/10 es RNNoise: ver la entrada de «Eliminar ruido»).
 - **Un clip mono medido como UN canal da 3 dB menos**, y normalizado quedaba 3 dB más fuerte que una
   música estéreo. Se mide como suena, por los dos lados (`intensidad.ts`).
 - **Los ritmos caían 8,6–8,9 ms antes del golpe** (el desfase del flujo espectral): se corrige 0,8 de un
@@ -937,6 +960,20 @@ mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 
 - **Se construyó de cero, y no tenía que pasar sin avisar.** OpenCut classic no lo tiene
   (relevamiento §3) y en CapCut es «Identificar y eliminar muletillas» (Pro). La regla de Martín
   desde el 14/10: antes de construir, mirar la fuente; si no está, decírselo.
+- ⚠️ **«MaKo no pudo borrar los silencios» (Leila, 27/10) no era una falla de MaKo: el botón nunca entró al chat.** El
+  chat sólo conoce lo que está en `OPERACIONES_CHAT` (lib/editor-video/chat-catalogo.ts); una función de la barra que no
+  está ahí no existe para él ni para la API. Ahora es `borrar_silencios` (`borrar_silencios_video` en la API): sin
+  `ref`, cada clip con sonido de la pista principal; va ÚLTIMA (escucha el audio al aceptar) y sola respecto de otros
+  cortes; un clip con el audio extraído se descarta (cortar sólo el video o sólo su audio los desfasa).
+  ⚠️ **Y la receta de MaKo para el editor (`lib/doer-recetas.ts`, la que viaja en WhatsApp y el Ops Center) lo tenía en
+  su lista de «lo que no se puede por chat»**: con la operación ya hecha, MaKo seguía contestando que no podía. Una
+  capacidad nueva se saca también de esas listas (y de `NO_SE_PUEDE_CHAT`); lo vigila tests/doer-recetas-video-imagen.
+- **`objetivosDeSilencios` caía al clip del cabezal si lo pedido quedaba vacío** (todo en una pista bloqueada): para el
+  chat, `cabezal: false`. El botón y el chat corren el MISMO trabajo (`quitarSilencios`); el chat además cuenta cada
+  silencio que encuentra y la tarjeta lo muestra de a uno (`chat/armado.ts` + `app/_ui/ArmadoEnVivo.tsx`).
+- ⚠️ **Con ruido de fondo a 20 dB o menos de la voz, NO encuentra ninguna pausa** (ni el botón): el umbral queda en
+  −40/−42 dBFS y las pausas con ruido, arriba (medido con la voz sintética y la del sistema: 4 y 7 silencios con 25 dB
+  de distancia, 0 con 20). Mide el audio ORIGINAL, no el que suena con «Reducir el ruido». En «sin hacer».
 
 ## La API de MaKo y el chat al costado: el proyecto vive en el NAVEGADOR
 
@@ -1393,6 +1430,21 @@ la ruta compartida `app/api/mako/pedidos/route.ts` · el núcleo `lib/mako-pedid
 
 ## Lo que quedó SIN hacer
 
+**Del 28/10 (el ruido y los silencios de Leila)**
+- «Borrar silencios» con ruido de fondo fuerte no encuentra pausas (`audio/dsp/silencios.ts`, ver la entrada). Dos
+  caminos, a decidir: medir sobre el audio con «Reducir el ruido» aplicado, o un umbral que se apoye en el piso del
+  ruido (el riesgo: comerse sílabas suaves de un habla sin pausas).
+- La reducción corre en el hilo principal (~6 s por minuto y canal): un clip de 10 min estéreo son ~2 min de CPU con
+  el editor respondiendo a saltos. Un worker (`audio/dsp/ruido.ts` es puro y lo aguanta).
+- Con eco de sala largo en el canal limpio (≈1 s), las pausas del otro bajan −8 dB; y con la voz a 0 dB de su ruido en
+  un canal, la imagen se corre 1,6 dB (ver la entrada: la coherencia es el compromiso medido).
+- Dos roturas que la voz sintética no ve: el espejo de 1 s en vez de 3 (lo vio la voz del sistema: 18 contra 10 dB) y
+  sacar el enlace del todo (la rodilla ya deja la voz igual en los dos lados; la diferencia es ≤ 0,4 dB).
+- Nada se miró en un navegador: ni la vista previa ni el export con RNNoise, ni la tarjeta que muestra los silencios
+  de a uno (la PC con 16 GB y otros chats; el dev server del editor no se levantó).
+- Si el prompt del chat está editado en /configuraciones, no tiene la línea nueva de `borrar_silencios` (el catálogo
+  sí la lleva: entra por el slot).
+
 **Del 14/10 (barra lateral, Borrar silencios, Avatar de IA)**
 - Nada de lo del 14/10 se miró en un navegador: el editor se ve en producción y la rama `video-editor`
   no se pudo pushear (typecheck bloqueado en la máquina).
@@ -1777,5 +1829,17 @@ técnico. **La causa de SU archivo no se puede saber sin el archivo**; lo que s�
   pide «Mantener siempre en este dispositivo». Se reconoce por el NOMBRE del error: el texto cambia con la versión y el
   idioma de Chrome.
 
+- ⚠️ **Un .mp4 CORTADO no da error: se lee como un archivo SIN PISTAS** (28/10). El índice (`moov`) va al final y una descarga
+  o una copia a medias no lo trae; mediabunny no tira, devuelve cero pistas, y eso decía «no tiene imagen, impórtalo como
+  audio». Ahora: «parece incompleto». Antes del arreglo del 27/10 daba justo «No se pudo importar» con el nombre: es una
+  causa PROBABLE del ticket. Medido con 21 .mp4 hechos con ffmpeg (HEVC hvc1/hev1 y Main10, H.264 High 10 y 4:2:2,
+  fragmentado, QuickTime renombrado, ProRes, PCM, Opus, VP9, AV1, dos audios, timecode, nombre con espacios): la
+  lectura los entiende todos; sólo el cortado y el vacío fallan, y el MPEG-4 viejo (`mp4v`) entra sin códec. El nombre
+  con espacio no llega a ninguna ruta (OPFS guarda por id).
+- **Lo que hace falta para saber el de Leila:** que lo vuelva a importar (el aviso de ahora dice el porqué y su «Reportar
+  a Soporte» manda el error técnico, el tipo y el peso) o el resultado de abrirlo en su computadora: si no se reproduce,
+  está cortado; si se reproduce, el detalle técnico del aviso nuevo.
+
 **Vive en:** `media/importar-motivo.ts` · `media/processing.ts` · `media/mediabunny.ts` (`SinPistaDeVideo`,
-`errorDecodificar`) · tests/video-editor-importar-motivo.test.ts (6 roturas) · *27/10/2026, chat «Motion / Imagen» (claude5).*
+`errorDecodificar`) · tests/video-editor-importar-motivo.test.ts (6 roturas; el 5, con `tests/fixtures/video-chico.mp4`) ·
+*27/10/2026, chat «Motion / Imagen» (claude5); el cortado, 28/10, chat «Video Editor: el ruido y los silencios de Leila».*
