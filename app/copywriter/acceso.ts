@@ -11,13 +11,13 @@
 
 import 'server-only';
 import { redirect } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
 import { rutaConWs } from '@/lib/workspace';
+// La regla vive en lib (`getSesionAdmin()`), para que también la usen las rutas del chat que guardan y listan las charlas
+// de un guion (verificación del Cerebro del 28/10/2026). Acá se re-exporta: las pantallas y las rutas /api la importan de acá.
+import { veCopywriter } from '@/lib/copywriter/puerta';
 
 /** ¿Quien mira puede usar el Copywriter? Para las rutas (no redirige). */
-export async function veCopywriter(): Promise<boolean> {
-  return !!(await getSesionAdmin());
-}
+export { veCopywriter };
 
 // La puerta de la API de MaKo (donde no hay sesión que preguntar) vive en lib/copywriter/puerta-api.ts: el día que se
 // abra la tab, se abren las DOS.

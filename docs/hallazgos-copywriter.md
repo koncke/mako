@@ -10,10 +10,16 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   pregunta el rol del workspace y la capa, no si es la agencia.
 - **Dónde vive la puerta:** `app/copywriter/acceso.ts` (`veCopywriter`, con `getSesionAdmin`), el molde de AI Avatar. La
   preguntan las dos páginas de escritorio, las dos del teléfono (`app/m/copywriter/puerta.ts`) y las dos rutas /api.
-- **Y la API de MaKo también:** su `gating.tab` mira la CAPA del negocio, y las capas `completo` y `agencia` ven todas las
-  tabs. Cada runner del Copywriter pregunta `veCopywriterEnApi` (lib/copywriter/puerta-api.ts: sólo el negocio de la
-  plataforma). Va en lib y no en `acceso.ts` para que los runners no carguen `next/navigation`. El día que Martín lo
-  abra, se cambian LOS DOS archivos.
+- **Y la API de MaKo también** (desde la tanda 2, 62a9b1b28; la tanda 1 no tenía operaciones): su `gating.tab` mira la
+  CAPA del negocio, y las capas `completo` y `agencia` ven todas las tabs. Cada runner del Copywriter pregunta
+  `veCopywriterEnApi` (lib/copywriter/puerta-api.ts: sólo el negocio de la plataforma). El día que Martín lo abra, se
+  cambian LOS DOS archivos (lib/copywriter/puerta.ts y puerta-api.ts).
+- **Y las CHARLAS con MaKo de cada guion** (verificación del Cerebro del 28/10/2026): `copywriter:<guion>` se guarda por
+  /api/hilo-de-tab, y esa ruta, la lista del Ops Center, el hilo de «antes» y el doer sólo miraban el rol del workspace.
+  El dueño de un negocio leía y escribía la charla del super admin sobre un guion de su negocio, y le salía en su Ops
+  Center. La puerta (`veCopywriter`) se mudó a lib/copywriter/puerta.ts y las reglas comunes de las charlas
+  (lib/chart-chats-reglas.ts, `pasaLaPuertaDeSuTab`) la piden, cerradas por defecto: quien arma `QuienChatea` sin decir
+  que la pasa, no las ve. Una tab con puerta propia que guarda charlas tiene que cerrar TAMBIÉN ese camino.
 - **La regla:** una tab que nace para el super admin lleva su `acceso.ts` desde el primer commit, y
   `tests/redirige-antes-del-loader.test.ts` (PUERTAS) tiene que conocer sus `require…`.
 
@@ -34,9 +40,15 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 
 - Un índice (`mako.copywriter.indice`) y un documento por guion (`mako.copywriter.doc.<id>`), como los guiones del Ads
   Writer en `mako.razones`: sin migración, y testeable en local sin tocar el esquema de producción.
-- `cambiarSettingSi` compara el VALOR ENTERO: el índice se lee, se cambia con una función pura (lib/copywriter/arbol.ts) y se
-  reescribe sólo si nadie lo cambió en el medio, hasta 4 veces. El documento exige la `version` que se abrió (409 →
-  «Recargar», nunca pisa).
+- El índice se lee, se cambia con una función pura (lib/copywriter/arbol.ts) y se reescribe sólo si nadie lo cambió en el
+  medio, hasta 4 veces. El documento exige la `version` que se abrió (409 → «Recargar», nunca pisa).
+- ⚠️ **El compare-and-set es por la MARCA (`updated_at`), no por el valor.** La tanda 1 usó `cambiarSettingSi`, que pone el
+  valor ENTERO en la URL del PATCH; la regla ya estaba escrita (docs/hallazgos-infra.md, 12/10: «sólo para valores
+  cortos») y no la leí. La verificación del Cerebro lo midió: desde ~900 palabras el guion no se guardaba MÁS (cada
+  reintento, y hasta borrar casi todo, comparaba contra el valor grande ya guardado) y desde ~40 guiones el árbol se
+  congelaba, con un documento huérfano por cada «crear» fallido. Ahora es `cambiarSettingSiMarca` (lib/settings.ts, el
+  molde de lib/automatizacion-chat-db.ts en un solo lugar), y `crear` borra el documento si el índice no entra.
+  tests/copywriter-guardar.test.ts corre el `guardar` REAL contra el PostgREST de mentira con el límite de URL de prod.
 - Si un negocio llega a cientos de guiones con versiones, se muda a una tabla con su migración (y sus tres registros: ver
   la cabecera de `supabase/migrations/0246_editor_landing.sql`).
 

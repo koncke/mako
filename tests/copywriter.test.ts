@@ -251,7 +251,7 @@ test('la charla de un guion se guarda con su clave (y la ruta la acepta)', () =>
 test('las puertas: la tab es adminOnly y TODA entrada pregunta veCopywriter (hoy sólo el super admin)', () => {
   const nav = leer('app/_components/nav.ts');
   assert.match(nav, /key: 'copywriter', adminOnly: true, label: 'Copywriter', href: '\/copywriter'/);
-  assert.match(leer('app/copywriter/acceso.ts'), /getSesionAdmin\(\)/);
+  assert.match(leer('lib/copywriter/puerta.ts'), /getSesionAdmin\(\)/, 'la regla vive en lib y acceso.ts la re-exporta');
   for (const f of ['app/copywriter/page.tsx', 'app/copywriter/[id]/page.tsx']) {
     const s = leer(f);
     assert.match(s, /requireRolWs\(\[\], \{ nav: 'copywriter' \}\)/, f);

@@ -6489,8 +6489,12 @@ lee como una caída de red. El chat de MaKo (un JSON que crece) habría dejado d
 ~4 KB, se compara `updated_at` (pasado tal cual a `.eq`, encuentra la fila: 5 de 5) y se escribe uno estrictamente
 posterior al leído, o una revisión. La primera escritura (esperado `null`) sí puede ir por `cambiarSettingSi`.
 
-**Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
-tanda de Automations*
+**Desde el 28/10/2026 está en lib/settings.ts:** `getSettingConMarca` + `cambiarSettingSiMarca` (+ `borrarSettingSiMarca`),
+el molde de lib/automatizacion-chat-db.ts en un solo lugar. Lo pidió el Copywriter, que salió con `cambiarSettingSi` sobre
+guiones de 15 KB y un índice de 20 KB (la verificación del Cerebro: el guion dejaba de guardarse para siempre).
+
+**Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · `lib/copywriter/server.ts` ·
+*2026-10-12 duodécima tanda de Automations*
 
 ## El typecheck que «salía con 1 sin errores»: lo mataba el vigía, y el fallo mudo alimentaba la estampida (13/10/2026)
 

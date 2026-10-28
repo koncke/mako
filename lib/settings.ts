@@ -61,6 +61,8 @@ export async function getSettingEstricto(key: string): Promise<string | null> {
  * Es atómico en la base: de dos requests que compiten por el mismo cambio, gana UNA. Existe
  * porque dos clics a la vez en «Conectar por QR» abrían dos líneas de WhatsApp y el QR de una
  * quedaba huérfano (lib/mako-canal.ts, `rotarCanal`).
+ *
+ * ⚠️ SÓLO PARA VALORES CORTOS: `esperado` va entero en la URL. Si el valor puede pasar de ~4 KB, `cambiarSettingSiMarca`.
  */
 export async function cambiarSettingSi(key: string, esperado: string | null, nuevo: string): Promise<boolean> {
   const supabase = getSupabaseServer();
@@ -85,9 +87,75 @@ export async function cambiarSettingSi(key: string, esperado: string | null, nue
   return (data?.length ?? 0) > 0;
 }
 
+// ── El compare-and-set para valores LARGOS: por la marca de escritura, no por el valor ───────────────────────────
+// ⚠️ `cambiarSettingSi` y `borrarSettingSi` ponen el valor ENTERO en la URL del PATCH (`value=eq.<valor>`), y PostgREST
+// no aguanta una URL larga: medido en prod el 12/10/2026, con 6 KB contesta, de 8 a 12 KB «fetch failed», con 16 a 32 KB
+// 400 y con 64 KB 414 (docs/hallazgos-infra.md). Un guion del Copywriter o su índice pasan esos tamaños con uso normal
+// (verificación del Cerebro del 28/10/2026: desde ~900 palabras el guion no se guardaba MÁS). Para todo valor que pueda
+// pasar de ~4 KB se compara la MARCA (`updated_at`, un token corto) y se escribe una ESTRICTAMENTE posterior a la leída:
+// dos escritores que leyeron lo mismo no pueden ganar los dos. Es el molde de lib/automatizacion-chat-db.ts.
+
+/** Una setting con su marca de escritura, ESTRICTA (un error de lectura tira). null = no existe. */
+export async function getSettingConMarca(key: string): Promise<{ valor: string; marca: string } | null> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings')
+    .select('value, updated_at')
+    .eq('workspace_id', await wsActual())
+    .eq('key', key)
+    .maybeSingle();
+  if (error) throw new Error(`No pude leer el setting ${key}: ${error.message}`);
+  if (!data) return null;
+  const f = data as { value: string | null; updated_at: string };
+  return { valor: f.value ?? '', marca: f.updated_at };
+}
+
+/** Una marca posterior a la leída aunque el reloj de este servidor vaya atrasado. */
+export function marcaDespuesDe(leida: string | null): string {
+  const antes = leida ? Date.parse(leida) : NaN;
+  const ahora = Date.now();
+  return new Date(Number.isNaN(antes) ? ahora : Math.max(ahora, antes + 1)).toISOString();
+}
+
+/**
+ * Cambia una setting SOLO si su marca sigue siendo `marca` (la que se leyó con `getSettingConMarca`). `marca: null` =
+ * sólo si la fila no existe. Devuelve la marca NUEVA si ganó, o null si otro escribió en el medio. El valor no viaja en
+ * la URL: sirve para valores de cualquier largo.
+ */
+export async function cambiarSettingSiMarca(key: string, marca: string | null, nuevo: string): Promise<string | null> {
+  const supabase = getSupabaseServer();
+  const ws = await wsObligatorio();
+  const escrita = marcaDespuesDe(marca);
+  const { data, error } = marca === null
+    ? await supabase.from('app_settings')
+      .upsert({ workspace_id: ws, key, value: nuevo, updated_at: escrita }, { onConflict: 'workspace_id,key', ignoreDuplicates: true })
+      .select('updated_at')
+    : await supabase.from('app_settings')
+      .update({ value: nuevo, updated_at: escrita })
+      .eq('workspace_id', ws)
+      .eq('key', key)
+      .eq('updated_at', marca)
+      .select('updated_at');
+  if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
+  const fila = (data as Array<{ updated_at: string }> | null)?.[0];
+  return fila ? fila.updated_at : null;
+}
+
+/** Borra una setting SOLO si su marca sigue siendo `marca`. Devuelve si borró. El valor no viaja en la URL. */
+export async function borrarSettingSiMarca(key: string, marca: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings')
+    .delete()
+    .eq('workspace_id', await wsObligatorio())
+    .eq('key', key)
+    .eq('updated_at', marca)
+    .select('key');
+  if (error) throw new Error(`Error borrando setting ${key}: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
 /**
  * Borra una setting SOLO si todavía vale `esperado` (el compare-and-set de `cambiarSettingSi`, para borrar).
- * Devuelve si borró.
+ * Devuelve si borró. ⚠️ El valor va en la URL: sólo para valores cortos (ver `cambiarSettingSiMarca`).
  */
 export async function borrarSettingSi(key: string, esperado: string): Promise<boolean> {
   const { data, error } = await getSupabaseServer()
