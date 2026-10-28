@@ -701,6 +701,31 @@ Y además:
 - **Lo que levanta el SISTEMA** (un error de la app, `declaradoPor: 'sistema'`) tampoco entra por la regla de aprobación.
 Cada uno con su test rojo-verde (tests/no-pude*.test.ts).
 
+
+
+**La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
+- «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
+  `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
+  (Error guardando setting …)»); una negativa de estado o de configuración no. `esFallaTragada` (lib/no-pude-frases.ts) los separa.
+- La regla mirada en TODA la respuesta tapaba fallas que nombran «el token» o «tu pantalla»: se mira la oración que explica la
+  marca, y la regla tiene que tener forma de regla («se confirma en tu tarjeta», «pega tu clave»), no la palabra suelta. Sólo
+  apaga el «no pude», nunca el «no existe» de la misma respuesta.
+- `yaRegistrado` sólo cuando registrarError DEJÓ ticket, y sólo apaga el «no pude».
+- La clave de un fallo son sus dos primeras palabras con peso: «crear la tarea» y «crear la tarea en el plan» son el mismo.
+- Sin ticket no hay línea: el test rompe la base para probarlo (no alcanza con el tope, que devuelve el último).
+**La regla para medir:** cada arreglo de un detector se prueba también con las frases VECINAS de las del ticket, no sólo con ésas.
+
+**El #16 de Leila, en producción y sin cerrarse (28/10/2026, claude4).** El arreglo (toda caja de chat adjunta y lee cualquier
+documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas, y la obvia era sólo una:
+- No tenía hito: el número iba en el MENSAJE del commit («(ticket #16 de Leila)»), que el cron no lee. Sólo cuenta
+  `tickets: [n]` en el hito de la bitácora del área (ahora en app/admin/dev/second-brain/bitacora.ts).
+- Seguía en «esperando_decision»: `cerrarLosDesplegados` (lib/tickets-cierre.ts) sólo toma «en_curso» y «arreglado». Un
+  ticket que un chat arregla por el pedido de Martín, sin que pase por el mazo, no lo cierra el hito hasta que alguien lo
+  apruebe; aprobado, el cron lo cierra en la vuelta siguiente porque el hito ya está desplegado. Cambiarle el estado a mano
+  es escribir en producción: pide el sí de Martín.
+**La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
+(sólo lectura) y avisa si no está «en curso».
+
 ## Soporte sin adjuntos: el «+» sólo daba emojis (28/10/2026)
 
 Martín (28/10): «las personas no están pudiendo usar la ticketera porque nuevamente el chat está mal configurado, solamente
@@ -768,3 +793,15 @@ documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas,
   es escribir en producción: pide el sí de Martín.
 **La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
 (sólo lectura) y avisa si no está «en curso».
+
+**La otra mitad de base 7 (28/10/2026, claude4): la guarda de una herramienta es una regla aunque el modelo no la explique.**
+- El formato de la marca pide el QUÉ («borrar el lead de Juan»), no el porqué: la red de TEXTO (`esReglaUOpinion` sobre la marca y
+  la oración que la explica) sólo ve la regla si el modelo la escribe. La señal que no depende del modelo es la salida de la
+  herramienta: un 400 vuelve como TEXTO con `ok:false` y su `error`, SIN isError (`runnerDelRegistro`, lib/api-mako/ejecutar.ts);
+  la heredada, como «❌ …». `esGuardaDeHerramienta` (lib/no-pude.ts) lo reconoce, y el turno de la app pasa `regla` cuando hubo
+  una y nada falló de verdad (isError) ni hubo ruteo: con cualquiera de los dos, el «no pude» puede ser de eso.
+- Lo que un runner se TRAGÓ también vuelve como 400 (el catch de `ejecutarOperacion` manda a 400 lo que no huele a
+  infraestructura): con el error técnico entre paréntesis (`esFallaTragada`) NO es una guarda.
+- `regla` apaga sólo el «no pude»: lo que no existe sigue, y con un ruteo es un ruteo (`causaDelNoPude`).
+**Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) y los chats que pasan por
+`conPedidoDeNoExiste` (Offer, Web Generator, los editores) todavía no pasan la señal: sus herramientas no corren por este turno.

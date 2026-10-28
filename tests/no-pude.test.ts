@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  causaDelNoPude, esReglaUOpinion, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
+  causaDelNoPude, esGuardaDeHerramienta, esReglaUOpinion, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
 } from '../lib/no-pude';
 import { REGLA_NO_EXISTE, reglaNoExisteEn, sacarNoExiste } from '../lib/no-existe';
 import { esFallaTragada } from '../lib/no-pude-frases';
@@ -102,6 +102,23 @@ test('g. la falla que un runner se TRAGÓ abre ticket; una negativa de estado o 
   assert.equal(refDeNoPude({ ...base, clave: 'crear la tarea' }), refDeNoPude({ ...base, clave: 'crear la tarea en el plan' }));
 });
 
+test('h. la guarda de una herramienta del turno (un 400, sin isError) es una regla: apaga el «no pude», nunca el «no existe» (base 7)', () => {
+  // Lo que devuelve runnerDelRegistro con un 400 (lib/api-mako/ejecutar.ts): TEXTO con ok:false y su error. Y la heredada, «❌ …».
+  const guarda = JSON.stringify({ ok: false, error: 'El borrado se hace en tu pantalla de revisión.' });
+  for (const out of [guarda, { content: guarda }, JSON.stringify({ ok: false, error: 'Falta el email del lead.', faltan: ['email'] }), '❌ No encontré ese lead.']) {
+    assert.ok(esGuardaDeHerramienta(out), `${JSON.stringify(out)} no se ve como una guarda`);
+  }
+  // Una falla (isError: un 404 o un 500), un ok, un texto, y lo que un runner se TRAGÓ (el error técnico entre paréntesis): no.
+  for (const out of [{ content: guarda, isError: true }, JSON.stringify({ ok: true, id: 3 }), 'Listo, quedó movido.', '{"ok":false}', '', null, undefined,
+    JSON.stringify({ ok: false, error: 'No se pudo guardar (duplicate key value violates unique constraint).' }), '❌ No se pudo aplicar (Error guardando setting x: BOOM).']) {
+    assert.equal(esGuardaDeHerramienta(out), false, `${JSON.stringify(out)} se tomó como una guarda`);
+  }
+  // `regla` apaga el «no pude»; el «no existe» de la misma respuesta sigue, y con un ruteo es un ruteo.
+  assert.equal(causaDelNoPude({ regla: true, noPudo: 'borrar el lead de Juan' }), null);
+  assert.equal(causaDelNoPude({ regla: true, noPudo: 'borrar el lead de Juan', noExiste: 'un tablero de comisiones' }), 'no-existe', 'la regla se comió el «no existe»');
+  assert.equal(causaDelNoPude({ regla: true, ruteo: true, noExiste: 'editar las cuotas' }), 'ruteo');
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. `causaDelNoPude` sin la rama de `ruteo`                         → rojo el a.
@@ -110,3 +127,6 @@ test('g. la falla que un runner se TRAGÓ abre ticket; una negativa de estado o 
 //   4. `refDeNoPude` sin el negocio                                      → rojo el e.
 //   5. el ruteo solo, sin marca, da 'ruteo' (28/10)                       → rojo el a.
 //   6. `refDeNoPude` sin lo que falló (28/10)                             → rojo el e.
+//   7. (28/10, base 7) la regla se come el «no existe» (`if (s.regla) return null`) → rojo el h.
+//   8. (28/10) la guarda sin mirar la falla tragada                        → rojo el h.
+//   9. (28/10) la guarda aunque traiga isError                            → rojo el h.

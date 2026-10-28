@@ -33,6 +33,7 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
     confDespacho: string | null; cerroProv: number | null; provId: number | null; textoEstado: string | null; topeLleno: Sale; sistemaRegla: string | null;
   };
   verificacion: { token: Sale; pantalla: Sale; tarjeta: Sale; ambas: Sale; yaRegNoExiste: Sale; sinTicket: Sale; reglaAntes: Sale };
+  base7: { sinSenal: Sale; guarda: Sale; guardaYNoExiste: Sale };
 };
 
 test('g. tres «no pude» en la misma conversación son UN ticket; la línea la escribe el código y sale una vez', () => {
@@ -110,6 +111,16 @@ test('verificación 28/10: la regla sólo en la oración de la marca, yaRegistra
   assert.equal(v.sinTicket.linea, null, 'sin ticket igual dijo «Quedó el ticket»');
 });
 
+test('base 7, la otra mitad: con la guarda de una herramienta del turno, el «no pude» no abre ticket; el «no existe» sí', () => {
+  const g = R.base7;
+  assert.ok(g.sinSenal.ticket?.nuevo, 'sin la señal, la misma frase no abrió ticket: el caso no prueba nada');
+  assert.equal(g.guarda.causa, null, 'la guarda de una herramienta abrió ticket');
+  assert.equal(g.guarda.ticket, null);
+  assert.equal(g.guarda.linea, null, 'con la guarda igual dijo «Quedó el ticket»');
+  assert.equal(g.guarda.texto, 'No pude borrar el lead de Juan.');
+  assert.equal(g.guardaYNoExiste.causa, 'no-existe', 'la guarda se comió el «no existe» de la misma respuesta');
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. `clasificar` sin la rama de `automatico`                          → rojo el i.
@@ -118,3 +129,4 @@ test('verificación 28/10: la regla sólo en la oración de la marca, yaRegistra
 //   4. `cerrarAutomatico` sin cerrar                                       → rojo el j.
 //   (28/10) 5. sin `yaRegistrado`, 6. la ref sin lo que falló, 7. sin mirar la regla en la respuesta, 8. la configuración sin
 //   `soloSi`, 9. cerrar por el prefijo del negocio, 10. el sistema por la regla → rojo los dos de la revisión.
+//   (28/10, base 7) 11. la regla se come el «no existe», 12. `conTicketsDeMaKo` sin la regla → rojo el de base 7.

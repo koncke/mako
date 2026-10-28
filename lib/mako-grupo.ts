@@ -650,10 +650,35 @@ export async function enviarAPersonaMaKo(telefono: string, texto: string): Promi
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
-/** Manda un texto a un JID de grupo cualquiera. delayMs opcional (demo = chico). */
+// ── EL ANILLO ANTI-ECO: los ids que MaKo mandó a cada grupo (`mako.doer.sent.<jid>`, en OWNER_WS) ──────────────────────────
+// Vivía en lib/mako-doer-in.ts y lo llenaban sólo la respuesta del doer y el aviso de arreglo. Los avisos, las insistencias, los
+// flujos, el cierre de tickets y `enviarGrupoMaKo` salen por las dos funciones de abajo SIN anotarse, y su eco vuelve `fromMe`: el
+// doer lo tomaba por el dueño escribiendo desde la línea (`esLineaDelDueno`, la verificación de 991abd4af), y desde ahí «@MaKo
+// sí» dejaba de confirmar. Ahora lo que sale por acá se anota solo.
+const KEY_ENVIADOS = (jid: string) => `mako.doer.sent.${jid}`;
+/** Los últimos 40 ids que MaKo mandó a ese grupo (los settings operativos del doer van en OWNER_WS, keyeados por jid). */
+export async function idsEnviadosAlGrupo(ws: number, jid: string): Promise<string[]> {
+  return runWithWorkspace(ws, async () => {
+    const raw = await getSetting(KEY_ENVIADOS(jid));
+    if (!raw) return [];
+    try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }
+  });
+}
+// VARIOS ids en UN solo read-modify-write. Importante con los mensajes separados (punto 10): antes eran N escrituras
+// concurrentes sobre la misma key (lost-update → MaKo procesaba su propio eco); ahora la respuesta se registra de una.
+export async function anotarEnviadosAlGrupo(ws: number, jid: string, ids: readonly string[]): Promise<void> {
+  const nuevos = ids.filter(Boolean);
+  if (!jid || !nuevos.length) return;
+  const prev = await idsEnviadosAlGrupo(ws, jid);
+  const next = [...prev.filter((x) => !nuevos.includes(x)), ...nuevos].slice(-40); // ring buffer
+  await runWithWorkspace(ws, () => setSetting(KEY_ENVIADOS(jid), JSON.stringify(next)));
+}
+
+/** Manda un texto a un JID de grupo cualquiera. delayMs opcional (demo = chico). Lo que sale queda en el anillo anti-eco. */
 export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
   if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };
   const r = await enviarTextoVozMaKo(jid, texto, delayMs);
+  if (r.ok) await anotarEnviadosAlGrupo(OWNER_WS, jid, [r.id]).catch(() => {});
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
@@ -679,6 +704,8 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<Envi
   // instancia está caída" y con "Evolution 400" a secas eso no se deduce.
   if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}` };
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
+  // Al anillo anti-eco: el eco de un aviso no es el dueño escribiendo (ver `anotarEnviadosAlGrupo`).
+  if (id) await anotarEnviadosAlGrupo(OWNER_WS, jid, [id]).catch(() => {});
   return { ok: true, id };
 }
 
@@ -707,7 +734,10 @@ export async function enviarPartesAJid(
   jid: string, partes: readonly PartePreparada[], d: { ev?: EvFn; esperar?: (ms: number) => Promise<void>; delayMs?: number } = {},
 ): Promise<EnvioPartes> {
   if (!d.ev && !grupoConfigurado()) return { ok: false, salieron: 0, ids: [], error: 'Evolution no configurado' };
-  return enviarPartesPorEv(jid, partes, { ev: d.ev ?? ev, instancia: await instanciaVoz(), esperar: d.esperar, delayMs: d.delayMs });
+  const r = await enviarPartesPorEv(jid, partes, { ev: d.ev ?? ev, instancia: await instanciaVoz(), esperar: d.esperar, delayMs: d.delayMs });
+  // Al anillo anti-eco, de una (`anotarEnviadosAlGrupo`). El test inyecta `ev` y no toca la base.
+  if (!d.ev && r.ids.length) await anotarEnviadosAlGrupo(OWNER_WS, jid, r.ids).catch(() => {});
+  return r;
 }
 
 /**

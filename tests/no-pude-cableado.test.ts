@@ -54,7 +54,7 @@ test('2. el turno de la app: las dos marcas, el ruteo, sin !ticketPropuesto, el 
   const t = fuente('lib/mako-turno-app.ts');
   assert.doesNotMatch(t, /ticketPropuesto/, 'volvió `!ticketPropuesto`: la falla depende otra vez del botón');
   assert.doesNotMatch(t, /conPedidoDeNoExiste\(/, 'el turno procesa sólo lo que no existe');
-  assert.match(t, /const np = await conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: registroConTicket \}, dondeDelTurno,/);
+  assert.match(t, /const np = await conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: registroConTicket, regla: /);
   assert.match(t, /if \(def && name !== 'confirmar_accion' && visible\(def, vista\) && !noViajo\.includes\(def\.titulo\)\) noViajo\.push\(def\.titulo\);/);
   assert.match(t, /if \(r\.ok && r\.ticketId\) \{ registroConTicket = true; paraLaPersona\.push\(r\.nuevo \? lineaDelTicket\(r\.ticketId\) : LINEA_YA_AVISADO\); \}/);
   assert.match(t, /const causaSin = sinIA \|\| deSuCuenta \? 'configuracion' : delProveedor \? 'proveedor' : null;/);
@@ -74,8 +74,18 @@ test('3. los chats que procesaban lo que no existe pasan por el ticket automáti
   assert.doesNotMatch(np, /registrarError/, 'un ticket que no se pudo levantar no puede abrir otro (bucle)');
 });
 
+test('4. una guarda de una herramienta del turno es una regla (base 7): se cuenta al correr y apaga el «no pude» si nada falló ni hubo ruteo', () => {
+  const t = fuente('lib/mako-turno-app.ts');
+  const run = t.slice(t.indexOf('const runTool = async'), t.indexOf('const nuevoIntento'));
+  assert.match(run, /if \(esGuardaDeHerramienta\(out\)\) guardas\+\+;/, 'el turno no cuenta las guardas de sus herramientas');
+  // Con una falla de verdad (isError) o un ruteo en el mismo turno, el «no pude» puede ser de eso: decide la red de siempre.
+  assert.match(t, /yaRegistrado: registroConTicket, regla: guardas > 0 && !erroresDelTurno\.length && !noViajo\.length \}/);
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. `confirmarPendiente` sin el enganche                              → rojo el 1.
 //   2. `ticketSiFallo` también en un flujo (sin `PREFIJO_FLUJO`)          → rojo el 1.
 //   3. (28/10) el ticket con cualquier ok:false (`r.ok ? null :`)        → rojo el 1.
+//   4. (28/10, base 7) el turno sin contar las guardas                    → rojo el 4.
+//   5. (28/10) la regla aunque algo haya fallado de verdad en el turno     → rojo el 4.
