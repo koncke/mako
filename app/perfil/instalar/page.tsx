@@ -35,7 +35,7 @@ export default async function InstalarPage() {
   // MaKo sin conexión (28/10/2026): de la PERSONA frente al teclado. Una sesión sin fila propia no tiene llave; mirando a otro,
   // la copia no se guarda (/api/sin-conexion/copia) y la fila lo dice.
   const sinConexion = sesion?.email && propio
-    ? { email: sesion.email, noDisponible: deOtro ? 'No se puede mientras mirás la cuenta de otro.' : null }
+    ? { email: sesion.email, noDisponible: deOtro ? 'No se puede mientras miras la cuenta de otro.' : null }
     : null;
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'instalar')} activa="instalar">

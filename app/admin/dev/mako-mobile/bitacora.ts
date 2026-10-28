@@ -250,7 +250,7 @@ export const BITACORA: Hito[] = [
     actor: 'claude', tipo: 'implementacion',
     titulo: 'El CRM y el Plan se ven aunque se corte internet o MaKo no responda',
     puntos: [
-      'En Perfil › Instalar la app hay una fila nueva, «Sin conexión»: elegís una clave para esta computadora y MaKo guarda una copia del CRM y del Plan cada 10 minutos.',
+      'En Settings › Instalar la app hay una fila nueva, «Sin conexión»: elegís una clave para esta computadora y MaKo guarda una copia del CRM y del Plan cada 10 minutos.',
       'Si se corta internet o MaKo no responde, la misma dirección abre lo guardado con una cinta arriba: «Sin conexión · lo que ves es lo de las 10:42». Entrás con tu email y esa clave.',
       'Ves el tablero de cada funnel, la ficha de cada lead con sus últimas notas, y el Plan con Prioridades, Tareas, Proyectos y Recurrentes. Por ahora es para leer: escribir y que se suba al volver es la tanda 2.',
       'Lo guardado va cifrado, por persona: otra cuenta en la misma computadora no lo abre ni se entera de que existe. Mirando la cuenta de un cliente no se guarda nada.',
@@ -262,7 +262,7 @@ export const BITACORA: Hito[] = [
       'public/sin-conexion/ — el cascarón (su JS sale de lib/sin-conexion/cascaron.ts)',
       'lib/sin-conexion/ — el cifrado, la base por persona y la lógica de guardar y abrir',
       'app/api/sin-conexion/ — la llave de la persona y la copia, con las lecturas del teléfono',
-      'tests/sin-conexion.test.ts — probado rompiéndolo (21 roturas)',
+      'tests/sin-conexion.test.ts — probado rompiéndolo (27 roturas)',
     ],
     revisar: '/perfil/instalar',
   },

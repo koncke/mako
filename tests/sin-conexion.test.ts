@@ -465,7 +465,7 @@ test('7. la copia no se arma mirando a otro; la llave es de la persona; el layou
   assert.match(fila, /\{abierto && !noDisponible && \(/, 'mirando a otro no hay formulario');
   assert.match(fila, /autoComplete="new-password"/);
   assert.match(fila, /window\.dispatchEvent\(new Event\(EVENTO_ACTIVADO\)\)/);
-  assert.match(sinComentarios(leer('app/perfil/instalar/page.tsx')), /deOtro \? 'No se puede mientras mirás la cuenta de otro\.' : null/);
+  assert.match(sinComentarios(leer('app/perfil/instalar/page.tsx')), /deOtro \? 'No se puede mientras miras la cuenta de otro\.' : null/);
 
   // El teléfono no cambia: sin `op`, las 40 tarjetas por columna y sin contacto.
   const datos = sinComentarios(leer('app/m/crm/datos.ts'));

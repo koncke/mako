@@ -82,6 +82,16 @@ aplicación de desktop, que eso funciona siempre» (00:42:00).
 - **Lo que tiene consecuencias nunca sale solo al volver:** en T1 el cascarón no escribe ni le pide nada al servidor (6 y 6b:
   sin `fetch`, `XMLHttpRequest` ni `sendBeacon`). «Espera tu OK» se prueba en la T2, que es la que escribe.
 
+**Lo que cazaron las barredoras de `tests-afectados`, y no los tests propios:**
+- **El texto en voseo** («Entrá», «mirás», «Volvé», «Abrí»). La interfaz va en español neutro, porque el producto se usa en
+  México (tests/puente-panel-copy.test.ts). El cascarón también cuenta, aunque sea un `.ts` que se arma aparte.
+- **«Perfil › Instalar la app».** La tab se llama **Settings** (tests/mako-nombres-de-tabs.test.ts): toda ruta «X › Y»
+  del código empieza por un `label` de app/_components/nav.ts.
+- **Un error con `role="alert"` sin `<ReportarASoporte />`** (tests/reportar-a-soporte.test.ts).
+- **La trampa de la medición:** la tanda de `tipos-por-tandas` tarda 4,5 min con 5 GB libres y pasa los 10 min (y se mata)
+  con menos de 1 GB, con cuatro corridas de otros chats a la vez. Ese rojo es de la carga, no del cambio. Y una PAUSA del
+  Cerebro corta las corridas a mitad (salen con 127 y sin resultado): no cuentan como verdes ni como rojos.
+
 **Probado rompiéndolo** (28/10/2026, base: 16 de 16 en tests/sin-conexion.test.ts). Cada rotura, restaurada por sha256, la
 cazó al menos un test. Los resultados están en C:/dev/revisiones/sin-conexion-t1-roturas-*.json.
 

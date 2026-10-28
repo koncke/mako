@@ -2,7 +2,7 @@
 // MaKo sin conexión — lo que hace la app CON conexión (navegador, 28/10/2026)
 // =============================================================================
 // Habla con /api/sin-conexion/{llave,copia} y guarda en IndexedDB (./almacen.ts) con la lógica de ./local.ts. Lo usan la
-// fila de Perfil › Instalar la app (activar, borrar) y app/_components/CopiaSinConexion.tsx (renovar cada `CADA_MS`).
+// fila de Settings › Instalar la app (activar, borrar) y app/_components/CopiaSinConexion.tsx (renovar cada `CADA_MS`).
 // =============================================================================
 
 import { almacenIdb, existeBase } from './almacen';
