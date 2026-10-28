@@ -8990,3 +8990,27 @@ tabnews.com.br (el dato de 80 MB por instancia).
 - **Un test que lee el fuente tiene que normalizar CRLF:** con `core.autocrlf` en Windows, el worktree del Cerebro tiene
   CRLF y `indexOf('\n}\n')` no encuentra el cierre de una función (tests/crm-ticket-14 daba «no está fathomDeFila»). En
   el worktree del chat, con LF, pasaba. `readFileSync(…).replace(/\r\n/g, '\n')`.
+
+## El corte del 97% vuelve, para guardar TODO antes de cambiar de cuenta (28/10/2026, Cerebro)
+
+**Vive en:** `scripts/claude-hooks/guardia/corte-97.mjs` (copia de `~/.claude/guardia/corte-97.mjs`), `scripts/claude-hooks/bitacora-sesion.sh`, `tests/corte-97.test.ts`
+
+- **Síntoma:** Martín cambia de cuenta cuando se acaba la cuota y escribe «Continua»; la cuenta nueva tenía que reconstruir
+  a mano qué chat hacía qué. Pidió, para todas las cuentas: al 97%, frenar y dejar guardado el contexto de todo el trabajo
+  hecho en esa cuenta.
+- **Causa:** el corte estaba APAGADO desde el 18/10 (`guardia/sin-corte`, por «sacá el límite de 97%»), así que ningún
+  chat recibía nunca la orden de guardar. Y aun prendido, su orden pedía el relevo «de lo que quedó a medias», no el de
+  toda la cuenta, y no dejaba rastro de qué chats habían cortado ni dónde.
+- **Lo que quedó:** al 97% de la semanal o de las 5 horas, el hook pide el relevo de TODA la cuenta y anota cada sesión
+  que cruza en `~/.claude/relevos-cuenta/<cuenta>.tsv` (carpeta, rama, transcript): un registro que no depende de que el
+  chat se acuerde. El SessionStart dice qué hacer con «Continua».
+- ⚠️ **La trampa del diagnóstico obvio: «cortar todo al 97%» habría cortado lo que Martín quería guardar.** El hook
+  niega herramientas, y también las de los subagentes de un workflow que ya corre: la investigación de pedidos perdidos
+  —que él quería justamente para la cuenta siguiente— moría a la mitad. Ahora lo que trae `agent_id`/`agent_type` pasa, y
+  se niega sólo LANZAR uno nuevo.
+- ⚠️ **Un workflow no se reanuda desde otra cuenta:** `resumeFromRunId` es de la MISMA sesión. Lo que la cuenta siguiente
+  puede hacer es LEER `~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/journal.jsonl`, donde cada
+  agente dejó lo que devolvió al terminar. Por eso el relevo nombra el runId y esa ruta.
+- **No medido:** que la entrada de un PreToolUse dentro de un subagente traiga `agent_id` en esta versión de la app. Si no
+  lo trae, los subagentes reciben la orden de corte y devuelven lo que tienen: se degrada a «resultado parcial», no a
+  nada. Se mira la próxima vez que una cuenta cruce el 97% con un workflow corriendo (`guardia.log` no lo registra hoy).

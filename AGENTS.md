@@ -27,7 +27,15 @@ Ya se corrigió dos veces y volvió las dos, porque una memoria lo afirmaba y ca
 repetía. La segunda vez (07/10/2026) costó una recomendación entera armada sobre la premisa
 falsa: proponer `mauricio@hola-mako.com` como remitente de MaKo.
 
-# LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?», leé `docs/relevo.md`
+# LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?» o te dicen «Continua», leé el relevo
+
+**«Continua» es el traspaso de cuenta** (regla de Martín, 28/10/2026: «al llegar al 97% deben frenar y asegurarse de
+que esté todo el contexto de todo el trabajo desde que se inició en esa cuenta... Así yo paso a la siguiente y le digo
+"Continua" y ya sabe»). Al 97% cada chat dejó su relevo commiteado y el hook del corte anotó dónde: el `.tsv` más nuevo
+de `~/.claude/relevos-cuenta/` dice qué chats cortaron, en qué carpeta, rama y transcript. Se lee eso, el
+`docs/relevo/cerebro.md` de `C:/dev/wt-push-q` (puede estar en la rama del tren y no en main: `git log -5` primero) y el
+relevo de cada chat (`git -C <carpeta> show HEAD:docs/relevo/<chat>.md`), y se sigue sin preguntar. Un workflow que
+quedó corriendo dejó lo suyo en el `journal.jsonl` que nombra el relevo: otra cuenta no lo puede reanudar, sí leer.
 
 Martín trabaja con **varias cuentas de Claude** y se pasa de una a otra cuando se le acaban
 los tokens. Al entrar, abre un chat y pregunta **«en qué quedamos»** — y el 100% del trabajo
@@ -84,6 +92,20 @@ pusheado, lo a medias NO (pushear es desplegar a clientes, y el código sigue en
 cambiar de cuenta). El detalle, las piezas y cómo replicarlo, en
 [docs/guardado-automatico.md](docs/guardado-automatico.md); la copia versionada del hook, en
 `scripts/claude-hooks/`.
+
+**Y al 97% —de la semanal O de la ventana de 5 horas— el chat CORTA, en todas las cuentas** (`~/.claude/guardia/corte-97.mjs`;
+copia en `scripts/claude-hooks/guardia/`, test en `tests/corte-97.test.ts`). Prendido otra vez el 28/10/2026 para que nada
+se pierda al cambiar de cuenta. Cuando llega la orden:
+- **El relevo cubre TODA la cuenta, no el último turno**: lo pedido (con sus palabras), lo hecho con su commit y rama, lo
+  que quedó a medias con su archivo, lo que falta verificar y lo que espera una decisión de Martín. Commit por ruta, y fin
+  del turno.
+- **El hook niega LANZAR** Workflow, Agent y los comandos que gastan; deja guardar y mirar. **Lo que ya corre en un
+  subagente no se corta** (Martín: «No frenes la investigación de pedidos perdidos... eso me sirve para la próxima
+  cuenta»): el relevo nombra su runId y su `journal.jsonl`.
+- **«Vayas guardando todo»**: el relevo se mantiene al día durante la ventana. Llegar al 97% con el relevo por escribir es
+  apostar el traspaso al 3% que queda, compartido con todos los chats de la cuenta.
+- El número sale de `~/.claude/uso-cinco.txt` y `uso-semanal.txt`, que el Runner (`cartero.mjs`) reescribe cada 2 minutos.
+  Interruptor: `~/.claude/guardia/sin-corte` (no está; así estuvo apagado del 18 al 28/10).
 
 **Y si igual se corta, hay una red que no depende del modelo.** El hook `SessionEnd`
 (`~/.claude/bitacora-sesion.sh fin`) commitea `docs/relevo/` y `docs/relevo.md` si quedaron

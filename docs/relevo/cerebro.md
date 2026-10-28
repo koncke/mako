@@ -3,7 +3,7 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 28/10/2026 ~01:00, cuenta 4 (claude4)
+## ⏩ LEER PRIMERO — 28/10/2026 ~21:00, cuenta 4 (claude4)
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta… Continúa con todo» y con eso alcanza. No
 preguntes: hacé esto en orden.
@@ -33,46 +33,83 @@ preguntes: hacé esto en orden.
    El 28/10 había cinco chats de la nube 13 horas sin entregar (esperaban aprobaciones que nadie vio), tres ramas
    `nube/*` sin integrar y el ticket #15 de Leila sin dueño. Un chat de la nube NO le avisa al Cerebro: se lo mira.
 
-## Estado al escribir (28/10 ~07:30, claude4)
+## Estado al escribir (28/10 ~21:00 ART, claude4 — la cuenta arrancó el 27/10 20:33)
 
-- **`main` = `5eea455b7` (tren-t), desplegado a las 07:17.** Esta noche y madrugada subieron siete trenes:
-  - tren-o (`df08aa5f9`, 22:18): MaKo Desktop 0.4.3 y 14 puntas;
-  - tren-p (`fd0d6fcbd`, 00:58): el chat en el acto del Ops Center (audio y mensajes al instante, los 3 puntos, el
-    COMPLETADO con lo hecho);
-  - tren-q (`5b114031c`, 03:00): la Ticketera con adjuntos, el plan quincenal de Leila (#13), los «no puedo» falsos y
-    el ticket automático ante cada «no pude»;
-  - tren-r (`dbe271979`, 04:53): replicar landings por partes que se ve construyéndose, todas las cajas de chat con
-    adjuntos y voz en el acto, y el «sí» de plata en grupo (fbd947d4f: DECISIÓN DEL CEREBRO, Martín puede revertirla
-    revirtiendo ese commit);
-  - tren-s (`d83d81760`, 06:28): el relevo, WhatsApp `96e7840e8` y replicar `bdfb40069`;
-  - tren-t (`5eea455b7`, 07:17): WhatsApp `d7174eace` (una falla tragada después de una guarda abre ticket; el anillo
-    de enviados con CAS) y el chat nuevo del Ops Center con adjuntos (`e4d04e7fa`).
-- **Cartero 1.22.0 instalado en la PC DESPUÉS del deploy de tren-t** (respaldo `cartero.mjs.antes-1.22.0`). El orden
-  importa: un cartero que manda adjuntos a un servidor que no los entiende los pierde.
-- **Todas las ramas locales de los chats están en main** (0 commits fuera): mako-inteligente-2710-c4, wa-fallas-2710,
-  replicar-landings-2810, chats-unificados-2810, chatnuevo-adjuntos-2810.
-- **tren-u (WhatsApp `2cb1cf67e` con MaKo inteligente `ab2b3904d`):** lo que revienta después de una guarda abre
-  ticket y una lectura que anduvo no apaga la guarda, en el grupo y en la app (`laUltimaFueGuarda`, lib/no-pude.ts); el
-  anillo de enviados con 6 vueltas. Verificado: C:/dev/revisiones/2810-verificacion-2cb1cf67e.md.
-- **Para el tren siguiente:**
-  - CRM y Chats `d2f690673` (encima de `05d7c3187`): la caja quieta dice por qué no toma, lo leído va por conversación
-    en Soporte. Verificación de 05d7c3187 en C:/dev/revisiones/2810-verificacion-05d7c3187.md; la de d2f690673, en curso;
-  - MaKo en WhatsApp: dos MEDIOS que ya estaban en producción. (1) Una falla real con forma de guarda
-    (`ok:false` de crearPendiente, el 400 de pasarelas) no abre ticket: hace falta una marca explícita de guarda. (2) Con
-    la base colgada, el anillo frena la respuesta del grupo hasta 300 s.
-- **Esperando a Martín:**
-  - aprobar el #16 de Leila en el mazo: está en «esperando_decision» y el cron sólo cierra «en_curso»/«arreglado»;
-  - conectar un Google en el ws3 para MK-06 (el mensaje a Joan NO se mandó);
-  - mirar «replicar» en producción con su sesión (/web-generator): se verificó local con el build real, no logueado en
-    producción, porque el login es de Martín;
-  - el certificado de Windows.
-- **Revisiones:** cada informe está en `C:/dev/revisiones/`. Cada punta de plata, privacidad o sesión pasó por
-  revisión + refutador, y cada arreglo por una VERIFICACIÓN con los scripts del refutador.
-- **Antes de cada VERDE, cada chat corre `node scripts/tsc-acotado.mjs` sobre sus .ts, tests incluidos:** el hook frenó
-  tren-o, tren-p y tren-q por tipos en tests; tren-r, tren-s y tren-t, chequeados así, pasaron al primer intento.
-- **Chats vivos (claude4, bypass):** CRM y Chats, MaKo en WhatsApp, MaKo inteligente, «Web Generator: replicar landings»
-  y el Runner. Nube (koncke/mako, etiquetas `nube/<área>-2710-<k>`, ninguna entregó todavía): Zernio, Planes,
-  Automations (+ ticket #17 de Leandro), Landings, Motion (+ silencios y ruido de Leila).
+**Si Martín te escribe «Continua»:** la regla del 97% (28/10) dejó a cada chat con su relevo commiteado y anotó dónde en
+`~/.claude/relevos-cuenta/claude4.tsv` (carpeta, rama, transcript). Leé eso, este estado y el relevo de cada chat.
+
+- **`main` = `23b329b5e` (tren-v), subido el 28/10 15:24.** El Video Editor de Leila (ruido y silencios), MaKo
+  inteligente (el Second Brain con las funciones de MaKo) y la copia idéntica de landings.
+- **tren-w en `C:/dev/wt-push-q` (rama `tren-w`), sin subir.** Lleva:
+  - la pausa del Cerebro por archivo (`node scripts/pausa-cerebro.mjs prender|apagar`);
+  - `cambiarSettingSi` con valores largos (CAS por `updated_at`);
+  - tsc-acotado con el lock de un tsc por PC;
+  - las cajas de chat `31fd30df2` (verificado);
+  - el corte del 97% prendido otra vez, con su test.
+  - **Se sube** cuando estén verificados el WhatsApp (urgente) y el blanco del Web Generator, con
+    `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main`.
+  - **El deploy se confirma** con `npx vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y
+    `vercel inspect hola-mako.com`.
+- **Dos workflows corrían al escribir esto.** Otra cuenta no los reanuda, pero puede leer lo que devolvieron en
+  `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/<runId>/journal.jsonl`:
+  - `wf_fbaed0b3-099`, **los pedidos perdidos.** Martín: «Revisa todos los pedidos de absolutamente todos lados, a ver si
+    no se perdieron otras cosas», y «No frenes la investigación... me sirve para la próxima cuenta». Lo que devuelva se
+    reparte a los chats y se le reporta a él.
+  - `wf_750ef430-595`, **la verificación de Zernio y de las horas del CRM.** Los defectos vuelven a su chat; si da verde,
+    se mergea en tren-w.
+- **VERDEs que faltan verificar** (cada uno con verificador + refutador; informes en `C:/dev/revisiones/`):
+  - **MaKo en WhatsApp, urgente.** Cuatro altas:
+    - un «?» dentro de un link cuenta como pregunta;
+    - la ventana de 6 h silencia todo;
+    - no lee el mensaje citado que viene en `contextInfo`;
+    - ante un audio citado que falta, pide «conectá tu OpenAI».
+  - **Replicar landings: P0, el Web Generator en blanco** (cuenta de super admin, desde cualquier dispositivo). Después,
+    que la réplica sea editable entera. Las cinco copias de prueba (#68–#72, ws9) van a la papelera cuando cierre el P0.
+  - **MaKo sin conexión.** T1 arreglada: `desktop-offline-2810` = `6ef621b24` + `813101f75`. T2:
+    `desktop-offline-t2-2810` = `3e6a0dddf` + `746633c96`. La migración 0346 necesita el sí de Martín.
+  - **Planes, medias:**
+    - el reintento de OXXO;
+    - el trial del día 8 que falla y queda detrás del tope de 50.
+  - **Automations:**
+    - ALTA `ef1c248b4`;
+    - ticket 19 `e90bae7d1`;
+    - topes `c6f78deb4` y `0c121ab4b`;
+    - la difusión desde el CRM que pidió Leila;
+    - las medias.
+  - **Copywriter**, y **MaKo inteligente** `809887ac9`.
+  - **Tres ramas de la nube:** clic derecho `419d11e90`, media buyer `54e13e9cc`, video generator `9012f6070`.
+  - **Editor, ticket 23 (subtítulos de Leandro).** El OK al arreglo está dado: `generarSubtitulos` devuelve
+    `{ok|motivo}` y el chat dice la causa real. Desplegado eso, se cierra el ticket con el aviso a Leandro.
+  - **CRM: acciones en lote y papelera** (tickets 21 y 22 de Leila). Necesita una migración; el SQL va a Martín.
+- **Después de subir tren-w:**
+  - el aviso a Leila (la confirmación del plan de Nadia, que está retenida);
+  - el aviso a Leandro (las keywords);
+  - la config del 680, aplicada con el «dale» de Automations;
+  - la prueba de Instagram en Fiesta Music, coordinada con Leandro después del deploy de Zernio;
+  - la migración 0342, con el sí de Martín.
+- **Hecho hoy en producción, fuera del tren:**
+  - contestado el audio citado de Leandro;
+  - corregido el lead «ganado» que tenía la tarjeta en Perdido (la verdad era Perdido);
+  - 13 réplicas malas, a la papelera;
+  - Leila avisada de que puede usar el editor en vez de CapCut.
+- **La app se cayó a las 18:34 con todos los chats adentro:** tres tsc a la vez. Desde entonces lo pesado de los chats
+  pasa por `node C:/dev/con-turno.mjs …`, con dos filas: tipos y tests, una a la vez cada una. Sin turno en 30 min, no
+  corre (sale con 99).
+- **Chats vivos (claude4, bypass)**, cada uno con su relevo en su carpeta:
+
+  | Chat | Sesión |
+  |---|---|
+  | Web Generator: replicar landings | `local_1dd40ee7` |
+  | MaKo en WhatsApp | `local_216acd59` |
+  | MaKo inteligente | `local_4f7b9970` |
+  | Planes, pagos y Partners | `local_46497093` |
+  | CRM y Chats | `local_61bd6f00` |
+  | Zernio | `local_b48d54c4` |
+  | Video Editor de Leila | `local_c698e704` |
+  | Copywriter | `local_ce7663bd` |
+  | Automations | `local_ea2a6e6a` |
+
+- **Cuota a las 20:42 ART:** 5 h al 87% (se renueva 21:30 ART), semanal al 80% (se renueva el 3/11 17:00 ART).
 
 ## Lo que NO se vuelve a discutir
 
@@ -95,6 +132,7 @@ preguntes: hacé esto en orden.
 
 ## Trabado esperando a Martín
 
+0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar), 0346 (sin conexión) y la de la papelera del CRM; las decisiones de la revisión de Teo.
 1. **Su sí EN ESTE CHAT para:** leer la Ticketera de producción (el clasificador la niega); activar los avisos al grupo
    (lead de formulario y agenda) en ws15, ws18, ws20 y ws22 de Joan; subir los 21 audios de Makito a un bucket.
 2. **Decisiones de plata:** cuánto se le cobra a Joan (2 de 5 clientes pagan), el precio del Acelerador (en la llamada
