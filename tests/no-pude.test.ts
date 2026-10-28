@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  causaDelNoPude, esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, esReglaUOpinion, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
+  causaDelNoPude, esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, esReglaUOpinion, laUltimaFueGuarda, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
 } from '../lib/no-pude';
 import { REGLA_NO_EXISTE, reglaNoExisteEn, sacarNoExiste } from '../lib/no-existe';
 import { esFallaTragada } from '../lib/no-pude-frases';
@@ -139,6 +139,17 @@ test('i. la guarda no le come el ticket a una falla TRAGADA ni a otro «no pude�
   assert.equal(esLaReglaDeUnaGuarda({ ultimaFueGuarda: true, errores: 0, tragadas: 0 }), true);
 });
 
+test('j. «la última» guarda: una guarda la prende; una escritura, un error o una tragada la apagan; una lectura que anduvo no (verificación de tren-t)', () => {
+  const nada = { guarda: false, tragada: false, error: false, escribe: false };
+  assert.equal(laUltimaFueGuarda(false, { ...nada, guarda: true }), true);
+  // «Falta el monto» + un buscar_leads que anduvo + «me falta el monto [[no-pude]]»: sigue siendo la regla de la guarda.
+  assert.equal(laUltimaFueGuarda(true, nada), true, 'una lectura que anduvo apagó la guarda: ticket por una regla');
+  assert.equal(laUltimaFueGuarda(false, nada), false, 'una lectura sola prendió la guarda');
+  assert.equal(laUltimaFueGuarda(true, { ...nada, escribe: true }), false, 'una escritura después de la guarda la dejó prendida');
+  assert.equal(laUltimaFueGuarda(true, { ...nada, error: true }), false, 'un error después de la guarda la dejó prendida');
+  assert.equal(laUltimaFueGuarda(true, { ...nada, tragada: true }), false, 'una falla tragada después de la guarda la dejó prendida');
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. `causaDelNoPude` sin la rama de `ruteo`                         → rojo el a.
@@ -154,3 +165,5 @@ test('i. la guarda no le come el ticket a una falla TRAGADA ni a otro «no pude�
 //  11. la tragada sin mirar el JSON de un 400                               → rojo el i.
 //  12. una guarda vieja vale (sin `ultimaFueGuarda`)                         → rojo el i.
 //  13. la tragada aunque traiga isError                                      → rojo el i.
+//  14. (28/10, verificación de tren-t) una lectura que anduvo apaga la guarda → rojo el j.
+//  15. una escritura no la apaga                                             → rojo el j.

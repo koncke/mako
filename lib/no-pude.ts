@@ -155,6 +155,17 @@ export function esLaReglaDeUnaGuarda(t: { ultimaFueGuarda: boolean; errores: num
   return t.ultimaFueGuarda && t.errores === 0 && t.tragadas === 0;
 }
 
+/**
+ * ¿«La última» sigue siendo una guarda después de esta herramienta? (para `esLaReglaDeUnaGuarda`; la verificación de tren-t,
+ * 28/10/2026). Una guarda la prende; una escritura, un error o una falla tragada la apagan; una LECTURA que anduvo no la cambia:
+ * «falta el monto» + un `buscar_leads` que anduvo + «me falta el monto» abría un ticket por una regla. El costo: después de una
+ * guarda y una lectura, un «no pude» de otra cosa queda como la regla. Lo usan el turno de la app y el doer de WhatsApp.
+ */
+export function laUltimaFueGuarda(antes: boolean, s: { guarda: boolean; tragada: boolean; error: boolean; escribe: boolean }): boolean {
+  if (s.guarda) return true;
+  return s.escribe || s.tragada || s.error ? false : antes;
+}
+
 /** Un hash corto y estable (sin tildes ni mayúsculas): para no dejar un email o un jid en una columna única. */
 export function hashCorto(s: string): string {
   let h = 0;

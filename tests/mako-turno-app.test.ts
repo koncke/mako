@@ -209,7 +209,7 @@ test('la pendiente le dice al modelo que se confirma en la TARJETA, no con un «
   assert.equal(conInstruccionDeTarjeta(lectura), lectura);
   const objeto = { content: 'x', isError: true };
   assert.equal(conInstruccionDeTarjeta(objeto), objeto);
-  assert.match(TURNO, /const out = conInstruccionDeTarjeta\(await \(NOMBRES_DE_SIEMPRE\.has\(name\)/, 'el turno no la aplica a la salida antes del memo');
+  assert.match(TURNO, /const out = conInstruccionDeTarjeta\(await correr\(\)/, 'el turno no la aplica a la salida antes del memo');
 });
 
 // Rotura: sacar la guarda `porId(nombre)?.tipo === 'lectura'` de linksDeUnaAccion → 1 fallo.
