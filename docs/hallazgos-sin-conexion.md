@@ -162,3 +162,43 @@ cazó al menos un test. Los resultados están en C:/dev/revisiones/sin-conexion-
     encuentra: se corre con el worktree como carpeta de trabajo.
 - **Tanda posterior:**
   - lo de que la app gasta los tokens de la suscripción del cliente (00:12:40). Hoy cubre sólo los chats con MaKo.
+
+## La verificación de 90d6410eb (Cerebro, 28/10/2026): 2 medias y 7 bajas, todas arregladas
+
+**Lo que NO era lo que parecía:**
+- **`listarFunnels()` nunca falla.** Si la base no contesta, devuelve `[]`, que se lee igual que «no hay otros funnels»:
+  la copia guardaba sólo el funnel del negocio y no lo decía. Para saber si FALLÓ se usa `leerFunnels()`, que en ese
+  caso devuelve `null`. El `.catch(() => [])` de la copia no atrapaba nada: el error ya venía tragado de adentro.
+- **`.limit(3000)` no levanta el techo de PostgREST** (1000 por pedido, sin avisar). En un negocio con más de 1000 notas,
+  un lead con notas viejas salía «Sin notas guardadas». Ahora las notas se leen por tandas de 200 leads y de a una página,
+  con ORDER BY único (`lib/sin-conexion/notas-copia.ts`), y con un tope que se dice (`notasRecortadas`).
+- **Una renovación a medias pisaba la última copia buena**, justo cuando MaKo se degrada antes de caerse. `armarCopia`
+  dice qué partes no leyó (`huecos`: un funnel, las notas, la lista de funnels), y `conLoDeAntes` (reglas.ts) las toma
+  de la copia anterior. `deAntes` guarda de cuándo es cada parte, y el cascarón lo muestra: «No se pudo actualizar el
+  CRM: lo que ves es de…».
+- **Una escucha de `fetch` con un `return` adentro NO es «no tocar el pedido»**: el navegador despierta al service worker
+  en cada pedido igual. Medido: 0 de 6 navegaciones antes, 6 de 6 después. En el teléfono la escucha no se registra; el
+  test 5c exige `handlers.fetch === undefined`, no sólo «sin respondWith».
+- **Una variable global del service worker no dura**: el navegador lo apaga a los ~30 s sin eventos y la variable vuelve
+  a 0. La regla de «renovar cada 30 min» se cumplía en cada arranque (4 pedidos por carga). La hora va al caché
+  (`MARCA_RENOVADO`).
+- **Limitar los intentos de la clave en el cascarón no protege nada**: quien tiene el perfil copia la IndexedDB y prueba
+  sin el cascarón. Lo único que sirve es la fuerza de la clave: mínimo de 8 caracteres, la lista `CLAVES_COMUNES` y nada
+  repetido.
+- **«Un hash del email más una sal» no se puede**: el cascarón tiene que encontrar la base sin red, así que la sal viviría
+  en el mismo perfil que quien mira. Otra cuenta SÍ ve qué emails lo activaron (`indexedDB.databases()`), pero no puede
+  abrir nada. Lo que sí se tapa es el tiempo: sin base, el cascarón espera lo mismo que con una clave mala (un PBKDF2 de
+  relleno).
+
+**Lo demás:**
+- La copia trae el email de la sesión que la armó (`persona.email`). `guardarCopia` no la cifra si es de otra cuenta: la
+  cookie podía cambiar entre el pedido de la llave y el de la copia.
+- Cada copia vence por su `hecha`, no sólo por `vistoServidor`. Si no, el negocio que la persona perdió no vencía nunca
+  mientras entrara a otro.
+- Después de un fallo, se espera `CADA_MS` (`tocaGuardar`, con la hora del último intento). Antes cada vuelta a la
+  pestaña volvía a pedir la copia entera, la lectura pesada, justo cuando el servidor andaba mal.
+- «Borrar lo guardado» saca también el caché del cascarón. El service worker queda, porque es el de los avisos.
+- «Probar» usa la precarga y no sale dos veces.
+
+**Sin hacer:** la lista de computadoras con «Desconectar» sigue en la T3. Hoy la ruta de la llave nunca contesta
+`desconectada`.
