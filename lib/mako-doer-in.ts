@@ -48,7 +48,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
@@ -611,6 +611,17 @@ async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, p
 
 /** ¿El mensaje CITA uno de MaKo (responder a su mensaje)? Sólo por su id: lo que MaKo mandó queda en `idsEnviados`. Por el autor
  *  no (la verificación de 9cef25dba): en la línea del dueño, la línea es él, y citarlo no le habla a MaKo. */
+/**
+ * ¿Es el ECO de algo que mandó MaKo? (`esEcoDeMaKo`, lib/doer-para-quien.ts): en su línea, todo fromMe; en la del dueño, lo que
+ * está en el anillo; sin poder leer la voz, el anillo. La usan los dos chequeos (al encolar y en `procesarDoer`).
+ * ⚠️ `idsEnviados` lee con getSetting: un error de lectura es «anillo vacío», y en la línea del dueño el eco no se reconoce.
+ */
+async function esEcoDeMaKoAhora(instance: string, jid: string, key: MsgIn['key']): Promise<boolean> {
+  if (!key?.fromMe) return false;
+  const [voz, enviados] = await Promise.all([instanciaVoz({ estricto: true }).catch(() => null), idsEnviados(OWNER_WS, jid)]);
+  return esEcoDeMaKo({ fromMe: true, msgId: key.id ?? '', instancia: instance, voz, enviados });
+}
+
 async function citaAMaKo(data: MsgIn): Promise<boolean> {
   const { id } = citaDe(data.message as Record<string, unknown> | undefined);
   return !!id && (await idsEnviados(OWNER_WS, data.key?.remoteJid ?? '').catch(() => [] as string[])).includes(id);
@@ -789,7 +800,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
 
   // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola). Va ANTES del 👍: MaKo no se
   // reacciona a sí misma (medido el 24/10/2026 en el store de Evolution: 1 de 120 reacciones fue a un mensaje suyo).
-  if (data.key?.fromMe && msgId && (await idsEnviados(OWNER_WS, jid)).includes(msgId)) {
+  if (await esEcoDeMaKoAhora(instance, jid, data.key)) {
     return { engaged: false, skip: 'eco de mi propia respuesta' };
   }
 
@@ -1012,8 +1023,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // fromMe: en la línea de voz (número del dueño) el dueño Y MaKo escriben fromMe.
     // Si el id es de una respuesta nuestra, es un eco → saltar (anti-loop).
     if (key?.fromMe) {
-      const enviados = await idsEnviados(OPS, jid);
-      if (msgId && enviados.includes(msgId)) return { engaged: false, skip: 'eco de mi propia respuesta' };
+      // La MISMA decisión que al encolar (`esEcoDeMaKoAhora`): en la línea de MaKo, un fromMe es ella.
+      if (await esEcoDeMaKoAhora(instance, jid, key)) return { engaged: false, skip: 'eco de mi propia respuesta' };
       // No es un eco: lo escribió una persona desde la línea, que entonces es la del dueño (`esLineaDelDueno`).
       await anotarLineaDelDueno(instance);
     }

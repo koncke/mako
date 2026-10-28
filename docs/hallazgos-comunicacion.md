@@ -241,6 +241,11 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
       ANTES de volver, así que la respuesta en tres partes salía 1/3 y la espera no salía, hasta el corte de undici (300 s): cinco
       minutos de MaKo mudo en el grupo. Ahora todo lo que ya salió anota con tope (`anotarEnviadosConTope`, 3 s) y la anotación
       sigue sola; si el eco llega antes, entra como un mensaje.
+    · ⚠️ **El anillo no alcanza como única defensa del eco** (la verificación de 8c1b7fa4e): el eco llega 1 o 2 s después de
+      mandar, y con la base lenta le gana a la escritura del id, espere o no el que mandó. El webhook le pasa al doer todo
+      mensaje de grupo, también los `fromMe`, así que MaKo le ponía 👍 a su propio mensaje y se contestaba, en bucle. En la línea
+      PROPIA de MaKo no escribe ninguna persona: ahí un `fromMe` es ella, esté o no en el anillo (`esEcoDeMaKo`, una sola función
+      para los dos chequeos, el de encolar y el de `procesarDoer`). En la línea del dueño sigue mandando el anillo.
     · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
       nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
       ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
@@ -288,6 +293,10 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     deja su ticket por la huella aunque el modelo no marque [[no-pude]].
 
 **Sin hacer:**
+- **En la línea del DUEÑO, el anillo es la única defensa del eco, y un error al leerlo lo vacía**: `idsEnviados` lee con
+  `getSetting`, que convierte un error en null (anillo vacío), así que el eco de MaKo entra como el dueño escribiendo y se
+  contesta. En la línea de MaKo no pasa (`esEcoDeMaKo`). Lo cerraría leerlo estricto y, si falla, saltear el `fromMe` en vez de
+  procesarlo (lib/mako-doer-in.ts, `esEcoDeMaKoAhora`; lib/mako-grupo.ts, `idsEnviadosAlGrupo`).
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
   se compara por el `participant` exacto, así que PN↔`@lid`, o el dueño con y sin `participant`, piden «sí, MaKo» aunque sea
   quien la pidió (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); en un lote, la cita a MaKo se pierde (el sintético no

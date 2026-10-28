@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
 import { confirmacionPura } from '../lib/confirmacion-pura';
 import { clasificarIntencion } from '../lib/mako-intencion';
 
@@ -258,4 +258,32 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(doer, /if \(voz !== null\) LINEA_DEL_DUENO\.set\(/);
   assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| voz === instance\) return;/);
   assert.doesNotMatch(doer, /instanciaVoz\(\)\.catch/, 'la voz se lee sin estricto');
+});
+
+test('13. el eco de MaKo en SU línea se saltea aunque su id no esté en el anillo: MaKo no se contesta sola', () => {
+  // La verificación de 8c1b7fa4e: con la base lenta, el id no llegaba al anillo antes del eco (~1-2 s), el webhook se lo pasaba al
+  // doer (no filtra fromMe) y MaKo le ponía 👍 y se contestaba, en bucle. En su línea no escribe ninguna persona.
+  const MAKO = 'mako_superadmin_muylqv8r';
+  const DUENO = 'linea_del_dueno';
+  const base = { msgId: 'ABC', enviados: [] as string[] };
+  // 1. El eco de MaKo en SU línea, sin el id en el anillo: es eco (no se encola, no lleva 👍, no hay turno).
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: MAKO }), true);
+  // 2. En la línea del DUEÑO manda el anillo: sin el id, es el dueño escribiendo; con el id, es eco.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: DUENO, voz: MAKO }), false);
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: DUENO, voz: MAKO, enviados: ['ABC'] }), true);
+  // 3. La voz ilegible: cae al anillo, como antes.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: null }), false);
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: null, enviados: ['ABC'] }), true);
+  // 4. Lo que no es fromMe (una persona del grupo) en la línea de MaKo: sigue igual, nunca es eco.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: MAKO, voz: MAKO, enviados: ['ABC'] }), false);
+  // Sin instancia (una cola de antes del deploy en el cron) no se compara con la voz.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: '', voz: '' }), false);
+  // El doer: UNA función para los dos chequeos, la voz leída estricta, y el eco cortado antes de encolar y del 👍.
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz, enviados \}\);/);
+  assert.equal((doer.match(/await esEcoDeMaKoAhora\(instance, jid, (?:data\.key|key)\)/g) ?? []).length, 2, 'los dos chequeos no usan la misma función');
+  assert.doesNotMatch(doer, /enviados\.includes\(msgId\)|idsEnviados\(OWNER_WS, jid\)\)\.includes\(msgId\)/, 'volvió un chequeo del eco suelto');
+  const buffer = doer.slice(doer.indexOf('async function bufferearYResponder('));
+  const iEco = buffer.indexOf('if (await esEcoDeMaKoAhora(instance, jid, data.key))');
+  assert.ok(iEco > 0 && iEco < buffer.indexOf('await encolar(jid,') && iEco < buffer.indexOf('reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO)'), 'el eco se encola o lleva 👍');
 });
