@@ -892,6 +892,12 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
 
 Medido el 11/10, con 16 GB y 6-7 sesiones abiertas.
 
+- ⚠️ **`lib/editor-video/chat-api.ts` SOLO no entra en 2,5 GB de heap** (28/10: código 134 a los ~100 s, igual con el de main,
+  no lo trajo el frente de los editores). Lo que lo importa (`lib/editor-video/*`, `lib/image-editor/*`, las rutas de IA) se
+  chequea con `--heap=3000`/`3500` y la PC con turno (`node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …`, desde el
+  28/10: la app se cayó con tres tsc a la vez). «Código 1 y cero salida» es el vigía matándolo, no un archivo roto: un
+  archivo solo da la pista en segundos.
+
 - **`next dev` se cae en silencio** —exit 1, sin una línea— al compilar el motor (~100 mil líneas) con
   menos de ~2 GB libres. Y tras una caída la caché queda corrupta: rutas que existen dan 404. Se borra la
   caché y se levanta de nuevo (alcanza con `.next/dev`: `hallazgos-infra.md` → «Un 404 en
