@@ -11,7 +11,7 @@ import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
 import { leerPreguntas } from '@/lib/centro-preguntas-chat-db';
 import {
   agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, completadosSinVer, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado,
-  pedidosDelCompletado, piezaParaLaApi, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat, type YaVistos,
+  pedidosDelCompletado, piezaParaLaApi, sinMarkdown, nodoDeCompletado, type CompletadoDeChat, type LineaChat, type YaVistos,
 } from '@/lib/centro-chats';
 import { ESTADOS, ROTULO, carteroVivo, type EstadoPedido, type TurnoChat } from '@/lib/operaciones-reglas';
 import { cierreComoClaude, listasEnRenglones } from '@/lib/respuesta-como-claude';
@@ -30,7 +30,7 @@ async function completados(): Promise<{ lista: CompletadoDeChat[]; vistos: YaVis
  *  respuesta ENTERA y su página. */
 function resumen(lineas: readonly LineaChat[], t: TurnoChat) {
   const instante = Date.parse(t.at);
-  const [n] = yaEstaDelChat([{ tipo: 'turno', instante, turno: t }]);
+  const n = nodoDeCompletado(t, instante);
   const p = pedidoDelCompletado(lineas, t);
   return {
     termino: new Date(instante).toISOString(),

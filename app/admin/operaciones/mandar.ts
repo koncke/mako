@@ -49,13 +49,8 @@ export function useFirma(sub: string) {
 
   /** `voz`: lo que se manda es la transcripción de una nota de voz (26/10/2026). Va firmado; la PC entrega el texto igual. */
   const mandar = useCallback(async (d: DestinoTrabajo, texto: string, alcance: Alcance, como: ComoCorre = {}, adjuntos: readonly AdjuntoPedido[] = [], voz: VozDelPedido | null = null): Promise<ResultadoMandar> => {
-    if (!clave) return { ok: false, error: 'Crea tu Token para comenzar a chatear' };
-    if (!texto.trim() && !adjuntos.length) return { ok: false, error: 'Escribe algo para mandarlo' };
-    // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
-    const tope = d.tope ?? MAX_TEXTO;
-    if (texto.length > tope) return { ok: false, error: `Acórtalo a ${tope} caracteres para mandarlo` };
-    // Una clave pegada NO SALE (22/10/2026): lo firmado se guarda tal cual en el pedido y en lo que sube el cartero.
-    if (hayClave(texto)) return { ok: false, error: AVISO_CLAVE_EN_EL_CENTRO };
+    const antes = problemaAntesDeMandar(!!clave, texto, adjuntos.length > 0, d.tope);
+    if (antes || !clave) return { ok: false, error: antes ?? 'Crea tu Token para comenzar a chatear' };
     try {
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,
@@ -71,6 +66,20 @@ export function useFirma(sub: string) {
   }, [clave]);
 
   return { clave, crear, mandar };
+}
+
+/**
+ * Lo que se sabe ANTES de subir y de firmar nada (27/10/2026): el mensaje se dibuja en el acto y sale por detrás
+ * (envios-en-curso.ts), así que lo que ya se sabe que no sale se dice en el acto, y la caja no se vacía. null = puede salir.
+ */
+export function problemaAntesDeMandar(conClave: boolean, texto: string, conAdjuntos: boolean, tope: number = MAX_TEXTO): string | null {
+  if (!conClave) return 'Crea tu Token para comenzar a chatear';
+  if (!texto.trim() && !conAdjuntos) return 'Escribe algo para mandarlo';
+  // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
+  if (texto.length > tope) return `Acórtalo a ${tope} caracteres para mandarlo`;
+  // Una clave pegada NO SALE (22/10/2026): lo firmado se guarda tal cual en el pedido y en lo que sube el cartero.
+  if (hayClave(texto)) return AVISO_CLAVE_EN_EL_CENTRO;
+  return null;
 }
 
 /** El texto de un trabajo que sólo lleva adjuntos: vive en lib/centro-caja.ts (la burbuja no lo muestra, como WhatsApp). */

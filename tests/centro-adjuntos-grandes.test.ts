@@ -57,7 +57,7 @@ test('2. el navegador sube directo al storage: tipo por los bytes, su sha256 y u
   assert.match(d, /sha256: hex\(await crypto\.subtle\.digest\('SHA-256', b\)\)/, 'el hash, de lo que sube');
   assert.match(d, /fetch\(subidas\[i\]\.url, \{\n\s*method: 'PUT', body: f,/, 'directo a la URL firmada, sin pasar por Vercel');
   const motor = leer('app/admin/operaciones/useCentro.ts');
-  assert.match(motor, /const s = await subirAdjuntos\(archivos\.map\(\(a\) => a\.file\), grandesDe\(c\)\);/);
+  assert.match(motor, /const grandes = grandesDe\(c\);[\s\S]*const s = await subirAdjuntos\(archivos, grandes\);/);
   assert.match(motor, /const problema = problemaDeAdjuntosCaja\(\[[^\]]*\], grandes\);/, 'los topes de la caja, según el Runner');
   assert.doesNotMatch(motor, /problemaDeSeleccion\(/, 'no los del chat con MaKo');
 });
