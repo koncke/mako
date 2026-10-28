@@ -190,9 +190,13 @@ export function Cuotas(props: PropsBloque) {
         ...(r.antes.fecha !== r.despues.fecha ? { fecha: r.antes.fecha } : {}),
         espera,
       };
-      show(r.recordatorioCortado ? 'Cuota cambiada · el recordatorio arranca de nuevo' : 'Cuota cambiada', () => start(async () => {
+      // El link anulado no vuelve con el Deshacer (revisión de 0b6d5b754): se dice en los dos.
+      const aviso = r.linkAnulado ? 'Cuota cambiada · el link anterior se anuló: manda uno nuevo'
+        : r.recordatorioCortado ? 'Cuota cambiada · el recordatorio arranca de nuevo' : 'Cuota cambiada';
+      show(aviso, () => start(async () => {
         const d = await editarCuotaAction(lead.id, q.id, volver);
         if (!d.ok) show(`No se deshizo: ${d.error}`, undefined, 'bad');
+        else if (r.linkAnulado) show('Monto devuelto · el link quedó anulado: manda uno nuevo');
         ctx.releer();
       }));
       return null;
@@ -408,14 +412,16 @@ function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegidas: Re
     if (inicial < 0) { setErr('El cobro inicial no puede ser negativo.'); return; }
     if (!armado) return;
     if (!armado.ok) { setErr(cada === 'quincena' && armado.error.startsWith('Revisa') ? 'Elige los dos días de cada mes (del 1 al 31).' : armado.error); return; }
-    const { cuotas, vistos } = armado;
+    const { cuotas, aparte, vistos } = armado;
     if (cuotas.length > TOPE_CUOTAS_PLAN) { setErr(`Son ${cuotas.length} con el cobro inicial: hasta ${TOPE_CUOTAS_PLAN} en total.`); return; }
     start(async () => {
-      const r = await guardarCuotasAction(l.id, cuotas, {
+      // Lo que no es del plan (el resto de un cobro por menos) va tal cual, para que no se borre; y el orden de las protegidas lo
+      // decide el server con las protecciones de AHORA (revisión de 0b6d5b754).
+      const r = await guardarCuotasAction(l.id, [...cuotas, ...aparte], {
         cobro_inicial_usd: inicial > 0 ? inicial : null, monto_cuota_usd: cuota,
         // Las columnas del plan tienen sus CHECK (1 a 6, día 1 a 28): lo que no entra va vacío, y las cuotas dicen el resto.
         total_cuotas: cantidad <= 6 ? cantidad : null, dia_de_pago: cada === 'mes' && dia != null && dia <= 28 ? dia : null,
-      }, vistos, ctx.crm?.id ?? null);
+      }, vistos, ctx.crm?.id ?? null, { protegidasPrimero: true });
       if (!r.ok) { setErr(r.error); return; }
       ctx.releer();
       onListo({ texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : `Plan guardado: ${armado.nuevas} cuota${armado.nuevas === 1 ? '' : 's'}${cuotas.length > armado.nuevas ? ' y el cobro inicial' : ''}` });

@@ -452,7 +452,7 @@ export async function reponerMarcasDeCobranza(antes: MarcasDeCobranza, pagoIds: 
  * `crm`: el CRM agregado cuyo plan se toca (mig 0324); sin él, el de la casa. Los números son los de ESE trato.
  */
 export async function reconciliarYGuardar(
-  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number>; crm?: Crm } = {},
+  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number>; crm?: Crm; protegidasPrimero?: boolean } = {},
 ): Promise<PlanDeCuotas> {
   await asegurarLeadDelNegocio(leadId);
   const crm = opts.crm ?? null;
@@ -471,7 +471,7 @@ export async function reconciliarYGuardar(
 export async function guardarCuotasPorId(
   leadId: number,
   cuotas: ReadonlyArray<{ id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null }>,
-  opts: { vistos?: ReadonlySet<number>; crm?: Crm } = {},
+  opts: { vistos?: ReadonlySet<number>; crm?: Crm; protegidasPrimero?: boolean } = {},
 ): Promise<PlanDeCuotas> {
   return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
 }
@@ -635,7 +635,7 @@ export async function editarCuota(
   leadId: number,
   pagoId: number,
   cambio: { monto?: number | null; fecha?: string | null; espera?: 'impaga' | 'cobrada' },
-): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number; recordatorioCortado?: boolean }> {
+): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number; recordatorioCortado?: boolean; linkAnulado?: boolean }> {
   const db = await getTenantDb();
   // `*` y no la lista: `baja_at` (mig 0307) se lee si existe, y una base sin la migración no rompe editar.
   const { data, error } = await db.from('pagos').select('*').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
@@ -677,10 +677,13 @@ export async function editarCuota(
       recordatorioCortado = (await cerrarCorridasDeCuota(ws, pagoId)) > 0;
     } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude cortar su recordatorio:`, e instanceof Error ? e.message : e); }
   }
+  // El link anulado NO VUELVE con el Deshacer (revisión de 0b6d5b754, baja): se dice, en el cambio y en el Deshacer.
+  let linkAnulado = false;
   if (ws != null && prot.includes('link') && cambiaMonto) {
     try {
       const { anularLinksDeCuota } = await import('./cobros');
       await anularLinksDeCuota(ws, pagoId, 'MaKo (cambió el monto de la cuota)');
+      linkAnulado = true;
     } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude anular su link:`, e instanceof Error ? e.message : e); }
   }
   // ⚠️ UN RECORDATORIO CORTADO VUELVE A LA COBRANZA AUNQUE LA FECHA NO CAMBIE (revisión de b335f972c, media): con sólo el
@@ -688,7 +691,7 @@ export async function editarCuota(
   // cuota de US$400 se quedaba sin recordatorio, sin que nadie lo dijera.
   const reabrir = cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]);
   await olvidarAvisosDeCuotas(recordatorioCortado && !reabrir.includes(pagoId) ? [...reabrir, pagoId] : reabrir);
-  return { antes, despues, numero: q.numero, recordatorioCortado };
+  return { antes, despues, numero: q.numero, recordatorioCortado, linkAnulado };
 }
 
 /**

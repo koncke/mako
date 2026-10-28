@@ -1325,3 +1325,22 @@ misma rama (chat «CRM y Chats», `claude4`); tests/pagos-revision-b335.test.ts,
   adaptado: el `await import('./flujo-corridas')` va por ESM, así que el stub de `Module._load` no lo agarra y hace falta un
   hook de `module.register`; y las claves del dedup salen de `keyEspaciado`, que las hashea). Sobre b335f972c aparecen los
   tres defectos; con el arreglo, ninguno.
+
+## La revisión de 0b6d5b754 (27/10/2026): el arreglo del plan libre trajo dos de plata
+
+Segunda revisión adversarial del Cerebro (C:/dev/revisiones/2710-crm-0b6d5b754.md), con las funciones reales del sha. Arreglado
+en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, probados rompiéndolos).
+
+- **El resto de un cobro por menos tomaba un lugar del plan (alta).** `cuotasDelPlanLibre` contaba las cobradas con
+  `esCuotaDelPlan` pero repartía los lugares entre TODAS las impagas: el resto (`resto_de`, lo crea `cobrar_cuota_con_resto`)
+  protegido se quedaba con el lugar de una cuota de US$500, que se borraba y nunca se cobraba (1.100 de deuda en vez de 1.600);
+  sin proteger, el resto se borraba en silencio. Ahora lo que no es del plan va APARTE, con su id, su monto y su fecha: se casa
+  sin cambio y no se borra. Regla: **una regla que separa «del plan» para contar tiene que separarlo también para repartir**;
+  el plan uniforme ya lo hacía (`lugarDe` sólo con `esCuotaDelPlan`).
+- **«Las protegidas primero» con las protecciones de la PANTALLA (media).** La ficha no las relee después de «Mandar link» ni
+  cuando la cobranza arranca un recordatorio, y una lectura fallida da «nada protegido». Al acortar el plan, la protegida quedaba
+  sin lugar y la deuda se contaba dos veces. Ahora el orden lo corrige el server con las protecciones que acaba de leer
+  (`protegidasPrimero` en `reconciliarCuotas`, modo 'porId'): una protegida sin lugar toma el de una sin proteger. Regla: **lo
+  que decide plata se decide con el dato del server, no con el de la pantalla**; la pantalla sólo propone.
+- Baja: cambiar el monto de una cuota con link anula el link, y el Deshacer devuelve el monto pero no el link. Ahora se dice en
+  los dos («el link anterior se anuló: manda uno nuevo»).

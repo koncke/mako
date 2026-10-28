@@ -23,6 +23,12 @@
 //   · el olvido sin la cuota del recordatorio cortado:                        1 fallo («recordatorio cortado»)
 //   · la cobrada sin limpiar la moneda:                                       1 fallo («otra moneda»)
 //   · el Deshacer mandando `fecha` aunque no cambió:                          1 fallo («Deshacer»)
+// Y los de la revisión de 0b6d5b754 (al final del archivo), sobre 13 tests:
+//   · el resto de un cobro por menos tomando un lugar del plan:               1 fallo («el resto…»)
+//   · la ficha sin mandar lo de aparte:                                       1 fallo («el resto…»; la primera vez no falló:
+//     el ayudante del test lo mandaba solo, y se sumó la aserción sobre la ficha)
+//   · sin el orden de las protegidas en el server:                            1 fallo («las protegidas primero…»)
+//   · el link anulado callado:                                                1 fallo («el link que se anuló…»)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -47,15 +53,17 @@ const LEAD: CuotaParaPlanLibre[] = [
 ];
 
 /** Lo que guarda «Guardar el plan» en el libre: la lista de `cuotasDelPlanLibre`, reconciliada POR ID con `vistos`. */
-function guardar(pagos: CuotaParaPlanLibre[], form: { inicial: number; cuota: number; cantidad: number; cada: CadaPlan; dias?: number[] }, protegidas: Record<number, Array<'link' | 'recordatorio'>> = {}) {
+/** `pantalla`: las protecciones que tiene la FICHA (pueden estar viejas); sin ella, las mismas que lee el server. */
+function guardar(pagos: CuotaParaPlanLibre[], form: { inicial: number; cuota: number; cantidad: number; cada: CadaPlan; dias?: number[] }, protegidas: Record<number, Array<'link' | 'recordatorio'>> = {}, pantalla?: Record<number, unknown>) {
   const desde = '2026-10-27';
   const armado = cuotasDelPlanLibre({
-    pagos, protegidas: new Set(Object.keys(protegidas).map(Number)), inicial: form.inicial, cuota: form.cuota, cantidad: form.cantidad, desde,
+    pagos, protegidas: new Set(Object.keys(pantalla ?? protegidas).map(Number)), inicial: form.inicial, cuota: form.cuota, cantidad: form.cantidad, desde,
     fechas: (k) => fechasDelPlan({ desde, cantidad: k, cada: form.cada, dias: form.dias }),
   });
   if (!armado.ok) return { armado, deuda: null, plan: null };
-  const existentes: CuotaExistente[] = pagos.map((q) => ({ id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado, protegida: protegidas[q.id] ?? [] }));
-  const plan = reconciliarCuotas(existentes, armado.cuotas.map((c) => ({ id: c.id, numero: c.numero, monto_usd: c.monto, fecha_esperada: c.fecha })), 'porId', { vistos: new Set(armado.vistos) });
+  const existentes: CuotaExistente[] = pagos.map((q) => ({ id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado, resto_de: q.resto_de ?? null, nacio_cobrada: !!q.nacio_cobrada, protegida: protegidas[q.id] ?? [] }));
+  // Lo que manda la ficha (guardarLibre): la lista del plan, lo de aparte tal cual, y el orden de las protegidas lo decide el server.
+  const plan = reconciliarCuotas(existentes, [...armado.cuotas, ...armado.aparte].map((c) => ({ id: c.id, numero: c.numero, monto_usd: c.monto, fecha_esperada: c.fecha })), 'porId', { vistos: new Set(armado.vistos), protegidasPrimero: true });
   const borradas = new Set(plan.borrar.map((b) => b.id));
   const nuevoMonto = new Map(plan.actualizar.map((a) => [a.id, a.monto_usd]));
   const deuda = existentes.filter((q) => !q.pagado && !borradas.has(q.id)).reduce((s, q) => s + (nuevoMonto.get(q.id) ?? q.monto_usd), 0)
@@ -111,7 +119,7 @@ test('la ficha arma el plan libre con `cuotasDelPlanLibre` y las protegidas que 
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /<ArmarPlan ctx=\{ctx\} protegidas=\{protegidas\} onListo=/);
   assert.match(ui, /const armado = libre \? cuotasDelPlanLibre\(\{/);
-  assert.match(ui, /const \{ cuotas, vistos \} = armado;/, 'la lista y los vistos salen de la misma cuenta');
+  assert.match(ui, /const \{ cuotas, aparte, vistos \} = armado;/, 'la lista y los vistos salen de la misma cuenta');
   assert.doesNotMatch(ui, /\.\.\.\(inicial > 0 \? \[\{ monto: inicial, fecha: plan\.desde \}\] : \[\]\)/, 'volvió la lista armada de cero');
   assert.match(ui, /Ya cobrado: /);
 });
@@ -150,4 +158,57 @@ test('Deshacer: manda sólo lo que cambió (una cobrada sin día del pago no se 
   assert.match(ui, /\.\.\.\(r\.antes\.fecha !== r\.despues\.fecha \? \{ fecha: r\.antes\.fecha \} : \{\}\),/);
   assert.match(ui, /\.\.\.\(r\.antes\.monto !== r\.despues\.monto \? \{ monto: r\.antes\.monto \} : \{\}\),/);
   assert.match(ui, /if \(!d\.ok\) show\(`No se deshizo: \$\{d\.error\}`, undefined, 'bad'\);/, 'el Deshacer falla callado');
+});
+
+// ── La revisión de 0b6d5b754 (Cerebro, 27/10/2026): C:/dev/revisiones/2710-crm-0b6d5b754.md ─────────────────────────────
+
+// El lead de la revisión: el inicial y las cuotas 1 y 2 cobradas, la 3 cobrada por US$400 y su resto de US$100 (la #107, que
+// crea `cobrar_cuota_con_resto`), y las 4 a 6 impagas.
+const CON_RESTO: CuotaParaPlanLibre[] = [
+  { id: 100, numero: 0, monto_usd: 1000, fecha_esperada: '2026-07-10', pagado: true },
+  { id: 101, numero: 1, monto_usd: 500, fecha_esperada: '2026-08-10', pagado: true },
+  { id: 102, numero: 2, monto_usd: 500, fecha_esperada: '2026-09-10', pagado: true },
+  { id: 103, numero: 3, monto_usd: 400, fecha_esperada: '2026-10-10', pagado: true },
+  { id: 104, numero: 4, monto_usd: 500, fecha_esperada: '2026-10-30', pagado: false },
+  { id: 105, numero: 5, monto_usd: 500, fecha_esperada: '2026-11-30', pagado: false },
+  { id: 106, numero: 6, monto_usd: 500, fecha_esperada: '2026-12-30', pagado: false },
+  { id: 107, numero: 7, monto_usd: 100, fecha_esperada: '2026-11-05', pagado: false, resto_de: 103 },
+];
+
+test('el resto de un cobro por menos no toma un lugar del plan: ni se pierde una cuota ni se borra el resto (alta)', () => {
+  const quincena = { inicial: 1000, cuota: 500, cantidad: 6, cada: 'quincena' as CadaPlan, dias: [10, 25] };
+  const conLink = guardar(CON_RESTO, quincena, { 107: ['link'] });
+  assert.equal(conLink.deuda, 1600, 'con un link en el resto, una cuota de US$500 se borraba y nunca se cobraba (era 1100)');
+  assert.ok(!conLink.plan?.borrar.length, 'se borró algo del plan');
+  assert.equal(guardar(CON_RESTO, quincena, { 107: ['recordatorio'] }).deuda, 1600, 'con un recordatorio en el resto');
+  const sinProteger = guardar(CON_RESTO, quincena);
+  assert.equal(sinProteger.deuda, 1600, 'el resto de US$100 se borraba en silencio (era 1500)');
+  assert.equal(guardar(CON_RESTO, { inicial: 1000, cuota: 500, cantidad: 8, cada: 'mes', dias: [10] }, { 107: ['link'] }).deuda, 2600, 'cantidad 8, mes (era 2100)');
+  // La ficha manda lo de aparte tal cual: sin eso, el resto que vio se borraría.
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], \{/, 'la ficha no manda el resto: se borra');
+});
+
+test('las protegidas primero las decide el server con sus protecciones, aunque la ficha las tenga viejas (media)', () => {
+  // La ficha no vio el link de la #6 (se mandó después de abrirla, o la lectura falló: `{}`); el server sí.
+  const LEAD3 = LEAD.slice(0, 7);
+  const viejas = guardar(LEAD3, { inicial: 1000, cuota: 500, cantidad: 4, cada: 'quincena', dias: [10, 25] }, { 16: ['link'] }, {});
+  assert.equal(viejas.deuda, 500, 'acortar el plan dejaba la protegida al lado: US$1.000 de deuda para un plan de US$500');
+  assert.deepEqual(viejas.plan?.borrar.map((b) => b.id).sort(), [14, 15]);
+  // Sin el orden del server, lo de antes (lo que fijaba la revisión).
+  const sinServer = reconciliarCuotas(
+    LEAD3.map((q) => ({ id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado, protegida: q.id === 16 ? ['link' as const] : [] })),
+    [{ id: 14, monto_usd: 500, fecha_esperada: '2026-11-10' }], 'porId', { vistos: new Set([14, 15, 16]) });
+  assert.deepEqual(sinServer.conservar.map((c) => c.id), [16]);
+  // La ficha lo pide, y la acción lo pasa al server.
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /vistos, ctx\.crm\?\.id \?\? null, \{ protegidasPrimero: true \}\);/);
+  assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /\{ vistos, crm: trato, protegidasPrimero: como\?\.protegidasPrimero === true \}/);
+});
+
+test('el link que se anuló al cambiar el monto se dice, y el Deshacer avisa que no vuelve (baja)', () => {
+  const ed = bloque(fuente('lib/pagos.ts'), 'export async function editarCuota(');
+  assert.match(ed, /await anularLinksDeCuota\(ws, pagoId, [^;]*;\n\s*linkAnulado = true;/);
+  assert.match(ed, /return \{ antes, despues, numero: q\.numero, recordatorioCortado, linkAnulado \};/);
+  const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
+  assert.match(ui, /r\.linkAnulado \? 'Cuota cambiada · el link anterior se anuló: manda uno nuevo'/, 'el cambio no dice que el link se anuló');
+  assert.match(ui, /else if \(r\.linkAnulado\) show\('Monto devuelto · el link quedó anulado: manda uno nuevo'\);/, 'el Deshacer cree que deshizo todo');
 });

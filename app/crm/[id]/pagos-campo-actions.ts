@@ -139,7 +139,7 @@ export async function guardarVentaAction(leadId: number, cambio: CambioVenta, op
  * apuntando a ella. `espera`: cómo estaba la cuota en la pantalla («impaga»: la fecha es el vencimiento; «cobrada»: el día
  * del pago). Si cambió en el medio, `editarCuota` tira. Deshacer: llamarla con `antes` y la misma `espera`.
  */
-export async function editarCuotaAction(leadId: number, pagoId: number, cambio: { monto?: number | null; fecha?: string | null; espera?: 'impaga' | 'cobrada' }): Promise<{ ok: true; antes: { monto: number; fecha: string | null }; despues: { monto: number; fecha: string | null }; recordatorioCortado: boolean } | Fallo> {
+export async function editarCuotaAction(leadId: number, pagoId: number, cambio: { monto?: number | null; fecha?: string | null; espera?: 'impaga' | 'cobrada' }): Promise<{ ok: true; antes: { monto: number; fecha: string | null }; despues: { monto: number; fecha: string | null }; recordatorioCortado: boolean; linkAnulado: boolean } | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !idValido(pagoId)) return { ok: false, error: 'Cuota inválida.' };
@@ -155,7 +155,7 @@ export async function editarCuotaAction(leadId: number, pagoId: number, cambio: 
       bust(TAG.pagos, TAG.leads);
       revalidar(leadId, true);
     }
-    return { ok: true, antes, despues, recordatorioCortado: r.recordatorioCortado === true };
+    return { ok: true, antes, despues, recordatorioCortado: r.recordatorioCortado === true, linkAnulado: r.linkAnulado === true };
   } catch (e) {
     return { ok: false, error: mensaje(e) };
   }
@@ -179,6 +179,8 @@ export async function guardarCuotasAction(
   idsVistos?: number[] | null,
   /** El CRM agregado del plan (mig 0324); sin él, la casa. */
   crm: number | null = null,
+  /** El plan libre: las protegidas van primero, con las protecciones que se leen ACÁ (lib/pagos-campo.ts → protegidasPrimero). */
+  como: { protegidasPrimero?: boolean } = {},
 ): Promise<ResultadoCuotas | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
@@ -194,7 +196,7 @@ export async function guardarCuotasAction(
       const id = c?.id;
       const numero = typeof c?.numero === 'number' && Number.isInteger(c.numero) && c.numero >= 0 && c.numero <= 60 ? c.numero : null;
       return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null };
-    }), { vistos, crm: trato });
+    }), { vistos, crm: trato, protegidasPrimero: como?.protegidasPrimero === true });
     if (plan) {
       // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null
       // (las cuotas se habían cargado a mano) fallaba la validación y se descartaba en silencio, así que el

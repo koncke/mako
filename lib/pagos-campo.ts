@@ -366,6 +366,8 @@ export function reconciliarCuotas(
      * pago parcial, una cuota que agregó MaKo— se conserva y se avisa. Sin `vistos`, lo de siempre.
      */
     vistos?: ReadonlySet<number>;
+    /** (sólo en 'porId') El plan libre: las protegidas del plan van PRIMERO, con las protecciones de ACÁ (`protegidasPrimero`). */
+    protegidasPrimero?: boolean;
   } = {},
 ): PlanDeCuotas {
   const out: PlanDeCuotas = { actualizar: [], insertar: [], borrar: [], conservar: [] };
@@ -412,7 +414,7 @@ export function reconciliarCuotas(
   if (modo === 'porId') {
     const porId = new Map(impagas.map((q) => [q.id, q]));
     const pagadasId = new Set(existentes.filter((q) => q.pagado || q.devuelta).map((q) => q.id));
-    for (const d of validas) {
+    for (const d of opts.protegidasPrimero ? protegidasPrimero(impagas, validas, opts.vistos) : validas) {
       const q = d.id != null ? porId.get(d.id) : undefined;
       if (q && libres.has(q.id)) casar(q, d);
       else if (d.id != null && pagadasId.has(d.id)) continue; // una cobrada que vino en la lista: no se toca
@@ -490,6 +492,31 @@ export function reconciliarCuotas(
     usados.add(numero);
     max = Math.max(max, numero);
     out.insertar.push({ numero, monto_usd: d.monto_usd, fecha_esperada: d.fecha_esperada ?? null });
+  }
+  return out;
+}
+
+/**
+ * LAS PROTEGIDAS PRIMERO, CON LAS PROTECCIONES DEL SERVIDOR (revisión de 0b6d5b754, media). El plan libre le pone a cada cuota de
+ * la lista el id de una impaga que ya existe, las protegidas primero (`cuotasDelPlanLibre`), pero con las protecciones que tiene
+ * la PANTALLA: no se releen después de «Mandar link», ni si la cobranza arranca un recordatorio, y una lectura fallida da «nada
+ * protegido». Al acortar el plan, la protegida quedaba sin lugar, no se podía borrar, y la deuda se contaba dos veces (US$1.000
+ * para un plan de US$500). Acá, con lo que se acaba de leer: si una impaga del plan protegida que la pantalla vio quedó sin
+ * lugar, y una SIN proteger tiene uno, se cambian (la sin proteger es la que se borra). No toca el inicial (#0) ni lo que no es
+ * del plan. Pura.
+ */
+export function protegidasPrimero(impagas: readonly CuotaExistente[], deseadas: readonly CuotaDeseada[], vistos?: ReadonlySet<number>): CuotaDeseada[] {
+  const out = deseadas.map((d) => ({ ...d }));
+  const delPlan = impagas.filter((q) => esCuotaDelPlan(q) && q.numero !== 0 && (!vistos || vistos.has(q.id)));
+  const protegida = (q: CuotaExistente) => (q.protegida ?? []).length > 0;
+  const usadas = new Set(out.map((d) => d.id).filter((x): x is number => x != null));
+  const sueltas = delPlan.filter((q) => protegida(q) && !usadas.has(q.id)).sort((a, b) => a.numero - b.numero);
+  // Las que ceden su lugar: las sin proteger que la lista usa, de la ÚLTIMA a la primera (la protegida toma la fecha más tardía).
+  const ceden = out.map((d, i) => ({ d, i, q: delPlan.find((x) => x.id === d.id) })).filter((x) => x.q && !protegida(x.q)).reverse();
+  for (const p of sueltas) {
+    const c = ceden.shift();
+    if (!c) break;
+    out[c.i] = { ...c.d, id: p.id };
   }
   return out;
 }
@@ -927,7 +954,7 @@ export function cuotasDelPlanLibre(p: {
   inicial: number; cuota: number; cantidad: number; desde: string;
   fechas: (n: number) => string[];
 }):
-  | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
+  | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
   | { ok: false; error: string; cobradas: number; inicialCobrado: boolean } {
   const vivas = p.pagos.filter((q) => !noEsDeuda(q));
   const inicialCobrado = vivas.some((q) => q.pagado && q.numero === 0);
@@ -939,8 +966,14 @@ export function cuotasDelPlanLibre(p: {
   const fechas = p.fechas(nuevas);
   if (fechas.length !== nuevas) return { ok: false, cobradas, inicialCobrado, error: 'Revisa el día y la fecha de la primera.' };
   const conInicial = p.inicial > 0 && !inicialCobrado;
-  const impagas = vivas.filter((q) => !q.pagado).sort((a, b) => a.numero - b.numero);
-  const vistos = impagas.map((q) => q.id);
+  const todasImpagas = vivas.filter((q) => !q.pagado).sort((a, b) => a.numero - b.numero);
+  const vistos = todasImpagas.map((q) => q.id);
+  // ⚠️ LO QUE NO ES DEL PLAN NO TOMA LUGAR (revisión de 0b6d5b754, alta): el resto de un cobro por menos (`resto_de`, lo crea
+  // `cobrar_cuota_con_resto`) es deuda aparte, como en el plan uniforme ('slots': `lugarDe` sólo cuenta `esCuotaDelPlan`).
+  // Con lugar, protegido se quedaba con el de una cuota de US$500 y ésa se borraba (nunca se cobraba); sin proteger, se borraba
+  // el resto. Va aparte (`aparte`), con su id, su monto y su fecha tal cual: se casa sin cambio y no se borra.
+  const impagas = todasImpagas.filter((q) => esCuotaDelPlan(q));
+  const aparte = todasImpagas.filter((q) => !esCuotaDelPlan(q)).map((q) => ({ id: q.id, numero: null, monto: Number(q.monto_usd), fecha: q.fecha_esperada }));
   // El inicial impago que existe vuelve a ser el inicial. Sin inicial en el plan nuevo, uno sin proteger se quita (no se
   // convierte en una cuota común llamada «Cobro inicial»); uno protegido toma un lugar, como cualquier protegida.
   const inicialImpago = impagas.find((q) => q.numero === 0) ?? null;
@@ -949,5 +982,5 @@ export function cuotasDelPlanLibre(p: {
   const cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }> = [];
   if (conInicial) cuotas.push({ id: inicialImpago?.id ?? null, numero: 0, monto: p.inicial, fecha: p.desde });
   fechas.forEach((f, i) => cuotas.push({ id: lugares[i]?.id ?? null, numero: null, monto: p.cuota, fecha: f }));
-  return { ok: true, cuotas, vistos, cobradas, inicialCobrado, nuevas };
+  return { ok: true, cuotas, aparte, vistos, cobradas, inicialCobrado, nuevas };
 }
