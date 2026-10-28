@@ -19,6 +19,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Web Push', detalle: 'Los avisos que ya salen por WhatsApp también al teléfono, por persona; y «MaKo te pide confirmar»', estado: 'sigue' },
   { titulo: 'La v2: app nativa con la piel de MaKo', detalle: 'Claro por defecto, título grande, listas agrupadas, barra Today · CRM · Inbox · Plan · More y seis secciones más en More (Dashboard, Ads Manager, Customer Success, Automations, Video, Landing)', estado: 'sigue' },
   { titulo: 'Cualquier teléfono ve /m, con las mismas URLs', detalle: 'Un celular que abre /crm ve la versión del teléfono en esa misma URL (el proxy la sirve); lo que no va al teléfono dice que se usa en la computadora', estado: 'sigue' },
+  { titulo: 'MaKo sin conexión en la computadora', detalle: 'La misma PWA: sin red o con MaKo caído se ve lo guardado (T1, leer el CRM y el Plan); escribir y subir al volver es la T2; el teléfono, la T3', estado: 'sigue' },
   { titulo: 'Medir en un iPhone y un Android de verdad', detalle: 'Voz, push, instalar, teclado y gestos no se pueden probar en un navegador sin pantalla', estado: 'cola' },
 ];
 
@@ -233,5 +234,36 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md — por qué eran 25 y no 6, y las que faltan',
     ],
     revisar: '/m/hoy',
+  },
+  {
+    fecha: '28 oct', hora: '14:10', chat: 'Web Generator: replicar landings', sesion: 'local_1dd40ee7-c2c9-403e-8b3d-ad1dd87b505c', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que la app de escritorio funcione sin conexión',
+    pedido: 'revisa las implementaciones que salieron con la llamada de Teo, por ejemplo lo de que el servidor se caiga y que la app desktop funcione offline y luego cuando se vuelva a tener conexión se carguen las cosas',
+    puntos: [
+      'En la llamada de venta le dijo a Teo «si se llega a caer tenés tu aplicación de desktop, que eso funciona siempre». Hasta hoy, sin servidor no andaba nada.',
+      'Llegó por el Cerebro, con el pedido de diseñar primero y repartir en tres tandas: leer, la cola y el resto.',
+    ],
+  },
+  {
+    fecha: '28 oct', hora: '15:30', chat: 'Web Generator: replicar landings', sesion: 'local_1dd40ee7-c2c9-403e-8b3d-ad1dd87b505c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El CRM y el Plan se ven aunque se corte internet o MaKo no responda',
+    puntos: [
+      'En Perfil › Instalar la app hay una fila nueva, «Sin conexión»: elegís una clave para esta computadora y MaKo guarda una copia del CRM y del Plan cada 10 minutos.',
+      'Si se corta internet o MaKo no responde, la misma dirección abre lo guardado con una cinta arriba: «Sin conexión · lo que ves es lo de las 10:42». Entrás con tu email y esa clave.',
+      'Ves el tablero de cada funnel, la ficha de cada lead con sus últimas notas, y el Plan con Prioridades, Tareas, Proyectos y Recurrentes. Por ahora es para leer: escribir y que se suba al volver es la tanda 2.',
+      'Lo guardado va cifrado, por persona: otra cuenta en la misma computadora no lo abre ni se entera de que existe. Mirando la cuenta de un cliente no se guarda nada.',
+      'Es la app web de siempre, no un programa nuevo que haya que instalar o firmar.',
+    ],
+    archivos: [
+      'docs/diseno-mako-desktop-sin-conexion.md — el diseño entero: por qué la PWA y no Electron, Tauri ni mako-pc, y las tres tandas',
+      'public/sw.js — sin red devuelve el cascarón; nunca guarda una respuesta del servidor',
+      'public/sin-conexion/ — el cascarón (su JS sale de lib/sin-conexion/cascaron.ts)',
+      'lib/sin-conexion/ — el cifrado, la base por persona y la lógica de guardar y abrir',
+      'app/api/sin-conexion/ — la llave de la persona y la copia, con las lecturas del teléfono',
+      'tests/sin-conexion.test.ts — probado rompiéndolo (21 roturas)',
+    ],
+    revisar: '/perfil/instalar',
   },
 ];

@@ -245,6 +245,17 @@ const nextConfig: NextConfig = {
           { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'" },
         ],
       },
+      // El cascarón de MaKo sin conexión (public/sin-conexion/, 28/10/2026): estático e igual para todos. `no-cache` para que el
+      // service worker lo renueve al día (public/sw.js → guardarCascaron); la CSP, la misma que el service worker le pone al
+      // devolverlo sin red: sólo lo propio, sin scripts en línea ni nada de afuera. El bloque global de arriba sigue aplicando.
+      {
+        source: '/sin-conexion/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache' },
+          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'none'" },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
     ];
   },
 };
