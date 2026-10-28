@@ -23,20 +23,33 @@ export const COINCIDENCIAS: ReadonlyArray<{ value: Coincidencia; label: string }
   { value: 'exacta', label: 'Es exactamente' },
 ];
 
+/** Un emoji (🔥, 🎉, ❤): cuenta como una palabra propia. */
+const EMOJI = /\p{Extended_Pictographic}/u;
+const EMOJIS = /\p{Extended_Pictographic}/gu;
+/** Lo que acompaña a un emoji y no cambia cuál es: la variante (U+FE0E/FE0F), el tono de piel y el pegamento de las familias. */
+const ADORNO_DE_EMOJI = /[\u{FE0E}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu;
+
 /**
- * Lo que se compara: minúsculas, sin acentos (la «ñ» queda), y todo lo que no es letra ni número pasa a un espacio
- * (signos, emojis). «¡GUÍA!» y «guia» son lo mismo; «Fiesta 🎉» es «fiesta».
+ * Lo que se compara: minúsculas, sin acentos (la «ñ» queda), signos fuera, y cada EMOJI como una palabra propia
+ * («Fiesta🎉» es «fiesta 🎉»). «¡GUÍA!» y «guia» son lo mismo.
+ * ⚠️ EL EMOJI CUENTA (28/10/2026, la revisión del Cerebro): se tiraba con los signos, y una palabra clave «🔥» quedaba
+ * vacía: se descartaba al guardar y el CRON arrancaba con CUALQUIER comentario. En ManyChat un emoji es una palabra clave.
  */
 export function normalizarComentario(s: string): string {
   return s
     .toLowerCase()
+    .replace(ADORNO_DE_EMOJI, '')
+    .replace(EMOJIS, ' $& ')
     .replace(/ñ/g, '\u0000')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\u0000/g, 'ñ')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/[^\p{L}\p{N}\p{Extended_Pictographic}]+/gu, ' ')
     .trim();
 }
+
+/** El texto ya normalizado, sin sus emojis: «fiesta 🎉» → «fiesta» (para «exacta» con una palabra que no tiene emoji). */
+const sinEmojis = (normalizado: string): string => normalizado.replace(EMOJIS, ' ').replace(/\s+/g, ' ').trim();
 
 /** La lista saneada: sin vacías ni repetidas (por cómo se comparan), con su tope. Se guarda como la escribió la persona. */
 export function sanearPalabras(raw: unknown): string[] {
@@ -63,11 +76,15 @@ export const esCoincidencia = (v: unknown): v is Coincidencia => v === 'contiene
  * («guía» está en «quiero la guía!», no en «guiar»); «exacta», el comentario entero.
  */
 export function comentarioDispara(texto: string | null | undefined, palabras: readonly string[] | null | undefined, modo: Coincidencia | null | undefined = 'contiene'): boolean {
+  // Sin palabras, cualquier comentario (lo de siempre). ⚠️ CON palabras que no se pueden leer, NINGUNO: antes una lista que
+  // quedaba vacía al normalizar caía en «sin palabras» y arrancaba con todos (la revisión del Cerebro, 28/10/2026).
+  if (!(palabras ?? []).length) return true;
   const lista = (palabras ?? []).map(normalizarComentario).filter(Boolean);
-  if (!lista.length) return true;
+  if (!lista.length) return false;
   const t = normalizarComentario(texto ?? '');
   if (!t) return false;
-  if (modo === 'exacta') return lista.includes(t);
+  // «exacta»: el comentario entero; con una palabra SIN emoji, los emojis del comentario no cuentan («Fiesta 🎉» es «fiesta»).
+  if (modo === 'exacta') return lista.some((p) => p === t || (!EMOJI.test(p) && p === sinEmojis(t)));
   const conBordes = ` ${t} `;
   return lista.some((p) => conBordes.includes(` ${p} `));
 }

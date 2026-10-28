@@ -112,6 +112,12 @@ pausada. Con las palabras en el CRON, sin esa condición y «Enviado, mira tus m
 a punta (lectura + las funciones de la app, sin mandar nada) da: arranca con «PruebaFM 🙌», no con «qué lindo video», se
 puede publicar, sale primero la respuesta pública y la privada sigue disponible para el DM del recurso.
 
+**⚠️ El emoji (la revisión del Cerebro, 28/10):** la primera versión tiraba los emojis con los signos, así que una palabra
+clave «🔥» quedaba vacía: se descartaba al guardar y, peor, una lista que quedaba vacía al normalizar caía en «sin palabras»
+y el CRON arrancaba con CUALQUIER comentario. Ahora el emoji es una palabra propia (sin la variante ni el tono de piel), y
+una lista con palabras que no se pueden leer no dispara nunca. **La regla:** un filtro que se queda sin términos al sanear
+falla CERRADO, nunca abre a todos.
+
 **Sin hacer:** «Crear con IA» no las pone (el modelo elige el CRON por su clave `dN`; sumarle palabras es otro campo de la
 salida y tokens contra el techo de Groq), y nada impide poner «Respuesta del formulario contiene» en una automatización de
 comentario (no se cumple nunca); no se probó con un comentario de verdad.

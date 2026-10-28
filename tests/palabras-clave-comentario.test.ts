@@ -14,7 +14,8 @@
 // ROTURAS (28/10/2026, una por vez y restaurada; base 6 / 0): los acentos cuentan → 4 / 2; «contiene» como pedazo de
 // palabra → 5 / 1; sin texto dispara → 4 / 2; `higiene` no las guarda → 4 / 2; el primer CRON las pierde → 5 / 1; la firma
 // no las cuenta → 5 / 1; el evento no las mira → 5 / 1; el webhook no pasa el texto → 5 / 1; `hayQuienEscuche` sin el
-// texto → 5 / 1; la pantalla guarda en cada tecla → 5 / 1.
+// texto → 5 / 1; la pantalla guarda en cada tecla → 5 / 1. (28/10, la revisión del Cerebro) con la versión de antes → 4 / 2;
+// el emoji tirado con los signos → 4 / 2; una lista que no se puede leer dispara con cualquiera → 5 / 1.
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,8 +32,10 @@ const RAIZ = join(__dirname, '..');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n'));
 
-test('cómo se compara: sin mayúsculas, sin acentos, sin signos ni emojis; «contiene» es la palabra entera', () => {
-  assert.equal(normalizarComentario('¡GUÍA, por favor! 🎉'), 'guia por favor');
+test('cómo se compara: sin mayúsculas, sin acentos ni signos, el emoji como palabra; «contiene» es la palabra entera', () => {
+  assert.equal(normalizarComentario('¡GUÍA, por favor! 🎉'), 'guia por favor 🎉', 'el emoji queda, como palabra propia');
+  assert.equal(normalizarComentario('Fiesta🎉🎉'), 'fiesta 🎉 🎉');
+  assert.equal(normalizarComentario('❤️ 👍🏽'), '❤ 👍', 'la variante y el tono de piel no cambian cuál es');
   assert.equal(normalizarComentario('Año'), 'año', 'la ñ no es un acento');
   const PALABRAS = ['fiesta', 'Guía'];
   assert.equal(comentarioDispara('Quiero la GUIA!!', PALABRAS), true);
@@ -47,10 +50,21 @@ test('cómo se compara: sin mayúsculas, sin acentos, sin signos ni emojis; «co
   assert.equal(comentarioDispara(null, null), true);
   assert.equal(comentarioDispara(null, PALABRAS), false);
   assert.equal(comentarioDispara('🎉🎉', PALABRAS), false);
+  // ⚠️ EL EMOJI ES UNA PALABRA CLAVE (la revisión del Cerebro, 28/10): «🔥» se tiraba y el CRON arrancaba con CUALQUIERA.
+  assert.equal(comentarioDispara('me encanta!! 🔥🔥', ['🔥']), true);
+  assert.equal(comentarioDispara('qué lindo', ['🔥']), false, 'una palabra «🔥» no arranca con cualquier comentario');
+  assert.equal(comentarioDispara('❤', ['❤️']), true, 'con o sin la variante');
+  assert.equal(comentarioDispara('🔥', ['🔥'], 'exacta'), true);
+  assert.equal(comentarioDispara('Fiesta 🎉', ['fiesta'], 'exacta'), true, 'con una palabra sin emoji, los emojis del comentario no cuentan');
+  assert.equal(comentarioDispara('fiesta', ['fiesta 🎉'], 'exacta'), false, 'con una palabra CON emoji, sí');
+  // Y una lista con palabras que no se pueden leer no dispara NUNCA (antes caía en «sin palabras»: cualquiera).
+  assert.equal(comentarioDispara('lo que sea', ['!!', '¿?']), false);
 });
 
 test('la lista: sin vacías ni repetidas (por cómo se comparan), con tope; y lo que dice la tarjeta', () => {
   assert.deepEqual(sanearPalabras(['  fiesta ', 'FIESTA', 'Guía', 'guia', '', '!!', 3, 'dos   palabras']), ['fiesta', 'Guía', 'dos palabras']);
+  assert.deepEqual(sanearPalabras(['🔥', '🔥', '❤️', '❤']), ['🔥', '❤️'], 'un emoji se guarda (sin repetirse)');
+  assert.deepEqual(palabrasDeTexto('🔥, guía'), ['🔥', 'guía']);
   assert.equal(sanearPalabras(Array.from({ length: 40 }, (_, i) => `p${i}`)).length, TOPE_PALABRAS);
   assert.deepEqual(palabrasDeTexto('fiesta, guía,  , FIESTA'), ['fiesta', 'guía']);
   assert.equal(textoDePalabras(['fiesta', 'guía'], 'contiene'), 'con «fiesta» o «guía»');
