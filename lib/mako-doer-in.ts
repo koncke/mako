@@ -59,6 +59,7 @@ import { conElNegocio } from '@/lib/nucleo-grupo';
 import { bloqueDelEquipo, CLAVE_EQUIPO_EN_EL_GRUPO, delEquipo, respuestaAlEquipo, textoCitado, type DelEquipo } from '@/lib/doer-equipo';
 import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
 import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
+import { audioCitadoDe, conElAudioCitado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { linksConWs } from '@/lib/links-con-ws';
@@ -1003,6 +1004,10 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
         if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido); continue; }
         t = oido.texto;
       }
+      // La nota de voz que CITA (Leandro, 28/10/2026): con lo que dice; si no se pudo, como un audio que no se escuchó.
+      const citado = await escucharElAudioCitado(instance, jid, p);
+      if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
+      else if (citado && !('texto' in citado)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, citado); continue; }
       // El ARCHIVO gana sobre el texto suelto del mensaje: `textoDeArchivo` ya mete
       // adentro el pedido («mako, cargá esto») junto al contenido, así que usar `t` acá
       // perdería el archivo — que es justo lo que pasaba.
@@ -1120,6 +1125,27 @@ async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<{ texto
   try {
     return { texto: (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)', pii: true, notaDeVozDelGrupo: true })).trim() };
   } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return { fallo: e }; }
+}
+
+/**
+ * La nota de voz que el mensaje CITA (Leandro, 28/10/2026, lib/audio-citado.ts): se baja por el id de la cita, de la misma línea
+ * (no se sabe si la mandó la línea: se prueba como de otro y como propia), y se transcribe por la vía de la nota de voz del
+ * grupo. null si no cita ninguna; `fallo`/`sinAudio` como `transcribirDeMensaje`.
+ */
+export async function escucharElAudioCitado(instance: string, jid: string, m: MsgIn): Promise<{ texto: string; segundos: number | null } | { fallo: unknown } | { sinAudio: true } | null> {
+  const c = audioCitadoDe(m as never);
+  if (!c) return null;
+  let b64 = c.base64;
+  let mime = c.mime;
+  for (const fromMe of [false, true]) {
+    if (b64) break;
+    const media = await fetchMediaBase64EnInstancia(instance, jid, c.id, fromMe).catch(() => null);
+    if (media) { b64 = media.base64; mime = media.mimetype?.startsWith('audio/') ? media.mimetype : mime; }
+  }
+  if (!b64) return { sinAudio: true };
+  try {
+    return { texto: (await transcribirAudio(b64, mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir la nota de voz citada', pii: true, notaDeVozDelGrupo: true })).trim(), segundos: c.segundos };
+  } catch (e) { console.error('[mako-doer-in] STT citado:', e instanceof Error ? e.message : String(e)); return { fallo: e }; }
 }
 
 /** El audio de un lote que no se escuchó: el aviso (una vez por lote) y su ticket (`avisarAudioSinEscuchar`), o el «no me deja
@@ -1242,6 +1268,15 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };
       }
+    }
+
+    // ── LA NOTA DE VOZ CITADA (Leandro, 28/10/2026, lib/audio-citado.ts) ─────────────────────────────────────────────────
+    // «No me respondiste lo de este audio», citando su audio: se escucha y entra al turno con lo que dice. Si de verdad no se
+    // pudo, lo dice MaKo con su ticket (`avisarAudioSinEscuchar`): nunca «no puedo escuchar audios».
+    const citado = await escucharElAudioCitado(instance, jid, data);
+    if (citado && 'texto' in citado && citado.texto) texto = conElAudioCitado(texto, citado.texto, citado.segundos);
+    else if (citado && !('texto' in citado)) {
+      return { engaged: true, reply: await avisarAudioSinEscuchar(wsData, jid, dondeDelGrupo('(nota de voz citada)'), 'fallo' in citado ? citado.fallo : new Error('WhatsApp no dejó bajar la nota de voz citada')) };
     }
 
     // ── LA RESPUESTA A «¿QUIERES QUE TE AYUDE?» / «¿LEVANTO UN TICKET?» (25/10/2026, lib/doer-ayuda.ts) ──────────────
@@ -2754,6 +2789,9 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
               if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido); continue; }
               t = oido.texto;
             }
+            const citado = await escucharElAudioCitado(instancia, jid, p);
+            if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
+            else if (citado && !('texto' in citado)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, citado); continue; }
             t = conLaMarcaDelAdjunto(p, t);
             if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instancia, p, t), payload: p });
           }

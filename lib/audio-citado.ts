@@ -1,0 +1,41 @@
+// =============================================================================
+// audio-citado — la nota de voz que alguien CITA en el grupo (28/10/2026, Leandro, ws10)
+// =============================================================================
+// Leandro contestó citando su audio de 1:34 («No me respondiste lo de este audio») y MaKo le dijo «en este mensaje no puedo
+// escuchar audios ni tengo la transcripción del tuyo. Mándame el texto exacto». La cita trae el audio en
+// `contextInfo.quotedMessage.audioMessage` (94 s), pero el turno sólo transcribía el audio del mensaje NUEVO: el lote lo guardó
+// con `tiene_audio=false`. Ahora el audio citado se baja (por el id de la cita), se transcribe por la vía de la nota de voz del
+// grupo (Groq, `notaDeVozDelGrupo`) y entra al turno con su texto.
+// =============================================================================
+
+export type AudioCitado = { id: string; mime: string; segundos: number | null; base64: string | null; participante: string | null };
+
+type Ctx = { stanzaId?: unknown; participant?: unknown; quotedMessage?: Record<string, unknown> };
+
+/** La nota de voz citada de un mensaje de WhatsApp, o null. La cita viene en el mensaje o (Evolution v2) en el nivel de arriba. */
+export function audioCitadoDe(m: { message?: Record<string, unknown> | null; contextInfo?: unknown } | null | undefined): AudioCitado | null {
+  const msg = (m?.message ?? {}) as Record<string, unknown>;
+  const candidatos: Array<Ctx | undefined> = [
+    (msg.extendedTextMessage as { contextInfo?: Ctx } | undefined)?.contextInfo,
+    msg.contextInfo as Ctx | undefined,
+    m?.contextInfo as Ctx | undefined,
+    ...['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage'].map((k) => (msg[k] as { contextInfo?: Ctx } | undefined)?.contextInfo),
+  ];
+  for (const c of candidatos) {
+    const q = c?.quotedMessage;
+    const a = (q?.audioMessage ?? q?.pttMessage) as { mimetype?: string; seconds?: number; base64?: string } | undefined;
+    if (!a || typeof c?.stanzaId !== 'string' || !c.stanzaId) continue;
+    return {
+      id: c.stanzaId, mime: a.mimetype || 'audio/ogg', segundos: Number.isFinite(Number(a.seconds)) ? Number(a.seconds) : null,
+      base64: typeof a.base64 === 'string' && a.base64 ? a.base64 : null,
+      participante: typeof c.participant === 'string' && c.participant ? c.participant : null,
+    };
+  }
+  return null;
+}
+
+/** El texto del mensaje con lo que dice la nota de voz citada, para el turno. */
+export function conElAudioCitado(texto: string, transcripcion: string, segundos: number | null): string {
+  const dur = segundos ? ` de ${segundos} s` : '';
+  return `${texto.trim()}\n\n(cita una nota de voz${dur}; la escuchaste y dice: «${transcripcion.trim()}»)`.trim();
+}

@@ -7,7 +7,7 @@
 // estaba EN CURSO, y el equipo tuvo que aclarar «es lo que estamos construyendo ahora mismo». Con el pedido entendido, la regla
 // de «no existe» llevaba a un [[no-existe]] y a un ticket DUPLICADO.
 //
-// El bloque va en el system del grupo; la marca `[[ya-pedido: #N]]` (NUCLEO_GRUPO, regla 5) suma el mensaje a ESE ticket en vez
+// El bloque va en el system del grupo; la marca `[[ya-pedido: #N]]` (NUCLEO_GRUPO, regla 6) suma el mensaje a ESE ticket en vez
 // de abrir otro. ⚠️ Una marca con un número que no es de un pedido abierto de ESTE negocio se borra igual: nunca le llega al
 // cliente, y nunca se escribe en el ticket de otro.
 // =============================================================================

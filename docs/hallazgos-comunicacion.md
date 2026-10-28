@@ -11711,3 +11711,15 @@ descartaba sin anotarlo. Nada distinguía una respuesta al equipo de un mensaje 
 **Sin hacer:** dentro de la ventana, TODO lo que la persona escriba sin nombrar a MaKo se toma por respuesta al equipo hasta que
 MaKo hable (si contesta en tres mensajes, bien; si después le pide algo a MaKo sin nombrarla, no le contesta). Un audio sin
 citar que le contesta al equipo va a MaKo.
+
+## La nota de voz CITADA no se escuchaba (28/10/2026, claude4, Leandro, ws10, en producción)
+
+**El síntoma:** Leandro contestó citando su audio de 1:34 («No me respondiste lo de este audio») y MaKo le dijo «en este mensaje
+no puedo escuchar audios ni tengo la transcripción del tuyo. Mándame el texto exacto».
+**La causa (el diagnóstico del Cerebro, con datos de producción):** el audio original entró antes del deploy de tren-v y lo
+procesó el código viejo (Gemini, timeout). La cita trae el audio en `contextInfo.quotedMessage.audioMessage` (94 s) y el lote
+la guardó con `tiene_audio=false`: el turno sólo transcribía el audio del mensaje NUEVO.
+**La regla (lib/audio-citado.ts; `escucharElAudioCitado`, lib/mako-doer-in.ts):** la nota de voz citada se baja por el id de la
+cita (de la misma línea; se prueba como de otro y como propia) y se escucha por la vía de la nota de voz del grupo (Groq), en el
+mensaje suelto y en los dos lotes; su texto entra al turno. Si de verdad no se puede, el aviso honesto con su ticket
+(`avisarAudioSinEscuchar`). NUCLEO_GRUPO dice que MaKo escucha notas de voz: nunca «no puedo escuchar audios».
