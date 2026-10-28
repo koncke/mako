@@ -95,6 +95,8 @@ const A_TERCEROS = [
   'sacar_etiqueta_lead',
   // Empezar de nuevo una secuencia (23/10/2026): le vuelve a disparar el primer envío, como inscribir.
   'empezar_de_nuevo_lead_secuencia',
+  // La difusión desde el CRM (28/10/2026): le escribe a muchos leads a la vez.
+  'difundir_a_leads',
   // Dar acceso a un curso por la API (23/10/2026): le manda la invitación al alumno, como invitar_cliente_curso_cs.
   'dar_acceso_curso',
 ];

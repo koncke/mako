@@ -27,6 +27,36 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## La difusión desde el CRM: tres cosas del motor que hacían que «un flujo con tres tarjetas» no sirviera (28/10/2026, Leila)
+
+**El pedido** (Martín, por Leila): elegir una columna o leads sueltos en el CRM y «mandar mensaje de difusión» por
+WhatsApp, email o Instagram, con la tarjeta ahí mismo y el goteo y el tope por día «por una cuestión de baneo». La regla
+del Cerebro: una difusión ES una automatización de una sola vez (lib/difusion.ts, la hoja en
+app/automations/difusion/HojaDifusion.tsx, la API `difundir_a_leads`). Lo que mapeó el agente de lectura y cambió el diseño:
+
+- **El WhatsApp oficial hoy NO manda.** Con la plantilla aprobada, el motor igual escribe `fallo` con `SIN_CANAL_OFICIAL`
+  («Chatwoot no existe más…», lib/nutricion.ts) y lo reintenta cada 4 h; no hay un emisor de la API de Meta en `lib/`. La
+  difusión sale sólo por QR (`proveedor: 'no_oficial'`), y sin una línea QR conectada el canal no se ofrece.
+- **En un flujo LINEAL, el canal que falta cierra la inscripción entera.** Sin teléfono, sin email o dado de baja
+  (`leads.email_opt_out`), sin conversación de Instagram o con la ventana de 24 h cerrada: los tres son fallos terminales;
+  con un solo cursor la inscripción queda `cancelada` (lib/nutricion-hilos.ts) y ya no se puede volver a inscribir. «Un
+  WhatsApp, después un email» no le mandaba el email a quien no tenía teléfono. Por eso la difusión es la tarjeta de inicio
+  con UN HILO POR CANAL (el patrón de «Un Lead Agendó Llamada»), cada uno con su CONDITION (`tiene_telefono`, `tiene_email`
+  + no `email_baja`, `tiene_instagram`): sin el canal, termina ESE hilo.
+- **La inscripción en lote se había dejado afuera a propósito** (app/crm/AccionesLoteLeads.tsx: «necesita su pantalla con el
+  ritmo a la vista», la línea QR se protege sólo con el ritmo). La hoja ES esa pantalla: el goteo y el tope del día de esta
+  automatización (`automatizacion.config:<id>`, «Todos los canales»: cada canal cuenta lo suyo) se ven y se confirman antes.
+
+**Trampas para quien siga:** el CRON «A mano» no tiene cohorte (sólo entran los que se inscriben a mano); la columna entera
+se resuelve con `leadsDeCohorte('etapa_actual', …, { sinVentana: true })`, que lee SÓLO `estado_lead = 'abierto'` (una
+columna de cerrados o perdidos vuelve vacía); el tick de cada minuto mira lo vencido hace menos de 10 min (lo frenado por el
+goteo pasa a su turno). A la hoja no le viajan teléfonos ni emails: sólo por qué canal le llega a cada uno (`motivosDe`).
+tests/difusion.test.ts.
+
+**Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);
+no se probó mandando de verdad (sería escribirle a leads reales); una difusión cuenta como automatización activa para el
+tope del plan Esencial (3) hasta que se pause.
+
 ## Un tope de Meta CERRABA el hilo: el mensaje se perdía en vez de esperar (28/10/2026, Leandro)
 
 **El pedido** (Leandro, ws10, por audio): hace ~500 respuestas a comentarios y ~1.000 DMs por mes; ¿hay un límite? Y «que

@@ -103,6 +103,30 @@ const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: t
 const num = (input: Record<string, unknown>, k: string): number => Number(input[k]);
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
 
+/**
+ * LO QUE PIDIÓ LA DIFUSIÓN (`difundir_a_leads`), saneado: la columna o los ids, los canales, el mismo texto para cada canal
+ * (el email con su asunto) y el goteo (por defecto, el de la hoja). Un dato que no se entiende vuelve como error.
+ */
+function pedidoDeDifusion(input: Record<string, unknown>):
+  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: { minutos: number; dia: number }; texto: string }
+  | { error: string } {
+  const etapa = str(input, 'etapa');
+  const ids = (Array.isArray(input.leadIds) ? input.leadIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  if (!etapa && !ids.length) return { error: 'Falta a quién: la etapa (la columna del CRM) o los leadIds.' };
+  const f = num(input, 'funnelId');
+  const seleccion = etapa ? { etapa, funnelId: Number.isInteger(f) && f > 0 ? f : null } : { leadIds: ids };
+  const canales = [...new Set((Array.isArray(input.canales) ? input.canales : []).filter((c): c is 'whatsapp' | 'email' | 'instagram' => c === 'whatsapp' || c === 'email' || c === 'instagram'))];
+  const texto = str(input, 'mensaje');
+  const asunto = str(input, 'asunto');
+  const mensajes = {
+    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: texto } } : {}),
+    ...(canales.includes('email') ? { email: { asunto, cuerpo: texto } } : {}),
+    ...(canales.includes('instagram') ? { instagram: { cuerpo: texto } } : {}),
+  };
+  const goteo = { minutos: input.minutos == null ? 3 : num(input, 'minutos'), dia: input.porDia == null ? 40 : num(input, 'porDia') };
+  return { seleccion, canales, mensajes, goteo, texto };
+}
+
 // Hasta el 17/09 acá había un `avisoTope()` que contaba las filas reales y avisaba
 // «los conteos quedan CORTOS» porque getSecuenciasConStats, getSettingData y
 // planificarInscripciones/Envios leían sin paginar. Las cuatro paginan ahora, así
@@ -1035,6 +1059,42 @@ export const RUNNERS: Runners = {
         const msg = e instanceof Error ? e.message : String(e);
         console.error('[api-mako chatbot] empezar_de_nuevo_lead_secuencia:', msg);
         return { ok: false, resumen: `No se pudo hacer empezar de nuevo al lead #${leadId} en la secuencia #${secuenciaId} (${msg}).` };
+      }
+    },
+  },
+
+  // LA DIFUSIÓN (28/10/2026): la MISMA que la hoja del CRM (lib/difusion.ts). Preparar lee a quién le llega por cada canal y lo
+  // dice con el ritmo (no escribe); confirmar vuelve a leer y crea la automatización.
+  difundir_a_leads: {
+    preparar: async (input, ctx) => {
+      const pedido = pedidoDeDifusion(input);
+      if ('error' in pedido) return { error: pedido.error };
+      const { prepararDifusion } = await import('@/lib/difusion');
+      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracion } = await import('@/lib/difusion-reglas');
+      const v = await prepararDifusion(ctx.ws, pedido.seleccion, pedido.canales);
+      if (pedido.canales.includes('whatsapp') && !v.whatsappQr) return { error: 'No hay un WhatsApp por QR conectado: el oficial hoy no manda. Sácalo de los canales o conecta uno.' };
+      const falta = problemaDeDifusion({ canales: pedido.canales, mensajes: pedido.mensajes, alcance: v.alcance });
+      if (falta) return { error: `${falta}.` };
+      const porCanal = v.alcance.porCanal.map((c) => `${NOMBRE_CANAL_DIFUSION[c.canal]} ${c.llegan}${c.afuera.length ? ` (afuera: ${c.afuera.map((a) => `${a.cuantos} ${TEXTO_AFUERA[a.motivo]}`).join(', ')})` : ''}`);
+      const de = v.etapa ? `de «${v.etapa}»` : 'elegidos';
+      return {
+        payload: { ...input },
+        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal (${textoDeDuracion(Math.max(0, ...v.alcance.porCanal.map((c) => c.llegan)), pedido.goteo)}).${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const pedido = pedidoDeDifusion(payload);
+      if ('error' in pedido) return { ok: false, resumen: pedido.error };
+      try {
+        const { crearDifusion } = await import('@/lib/difusion');
+        const r = await crearDifusion(ctx.ws, { seleccion: pedido.seleccion, canales: pedido.canales, mensajes: pedido.mensajes, goteo: pedido.goteo, autor: ctx.actor?.trim() || 'MaKo' });
+        return r.ok
+          ? { ok: true, resumen: `Listo: «${r.nombre}» le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}, con su goteo. Está en Automations.`, datos: { secuenciaId: r.secuenciaId, leads: r.leads } }
+          : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] difundir_a_leads:', msg);
+        return { ok: false, resumen: `No se pudo mandar la difusión (${msg}).` };
       }
     },
   },
