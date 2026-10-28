@@ -742,10 +742,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
       // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
+      const correr = async () => (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input));
       // Lo que DIBUJE (`ctx.aDibujar`) queda anotado con el nombre de esta herramienta: con una pregunta, lo de una que
       // escribe se retira. Las herramientas del turno corren de a una (chatClaudeTools las espera en orden).
       herramientaActual = name;
-      const correr = async () => (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input));
       // Una herramienta que REVIENTA es una falla de verdad (la verificación de tren-t): el loop la atrapa sin pasar por
       // `errorParaTicket`, y la guarda de antes quedaba como «la última». Se cuenta como tragada.
       const out = conInstruccionDeTarjeta(await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadas++; throw e; }));
