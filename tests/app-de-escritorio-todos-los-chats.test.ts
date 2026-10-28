@@ -59,6 +59,7 @@ const EXENTAS: Readonly<Record<string, string>> = {
   'app/tickets/soporte/PiezasSoporte.tsx': 'la Ticketera (Soporte): le escribe al equipo de MaKo, no a su IA (23/10)',
   'app/admin/operaciones/Conversacion.tsx': 'el Ops Center del super admin: le escribe a los chats de Claude Code de la PC de Martín por el cartero, no a la IA de MaKo',
   'app/m/operaciones/ChatsMovil.tsx': 'lo mismo, en el teléfono del super admin',
+  'app/admin/operaciones/CajaChatNuevo.tsx': 'el chat nuevo del Ops Center (28/10): su primer mensaje abre un chat de Claude Code en la PC de Martín, no le escribe a la IA de MaKo',
   'app/m/offer/ComposerOfferM.tsx': 'el teléfono: ahí no se instala, así que nunca bloquea (`en-la-computadora`)',
 };
 

@@ -68,9 +68,13 @@ test('el nombre de un chat nuevo va por una LISTA BLANCA, igual en MaKo y en la 
   // Y adentro del texto firmado, los dos lo leen igual.
   const AHORA = Date.now();
   const base = { id: '6b2b7d32-9a51-4e43-9a43-2f3a4b5c6d7e', texto: 'Hola', destino: DESTINO_NUEVO, cuenta: 'claude2', titulo: 'CRM', alcance: 'solo_esto' as const };
+  // Desde el cartero 1.22.0 (28/10/2026) un chat nuevo LLEVA adjuntos (los baja la PC antes de abrirlo): con las mismas reglas
+  // que los de cualquier trabajo, en los dos lados.
+  const adjunto = { ref: '11111111-1111-4111-8111-111111111111', nombre: 'captura.png', mime: 'image/png', bytes: 10, sha256: 'a'.repeat(64) };
   const variantes: Array<[string, Record<string, unknown>]> = [
     ['el bueno', {}], ['sin cuenta', { cuenta: null }], ['con comillas', { titulo: 'CRM"' }], ['sin nombre', { titulo: null }],
-    ['con adjuntos', { adjuntos: [] }], ['otro destino', { destino: 'abrir' }],
+    ['con adjuntos', { adjuntos: [adjunto] }], ['con la lista de adjuntos vacía', { adjuntos: [] }], ['con un adjunto sin su hash', { adjuntos: [{ ...adjunto, sha256: 'x' }] }],
+    ['otro destino', { destino: 'abrir' }],
   ];
   let buenos = 0;
   for (const [nombre, cambio] of variantes) {
@@ -81,7 +85,7 @@ test('el nombre de un chat nuevo va por una LISTA BLANCA, igual en MaKo y en la 
     if (!a.ok) assert.equal(b.motivo, a.motivo, `${nombre}: motivos distintos`);
     else buenos++;
   }
-  assert.equal(buenos, 1);
+  assert.equal(buenos, 2, 'el bueno, y el bueno con adjuntos');
 });
 
 test('el comando y el .cmd se arman SÓLO con valores validados, y el .cmd no lleva texto de nadie', async () => {

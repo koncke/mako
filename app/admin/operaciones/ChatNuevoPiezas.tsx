@@ -4,20 +4,25 @@
 // «Nuevo chat» sin modal: lo que se DIBUJA (17/10/2026; el motor está en ChatNuevo.tsx)
 // =============================================================================
 // Martín (22:50): «Nuevo chat jamás debe abrir un modal... Que simplemente abra el chat y que el usuario al comenzar a escribir la
-// IA vaya entendiendo dónde lo debe colocar». Acá van las piezas de pantalla —la cabecera, el chat vacío o con lo que MaKo decidió,
-// y la caja—, SIN el motor (`useChatNuevo`, que firma y habla con el servidor): así se dibujan en un test y las comparten la
-// computadora (ChatNuevoCentro) y la hoja del teléfono (ChatsMovil.tsx → HojaChatNuevo).
+// IA vaya entendiendo dónde lo debe colocar». Acá van las piezas de pantalla —la cabecera y el chat vacío o con lo que MaKo
+// decidió—, SIN el motor (`useChatNuevo`, que firma y habla con el servidor): así se dibujan en un test y las comparten la
+// computadora (ChatNuevoCentro) y la hoja del teléfono (ChatsMovil.tsx → HojaChatNuevo). La caja, la única de toda la app, está
+// en CajaChatNuevo.tsx (28/10/2026: trae CSS).
 
-import type { RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { IconoChat } from '@/app/m/mako/iconos';
 import { frasePorDonde, type DecisionChatNuevo } from '@/lib/centro-chat-nuevo';
 import { CirculoNuevo } from './NuevoChat';
 import { Muneco } from './Muneco';
-import { BotonMandar } from './Microfono';
-import { BarraGrabacion } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { useNotaQueSeManda, type GrabacionLista } from '@/app/_chat/nota-que-se-manda';
+import type { GrabacionLista } from '@/app/_chat/nota-que-se-manda';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
-import { BotonEmojis } from './Emojis';
+// Sólo el TIPO: AdjuntosCaja.tsx trae su CSS, y estas piezas se dibujan en un test (en node un `.css` no carga). La caja, que
+// sí lo trae, está en CajaChatNuevo.tsx.
+import type { AdjuntosDeCaja } from './AdjuntosCaja';
+import { TEXTO_SOLO_ADJUNTOS, etiquetaDoc } from '@/lib/centro-caja';
+import type { AdjuntoCaja } from './useCentro';
+import { Visor } from './Visor';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** `pasando`: el primer mensaje es una nota de voz y se está pasando a texto (con el texto, MaKo decide). */
@@ -33,6 +38,10 @@ export type ChatNuevo = {
   nota: { url: string; secs: number } | null;
   /** Por qué la nota no se entendió (se vuelve a la caja). */
   errorNota: string | null;
+  /** Lo adjuntado en la caja (ChatNuevo.tsx: el estado es del motor del Centro, useCentro.ts). */
+  adjuntos: AdjuntosDeCaja;
+  /** Los archivos del primer mensaje, ya mandado: se ven en su burbuja. */
+  archivos: readonly AdjuntoCaja[];
   fase: FaseChatNuevo;
   decision: DecisionChatNuevo | null;
   /** El nombre que Martín está cambiando, si lo está cambiando. */
@@ -69,7 +78,7 @@ export function CriaturaChatNuevo({ n, size = 34 }: { n: ChatNuevo; size?: numbe
 
 /** Lo que se ve en el chat: el vacío con su invitación, o el mensaje y lo que MaKo decidió con él. */
 export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
-  const { enviado, decision, fase, editando, nota } = n;
+  const { enviado, decision, fase, editando, nota, archivos } = n;
   if (!enviado && !nota) {
     return (
       <div className="co-portada">
@@ -82,12 +91,16 @@ export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
   return (
     <>
       {/* La nota de voz se escucha ya, y debajo, cuando llega, lo que se entendió (el globo de voz del hilo, HiloMako). */}
-      <div className="co-yo">{nota ? (
-        <div className="co-burbuja ch-voz">
-          <AudioPlay src={nota.url} duracion={nota.secs} color="var(--primary)" style={{ width: 240 }} />
-          {enviado && <span className="ch-voz__texto">{enviado}</span>}
-        </div>
-      ) : <div className="co-burbuja">{enviado}</div>}</div>
+      {/* Lo adjuntado va arriba, en miniaturas; sólo con archivos, sin epígrafe (como en el hilo: TEXTO_SOLO_ADJUNTOS no se dibuja). */}
+      <div className="co-yo">
+        <ArchivosDelMensaje archivos={archivos} />
+        {nota ? (
+          <div className="co-burbuja ch-voz">
+            <AudioPlay src={nota.url} duracion={nota.secs} color="var(--primary)" style={{ width: 240 }} />
+            {enviado && <span className="ch-voz__texto">{enviado}</span>}
+          </div>
+        ) : archivos.length && enviado === TEXTO_SOLO_ADJUNTOS ? null : <div className="co-burbuja">{enviado}</div>}
+      </div>
       <div className="co-nuevo-nota" role="status" aria-live="polite">
         {fase === 'pasando' && <span>Pasando tu nota a texto…</span>}
         {fase === 'decidiendo' && <span>Decidiendo dónde va…</span>}
@@ -130,52 +143,23 @@ export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
   );
 }
 
-/**
- * La caja de escribir del chat nuevo: un campo y UN botón (WhatsApp), alineados como la del resto (`--caja-toque`). Sólo para el
- * primer mensaje: después de mandarlo, el chat de verdad toma su lugar. `movil` usa las clases de la hoja del teléfono.
- * El micrófono GRABA una nota de voz, como en toda caja de chat (24/10/2026), y sale EN EL ACTO (28/10/2026): se ve ya y se
- * transcribe por detrás (`onGrabada` → ChatNuevo.tsx → mandarNota). Ya no dicta.
- */
-export function CajaChatNuevo({ n, movil = false }: { n: ChatNuevo; movil?: boolean }) {
-  const ocupado = n.fase !== 'escribiendo';
-  const nota = useNotaQueSeManda({ texto: n.texto, onTexto: n.setTexto, onMandar: () => void n.mandar(), onGrabada: n.mandarNota });
-  const conBarra = nota.grabacion.fase === 'grabando' || !!nota.grabacion.revision;
-  const hayQueMandar = !!n.texto.trim();
-  const fila = conBarra ? (
-    <div className={movil ? 'm-operaciones-caja__fila' : 'co-caja__fila'}>
-      <BarraGrabacion voz={nota.grabacion} ocupado={ocupado} rotuloEnviar="Enviar la nota" colorPlay="var(--primary)" />
-    </div>
-  ) : (
-    <div className={movil ? 'm-operaciones-caja__fila' : 'co-caja__fila'}>
-      <BotonEmojis campo={n.caja} valor={n.texto} onValor={n.setTexto} apagado={ocupado || nota.transcribiendo} />
-      <div className="co-caja__campo">
-        <textarea
-          ref={n.caja} rows={1} value={n.texto} disabled={ocupado || nota.transcribiendo}
-          onChange={(e) => n.setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            // En el teléfono Enter baja de renglón; en la computadora Enter manda y Mayús+Enter baja.
-            if (movil || e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-            e.preventDefault();
-            void n.mandar();
-          }}
-          placeholder={nota.transcribiendo ? 'Pasando tu nota a texto…' : 'Escribe lo que necesitas'} aria-label="Escribe lo que necesitas"
-        />
-      </div>
-      {/* Sin nada escrito, el botón GRABA (como en toda caja de chat); con algo, la flecha. */}
-      {!hayQueMandar && !nota.transcribiendo && n.fase !== 'decidiendo' ? (
-        <button type="button" className="co-enviar co-enviar--mic" onClick={() => void nota.grabacion.start()} disabled={ocupado}
-          aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
-          <Icon name="mic" size={18} />
-        </button>
-      ) : (
-        <BotonMandar valor={n.texto} onValor={n.setTexto} onError={() => {}} enviando={n.fase === 'decidiendo' || nota.transcribiendo} apagado={ocupado}
-          hayQueMandar={hayQueMandar} onMandar={() => void n.mandar()} titulo="Mandar (Enter)" />
-      )}
-    </div>
+/** Los archivos del primer mensaje, arriba de su burbuja: sólo la miniatura, como en la caja; tocarla la amplía. */
+function ArchivosDelMensaje({ archivos }: { archivos: readonly AdjuntoCaja[] }) {
+  const [viendo, setViendo] = useState<AdjuntoCaja | null>(null);
+  if (!archivos.length) return null;
+  return (
+    <>
+      <ul className="co-miniaturas" aria-label="Lo que mandaste">
+        {archivos.map((x) => (
+          <li key={x.id} className="co-miniatura">
+            <button type="button" className="co-miniatura__ver" onClick={() => setViendo(x)} aria-label={`Ver ${x.file.name}`} title={x.file.name}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
+              {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>{etiquetaDoc(x.file.name)}</span></span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {viendo && <Visor url={viendo.url} nombre={viendo.file.name} tipo={viendo.tipo} onCerrar={() => setViendo(null)} />}
+    </>
   );
-  const fallo = nota.error ?? n.errorNota;
-  const error = fallo && <p className="co-caja__estado" role="alert">{fallo}<ReportarASoporte /></p>;
-  return movil
-    ? <div className="m-operaciones-caja">{fila}{error}</div>
-    : <div className="co-caja-wrap"><div className="co-caja">{fila}{error}</div></div>;
 }

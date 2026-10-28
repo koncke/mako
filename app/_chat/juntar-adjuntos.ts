@@ -35,3 +35,12 @@ export function juntarAdjuntos(propio: AdjuntosDeCaja | undefined, leidos: Adjun
     onQuitar: (id) => (propio.items.some((x) => x.id === id) ? propio.onQuitar(id) : leidos.onQuitar(id)),
   };
 }
+
+/**
+ * La caja QUIETA (saliendo, apagada o bloqueada) no toca lo adjuntado (28/10/2026, la revisión de 0453923ab): ni se quita nada
+ * ni entra lo soltado o pegado, y se sigue viendo. Con la nota del chat nuevo pasándose a texto, quitar una foto la dejaba salir
+ * firmada igual (la pantalla ya la había tomado) y lo soltado quedaba para el chat siguiente.
+ */
+export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, quieta: boolean): AdjuntosDeCaja | undefined {
+  return quieta && a ? { ...a, onSumar: () => {}, onQuitar: () => {} } : a;
+}

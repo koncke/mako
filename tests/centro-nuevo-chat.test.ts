@@ -128,14 +128,14 @@ test('4: «Nuevo chat» ya no abre un modal ni una hoja de formulario; abre un c
   assert.match(cuerpo, /return \{ ok: true, decision: decisionPorReglas\(texto, ctx\) \};/, 'sin IA, las reglas');
   // El pedido sale por el camino firmado de siempre.
   const comp = codigo('app/admin/operaciones/ChatNuevo.tsx');
-  assert.match(comp, /k\.abrirChat\(\{ nombre: d\.nombre, cuenta, texto: enviado \}\)/);
-  assert.match(comp, /k\.mandarTextoA\(c, enviado\)/, 'a un chat que ya existe, también firmado');
+  assert.match(comp, /k\.abrirChat\(\{ nombre: d\.nombre, cuenta, texto: enviado, archivos: fs \}\)/);
+  assert.match(comp, /k\.mandarTextoA\(c, enviado, fs\)/, 'a un chat que ya existe, también firmado (con sus archivos, 28/10/2026)');
   assert.match(comp, /window\.setTimeout\(\(\) => \{ void salirRef\.current\(decision\); \}, ESPERA_PARA_CAMBIAR_MS\)/, 'sale solo');
-  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /async function mandarTextoA\(c: ChatCentro, texto: string\): Promise<boolean> \{[\s\S]*firma\.mandar\(/);
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /async function mandarTextoA\(c: ChatCentro, texto: string, archivos: readonly File\[\] = \[\]\): Promise<boolean> \{[\s\S]*firma\.mandar\(/);
 });
 
 test('5: el chat vacío invita a escribir, y con la decisión la muestra arriba con «Cambiar»', () => {
-  const base = { texto: '', enviado: null, fase: 'escribiendo', decision: null, editando: null, puedeCambiar: false, apertura: null } as unknown as ChatNuevo;
+  const base = { texto: '', enviado: null, fase: 'escribiendo', decision: null, editando: null, puedeCambiar: false, apertura: null, archivos: [] } as unknown as ChatNuevo;
   const vacio = texto(renderToStaticMarkup(createElement(CuerpoChatNuevo, { n: base })));
   assert.match(vacio, /Nuevo chat Escribe lo que necesitas\. Yo decido dónde va\./);
   assert.equal(texto(renderToStaticMarkup(createElement(TituloChatNuevo, { n: base }))), 'Nuevo chat');

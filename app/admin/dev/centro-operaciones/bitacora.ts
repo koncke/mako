@@ -2000,4 +2000,22 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/centro-chats.ts — completadosDelChat · app/admin/operaciones/BloqueCompletado.tsx', 'scripts/operaciones/cartero.mjs — inicio, fin, resumen, fondo', 'tests/chat-en-el-acto.test.ts'],
   },
+  {
+    fecha: '28 oct', hora: '05:42', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat nuevo lleva tus archivos: la PC los baja antes de abrirlo',
+    pedido: '«Revisa... que esté unificado, que se pueda utilizar el chat de la misma manera en todos lados» (Martín, 28/10, por el Cerebro). Era lo único que quedaba sin adjuntar.',
+    puntos: [
+      '**La caja del chat nuevo es la de todos los chats:** el «+» con Documento, Fotos, Cámara y Pegar, arrastrar, pegar una captura, los emojis y el micrófono.',
+      '**Tus archivos van con el primer mensaje:** si MaKo lo manda a un chat que ya existe, llegan como desde su caja. Si abre uno nuevo, la PC los baja, revisa que sean los que firmaste y el chat arranca con ellos.',
+      '**Sólo archivos, sin texto, también:** MaKo decide dónde van por sus nombres.',
+      '**Para usarlo:** el cartero 1.22.0 se instala en la PC después de desplegar el servidor. Con uno de antes, la caja del chat nuevo no ofrece adjuntar.',
+    ],
+    archivos: [
+      'app/admin/operaciones/CajaChatNuevo.tsx — la caja única · ChatNuevo.tsx — los archivos del primer mensaje',
+      'app/admin/operaciones/useCentro.ts — abrirChat y mandarTextoA con archivos',
+      'scripts/operaciones/cartero.mjs 1.22.0 — ciclo los baja, abrir los vuelve a mirar (adjuntosEnLaPc) · lib/operaciones-reglas.ts — aceptaAdjuntosEnNuevo',
+      'tests/centro-nuevo-con-adjuntos.test.ts',
+    ],
+  },
 ];

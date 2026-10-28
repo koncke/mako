@@ -42,8 +42,9 @@ pantalla que manda el audio como audio sigue con `voz` (el CRM, el Cerebro del c
 ### Lo que quedó SIN hacer
 
 - (Los adjuntos de todas las cajas de MaKo ya están: ver «Los chats que leen TEXTO también adjuntan», abajo.)
-- **Adjuntos en el chat nuevo del Ops Center** (`app/admin/operaciones/ChatNuevoPiezas.tsx`): el primer mensaje abre el chat
-  en la PC con un texto (`abrirChat` → el Runner).
+- (Los adjuntos del chat nuevo del Ops Center, desde el 28/10: su caja es la única y los archivos viajan firmados con el primer
+  mensaje; un chat nuevo los recibe con el cartero 1.22.0. La causa y la regla, en hallazgos-operaciones.md, «El chat nuevo
+  lleva sus archivos».)
 - **La nota del chat nuevo no sobrevive a salir de él** antes de que salga (`ChatNuevo.tsx` → `mandarNota`): a propósito,
   como lo escrito (la decisión de dónde va se ve y se cambia sólo ahí).
 - **Los tres puntos** no se barren (los dibuja el hilo, no la caja): las excepciones están escritas en la lista (Offer y sus
@@ -82,7 +83,7 @@ La caja: `useAdjuntosDelChat` (app/_chat/); el cuerpo, `cuerpoConArchivos` (los 
   foto usa la IA DEL NEGOCIO: la lectura va adentro también, no antes. `cuerpoYArchivos` (lib/adjuntos-del-chat.ts) devuelve
   el cuerpo de siempre (JSON o el multipart) y los archivos.
 - **Sin hacer:** en los editores, si un archivo no se pudo leer pero había texto u otro archivo, no se avisa (sólo se corta
-  con 422 cuando no hay nada legible ni escrito). Y el chat nuevo del Ops Center sigue sin adjuntos (`lib/cajas-de-chat.ts`).
+  con 422 cuando no hay nada legible ni escrito). (El chat nuevo del Ops Center ya adjunta: ver hallazgos-operaciones.md.)
 
 ## La revisión de las cajas: la lectura sin plazo ni marca, y la nota que viajaba de conversación (28/10/2026)
 
