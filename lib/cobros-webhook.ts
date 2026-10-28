@@ -92,7 +92,7 @@ async function avisarSesionQueNoCuadra(ws: number, c: Cobro, s: SesionStripe, mo
       descripcion: [
         `Llegó un pago de Stripe (sesión ${s.id}) con el código del cobro ${c.id} del negocio ${ws} (${c.concepto}, ${c.monto} ${c.moneda}).`,
         `No se marcó pagado: ${motivo}.`,
-        'Puede ser un link de pago con el código pegado en la URL (?client_reference_id=). Mirá en Stripe quién pagó y cuánto.',
+        'Puede ser un link de pago con el código pegado en la URL (?client_reference_id=). Revisa en Stripe quién pagó y cuánto.',
       ].join('\n'),
       contexto: { ws, cobroId: c.id, sesion: s.id, paymentLink: s.paymentLink ?? null, monto: s.monto, moneda: s.moneda, motivo },
       ref: `cobro-ajeno:${s.id}`,
