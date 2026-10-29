@@ -63,6 +63,18 @@ Este archivo reemplaza a docs/relevo/planes-nube-2710.md (el relevo de la nube d
 - /planes, /planes/<plan>, /partners y /m/partners nunca se miraron en pantalla (piden build parcial; el Cerebro frenó lo pesado).
 - Si Stripe está conectada y con claves reales en el negocio de MaKo: lo mide el Cerebro en producción.
 
+## La verificación de e6fd6d88d (28/10, noche)
+- ALTA arreglada: la sesión nueva de `urlParaPagar` vuelve el cobro a `pendiente` (lib/cobros.ts); sin eso, un segundo voucher
+  en curso armaba una tercera sesión y se cobraba dos veces. v1-segunda-sesion.ts: antes dos cuotas, ahora una.
+- Bajas SIN HACER (agrandaban; el Cerebro: «si no entran sin agrandar, anotadas»):
+  · el reloj de `reconciliarCobros` no recuerda dónde cortó: con ~400 `fallido` viejas, una prueba nueva del día 8 no se asienta
+    nunca (lib/cobros.ts; hace falta guardar dónde quedó la vuelta o leer las pruebas antes que la lista general);
+  · un código de Partner de un negocio borrado que todavía no trajo compras lo toma otro y se queda con su link
+    (lib/partners-programa.ts, `codigoConCompras` sólo mira compras);
+  · la compra a Meta sale dos veces si el reintento de Stripe llega pasados 10 min con el cron corriendo, o con dos crons a la
+    vez (lib/cobros-externos-meta.ts: hace falta un reclamo antes de mandar).
+- Falta medir: una suscripción común con SEPA cuya primera factura falla, que armaría una SEGUNDA suscripción.
+
 ## Sin hacer (con el archivo donde vive)
 - La compra a Meta: si la línea del historial no se escribe NUNCA, cada vuelta del cron la vuelve a mandar (lib/cobros-externos-meta.ts, de Zernio).
 - La RPC `cambiar_codigo_partner` no mira cobros.ref_codigo: el chequeo está en TS (lib/partners-programa.ts).

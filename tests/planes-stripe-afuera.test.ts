@@ -154,6 +154,10 @@ test('después de un pago diferido que FALLÓ se arma otra sesión; con el vouch
   const noLee = resto.indexOf('if (!s.ok && s.status !== 404) {');
   assert.ok(noLee > 0 && noLee < resto.indexOf('const r = await crearCheckout('), 'sin poder leerla, no se arma otra');
   assert.match(resto, /return viva \? \{ url: c\.url_proveedor! \} : \{ error: 'pasarela', detalle: s\.error \};/, 'la que había si sigue viva; si no, un error');
+  // Y la sesión nueva vuelve el cobro a PENDIENTE (la verificación de e6fd6d88d, scratch-e6fd/cobros-v/v1-segunda-sesion.ts): si
+  // seguía `fallido`, un segundo voucher en curso en ella se leía como «falló», se armaba otra, y pagadas las dos quedaban dos
+  // cuotas. Con el script: V1 (OXXO) y V2 (SEPA), antes dos cuotas; ahora una, y no se arma C.
+  assert.match(resto, /url_vence_at: r\.venceAt, estado: 'pendiente', motivo: null \}, \{ estado: \['pendiente', 'fallido'\] \}\);/);
 });
 
 // La verificación de 3ca2d8328 (C:/dev/revisiones/scratch-3ca2/A-refuta/r2r3-prueba-stripe.ts, casos k): el link se rehace a 5

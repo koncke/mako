@@ -1450,6 +1450,11 @@ C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r3-monto-cero-decimales.ts y s1
   `paid`, `no_payment_required` y `unpaid`, con el cobro pendiente o fallido) y decidir cada uno. El arreglo: con el cobro
   `fallido` y la sesión `unpaid`, se arma otra; con el voucher EN CURSO (el cobro pendiente) no, que se pagaría dos veces. Y si
   Stripe no contesta la lectura de la anterior, no se arma otra (antes armaba B con A todavía abierta).
+- **Y el arreglo abrió un cobro doble (la verificación de e6fd6d88d, scratch-e6fd/cobros-v/v1-segunda-sesion.ts):** al armar
+  B el cobro seguía `fallido`, así que con un SEGUNDO voucher en curso en B la misma excepción («fallido + unpaid») armaba C;
+  pagadas B y C, dos cuotas y ningún aviso (con SEPA el segundo cargo entra solo). La sesión nueva ahora vuelve el cobro a
+  `pendiente` (y borra el motivo) en el mismo compare-and-set. **La regla:** una excepción que mira el ESTADO del cobro tiene
+  que dejar ese estado como corresponde a la sesión nueva; si no, la excepción vale para la sesión siguiente también.
 
 **Vive en:** lib/cobros.ts (`urlParaPagar`) · tests/planes-stripe-afuera.test.ts ·
 C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r1-pagar-tras-fallo.ts.

@@ -605,7 +605,9 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
   const vuelta = Math.max(1, Math.floor((Date.parse(c.url_vence_at ?? '') || 0) / 60_000));
   const r = await crearCheckout(c, { stripe, mp: null }, vuelta);
   if (!r.ok) return { error: 'pasarela', detalle: r.error };
-  await actualizar(c.workspace_id, c.id, { proveedor_ref: r.ref, url_proveedor: r.url, url_vence_at: r.venceAt }, { estado: ['pendiente', 'fallido'] });
+  // ⚠️ La sesión nueva VUELVE el cobro a pendiente (la verificación de e6fd6d88d): si seguía `fallido` por el voucher anterior,
+  // un SEGUNDO voucher en curso en ésta se leía como «falló» y se armaba otra más; pagadas las dos, dos cuotas.
+  await actualizar(c.workspace_id, c.id, { proveedor_ref: r.ref, url_proveedor: r.url, url_vence_at: r.venceAt, estado: 'pendiente', motivo: null }, { estado: ['pendiente', 'fallido'] });
   return { url: r.url };
 }
 
