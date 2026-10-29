@@ -43,7 +43,7 @@ const raiz = join(__dirname, '..');
 const fuente = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
 
 /** Nadia (lead 2605), como está en la base el 29/10/2026. */
-const NADIA: CuotaDelLead[] = [
+const NADIA: Fila[] = [
   ...Array.from({ length: 12 }, (_, i) => ({
     id: 91 + i, numero: i + 1, monto_usd: 4235.29, pagado: false,
     fecha_esperada: new Date(Date.UTC(2026, 10 + i, 8)).toISOString().slice(0, 10),
