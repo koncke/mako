@@ -22,6 +22,12 @@
 //   · `cobranza_lead` le dice «cobrada_en» a una cuota sin cobrar    → 1 / 7
 //   · sin la familia `plan-dictado` (lib/mako-intencion-app.ts): falla «cobros: las 26 frases» de
 //     tests/ops-center-clasificador-app.test.ts (1 / 47).
+// Y la re-verificación de 805afb460, sobre los 12 de acá (fallos / pases), una rotura por vez:
+//   · N1: `faltaParaConfirmar` no mira nada / el «sí» ejecuta sin lo que se vio            → 1 / 11 cada una
+//   · N2: `cuotasQueQuedan` sin lo que no se puede cambiar / el resumen de lo pedido        → 1 / 11 cada una
+//   · N3: la base de mentira deja la diferencia en dólares / la 0347 sin sus pesos          → 1 / 11 cada una
+//   · N4: el anticipo sobre uno cobrado se promete / B6: el choque de dos «sí», crudo        → 1 / 11 cada una
+//   · B7 («Las cuota del plan»): falla su test en tests/pagos-tramos.test.ts (1 / 24).
 // Correr: node --import tsx --test tests/api-mako-plan-tramos.test.ts
 // =============================================================================
 
@@ -174,7 +180,7 @@ test('8. A1 en el server: cobrar a medias por la API una cuota en pesos, sin los
   assert.deepEqual(cobrada && [cobrada.monto_usd, cobrada.moneda, cobrada.monto_original], [300, 'MXN', 6000], 'la cuota quedó cobrada entera: se perdían 6.000 pesos');
   const resto = s.pagos.filter((q) => !q.pagado);
   assert.deepEqual(resto.map((q) => q.monto_usd), [300], 'no quedó la diferencia pendiente');
-  // N3 (revisión de 805afb460): la diferencia queda en la moneda de la cuota, lo pactado menos lo cobrado (mig 0343, copiada en
+  // N3 (revisión de 805afb460): la diferencia queda en la moneda de la cuota, lo pactado menos lo cobrado (mig 0347, copiada en
   // tests/_postgrest-de-mentira.ts). Antes quedaba «US$300» y el recordatorio le pedía dólares a quien paga en pesos.
   assert.deepEqual(resto.map((q) => [q.moneda, q.monto_original]), [['MXN', 6000]], 'la diferencia quedó en dólares');
 });
@@ -210,8 +216,8 @@ test('11. N4 y B6: un anticipo sobre uno cobrado no se promete; dos «sí» a la
   assert.equal(s.dosSi.pagos.length, 3, 'duplicó cuotas');
 });
 
-test('12. N3: la migración 0343 deja la diferencia en la moneda de la cuota, con la misma firma (cualquier orden de despliegue)', () => {
-  const sql = leer('supabase/migrations/0343_resto_en_la_moneda_de_la_cuota.sql').replace(/^\s*--.*$/gm, '');
+test('12. N3: la migración 0347 deja la diferencia en la moneda de la cuota, con la misma firma (cualquier orden de despliegue)', () => {
+  const sql = leer('supabase/migrations/0347_resto_en_la_moneda_de_la_cuota.sql').replace(/^\s*--.*$/gm, '');
   assert.match(sql, /create or replace function public\.cobrar_cuota_con_resto\(/);
   // La moneda pactada se lee ANTES de la toma, que la pisa con la del cobro.
   assert.ok(sql.indexOf('select moneda, monto_original into v_moneda, v_pactado') < sql.indexOf('update pagos set'), 'lee la moneda después de pisarla');

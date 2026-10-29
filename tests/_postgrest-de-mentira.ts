@@ -106,7 +106,7 @@ export function crearPostgrest(o: {
   };
 
   /**
-   * `cobrar_cuota_con_resto` (supabase/migrations/0318, 0323 y 0343): la toma condicional de la cuota y su diferencia,
+   * `cobrar_cuota_con_resto` (supabase/migrations/0318, 0323 y 0347): la toma condicional de la cuota y su diferencia,
    * JUNTAS (una llamada de node no se intercala con otra: es la transacción). Copia del SQL, que fija
    * tests/pagos-cobro-idempotente.test.ts. Si el número choca con el índice único, no escribe NADA y contesta 23505.
    */
@@ -117,7 +117,7 @@ export function crearPostgrest(o: {
       && (b.p_original == null || Number(p.monto_usd) === Number(b.p_original)));
     if (!c) return json(200, { tomada: false });
     const numero = Math.max(0, ...pagos.filter((p) => Number(p.lead_id) === Number(b.p_lead)).map((p) => Number(p.numero) || 0)) + 1;
-    // Cobrada a medias en SU moneda, la diferencia queda en esa moneda: lo pactado menos lo cobrado (mig 0343). Antes de la toma.
+    // Cobrada a medias en SU moneda, la diferencia queda en esa moneda: lo pactado menos lo cobrado (mig 0347). Antes de la toma.
     const iso = (m: unknown) => (m == null ? '' : String(m).toUpperCase());
     const pactado = Number(c.monto_original);
     const enSuMoneda = iso(c.moneda) !== '' && iso(c.moneda) !== 'USD' && pactado > 0 && b.p_moneda != null && iso(b.p_moneda) === iso(c.moneda)

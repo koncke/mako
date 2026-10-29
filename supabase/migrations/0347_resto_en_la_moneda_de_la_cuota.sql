@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0343 — La diferencia de un cobro por menos nace en la MONEDA de la cuota (29/10/2026, Pagos; revisión de 805afb460, N3)
+-- 0347 — La diferencia de un cobro por menos nace en la MONEDA de la cuota (29/10/2026, Pagos; revisión de 805afb460, N3)
 -- =============================================================================
 -- El plan por tramos (ticket #13 de Leila) arma cuotas pactadas en pesos: MXN 12.000 = US$600. Cobrada a medias en esa moneda
 -- (6.000 MXN), `cobrar_cuota_con_resto` (0318 y 0323) dejaba la diferencia SÓLO en dólares: `US$300`, sin moneda. El
@@ -76,7 +76,7 @@ begin
     return jsonb_build_object('tomada', false);
   end if;
 
-  -- Cobrada a medias en SU moneda: la diferencia queda en esa moneda, lo pactado menos lo cobrado (0343).
+  -- Cobrada a medias en SU moneda: la diferencia queda en esa moneda, lo pactado menos lo cobrado (0347).
   if v_moneda is not null and upper(v_moneda) <> 'USD' and v_pactado > 0
      and p_moneda is not null and upper(p_moneda) = upper(v_moneda)
      and p_monto_original is not null and v_pactado - p_monto_original > 0 then
@@ -95,7 +95,7 @@ end;
 $$;
 
 comment on function public.cobrar_cuota_con_resto(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date, numeric) is
-  'Cobra una cuota por menos (sólo si sigue impaga y con el monto leído, p_original) y deja la diferencia pendiente, marcada con resto_de y en la moneda de la cuota si se cobró en ella, en UNA transacción (mig 0318, 0323 y 0343). La llama cobrarCuota (lib/pagos.ts).';
+  'Cobra una cuota por menos (sólo si sigue impaga y con el monto leído, p_original) y deja la diferencia pendiente, marcada con resto_de y en la moneda de la cuota si se cobró en ella, en UNA transacción (mig 0318, 0323 y 0347). La llama cobrarCuota (lib/pagos.ts).';
 
 -- Cerrada para la clave pública, como la 0323. `create or replace` conserva los permisos; se repiten por si acaso. Idempotentes.
 revoke execute on function public.cobrar_cuota_con_resto(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date, numeric) from public, anon, authenticated;

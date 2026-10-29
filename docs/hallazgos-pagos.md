@@ -1552,15 +1552,20 @@ tests/api-mako-plan-tramos.test.ts, con su entrada.
   con que el server arma lo que reconcilia, así que la simulación no es una copia.
 - **Un anticipo sobre uno cobrado se rechaza en la propuesta (N4).** La regla ya lo ignoraba (`!inicialCobrado`), pero el resumen
   prometía los US$800 y el «sí» no creaba nada. En la ficha el campo dice «Cobrado» y no se edita: sólo pasaba por la API.
-- **Una diferencia hereda la moneda de su cuota (N3, mig 0343).** `cobrar_cuota_con_resto` (0318, 0323) insertaba la diferencia
+- **Una diferencia hereda la moneda de su cuota (N3, mig 0347).** `cobrar_cuota_con_resto` (0318, 0323) insertaba la diferencia
   sólo en dólares: MXN 6.000 de una cuota de 12.000 quedaban «US$ 300», y el recordatorio, el link y «Marcar pagada» le pedían
-  dólares a quien paga en pesos. La 0343 redefine el cuerpo con la misma firma (sin orden de despliegue): lee la moneda pactada
+  dólares a quien paga en pesos. La 0347 redefine el cuerpo con la misma firma (sin orden de despliegue): lee la moneda pactada
   ANTES de la toma, que la pisa con la del cobro.
 - B6: dos «sí» a la vez no duplican (el índice único frena el segundo), pero el segundo contestaba el error crudo de la base;
   ahora lo dice en palabras. B7: «Las cuota del plan…» → «La cuota del plan ya está cobrada».
+- ⚠️ **Una herramienta nueva LARGA le saca el lugar a otra en una frase que no es la suya.** El chat junta herramientas hasta
+  12.000 caracteres, por puntaje. Con 4.300 caracteres, `armar_plan_por_tramos` entraba antes que `editar_cuota` en «las fechas y
+  las cantidades de pago de Ana están mal: son 300 USD cada quincena», y el tren se frenó en tests/mako-no-puedo-falsos.test.ts
+  (caso 2). El arreglo fue achicarla a 3.500, no tocar el presupuesto. La relevancia de una familia no dice «plan», que trae las
+  tareas del Plan. Antes de entregar una operación del chat, se corren también los tests de presupuesto de las frases de otros.
 
 **Sin hacer:**
-- La 0343 NO está aplicada: va al Cerebro, y se aplica con el sí de Martín. Hasta entonces la diferencia sigue naciendo en dólares
+- La 0347 NO está aplicada: va al Cerebro, y se aplica con el sí de Martín. Hasta entonces la diferencia sigue naciendo en dólares
   (el código no cambia, así que no hay orden de despliegue).
 - `faltaParaConfirmar` lee y después `ejecutar` escribe: un cambio en ese instante lo frena recién `guardarPlanPorTramos`, que ya
   consumió la pendiente.
