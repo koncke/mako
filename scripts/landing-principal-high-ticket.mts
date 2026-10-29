@@ -179,6 +179,14 @@ function franjaYAdemas(extra: string[]): string {
     + '</div>';
 }
 
+/**
+ * La última tarjeta sola (el Cerebro, 29/10, con la #32 v14 publicada): con 9 tarjetas, la grilla de 2 columnas (≤768 px:
+ * tablet y celular; entre medio hay un tramo de 1 columna, donde no cambia nada) deja la novena sola en su fila. Si el total
+ * es impar, la última ocupa el ancho entero. En escritorio son 3 columnas y no aplica.
+ */
+const MARCA_ULTIMA_SOLA = '/* La última tarjeta sola (impar) ocupa el ancho entero en 2 columnas (29/10). */';
+const ULTIMA_SOLA = `${MARCA_ULTIMA_SOLA}\n@media (max-width:768px){\n  .gm-libre .mk-feature-grid > a:last-child:nth-child(odd) { grid-column: 1 / -1; }\n}\n`;
+
 /** Saca un bloque marcado (`data-mk="<marca>"`, un <p> o un <div>) si ya está: correr el script dos veces no lo duplica. */
 function sinBloque(html: string, marca: string): string {
   const i = html.indexOf(` data-mk="${marca}"`);
@@ -323,6 +331,7 @@ export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>, o: { pr
 
   let css = String(config.diseno?.css ?? '');
   for (const [buscar, nuevo] of CSS_HOJA) css = reemplazarUnaVez(css, buscar, nuevo, 'la hoja del diseño', o.principal);
+  if (!css.includes(MARCA_ULTIMA_SOLA)) css = css.replace(/\s*$/, '\n') + ULTIMA_SOLA;
   config.diseno = { ...config.diseno, css };
   // El SEO es propio de cada landing de funnel; sólo la principal lleva el de la portada.
   if (o.principal) config.sitio = { ...config.sitio, seoTitulo: SEO_TITULO };
