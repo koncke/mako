@@ -189,7 +189,10 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
   const idEntidad = entidad?.id ?? null;
   const desde = useMemo<Desde>(() => ({ tab, entidad, modo, ...(pantalla ? { pantalla } : {}) }), [tab, entidad?.tipo, idEntidad, entidad?.titulo, modo, pantalla]); // eslint-disable-line react-hooks/exhaustive-deps
   // Siempre el Cerebro: al llegar la lista lo elige solo (`entrarAlCerebro`).
-  const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
+  const base = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
+  // Con `titulo` («MaKo», la tarjeta de Create) la conversación se NOMBRA así en todos lados: la cabecera, «Escribe a MaKo» en
+  // la caja (con «Cerebro», en 340 px partía en dos renglones) y lo fijado. Adentro sigue siendo el Cerebro, que reparte.
+  const k = titulo ? { ...base, nombre: titulo } : base;
   // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
   useEffect(() => {
     if (!pedido || !k.esJefe) return;
@@ -212,7 +215,7 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
   return (
     <>
       <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
-        cabecera={{ clave: 'cerebro', titulo: titulo ?? k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
+        cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
         arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
         despues={<>
           <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
@@ -229,8 +232,7 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
               {onModo && <ModosMako modo={modo ?? 'editar'} onModo={onModo} />}
             </div>
           )}
-          {/* Con `titulo` («MaKo», la tarjeta de Create), también la caja: «Escribe a MaKo». Con «Cerebro», en 340 px partía. */}
-          <CajaDelCliente k={titulo ? { ...k, nombre: titulo } : k} campo={caja} seguir={seguirHilo} angosta />
+          <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} angosta />
           </div>
         </>}
         estado={estadoDelCliente(k)}>
