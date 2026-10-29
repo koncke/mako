@@ -100,6 +100,16 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - La biblioteca de estructuras dejó de ser sólo de anuncios: lo que eso rompía está en
   [hallazgos-ads.md](hallazgos-ads.md) («La biblioteca de estructuras era de anuncios sin decirlo»).
 
+
+**29/10/2026, plantillas reales: YouTube ya tiene fuente: `youtube-retencion` cierra la D6.** (docs/plantillas-reales/)
+- **Hallazgo:** claude-youtube (MIT, «Copyright (c) 2025 Daniel Agrici», LICENSE leído) trae la estructura de
+  retención: el gancho de 30 s en 3 tiempos, los bloques con interrupción, el CTA al 25 % y el regancho al 60 %. Sus
+  metas numéricas (el 70 % de retención a los 30 s) no citan fuente y no entran.
+- **Regla:** `conLasDeOrganicoNuevas` suma `youtube-retencion` aunque el super admin ya tenga la biblioteca guardada.
+  `CON_TILDE` suma «CTA medio».
+
+**Vive en:** lib/guion-estructuras.ts · lib/guion-estructuras-store.ts · lib/copywriter/doc.ts · docs/diseno-copywriter.md (D6)
+
 ## Compartir para editar: lo de seguridad está en su documento (28/10/2026)
 
 - El link que EDITA un guion es la primera ruta pública que escribe en los datos de un negocio. Lo que costó (la puerta
@@ -189,18 +199,105 @@ C:/dev/revisiones/scratch-cw/). Arreglado en ac588e955 y fijado en tests/copywri
 - El lugar del tope se cuenta SIN lo ya mudado. Si no, el reintento (con el índice más lleno) elige otras páginas y las
   que faltaron quedan afuera.
 
+## MaKo no puede escribir tablas: «adaptar» borraría las del Reel, las Stories, el Carrusel y los Ganchos (29/10/2026)
+
+- **Causa:** `TIPOS_BLOQUE_IA` (lib/copywriter/operaciones.ts) no tiene `tabla`, y `escribir_seccion` reemplaza el
+  cuerpo entero de la sección. La tabla se convierte en párrafos sin que nada falle.
+- **Regla:** el bloque `tabla` (saneo, topes, `bloqueAJson`, truncado y `FORMATO_EDITAR`) va **antes** que «Adaptar a
+  mi negocio».
+
+**Vive en:** lib/copywriter/operaciones.ts · lib/copywriter/ia-editar.ts · tests/copywriter-operaciones.test.ts
+
+## Un renglón en MAYÚSCULA abre una sección (29/10/2026)
+
+- **Causa:** `bloquesDeTexto` toma como sección toda línea de 20 caracteres o menos en mayúscula que pase `esEtiqueta`,
+  y antes le quita los dos puntos del final. `CTA`, `NEGOCIO:` o un texto en pantalla sin comillas como
+  `43 DE 50 FALLAN` parten el documento.
+- **Regla:** en los ejemplos el texto en pantalla va siempre entre «». `docDeEjemplo` usa la misma lectura, y
+  `bloquesDeTexto` no cambia, porque lo usa la API de MaKo.
+
+**Vive en:** lib/copywriter/texto.ts
+
+## La API de MaKo le dejaría a un cliente el anuncio del negocio ficticio (29/10/2026)
+
+- **Causa:** `crear_documento_copywriter` con `plantillaId` crea la página con `pl.contenido()`. Con el ejemplo
+  adentro, un agente externo le crea al cliente el anuncio de Cierre Consultivo.
+- **Regla:** cada plantilla tiene `esqueleto()` (las secciones vacías). La API y «Solo la estructura» usan el esqueleto;
+  solo la galería abre el ejemplo.
+
+**Vive en:** lib/api-mako/areas/copywriter.run.ts · lib/copywriter/plantillas.ts
+
+## «Guion de anuncio» seguía la estructura del super admin (29/10/2026)
+
+- **Causa:** usaba `estructuraPorDefecto(c, 'ad')`, la primera de la biblioteca editable. Un ejemplo escrito con las
+  etiquetas de PAS se rompe si el override la cambia o la apaga.
+- **Regla:** una plantilla con ejemplo fija su estructura (`'pas'`). Si el override la cambió o la apagó, la página
+  nace con el ejemplo y sin estructura elegida.
+
+**Vive en:** lib/copywriter/plantillas.ts · lib/guion-estructuras-store.ts
+
+## Las variantes no van en la página, y las llaves de las variables muerden (29/10/2026)
+
+- **Variantes:** «3 ganchos y 2 CTA» debajo del guion se leen como guion en el teleprompter y al copiar. Van en la
+  respuesta del chat, como una oferta («¿Te armo 2 aperturas más?»).
+- **Llaves:** Email Marketing usa `{nombre}`, con una llave (lib/template-vars.ts). Con `{{nombre}}`, el ejemplo pasa
+  por `renderPrompt` como si fuera un slot.
+- **Links:** el ejemplo usa `example.com` (RFC 2606); un dominio inventado puede existir.
+
+**Vive en:** lib/copywriter/plantillas-ejemplos.ts (del plan) · lib/template-vars.ts
+
+## Los ejemplos tampoco pueden tener las muletillas que el prompt prohíbe, ni durar otra cosa que su estructura (29/10/2026)
+
+- **Síntoma:** el primer borrador traía «no son presentaciones: son diagnósticos» y «no fue el anuncio, fue…», y un
+  Reel de 35 s dentro de `reel-viral`, que pide de 50 a 60 s (`gancho-valor-cta` es solo de anuncios).
+- **El diagnóstico obvio era el equivocado:** después de reescribir esos dos, el plan dio por hecho que solo quedaba el
+  contraste del ángulo contrarian. La revisión encontró seis más fuera del gancho (el texto del anuncio de la 1, la
+  moraleja y el caption de la 5, «No son nervios» en la 6, el email 2 de la 9, «el problema nunca fue el anuncio» y
+  «no alcance» en la 10), una cifra sin fuente («la persona habla el 70 % del tiempo») y una clase de 45 min con una
+  estructura que llega a 42. AI Avatar repetía el error de duración: un guion de ~26 s en `reel-viral`.
+- **Regla:** cada ejemplo pasa la misma revisión que le pide el experto a la IA: sin muletillas, sin voseo
+  («Guárdalo», «aquí»), sin cifras sin fuente y con la duración y las etiquetas de su estructura. Un test fija las
+  etiquetas de cada ejemplo **y cuenta los contrastes** («no es… es», «no… sino»): como mucho uno por pieza, y solo en
+  el gancho. Una lista revisada a ojo no alcanza.
+
+**Vive en:** lib/copywriter/plantillas-ejemplos.ts · tests/copywriter-plantillas.test.ts (del plan)
+
+## Hay dos `contextoDelNegocio` (29/10/2026)
+
+- **Síntoma posible:** al mover el contexto del negocio a un `lib/` común, para que lo lean Video, Image y AI Avatar,
+  un import automático trae el equivocado.
+- **Causa:** `lib/copywriter/contexto.ts` exporta `contextoDelNegocio(pedido): Promise<string>` (el Second Brain, con
+  1,800 tokens), y `lib/plan-senales.ts` exporta `contextoDelNegocio(): Promise<ContextoNegocio>`, otra cosa.
+- **Regla:** el común se mueve con un nombre que no choque, o se importa siempre con su ruta explícita.
+
+**Vive en:** lib/copywriter/contexto.ts · lib/plan-senales.ts
+
+## Un comentario viejo daba por pendiente lo que ya estaba en main: `grafoParaChat` (29/10/2026)
+
+- **Síntoma:** el plan decía «`grafoParaChat` sigue sin llegar a main» y dejaba al Copywriter leyendo
+  `construirCerebro()`.
+- **Causa:** la frase salió de la cabecera de lib/copywriter/contexto.ts (líneas 12 a 15), que dice que vive en otra
+  rama. `grafoParaChat` está en main desde el 28/10 (`c272b97dd`, lib/cerebro-para-chat.ts:33), y
+  lib/api-mako/areas/negocio.run.ts ya lo usa.
+- **El diagnóstico obvio era el equivocado:** un comentario del código no es el estado del código. Se verifica con
+  `git grep -n <nombre> origin/main` antes de escribir «falta».
+- **Lo que queda:** cambiar `const GRAFO = () => construirCerebro()` (contexto.ts:24) y su comentario. El `lib/` común
+  de la tanda 0 nace leyendo `grafoParaChat`.
+
+**Vive en:** lib/copywriter/contexto.ts · lib/cerebro-para-chat.ts
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
-- La estructura de YouTube (falta la fuente): docs/diseno-copywriter.md, D6. (Stories y YouTube Writer ya dejaron la barra el
+- La estructura de YouTube: ya tiene fuente (claude-youtube, MIT) y está escrita como `youtube-retencion` en docs/plantillas-reales/copywriter.md; falta implementarla (D6). (Stories y YouTube Writer ya dejaron la barra el
   29/10, D13.)
 - El arrastre del árbol de Notion (reordenar y anidar páginas) se perdió al entrar al shell único de Create (su lista es
   plana): docs/diseno-copywriter.md, D15. Retirar `/m/stories`, `/ideas` y el «pronto» de YouTube Writer del teléfono (sin
   fila, todavía vivos; lib/movil-rutas.ts, lib/movil-creacion.ts y sus tests).
 - Borrar StoriesApp/OnboardingStories (sin entrada desde el 29/10) y decidir qué pasa con la matriz y «Analizar guion» del
   Ads Writer (siguen por su ruta).
-- `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.
+- `grafoParaChat` ya está en main (lib/cerebro-para-chat.ts, c272b97dd): falta cambiar `const GRAFO` en lib/copywriter/contexto.ts (docs/plantillas-reales/README.md, tanda 0).
 - Las bajas de la verificación de la mudanza (C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md):
   - `crear` (lib/copywriter/server.ts) borra el documento si el índice «falla», aunque haya llegado: abre «No existe» (B7);
   - el link compartido de una página cuya madre está en la Papelera sigue editando: app/api/compartido/guion/route.ts
