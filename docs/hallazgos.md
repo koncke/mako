@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **Editar desde Python (29/10)**: `\b` y `\1` en una cadena normal son caracteres de control, y el test pasaba sin la regla que vigilaba. Regex en cadenas crudas o con Edit; un `find` corto agarra la primera aparición |
 | Editor de landing | [hallazgos-editor-landing.md](hallazgos-editor-landing.md) | **«Las páginas clonadas se desfasaron todas» (29/10)**: la PUBLICADA era fiel, el EDITOR no. El corte partía columnas de una fila (el hero de holo) y el editor dibuja cada sección sola: la foto marca con la geometría las cajas con hijos juntos y el corte no las abre. La caja del body estiraba cada sección a una pantalla. Sin hacer: lo fijo, el ancho del lienzo |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **tests-afectados y los `todo` (29/10)**: si el reintento aislado tiene un rojo de verdad, cuenta como rojos también los archivos con un `todo` que falla (node los pone en «failing tests»). Correr solo y mirar `ℹ fail` |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **Buscar en los logs de Vercel (29/10)**: `requestPath:"/x*"` da 0 sin error (el comodín no se interpreta: camino exacto o bajar todo y filtrar); la URL que mandó alguien está en el log de la función, no en `requests`; los GET de a pares de todas las tabs son el prefetch del menú |

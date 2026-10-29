@@ -3771,13 +3771,28 @@ iframe por sección con `documentoEditable`, alto medido como `medir()`), a 1440
 - **Trampa del arnés:** una página sin `<meta viewport>` con la emulación de teléfono se dibuja a 980 px, y sus iframes
   también. El editor se mide en escritorio (el lienzo «movil» es una columna de 390 en la computadora).
 
-**Sin hacer (en el editor, `HtmlEditableVista.tsx`; hace falta el editor real para verificarlo):**
-- Lo FIJO o pegajoso (el menú de respond.io, el de holo) flota en la original encima del hero; en el editor ocupa su
-  lugar arriba y la página queda corrida un tramo constante (40 a 280 px). De ahí para abajo, los tramos coinciden (±1 px).
-- El editor dibuja al ancho del LIENZO (~980 px en la pantalla de Martín): las media queries de la copia eligen su diseño
-  de tableta. Tal cual pide dibujarla al ancho de la original y escalarla al lienzo.
-- Las copias que ya existen (#68–#72) se partieron con el corte viejo: hay que replicarlas de nuevo. La regla del body
-  sí les llega.
+- **El editor dibujaba al ancho del LIENZO** (~980 px en la pantalla de Martín) y la copia elegía su diseño de tableta.
+  Ahora una copia en escritorio se dibuja a 1440 y se achica al lienzo (`escalaDeCopia`, `transform: scale`); en tableta
+  y celular, como siempre. El clic, el cursor y la selección los lleva el navegador a través del transform; lo que la
+  vista pasa entre el iframe y la página (el clic reenviado, las capas vivas) va × escala. Medido con clics REALES (CDP
+  `Input.dispatchMouseEvent`, arnés `clic-escalado.mts`) a escala 0,68: cada clic llega a su punto exacto (±1 px).
+  **Trampa del arnés:** al llevar un elemento a la vista cargan imágenes diferidas de arriba y la sección se corre
+  (588 px): el punto se recalcula hasta que se queda quieto.
+- **Lo FIJO** (el aviso de cookies, un encabezado fijo) era una sección propia: en el editor, un bloque al final. La foto
+  lo marca (`data-gm-fijo`) y el corte lo pega adentro de la primera sección en flujo (`pegarLoFijo`), también cuando
+  viene detrás de algo vacío o adentro de una caja que sólo lo tiene a él. Y un `<title>` en el body no es una sección.
+- **Antes y después, DOM contra DOM** (`C:/dev/revisiones/clonadas-2910/final/tabla.md`, cada ancla). Mediana de la
+  distancia de cada ancla en el editor a la original, antes (producción, copia vieja) → después (copia nueva): holo
+  913 → 98 px a 1440 y 1.755 → 107 a 980 (el lienzo); respond 42 → 2 y 1.264 → 8; reportei 870 → 289 y 1.035 → 295;
+  closermood y masterads 0 → 0 a 1440 y 248/230 → 0 a 980; 100ads, sin copia (la foto no salía) → 0.
 
-Tests: tests/web-generator-copia-franjas.test.ts (6; la geometría corre en un `vm` con cajas de mentira). Probado
-rompiéndolo: 18 roturas, cada una caza (`romper_franjas.py`).
+**Sin hacer:**
+- A 390, holo y reportei están corridos también en la PUBLICADA (~320 px en holo): la foto se saca a 1280 y lo que la
+  página arma recién en el celular no viaja igual. Es de la copia, no del editor.
+- Una sección de holo mide en el editor ~486 px más que en la publicada (la de «from bakeries to B2B SaaS.», con algo
+  pegajoso adentro). Sin mirar.
+- Las copias viejas (#68–#72) se abren igual (no cambia cómo se guardan) y ganan con la escala y la regla del body, pero
+  sus columnas siguen partidas: para tenerlas tal cual, replicarlas de nuevo.
+
+Tests: tests/web-generator-copia-franjas.test.ts (10; la geometría corre en un `vm` con cajas de mentira). Probado
+rompiéndolo: 33 roturas, cada una caza (`romper_franjas.py`).

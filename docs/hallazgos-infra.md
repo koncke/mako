@@ -9106,3 +9106,14 @@ tres archivos se repiten juntos en UNA tanda: el rojo de verdad hace salir con c
 toma los archivos de la lista «✖ failing tests», donde node pone también los `todo` que fallan. **Regla:** antes de
 perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). **Sin hacer:** que el reintento separe los
 `todo` (el arreglo es del parser, en `leerResultado`).
+
+## Editar código desde Python: `\b` y `\1` en una cadena normal son caracteres de control (29/10/2026, claude3)
+
+**Vive en:** cualquier edición con `python - <<'EOF'` que escribe regex de JavaScript.
+
+En una cadena normal de Python, `\b` es un RETROCESO (0x08) y `\1` es el carácter 0x01: el regex que queda en el archivo
+ya no es el que se ve. Pasó dos veces la misma noche: `/<title\b/` quedó con un retroceso y el test pasaba aunque se
+sacara la regla que vigilaba (no buscaba lo que decía), y un `(…)\b(…)<\/\1>` perdió los dos. `grep -c` con el rango
+0x01-0x08 lo delata; el Read del editor no lo muestra. **Regla:** las cadenas con regex van CRUDAS (prefijo `r`), o se
+edita con la herramienta Edit. Y un `find` de un pedazo corto (`const m = /^`) agarra la PRIMERA aparición: así se
+reemplazó media hoja de un archivo. Se ancla con el nombre de la función, y `git diff --stat` antes de seguir.
