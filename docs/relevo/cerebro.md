@@ -62,6 +62,9 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - Zernio, «Publicar» desde el Video Editor, el Image Editor y el Copywriter: `zernio-token-2910` en `77cf7a90b` (merge de main `ff908e645`)
       (`C:/dev/wt-zernio-2510`). Va por el camino del Calendario y ningún editor importa Zernio. Toca archivos de los
       editores y del Copywriter. Queda pendiente el tsc del Image Editor, que lo avisa Zernio.
+    - Del Cerebro, sólo docs: `plantillas-reales-2910` en `da6d07dee`, que trae el plan de plantillas reales y su cosecha
+      (15 archivos, todos en `docs/`). Puede chocar al agregar al final de `hallazgos-ai-avatar.md` (con AI Avatar) y de
+      `hallazgos-editor-imagen.md`; se une con `unir-filas-indice.cjs` y `unir-conflictos.cjs`.
   - Toca los planes (`planes-mako`, `topes-plan`, `planes-comparacion`), así que antes de subir pasa por una revisión
     adversarial de plata.
   - NO subir `ai-avatar-abrir-pro-2910` ni `ai-avatar-para-todos-2910`.
