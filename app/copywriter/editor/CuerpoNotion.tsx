@@ -248,12 +248,14 @@ function MenuDelAsa() {
 /** Copia el bloque (con sus hijos) debajo de sí mismo, con ids nuevos (BlockNote los exige únicos). */
 function DuplicarItem({ children }: { children: React.ReactNode }) {
   const Components = useComponentsContext()!;
-  const editor = useBlockNoteEditor<never, never, never>();
-  const block = useExtensionState(SideMenuExtension, { editor, selector: (s) => s?.block }) as BloqueBN | undefined;
-  if (!block) return null;
+  const editor = useBlockNoteEditor(esquemaCopy);
+  // Sin `as` sobre la llamada: TS infiere el elegido del tipo de afuera y el selector deja de encajar.
+  const elegido = useExtensionState(SideMenuExtension, { editor, selector: (s) => s?.block });
+  if (!elegido) return null;
+  const block = elegido as unknown as BloqueBN;
   const sinIds = (b: BloqueBN): BloqueBN => ({ type: b.type, props: b.props, content: b.content, children: (b.children ?? []).map(sinIds) });
   return (
-    <Components.Generic.Menu.Item className="bn-menu-item" onClick={() => { (editor as unknown as { insertBlocks: (a: unknown[], b: unknown, c: 'after') => void }).insertBlocks([sinIds(block)], block, 'after'); }}>
+    <Components.Generic.Menu.Item className="bn-menu-item" onClick={() => { editor.insertBlocks([sinIds(block)] as PartialBlock<typeof esquemaCopy.blockSchema>[], elegido, 'after'); }}>
       {children}
     </Components.Generic.Menu.Item>
   );
