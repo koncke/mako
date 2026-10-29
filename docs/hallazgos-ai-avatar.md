@@ -250,6 +250,33 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
 
 **Vive en:** lib/avisos/ (del plan) · docs/plantillas-reales/avatar.md (sección 4)
 
+## La revisión de plata de «AI Avatar para todos»: la puerta entra (29/10/2026, Integración)
+
+- **Qué se revisó:** `ai-avatar-todos-2910` (`4d66a5703`). El informe está en
+  `C:/dev/revisiones/2910-revision-plata-ai-avatar-todos-4d66a5703.md`.
+- **Verificado:**
+  - Sacarla de `TABS_SOLO_PRO` y `NAV_SOLO_PRO` no abre nada más: Video Editor e Image Editor siguen con candado.
+  - Las acciones piden sesión, rol admin, la tab en la capa y workspace.
+  - **MaKo no paga IA.** El look no usa IA. El plan del video usa la del negocio:
+    - el veto de Claude deja sólo `closing`;
+    - `video-planner` no está en `CREDITO_HABILITADO_PARA`;
+    - la red de la plataforma da `[]` para todo negocio que no sea el ws9.
+- **Venderlo en /planes es otra decisión.** Vive en la tabla de planes: ver «La tabla de /planes…» en
+  `docs/hallazgos-planes-y-cobro.md`.
+- **Storage sin tope ni limpieza (baja):**
+  - Looks y tomas van a `video-generator/ai-avatar/…` del bucket público `video-clips`, sin el número de negocio en la ruta.
+  - El reset (`lib/reset-workspace.ts`, que borra bajo `String(ws)`) no los borra, y «Eliminar» tampoco.
+  - Son centavos, pero sólo crece, y ahora tiene una puerta visible para Esencial.
+- **El freno de la prueba no es atómico (baja).** `crearLookAction` y `crearVideoAction` leen el tope, encolan y después suman.
+  Dos «Generar video» a la vez pasan el tope de 1. No le cuesta a MaKo, porque los créditos son de Flow, del cliente.
+- **Comentarios que mienten:**
+  - `lib/movil-creacion.ts` dice «es de Pro».
+  - `app/m/ai-avatar/puerta.ts` y `page.tsx` dicen «sólo el super admin».
+  - `scripts/landing-principal-high-ticket.mts` espera para publicar la tarjeta a `ai-avatar-para-todos-2910`, una rama
+    VIEJA. La que se despliega es `ai-avatar-todos-2910`.
+
+**Vive en:** app/ai-avatar/actions.ts · lib/reset-workspace.ts · scripts/landing-principal-high-ticket.mts
+
 ## Lo que quedó SIN hacer
 
 - **El video con la voz elegida o clonada.** El Video Generator anima con la voz que genera Flow, en el
