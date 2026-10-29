@@ -38,9 +38,31 @@ preguntes: hacé esto en orden.
 Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node C:/dev/revisiones/subir-tren.mjs <log>`
 (`SUBIR_ARBOL` cambia el árbol; `SUBIR_UN_LUGAR=1` no espera el segundo lugar de tests). El Cerebro de claude3 es
 `local_428051c1`. Esto vale por encima del estado de claude4 de más abajo.
-- **AHORA (29/10 17:03): main = `ff908e645`, tren-ac. READY 17:07: hola-mako.com sirve `mako-8g8vtn7tv`
-  (dpl_ioqDqJGw…).** Avisados el Cerebro (que le escribe a Leandro por el #29) y Zernio. Los demás dueños estaban
-  archivados.
+- **AHORA (29/10 19:35): main = `7ed7e17c6`, tren-ad. READY 19:39: hola-mako.com sirve `mako-d84v86v9d`
+  (dpl_HvtuD89v…).** Avisados el Cerebro y los dueños no archivados.
+  - **Qué trae:**
+    - AI Avatar para todos los planes (`4d66a5703`), con «Antes de generar» paso a paso.
+    - La tarjeta del Avatar en la landing (`7511f5f14`). El script la corre el Cerebro a mano. ⚠️ Su comentario espera a la
+      rama vieja `ai-avatar-para-todos-2910`, pero la que subió es `ai-avatar-todos-2910`.
+    - El «Publicar» desde el Video Editor, el Image Editor y el Copywriter (Zernio `77cf7a90b`), por el camino del Calendario.
+    - Del Cerebro, sólo docs: las plantillas reales (`da6d07dee`) y lo prometido a la agencia de Thiago (`534d0496e`).
+  - **Chequeo:** 7482 tests en verde y las guardas; el delta de docs, 243 barredoras en verde; las tres tandas de tipos del
+    push en 0.
+  - **Revisión de plata** (`C:/dev/revisiones/2910-revision-plata-ai-avatar-todos-4d66a5703.md`): «entra con bajas».
+    - Sin ALTA: la puerta no abre nada más y MaKo no paga IA.
+    - MEDIA: la fila de /planes y el «y tu avatar con IA» de Esencial venden un motor que nunca generó un look en producción,
+      y no dicen que se paga con Google Flow del cliente.
+    - **Se le preguntó al Cerebro «sacar» o «vender».** Si dice «sacar», va en el tren-ae: la línea de Esencial vuelve a
+      la de main, sale `enTodos(anuncios, NOMBRE_AI_AVATAR)` y se ajusta `tests/planes-tres-bloques.test.ts`.
+    - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
+- **tren-ae (sin armar):**
+  - **Lleva:**
+    - La QA de Create: `create-qa-2910` en `95ac56201`.
+    - Las plantillas del Copywriter: `plantillas-copywriter-2910` en `1d9160f87`.
+    - El despachante de MaKo en WhatsApp (`wa-fallas-2710`) si llega su VERDE; le falta una tanda.
+  - Create y el Copywriter arman los dos `lib/avisos/`: acordaron el mismo archivo byte a byte.
+- **Antes: tren-ac, main `ff908e645`, READY 17:07 (`mako-8g8vtn7tv`, dpl_ioqDqJGw…).** Avisados el Cerebro (que le
+  escribe a Leandro por el #29) y Zernio. Los demás dueños estaban archivados.
   - **Qué trae:**
     - El ticket #29 de Leandro (Automations `38c39d067` + `50b7ff798`): «Ya te sigo» vuelve a entregar el recurso, porque
       pregunta a Zernio con `refresh=true`.
@@ -51,23 +73,8 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     `27ba51334`). Cosechado en `docs/hallazgos-integraciones.md`.
   - **El grupo compartido 2/2 murió con la RAM en 0:** «0 tests» y 388 rojos. Re-corrido solo dio 3755 tests, con sólo los
     rojos conocidos (alta-cliente-conducta, que pasa sola, y el `todo` de chats-mako-envio).
-  - **⏸ PAUSA «reunión de Martín», prendida a las 17:03 por pedido del Cerebro:** no arrancar el tren-ad ni ningún barrido
-    hasta que el Cerebro la levante. Un proceso de Integración la refresca cada 20 min mientras diga eso, porque a los 90
-    min se da por olvidada.
-- **tren-ad (sin armar; espera la pausa):**
-  - **Lleva:**
-    - AI Avatar para todos los planes: `ai-avatar-todos-2910` en `4d66a5703`, que trae mergeada la landing hasta
-      `abfe143ed`.
-    - El Web Generator: `landing-high-ticket-2910` en `7511f5f14`, que suma sólo un comentario.
-    - Zernio, «Publicar» desde el Video Editor, el Image Editor y el Copywriter: `zernio-token-2910` en `77cf7a90b` (merge de main `ff908e645`)
-      (`C:/dev/wt-zernio-2510`). Va por el camino del Calendario y ningún editor importa Zernio. Toca archivos de los
-      editores y del Copywriter. Queda pendiente el tsc del Image Editor, que lo avisa Zernio.
-    - Del Cerebro, sólo docs: `plantillas-reales-2910` en `da6d07dee`, que trae el plan de plantillas reales y su cosecha
-      (15 archivos, todos en `docs/`). Puede chocar al agregar al final de `hallazgos-ai-avatar.md` (con AI Avatar) y de
-      `hallazgos-editor-imagen.md`; se une con `unir-filas-indice.cjs` y `unir-conflictos.cjs`.
-  - Toca los planes (`planes-mako`, `topes-plan`, `planes-comparacion`), así que antes de subir pasa por una revisión
-    adversarial de plata.
-  - NO subir `ai-avatar-abrir-pro-2910` ni `ai-avatar-para-todos-2910`.
+  - La pausa «reunión de Martín» (17:03–18:23) la levantó el Cerebro. El proceso que la refrescaba se cerró solo.
+  - NO subir `ai-avatar-abrir-pro-2910` ni `ai-avatar-para-todos-2910`: quedaron viejas.
 - **Antes: el tren grande (tren-ab), main `1cf06eba9`, Ready 14:29.** 128 commits, con las 3 tandas de tipos en 0.
   - **Qué trae:**
     - Create entero: el shell, el Copywriter en Notion con la mudanza re-verificada, AI Avatar y el «Cómo conectarla».
