@@ -323,7 +323,7 @@ test('⚠️ un incidente de varios días avisa UNA vez por día, y el «ya est�
 });
 
 test('⚠️ el recordatorio de cada día sale DE DÍA en la zona del negocio, no a la hora en que Meta frenó la cuenta (la revisión, 28/10)', async () => {
-  const { tocaAvisar, horaEnZona, enHorarioDeRecordatorio, MIN_DIA } = await import('../lib/alerta-critica-texto');
+  const { tocaAvisar, horaEnZona, enHorarioDeRecordatorio, necesitaLaZona, MIN_DIA } = await import('../lib/alerta-critica-texto');
   const BA = 'America/Argentina/Buenos_Aires';
   // El caso del refutador: abierto el 20/10 a las 06:05 UTC (03:05 en Buenos Aires).
   const T0 = Date.parse('2026-10-20T06:05:00.000Z');
@@ -349,8 +349,15 @@ test('⚠️ el recordatorio de cada día sale DE DÍA en la zona del negocio, n
   assert.match(src, /try \{ tz = await zonaDelNegocioEstricta\(ws\); \} catch \(e\) \{\s*zonaIlegible = true;/);
   assert.doesNotMatch(src, /zonaDelNegocio\(ws\)/, 'la que nunca tira no decide la ventana');
   const iTomada = src.indexOf('if (cuentaId) yaAvisadas?.add(cuentaId);');
-  const iSalta = src.indexOf('if (zonaIlegible) continue;');
+  const iSalta = src.indexOf('if (zonaIlegible && necesitaLaZona(estado, minAbierto)) continue;');
   assert.ok(iTomada > 0 && iSalta > iTomada && iSalta < src.indexOf('tocaAvisar(estado, minAbierto, veces, Date.now(), tz)'), 'salta después de tomar la cuenta y antes de decidir');
+  assert.ok(iSalta > src.indexOf('const estado: Insistencia | null ='), 'mira la marca antes: sin marca, el primer aviso sale');
+  assert.doesNotMatch(src, /if \(zonaIlegible\) continue;/, 'sin zona no se frena TODO (la reverificación de Integración, 29/10)');
+  // La zona decide sólo el recordatorio de un día que no es el primero: lo mismo que mira `tocaAvisar`.
+  const marca = { ultimaIso: new Date(T0).toISOString(), veces: 1, estado: 'Saldo impago', ventana: 0, total: 1 };
+  assert.equal(necesitaLaZona(null, MIN_DIA + 60), false, 'el primer aviso no necesita la zona');
+  assert.equal(necesitaLaZona(marca, 30), false, 'el día 0 sale en el acto');
+  assert.equal(necesitaLaZona(marca, MIN_DIA + 60), true, 'el recordatorio del día 1 sí');
 });
 
 // Rotura: sin poder emitir, borrar la marca igual → 42 / 1, cae éste.

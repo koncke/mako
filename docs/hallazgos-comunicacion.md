@@ -11697,6 +11697,9 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
   recordatorio de un negocio argentino frenado a las 23:00 salía a las 23:00. Ahora `zonaDelNegocioEstricta` y, si tira, esa
   vuelta no avisa (el cron vuelve en 10 min) DESPUÉS de tomar la cuenta. **La regla** (AGENTS.md, «Una zona, un default»):
   cuando la zona decide una ventana, la que tira; un `.catch` detrás de una función que nunca tira es código muerto.
+  **⚠️ Pero frenar TODO era el exceso contrario** (la reverificación de Integración, 29/10): con la lectura caída de forma
+  persistente no salía ni el PRIMER aviso, que no necesita la zona. Se frena sólo lo que la zona decide (`necesitaLaZona`: el
+  recordatorio de un día que no es el primero), lo mismo que mira `tocaAvisar`.
 - **El aviso de cancelación doble de Guillermo Wong (MAU-33) era del 13/10:** 17:21:59 y 17:22:35, el mismo texto. Fue una
   reentrega de Calendly, y el freno (`claveCancelada`, 24 h) entró el 17/10 en 6904a447f. Desde ese día los avisos de
   cancelación salen por su automatización y no quedan en `notificaciones`: no hay dato después que lo confirme, ni ningún doble.

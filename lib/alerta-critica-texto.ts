@@ -88,6 +88,13 @@ export const enHorarioDeRecordatorio = (ahoraMs: number, tz: string): boolean =>
  * segundo, UNO por día: si hoy ya llegó uno (`veces` del día), nada hasta mañana; si no llegó (la línea caída, sin grupo), se
  * reintenta cada `CADENCIA_MIN`, como antes, sin perder el aviso del día.
  */
+/**
+ * ¿La ZONA decide si toca avisar? Sólo el recordatorio de un día que no es el primero (`tocaAvisar`): el primer aviso y los del
+ * día 0 salen en el acto. Sin poder leer la zona, se frena sólo eso (la reverificación de Integración, 29/10/2026: frenar todo
+ * dejaba sin el PRIMER aviso a un negocio con la lectura caída).
+ */
+export const necesitaLaZona = (prev: Insistencia | null, minAbierto: number): boolean => prev != null && ventanaDelIncidente(minAbierto) > 0;
+
 export function tocaAvisar(prev: Insistencia | null, minAbierto: number, veces: number, ahoraMs: number, tz?: string | null): boolean {
   if (!prev) return true;
   const dia = ventanaDelIncidente(minAbierto);

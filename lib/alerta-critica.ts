@@ -46,7 +46,7 @@ import { getSetting, setSetting } from './settings';
 import { zonaDelNegocioEstricta } from './timezone';
 import { credWs } from './credenciales';
 import { emitirEventoDePlataforma } from './avisos';
-import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, tocaAvisar, ventanaDelIncidente, llegoAlguno, type Insistencia } from './alerta-critica-texto';
+import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, tocaAvisar, necesitaLaZona, ventanaDelIncidente, llegoAlguno, type Insistencia } from './alerta-critica-texto';
 
 /*
  * CADA CUÁNTO VUELVE A AVISAR mientras el problema siga abierto (`tocaAvisar`, lib/alerta-critica-texto.ts).
@@ -194,8 +194,9 @@ export async function insistirAlertasCriticas(
   if (cuentaTomada) console.log(`[alerta-critica] ws=${ws} comparte la cuenta ${cuentaId} con otro workspace ya avisado — no repito`);
   // La zona del negocio: el recordatorio de cada día sale de día ahí (`tocaAvisar`). ⚠️ ESTRICTA (la verificación de
   // 69b49a31c, 29/10/2026; AGENTS.md «Una zona, un default»): `zonaDelNegocio` no tira y, sin poder leer, daba Tijuana, así
-  // que el recordatorio de un negocio argentino podía caer a las 23:00. Sin poder leerla, esta vuelta no avisa (el cron
-  // vuelve en 10 min) y la cuenta queda tomada igual: otro negocio con la misma cuenta no avisa con SU reloj.
+  // que el recordatorio de un negocio argentino podía caer a las 23:00. Sin poder leerla, esta vuelta no manda lo que la zona
+  // decide (`necesitaLaZona`: el recordatorio de un día que no es el primero; el cron vuelve en 10 min). El primer aviso sale
+  // igual, y la cuenta queda tomada: otro negocio con la misma cuenta no avisa con SU reloj.
   let tz: string | null = null;
   let zonaIlegible = false;
   if (abiertos.length) {
@@ -217,7 +218,6 @@ export async function insistirAlertasCriticas(
     // Diseño» (ws4), la misma cuenta impaga, emitían cada hora con media hora de diferencia. No llegaba doble sólo porque
     // ws4 no tiene grupo.
     if (cuentaId) yaAvisadas?.add(cuentaId);
-    if (zonaIlegible) continue;
     try {
       const key = keyInsistencia(inc.id);
       const raw = await getSetting(key).catch(() => null);
@@ -229,6 +229,7 @@ export async function insistirAlertasCriticas(
       // `vecesDelEstado`). Con eso el `anuncios_vez` del primero de cada día es 1 y pasa el techo de la automatización.
       const ventana = ventanaDelIncidente(minAbierto);
       const veces = vecesDelEstado(estado, inc.status_label, ventana);
+      if (zonaIlegible && necesitaLaZona(estado, minAbierto)) continue;
 
       if (!tocaAvisar(estado, minAbierto, veces, Date.now(), tz)) continue; // todavía no toca
 
