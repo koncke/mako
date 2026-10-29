@@ -6851,7 +6851,10 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   sobre 69b49a31c): Zernio guarda la respuesta de cada clave 24 h, y `nutri:<inscripción>:<nodo>`
   servía mientras una inscripción era UNA corrida. «Volver a probar» la reusa: la segunda prueba
   mandaba con la clave de la primera, la pública daba 422 y el DM volvía con el 200 viejo sin
-  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). Y lo que se CREA
+  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). **Y si la misma tarjeta
+  puede salir dos veces en UNA corrida** (un botón que vuelve a una de antes, ticket #29), la clave lleva
+  también la PASADA: con la de la primera, Zernio devolvía la respuesta guardada, no salía nada y el motor
+  lo anotaba «enviado». Y lo que se CREA
   a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
   otro: `crearDifusion` (lib/difusion.ts).
 

@@ -91,7 +91,7 @@ import {
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
-import { botonesDe, botonesDeFlujo, botonPorTexto, esperaToque, leerPayloadDeBoton } from '@/lib/botones-social';
+import { botonesDe, botonesDeFlujo, botonPorTexto, esperaToque, leerPayloadDeBoton, leerMarcaToque, marcaToque, vueltaDeToque, TOPE_TOQUES_POR_VUELTA, type MarcaToque } from '@/lib/botones-social';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
@@ -3215,6 +3215,7 @@ async function hechosDeLeads(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   leadIds: readonly number[],
   filas?: readonly FilaCondicion[],
+  o: { fresco?: boolean } = {},
 ): Promise<Map<number, HechosLead>> {
   const ids = [...new Set(leadIds)];
   const out = new Map<number, HechosLead>();
@@ -3295,7 +3296,7 @@ async function hechosDeLeads(
       .in('lead_id', pend).eq('from_me', false).or('tipo.is.null,tipo.not.in.(evento,otro)'), 'wa_mensajes')) : Promise.resolve(new Set<number>()),
     pide('respondio') ? idsConAlMenosUnaFila(ids, (pend) => leadIdsDe(db.from('nutricion_inscripciones').select('lead_id')
       .in('lead_id', pend).eq('estado', 'respondio'), 'nutricion_inscripciones')) : Promise.resolve(new Set<number>()),
-    catalogoLead ? hechosDelCatalogo(db, ids, filasLead, fuentes, filas ?? []) : Promise.resolve(null),
+    catalogoLead ? hechosDelCatalogo(db, ids, filasLead, fuentes, filas ?? [], o) : Promise.resolve(null),
   ]);
   const ahoraMs = Date.now();
   for (const f of filasLead) {
@@ -3336,6 +3337,7 @@ async function hechosDelCatalogo(
   filasLead: ReadonlyArray<{ id: number; visitor_id?: string | null } & Record<string, unknown>>,
   fuentes: ReadonlySet<Fuente>,
   filas: readonly FilaCondicion[],
+  o: { fresco?: boolean } = {},
 ): Promise<(f: FilaLeadCatalogo & { id: number } & Record<string, unknown>, ahoraMs: number) => HechosCatalogo> {
   const pide = (x: Fuente) => fuentes.has(x);
   const visitantes = [...new Set(filasLead.map((f) => f.visitor_id).filter((v): v is string => !!v))];
@@ -3481,7 +3483,7 @@ async function hechosDelCatalogo(
     if (!pide('sigue') || !s) return null;
     const ws = await getWorkspaceActual();
     if (ws == null) throw new Error('condición «Te sigue en Instagram»: sin workspace en la corrida');
-    return siguenEnInstagram(ws, s);
+    return siguenEnInstagram(ws, s, { fresco: o.fresco === true });
   };
 
   const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue]] = await Promise.all([
@@ -4587,7 +4589,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     let hechosLeidos: Promise<Map<number, HechosLead> | null> | null = null;
     const hechosDe = (leadId: number): Promise<HechosLead | null> => {
       if (!leadsQueDeciden.length) return Promise.resolve(null);
-      hechosLeidos ??= hechosDeLeads(supabase, leadsQueDeciden, filasQueDeciden).catch((e: unknown) => {
+      // ⚠️ La vía rápida de UN lead corre porque ese lead ACABA de hacer algo (tocó «Ya te sigo», escribió): «¿te sigue?» sin
+      // la caché de Zernio (ticket #29 de Leandro: su doc pide `refresh=true` justo después de pedir que te sigan).
+      hechosLeidos ??= hechosDeLeads(supabase, leadsQueDeciden, filasQueDeciden, { fresco: opts?.soloLeadId != null }).catch((e: unknown) => {
         console.error('[nutricion] hechos del lead para las condiciones:', e instanceof Error ? e.message : String(e));
         return null;
       });
@@ -5310,6 +5314,15 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           }
           desde = partesYaSalidas(ultimo as { estado?: string | null; asunto?: string | null } | null);
         }
+        // ⚠️ LA PASADA (ticket #29 de Leandro, `claveDeEnvio`): cuántas veces ya salió esta tarjeta en esta vuelta. Un botón
+        // que vuelve a una tarjeta de antes la manda otra vez, y con la clave de la primera Zernio no mandaba nada. Sin poder
+        // leerlo no se manda: con una clave vieja no le llega nada, y con una nueva un reintento podría salir dos veces.
+        const yaSalio = await vecesQueSalio(supabase, insc.id, idDe(paso, insc.paso_actual), insc.inscripto_at);
+        if (yaSalio == null) {
+          await soltarToque(carril);
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'no pude leer cuántas veces salió esta tarjeta' });
+          continue;
+        }
         if (wsCorrida == null) {
           estado = 'fallo'; nota = 'sin workspace en la corrida'; backoffHoras = 4;
         } else {
@@ -5319,7 +5332,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           const r = await enviarPasoSocial({
             ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesDe(paso), varsSocial),
             // La clave lleva la VUELTA (`claveDeEnvio`, lib/reentrada.ts): la inscripción reusada de «Volver a probar» no reusa la de antes.
-            vars: {}, idempotencia: claveDeEnvio(insc.id, insc.inscripto_at, idDe(paso, insc.paso_actual)), desde,
+            vars: {}, idempotencia: claveDeEnvio(insc.id, insc.inscripto_at, idDe(paso, insc.paso_actual), yaSalio + 1), desde,
             // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
             cuenta: cuentaDelPaso(paso),
             // Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts): el `payload` de cada uno lleva ESTA inscripción y ESTA
@@ -6042,6 +6055,20 @@ async function yaLeSalioAlgo(db: Awaited<ReturnType<typeof getTenantDb>>, inscId
   return (data ?? []).length > 0;
 }
 
+/**
+ * ¿CUÁNTAS VECES YA SALIÓ ESTA TARJETA a esta inscripción (enviada o simulada) desde `desde`? La pasada de la clave de
+ * Zernio (`claveDeEnvio`, desde la vuelta) y el toque repetido (`tocarBoton`, desde la marca del toque anterior). Un fallo
+ * no cuenta: su reintento es la misma pasada. null = no se pudo leer.
+ */
+async function vecesQueSalio(db: Awaited<ReturnType<typeof getTenantDb>>, inscId: number, nodo: string, desde: string | null | undefined): Promise<number | null> {
+  let q = db.from('nutricion_envios').select('id', { count: 'exact', head: true })
+    .eq('inscripcion_id', inscId).eq('nodo_id', nodo).in('estado', ['enviado', 'simulado']);
+  if (desde && Number.isFinite(Date.parse(desde))) q = q.gte('created_at', desde);
+  const { count, error } = await q;
+  if (error) { console.error(`[nutricion] ¿cuántas veces salió «${nodo}» a la inscripción ${inscId}?: ${error.message}`); return null; }
+  return count ?? 0;
+}
+
 /** Lo que pasó con un toque (o con un texto que podía ser uno). */
 export type ResultadoToque = 'movida' | 'repetido' | 'no_es' | 'ignorado';
 
@@ -6064,8 +6091,8 @@ export async function tocarBoton(leadId: number, t: { payload?: string | null; t
     const db = await getTenantDb();
     const pl = t.payload != null ? leerPayloadDeBoton(t.payload) : null;
     if (t.payload != null && !pl) return 'no_es';
-    type FilaToque = { id: number; lead_id: number; secuencia_id: number; estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; updated_at: string };
-    const cols = 'id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, hilos, updated_at';
+    type FilaToque = { id: number; lead_id: number; secuencia_id: number; estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; updated_at: string; inscripto_at: string | null };
+    const cols = 'id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, hilos, updated_at, inscripto_at';
     const secs = await getSecuenciasActivas();
     const porId = new Map(secs.map((x) => [x.id, x]));
     // La inscripción y el botón: por el `payload`, o por el texto entre las que esperan un toque.
@@ -6096,21 +6123,38 @@ export async function tocarBoton(leadId: number, t: { payload?: string | null; t
     const boton = botonesDeFlujo(nodoPorId(sec.pasos, nodoId)).find((b) => b.id === botonId);
     const j = boton?.siguiente ? indicePorId(sec.pasos, boton.siguiente) : -1;
     if (!boton || j < 0) return 'ignorado';
-    // El MISMO toque dos veces (un doble toque, un reenvío de Meta): no se vuelve a correr la rama.
+    // El MISMO toque dos veces (un doble toque): no se vuelve a correr la rama. Un reintento de Zernio ni llega acá: el
+    // webhook reclama cada evento (`zernio_eventos`).
+    // ⚠️ SALVO QUE LA TARJETA DEL BOTÓN HAYA VUELTO A SALIR después del toque anterior (ticket #29 de Leandro, 29/10/2026):
+    // «Ya te sigo» → no te sigue → el mismo «Seguinos» otra vez; el lead sigue la cuenta y vuelve a tocar en menos de un
+    // minuto. Eso es una decisión nueva, no un doble toque, y se tiraba: quien tardaba poco en seguirnos no recibía el recurso.
     const keyToque = `nutricion.boton.${f.id}`;
     const firma = `${nodoId}:${botonId}`;
-    try {
-      const prev = await getSettingEstricto(keyToque);
-      const [pf, pAt] = (prev ?? '').split('@');
-      if (pf === firma && Date.now() - Date.parse(pAt ?? '') < VENTANA_TOQUE_REPETIDO_MS) return 'repetido';
-    } catch { /* sin poder leer la marca, el compare-and-set de abajo igual evita pisar */ }
+    let marca: MarcaToque | null = null;
+    try { marca = leerMarcaToque(await getSettingEstricto(keyToque)); } catch { /* sin poder leer la marca, el compare-and-set de abajo igual evita pisar */ }
+    if (marca && marca.firma === firma && Date.now() - Date.parse(marca.at) < VENTANA_TOQUE_REPETIDO_MS) {
+      // Sin poder leerlo, es el mismo toque: corta de más, nunca manda de más.
+      if (!(await vecesQueSalio(db, f.id, nodoId, marca.at))) return 'repetido';
+    }
+    // EL TOPE DE TOQUES (`TOPE_TOQUES_POR_VUELTA`): el botón que vuelve a una tarjeta de antes es un bucle a propósito, y
+    // cada toque puede mandarle un DM. Los cuenta la marca, por vuelta.
+    const vuelta = vueltaDeToque(f.inscripto_at);
+    const veces = marca && marca.vuelta === vuelta ? marca.veces : 0;
+    if (veces >= TOPE_TOQUES_POR_VUELTA) {
+      console.warn(`[nutricion] lead ${leadId}: tocó «${boton.titulo}» en «${sec.clave}» y ya van ${veces} toques en esta vuelta: no se mueve`);
+      try {
+        const { logLeadEvent } = await import('@/lib/leads');
+        await logLeadEvent(leadId, 'Automatización', `Tocó «${boton.titulo}» en «${sec.nombre}»: ya tocó ${veces} botones en esta automatización y no la muevo más.`, 'MaKo');
+      } catch { /* el historial no puede frenar nada */ }
+      return 'ignorado';
+    }
     const ahora = ahoraISO();
     const { data: upd, error: eU } = await db.from('nutricion_inscripciones')
       .update({ paso_actual: j, nodo_actual: boton.siguiente, estado: 'activa', proximo_envio_at: ahora, updated_at: ahora })
       .eq('id', f.id).eq('estado', f.estado).eq('updated_at', f.updated_at).select('id');
     if (eU) throw new Error(eU.message);
     if (!(upd ?? []).length) { console.warn(`[nutricion] botón de la inscripción ${f.id}: cambió mientras tanto, no se pisa`); return 'ignorado'; }
-    await setSetting(keyToque, `${firma}@${ahora}`).catch(() => {});
+    await setSetting(keyToque, marcaToque({ firma, at: ahora, veces: veces + 1, vuelta })).catch(() => {});
     console.log(`[nutricion] lead ${leadId}: tocó «${boton.titulo}» en «${sec.clave}» → ${boton.siguiente}`);
     try {
       const { logLeadEvent } = await import('@/lib/leads');

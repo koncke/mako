@@ -17,6 +17,8 @@ export const ARTICULOS = {
   'buenas-practicas': { titulo: 'Buenas prácticas para usar la API REST', corto: 'Buenas prácticas', lead: 'Cómo integrarte con la API de MaKo sin sorpresas.' },
   problemas: { titulo: 'Solución de problemas de la API REST', corto: 'Solución de problemas', lead: 'Qué significa cada error y cómo arreglarlo.' },
   'migrar-curso': { titulo: 'Migrar un curso a MaKo con Claude', corto: 'Migrar un curso con Claude', lead: 'Pasa un curso entero (módulos, clases, videos, descripciones y tareas) pidiéndoselo a Claude, sin cargarlo a mano.' },
+  // Ticket #29 de Leandro (29/10/2026): «que /docs explique las palabras clave del disparador y el "Contiene / Es exactamente"».
+  'instagram-palabras-botones': { titulo: 'Palabras clave y botones en las automatizaciones de Instagram', corto: 'Palabras clave y botones de Instagram', lead: 'Qué comentario arranca una automatización, y cómo andan los botones de un DM.' },
 } as const;
 
 export type SlugArticulo = keyof typeof ARTICULOS;
@@ -27,6 +29,6 @@ export const GRUPOS_ARTICULOS: { titulo: string; articulos: SlugArticulo[] }[] =
   { titulo: 'Acerca de la API', articulos: ['versiones', 'openapi'] },
   { titulo: 'Uso de la API', articulos: ['primeros-pasos', 'limites', 'buenas-practicas', 'problemas'] },
   { titulo: 'Autenticación', articulos: ['autenticacion', 'permisos'] },
-  { titulo: 'Guías', articulos: ['migrar-curso'] },
+  { titulo: 'Guías', articulos: ['migrar-curso', 'instagram-palabras-botones'] },
 ];
 
