@@ -45,7 +45,7 @@ import { revisarAccesosPorPago } from './plan-acceso';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
-  avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
+  avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCancelarFallida, idemCobro, idemReembolso, mesesTranscurridos,
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
   mailDeAccesoNoSalio, PREFIJO_MAIL_NO_SALIO, cerrarCheckoutDelCobro,
 } from './cobros-reglas';
@@ -57,7 +57,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, facturasPagadasStripe, leerCheckoutStripe, leerPruebaStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, facturasPagadasStripe, leerCheckoutStripe, leerPruebaStripe, leerSuscripcionStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
@@ -241,7 +241,7 @@ export async function cobroPendienteDelLead(ws: number, leadId: number): Promise
   });
 }
 
-async function actualizar(ws: number, id: number, patch: Record<string, unknown>, soloSi?: { estado?: readonly EstadoCobro[] }): Promise<Cobro | null> {
+async function actualizar(ws: number, id: number, patch: Record<string, unknown>, soloSi?: { estado?: readonly EstadoCobro[]; ref?: string | null }): Promise<Cobro | null> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     // Todo motivo que se escribe pasa por `motivoSinDatos`: los errores de los proveedores traen pedazos de
@@ -252,6 +252,8 @@ async function actualizar(ws: number, id: number, patch: Record<string, unknown>
     }
     let q = db.from('cobros').update({ ...limpio, updated_at: new Date().toISOString() }).eq('id', id);
     if (soloSi?.estado) q = q.in('estado', [...soloSi.estado]);
+    // La sesión del proveedor que se leyó (`ref`): si otro pedido armó una nueva en el medio, no se escribe sobre ésa.
+    if (soloSi && 'ref' in soloSi) q = soloSi.ref == null ? q.is('proveedor_ref', null) : q.eq('proveedor_ref', soloSi.ref);
     const { data, error } = await q.select(COLS_COBRO).maybeSingle();
     if (error) throw new Error(`No pude actualizar el cobro ${id}: ${error.message}`);
     return data ? cobroDeFila(data as Record<string, unknown>) : null;
@@ -593,6 +595,16 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
     // cobro `fallido`, y /listo ofrece «Volver a intentar». Ahí se arma otra; antes era un bucle /pagar → /listo para siempre.
     // Con el voucher todavía EN CURSO (el cobro sigue pendiente) no: se podría pagar dos veces.
     if (s.ok && s.estado === 'complete' && !(c.estado === 'fallido' && s.pagoEstado === 'unpaid')) return { error: 'ya_pagado' };
+    // ⚠️ LA SUSCRIPCIÓN DE LA SESIÓN QUE FALLÓ SE CANCELA ANTES DE ARMAR OTRA (29/10/2026, la verificación de ddfa645d4): un SEPA que
+    //    no se cobró deja la suscripción A VIVA con su primera factura abierta. Si Stripe la reintentaba y entraba, quedaban dos
+    //    suscripciones cobrando todos los meses. Si no se puede cancelar (ni confirmar que ya lo está), no se arma otra.
+    if (s.ok && s.estado === 'complete' && s.subscription) {
+      const x = await cancelarSuscripcionStripe(stripe.key, s.subscription, idemCancelarFallida(c.id, s.id));
+      if (!x.ok && x.status !== 404) {
+        const sub = await leerSuscripcionStripe(stripe.key, s.subscription);
+        if (!(sub.ok && sub.estado === 'canceled')) return { error: 'pasarela', detalle: x.error };
+      }
+    }
     if (s.ok && s.estado === 'open') {
       const x = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
       if (!x.ok) {
@@ -1088,11 +1100,15 @@ export async function atarCobroASuCuenta(ws: number, id: number, autor: string):
   return { ok: true, resumen: `Listo: «${w.nombre}» queda con el plan ${capaDef(c.alta_capa).nombre} y este cobro.` };
 }
 
-/** Un pago rechazado. Un cobro ya pagado NO vuelve atrás: es la renovación la que falló, y lo dice el historial. */
+/**
+ * Un pago rechazado. Un cobro ya pagado NO vuelve atrás: es la renovación la que falló, y lo dice el historial.
+ * ⚠️ SÓLO SOBRE LA SESIÓN QUE SE LEYÓ (29/10/2026, la verificación de ddfa645d4): si entre la lectura y esta escritura «Volver a
+ *    intentar» armó otra (`urlParaPagar` cambia `proveedor_ref` y vuelve el cobro a `pendiente`), el fallo de la anterior no la toca.
+ */
 export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void> {
   await runWithWorkspace(c.workspace_id, async () => {
     if (c.estado === 'pendiente') {
-      const r = await actualizar(c.workspace_id, c.id, { estado: 'fallido', motivo: motivo.slice(0, 300) }, { estado: ['pendiente'] });
+      const r = await actualizar(c.workspace_id, c.id, { estado: 'fallido', motivo: motivo.slice(0, 300) }, { estado: ['pendiente'], ref: c.proveedor_ref });
       if (r && c.lead_id) {
         await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
         await alCron(c, 'rechazado');

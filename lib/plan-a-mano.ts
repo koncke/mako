@@ -16,6 +16,7 @@ import { EMAIL_MAKO, linkApp } from './app-url';
 import { emailDuenoWorkspace } from './usuarios';
 import { nombreDePlan } from './clientes-plataforma-reglas';
 import { avisosPlanAManoVencido, CLAVE_PLAN_A_MANO, leerPlanAMano, planAManoNuevo, tocaAvisarPlanAMano, type PlanAMano } from './plan-a-mano-reglas';
+import { estadoDePrueba } from './prueba-uso';
 
 /** El plan a mano del negocio, o null si no tiene (o si no se pudo leer). */
 export async function planAManoDe(ws: number): Promise<PlanAMano | null> {
@@ -57,8 +58,13 @@ export async function avisarPlanesAManoVencidos(opts: { ahoraMs?: number; enSeco
     if (ws === plataforma) continue;
     const p = leerPlanAMano(f.value);
     if (!p || !tocaAvisarPlanAMano(p, ahoraMs)) continue;
-    if (opts.enSeco) { avisados++; continue; }
     try {
+      // ⚠️ UN NEGOCIO QUE YA PAGA NO RECIBE «TERMINÓ TU PRUEBA» (29/10/2026, la verificación de ddfa645d4): «le doy 7 días, paga el
+      //    día 3» es el final esperado, y el aviso le llegaba igual (y a Martín le decía «sigue con los topes de la prueba», sin
+      //    topes). Si ya no está en prueba (pagó por la pasarela, o con su email), no se avisa. Sin poder leerlo, tampoco: se mira
+      //    de nuevo en la próxima vuelta.
+      if (!(await estadoDePrueba(ws)).enPrueba) continue;
+      if (opts.enSeco) { avisados++; continue; }
       const w = await getWorkspace(ws);
       if (!w) continue;
       const a = avisosPlanAManoVencido({

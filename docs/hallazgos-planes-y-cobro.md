@@ -1699,6 +1699,19 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
   suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
 - Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+- ⚠️ **Quien ya pagó seguía con los topes (29/10, la verificación de ddfa645d4, ALTA):** si el negocio compra por /planes con el
+  email de SU cuenta, el cobro queda `ya_tenia_cuenta` y SIN atar (`alta_ws` null) hasta que Martín lo ata en /admin/cobros, y
+  `estadoDePrueba` sólo miraba los cobros atados: seguía «en prueba» y al vencer le llegaba «Terminó tu prueba». Ahora un cobro
+  pagado de la plataforma, `ya_tenia_cuenta` y sin atar, con el email de un admin del negocio, apaga el plan a mano. **La regla:**
+  el email SÓLO quita topes; nunca ata ni pausa (atar por email es lo que lib/plan-acceso.ts NO hace a propósito: cualquiera podría
+  comprar con el email de otro y hacerlo pausar). Quitar es seguro: quien paga con tu email te paga a vos.
+- **Y el aviso al vencer se saltea a quien ya no está en prueba** (la MEDIA del mismo informe: «le doy 7 días, paga el día 3» es
+  el final esperado y le llegaba «Terminó tu prueba», con «sigue con los topes» a Martín). Medido con el guion del refutador
+  (C:/dev/revisiones/scratch-ddfa/plan-a-mano/p1-plan-a-mano.ts sobre este árbol): sólo cambian los casos C y B al vencer.
+
+**Sin hacer (del mismo informe):** si el mail a Martín no sale (un 429 de Resend), la persona lo recibe otra vez al día siguiente
+(guardar por separado lo que salió); la fecha del aviso va en hora de Argentina y no en la del negocio; si Martín da más días
+mientras el cron avisa, el cron pisa el plan nuevo; un plan a mano vencido dice «termina hoy» todos los días.
 
 **Sin hacer:** Customers no muestra en la tarjeta del negocio hasta cuándo va su prueba a mano (se ve en el aviso al guardar).
 El envío de los mails y la lectura de la base no se corrieron de punta a punta (el test mira el fuente); el primer vencimiento

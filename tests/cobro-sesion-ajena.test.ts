@@ -119,8 +119,9 @@ test('el webhook lo mira ANTES de asentar el pago o el fallo, y si no cuadra dej
   assert.ok(mira < checkout.indexOf('aplicarPagoFallido('), 'antes de marcar el fallo');
   assert.ok(mira < checkout.indexOf('aplicarPagoAprobado('), 'antes de asentar el pago');
   assert.match(checkout, /if \(!deEste\.ok\) \{\n\s*if \(aviso\.accion !== 'fallido'\) await avisarSesionQueNoCuadra\(ws, c, s, deEste\.motivo\);\n\s*return ignorado\(deEste\.motivo, c\.id\);/);
-  // El ticket vive en su módulo desde el 28/10/2026 (lo usan el aviso y el cron).
-  assert.match(fuente('lib/cobros-webhook.ts'), /import \{ avisarSesionQueNoCuadra \} from '\.\/cobro-sesion-ajena';/);
+  // El ticket vive en su módulo desde el 28/10/2026 (lo usan el aviso y el cron). Desde el 29/10 el webhook importa también el de
+  // la factura de una suscripción anterior (`avisarFacturaDeOtraSuscripcion`, tests/cobro-reintento.test.ts).
+  assert.match(fuente('lib/cobros-webhook.ts'), /import \{[^}]*\bavisarSesionQueNoCuadra\b[^}]*\} from '\.\/cobro-sesion-ajena';/);
   const A = sinComentarios(fuente('lib/cobro-sesion-ajena.ts'));
   const aviso = A.slice(A.indexOf('export async function avisarSesionQueNoCuadra('));
   const cuerpo = aviso.slice(0, aviso.indexOf('\n}\n'));

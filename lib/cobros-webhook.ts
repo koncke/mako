@@ -36,7 +36,7 @@ import { getSettingEstricto } from './settings';
 import { wsSuperAdmin } from './workspace';
 import { avisarCompraAMeta } from './cobros-externos-meta';
 import type { Cobro } from './cobros-tipos';
-import { avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
+import { avisarFacturaDeOtraSuscripcion, avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
 import {
@@ -91,6 +91,22 @@ const PRINCIPAL_SIN_REF: QuienAvisa = { cuenta: CUENTA_PRINCIPAL, ref: null };
 // Por el id en el proveedor cuando el cobro lo tiene (mig 0328): una cuenta que volvió con otro sufijo sigue siendo la suya.
 const deOtraCuenta = (c: Cobro, q: QuienAvisa): boolean =>
   c.cuenta_ref ? c.cuenta_ref.trim() !== (q.ref ?? '').trim() : (c.cuenta ?? CUENTA_PRINCIPAL) !== q.cuenta;
+
+/**
+ * La suscripción VIGENTE de un cobro de Stripe (29/10/2026): la que ya se le anotó o, antes del primer pago, la de la sesión que
+ * MaKo armó por última vez (`proveedor_ref`; null si todavía no se completó). Una factura o una cancelación de OTRA suscripción
+ * es de un intento anterior (`urlParaPagar` la canceló al armar otra sesión). Si no se puede leer, tira: Stripe reintenta el aviso.
+ */
+async function suscripcionVigente(key: string, c: Cobro): Promise<string | null> {
+  if (c.proveedor_suscripcion_id) return c.proveedor_suscripcion_id;
+  if (!c.proveedor_ref) return null;
+  const s = await leerCheckoutStripe(key, c.proveedor_ref);
+  if (!s.ok) {
+    if (s.status === 404) return null;
+    throw errorDelProveedor('Stripe', 'la sesión vigente del cobro', s);
+  }
+  return s.subscription;
+}
 
 /** El cobro del aviso de Stripe, con el corte de modo (real/prueba) contra el del evento, y el de la cuenta. */
 async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, quien: QuienAvisa = PRINCIPAL_SIN_REF): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento; noEsDeMako?: true }> {
@@ -185,6 +201,11 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
       return ignorado(deEste.motivo, c.id);
     }
     if (aviso.accion === 'fallido') {
+      // ⚠️ EL FALLO DE UNA SESIÓN ANTERIOR NO TOCA EL COBRO (29/10/2026, la verificación de ddfa645d4): «Volver a intentar» arma
+      //    otra (B) y vuelve el cobro a `pendiente`. El segundo aviso del mismo fallo de A, o uno tardío, lo devolvía a `fallido`
+      //    con el SEPA de B en curso, y se armaba C: dos cuotas y tres suscripciones. Un PAGO de una sesión anterior sí entra (es
+      //    plata, y `urlParaPagar` la expiró si seguía abierta).
+      if (c.proveedor_ref && s.id !== c.proveedor_ref) return ignorado('el fallo es de una sesión anterior de este cobro: ya se armó otra', c.id);
       await aplicarPagoFallido(c, 'El pago diferido no se completó.');
       invalidarLecturas();
       return procesado(c.id);
@@ -204,6 +225,17 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     if (!esDelCobro(c.token, tokenReleido({ metadata: f.metadata }))) return ignorado('la factura releída es de otro cobro', c.id);
     const conf = confirmarFactura(aviso.accion === 'fallido' ? 'fallido' : 'aprobado', f);
     if (!conf.ok) return ignorado(conf.motivo, c.id);
+    // ⚠️ SÓLO LA FACTURA DE LA SUSCRIPCIÓN VIGENTE (29/10/2026, la verificación de ddfa645d4): «Volver a intentar» arma otra sesión
+    //    (otra suscripción) y cancela la de antes. Un fallo tardío de la vieja (un reintento de Stripe) devolvía el cobro a
+    //    `fallido` y se armaba una tercera; un pago tardío de la vieja entraba como «renovación»: dos suscripciones cobrando. El
+    //    pago no se asienta y queda un ticket (la plata entró: alguien la mira y la devuelve).
+    if (f.suscripcion) {
+      const vigente = await suscripcionVigente(key, c);
+      if (f.suscripcion !== vigente) {
+        if (aviso.accion !== 'fallido') await avisarFacturaDeOtraSuscripcion(ws, c, { factura: f.id, suscripcion: f.suscripcion, vigente, monto: f.montoPagado, moneda: f.moneda });
+        return ignorado(`la factura es de una suscripción anterior de este cobro (${f.suscripcion}), no de la vigente`, c.id);
+      }
+    }
     if (aviso.accion === 'fallido') {
       await aplicarPagoFallido(c, 'Stripe no pudo cobrar la factura.');
       invalidarLecturas();
@@ -224,6 +256,9 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     if (!s.ok) throw errorDelProveedor('Stripe', 'la suscripción', s);
     if (!esDelCobro(c.token, tokenReleido({ metadata: s.metadata }))) return ignorado('la suscripción releída es de otro cobro', c.id);
     if (s.estado !== 'canceled') return ignorado(`la suscripción releída no está cancelada (${s.estado ?? '—'})`, c.id);
+    // ⚠️ SÓLO LA VIGENTE (29/10/2026): la de una sesión que falló la cancela `urlParaPagar` al armar otra, y su aviso marcaba
+    //    «Suscripción cancelada» en el cobro y en el lead (el MRR la dejaba de contar) aunque la nueva estuviera cobrando.
+    if (id !== (await suscripcionVigente(key, c))) return ignorado('la suscripción cancelada es de una sesión anterior de este cobro', c.id);
     await aplicarSuscripcionCancelada(c);
     invalidarLecturas();
     return procesado(c.id);

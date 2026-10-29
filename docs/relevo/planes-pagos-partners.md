@@ -80,6 +80,21 @@ Este archivo reemplaza a docs/relevo/planes-nube-2710.md (el relevo de la nube d
 - **Espera revisión del Cerebro (no entra al tren de hoy): 5905eeb7d (lo chico de Teo) y 55542d446 (el plan a mano con
   vencimiento).** Si la cuenta corta antes, queda para la próxima.
 
+## La verificación de ddfa645d4 (29/10): las tres ALTAs, cerradas por el chat de Zernio en `zernio-2510`
+
+En la cuenta claude3 no había chat de Planes: el Cerebro se las pasó al de Zernio, que ya traía Planes mezclado (8d48ef4c3).
+Merge de ddfa645d4 en zernio-2510 (sin rebase) y encima los arreglos (informe:
+C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md, desde la línea 67):
+1. **El fallo tardío de la sesión o la suscripción vieja** ya no devuelve el cobro a `fallido` (lib/cobros-webhook.ts,
+   `suscripcionVigente`; `aplicarPagoFallido` con compare-and-set por la sesión).
+2. **sub_A se cancela al armar B** (`urlParaPagar`), su aviso de cancelación no cancela el cobro, y un pago tardío de la vieja no
+   es cuota: abre un ticket (`avisarFacturaDeOtraSuscripcion`).
+3. **El plan a mano** se apaga con un `ya_tenia_cuenta` pagado con el email de un admin (lib/prueba-uso.ts), y el aviso al vencer
+   se saltea a quien ya no está en prueba (lib/plan-a-mano.ts; cierra también la MEDIA del aviso a quien ya paga).
+Los guiones del refutador (c2-reintentos, v1-segunda-sesion, p1-plan-a-mano) corridos sobre zernio-2510: UNA cuota y UNA
+suscripción viva en todos. c2 quedó versionado como tests/cobro-reintento.test.ts. **Siguen sin hacer** la otra MEDIA (el 429 de
+Resend repite el aviso a la persona) y las BAJAS (la fecha en hora de Argentina, la carrera de «más días», «termina hoy»).
+
 ## Sin hacer (con el archivo donde vive)
 - La compra a Meta: si la línea del historial no se escribe NUNCA, cada vuelta del cron la vuelve a mandar (lib/cobros-externos-meta.ts, de Zernio).
 - La RPC `cambiar_codigo_partner` no mira cobros.ref_codigo: el chequeo está en TS (lib/partners-programa.ts).

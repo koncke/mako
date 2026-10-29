@@ -91,6 +91,24 @@ test('al vencer: avisa y marca, y NUNCA pausa (el corte general está apagado: d
   assert.match(fuente('app/api/cron/aviso-fin-de-prueba/route.ts'), /await avisarPlanesAManoVencidos\(/, 'el cron diario de las pruebas lo corre');
 });
 
+test('ya pagó con su email (`ya_tenia_cuenta`, sin atar): sin topes y sin «Terminó tu prueba» (la verificación del 29/10)', () => {
+  const e = sinComentarios(fuente('lib/prueba-uso.ts'));
+  const aMano = e.slice(e.indexOf('async function deUnPlanAMano('));
+  const pago = aMano.indexOf('if (await pagoConElEmailDeSusAdmins(ws)) return nada;');
+  assert.ok(pago > 0 && pago < aMano.indexOf('return { enPrueba: true'), 'antes de poner los topes, mira si ya pagó con su email');
+  const f = e.slice(e.indexOf('async function pagoConElEmailDeSusAdmins('));
+  assert.match(f, /\.from\('usuarios'\)\.select\('email, rol_ws'\)\.eq\('workspace_id', ws\)/);
+  assert.match(f, /u\.rol_ws === 'admin' \|\| u\.rol_ws == null/, 'sólo los admins: un closer no paga el plan');
+  assert.match(f, /\.eq\('workspace_id', await wsSuperAdmin\(\)\)\s*\.eq\('estado', 'pagado'\)\.eq\('alta_estado', 'ya_tenia_cuenta'\)\.is\('alta_ws', null\)/);
+  // El email SÓLO quita topes: no ata el cobro ni toca el negocio (atarlo solo es lo que lib/plan-acceso.ts no hace, a propósito).
+  assert.doesNotMatch(f, /update\(|alta_ws: ws|actualizar/);
+  // Y el aviso al vencer se saltea a quien ya no está en prueba (pagó por la pasarela, o con su email).
+  const s = sinComentarios(fuente('lib/plan-a-mano.ts'));
+  const v = s.slice(s.indexOf('export async function avisarPlanesAManoVencidos('));
+  const salta = v.indexOf('if (!(await estadoDePrueba(ws)).enPrueba) continue;');
+  assert.ok(salta > 0 && salta < v.indexOf('to: duenio'), 'antes de mandar nada');
+});
+
 test('en Customers se da junto con el plan; la plataforma nunca; 0 lo quita', () => {
   const r = sinComentarios(fuente('app/api/admin/workspaces/route.ts'));
   const caso = r.slice(r.indexOf("case 'plan_a_mano': {"));
@@ -115,5 +133,10 @@ test('en Customers se da junto con el plan; la plataforma nunca; 0 lo quita', ()
 //   · Customers se lo da a la plataforma                                                → 5 / 1
 //   · se marca «avisado» aunque el aviso a Martín no salió                              → 5 / 1
 //   · el plan a mano vale también con una suscripción PAGADA (la encontró prueba-topes)  → 5 / 1
+// Y el 29/10/2026 (la verificación de ddfa645d4), sobre 7 pases y 0 fallos:
+//   · el plan a mano no mira el pago con su email (`ya_tenia_cuenta`)                    → 6 / 1
+//   · el aviso al vencer le llega a quien ya paga                                       → 6 / 1
+//   El comportamiento, medido con el guion del refutador (scratch-ddfa/plan-a-mano/p1-plan-a-mano.ts) sobre este árbol: sólo
+//   cambian los casos C (pagó con su email) y B al vencer (ya paga por la pasarela).
 // Lo que NO corre acá: el envío de los mails y la lectura de la base (se miran en el fuente). El primer vencimiento real en
 // producción hay que mirarlo en el log del cron (`[cron:aviso-fin-de-prueba] planes a mano: …`).

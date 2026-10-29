@@ -67,10 +67,32 @@ export const estadoDePrueba = cache(async (ws: number): Promise<EstadoPrueba> =>
 async function deUnPlanAMano(ws: number, nada: EstadoPrueba): Promise<EstadoPrueba> {
   const p = leerPlanAMano(await runWithWorkspace(ws, () => getSetting(CLAVE_PLAN_A_MANO)));
   if (!p) return nada;
+  // ⚠️ YA PAGÓ CON SU EMAIL (29/10/2026, la verificación de ddfa645d4): quien compra por /planes con el email de una cuenta que ya
+  //    existe deja el cobro `ya_tenia_cuenta`, SIN atar al negocio (`alta_ws` null) hasta que Martín lo ate en /admin/cobros, y el
+  //    negocio que ya pagó seguía con los topes de la prueba (y al vencer le llegaba «Terminó tu prueba»). Acá el email SÓLO quita
+  //    topes, nunca ata ni pausa: quien paga con tu email te paga a vos (atarlo solo, en cambio, es lo que lib/plan-acceso.ts no hace).
+  if (await pagoConElEmailDeSusAdmins(ws)) return nada;
   const w = await getWorkspace(ws);
   const capa = w?.capa ?? null;
   if (!capa) return nada;
   return { enPrueba: true, capa, hasta: p.hasta, despues: null, plan: nombreDePlan(capa), dias: diasQueQuedan(p.hasta, Date.now()) };
+}
+
+/**
+ * ¿Hay un cobro PAGADO de la plataforma, `ya_tenia_cuenta` y sin atar, con el email de un admin de este negocio? Tira si no se
+ * puede leer (el que llama lo toma como «sin topes»).
+ */
+async function pagoConElEmailDeSusAdmins(ws: number): Promise<boolean> {
+  const db = getSupabaseServer();
+  const { data: us, error: eU } = await db.from('usuarios').select('email, rol_ws').eq('workspace_id', ws).limit(50);
+  if (eU) throw new Error(eU.message);
+  const emails = [...new Set(((us ?? []) as Array<{ email: string | null; rol_ws: string | null }>)
+    .filter((u) => u.email && (u.rol_ws === 'admin' || u.rol_ws == null)).map((u) => u.email!.trim().toLowerCase()))];
+  if (!emails.length) return false;
+  const { data, error } = await db.from('cobros').select('id, email').eq('workspace_id', await wsSuperAdmin())
+    .eq('estado', 'pagado').eq('alta_estado', 'ya_tenia_cuenta').is('alta_ws', null).limit(500);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{ email: string | null }>).some((c) => !!c.email && emails.includes(c.email.trim().toLowerCase()));
 }
 
 /** Lo usado en la prueba, por cosa. */

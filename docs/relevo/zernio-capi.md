@@ -390,3 +390,9 @@ el ws10 no mandó nada, y MaKo no mandó NINGÚN mensaje por redes desde el 01/0
 cerca del tope. El aviso al 80% lo arma Automations (local_7f005343…, «Automations: Instagram de Leandro, Leila y Mauricio», en
 aut-2510, cuando zernio-2510 esté en main); el CONTEO es de este chat: `usoZernioDelCiclo(ws)` en lib/zernio-uso.ts (no en
 zernio-redes, que lo importa el navegador), con tests/zernio-uso.test.ts. Ya se lo pasé con el sha.
+
+### Planes, cerrado desde acá (29/10, pedido del Cerebro)
+zernio-2510 lleva Planes adentro (8d48ef4c3 trae planes-2710 hasta d15b4ec1d), y la verificación de ddfa645d4 le dio NO con tres
+ALTAs. Sin chat de Planes en claude3, el Cerebro las pasó acá: merge de ddfa645d4 (eb8129418) y los arreglos encima. El detalle,
+en docs/relevo/planes-pagos-partners.md («La verificación de ddfa645d4») y docs/hallazgos-pagos.md. Zernio + Planes entran JUNTOS.
+

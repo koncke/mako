@@ -1459,6 +1459,36 @@ C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r3-monto-cero-decimales.ts y s1
 **Vive en:** lib/cobros.ts (`urlParaPagar`) · tests/planes-stripe-afuera.test.ts ·
 C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r1-pagar-tras-fallo.ts.
 
+## «Volver a intentar» una SUSCRIPCIÓN: el fallo tardío de la sesión vieja y la suscripción vieja viva (29/10/2026, la verificación de ddfa645d4)
+
+- **El síntoma (dos ALTAs, C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md):** una suscripción con
+  SEPA cuya primera factura falla se reintenta, y «Volver a intentar» arma la sesión B, que es OTRA suscripción. Con la sesión
+  nueva el cobro vuelve a `pendiente` (be95f7555), pero (1) el SEGUNDO aviso del mismo fallo de A (Stripe manda dos:
+  `invoice.payment_failed` y `checkout.session.async_payment_failed`), o un reintento de Stripe sobre la factura de A, lo
+  devolvía a `fallido` con el SEPA de B en curso, y se armaba C: dos cuotas y tres suscripciones vivas; y (2) MaKo nunca
+  cancelaba sub_A: si su factura se reintentaba y ENTRABA, era otra cuota «renovación» y dos suscripciones cobrando todos los meses.
+- ⚠️ **El diagnóstico obvio era el equivocado: «be95 ya vuelve el cobro a pendiente, alcanza».** Volver a `pendiente` cierra el
+  caso en que nada llega tarde (S3, el control). Pero Stripe avisa el mismo fallo DOS veces y reintenta facturas solo: todo lo
+  que mira «¿es de este cobro?» por el token (`sesionDelCobro` deja pasar por `metadata.mako_cobro`, la factura por la metadata)
+  acepta una sesión o una suscripción VIEJA del mismo cobro. «Es de este cobro» no es «es la vigente».
+- **La regla:** un fallo sólo toca el cobro si es de la sesión VIGENTE (`proveedor_ref`) o de una factura de la suscripción
+  VIGENTE (la anotada o, antes del primer pago, la de la sesión vigente: `suscripcionVigente`, lib/cobros-webhook.ts). Un PAGO
+  de una sesión anterior sí entra (es plata; `urlParaPagar` la expiró si seguía abierta); un pago de una factura de una
+  suscripción anterior NO se asienta y abre un ticket (`avisarFacturaDeOtraSuscripcion`): la plata entró y hay que devolverla.
+  Al armar B, la suscripción de A se cancela antes (si no se puede, no se arma B). `aplicarPagoFallido` escribe con
+  compare-and-set también por la sesión que se leyó (la carrera: un aviso que leyó A antes de que se armara B).
+- ⚠️ **Y el arreglo traía su propio defecto, encontrado antes de entregar:** cancelar sub_A dispara
+  `customer.subscription.deleted` de sub_A, y la rama de suscripción del webhook marcaba el COBRO «cancelada» (y la suscripción
+  del lead: el MRR la dejaba de contar) aunque B estuviera cobrando. La cancelación también se filtra por la vigente. **Regla:**
+  una acción nueva en la pasarela (cancelar, expirar, reembolsar) vuelve como AVISO: mirá qué rama del webhook lo recibe.
+- **Sin medir contra Stripe:** que Stripe reintente la primera factura de una suscripción con SEPA depende de la cuenta (Smart
+  Retries); que una factura abierta de una suscripción cancelada todavía pueda cobrarse (un SEPA en vuelo), también. Por eso el
+  pago tardío de la vieja abre un ticket en vez de suponer que no llega.
+
+**Vive en:** lib/cobros-webhook.ts (las ramas de checkout, factura y suscripción; `suscripcionVigente`) · lib/cobros.ts
+(`urlParaPagar`, `aplicarPagoFallido`, `actualizar` con `ref`) · lib/cobro-sesion-ajena.ts · tests/cobro-reintento.test.ts (el
+guion del refutador, versionado, con dos casos nuevos: la cancelación de sub_A y la carrera).
+
 ## La compra a Meta de una venta externa salía DOS veces si el cron y el aviso coincidían (28/10/2026, a196d5a93)
 
 - **El síntoma (z-meta.ts R2):** el cron corría mientras el aviso mandaba la compra a Meta; los dos miraban el historial («¿ya
