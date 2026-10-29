@@ -105,6 +105,9 @@ export type ContextoTicket = {
   /** Un ticket automático (lib/no-pude.ts): por qué no se pudo y dónde. Lo pone el código, nunca la persona. */
   causa?: CausaNoPude;
   superficie?: Superficie;
+  /** El TICKET que abrió el clasificador del grupo (lib/tickets-del-grupo.ts, 29/10/2026): qué clase decidió, por qué y si fue la
+   *  IA o las reglas. Para que se vea por qué se abrió. Lo pone el código. */
+  clasificacion?: { clase: string; porque: string; fuente: string };
   /** La hora del dispositivo, su zona, el navegador, la pantalla y el idioma. */
   hora?: string;
   zona?: string;
@@ -141,6 +144,11 @@ export function sanearContexto(x: unknown): ContextoTicket {
   if (o.noExiste === true) c.noExiste = true;
   if (esCausaNoPude(o.causa)) c.causa = o.causa;
   if (esSuperficie(o.superficie)) c.superficie = o.superficie;
+  if (o.clasificacion && typeof o.clasificacion === 'object' && !Array.isArray(o.clasificacion)) {
+    const k = o.clasificacion as Record<string, unknown>;
+    const clase = txt(k.clase, 20);
+    if (clase && /^[A-Z_]+$/.test(clase)) c.clasificacion = { clase, porque: txt(k.porque, 300) ?? '', fuente: k.fuente === 'ia' ? 'ia' : 'reglas' };
+  }
   const hora = txt(o.hora, 40);
   if (hora && Number.isFinite(Date.parse(hora))) c.hora = new Date(hora).toISOString();
   return c;
