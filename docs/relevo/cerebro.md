@@ -88,7 +88,14 @@ preguntes: hacé esto en orden.
     - **Planes:** el cobro doble está arreglado en `be95f7555` (verificado con el script del refutador: una cuota y
       ya_pagado). Pero la rama trae el plan a mano con vencimiento (`55542d446`) SIN verificar: necesita su workflow, y
       queda para cuando haya RAM o para la próxima cuenta.
-    - **Motion:** no arranca (cuenta al 91%). Los dos rojos del typecheck C/D están en el relevo del editor.
+    - **Motion:** no arranca (cuenta al 91%). Los dos rojos del typecheck C/D están en el relevo del editor. La trampa del
+      CRLF está cosechada (`76e261c3e`). El chat del editor cerró por hoy.
+    - **VERDEs SIN verificar, en este orden** (cada uno necesita su workflow de verificador y refutador):
+      1. Automations `69b49a31c` (aut-2510);
+      2. Copywriter `7eef753da` (copywriter-2810, 11 commits y 75 .ts). Trae una puerta PÚBLICA que escribe
+         (`/api/compartido/guion` en PUBLICOS_ESCRITURA), así que la seguridad va primero;
+      3. el plan a mano de Planes `55542d446` (con `be95f7555`, ya comprobado).
+      Después, los arreglos de WhatsApp y de MaKo inteligente cuando lleguen, y las tres ramas de la nube.
   - **23:45, Zernio:**
     - **Pedido de Martín:** advertir los límites en la conexión, y varias claves de Zernio por negocio, como en Gemini,
       para conectar más redes sin pagar. Va con el aviso antes de la 3.ª red. Pasado al chat Zernio: los límites y el
