@@ -43,7 +43,9 @@ preguntes: hacé esto en orden.
   - el editor, con los subtítulos de Leandro (`004a4ae57`, ticket cerrado y avisado);
   - el Web Generator en blanco (`7f63046be`);
   - MaKo inteligente: el Second Brain en el turno, sin la plata para los closers (`7f36fa9c6`).
-- **La rama `tren-x` de `C:/dev/wt-push-q` = main + sólo docs** (este relevo y hallazgos), subidos con este cierre.
+- **La rama `tren-x` de `C:/dev/wt-push-q` = main + sólo docs** (este relevo y hallazgos). **NO entraron a main:** el
+  pre-push no tuvo RAM para los tipos (3,0 GB con el workflow corriendo; «no es un error de tipos»). Copia en origin, en la
+  rama `relevo-cerebro-claude4`. Entran con el próximo tren: no hace falta otro push sólo para esto.
 - **Corriendo al cortar: `wf_2f472ad6-193`** (task `w1bp45jj0`), la verificación de Zernio `254856316` y Planes
   `ddfa645d4`. Su journal está en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/
   6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl` (si murió, los `agent-*.jsonl`
