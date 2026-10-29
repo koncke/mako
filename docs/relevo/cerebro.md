@@ -53,6 +53,10 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
   `94633ec58`, de Planes: entran solos al mezclar Planes.
   **Decidido (Cerebro, 29/10):** el chat Zernio mezcla Planes `ddfa645d4` en zernio-2510 sobre `df3f9bebf` y arregla las
   tres ALTAS con los scripts del refutador; su VERDE llega a Integración y entra TODO junto (Zernio + Planes).
+- **ORDEN de la fila (Cerebro, 29/10 ~03:05, por un cliente roto: MaKo le contesta mal a Leandro en su grupo):** 1) el P0 de
+  Replicar (tren-y); 2) `wa-fallas-2710` (`C:/dev/wt-conex-2510`), con el VERDE del chat «MaKo en WhatsApp: lo que le contestó mal a
+  Leandro» (`local_cf058ed5`); 3) `aut-2510` SOLO (el filtro por palabra clave, la respuesta pública y «Volver a probar»): al
+  estar Ready, el Cerebro le escribe a Leandro; 4) `crm-difusion-2910` y Zernio + Planes. Cada uno Ready → avisar al Cerebro.
 - **La difusión de Leila llega como UNA rama, `crm-difusion-2910`** (crm-lote-2810 + aut-2510 + el enganche del «⋯» de la
   columna): se toma esa y no las dos sueltas. La 0340 ya está en la base.
 - **⚠️ Choque de número 0340:** `motion-imagen-2610` (Video/Image Editor) trae otra `0340_image_editor_propuestas.sql`. Al
