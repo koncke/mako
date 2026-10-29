@@ -56,8 +56,19 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   Copywriter va a fallar con «Cannot find module». `C:/dev/wt-push-q/node_modules` apunta hoy a
   `C:/dev/wt-copywriter-notion/node_modules`. Lo que falta, con la app tranquila y sin tests corriendo, es pasar el clon
   principal a origin/main y correr `npm install` (NO `npm ci`, que borra el node_modules de todos mientras instala).
+- **Tren grande EN PRODUCCIÓN: `mako-obai8j5oz`, Ready 14:29.** Avisados el Cerebro y los dueños no archivados.
+- **tren-ac (`C:/dev/wt-push-q`, rama `tren-ac`, sobre main `1cf06eba9`):**
+  - **Lleva:** el ticket #29 de Leandro (`38c39d067`, «Ya te sigo» vuelve a entregar el recurso), Pagos `7f79a4e6c`
+    (re-verificado, entra con seis bajas devueltas) y la tabla de planes `90a760e4b`.
+  - **Frena:** un rojo del #29. Las descripciones más largas de chatbot.def.ts dejan afuera del presupuesto
+    editar_pasos_secuencia_mensajes y cambiar_crons_secuencia (ops-center-bateria y ops-center-clasificador-app). Ya se le
+    pidió el arreglo a Automations.
+- **0348 APLICADA (29/10, el Cerebro con el sí de Martín):** el CHECK de `red` del Calendario acepta las 8 redes.
+- **Zernio, varias claves (`7b7d1ca2b`):** Martín lo dio vuelta el 29/10 16:40 UTC (audio en el grupo de SuperAdmin). Entra
+  cuando pase su revisión adversarial de privacidad (corriendo; informe en
+  `C:/dev/revisiones/2910-verificacion-zernio-varias-claves-7b7d1ca2b.md`).
 - **Lo que quedó para el tren siguiente:**
-  - Pagos `7f79a4e6c` (N1-N4 de la re-verificación; 0347 ya aplicada): se re-verifica con `C:/dev/revisiones/scratch-805a/`.
+  - ~~Pagos `7f79a4e6c`~~: re-verificado, entra en tren-ac.
   - `tren-aa` (`C:/dev/wt-push-aa`): quedó VIEJO, todo lo suyo subió en tren-ab. Se puede borrar el worktree.
   - `ai-avatar-abrir-pro-2910` (`4912250c6`): NO subir (abre AI Avatar a Pro; espera la prueba con un avatar real).
 - **tren-y SUBIDO: main = `eab9c62e1` (29/10 05:46).** Trae los docs de claude4 y el P0 de Martín, la foto de Replicar
