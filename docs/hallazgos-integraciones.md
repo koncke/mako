@@ -2333,6 +2333,13 @@ tests/zernio-varias-claves.test.ts y tests/zernio-todas-las-redes.test.ts.
   `abrirCrudo` en la grilla y dejó rojo `tests/integraciones-vercel.test.ts` («4. un link `?abrir=`…»), que lee el archivo con un
   helper (`tablero()`) y no nombra el import. Se vio recién al correr todos los que mencionan `IntegracionesBoard`. **Regla:** para
   un componente, buscar los tests por su NOMBRE DE ARCHIVO también (`IntegracionesBoard`), no sólo por su ruta de import.
+- ⚠️ **El tren encontró tres rojos más del mismo cambio, en tests de OTRAS áreas que leen `lib/zernio.ts`** (tren-ac, 29/10,
+  Integración; el chat no corrió el barrido completo). `zernio-webhook-suscripcion` tapa `./credenciales` con `Module._load` y no
+  traía `clavesGuardadasConBase`: 14 de 18 con TypeError, porque un stub tiene que llevar CADA función que el módulo importa.
+  `zernio-leads` buscaba los dos `guardar` adentro de `asegurarWebhook`, que ahora delega en `asegurarWebhookEn` (una vez por
+  clave). `instagram-respuesta-publica` pedía el path a menos de 300 caracteres de la cabecera, y la línea de `cfgDeCuenta` lo
+  corrió. **Regla:** al sumar un import a `lib/zernio.ts`, `grep "'./credenciales'" tests/` y sumar la función a cada stub; al
+  partir o alargar una función, buscar los tests que la recortan por su cabecera (`funcion(ZERNIO, '…')`, `[\s\S]{0,N}`).
 - **El tutorial de Zernio va un paso por pantalla** (`capturas` en el tutorial del catálogo; `PasosUnoPorPantalla`), con los
   nombres de los botones tal cual los dice zernio.com («API keys», «Create API key»: la clave empieza con `sk_` y se ve UNA vez).
 - **Sin hacer:** tres capturas del tutorial (el paso 2 pide entrar a una cuenta de Zernio; el 3 y el 4 son pantallas de MaKo) y
