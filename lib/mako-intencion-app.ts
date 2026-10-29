@@ -200,8 +200,10 @@ const FAMILIAS: readonly Familia[] = [
   // La constancia del cliente que se pasa al chat («este es el doc fiscal», Leila 26/10/2026): con el adjunto era «pensar», sin
   // herramientas que escriban, y MaKo decía que desde el chat no se puede guardar. `guardar_documento_fiscal` la guarda.
   //   Nombrar el DOCUMENTO actúa; «datos fiscales» sólo suma el área (`area-fiscal`): «¿qué datos fiscales tiene Fabi?» es una pregunta.
-  { id: 'documento-fiscal', test: /\bconstancias?\b|\b(?:doc|documento)s? fiscal(?:es)?\b|\bsituacion fiscal\b|\bcedula fiscal\b/, areas: ['cobros', 'crm'], relevancia: 'guardar documento fiscal constancia ficha lead datos fiscales', actua: true },
-  { id: 'area-fiscal', test: /\bdatos fiscales\b/, areas: ['cobros', 'crm'], relevancia: 'datos fiscales deal' },
+  //   Las dos relevancias nombran `editar_dato_deal`: con la constancia viaja junto a guardar_documento_fiscal (lo que el PDF no
+  //   trae se escribe a mano), y con los datos adjuntos es lo primero que se ofrece (tests/mako-no-puedo-falsos.test.ts, el 4).
+  { id: 'documento-fiscal', test: /\bconstancias?\b|\b(?:doc|documento)s? fiscal(?:es)?\b|\bsituacion fiscal\b|\bcedula fiscal\b/, areas: ['cobros', 'crm'], relevancia: 'guardar documento fiscal constancia; editar dato deal fiscal', actua: true },
+  { id: 'area-fiscal', test: /\bdatos fiscales\b/, areas: ['cobros', 'crm'], relevancia: 'editar dato deal fiscal' },
   // Un plan DICTADO (ticket #26, 29/10/2026): «7500 dolares en 3 pagos, primer pago 28 de octubre…» no arranca con un verbo ni dice
   // «cuotas», y traía `guardar_plan_pagos` sin `armar_plan_por_tramos`; «300 dólares cada quincena» traía las tareas del Plan.
   { id: 'plan-dictado', test: /\b\d+\s+(?:pagos|cuotas|mensualidades|quincenas)\b|\bcada quincena\b|\b(?:por|en) tramos\b/, areas: ['cobros'], relevancia: 'armar plan cuotas tramos', actua: true },

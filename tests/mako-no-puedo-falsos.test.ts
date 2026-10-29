@@ -104,12 +104,21 @@ test('3. la ficha en «Editar»: un dato de cobro no es la vista, y MaKo sabe qu
   assert.match(fuente('lib/mako-analyst-lead.ts'), /pista: pistaDeEdicion\(resto\.mensaje\),/);
 });
 
-test('4. los datos fiscales: cargarlos trae editar_dato_deal, y con la constancia adjunta MaKo la OFRECE en vez de decir «no puedo»', () => {
+test('4. los datos fiscales: cargarlos trae editar_dato_deal; con los datos adjuntos MaKo los OFRECE, y la constancia adjunta la GUARDA', () => {
   for (const m of ['Cargale los datos fiscales: razón social, RFC y domicilio', 'Guárdale su constancia de situación fiscal']) {
     assert.ok(herramientas(m, 'app').includes('editar_dato_deal'), `«${m}» no trae editar_dato_deal`);
   }
-  // Con un adjunto el turno es «pensar»: lo que escribe no viaja (la ofrece), pero su NOMBRE sí, para ofrecerlo.
-  const texto = 'Te paso su constancia fiscal';
+  // ⚠️ Cambiado A PROPÓSITO el 29/10/2026 (Leila, la constancia de Fabi Pedraza): la CONSTANCIA se guarda en la ficha desde el
+  // chat (`guardar_documento_fiscal`, tests/documento-fiscal-desde-el-chat.test.ts). Viaja con editar_dato_deal: lo que el PDF
+  // no trae o trae mal se escribe a mano. Las dos, o MaKo vuelve a decir «no puedo» de una de las dos cosas.
+  assert.ok(herramientas('Guárdale su constancia de situación fiscal', 'app').includes('guardar_documento_fiscal'), 'la constancia no trae guardar_documento_fiscal');
+  const conConstancia = clasificarIntencion('Te paso su constancia fiscal', { canal: 'app', hayMedia: true });
+  assert.equal(conConstancia.intencion, 'actuar', 'con la constancia adjunta, MaKo la guarda: no es una pregunta');
+  const guarda = herramientasDelChat({ veredicto: conConstancia, texto: 'Te paso su constancia fiscal', agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null }, hayPendientes: false }).tools.map((t) => t.name);
+  assert.ok(guarda.includes('guardar_documento_fiscal') && guarda.includes('editar_dato_deal'), `con la constancia adjunta viajan ${guarda.filter((n) => /fiscal|deal/.test(n)).join(', ')}`);
+  // Con los DATOS adjuntos (una foto, sin la constancia) el turno sigue siendo «pensar»: lo que escribe no viaja (la ofrece),
+  // pero su NOMBRE sí, para ofrecerlo.
+  const texto = 'Te paso sus datos fiscales';
   const veredicto = clasificarIntencion(texto, { canal: 'app', hayMedia: true });
   assert.equal(veredicto.intencion, 'pensar');
   const turno = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null }, hayPendientes: false });
@@ -232,3 +241,5 @@ test('13. «Anotado, …», «Guardado, ya lo tengo», «Anotado 👍», «Anota
 //   13. `DE_LA_VISTA` sin el estilo (color, negrita, formato…)        → rojo el 10.
 //   (verificación) 14. sin `ESTA_MAL_FUERTE` en la pregunta, 15. la agenda como contexto, 16. el estilo en todo esPedidoDeCobro → rojo el 11;
 //   17. la queja suelta fuera de `QUEJA_DE_LA_APP` → rojo el 12; 18. la forma sin sujeto sólo con [.!:] → rojo el 13.
+//   (29/10, la constancia que se guarda) 19. `documento-fiscal` con su relevancia de antes (sin «editar dato deal») → rojo el 4;
+//   20. sin la familia `documento-fiscal` → rojo el 4; 21. `area-fiscal` con «datos fiscales deal» (ofrece primero guardar_deal_details) → rojo el 4.
