@@ -73,8 +73,8 @@ todo... Sino, no tendrá sentido replicarla, seria como hacer una captura... Deb
     cuenta en la lista. Y la matriz por PROMPT del chat en #70–#72 (`chat-e2e-2`).
   - Capturas 1440/390 copia vs editada de las 5 en `C:/dev/revisiones/replica-editable/capturas/` (sin mirar todavía).
 - **Lo próximo, en este orden:** los dos ❌ (con su test, rompiéndolo) → íconos/videos/fondos en la matriz → mirar las
-  capturas → chat-e2e en #70–#72 → `tests-afectados --base 23b329b5e` → cosecha (borrador `scratchpad/cosecha-replica-
-  editable.md`, con lo medido de arriba) + índice + bitácora → VERDE → recién ahí las copias #68–#72 a la papelera. Tests `tests/replica-editable.test.ts` 20/20; romper 40/40 (`scratchpad/romper_replica.py`).
+  capturas → chat-e2e en #70–#72 → `tests-afectados --base 23b329b5e` → cosecha (borrador en `C:/dev/revisiones/replica-editable/
+  cosecha-replica-editable-borrador.md`, con lo medido de arriba) + índice + bitácora → VERDE → recién ahí las copias #68–#72 a la papelera. Tests `tests/replica-editable.test.ts` 20/20; romper 40/40 (`scratchpad/romper_replica.py`).
 - Hecho en el worktree: «Elemento» (el de afuera, duplicar, mover, quitar, colores, fondo e imagen de fondo, fuente,
   «Agregar» texto/botón/imagen) y «Contenido» (TODO lo de la sección, también lo OCULTO) en `HtmlEditableVista.tsx`,
   `PanelContenidoDiseno.tsx`, `lib/editor-landing/diseno-elemento-acciones.ts`, `diseno-contenido.ts`. El chat: sacar,
