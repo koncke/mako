@@ -51,7 +51,8 @@ test('1. F2a: lo que se manda al grupo queda donde corresponde; lo del equipo NU
   assert.deepEqual([r.convTrasNulo, r.anilloTrasNulo], [r.convTrasEquipo, r.anilloTrasEquipo], 'null guardó algo (quien llama ya lo guarda)');
   // Obligatoria, y cada llamador la declara.
   const grupo = sinComentarios(leer('lib/mako-grupo.ts'));
-  assert.match(grupo, /export async function enviarAlGrupoMaKo\(ws: number, texto: string, memoria: MemoriaDelEnvio\): Promise<EnvioGrupo> \{/, 'la memoria volvió a ser opcional');
+  // (`texto0`: el texto crudo, antes de sumarle el `?ws=` a los links; tests/links-con-ws.test.ts fija esa línea.)
+  assert.match(grupo, /export async function enviarAlGrupoMaKo\(ws: number, texto0?: string, memoria: MemoriaDelEnvio\): Promise<EnvioGrupo> \{/, 'la memoria volvió a ser opcional');
   assert.match(leer('lib/aviso-arreglo.ts'), /enviarAlGrupoMaKo\(p\.ws, t\.texto, 'equipo'\)/);
   assert.match(leer('lib/tickets-cierre.ts'), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto, \{ de: 'equipo', ticket: Number\(f\.id\) \}\)/, 'la respuesta del equipo a un ticket quedó como turno de MaKo');
   assert.match(leer('lib/insistencias.ts'), /enviarAlGrupoMaKo\(ws, row\.texto, 'mako'\)/);
