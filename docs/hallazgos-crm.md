@@ -33,8 +33,13 @@ Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, tex
   y las métricas leen el estado. **Regla:** el estado que cambia sin columna vuelve la tarjeta a la derivación
   (`etapaContradiceElEstado`, lib/pipeline.ts); quien escribe la columna justo después lo dice (`etapaAparte`:
   `setPipelineStage` y el Deshacer de un movimiento con Etapa). Sólo en la TRANSICIÓN: un lead ya descalzado no se «arregla»
-  hacia un lado al re-guardar otro campo. **La fila 2371 en producción NO se tocó**: leer la base desde esta sesión lo frenó el
-  clasificador (lecturas de producción); la consulta y el arreglo, en el traspaso al Cerebro.
+  hacia un lado al re-guardar otro campo. **Las filas, corregidas el 28/10 (el Cerebro, con el sí de Martín):** la verdad
+  era PERDIDO, no Ganado. El historial (`lead_audit`) dice que Mauricio lo pasó a Perdido el 28/09 con motivo «Timing» y
+  borró el monto; el 30/09 guardó el cierre VACÍO (servicio, monto y fecha en null) y ese guardado le devolvió el estado a
+  Ganado sin dejar renglón. **Regla para el próximo:** el lado bueno lo dice el último movimiento EXPLÍCITO del historial
+  (Etapa o Estado con autor), no el último guardado. Quedaban dos en toda la base (el 2371 y su copia 2879 del negocio de
+  prueba): `estado_lead` → perdido y `cerro` → false, con un UPDATE condicionado a seguir descalzados y su renglón en el
+  historial. Después, 0 descalzados.
 - **«Me sigue exigiendo CONTRATO».** El contrato no era un requisito en ningún lado del server (`stage-requirements`, actions,
   leads): era el paso `dealAuto` del asistente, en TODO movimiento a Ganado o Facturando, y desde el tablero salía aunque el
   contrato ya estuviera (la tarjeta no trae `tieneContrato`). No trababa: era una pantalla siempre. Salió de los movimientos;
@@ -66,7 +71,7 @@ Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, tex
   20:14 UTC y el commit del 27/10 de las 22:17: lo desplegado tenía `name: l.nombre` sin default.
 
 **Lo que quedó SIN hacer, con su archivo:**
-- El arreglo de la fila 2371 (pide el sí de Martín; la consulta va al Cerebro).
+- ~~El arreglo de la fila 2371~~: hecho el 28/10 (ver arriba, «Un lead “ganado” con la tarjeta en “Perdido”»).
 - Los pasos que siguen trabando el asistente (producto obligatorio, motivo con detalle, cuotas que suman): para que Martín
   decida, en [crm-requisitos-de-etapa.md](crm-requisitos-de-etapa.md).
 - El diálogo de Calendly del tablero sólo para `agenda`/`agendaj2` con el tipo cargado (`app/crm/page.tsx`): Cal.com y los

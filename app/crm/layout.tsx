@@ -16,7 +16,7 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { workspaceDeLeadParaAdmin } from '@/lib/leads';
-import { pedidoActual } from '@/lib/pedido-actual';
+import { esNavegacionDelCliente, pedidoActual } from '@/lib/pedido-actual';
 import { guardOnboarding, requireCapa, requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { destinoDelResumen, redireccionDelLayoutCrm } from './layout-reglas';
@@ -32,6 +32,10 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
   if (r?.tipo === 'resumen') {
     // La puerta de la página primero: el negocio del lead no se busca para quien no tiene el CRM.
     await requireCapa('crm');
+    // ⚠️ Sólo en la CARGA: el destino (/crm/<id>/resumen?ws=<dueño>) cuelga de ESTE layout, y navegando el redirect queda
+    // guardado en su nodo y se vuelve a tirar al llegar: en blanco para siempre (el Web Generator, 28/10/2026). Navegando
+    // decide la página (`ResumenAjeno`). Regla: lib/pedido-actual.ts, `esNavegacionDelCliente`.
+    if (await esNavegacionDelCliente()) return children;
     // La decisión de `ResumenAjeno` (la página): sólo el super admin sabe de quién es, y el `!==` corta el bucle.
     const [wsDueno, wsActual] = await Promise.all([
       workspaceDeLeadParaAdmin(r.leadId),

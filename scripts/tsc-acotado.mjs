@@ -39,11 +39,37 @@
 // =============================================================================
 
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { veredicto } from './tsc-bitacoras.mjs';
+import { esperarSinPausa } from './pausa-cerebro.mjs';
+
+// ⚠️ EL MISMO LOCK QUE scripts/typecheck-lock.mjs (y que antes-de-subir y el respaldo por tandas del push): UN tsc por
+// máquina. 28/10/2026, 18:34: la app de Claude se cayó con TODOS los chats adentro porque había tres tsc acotados a la vez
+// (2,8 + 1,7 + 1,4 GB: dos de un mismo chat) y una barredora de tipos con 8 GB de techo. El acotado no tomaba el lock: la
+// regla «un proceso pesado por vez» estaba en cada encargo y no frenó a nadie. Se espera el turno hasta 30 min; pasado eso NO
+// corre (sale con 99, «no se pudo chequear»): «correr igual» hacía que todos los que esperaban arrancaran juntos detrás de un
+// test colgado (28/10, 19:15, siete en fila), la misma estampida. Un lock de un proceso muerto se saca.
+const LOCK_TSC = join(tmpdir(), 'mako-typecheck.lock');
+const ESPERA_TURNO_MS = 30 * 60 * 1000;
+const pidVivo = (pid) => { if (!Number.isInteger(pid) || pid <= 0) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
+const duenoDelLock = () => { try { return Number.parseInt(readFileSync(LOCK_TSC, 'utf8').trim(), 10); } catch { return Number.NaN; } };
+function tomarLock() { try { writeFileSync(LOCK_TSC, String(process.pid), { flag: 'wx' }); return true; } catch { return false; } }
+function soltarLock() { try { if (duenoDelLock() === process.pid) unlinkSync(LOCK_TSC); } catch { /* ya no era mío */ } }
+async function esperarTurnoTsc() {
+  const hasta = Date.now() + ESPERA_TURNO_MS;
+  let avisado = false;
+  while (Date.now() < hasta) {
+    if (tomarLock()) return true;
+    const pid = duenoDelLock();
+    if (!pidVivo(pid)) { try { unlinkSync(LOCK_TSC); } catch { /* otro lo sacó */ } continue; }
+    if (!avisado) { process.stderr.write(`  [tsc-acotado] otro chequeo de tipos corre en esta PC (pid ${pid}): espero mi turno…\n`); avisado = true; }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  return false;
+}
 
 const barra = (p) => p.replace(/\\/g, '/');
 
@@ -77,7 +103,7 @@ function archivosDeLaRama(repo) {
     .filter((f) => /\.(ts|tsx|mts)$/.test(f) && !f.endsWith('.d.ts') && existsSync(join(repo, f)));
 }
 
-function main() {
+async function main() {
   const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
   const args = process.argv.slice(2);
   const heap = Number(args.find((a) => a.startsWith('--heap='))?.slice(7)) || 2560;
@@ -87,6 +113,14 @@ function main() {
       ? '  [tsc-acotado] la rama no cambió ningún .ts/.tsx contra el merge-base con origin/main\n'
       : '  [tsc-acotado] no hay archivos para chequear (pasalos como argumento, o --rama)\n');
     process.exit(0);
+  }
+  // La PAUSA del Cerebro (28/10/2026): mientras sube un tren, el tsc de un chat espera (scripts/pausa-cerebro.mjs).
+  await esperarSinPausa({ quien: 'tsc-acotado' });
+  // C:/dev/con-turno.mjs (el envoltorio del Cerebro) ya tomó el turno y lo dice con MAKO_TURNO_TOMADO=1: no se espera a sí mismo.
+  if (process.env.MAKO_TURNO_TOMADO !== '1' && !(await esperarTurnoTsc())) {
+    process.stderr.write(`  [tsc-acotado] NO SE PUDO CHEQUEAR: el turno de la PC lo tiene el pid ${duenoDelLock()} y no se liberó en 30 min. ` +
+      'No es un verde ni un rojo: avisale al Cerebro (puede estar colgado).\n');
+    process.exit(99);
   }
   const dir = mkdtempSync(join(tmpdir(), 'tsc-acotado-'));
   const config = join(dir, 'tsconfig.json');
@@ -113,6 +147,7 @@ function main() {
         'no es un verde. Si fue el vigía de RAM, esperá o cerrá chats.\n');
     }
   } finally {
+    soltarLock();
     rmSync(dir, { recursive: true, force: true });
   }
   process.exit(codigo);

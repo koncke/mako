@@ -1,5 +1,95 @@
 # Lo que Martín pidió para el CRM, y su estado
 
+## 28/10/2026, ~18:30: medido otra vez contra `origin/main` en `23b329b5e`
+
+Medido leyendo el código de main con git (show, grep, log y merge-base), sin mirar la pantalla: «Hecho» quiere decir «está en
+el código de main». Se re-midieron los abiertos del 20/10 (abajo), el feedback del 27/10 (`docs/relevo/crm.md`, §0-Ω30 de
+Martín y Mauricio y §0-Ω29 de los clientes) y los pedidos del CRM del 21 al 26/10 (la bitácora, `docs/feedback-22-10.md`,
+`docs/feedback-24-10.md` y el relevo). Fuera de la cuenta: los 61 pedidos de diseño de `docs/feedback-diseno-pendiente.md`.
+
+| | Hecho | Parcial | No hecho | En rama sin subir | Sin confirmar | Sin medir | No aplica | Total |
+|---|---|---|---|---|---|---|---|---|
+| Los abiertos del 20/10 | 2 | 6 | 1 | 1 | 1 | 0 | 1 | 12 |
+| 27/10, Martín y Mauricio (§0-Ω30) | 14 | 2 | 2 | 0 | 0 | 1 | 0 | 19 |
+| 27/10, clientes (§0-Ω29) | 7 | 0 | 2 | 0 | 0 | 1 | 0 | 10 |
+| Del 21/10 al 26/10 | 63 | 6 | 0 | 0 | 0 | 1 | 0 | 70 |
+| Las horas y los totales de MaKo (28/10) | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+| **Todo** | **86** | **14** | **5** | **2** | **1** | **3** | **1** | **112** |
+
+**Lo que cambió desde el 20/10:** A1 (el chat del CRM es la pieza única: `app/crm/mako-crm/PanelMakoCrm.tsx` monta
+`MakoEnLaTab`, y `ChatMakoCrm.tsx` ya no existe) y C2 (crear el evento ahí mismo: `app/crm/EventosDeEtapaModal.tsx`)
+están hechos. Todo lo del 27/10 que tiene código ya está en main.
+
+### Lo que falta
+
+**Espera una decisión o un paso de Martín**
+- **C1 · Google Calendar en «Asignar evento»** (chat «CRM»). Los proveedores siguen siendo Calendly y Cal.com
+  (`EventosDeEtapaModal.tsx`). La API de Google no muestra las páginas de reserva: o una regla por título con un barrido del
+  calendario, o esperar a Google.
+- **E1 y 24-21 · buscar en Instagram por nombre, y la foto** (chat «CRM»). Hoy sólo por el @ exacto (`lib/instagram-buscar.ts`).
+  Espera sus clics en Meta for Developers (el caso de uso de Instagram, vincular la cuenta y el token con `instagram_basic`).
+- **B4 · el check gris en el Plan del teléfono** (chat «Plan»): que diga si lo quiere también ahí (`app/m/plan/ListaPlan.tsx`).
+- **X5 · lo que pide cada movimiento** (chat «CRM y Chats»): las seis decisiones de `docs/crm-requisitos-de-etapa.md`.
+- **X13 · la fila del lead 2371** (chat «CRM y Chats»): el código está; corregir la fila es escribir en producción en el ws1.
+- **X14 · el plan quincenal de Nadia** (lead 2605): el código está; falta que Leila diga cuántas quincenas son.
+- **H2 · la fricción del CRM** (chat «CRM»): las tres preguntas a Mauricio y los 1.057 leads cuya etapa ya no existe
+  (`docs/friccion-crm.md`).
+- **L9 · la extensión al día en la tienda de Chrome**: subir la 0.74.3 es un paso suyo.
+
+**Un chat lo puede hacer solo**
+- **D5 · las plantillas de Automations que reemplazan al «CRM automático»** (chats «CRM» y Automations): en la rama
+  `crm-b5-2310`, sin subir, con 9 arreglos pendientes de su segunda revisión. Correr el script en producción pide su sí.
+- **Las horas y los totales de MaKo** (chat «CRM y Chats», 28/10): en la rama `crm-horas-2810`, sin subir.
+- **B2 · lo que no entró del prototipo de tarjetas**: la vista «Prioridades» del Plan (`app/plan/board/BoardShell.tsx`) y
+  Proyectos del teléfono (`app/m/plan/ListaPlan.tsx`); la foto de Instagram depende de E1.
+- **21e2 · las tarjetas personalizadas en el teléfono** (CRM, Clientes y Plan): el teléfono no lee la elección.
+- **F1 · la atribución y el VSL por funnel** de un lead que está en varios: una migración sobre `lead_funnel`.
+- **F2 · los restos de «Producto»** en las descripciones de `lib/api-mako/areas/crm.def.ts` y `lib/graficos-catalogo.ts`.
+- **23-T2 · elegir los datos de los bloques de Pagos** de la ficha (chat «Cobros»).
+- **23-U1 · unificar dos fichas que ya son clientes** (`lib/leads-unificar-reglas.ts`), y `unificar_leads` para MaKo. Toca plata.
+- **S14 · más de 60 perfiles por «Extraer»** (`lib/wa-fichas-cliente.ts`).
+- **X16 · «Enviar a todos» de una etapa** (Automations): no existe.
+- **X18 · cumpleaños**: un campo nuevo, con su migración.
+- **X19 · que nada pida R1 o R2 si el negocio no las usa** (chat «Integraciones»): queda el «Tipo de evento de R1» al conectar
+  Calendly (`lib/calendly-aviso-reglas.ts`).
+
+**Falta mirarlo funcionando** (está en el código, nadie lo vio): E2 (el título de la pestaña), 22-C6 (el «⋯» de «Lead
+entrante»), X15 (el ticket #14 en el ws3), X17 (el panel «Qué escribir» tarda), S16 (los nombres del grupo de Leandro), L8
+(cuántos llegan sin teléfono) y 22-K7 (el tablero con 1.050 leads, en producción).
+
+### Lo que decidió el Cerebro (28/10, «decidí, no le preguntes»)
+
+Lo que requiere cada movimiento de etapa (X5, `docs/crm-requisitos-de-etapa.md`), con «guardar nunca bloquea» y «lo
+obligatorio es por dato»:
+1. **«¿Qué compró?»:** si el lead YA tiene producto, no se pregunta (se usa ése); sólo se pide si falta.
+2. **Motivo de pérdida:** la categoría alcanza; el detalle escrito es opcional.
+3. **La asistencia a una reunión pasada** se puede ignorar en «Datos sin marcar», como el resto.
+4. **Cuotas que no suman el monto:** avisa la diferencia y deja seguir; nunca bloquea.
+5. **Nutrición manual:** igual desde el tablero y desde la ficha, con el plazo de 7 días ya puesto y el motivo opcional.
+6. **El diálogo de Calendly** en toda etapa de reunión (no sólo agenda y agendaj2), también con Cal.com y con un evento vinculado.
+7. **«Agendar» desde el tablero** pide fecha Y hora, y borra la hora vieja de Calendly.
+8. **R1 y R2 fijas:** va la dirección del documento de Joan (fases propias). El ruteo de Calendly sale de los eventos vinculados y
+   «Tipo de evento de R1» deja de ser obligatorio: es un pedido para el chat «Integraciones».
+
+Y además: **Google Calendar en «Asignar evento»**, con la regla por el título del evento, ya. **El check gris** también en el Plan
+del teléfono. **«Enviar a todos» de una etapa** es de Automations (se lo pasa el Cerebro).
+
+**El orden de trabajo del chat «CRM y Chats»**, en tandas chicas con su VERDE: (1) unir dos fichas que ya son clientes (toca
+plata: con la revisión de pagos); (2) elegir qué datos muestran los bloques de Pagos; (3) las 8 decisiones de arriba; (4) de dónde
+vino cada lead cuando está en varios funnels; (5) los «Producto» que quedan → «Funnel»; (6) Google Calendar por título; (7) más
+de 60 perfiles por «Extraer»; (8) las tarjetas del teléfono, «Prioridades» y el check gris; (9) cumpleaños (si pide migración, el
+SQL va al Cerebro, que pide el sí de Martín).
+
+**De paso:**
+- La rama `crm-cuotas-espera-revision` (cuotas de a una, sin «Armar el plan») va contra el plan libre del 27/10, que deja
+  «Armar el plan». **No se sube** (lo decidió el Cerebro el 28/10): la rama queda como está.
+- La cabecera de `app/chats/VentanaChat.tsx` todavía dice que el «⋯» tiene «Posponer»; desde el 27/10 está en la flechita de
+  «Cerrar».
+
+---
+
+## 20/10/2026 (la medición anterior)
+
 **20/10/2026, ~19:45.** Estado medido sobre la rama `crm-ficha-v2` en `5cb1e334a`, con `origin/main` en `ff9cc4da7`.
 Se armó leyendo `docs/feedback-16-10-crm-onboarding-second-brain.md`, `docs/feedback-18-10.md` (pts 8, 9 y 14),
 `docs/feedback-20-10.md` (el pt 12 está en la copia de `C:/dev/wt-push-q`; la de este worktree llega hasta el pt 7), las memorias del CRM, `docs/relevo/crm.md` y los hitos de Martín y de Claude en

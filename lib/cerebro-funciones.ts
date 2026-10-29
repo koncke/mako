@@ -142,6 +142,32 @@ export function funcionQueVende(p: { pedido: string; pagina?: string }, fs: read
   return a && a.n >= 2 && a.n >= 2 * (b?.n ?? 0) ? a.f : null;
 }
 
+// ── ¿La pregunta es sobre el PRODUCTO? (el turno de MaKo en la plataforma, 28/10/2026) ──────────────────────────────────
+// Medido en el ws 9 con el grafo de los chats: «¿Cuál es mi meta del trimestre?» traía Ads Manager («meta» es también
+// Facebook) y «¿quién es mi cliente ideal?», el CRM. La capa de funciones entra en el turno sólo cuando la pregunta es de
+// producto: nombra una función por su NOMBRE, lo que reemplaza, una palabra que sólo dice producto, o pregunta qué hace algo.
+// Los alias sueltos no cuentan: casi todos son palabras del negocio («meta», «leads», «oferta», «agenda»).
+const DE_PRODUCTO = /(?<![\p{L}\p{N}])(?:funci[oó]n(?:es)?|funcionalidad(?:es)?|features?|pesta[nñ]as?|tabs?|reemplaza\w*|en vez de|qu[eé](?: no)? hace|c[oó]mo funciona|para qu[eé] sirve)(?![\p{L}\p{N}])/iu;
+/** Las palabras que sólo nombran el producto, aunque no sean el nombre de una función. */
+const SOLO_PRODUCTO = ['bandeja', 'inbox', 'second brain', 'segundo cerebro', 'content machine', 'media buyer', 'manychat'];
+/** Nombres de función que también son palabras del negocio: «el plan de pagos de Ana» no habla del Plan. */
+const NOMBRES_COMUNES = new Set(['plan']);
+
+export function esPreguntaDeProducto(pregunta: string, fs: readonly FuncionMako[] = funcionesMako()): boolean {
+  if (!pregunta.trim()) return false;
+  if (DE_PRODUCTO.test(pregunta)) return true;
+  const nombra = (x: string) => coincide(pregunta, `${paraBuscar(x)} `);
+  return fs.some((f) => (!NOMBRES_COMUNES.has(paraBuscar(f.nombre)) && nombra(f.nombre)) || (!!f.reemplaza && nombra(f.reemplaza)))
+    || SOLO_PRODUCTO.some(nombra);
+}
+
+/** El grafo sin la capa de las funciones (sus nodos `fn:`, su carpeta y sus aristas): para una pregunta del negocio. */
+export function sinFunciones<C extends Pick<Cerebro<string>, 'nodos' | 'aristas'>>(c: C): C {
+  const esDeLaCapa = (id: string) => id === ID_RAIZ_FUNCIONES || id.startsWith('fn:') || id.startsWith(`${CAPA_FUNCIONES}:`);
+  if (!c.nodos.some((n) => esDeLaCapa(n.id))) return c;
+  return { ...c, nodos: c.nodos.filter((n) => !esDeLaCapa(n.id)), aristas: c.aristas.filter((a) => !esDeLaCapa(a.de) && !esDeLaCapa(a.a)) };
+}
+
 /** Una línea con todas las funciones que se venden y lo que reemplazan: que un chat no niegue una que existe. */
 export function catalogoCorto(fs: readonly FuncionMako[] = lasQueSeVenden()): string {
   return fs.map((f) => `${f.nombre}${f.reemplaza ? ` (en vez de ${f.reemplaza})` : ''}`).join(' · ');

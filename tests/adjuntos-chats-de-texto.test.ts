@@ -79,7 +79,8 @@ const PANTALLAS = [
 test('cada pantalla ofrece adjuntar y los manda con lo escrito en la caja (una sugerencia o una nota, sin ellos)', () => {
   for (const p of PANTALLAS) {
     const s = sinComentarios(leer(p.archivo));
-    assert.match(s, /const adj = useAdjuntosDelChat\(\{ puede: [^,]+, onError: \w+ \}\);/, `${p.archivo}: sin la caja de adjuntos`);
+    // `conversacion`: la pantalla que cambia de conversación sin remontarse (MakoChat y sus sesiones, 28/10/2026).
+    assert.match(s, /const adj = useAdjuntosDelChat\(\{ puede: [^,]+, onError: \w+(, conversacion: [^}]+)? \}\);/, `${p.archivo}: sin la caja de adjuntos`);
     assert.match(s, /adjuntos=\{adj\.caja\}/, `${p.archivo}: la caja no ofrece adjuntar`);
     assert.match(s, new RegExp(`const conArchivos = ${p.texto} === undefined && adj\\.hay;`), `${p.archivo}: una sugerencia se lleva los archivos de la caja`);
     assert.match(s, /const archivos = conArchivos \? adj\.tomar\(\) : \[\];/);

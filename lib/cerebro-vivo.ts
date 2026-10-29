@@ -373,6 +373,25 @@ function esDatoNombrable(n: NodoCerebro): boolean {
   return limpio(n.etiqueta).replace(/[^\p{L}\p{N}]/gu, '').length >= 4;
 }
 
+/**
+ * D1 · EL OBJETIVO EN NÚMEROS (lib/cerebro-grafo.ts), con los settings `objetivo_cierres` y `objetivo_cash_usd` TAL COMO SE
+ * GUARDAN: strings ('12', '30000'), del onboarding (SETTINGS_WIZARD) y de `setObjetivoAction`. Sin cierres, ningún nodo: lo
+ * que falta se dice en la raíz. Es plata del negocio: un closer no lo ve (`sinLaPlata`, lib/cerebro-union.ts).
+ */
+export function nodoDelObjetivo(objCierres: unknown, objCash: unknown): NodoCerebro | null {
+  const nCierres = Number(objCierres);
+  const nCash = Number(objCash);
+  if (!Number.isFinite(nCierres) || nCierres <= 0) return null;
+  return {
+    id: 'objetivo',
+    area: 'norte',
+    etiqueta: `${nCierres} ${nCierres === 1 ? 'cierre' : 'cierres'} en 90 días`,
+    detalle: Number.isFinite(nCash) && nCash > 0 ? `Y USD ${nCash.toLocaleString('es')} de facturación.` : '',
+    fuente: 'lo pusiste como objetivo',
+    autoria: 'usuario',
+  };
+}
+
 /** Los nodos cuyo NOMBRE aparece entero en el título (la búsqueda del grafo al revés: el título es el pajar). */
 function candidatosNombrados(titulo: string, nodos: NodoCerebro[]): NodoCerebro[] {
   const pajar = { id: '_', area: 'panorama' as AreaId, etiqueta: titulo, detalle: '', fuente: '', autoria: 'usuario' as const };

@@ -2027,7 +2027,9 @@ export const BITACORA: Hito[] = [
       '**La captura que te ofrece la caja espera:** si la caja está ocupada, vuelve cuando se libera, en vez de perderse.',
       '**Si sales del chat nuevo con la nota a mitad** y no se entiende, la foto vuelve a la caja con su miniatura.',
       '**En Soporte, cada ticket tiene su caja:** lo que adjuntas en uno ya no aparece en otro (en uno cerrado no se podía quitar), también un PowerPoint o un audio. Y lo que se estaba leyendo cuando cambias de ticket no sale en el otro: queda en el suyo. Lo que dejas sin mandar en la conversación nueva sigue ahí en la siguiente.',
-      '**En el Ops Center, cada chat tiene su caja:** un audio adjuntado en un chat ya no sale con el mensaje de otro. Y si un chat está leyendo lo que adjuntaste, en otro puedes mandar en el acto.',
+      '**En el Ops Center, cada chat tiene su caja:** un audio adjuntado en un chat ya no sale con el mensaje de otro, y sigue ahí aunque pases por un chat sin caja (el Runner) o cierres la conversación en el teléfono. Y si un chat está leyendo lo que adjuntaste, en otro puedes mandar en el acto.',
+      '**En Soporte, el ticket espera lo que la caja está leyendo:** la tarjeta dice «Leyendo lo que adjuntaste…» y recién después se manda, con ese mensaje adentro.',
+      '**En el chat de MaKo de los gráficos y el Diagnóstico, cada sesión tiene su caja:** lo que adjuntas en una no sale con el mensaje de otra.',
     ],
     archivos: [
       'app/_chat/juntar-adjuntos.ts — adjuntosQuietos · CajaChat.tsx · adjuntos-que-se-leen.ts — por conversación · app/admin/operaciones/PanelChat.tsx · centro.css',

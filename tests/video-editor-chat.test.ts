@@ -13,7 +13,8 @@
 //     posición, audio, revertir, congelar y los cortes por frase, tramo y muletillas);
 //   · las plantillas de anuncio: reemplazar_clip, usar_plantilla, el texto de un hueco y la
 //     lectura de la API de MaKo (tests 43-50);
-//   · «Borrar silencios» desde el chat (test 51, 28/10/2026).
+//   · «Borrar silencios» desde el chat (test 51, 28/10/2026);
+//   · los subtítulos desde el chat dicen por qué no salieron (test 52, ticket 23, 28/10/2026).
 //
 // Probado rompiéndolo (15/10/2026): el resultado de cada rotura está al final del archivo.
 import { test } from 'node:test';
@@ -40,6 +41,7 @@ import { armarLinea, paramsDeTextoDeHueco, type Medir } from '../app/video-edito
 import { MARCA, codificarAncla } from '../app/video-editor/_opencut/plantillas/huecos';
 import { DEFS as DEFS_VIDEO } from '../lib/api-mako/areas/video.def';
 import { sumarProgreso, type ArmadoChat } from '../app/video-editor/_opencut/chat/armado';
+import { MOTIVO_SUBTITULOS, motivoDeLaFalla, textoDeSubtitulos } from '../app/video-editor/_opencut/subtitles/resultado';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -970,6 +972,35 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
   assert.ok(sinComentarios(leer('lib/api-mako/areas/video.run.ts')).includes("borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },"));
 });
 
+test('52: «Generar los subtítulos» desde el chat dice POR QUÉ no salieron (ticket 23, 28/10): el resultado del botón', () => {
+  // Cada causa con su texto: qué pasó y qué hacer. Ninguno es el genérico del chat.
+  for (const [motivo, texto] of Object.entries(MOTIVO_SUBTITULOS)) {
+    assert.doesNotMatch(texto, /no se pudo generar/, motivo);
+    if (motivo !== 'cancelado') assert.match(texto, /: .+/, `«${motivo}» no dice qué hacer`);
+  }
+  assert.match(MOTIVO_SUBTITULOS.descarga, /no se pudo bajar el reconocedor de voz: revisa la conexión/);
+  assert.match(MOTIVO_SUBTITULOS['sin-voz'], /el clip no tiene voz o es sólo música/);
+  assert.match(MOTIVO_SUBTITULOS.ocupado, /^ya se están generando/);
+  assert.match(MOTIVO_SUBTITULOS['sin-proyecto'], /^no hay un proyecto abierto/);
+  assert.equal(textoDeSubtitulos('sin-voz'), 'No se reconoció la voz: el clip no tiene voz o es sólo música');
+  // Lo que lanzó, por la fase en que iba.
+  assert.deepEqual((['audio', 'modelo', 'transcribiendo', 'armando'] as const).map(motivoDeLaFalla), ['audio', 'descarga', 'reconocer', 'poner']);
+  // generarSubtitulos: ningún return mudo, y lo que no sale queda abajo del botón con el MISMO texto.
+  const gen = sinComentarios(leer('app/video-editor/_opencut/subtitles/generar.ts'));
+  const cuerpo = gen.slice(gen.indexOf('export async function generarSubtitulos'));
+  assert.match(cuerpo, /\): Promise<ResultadoSubtitulos> \{/);
+  assert.doesNotMatch(cuerpo, /return;/, 'generarSubtitulos tiene un return mudo');
+  assert.match(cuerpo, /fase !== "inactivo"\) return \{ ok: false, motivo: "ocupado" \};/);
+  assert.match(cuerpo, /error: textoDeSubtitulos\(motivo\)/);
+  // El chat LEE el resultado. Si lo ignora, la línea no cambió y vuelve a decir «no se pudo generar los subtítulos».
+  const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
+  assert.match(aplicar, /const (\w+) = await generarSubtitulos\(editor\);\s*return \1\.ok \? \[\] : \[MOTIVO_SUBTITULOS\[\1\.motivo\]\];/, 'el chat no lee lo que devuelve generarSubtitulos');
+  // Transcripción no tiene texto abajo del botón: el motivo va en un aviso.
+  const tx = sinComentarios(leer('app/video-editor/_opencut/transcripcion/components/transcripcion-view.tsx'));
+  assert.match(tx, /const r = await generarSubtitulos\(editor\);\s*if \(!r\.ok && r\.motivo !== "cancelado"\) toast\.error\(textoDeSubtitulos\(r\.motivo\)/);
+  assert.doesNotMatch(tx, /void generarSubtitulos\(/, 'Transcribir vuelve a tirar el resultado');
+});
+
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:
 // · lo borrado sigue vivo para las que siguen          → 1 fallo (10)
 // · la pista bloqueada se toca                         → 1 fallo (11)
@@ -1041,6 +1072,9 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
 // Restaurado: 51/0.
 // · (51, 28/10, base 52/0) B1 el chat cae al clip del cabezal (`cabezal: true`) · B2 borrar_silencios no va última
 //   · B3 normalizar el clip que se parte va en el mismo pedido → cada una 51/1. Restaurado: 52/0.
+// · (52, 28/10, ticket 23, base 53/0) R1 correrLarga vuelve a ignorar lo que devuelve generarSubtitulos · R2 un return
+//   mudo si ya se están generando · R3 la descarga con el texto genérico · R4 Transcribir tira el resultado · R5 el
+//   store no lleva el mismo texto que el chat → cada una 52/1. Restaurado: 53/0.
 //
 // Lo que NO cubre: que los comandos del motor hagan en pantalla lo que dice la fila
 // (chat/comandos.ts, chat/aplicar.ts). Eso se mira en el navegador

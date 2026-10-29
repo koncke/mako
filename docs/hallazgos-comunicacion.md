@@ -76,6 +76,35 @@ agenda (`motivoNoAgendable`). **Sin hacer:** el ejemplo de hoy («Laura Gil») s
 real; y si la IA del aviso falla, `generarMensajeAviso` devuelve la referencia tal cual (el ejemplo, con su link), para un
 aviso que se emite con `contexto` y una plantilla sin editar.
 
+---
+
+## «No me respondiste lo de este audio»: el aviso de arreglo salió y el audio CITADO no se escucha (28/10/2026)
+
+**Síntoma.** El Cerebro le avisó a Leandro (negocio 10) a las 16:39 «ya quedó solucionado lo de las notas de voz». A las
+16:40 él contestó CITANDO su audio de 1:34 con «No me respondiste lo de este audio», y MaKo le dijo «en este mensaje no
+puedo escuchar audios ni tengo la transcripción del tuyo. Mándame el texto exacto». Martín: «No puede andar tan mal esto».
+
+**Las dos causas, ninguna es la obvia («el arreglo de Groq no anda»):**
+- **El audio entró antes del deploy:** llegó 19:24:52 UTC y el despliegue empezó 19:25:42. Lo procesó la versión vieja
+  (Gemini, timeout: el aviso de las 16:26 con el link de OpenAI). Un arreglo no reprocesa lo que ya falló, y el aviso salió
+  sin mirar qué había quedado colgado. Por Groq, el mismo audio se transcribe bien (`transcribirAudio` con
+  `notaDeVozDelGrupo: true`).
+- **Un audio citado no se escucha:** el mensaje nuevo trae el audio en `contextInfo.quotedMessage.audioMessage` y el lote lo
+  guarda con `tiene_audio: false` (`mako_doer_buffer` 330). El turno sólo transcribe el audio del mensaje nuevo.
+
+**La regla que queda:**
+- Antes de un aviso de arreglo, se contesta lo que la falla le dejó sin responder a ese cliente (AGENTS.md, «Un ticket
+  resuelto se CIERRA…»).
+- Un audio citado se escucha igual que uno nuevo, y MaKo nunca le pide al cliente que escriba lo que dijo.
+
+**Sin hacer (28/10):** el arreglo del audio citado (lib/mako-grupo.ts y el lote del doer, chat de WhatsApp) y el aviso a
+Leandro cuando Instagram o Zernio frenen una respuesta (chat de Automations). Los topes medidos, para ese aviso: Meta
+permite 750 respuestas privadas a comentarios por hora y por cuenta de Instagram, y 300 mensajes por segundo. Zernio
+admite 60 pedidos por minuto con 0 a 2 cuentas conectadas y 600 con 3 o más, y pasado el tope devuelve 429 con
+`Retry-After` (docs.zernio.com/rate-limits).
+
+---
+
 ## MaKo en el grupo, fallas medidas del 20 al 27/10: decía hecho lo que no hizo, no veía fotos, no levantaba el ticket, no listaba y corría el modelo más flojo (27/10/2026)
 
 La lectura del Cerebro (sólo lectura de `mako_doer_conv`, `anthropic_usage` y el grupo Makito, contra main bbb459f33).
