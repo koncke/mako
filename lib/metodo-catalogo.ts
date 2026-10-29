@@ -33,6 +33,7 @@ import 'server-only';
 // Se usa para escribir la URL real en los pasos que la piden (ver ayudaDeCampo).
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
+import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -277,6 +278,16 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // ROUTING_CREDS. La nota es la línea del cobro: cada red cuenta aparte en Zernio, y lo paga el negocio.
       { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,
         nota: 'Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.' },
+      // VARIAS CLAVES (29/10/2026, Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente... y ya tendrías cuatro
+      // redes»): cada una es OTRA cuenta de Zernio del cliente, con su email. `opcional` a propósito: la tarjeta sigue conectada con la
+      // 1 sola. Las redes que se conectan con una quedan atadas a ella (lib/zernio.ts, `cfgDeCuenta`).
+      ...CLAVES_ZERNIO.slice(1).flatMap((env): CampoCredencial[] => [
+        { env, label: `API key de Zernio ${slotDeClaveZernio(env)}`, secreto: true, opcional: true, slot: slotDeClaveZernio(env) ?? undefined,
+          nota: 'De OTRA cuenta de Zernio tuya (otro Gmail): las redes que conectes con ella usan esta clave.' },
+        { env: `${env}_ACCOUNT`, label: `Email de la cuenta de Zernio ${slotDeClaveZernio(env)}`, secreto: false, opcional: true,
+          slot: slotDeClaveZernio(env) ?? undefined, placeholder: 'otromail@gmail.com',
+          nota: 'El Gmail de esa cuenta de Zernio, para saber de un vistazo cuál es. No se usa para nada más.' },
+      ]),
     ],
     tutorial: {
       url: 'https://zernio.com',

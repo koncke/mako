@@ -29,9 +29,10 @@ const ConectarMetaZernio = dynamic(() => import('./ConectarMetaZernio'), { ssr: 
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
 /** Cómo se llama lo que está conectado: el @usuario o el nombre de la cuenta (el primero que ande). */
-function quienes(conexiones: readonly ConexionZernio[]): string {
+function quienes(conexiones: readonly ConexionZernio[], conClave = false): string {
   const sanas = conexiones.filter((c) => c.activa && !c.vencida);
-  return sanas.map((c) => (c.usuario ? `@${c.usuario.replace(/^@/, '')}` : c.nombre)).filter(Boolean).slice(0, 2).join(' · ');
+  // Con varias claves (29/10/2026), con cuál está cada una: la red queda atada a esa clave.
+  return sanas.map((c) => `${c.usuario ? `@${c.usuario.replace(/^@/, '')}` : c.nombre}${conClave ? ` (clave ${c.clave ?? 1})` : ''}`).filter(Boolean).slice(0, 2).join(' · ');
 }
 
 export default function ConectarRedes() {
@@ -51,12 +52,14 @@ export default function ConectarRedes() {
   // encima quedaba detrás del de la grilla, invisible). `volver`: en un teléfono la vuelta es /integraciones (MaKo Mobile conecta ahí).
   const z = useConectarViaZernio({ volver: '/integraciones?abrir=zernio', keyAca: true, onConectado: () => { void leer(); } });
   const ocupado = z.fase === 'abriendo';
+  // Cuántas claves de Zernio tienen alguna red (varias claves, 29/10/2026).
+  const clavesUsadas = new Set((lista ?? []).map((c) => c.clave ?? 1)).size || 1;
 
   return (
     <div data-conectar-redes style={{ ...caja, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span data-paso-zernio="2" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Paso 2 · Conecta tus redes</span>
-        <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{lineaDeCobro(total)}</span>
+        <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{lineaDeCobro(total, clavesUsadas)}</span>
         {/* Los límites de Zernio, al conectar (Martín, 28/10): lo que da gratis además de las 2 cuentas, y qué pasa al pasarse. */}
         <span data-gratis-zernio style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{textoGratisZernio()}</span>
       </div>
@@ -74,7 +77,7 @@ export default function ConectarRedes() {
           const sana = e?.estado === 'conectada' ? e.conexiones.find((c) => c.activa && !c.vencida) : undefined;
           // ⚠️ «Conectando…» sólo mientras se pide el link: en «esperando» el botón de ESA fila sigue vivo (es la salida de quien cerró la ventana).
           const activaAhora = z.red === red && z.fase === 'abriendo';
-          const quien = e?.estado === 'conectada' ? quienes(e.conexiones) : '';
+          const quien = e?.estado === 'conectada' ? quienes(e.conexiones, clavesUsadas > 1) : '';
           return (
             <li key={red} data-red={red} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <span aria-hidden style={{ width: 8, height: 8, borderRadius: 4, flex: 'none', background: e?.estado === 'conectada' ? 'var(--good)' : e?.estado === 'vencida' ? 'var(--warn)' : 'var(--border-strong)' }} />

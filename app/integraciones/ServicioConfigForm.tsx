@@ -27,6 +27,7 @@ import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { useWs } from '@/app/_ui/Link';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
+import { EVENTO_OTRA_CLAVE_ZERNIO } from '@/lib/zernio-redes';
 import { conWs } from '@/lib/ws-tab';
 // Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
 import { esPasarela } from '@/lib/cobros-tipos';
@@ -381,8 +382,29 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
   // conectar Gemini pasaba de un campo a tres y el segundo y el tercero no le
   // sirven a la enorme mayoría, que tiene una sola cuenta.
   const [extrasAbiertas, setExtrasAbiertas] = useState<string[]>([]);
+  const [pedirOtraClave, setPedirOtraClave] = useState(0);
+  // [Agregar otra clave] del aviso de la 3.ª red de Zernio (29/10/2026): abre el campo de la clave siguiente (al montarse, si la
+  // marca quedó en la pestaña; o en el acto, si este modal ya estaba abierto).
+  useEffect(() => {
+    if (servicioKey !== 'zernio') return;
+    const abrirSiguiente = () => {
+      try { window.sessionStorage.removeItem(EVENTO_OTRA_CLAVE_ZERNIO); } catch { /* sin almacenamiento */ }
+      setPedirOtraClave((n) => n + 1);
+    };
+    let marcada = false;
+    try { marcada = window.sessionStorage.getItem(EVENTO_OTRA_CLAVE_ZERNIO) === '1'; } catch { /* sin almacenamiento */ }
+    if (marcada) abrirSiguiente();
+    window.addEventListener(EVENTO_OTRA_CLAVE_ZERNIO, abrirSiguiente);
+    return () => window.removeEventListener(EVENTO_OTRA_CLAVE_ZERNIO, abrirSiguiente);
+  }, [servicioKey]);
 
   const hayQueElegir = opciones.cuentas.length > 0 || opciones.paginas.length > 0 || opciones.pixeles.length > 0;
+  useEffect(() => {
+    if (!pedirOtraClave || !servicio || servicio.key !== 'zernio') return;
+    const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !c.env.endsWith('_ACCOUNT'));
+    if (proxima) setExtrasAbiertas((a) => (a.includes(proxima.env) ? a : [...a, proxima.env, `${proxima.env}_ACCOUNT`]));
+    // Con todas las claves cargadas no hay campo que abrir: el aviso no ofrece el botón (`puedeAgregarClave`), esto es por las dudas.
+  }, [pedirOtraClave, servicio]);
 
   // ⚠️ TODA LA RAMA DE GITHUB VIVE EN OTRO ARCHIVO, y se carga bajo demanda.
   //
@@ -921,24 +943,31 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           // la duda de si falta cargar algo más.
           const tieneSlots = servicio.campos.some((c) => (c.slot ?? 1) > 1);
           if (!tieneSlots) return null;
-          const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env));
-          const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado).length + 1;
+          // En Zernio la clave y su email se abren juntos (un clic, no dos): el email no cuenta como «la próxima».
+          const esZernio = servicio.key === 'zernio';
+          const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env)
+            && !(esZernio && c.env.endsWith('_ACCOUNT')));
+          // El email de cada cuenta (`_ACCOUNT`) no es otra cuenta: contarlo decía «3» con dos claves.
+          const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado && !c.env.endsWith('_ACCOUNT')).length + 1;
           if (!proxima) {
             return (
               <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>
-                {cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.
+                {esZernio
+                  ? `${cargadas} claves de Zernio: cada red usa la clave con la que la conectaste.`
+                  : `${cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.`}
               </div>
             );
           }
           return (
-            <button type="button" onClick={() => setExtrasAbiertas((a) => [...a, proxima.env])}
+            <button type="button" data-agregar-clave={esZernio ? 'zernio' : undefined}
+              onClick={() => setExtrasAbiertas((a) => [...a, proxima.env, ...(esZernio ? [`${proxima.env}_ACCOUNT`] : [])])}
               style={{
                 alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
                 padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)',
                 background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
               }}>
               <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>+</span>
-              Agregar otra cuenta de {servicio.nombre}
+              {esZernio ? 'Agregar otra clave de Zernio (de otra cuenta tuya)' : `Agregar otra cuenta de ${servicio.nombre}`}
             </button>
           );
         })()}

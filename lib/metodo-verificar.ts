@@ -19,6 +19,7 @@ import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { esKeySoloEnvio, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import { problemaDelRemitente } from './resend-remitente';
+import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
 
 type Valores = Record<string, string>;
 
@@ -496,11 +497,19 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     // La key es OBLIGATORIA desde el 23/10/2026 (sin respaldo de la plataforma): sin ella no hay Zernio, y el ping no puede
     // contestar «anda» (la API de MaKo reusa este ping para decir si la integración responde).
     if (!key) return { ok: false, error: 'Falta la API key de Zernio.' };
-    const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    });
-    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde Zernio.' };
-    if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
+    // VARIAS CLAVES (29/10/2026): se prueba CADA una que vino (el servidor completa con las guardadas, así que pegar la 2 trae
+    // también la 1) y se dice cuál falla. Probar sólo la 1 daba «anda» a una clave 2 rota.
+    const claves = CLAVES_ZERNIO.map((env) => ({ env, valor: (v[env] ?? '').trim() })).filter((x) => x.valor);
+    let body: Record<string, unknown> = {};
+    for (const k of claves) {
+      const r = await fetchJson('https://zernio.com/api/v1/profiles', {
+        headers: { authorization: `Bearer ${k.valor}`, 'content-type': 'application/json' },
+      });
+      const cual = k.env === 'ZERNIO_API_KEY' ? 'Esa API key' : `La API key de Zernio ${slotDeClaveZernio(k.env)}`;
+      if (r.status === 401 || r.status === 403) return { ok: false, error: `${cual} no es válida. Cópiala de nuevo desde Zernio.` };
+      if (r.status >= 400) return { ok: false, error: `Zernio respondió ${r.status}${k.env === 'ZERNIO_API_KEY' ? '' : ` con la clave ${slotDeClaveZernio(k.env)}`}.` };
+      if (k.env === 'ZERNIO_API_KEY') body = r.body;
+    }
     const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
     return {
       ok: true,

@@ -76,7 +76,38 @@ export type ConexionZernio = {
   activa: boolean;
   /** Zernio pide reconectar (`needsReconnection`). */
   vencida: boolean;
+  /** Con qué clave de Zernio del negocio está conectada (1 = `ZERNIO_API_KEY`; 2… = las extra). Sin dato, la 1. */
+  clave?: number;
 };
+
+// ── Varias claves de Zernio por negocio (29/10/2026) ─────────────────────────
+
+/**
+ * Martín, 29/10 (audio en SuperAdmin): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con otra cuenta de
+ * Gmail del cliente... y ya tendrías cuatro redes». Cada clave es OTRA cuenta de Zernio DEL CLIENTE (su Gmail); MaKo nunca crea
+ * cuentas. Esto da vuelta el «NO a varias cuentas» de la mañana del 29/10 (gana lo posterior; los términos de Zernio, «Abuse of the
+ * API may result in immediate suspension», se los dijo el Cerebro). Ningún texto promete que sea gratis para siempre.
+ * La 1 es `ZERNIO_API_KEY`, la de siempre; las extra, `ZERNIO_API_KEY_2` … `_5`.
+ */
+export const MAX_CLAVES_ZERNIO = 5;
+export const CLAVE_ZERNIO = 'ZERNIO_API_KEY';
+export const CLAVES_ZERNIO: readonly string[] = [CLAVE_ZERNIO, ...Array.from({ length: MAX_CLAVES_ZERNIO - 1 }, (_, i) => `${CLAVE_ZERNIO}_${i + 2}`)];
+/** El número de una clave de Zernio (1 para la base); null si el nombre no es una de ellas. */
+export const slotDeClaveZernio = (env: string): number | null => {
+  const i = CLAVES_ZERNIO.indexOf(env);
+  return i < 0 ? null : i + 1;
+};
+
+/**
+ * ¿En qué clave se conecta una red nueva? La PRIMERA (en orden) donde entra sin que Zernio cobre: menos de 2 cuentas activas, o ya
+ * tiene una de esa red (volver a entrar no suma). null = todas están llenas: hay que avisar antes del login.
+ */
+export function claveConLugar(claves: ReadonlyArray<{ slot: number; conectadas: readonly ConexionZernio[] }>, red: RedZernio): number | null {
+  for (const k of [...claves].sort((a, b) => a.slot - b.slot)) {
+    if (!avisoDeCobroZernio({ conectadas: k.conectadas, red })) return k.slot;
+  }
+  return null;
+}
 
 /** Por qué no se pudo seguir, en una palabra que la pantalla sabe leer. */
 export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'respuesta' | 'error';
@@ -85,7 +116,10 @@ export type RespuestaConectar =
   | { ok: true; tipo: 'url'; url: string }
   /** Zernio no necesitó un login (la cuenta ya tenía el permiso, o la rehabilitó al instante). */
   | { ok: true; tipo: 'ya-conectada'; conexiones: ConexionZernio[] }
-  | { ok: false; motivo: MotivoZernio; error: string; pagoUrl?: string | null };
+  | { ok: false; motivo: MotivoZernio; error: string; pagoUrl?: string | null; puedeAgregarClave?: boolean };
+
+/** El evento (y la marca de la pestaña) que pide abrir el campo de la clave de Zernio siguiente: lo dispara el aviso de la 3.ª red. */
+export const EVENTO_OTRA_CLAVE_ZERNIO = 'mako:zernio-otra-clave';
 
 export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'sin-clave': 'Primero pega tu API key de Zernio.',
@@ -94,7 +128,7 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'pausada': 'Tu cuenta de Zernio está pausada.',
   'pago': 'Zernio pide una tarjeta para conectar otra cuenta. Las 2 primeras son gratis.',
   'limite': 'Tu plan de Zernio no deja conectar más cuentas.',
-  'cobro': 'Esta cuenta se paga en tu Zernio: desde la 3.ª, US$6 por mes cada una.',
+  'cobro': 'Esta clave de Zernio ya tiene 2 redes: la tercera se paga. Para no pagar, agrega otra clave de Zernio.',
   'sin-perfil': 'Tu cuenta de Zernio no tiene ningún perfil. Crea uno en Zernio.',
   'sin-red': 'Zernio no contestó. Prueba de nuevo.',
   'respuesta': 'Zernio contestó algo que no entendimos. Prueba de nuevo.',
@@ -108,8 +142,10 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
  * de la 3.ª a la 10.ª US$6, de la 11.ª a la 100.ª US$3, desde la 101.ª US$1). Un login de Facebook no es UNA cuenta: la página, el
  * Instagram y la cuenta publicitaria cuentan aparte. `total` null = no se pudo leer cuántas hay.
  */
-export function lineaDeCobro(total: number | null | undefined): string {
+export function lineaDeCobro(total: number | null | undefined, claves = 1): string {
   if (total == null || !Number.isFinite(total) || total < 0) return 'Cada red cuenta aparte en Zernio (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.';
+  // Con varias claves (29/10/2026) el gratis es POR CLAVE: cada una es otra cuenta de Zernio.
+  if (claves > 1) return `Tienes ${total} ${total === 1 ? 'red conectada' : 'redes conectadas'} en ${claves} claves de Zernio. Cada clave conecta 2 gratis.`;
   return `Tienes ${total} ${total === 1 ? 'cuenta conectada' : 'cuentas conectadas'} en Zernio. Las 2 primeras son gratis; desde la 3.ª se paga.`;
 }
 
@@ -160,13 +196,16 @@ export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; r
   return activas.length >= CUENTAS_GRATIS_ZERNIO ? { cuentas: activas.length } : null;
 }
 
-/** El aviso, en una línea: cuántas hay y cuánto cuesta la que viene (de la 3.ª a la 10.ª, US$6 por mes, prorrateado por día). */
-export function textoAvisoCobro(cuentas: number): string {
-  // La salida gratis (Martín, 28/10: «la misma advertencia cuando estén por conectar su 3ra red»): Zernio cobra sólo las cuentas
-  // ACTIVAS, así que desconectar allá una que no se usa la deja gratis. «Conecta otra cuenta de Zernio» NO va NUNCA (Martín, 29/10,
-  // por el Cerebro): cada negocio con SU cuenta, y si necesita más, paga su plan. Varias cuentas gratis para lo mismo arriesgan la
-  // suspensión («Abuse of the API may result in immediate suspension», zernio.com/tos), que le cortaría las publicaciones.
-  return `Tu Zernio ya tiene ${cuentas} cuentas conectadas: ésta se paga. Zernio te cobra US$6 por mes por cada una desde la 3.ª, prorrateado por día. Para no pagar, desconecta en zernio.com una que ya no uses y vuelve a intentarlo.`;
+/**
+ * El aviso de la 3.ª red, antes del login (Martín, 29/10: «te advierte: "che, esta es la tercera cuenta que estás por conectar,
+ * cuidado: si conectás esta cuenta sin otra API te va a empezar a cobrar Zernio"»). La salida gratis es OTRA clave de Zernio, de
+ * otra cuenta del cliente (`puedeAgregar`: todavía hay lugar para una clave más); si ya están las cinco, desconectar una en zernio.com.
+ */
+export function textoAvisoCobro(cuentas: number, opc: { puedeAgregar?: boolean } = {}): string {
+  const salida = opc.puedeAgregar === false
+    ? 'Para no pagar, desconecta en zernio.com una que ya no uses.'
+    : 'Para no pagar, agrega otra clave de Zernio (de otra cuenta tuya, con otro Gmail).';
+  return `Esta clave de Zernio ya tiene ${cuentas} redes. Si conectas otra, Zernio te empieza a cobrar (US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una desde la 3.ª). ${salida}`;
 }
 
 // ── A dónde vuelve ───────────────────────────────────────────────────────────
