@@ -33,6 +33,18 @@ Las secciones de HeyGen se deprecaron; lo de abajo de HeyGen queda por las licen
 
 ## Trampas del estudio (29/10/2026)
 
+- **«La pantalla anda» no es «el motor anda»: medirlo en la base antes de venderla.** El 29/10 el pedido fue abrirla a los
+  clientes; la tabla `flow_puentes` (una fila por workspace con su extensión: `estado`, `version`, `ultimo_visto`) y
+  `app_settings` (`ai-avatar.looks`) dijeron en una consulta que no había ni un look generado ni un puente con sesión. Se
+  mide con un script suelto contra la base (`--env-file=C:/dev/mako-api/.env.local`, transacción `read only`), sin abrir
+  ninguna pantalla. Y «Conectar» en el popup vincula el workspace que está ABIERTO en MaKo: para probar en el ws3 hay que
+  entrar al ws3 antes de tocarlo.
+- **Abrir AI Avatar a clientes toca más que su puerta**: sin `adminOnly`, la tab aparece en la sidebar del cliente y el
+  teléfono necesita su fila de More (lib/movil-rutas.ts, como Video), o `movil-mas-secciones` falla «está en la sidebar y no
+  en el teléfono»; la capa de la plataforma tiene keys EXPLÍCITAS (lib/capas.ts) y sin 'ai-avatar' el super admin la pierde
+  en su propio workspace; y /planes la vuelve a ofrecer sólo si sale de `TABS_TODAVIA_CERRADAS` (el test de planes ata las
+  dos cosas). Todo eso está en la rama `ai-avatar-abrir-pro-2910`.
+
 - **Sacar las secciones de una tab de nav.ts cierra la puerta del teléfono SIN error si la page sigue pidiendo la key
   vieja**: `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS` y, sin el ítem, no deja pasar a nadie. Al dejar
   AI Avatar como UN ítem ('ai-avatar'), las cuatro pages de `app/m/ai-avatar` pasaron a `navKey: 'ai-avatar'` en el MISMO
@@ -141,9 +153,14 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   la oficina» tienen imagen real; los otros 26 muestran el degradado de su categoría y el lugar escrito (y, en
   cuanto la persona genera uno, SU look pasa a ser la baldosa). Se generan gratis en Flow con el motor por
   interfaz cuando haya un navegador de super admin conectado. **Vive en:** `lib/ai-avatar/plantillas.ts` (`ejemplo`).
-- **Verla andando en producción con un look real.** El 29/10 se vio renderizada (vista estática de los componentes
-  reales, escritorio y teléfono), pero el único Chrome conectado tenía la sesión de Leandro (ws 10, no super admin):
-  `/ai-avatar` lo manda al Ops Center. La prueba con Flow de verdad es de Martín, desde el Centro («revisar»).
+- **Probarla de punta a punta con un look real, y recién ahí abrirla a Pro y venderla.** Medido el 29/10/2026 (base, sólo
+  lectura): el motor de AI Avatar **nunca generó un look en producción** (`ai-avatar.looks` vacío en todos los workspaces),
+  el ws3 (el de prueba) **nunca vinculó la extensión** (sin fila en `flow_puentes`) y ninguna extensión estaba lista: las de
+  los ws 9, 1, 10 y 11 en «sin_sesion» (Google Flow sin una cuenta abierta). Lo que pide, y es de la persona: Chrome con la
+  extensión de MaKo, sesión de Google Flow con SU cuenta (paga sus créditos: el look 0, cada toma del video ~15), «Conectar»
+  desde el popup con el workspace abierto en MaKo, y una foto de su cara. La apertura ya está escrita y probada en la rama
+  `ai-avatar-abrir-pro-2910` (la puerta de Pro del Video Editor, /planes y la fila de More): se sube DESPUÉS de la prueba.
+  **Vive en:** `app/ai-avatar/acceso.ts`, `lib/planes-comparacion.ts` (`TABS_TODAVIA_CERRADAS`).
 - **Crear y borrar un look por la API de MaKo.** `ver_avatares` lee (desde el 29/10 también el ajuste escrito y los
   presets nuevos), pero crear encola en Flow y el área de video es «sólo lecturas» por el veredicto §8
   (docs/api-mako-diseno.md); borrar es una escritura sin gasto que hoy vive en una action con sesión. Es un hueco de
