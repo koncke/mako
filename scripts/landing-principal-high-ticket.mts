@@ -84,17 +84,25 @@ const ICONO_LANDING = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
 
 const ICONO_TIJERA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 7a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M3 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M8.6 8.6l10.4 10.4"></path><path d="M8.6 15.4l10.4 -10.4"></path>';
 const ICONO_GRUPO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1"></path><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M17 10h2a2 2 0 0 1 2 2v1"></path><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M3 13v-1a2 2 0 0 1 2 -2h2"></path>';
-const ICONO_OJO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path>';
+// La cara dentro de un círculo (tabler «user-circle»): el avatar con tu cara.
+const ICONO_CARA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path><path d="M9 10a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M6.168 18.849a4 4 0 0 1 3.832 -2.849h4a4 4 0 0 1 3.834 2.855"></path>';
 
 /**
  * Las 9 tarjetas, 3 x 3 y en este orden, con el texto exacto del taller del Cerebro (29/10, después de que Martín viera las 6:
  * «Esas no son las funcionalidades más hot... ¿Y el scraper? ¿Y el Avatar con IA? ¿Y la edición?»): el inventario de lo que
  * anda HOY en producción, lo que vende en el rubro y tres jurados (docs/hallazgos-editor-landing.md, «Lo que la landing puede
- * vender»). El Avatar con IA NO entra todavía (sólo lo abre el super admin). `de` = la tarjeta de hoy que se reusa (su caja, su
- * ícono, su color); las que no existían salen de otra con su ícono, su color y su enlace.
+ * vender»). `de` = la tarjeta de hoy que se reusa (su caja, su ícono, su color); las que no existían salen de otra con su
+ * ícono, su color y su enlace.
+ *
+ * El Avatar con IA (29/10 a la tarde, Martín: «haz que AI-Avatar esté disponible para todos», los tres planes): entra
+ * SEGUNDO, como en el ranking del rubro del taller (el más llamativo, detrás del setter), en el lugar de «Su visita, grabada»,
+ * que el ranking ni puntuaba. Se publica recién cuando la rama que lo abre (ai-avatar-para-todos-2910) esté DESPLEGADA: antes
+ * de eso sólo lo abre el super admin y la tarjeta vendería algo que el cliente no puede usar.
  */
 const TARJETAS: { de: string; titulo: string; bajada: string; nueva?: { feature: string; href: string; icono: string; fondo?: [string, string] } }[] = [
   { de: 'whatsapp', titulo: 'Tu setter en WhatsApp', bajada: 'Contesta a cada lead a cualquier hora, también audios, y le manda tu link para agendar.' },
+  { de: 'crm', titulo: 'Tu avatar con IA', bajada: 'Tu cara en 28 escenas, animada diciendo tu guion, con tu cuenta de Google Flow.',
+    nueva: { feature: 'avatar', href: '#beta', icono: ICONO_CARA, fondo: ['background:#FDECEC', 'color:#E5484D'] } },
   { de: 'crm', titulo: 'Tu editor de video', bajada: 'Pídele a MaKo que quite silencios y ruido, ponga subtítulos y haga los cortes.',
     nueva: { feature: 'video-editor', href: 'https://hola-mako.com/video-editor', icono: ICONO_TIJERA, fondo: ['background:#F1EDFE', 'color:#7C5CF5'] } },
   { de: 'crm', titulo: 'De tus grupos al CRM', bajada: 'Toca «Extraer»: los contactos de tus grupos de WhatsApp caen al CRM con nombre y perfil.',
@@ -106,8 +114,6 @@ const TARJETAS: { de: string; titulo: string; bajada: string; nueva?: { feature:
   { de: 'closing', titulo: 'Tu analista de llamadas', bajada: 'Puntúa cada llamada de venta grabada, marca las objeciones y te deja las tareas.' },
   { de: 'ads', titulo: 'Tu media buyer con IA', bajada: 'Revisa tus anuncios de Meta cada día y te propone qué subir, pausar o prender, y por qué.' },
   { de: 'crm', titulo: 'Tu CRM se mueve solo', bajada: 'Los leads de Meta y tu agenda entran solos, cambian de etapa y su llamada queda guardada.' },
-  { de: 'crm', titulo: 'Su visita, grabada', bajada: 'Mira en el CRM qué hizo ese lead en tu landing antes de llamarlo, y el mapa de calor.',
-    nueva: { feature: 'visita', href: '#beta', icono: ICONO_OJO, fondo: ['background:#FDECEC', 'color:#E5484D'] } },
 ];
 
 const cuenta = (s: string, buscar: string) => s.split(buscar).length - 1;
