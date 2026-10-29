@@ -90,6 +90,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
   // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
+  // 29/10/2026: Copywriting ES el Copywriter (una pantalla, sin secciones): se gatea con su key, `copywriter`.
   // 17/10/2026, la sidebar nueva: dos familias (Operate con Dashboard y Clients; Sales Machine con Video y Copywriting),
   // Second Brain arriba sin título, y el Mapa y Experiments OCULTOS (sus páginas siguen; no son filas).
   assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia, s.oculta ?? false]), [
@@ -99,7 +100,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true], ['agency', 'agency', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
-    ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
+    ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],

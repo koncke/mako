@@ -126,7 +126,7 @@ test('/web-generator: el layout redirige ANTES del loader en las tres rutas que 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Las puertas: funciones que REDIRIGEN por dentro. Una nueva va acá (el test de abajo las busca solas en lib/ y app/). */
-const PUERTAS = ['requireSesion', 'requireCapa', 'requireRolWs', 'guardOnboarding', 'requireMovil', 'requireAiAvatar', 'requireAiAvatarM', 'requireEditorImagen', 'requireEditorVideo'];
+const PUERTAS = ['requireSesion', 'requireCapa', 'requireRolWs', 'guardOnboarding', 'requireMovil', 'requireAiAvatar', 'requireAiAvatarM', 'requireEditorImagen', 'requireEditorVideo', 'requireCopywriter', 'requireCopywriterM'];
 const LLAMADA = new RegExp(`\\b(${PUERTAS.join('|')})\\(`, 'g');
 
 /** Las llamadas a una puerta, en orden, como texto: con sus argumentos y los espacios normalizados. */

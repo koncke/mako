@@ -81,6 +81,10 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   { base: '/stories' },
   // Copy Method (Copywriting › Method), la herramienta del super admin: su carpeta es app/m/admin/copywriting.
   { base: '/admin/copywriting' },
+  // El Copywriter (28/10/2026, docs/diseno-copywriter.md): la lista y cada página (/copywriter/<id>); desde el 29/10 es
+  // Copywriting, para todos. Sin fila oculta: More la arma desde la barra. `?nuevo=<tipo>` abre los templates de ese tipo
+  // (lo traen /reels, /stories y «Abrir en Copywriter»), en los dos lados.
+  { base: '/copywriter', query: ['nuevo'], sub: '*' },
 ];
 
 const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | undefined): string => {

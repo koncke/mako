@@ -17,6 +17,8 @@
 // (lib/guion-estructuras-store.ts), mismo patrón que los ángulos.
 // =============================================================================
 
+import { esTipoGuion, type TipoGuion } from './copywriter/tipos';
+
 export type EstructuraGuion = {
   id: string;
   nombre: string;
@@ -28,7 +30,18 @@ export type EstructuraGuion = {
   /** Guía por bloque para la IA: qué hace cada uno, con tiempos y ejemplos. */
   guia: string;
   activo: boolean;
+  /**
+   * Los formatos a los que calza (28/10/2026, el Copywriter: docs/diseno-copywriter.md, D6). SIN el campo, es de
+   * anuncios ('ad'): así nacieron las siete primeras y así siguen. Las de reel y story NO se le ofrecen al Ads Writer
+   * (`soloDeAnuncios`): un anuncio con la estructura de un día de stories no es un anuncio.
+   */
+  tipos?: TipoGuion[];
 };
+
+/** Las estructuras de anuncios (las que ve el Ads Writer): las que no declaran `tipos`, o declaran 'ad'. */
+export function soloDeAnuncios<T extends Pick<EstructuraGuion, 'tipos'>>(es: readonly T[]): T[] {
+  return es.filter((e) => !e.tipos?.length || e.tipos.includes('ad'));
+}
 
 export const ESTRUCTURAS_GUION_DEFAULT: EstructuraGuion[] = [
   {
@@ -92,6 +105,36 @@ PINTURA (el cuerpo temprano): pinta vívidamente cómo se ve esa promesa cumplid
 PRUEBA (el cuerpo tardío): la evidencia de que es real — SOLO hechos del contexto del negocio (caso, resultado, mecanismo). Si no hay prueba dura, explica el porqué lógico; nunca inventes cifras.
 CTA (el push, 1-2 frases): el empujón final a UNA acción, con confianza y sin presión falsa.`,
   },
+  // ── Orgánico (28/10/2026, el Copywriter): las de reel y story salen de la metodología de los cursos que ya usa MaKo
+  //    (lib/ig-formatos.ts, METODOLOGIA_REEL y METODOLOGIA_STORY), no se inventaron. YouTube no tiene ninguna: no hay
+  //    fuente en el repo, y se le pidió a Martín (docs/diseno-copywriter.md, D6).
+  {
+    id: 'reel-viral', nombre: 'Reel: Gancho → Historia → Moraleja → CTA', emoji: '🎬', activo: true, tipos: ['reel'],
+    cuando: 'El reel que atrae (metodología ViralCopy): un gancho que frena el scroll y abre una curiosidad que se resuelve al final. 50-60 segundos.',
+    etiquetas: ['GANCHO', 'HISTORIA', 'MORALEJA', 'CTA'],
+    guia: `GANCHO (los primeros 3 segundos): una frase de 5 a 9 palabras con la palabra clave del tema adelante; frena el scroll Y abre una curiosidad que sólo se resuelve al final. Prohibido segmentar explícito («¿Eres arquitecto?»): se segmenta por el tema.
+HISTORIA (30-40 segundos): el desarrollo, con la curiosidad sostenida; cada segundo tiene que aportar.
+MORALEJA (10-15 segundos): la enseñanza resumida en una frase.
+CTA (5-7 segundos como máximo): lo que la persona hace al terminar (seguir, comentar una palabra clave, ir al link).`,
+  },
+  {
+    id: 'reel-nicho', nombre: 'Reel de nicho: Hook → Problema → Solución → CTA', emoji: '🎯', activo: true, tipos: ['reel'],
+    cuando: 'El reel que vende: un gancho específico del nicho (menos vistas, pero vistas que compran), el problema del cliente y la solución ligada a lo que se vende, con un caso real como prueba.',
+    etiquetas: ['GANCHO', 'PROBLEMA', 'SOLUCION', 'CTA'],
+    guia: `GANCHO (3 segundos): específico del nicho, con la palabra clave del tema adelante.
+PROBLEMA: el problema del cliente, como él lo vive.
+SOLUCION: la salida realista, ligada a lo que vende el negocio, con un caso real de cliente como prueba (sólo si está en el negocio: nunca inventar).
+CTA (5-7 segundos): una sola acción.`,
+  },
+  {
+    id: 'story-dia', nombre: 'Día de stories: Gancho → Contexto → Moraleja → CTA', emoji: '📱', activo: true, tipos: ['story'],
+    cuando: 'Un día de stories con UNA sola idea (Master Marca Personal): las stories calientan y venden a quien ya sigue la cuenta. Se suben juntas.',
+    etiquetas: ['GANCHO', 'CONTEXTO', 'MORALEJA', 'CTA'],
+    guia: `GANCHO (la primera story, la que marca las vistas de todas las siguientes): una curiosidad que no se resuelve todavía; algo épico, curioso o tapado que se revela al final.
+CONTEXTO (varias stories): el contenido, con metáforas y cambiando de formato en cada una (selfie, texto sobre fondo, captura de chats, video en acción); nada de hablar a cámara más de 30 segundos sobre lo mismo. Preguntas y retos para provocar respuestas.
+MORALEJA: la conclusión del día, en una frase.
+CTA (no siempre obligatorio): responder la story con una palabra clave en MAYÚSCULAS para seguir por DM. Los stickers, encuestas y links se marcan como paso manual.`,
+  },
 ];
 
 export function estructuraPorId(estructuras: EstructuraGuion[], id: string): EstructuraGuion | undefined {
@@ -112,7 +155,8 @@ export function normalizarEstructurasGuion(v: unknown): EstructuraGuion[] {
       // Contrato del parser: MAYÚSCULA, sin espacios raros, corta.
       .map((e) => e.toUpperCase().replace(/\s+/g, ' ').trim()).filter((e) => e.length >= 2 && e.length <= 20);
     if (!id || !nombre || !guia || etiquetas.length < 2) continue;
-    out.push({ id, nombre, emoji: s(o.emoji) || '🧱', cuando: s(o.cuando), etiquetas, guia, activo: o.activo !== false });
+    const tipos = Array.isArray(o.tipos) ? [...new Set(o.tipos.filter(esTipoGuion))] : [];
+    out.push({ id, nombre, emoji: s(o.emoji) || '🧱', cuando: s(o.cuando), etiquetas, guia, activo: o.activo !== false, ...(tipos.length ? { tipos } : {}) });
   }
   return out;
 }

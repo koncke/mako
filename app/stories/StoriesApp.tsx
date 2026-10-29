@@ -23,6 +23,9 @@ import { Storyboard } from './Storyboard';
 import { OBJETIVOS_STORIES, empujaADm, type ObjetivoStories } from './objetivos';
 import { generarSecuenciaAction } from './actions';
 import { secuenciaATexto } from './texto';
+import { useRouter } from '@/app/_ui/Link';
+import { pedirCrear, rutaGuion } from '@/app/copywriter/cliente';
+import { docDeTexto } from '@/lib/copywriter/texto';
 import type { PiezaStory } from '@/lib/ig-writer';
 
 const MONO = "'Geist Mono', monospace";
@@ -37,7 +40,12 @@ type ItemHistorial = { pieza: PiezaStory; objetivo: ObjetivoStories; at: string 
 // «Copiar la secuencia» (`secuenciaATexto`) vive en ./texto.ts desde el 17/10/2026: lo usa también el teléfono
 // (app/m/stories), que no puede importar de este módulo 'use client'.
 
-export function StoriesApp({ piezaInicial = null }: { piezaInicial?: PiezaStory | null }) {
+export function StoriesApp({ piezaInicial = null, conCopywriter = false }: {
+  piezaInicial?: PiezaStory | null;
+  /** Quien ya ve el Copywriter (hoy, el super admin): la secuencia se puede abrir ahí como un guion Story (28/10/2026). */
+  conCopywriter?: boolean;
+}) {
+  const router = useRouter();
   const [objetivo, setObjetivo] = useState<ObjetivoStories>('conexion');
   const [pedido, setPedido] = useState('');
   const [pieza, setPieza] = useState<PiezaStory | null>(piezaInicial);
@@ -67,6 +75,23 @@ export function StoriesApp({ piezaInicial = null }: { piezaInicial?: PiezaStory 
       setTimeout(() => setCopiado(false), 2200);
     } catch { /* el navegador no permitió copiar; el texto queda a la vista */ }
   }, [pieza]);
+
+  // «Abrir en Copywriter» (28/10/2026, docs/diseno-copywriter.md, D7): la secuencia como un guion Story, para seguirla
+  // escribiendo con MaKo al costado. Un frame es un Encabezado 3; su texto y su producción, renglones debajo.
+  const [abriendo, setAbriendo] = useState(false);
+  const abrirEnCopywriter = useCallback(async () => {
+    if (!pieza || abriendo) return;
+    setAbriendo(true);
+    const texto = [
+      `> ${pieza.idea}`,
+      ...pieza.frames.flatMap((f, i) => [`### Frame ${i + 1} · ${f.tipo}`, f.texto ?? '', f.indicacion ? `Producción: ${f.indicacion}` : '', f.interactivoManual ? 'Interactivo: se agrega a mano en la app.' : '']),
+      ...(pieza.cta || pieza.palabraClave ? [`Cierre: ${[pieza.cta, pieza.palabraClave ? `palabra clave ${pieza.palabraClave}` : ''].filter(Boolean).join(' · ')}`] : []),
+    ].filter(Boolean).join('\n');
+    const r = await pedirCrear({ tipo: 'story', titulo: pieza.idea.slice(0, 80), contenido: docDeTexto(texto) });
+    setAbriendo(false);
+    if (!r.ok) { setAviso({ tono: 'bad', texto: `No se pudo abrir en el Copywriter: ${r.error}` }); return; }
+    router.push(rutaGuion(r.pagina.id));
+  }, [pieza, abriendo, router]);
 
   const interactivos = pieza ? pieza.frames.filter((f) => f.interactivoManual).length : 0;
 
@@ -190,6 +215,11 @@ export function StoriesApp({ piezaInicial = null }: { piezaInicial?: PiezaStory 
                 >
                   {copiado ? 'Copiado ✓' : 'Copiar la secuencia'}
                 </Button>
+                {conCopywriter && (
+                  <Button variant="secondary" onClick={() => void abrirEnCopywriter()} disabled={ocupado || abriendo} style={{ justifySelf: 'start' }}>
+                    {abriendo ? 'Abriendo…' : 'Abrir en Copywriter'}
+                  </Button>
+                )}
               </div>
             </>
           )}

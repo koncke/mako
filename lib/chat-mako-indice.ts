@@ -25,7 +25,8 @@ import {
   esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona, temasDeSesiones,
   type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
-import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
+import { claveVisible, pasaLaPuertaDeSuTab, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
+import { veCopywriter } from '@/lib/copywriter/puerta';
 import { TITULO_GRUPO, baseDeLaPersona, claveDeEditor, mensajesDeAutomatizacion, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor, temaDe, type TipoEditor } from '@/lib/chat-mako-reglas';
 import { hiloAlAbrir as hiloImagenAlAbrir } from '@/lib/image-editor/chat/hilo';
 import { hiloAlAbrir as hiloVideoAlAbrir } from '@/lib/editor-video/chat-hilo';
@@ -34,12 +35,13 @@ import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
 import { chartKeyDePersona, type MensajeChat } from '@/lib/mako-turno-app-reglas';
 
-/** Quién pide: admin o no, y su persona (la regla de /mako y de chart-insights). null = sin sesión. */
+/** Quién pide: admin o no, su persona (la regla de /mako y de chart-insights) y si pasa la puerta del Copywriter (las
+ *  charlas de un guion, lib/chart-chats-reglas.ts). null = sin sesión. */
 export async function quienChateaDelRequest(): Promise<(QuienChatea & { sub: string }) | null> {
-  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+  const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);
   if (!rolWs || !sesion) return null;
   const persona = personaDeSesion(sesion);
-  return persona ? { admin: rolWs === 'admin', persona, sub: String(sesion.sub ?? '') } : null;
+  return persona ? { admin: rolWs === 'admin', persona, veCopywriter: copy, sub: String(sesion.sub ?? '') } : null;
 }
 
 export type ChatDeAntes = { id: number; titulo: string | null; clave: string; updatedAt: string; origen?: string | null; tema?: string | null };
@@ -65,7 +67,7 @@ export async function chatsDeAntes(q: QuienChatea & { sub: string }): Promise<Ch
     ...clavesDelDoer(q).map((k) => listSessions(k)),
   ]);
   const todas = [...deMako, ...delDoer.flat()]
-    .filter((s) => !esChatDelTelefono(s.chart_key))
+    .filter((s) => !esChatDelTelefono(s.chart_key) && pasaLaPuertaDeSuTab(s.chart_key, q))
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
   const vistas = new Set<number>();
   return todas.filter((s) => (vistas.has(s.id) ? false : (vistas.add(s.id), true)))

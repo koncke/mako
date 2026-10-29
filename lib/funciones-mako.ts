@@ -252,12 +252,21 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     estado: 'parcial', slugDev: 'stories', fuentes: [AREAS],
   },
   {
+    // Copywriting ES el Copywriter desde el 29/10/2026 (docs/diseno-copywriter.md, D11–D14): la tab de la barra.
+    keys: ['copywriter'],
+    que: 'Copywriting como Notion: cada texto es una página (guiones de anuncios, reels, stories, YouTube y VSL, emails y posts) y MaKo escribe y edita EN la página desde su chat.',
+    hace: ['Crear una página desde un template de «Nueva» (anuncio, copy de Meta, Reel, stories, carrusel, email, VSL, YouTube)', 'Escribir por bloques con «/», arrastrar con el asa, listas, desplegables y tablas', 'Pedirle a MaKo que mejore, acorte o agregue una sección en la página', 'Compartir una página para que el cliente la edite'],
+    reemplaza: 'Notion',
+    // Reels se retiró del Video Editor el 29/10/2026 («no como tab, sino como template»): su guion es el template «Guion de Reel».
+    alias: ['copywriter', 'copywriting', 'notion', 'paginas', 'templates', 'copy', 'reel', 'reels', 'guion de reel'],
+    conecta: [{ a: 'ads-manager', motivo: 'El copy de anuncio se publica en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
+    estado: 'lista', fuentes: ['docs/diseno-copywriter.md', 'lib/copywriter/plantillas.ts'],
+  },
+  {
     keys: ['ads-writer'],
     que: 'La fábrica de guiones de anuncios (Content Machine): cada anuncio sale de un avatar y una razón de compra, y MaKo elige el ángulo y la estructura.',
     hace: ['Escribir el próximo guion de anuncio', 'Ver qué combinaciones de avatar y razón faltan', 'Seguir cada guion de borrador a publicado', 'Valorar un guion nuevo antes de grabarlo'],
-    // Reels se retiró el 29/10/2026 («no como tab, sino como template»): el guion de un reel es una plantilla del Copywriter.
-    noHace: ['Todavía no para todos: el guion de un reel, que es una plantilla del Copywriter (en validación)'],
-    alias: ['ads writer', 'content machine', 'guiones', 'copy', 'copywriting', 'anuncios', 'reel', 'reels', 'guion de reel'],
+    alias: ['ads writer', 'content machine', 'guiones de anuncio', 'anuncios'],
     conecta: [{ a: 'ads-manager', motivo: 'Los anuncios se publican en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
     estado: 'lista', slugDev: 'ads-writer', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
   },

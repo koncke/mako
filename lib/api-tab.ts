@@ -44,6 +44,7 @@ export const TAB_DE_API: ReadonlyArray<readonly [string, string]> = [
   ['/api/account-insights', 'ads-manager'],
   ['/api/crm-auto', 'crm'],
   ['/api/landing-generator', 'landing-writer'],
+  ['/api/copywriter', 'copywriter'],
   ['/api/automations', 'setting'],
   ['/api/chat-agent', 'setting'],
   ['/api/chats', 'chats'],

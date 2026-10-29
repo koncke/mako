@@ -97,8 +97,8 @@ test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las 
     ['second-brain', '/m/second-brain', '/second-brain', 'second-brain', null],
     ['experimentos', '/m/experimentos', '/experimentos', 'experimentos', null],
     ['offer', '/m/offer', '/offer', 'offer', 'marketing'],
-    // La tab unificada Copywriting abre su sección Ads Writer, y es esa key la que gatea (requireRolWs de /ads-writer).
-    ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'create'],
+    // Copywriting ES el Copywriter desde el 29/10/2026 (una pantalla, sin tabs internas): su key es la de la pantalla.
+    ['copywriting', '/m/copywriter', '/copywriter', 'copywriter', 'create'],
     // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
     // Classroom y Community son sub-tabs de Clients desde el 17/10/2026: filas ocultas (sus pantallas siguen).
     ['curso', '/m/curso', '/classroom', 'cs-curso', null],
@@ -180,7 +180,7 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
   // Las cinco que en escritorio son `requireRolWs([], { nav })`: sólo admin, y la capa de ESA key.
   const conRol: Partial<Record<IdSeccionMas, string>> = {
     calendario: 'app/calendario/page.tsx', 'second-brain': 'app/second-brain/page.tsx',
-    experimentos: 'app/experimentos/page.tsx', offer: 'app/offer/page.tsx', copywriting: 'app/ads-writer/page.tsx',
+    experimentos: 'app/experimentos/page.tsx', offer: 'app/offer/page.tsx', copywriting: 'app/copywriter/page.tsx',
   };
   for (const [id, archivo] of Object.entries(conRol) as [IdSeccionMas, string][]) {
     const s = seccion(id);
@@ -209,7 +209,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     'second-brain': ['area', 'vista'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel', 'sesion'],
-    copywriting: ['tab'],
+    copywriting: ['nuevo'],
     // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
     'api-mako': ['tab'],
     curso: ['producto'],
@@ -245,12 +245,10 @@ test('la cabecera de cada sección vuelve a More, con el nombre de la pantalla; 
     assert.equal(nivel(s.href), 1, s.href);
     assert.equal(tituloDe(s.href), `MaKo - ${tituloSeccion(s)}`, s.href);
   }
-  // Copywriting: la fila dice «Copywriting» (la sidebar) y la pantalla «Ads Writer» (lo que abre, como
-  // la pestaña de /ads-writer en la computadora); su subpantalla vuelve a «Ads Writer».
+  // Copywriting: desde el 29/10/2026 la fila abre el Copywriter, y la pantalla se llama como la fila; una página vuelve a él.
   assert.equal(seccion('copywriting').label, 'Copywriting');
-  assert.equal(cabeceraPorRuta('/m/copywriting').titulo, 'Ads Writer');
-  assert.equal(tituloDe('/ads-writer'), tituloDe('/m/copywriting'), 'la pestaña dice lo mismo en los dos lados');
-  assert.deepEqual(cabeceraPorRuta('/m/copywriting/guion-1').padre, { href: '/m/copywriting', label: 'Ads Writer' });
+  assert.equal(cabeceraPorRuta('/m/copywriter').titulo, 'Copywriting');
+  assert.deepEqual(cabeceraPorRuta('/m/copywriter/gabc12345').padre, { href: '/m/copywriter', label: 'Copywriting' });
   // Los nombres en inglés desde el 17/10/2026 (Course, Community, Calendar), como en la sidebar.
   assert.deepEqual(cabeceraPorRuta('/m/curso/7').padre, { href: '/m/curso', label: 'Classroom' });
   // Curso y Comunidad no son Clientes: el prefijo va con barra.

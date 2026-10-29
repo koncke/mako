@@ -66,7 +66,6 @@ test('«hace cuánto»', () => {
 
 /** Los ítems de Create que TODAVÍA tienen pestañas arriba, con el chat que las saca. Sólo se achica. */
 const FALTAN_SIN_SECCIONES: Readonly<Record<string, string>> = {
-  copywriting: 'chat «Copywriter = Notion»',
 };
 
 const create = FAMILIAS.find((f) => f.key === 'create');

@@ -399,19 +399,15 @@ export const FAMILIAS: NavFamilia[] = [
         // La copia de Canva (14/10/2026): Doory portado y re-vestido. Abierta a todos los workspaces el 15/10/2026, como el Video
         // Editor el 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
         { key: 'image-editor', label: 'Image', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
+        // Copywriting ES el Copywriter desde el 29/10/2026 (Martín: «quiero que sea una réplica de Notion… con la barra lateral
+        // de MaKo… y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING»): UNA pantalla, sin
+        // `secciones`, con la key de su pantalla ('copywriter': la piden la página, el teléfono y la API). Ads Writer, Stories y
+        // YouTube Writer dejan la barra; sus keys siguen en SIN_FILA (sus rutas, la API y las capas las piden). El método de
+        // redacción y la biblioteca de guiones son herramientas del super admin y siguen en su menú (ADMIN_NAV).
+        // docs/diseno-copywriter.md, D11.
         {
-          key: 'copywriting', label: 'Copywriting', href: '/ads-writer', icon: 'escribir',
-          match: (p) => starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p) || starts('/admin/guiones')(p),
-          secciones: [
-            { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
-            // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: su propio código ya declara /content-machine como
-            // destino. Cuando aterrice, esto es cambiar el href.
-            { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-            { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
-            { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
-            HERRAMIENTAS.copywriting,
-            HERRAMIENTAS.guiones,
-          ],
+          key: 'copywriter', label: 'Copywriting', href: '/copywriter', icon: 'escribir',
+          match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p) || starts('/admin/guiones')(p),
         },
         {
           // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen». Y el 29/10/2026: «replica a
@@ -647,6 +643,16 @@ export const SIN_FILA: NavItem[] = [
   // «Generar con IA» de «Nuevo video». La pantalla sigue viva y su key es la puerta de la API (`gating.tab`), de las
   // creaciones (`formato_video`) y del teléfono (/m/video).
   { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
+  // Las que eran secciones de Copywriting hasta el 29/10/2026 (ver la fila de Copywriting en FAMILIAS): sin fila, con su key
+  // viva. El Ads Writer sigue andando por su ruta (la matriz, «Analizar guion» y los links de MaKo); Stories y YouTube
+  // Writer redirigen al Copywriter. La API (`gating.tab: 'ads-writer'`) y las capas las siguen pidiendo.
+  { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
+  { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
+  // YouTube Writer e Ideas siguen «pronto» como keys: sus páginas las piden (`requireRolWs`) y el teléfono abre
+  // /m/pronto/<key>. En la computadora /youtube-writer ya lleva al template de YouTube del Copywriter; /ideas sigue siendo
+  // el «Coming soon» del super admin. Retirarlas del teléfono va con /m/stories (docs/relevo/copywriter.md).
+  { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+  { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
 ];
 
 // ⚠️ Sin las herramientas del super admin aunque cuelguen como secciones de una tab: son de ADMIN_NAV, como antes del

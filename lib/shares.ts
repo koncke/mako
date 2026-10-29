@@ -32,9 +32,10 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { cifrar, descifrar } from './cripto-credenciales';
-import { RECURSO_INFORME } from './share-nombre';
+import { RECURSO_GUION, RECURSO_INFORME } from './share-nombre';
+import { esIdPagina } from './copywriter/tipos';
 
-export { RECURSO_INFORME };
+export { RECURSO_GUION, RECURSO_INFORME };
 
 export type ShareAlcance = 'todo' | 'seccion' | 'grupo' | 'item';
 export type ShareModo = 'link' | 'invitados';
@@ -194,13 +195,16 @@ export function filtrarPorShare<T extends { id: string; seccion: string; grupo: 
 export const RECURSOS_PLATAFORMA: readonly string[] = ['curso', 'branding', 'conocimientos'];
 
 /**
- * Quién administra shares en un pedido. Son DOS puertas y no se derivan una de la otra:
+ * Quién administra shares en un pedido. Son TRES puertas y no se derivan una de la otra:
  *   · `plataforma`: el super admin, sobre los recursos de la plataforma, en el workspace de siempre.
  *   · `informe`: el admin de un negocio con la tab Dashboard, sobre SU informe (`sub`) en SU workspace.
+ *   · `guion` (28/10/2026): quien ve el Copywriter (app/copywriter/acceso.ts), sobre los guiones del workspace de la
+ *     pestaña, que es donde viven (lib/copywriter/server.ts).
  */
 export type Administrador =
   | { tipo: 'plataforma'; ws: number }
-  | { tipo: 'informe'; ws: number; sub: string };
+  | { tipo: 'informe'; ws: number; sub: string }
+  | { tipo: 'guion'; ws: number };
 
 /** Lo que hace falta saber de una sesión para decidir si puede compartir su informe. */
 export type QuienComparteInforme = {
@@ -238,6 +242,8 @@ export function administraShare(adm: Administrador, s: Pick<Share, 'workspace_id
   if (Number(s.workspace_id) !== adm.ws) return false;
   if (adm.tipo === 'informe') return s.recurso === RECURSO_INFORME && !!s.recurso_id && s.recurso_id === adm.sub;
   if (adm.tipo === 'plataforma') return RECURSOS_PLATAFORMA.includes(s.recurso);
+  // Un guion: el recurso exacto y un id de página del Copywriter.
+  if (adm.tipo === 'guion') return s.recurso === RECURSO_GUION && esIdPagina(s.recurso_id);
   return false;
 }
 

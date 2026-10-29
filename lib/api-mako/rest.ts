@@ -615,6 +615,22 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/rendimiento-redes', 'ver_rendimiento_redes'],
   ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
   ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
+  // El Copywriter (28/10/2026): los documentos, con el juego del MCP de mila.gg. DELETE manda a la Papelera (no borra).
+  ['GET', '/contenido/documentos', 'listar_documentos_copywriter'],
+  ['POST', '/contenido/documentos', 'crear_documento_copywriter'],
+  ['GET', '/contenido/documentos/{documentoId}', 'leer_documento_copywriter'],
+  ['PATCH', '/contenido/documentos/{documentoId}', 'renombrar_documento_copywriter'],
+  ['DELETE', '/contenido/documentos/{documentoId}', 'papelera_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/bloques', 'agregar_al_documento_copywriter'],
+  ['PUT', '/contenido/documentos/{documentoId}/contenido', 'reemplazar_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/restauracion', 'restaurar_documento_copywriter'],
+  // «Nueva» con templates y MaKo escribiendo EN la página (29/10/2026, docs/diseno-copywriter.md D13).
+  ['GET', '/contenido/plantillas', 'listar_plantillas_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/edicion', 'editar_documento_copywriter'],
+  // Compartir un documento para editar (28/10/2026): sus links, crear uno y revocarlo.
+  ['GET', '/contenido/documentos/{documentoId}/enlaces', 'enlaces_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/enlaces', 'compartir_documento_copywriter'],
+  ['DELETE', '/contenido/enlaces/{enlaceId}', 'revocar_enlace_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],

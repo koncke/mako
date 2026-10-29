@@ -2549,7 +2549,7 @@ memoria, y volvió a pasar — por eso ahora vive acá, que es lo que se lee ant
 **Y la evidencia de que funciona es todo el producto.** Lo que en este repo salió bien está
 copiado, y se nombra por su fuente: el Video Editor es CapCut, el Image Editor es Canva, el
 Web Generator es Gamma, el Dashboard es Looker Studio, `/api-mako` es GitHub (con su CSS de
-Primer limitado a `.gh`), los Chats son respond.io. Lo que se dibujó «con buen criterio» —el
+Primer limitado a `.gh`), los Chats son respond.io, el Copywriter es Notion (BlockNote, 29/10/2026). Lo que se dibujó «con buen criterio» —el
 panel de seguridad, el Centro de Operaciones— se rechazó a la primera, las dos veces con la
 misma palabra: *horrible*.
 
@@ -10451,6 +10451,24 @@ Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/vid
   y se descarta con su motivo; lo que el motor necesita listo (las fuentes) se carga antes de aplicar.
 - **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
 Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
+
+# Lo que se puede cortar y reintentar crea con ids que salen de su ORIGEN (29/10/2026)
+
+Una mudanza, una importación o cualquier tanda que escribe muchas filas puede cortarse en el pedido menos pensado (la
+última escritura, o una respuesta que se pierde con la escritura ya hecha). **Cada cosa que crea lleva un id que sale de su
+origen** (hash del negocio + la clave de lo que copia), y el reintento **saltea lo que ya está** y adopta lo que quedó a
+medias. Una marca «ya se hizo» tomada por compare-and-set protege de dos a la vez, NO de un corte a la mitad. Y ante un
+error **ambiguo** no se compensa borrando: puede haber llegado. Lo que costó no verlo (7 → 14 páginas, 6 que abrían «No
+existe»), en docs/hallazgos-copywriter.md; el molde, `crearVarias` + `idDeMudanza` (lib/copywriter/).
+
+# Un editor ofrece SÓLO lo que su formato guarda (29/10/2026)
+
+Una librería de editor (BlockNote en el Copywriter, TipTap en el Web Generator) trae más de lo que el documento de la casa
+sabe guardar: colores, alineación, imágenes, código, niveles de encabezado. Si el esquema del editor lo deja, la persona lo
+usa y desaparece al recargar, sin un error. **El esquema del editor es EXACTAMENTE el del formato guardado**; lo que el
+formato no anida sale a continuación, nunca se tira; y la ida y vuelta (guardado → editor → guardado) tiene su test de punto
+fijo (tests/copywriter-notion.test.ts). Cambiar de librería no cambia el formato guardado: se escribe un conversor
+(lib/copywriter/notion-bloques.ts). El porqué, en docs/hallazgos-copywriter.md.
 
 # Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
 

@@ -141,15 +141,11 @@ const keys = (xs: ReturnType<typeof seccionesDeTabM>) => xs.map((x) => x.id);
 test('la barra de secciones de cada tab: las de escritorio, con la regla del Sidebar, cada una a su pantalla del teléfono', () => {
   // Video e Image SIN barra desde el 29/10/2026 (Martín: «para todas las secciones de "create" no quiero otras tabs»): ni en
   // escritorio ni en el teléfono. Sus ítems son 'video-editor' e 'image-editor', sin secciones (tests/crear-pantalla.test.ts).
-  for (const tab of ['video', 'image', 'video-editor', 'image-editor']) {
+  // Copywriting tampoco desde el 29/10/2026 («Copywriter = Notion»): un ítem, key 'copywriter', sin secciones.
+  for (const tab of ['video', 'image', 'video-editor', 'image-editor', 'copywriting', 'copywriter']) {
     assert.deepEqual(keys(seccionesDeTabM(tab, SUPER)), [], `${tab}: sin barra de secciones`);
     assert.deepEqual(keys(seccionesDeTabM(tab, CLIENTE)), [], `${tab}: sin barra de secciones`);
   }
-  // Copywriting: el super admin ve también Copy Method (su herramienta, `adminOnly`); a un cliente le queda sólo Ads
-  // Writer (y con una sección la barra no se dibuja).
-  assert.deepEqual(keys(seccionesDeTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
-  assert.equal(seccionesDeTabM('copywriting', SUPER).find((s) => s.id === 'admin-copywriting')?.href, '/m/admin/copywriting');
-  assert.deepEqual(keys(seccionesDeTabM('copywriting', CLIENTE)), ['ads-writer']);
   // AI Avatar, UNA pantalla desde el 29/10/2026: sin barra de secciones ni para el super admin.
   assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), []);
   assert.deepEqual(keys(seccionesDeTabM('ai-avatar', CLIENTE)), []);
