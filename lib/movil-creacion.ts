@@ -10,7 +10,7 @@
 // Una cosa, un lugar: acá vive QUÉ pantallas de creación tiene el teléfono y su ida y vuelta con escritorio.
 // lib/movil-rutas.ts lo suma a su mapa (SECCIONES_MAS, `rutaMovil`, `rutaEscritorio`) con una línea cada uno.
 //
-// ⚠️ LA CARPETA DE app/m SE LLAMA COMO LA RUTA DE ESCRITORIO (/reels ↔ app/m/reels): la ida y la vuelta son
+// ⚠️ LA CARPETA DE app/m SE LLAMA COMO LA RUTA DE ESCRITORIO (/stories ↔ app/m/stories): la ida y la vuelta son
 // sacar o poner «/m», y una pantalla nueva es una entrada en `RUTAS_CREACION` y su carpeta. El único nombre que
 // no es su ruta es la fila «Image» de More (la tab unificada), que abre su Editor (/m/image-editor).
 //
@@ -94,7 +94,7 @@ const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | 
 };
 
 /**
- * El equivalente MÓVIL de una ruta de escritorio de creación (`/reels` → `/m/reels`), con la query que su página
+ * El equivalente MÓVIL de una ruta de escritorio de creación (`/stories` → `/m/stories`), con la query que su página
  * de escritorio lee; null si no es de creación o esa subruta no tiene pantalla en el teléfono. Recibe el path ya
  * limpio (sin barra final, sin query) y la query aparte: lo llama `rutaMovil` (lib/movil-rutas.ts).
  */
@@ -114,7 +114,7 @@ export function rutaMovilCreacion(p: string, q: URLSearchParams): string | null 
 }
 
 /**
- * La ruta de ESCRITORIO de una pantalla de creación del teléfono (`/m/reels` → `/reels`), sin query (la de la
+ * La ruta de ESCRITORIO de una pantalla de creación del teléfono (`/m/stories` → `/stories`), sin query (la de la
  * URL viaja tal cual: la pone `rutaEscritorio`); null si no es de creación.
  */
 export function rutaEscritorioCreacion(p: string): string | null {

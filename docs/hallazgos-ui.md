@@ -4925,3 +4925,13 @@ como un salto de línea de verdad): el script va a un archivo con la herramienta
   Lo fija tests/crear-pantalla.test.ts.
 
 **Vive en:** app/_components/nav.ts (`itemsDe`, `SIN_FILA`, la familia Create) · tests/crear-pantalla.test.ts
+
+## Un VALOR exportado por un módulo 'use client' llega al server como referencia de cliente (29/10/2026, claude3)
+
+- **Síntoma:** `PantallaCrear.tsx` ('use client') re-exportaba `ESTILO_PAGINA_CREAR` para comodidad; una página server que lo
+  pasaba al `style` de su `<Pagina>` recibía una referencia de cliente, no el objeto. Lo cazó el agente del Video Editor.
+- **Regla:** los valores que usan las páginas server viven en un módulo SIN 'use client' (`app/_crear/reglas.ts`) y no se
+  re-exportan desde el componente: sin el re-export, el import equivocado falla al compilar en vez de romper en silencio.
+  (Es la misma frontera de AGENTS.md, «'use client' es una frontera de DATOS».)
+
+**Vive en:** app/_crear/reglas.ts · app/_crear/PantallaCrear.tsx · tests/video-editor-sidebar.test.ts

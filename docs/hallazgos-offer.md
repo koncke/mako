@@ -1425,3 +1425,27 @@ los dos) · `app/offer/DocumentoPdf.tsx` · `app/m/offer/ComposerOfferM.tsx` · 
 `app/whatsapp/_shared/VoiceRecorder.tsx` (`colorPlay`) · `tests/offer-hilo-unico.test.ts` (17 roturas, las 17 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*
+
+## La oferta se arma al costado: el desplegable se fue y el riel de casillas quedó sólo en el onboarding (29/10/2026, claude3)
+
+Martín, 29/10 (por el Cerebro): «También en offer pon el mismo sistema de la sidebar, en lugar del desplegable actual... Y que
+al ir respondiendo las preguntas que te va haciendo MaKo que tu "offer" se arme al costado. Y sin otras tabs, incluso en
+SuperAdmin». La tab monta la pantalla de Create (app/_crear/PantallaCrear.tsx) con SU chat a la izquierda.
+
+- **El onboarding es el mismo `OfferApp` (`arranque`).** Lo obvio era envolver todo OfferApp en la pantalla nueva; eso le
+  cambiaba la pantalla al cliente nuevo. La tab devuelve su `PantallaCrear` ANTES y el arranque sigue con su `return` de
+  siempre (con el riel si lo pide). Lo fija tests/offer-en-create.test.ts (el onboarding no monta PantallaCrear).
+- **Lo escrito en «¿Qué vas a crear hoy?» es el PRIMER mensaje de una oferta nueva.** `nuevaSesion` deja `sesionRef` en la
+  conversación nueva, y `mandar` decide con refs: se llama en el mismo `await`, sin esperar un render. `nuevaSesion` devuelve
+  ahora su error (la pantalla lo dice debajo de la caja).
+- **Sin «falta».** El documento (`documento-vivo.ts`, el mismo en el teléfono) sólo dibuja las piezas con valor; el «8/20» y
+  la barra de avance se fueron de la computadora y del teléfono. La pieza que llegó con la última respuesta se resalta.
+- **El test de paridad mantenía vivo código muerto.** `seccionesDelArbol` sólo la usaba el desplegable y un test que comparaba
+  la hoja del teléfono con ella. Se borró y la paridad ahora es contra lo que reemplaza al desplegable (`renglonesDeOffer`,
+  `plantillasDeOffer`): mismas conversaciones, mismas salidas de crear.
+
+**Quedó sin hacer:** la hoja del selector del teléfono sigue agrupada por funnel (no es un desplegable; es la lista del
+teléfono). Verlo en un navegador.
+
+**Vive en:** app/offer/OfferApp.tsx (el `if (!arranque)`) · app/offer/DocumentoVivo.tsx · app/offer/documento-vivo.ts ·
+app/offer/arbol.ts (`renglonesDeOffer`, `plantillasDeOffer`, `funnelParaPedido`) · app/m/offer/HojasOfferM.tsx · tests/offer-en-create.test.ts
