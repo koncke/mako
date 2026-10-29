@@ -14,7 +14,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 import { crearTicket, identidadDelActor, sumarAlPedidoDelNegocio } from './tickets-db';
-import { WS_CON_CUIDADO } from './despacho-grupo';
+import { WS_CON_CUIDADO, ticketQueAcabaDeNombrar, type TicketAbierto } from './despacho-grupo';
 
 export type TicketDelGrupo = {
   ws: number;
@@ -37,21 +37,9 @@ export type TicketDelGrupo = {
   evidencia?: string;
 };
 
-export type TicketAbierto = { id: number; sumado: boolean };
-
-/** El ticket que MaKo acaba de nombrar en el grupo («Abrí el ticket #31: …»): lo que sigue de la misma persona se suma a ése. */
-export function ticketQueAcabaDeNombrar(ultimoDeMaKo: string | null): number | null {
-  const m = /\bticket\s+#(\d{1,9})\b/i.exec(ultimoDeMaKo ?? '');
-  return m ? Number(m[1]) : null;
-}
-
-/** Lo que dice MaKo: el número, el resumen y qué va a pasar. Lo arma el código. */
-export function respuestaDelTicket(t: TicketAbierto, resumen: string): string {
-  const que = resumen.trim().replace(/[.\s]+$/u, '');
-  return t.sumado
-    ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por acá cuando esté.`
-    : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por acá cuando esté.`;
-}
+// Las piezas puras (el número que acaba de nombrar, la respuesta fija) viven en lib/despacho-grupo.ts, sin `server-only`: sus tests
+// corren también sin `--conditions=react-server` (tests-afectados).
+export { respuestaDelTicket, ticketQueAcabaDeNombrar, type TicketAbierto } from './despacho-grupo';
 
 /** Abre el ticket (o lo suma al que MaKo acaba de nombrar). null si no se pudo: quien llama lo dice, no inventa un número. */
 export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbierto | null> {

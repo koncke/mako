@@ -115,9 +115,9 @@ const VENTANA_MIN = 15;                       // duración de la ventana de char
 /** Mandarle un ticket al equipo de MaKo (lib/api-mako/areas/tickets.def.ts), como en el chat de la app. */
 const LEVANTAR_TICKET = 'levantar_ticket';
 const TICKET_TOOLS = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToolDef(d)] : []; })();
-/** El DEBUG del grupo de SuperAdmin (29/10/2026): mirar con datos OTRO negocio (lib/api-mako/areas/operaciones.def.ts). */
+/** El DEBUG del grupo de SuperAdmin (29/10/2026): mirar con datos OTRO negocio (lib/api-mako/areas/operaciones.def.ts). Lo corre el
+ *  código, no viaja como herramienta del turno. */
 const DIAGNOSTICAR_NEGOCIO = 'diagnosticar_negocio';
-const DIAGNOSTICO_TOOLS = (() => { const d = porId(DIAGNOSTICAR_NEGOCIO); return d ? [aToolDef(d)] : []; })();
 /** ¿La herramienta ESCRIBE? Una pregunta o un debug que decidió la IA no las recibe (la investigación del 29/10: «una duda nunca
  *  suma herramientas de escritura», y la meta del banco es CERO escrituras entregadas a la clase equivocada). */
 const escribe = (nombre: string): boolean => NOMBRES_ACCION.has(nombre) || porId(nombre)?.tipo === 'accion';
@@ -1825,13 +1825,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // para decir si ya hay uno, y la nota pide la marca de lo que no existe (el ticket lo abre el código).
     const pideFuncion = pideUnaFuncionalidad(sinPrefijoDeLote(texto));
     const conFuncion = pideFuncion && !conAgenda.some((t) => t.name === MIS_TICKETS) ? [...conAgenda, ...MIS_TICKETS_TOOLS] : conAgenda;
-    // La clase que decidió la IA (29/10/2026): una PREGUNTA o un DEBUG sólo con lecturas, y el DEBUG con la que mira OTRO negocio.
-    const soloLeer = intencion.fuente === 'ia' && ['consultar', 'pensar', 'debug'].includes(intencion.intencion);
+    // La clase que decidió la IA (29/10/2026): una PREGUNTA sólo con lecturas (el DEBUG ya salió arriba, resuelto por el código).
+    const soloLeer = intencion.fuente === 'ia' && ['consultar', 'pensar'].includes(intencion.intencion);
     // Una ACCIÓN que decidió la IA (lib/despacho-grupo.ts): las lecturas y las escrituras SIMPLES, nada más. Lo otro se delega.
     const esAccionIA = intencion.fuente === 'ia' && (intencion.intencion === 'actuar' || intencion.intencion === 'capturar');
     const leidas = soloLeer ? conFuncion.filter((t) => !escribe(t.name))
       : esAccionIA ? conFuncion.filter((t) => !escribe(t.name) || esAccionSimple(t.name)) : conFuncion;
-    const tools = intencion.intencion === 'debug' && !leidas.some((t) => t.name === DIAGNOSTICAR_NEGOCIO) ? [...leidas, ...DIAGNOSTICO_TOOLS] : leidas;
+    const tools = leidas;
     const { ofrece } = turno;
     const ctxFalla = (reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '')
       + (pideFuncion ? `\n\n${NOTA_PEDIDO_DE_FUNCION}` : '')
@@ -2058,11 +2058,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // `errorParaTicket`, y la guarda de antes quedaba como «la última» y le comía el ticket al «no pude». Se cuenta como tragada.
       const out = await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadasDelTurno++; throw e; });
       memo.anotar(name, out);
-      anotarSalida(out);
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
       else if (!escribeDeVerdad(name)) leyoDelTurno = true;
+      anotarSalida(out);
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }

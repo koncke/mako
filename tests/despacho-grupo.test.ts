@@ -13,7 +13,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ACCIONES_SIMPLES, WS_CON_CUIDADO, delegaLaAccion, esAccionSimple, negocioLeido, preguntaUnDato, respuestaDeLaDelegacion, respuestaDelDebug,
@@ -27,10 +27,13 @@ const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. las escrituras SIMPLES: una lista cerrada, y cada una es una herramienta de verdad', async () => {
-  const { porId } = await import('../lib/api-mako/registro');
-  const { NOMBRES_ACCION } = await import('../lib/mako-doer-acciones');
-  const fantasmas = [...ACCIONES_SIMPLES].filter((n) => !NOMBRES_ACCION.has(n) && !porId(n));
+test('1. las escrituras SIMPLES: una lista cerrada, y cada una es una herramienta de verdad', () => {
+  // Por el código fuente: el registro (`id: '…'` en lib/api-mako/areas/*.def.ts) o las acciones del doer (`name: '…'`). Importarlos
+  // no se puede acá: lib/mako-doer-acciones.ts es `server-only` y tests-afectados corre sin `--conditions=react-server`.
+  const dir = 'lib/api-mako/areas';
+  const defs = readdirSync(join(RAIZ, dir)).filter((f) => f.endsWith('.def.ts')).map((f) => leer(`${dir}/${f}`)).join('\n');
+  const acciones = leer('lib/mako-doer-acciones.ts');
+  const fantasmas = [...ACCIONES_SIMPLES].filter((n) => !defs.includes(`id: '${n}'`) && !acciones.includes(`name: '${n}'`));
   assert.deepEqual(fantasmas, [], 'nombres que no son ninguna herramienta (la lista se achica callada)');
   // Lo que mueve plata, cancela o toca varias cosas NO es simple: se delega.
   for (const n of ['crear_link_pago', 'reembolsar_pago', 'dar_de_baja', 'crear_automatizacion', 'pausar_campana', 'borrar_lead']) assert.ok(!esAccionSimple(n), `${n} no es simple`);

@@ -52,6 +52,24 @@ export function delegaLaAccion(t: { propuso: boolean; escribio: boolean; respues
   return !t.propuso && !t.escribio && !preguntaUnDato(t.respuesta);
 }
 
+// ── EL TICKET del grupo (lib/tickets-del-grupo.ts lo abre; esto es lo puro) ──────────────────────────────────────────────────────
+
+export type TicketAbierto = { id: number; sumado: boolean };
+
+/** El ticket que MaKo acaba de nombrar en el grupo («Abrí el ticket #31: …»): lo que sigue de la misma persona se suma a ése. */
+export function ticketQueAcabaDeNombrar(ultimoDeMaKo: string | null): number | null {
+  const m = /\bticket\s+#(\d{1,9})\b/i.exec(ultimoDeMaKo ?? '');
+  return m ? Number(m[1]) : null;
+}
+
+/** Lo que dice MaKo: el número, el resumen y qué va a pasar. Lo arma el código. */
+export function respuestaDelTicket(t: TicketAbierto, resumen: string): string {
+  const que = resumen.trim().replace(/[.\s]+$/u, '');
+  return t.sumado
+    ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por acá cuando esté.`
+    : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por acá cuando esté.`;
+}
+
 /** Lo que dice MaKo al delegar. El número lo escribe el código. */
 export function respuestaDeLaDelegacion(id: number, resumen: string): string {
   const que = resumen.trim().replace(/[.\s]+$/u, '');
