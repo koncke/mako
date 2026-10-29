@@ -145,7 +145,7 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
     );
 }
 
-/** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center. */
+/** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center, flotando al lado de la barra. */
 function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, pantalla, onCerrar, sobre }: {
   tab: string; izquierda: number; arriba: ReactNode; trabajos: readonly TrabajoTerminado[]; preguntas: readonly PreguntaDeLaTab[] | null;
   pedido: { texto: string; vez: number } | null; onMandado: () => void;
@@ -154,6 +154,31 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
   sobre: boolean;
 }) {
   const capa = useCapaModal(sobre, { anidada: true });
+  // Encima de un modal, el Escape sólo si el panel es la capa de arriba: si no, una tecla cerraba el panel Y la tarjeta de abajo.
+  const esDeArriba = useCallback(() => !sobre || capa.esElDeArriba(), [sobre, capa]);
+  return (
+    <div className="ch-tab-panel" style={{ left: izquierda, ...(sobre ? { zIndex: capa.z } : {}) }} role="dialog" aria-label={`MaKo en ${tab}`}>
+      <ConversacionCerebro tab={tab} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={pedido} onMandado={onMandado}
+        entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={onCerrar} esDeArriba={esDeArriba} />
+      <button type="button" className="ch-tab-panel__cerrar" aria-label="Cerrar MaKo" title="Cerrar (Esc)" onClick={onCerrar}>×</button>
+    </div>
+  );
+}
+
+/**
+ * La conversación «Cerebro» SIN el panel que flota: el motor, el hilo y la caja del Ops Center. La monta el panel de arriba y,
+ * fija y sin cerrarse, la tarjeta izquierda de las tabs de Create (app/_crear/PantallaCrear.tsx, 29/10/2026: «el chat de MaKo
+ * SIEMPRE abierto a la izquierda»). Una sola copia: si la de Create armara la suya, se quedaría vieja.
+ *   · `onCerrar`: el «volver» de la ventana angosta y el Escape. Sin esto (la tarjeta fija), no se cierra.
+ *   · `antes`: lo que va antes de la criatura en la cabecera (la «←» a la lista de proyectos de Create).
+ */
+export function ConversacionCerebro({ tab, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
+  pantalla = null, onCerrar, esDeArriba, antes }: {
+  tab: string; arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
+  pedido?: { texto: string; vez: number } | null; onMandado?: () => void;
+  entidad?: EntidadChat | null; modo?: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla?: string | null;
+  onCerrar?: () => void; esDeArriba?: () => boolean; antes?: ReactNode;
+}) {
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -166,51 +191,48 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
   // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
   useEffect(() => {
     if (!pedido || !k.esJefe) return;
-    if (k.enviar(pedido.texto)) onMandado();
+    if (k.enviar(pedido.texto)) onMandado?.();
     // `enviar` cambia en cada render; lo que decide es el pedido y que el Cerebro esté abierto, cargado y libre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedido, k.esJefe, k.cargado, k.trabajo]);
-  // Escape lo cierra, como un panel de la casa (si no hay un menú o un modal arriba).
+  // Escape lo cierra, como un panel de la casa (si no hay un menú o un modal arriba). Fija (sin `onCerrar`), no escucha.
   const { menuWA, infoWA, conectando } = k;
   useEffect(() => {
-    // Encima de un modal, sólo si el panel es la capa de arriba: si no, una tecla cerraba el panel Y la tarjeta de abajo.
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuWA && !infoWA && !conectando && (!sobre || capa.esElDeArriba())) onCerrar(); };
+    if (!onCerrar) return;
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuWA && !infoWA && !conectando && (esDeArriba?.() ?? true)) onCerrar(); };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [menuWA, infoWA, conectando, onCerrar, sobre, capa]);
+  }, [menuWA, infoWA, conectando, onCerrar, esDeArriba]);
   // Como un chat: abre en lo último y baja con lo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
 
   return (
     <>
-      <div className="ch-tab-panel" style={{ left: izquierda, ...(sobre ? { zIndex: capa.z } : {}) }} role="dialog" aria-label={`MaKo en ${tab}`}>
-        <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
-          cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar }}
-          arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
-          despues={<>
-            <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
-            {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
-          </>}
-          caja={<>
-            {/* Lo que la tab le pregunta, arriba de la caja y en EL bloque de preguntas (el del Ops Center). */}
-            {preguntas && preguntas.length > 0 && <BloqueDePreguntas chat={`tab:${tab}`} deLaTab={preguntas} />}
-            <div className="co-caja">
-            {/* Desde dónde va lo que se escribe, y en qué modo (OC6): lo mismo que dirá el chip del mensaje. */}
-            {(entidad || modo || onModo) && (
-              <div className="ch-desde-caja">
-                <span>Desde {etiquetaDesde(desde)}{modo === 'analizar' && !onModo ? ' · Analizar' : ''}</span>
-                {onModo && <ModosMako modo={modo ?? 'editar'} onModo={onModo} />}
-              </div>
-            )}
-            <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} angosta />
+      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
+        cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
+        arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
+        despues={<>
+          <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+          {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
+        </>}
+        caja={<>
+          {/* Lo que la tab le pregunta, arriba de la caja y en EL bloque de preguntas (el del Ops Center). */}
+          {preguntas && preguntas.length > 0 && <BloqueDePreguntas chat={`tab:${tab}`} deLaTab={preguntas} />}
+          <div className="co-caja">
+          {/* Desde dónde va lo que se escribe, y en qué modo (OC6): lo mismo que dirá el chip del mensaje. */}
+          {(entidad || modo || onModo) && (
+            <div className="ch-desde-caja">
+              <span>Desde {etiquetaDesde(desde)}{modo === 'analizar' && !onModo ? ' · Analizar' : ''}</span>
+              {onModo && <ModosMako modo={modo ?? 'editar'} onModo={onModo} />}
             </div>
-          </>}
-          estado={estadoDelCliente(k)}>
-          <HiloDelCliente k={k} />
-        </PanelDeChat>
-        <button type="button" className="ch-tab-panel__cerrar" aria-label="Cerrar MaKo" title="Cerrar (Esc)" onClick={onCerrar}>×</button>
-      </div>
+          )}
+          <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} angosta />
+          </div>
+        </>}
+        estado={estadoDelCliente(k)}>
+        <HiloDelCliente k={k} />
+      </PanelDeChat>
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
           <TusCuentasIA sinCabecera conectar />

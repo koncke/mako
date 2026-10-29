@@ -10778,3 +10778,13 @@ para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{
 `return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
 molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
 el porqué, en docs/hallazgos-video-editor.md.
+
+# Una tab de CREATE es UNA pantalla: `PantallaCrear`, sin pestañas arriba y sin onboarding (29/10/2026)
+
+Martín, 29/10/2026: «para todas las secciones de "create" no quiero otras tabs... el mismo diseño de la barra lateral del
+chat de MaKo SIEMPRE abierto a la izquierda... En "nueva"... TEMPLATES con la sección de ¿Qué vas a crear hoy?». Toda tab de
+la familia Create (Video, Image, Copywriting, AI Avatar y la que venga) monta `app/_crear/PantallaCrear.tsx`: el chat de
+MaKo a la izquierda que no se cierra, su «←» a la lista de proyectos, y «Nuevo …» con las plantillas. Lo que antes era una
+pestaña (Reels, Carousels, Video Generator) es una PLANTILLA de «Nuevo …» o se retira. El ítem de `nav.ts` NO lleva
+`secciones` y conserva la key de la que era su sección principal (la miran las capas, la API y el teléfono). Diseño e
+inventario: docs/diseno-create.md. Lo fija tests/crear-pantalla.test.ts.
