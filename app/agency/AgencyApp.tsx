@@ -30,6 +30,7 @@ import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-avis
 import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
 import { ModalNuevoCliente } from './NuevoCliente';
 import { PlantillaDeModelo } from './PlantillaDeModelo';
+import { DarDeBaja } from './DarDeBaja';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
 type Tono = 'warn' | 'good' | 'neutral' | 'bad';
@@ -267,6 +268,15 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
               onError={(m) => { if (m) show(m, undefined, 'bad'); }} onPedido={() => router.refresh()} />
           ) : (
             <p className="ad-nota">Cuando la cuenta quede habilitada, aquí ves quién entra.</p>
+          )}
+          {/* DAR DE BAJA (29/10/2026, lib/agencia-baja.ts): la agencia, nunca el super admin desde acá. */}
+          {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && (
+            <>
+              <h3 className="ad-sub">Dar de baja</h3>
+              <p className="ad-nota">Deja de cobrarse, dejas de administrarla y sus datos quedan guardados para tu cliente.</p>
+              <DarDeBaja clienteWs={abierta.ws} nombre={abierta.nombre}
+                onListo={(t) => { show(t); cerrarFicha(); router.refresh(); }} onError={(m) => show(m, undefined, 'bad')} />
+            </>
           )}
         </Modal>
       )}

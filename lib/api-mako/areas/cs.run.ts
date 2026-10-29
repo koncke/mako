@@ -31,6 +31,7 @@
 import 'server-only';
 import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { cartera, type ClienteCartera, type EstadoCliente } from '@/lib/cs-cartera';
+import { darDeBajaClienteDeAgencia } from '@/lib/agencia-baja';
 import { claveNivel, conTrabajo, type ClaveNivel } from '@/lib/cs-senal';
 import { getWorkspace, getTenantDb } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
@@ -409,6 +410,24 @@ export const RUNNERS: Runners = {
     }),
     ejecutar: sinLanzar('abrir la cuenta', async (payload, ctx) =>
       abrirYContar(ctx, { nombre: String(payload.nombre ?? ''), email: String(payload.email ?? ''), leadId: null, paga: quienPagaDe(payload.paga) })),
+  },
+
+  // Dar de baja la cuenta de un cliente (29/10/2026): ver cs.def.ts. La fila de la cartera se repregunta al ejecutar.
+  dar_de_baja_cliente_agency: {
+    preparar: revisando(async (input, ctx) => {
+      if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es Agency: se suma desde Agency Dashboard.' };
+      const clienteWs = num(input, 'clienteWs');
+      if (clienteWs == null) return { error: 'Falta el número de cuenta del cliente.', faltan: ['clienteWs'] };
+      return {
+        payload: { clienteWs },
+        resumen: `Dar de baja la cuenta del cliente ${clienteWs}: se cancela su cobro, dejas de administrarla y le avisamos. Sus datos quedan guardados; si quiere seguir, paga él.`,
+      };
+    }),
+    ejecutar: sinLanzar('dar de baja la cuenta', async (payload, ctx) => {
+      const clienteWs = typeof payload.clienteWs === 'number' ? payload.clienteWs : NaN;
+      const r = await darDeBajaClienteDeAgencia({ agenciaWs: ctx.ws, clienteWs, autor: 'MaKo (pedido de la agencia)' });
+      return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
+    }),
   },
 
   // La plantilla de un modelo de negocio (MAU-01): ver cs.def.ts. Con `clienteWs`, la agencia sobre un cliente de su

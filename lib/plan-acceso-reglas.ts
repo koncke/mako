@@ -96,7 +96,8 @@ export type Vigencia =
   | { estado: 'cubierto'; cobroId: number; hasta: string; motivo: MotivoCorte }
   | { estado: 'vencido'; cobroId: number; hasta: string; motivo: MotivoCorte; deuda?: Deuda };
 
-export type MotivoCorte = 'baja' | 'devuelto' | 'renovacion-sin-autorizar' | 'impago';
+/** `sin-agencia` (29/10/2026, lib/agencia-baja.ts): la agencia dio de baja la cuenta de su cliente; la reabre SÓLO su propio plan. */
+export type MotivoCorte = 'baja' | 'devuelto' | 'renovacion-sin-autorizar' | 'impago' | 'sin-agencia';
 
 /** N meses después de la fecha (YYYY-MM-DD o ISO), con el día capado al último del mes. Devuelve YYYY-MM-DD. */
 export function mesesDespuesDe(fecha: string, n: number): string {
@@ -345,6 +346,9 @@ export function pasoDeAcceso(v: Vigencia, estadoWs: 'activo' | 'pausado', corte:
   }
   // En mora se sigue entrando: no es un corte.
   // Pagó de nuevo (o ya no hay nada que vencer): se reabre SÓLO lo que cortó el cobro. Una pausa a mano no la toca.
+  // ⚠️ La cuenta que una agencia dio de baja la reabre SÓLO un plan que el cliente paga (al día): el mes que la agencia ya había
+  // pagado queda «cubierto» y, sin esto, la reabría sola (29/10/2026).
+  if (corte?.motivo === 'sin-agencia' && v.estado !== 'al-dia') return { tipo: 'nada' };
   if (vigente && estadoWs === 'pausado') return { tipo: 'reabrir' };
   if (vigente && estadoWs === 'activo') return { tipo: 'soltar' };
   return { tipo: 'nada' };
@@ -365,6 +369,7 @@ export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boo
   if (c.motivo === 'impago') {
     return { titulo: 'Tu pago no entró', detalle: `Tu plan está pagado hasta el ${fecha} y la renovación no se pudo cobrar. Tus datos están guardados: paga y vuelves a entrar en el acto.` };
   }
+  if (c.motivo === 'sin-agencia') return { titulo: 'Tu agencia dejó de administrar tu cuenta', detalle: 'Tus datos están guardados. Si quieres seguir usando MaKo, elige tu plan y vuelves a entrar en el acto.' };
   if (c.motivo === 'devuelto') return { titulo: 'Tu plan se devolvió', detalle: 'El pago de tu plan se devolvió. Para volver a entrar, escríbenos.' };
   return { titulo: 'Tu plan terminó', detalle: `Lo pagado cubría hasta el ${fecha}. Tus datos están guardados: renueva tu plan y vuelves a entrar.` };
 }

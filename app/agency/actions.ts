@@ -19,6 +19,7 @@ import { quienPagaDe } from '@/lib/agency-reglas';
 import { getSesionAdmin } from '@/lib/auth';
 import { aplicarPlantillaACliente, type ResultadoPlantilla } from '@/lib/plantillas-modelo';
 import { esModeloCliente } from '@/lib/plantillas-modelo-reglas';
+import { darDeBajaClienteDeAgencia } from '@/lib/agencia-baja';
 
 const emailDeQuienMira = () => getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
 
@@ -91,5 +92,23 @@ export async function aplicarPlantillaAction(clienteWs: number, modelo: string):
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude aplicar la plantilla.' };
+  }
+}
+
+/**
+ * «Dar de baja» la cuenta de un cliente (29/10/2026, lib/agencia-baja.ts): sólo el admin de la AGENCIA dueña de esa fila de
+ * la cartera (el super admin parado en la agencia también). Cancela el cobro, revoca la cartera, pausa la cuenta del cliente
+ * sin borrar nada y le avisa.
+ */
+export async function darDeBajaClienteAction(clienteWs: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  try {
+    const agenciaWs = await adminDeWorkspaceActual();
+    if (!agenciaWs) return { ok: false, error: 'Sólo el admin de la cuenta puede dar de baja a un cliente.' };
+    const sesion = await getUsuarioActual();
+    const r = await darDeBajaClienteDeAgencia({ agenciaWs, clienteWs: Number(clienteWs), autor: sesion?.nombre || sesion?.email || 'la agencia' });
+    if (r.ok) revalidatePath('/agency');
+    return r.ok ? { ok: true, resumen: r.resumen } : r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo dar de baja.' };
   }
 }
