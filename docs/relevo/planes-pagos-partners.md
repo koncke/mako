@@ -43,6 +43,16 @@ Este archivo reemplaza a docs/relevo/planes-nube-2710.md (el relevo de la nube d
   `TABS_TODAVIA_CERRADAS` en lib/planes-comparacion.ts), y la fila de Partners dice «el primer mes de cada negocio». El resto de
   Partners (panel, teléfono, landing, API) ya lo decía. Commit: el que sigue a e6fd6d88d.
 
+## Lo de Teo que falta (medido el 28/10 a la noche, sin empezar)
+- **Plan a mano con vencimiento** (Customers): hoy un plan dado a mano no vence ni tiene los topes de la prueba. Los topes de
+  la prueba los decide `estadoDePrueba` (lib/prueba-uso.ts, desde el cobro de prueba del negocio) y la vigencia
+  `vigenciaDelLugar` (lib/plan-acceso-reglas.ts). ⚠️ Antes de construir: `CORTE_DE_ACCESO_PRENDIDO = false`
+  (lib/plan-acceso-reglas.ts:50), así que «vence solo» hoy no le cortaría nada a nadie. Decisión pendiente: qué pasa al vencer
+  (¿pausar el negocio aunque el corte general esté apagado?, ¿sólo avisar?).
+- **La comunidad cobrada por mes** (Classroom): precio en la comunidad, cortar el acceso del alumno al cancelar o no pagar,
+  devolverlo al volver a pagar, «quién está al día». Toca Classroom y el «invitar al curso al ganar» del CRM
+  (app/crm/curso-al-ganar-actions.ts), que es de otro chat. Varias horas.
+
 ## Estado de la entrega
 - Último VERDE mandado: 3ca2d8328 → verificado; a196d5a93 → verificado con 2 medias y bajas, arregladas en 1e6bd27e8.
 - **1e6bd27e8** (28/10, 21:10): tsc acotado sobre los 63 .ts de la unión, limpio (sólo los 14 de `_opencut`). Los tests de cada
