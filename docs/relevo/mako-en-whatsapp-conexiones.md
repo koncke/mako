@@ -2,7 +2,7 @@
 
 **Cuenta:** claude4. **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los merges de main son merge commits, nunca
 rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le devuelve igual, con la lista de .ts).
-Las puntas las sube el Cerebro. Al 28/10 23:40 (AR) este archivo está al día (cuenta al 92 %). **Desde el 28/10 21:40, la tanda A va en otro
+Las puntas las sube el Cerebro. Al 28/10 23:55 (AR) este archivo está al día (cuenta al 93 %). **Desde el 28/10 21:40, la tanda A va en otro
 worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fallas-2710` adentro, sin tocar esa rama).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
@@ -31,6 +31,11 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
     refutador (28/10 21:40). Si da defectos, se arreglan en `wa-fallas-2710`.
 - **En `wa-credito-grupos-2810`, SIN subir:** 80a4bccd4 (el texto del grupo con Claude y el crédito de los planes 200),
   98c18d4a4 (merge de `wa-fallas-2710`), y la tanda A: las cuentas del crédito para N (una sola lista, la del Uso).
+
+**Tanda A, al cierre de claude4 (28/10 23:55):** entra al tren JUNTO con los arreglos de c358 (el Cerebro), verificados juntos.
+- La claude5 ya está en `CUENTAS_DEL_CREDITO` (Martín, 28/10: «todas mis cuentas son x20»): falta que Martín pegue su clave
+  `ANTHROPIC_CREDITO_CUENTA5` en SuperAdmin › Uso › API (se puede vincular desde el 31/10). Ninguna clave va en el código.
+- **El banco de nivel 2 con modelo NO va ahora** (gasta crédito): para la próxima cuenta, CHICO (≤ 20 casos).
 
 ## Lo que falta, en orden (el plan del Cerebro)
 

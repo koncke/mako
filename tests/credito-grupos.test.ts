@@ -87,6 +87,7 @@ test('5. N cuentas: las del Uso, una sola lista; el reparto recorre todas; una c
   assert.deepEqual(r.ws10Cuenta4, { clave: 'sk-ant-api03-credito-cuenta4-', modelo: 'claude-haiku-4-5', esCredito: true, cuenta: 4 });
   // Una cuenta del grupo que el Uso no conoce sería gasto que no se ve: las del grupo SON las del Uso, sin copia.
   assert.deepEqual([...CLAVES_CREDITO_DE_LOS_GRUPOS], CUENTAS_DEL_CREDITO.map((c) => c.clave));
+  assert.ok(CLAVES_CREDITO_DE_LOS_GRUPOS.includes('ANTHROPIC_CREDITO_CUENTA5'), 'la cuenta 5 (Max 20x, Martín 28/10) no paga los grupos');
   const leer = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
   assert.match(leer('lib/credito-api.ts'), /export const CLAVES_CREDITO_DE_LOS_GRUPOS: readonly string\[\] = CUENTAS_DEL_CREDITO\.map\(\(c\) => c\.clave\);/);
   assert.doesNotMatch(leer('lib/veto-claude.ts'), /export const CLAVES_CREDITO_DE_LOS_GRUPOS/, 'volvió la copia con los nombres fijos');

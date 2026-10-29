@@ -44,6 +44,9 @@ export const CUENTAS_DEL_CREDITO: readonly CuentaDelCredito[] = [
   { cuenta: 'claude3', clave: 'ANTHROPIC_CREDITO_CUENTA3' },
   // La cuenta 4 entró la noche del 16/10/2026 (memoria dos-cuentas-claude: «16/10 ~23:50 AR entra la cuenta 4», con 0% de uso).
   { cuenta: 'claude4', clave: 'ANTHROPIC_CREDITO_CUENTA4', suscripta: '2026-10-16' },
+  // La 5 (Ananda) entró el 24/10/2026 (~/.claude/cuentas.tsv). Martín, 28/10/2026: «Si, todas mis cuentas son x20». Su clave la
+  // pega él en SuperAdmin › Uso › API; se puede vincular desde los 7 días.
+  { cuenta: 'claude5', clave: 'ANTHROPIC_CREDITO_CUENTA5', suscripta: '2026-10-24' },
 ];
 
 /**
