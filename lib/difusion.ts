@@ -16,7 +16,8 @@ import { createHash } from 'node:crypto';
 import { getTenantDb } from './workspace';
 import {
   alcanceDeMotivos, motivosDe, problemaDeDifusion, pasosDeDifusion, nombreDeDifusion, goteoValido, TOPE_DIFUSION, esCanalDifusion,
-  claveDeDifusion, leerMarcaDifusion, decidirRepetida, GOTEO_DIFUSION_INICIAL,
+  claveDeDifusion, leerMarcaDifusion, decidirRepetida, GOTEO_DIFUSION_INICIAL, PREFIJO_CLAVE_DIFUSION, ESTADOS_DIFUSION_EN_CURSO,
+  MIN_DIFUSION_ANTES_DE_PAUSAR,
   type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion,
 } from './difusion-reglas';
 import { getSettingEstricto, cambiarSettingSi, borrarSettingSi } from './settings';
@@ -193,7 +194,7 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
   const { guardarConfigAutomatizacion } = await import('./config-automatizacion-db');
   const fecha = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit' }).format(new Date());
   const nombre = nombreDeDifusion({ etapa: vista.etapa, leads: vista.alcance.llegan, fecha });
-  const fila = await crearSecuenciaVacia(nombre);
+  const fila = await crearSecuenciaVacia(nombre, { prefijoClave: PREFIJO_CLAVE_DIFUSION });
   const db = await getTenantDb();
   try {
     await setSecuenciaPasos(fila.id, pasosDeDifusion(canales, p.mensajes) as Parameters<typeof setSecuenciaPasos>[1]);
@@ -225,4 +226,34 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
   }
   console.log(`[difusion] ws=${ws} «${nombre}» (#${fila.id}) por ${canales.join(', ')}: ${inscriptos} leads, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día — ${p.autor}`);
   return { ok: true, secuenciaId: fila.id, nombre, leads: inscriptos, alcance: vista.alcance };
+}
+
+/**
+ * PAUSA LAS DIFUSIONES QUE YA TERMINARON (`PREFIJO_CLAVE_DIFUSION`, lib/difusion-reglas.ts): prendidas, de hace más de
+ * `MIN_DIFUSION_ANTES_DE_PAUSAR` y sin nadie en curso. La llama la corrida de la hora del motor (lib/nutricion.ts), con el
+ * negocio puesto. Apaga con compare-and-set (`activa = true`): si alguien la apagó o la prendió a mano en el medio, no la pisa.
+ * Nunca tira; devuelve cuántas pausó.
+ */
+export async function pausarDifusionesTerminadas(): Promise<number> {
+  try {
+    const db = await getTenantDb();
+    const antes = new Date(Date.now() - MIN_DIFUSION_ANTES_DE_PAUSAR * 60_000).toISOString();
+    const { data, error } = await db.from('nutricion_secuencias').select('id, nombre')
+      .like('clave', `${PREFIJO_CLAVE_DIFUSION}%`).eq('activa', true).is('archivada_at', null).lt('created_at', antes);
+    if (error) throw new Error(error.message);
+    let pausadas = 0;
+    for (const d of (data ?? []) as Array<{ id: number; nombre: string }>) {
+      const { count, error: e } = await db.from('nutricion_inscripciones').select('id', { count: 'exact', head: true })
+        .eq('secuencia_id', d.id).in('estado', [...ESTADOS_DIFUSION_EN_CURSO]);
+      // «No pude contar» no es «no queda nadie».
+      if (e || count == null || count > 0) continue;
+      const { data: hecho } = await db.from('nutricion_secuencias').update({ activa: false, updated_at: new Date().toISOString() })
+        .eq('id', d.id).eq('activa', true).select('id');
+      if ((hecho ?? []).length) { pausadas += 1; console.log(`[difusion] «${d.nombre}» (#${d.id}) terminó: la pausé (ya no ocupa lugar en el tope del plan)`); }
+    }
+    return pausadas;
+  } catch (e) {
+    console.error(`[difusion] pausar las terminadas: ${e instanceof Error ? e.message : String(e)}`);
+    return 0;
+  }
 }

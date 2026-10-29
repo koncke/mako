@@ -68,6 +68,10 @@ tests/difusion.test.ts.
 - **Por el grupo de WhatsApp, un setter lanzaba una difusión** (el doer arma el rol como 'admin' para todos). `difundir_a_leads`
   pasa a `canales: ['app']`, la regla de AGENTS.md para lo que toca números de terceros en lote.
 - **El goteo fuera de rango fallaba después del «sí»:** `preparar` llama a `goteoValido` y `porDia` tiene su máximo.
+- **Cada difusión quedaba prendida para siempre** y ocupaba un lugar del tope del Esencial (3 activas). Ahora nace con la
+  clave `difusion-…` (la clave no cambia nunca; el nombre sí) y la corrida de la hora la pausa cuando no le queda nadie
+  en curso (`pausarDifusionesTerminadas`), con 15 min de gracia porque se prende ANTES de inscribir. Las de antes de
+  este cambio tienen la clave `automatizacion-…`: ésas siguen apagándose a mano.
 
 **Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);
 no se probó mandando de verdad (sería escribirle a leads reales). Un lead que tiene Instagram Y otro canal y no alcanza

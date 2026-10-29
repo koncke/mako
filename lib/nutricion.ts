@@ -5771,6 +5771,12 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
 
   // El TOPE de Instagram o Zernio, dicho UNA vez por corrida (y no más de uno por hora): Leandro, 28/10/2026.
   await avisarTopesSociales(wsCorrida, topesSociales, socialesEnviados);
+  // La difusión que ya terminó se pausa (la verificación de 69b49a31c): prendida, ocupaba un lugar del tope del plan. Sólo en
+  // la corrida de la hora: ni el tick de cada minuto ni la vía rápida de un lead.
+  if (wsCorrida != null && !opts?.soloLeadId && !opts?.vencidasDesde) {
+    const { pausarDifusionesTerminadas } = await import('@/lib/difusion');
+    await pausarDifusionesTerminadas();
+  }
 
   // Con el tope diario cumplido sólo corrieron acciones: el corte se sigue diciendo. Fuera del horario sólo corrió
   // el carril y «MaKo en WhatsApp» (M3 f): también se dice.

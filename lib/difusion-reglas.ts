@@ -278,6 +278,19 @@ export function decidirRepetida(marca: MarcaDifusion | null, ahoraMs: number): D
   return min < VENTANA_DIFUSION_REPETIDA_MIN ? { es: 'retomar', secuenciaId: marca.secuenciaId } : { es: 'nueva' };
 }
 
+/**
+ * UNA DIFUSIÓN TERMINADA SE PAUSA SOLA (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): quedaba prendida para
+ * siempre y ocupaba un lugar del tope del plan Esencial (3 activas), y la difusión siguiente fallaba con «Llegaste al tope de
+ * tu plan» por una que ya había terminado. Se reconoce por la `clave` (`PREFIJO_CLAVE_DIFUSION`: la clave no cambia nunca,
+ * el nombre sí) y se pausa cuando no le queda nadie EN CURSO (`pausarDifusionesTerminadas`, lib/difusion.ts, en la corrida de
+ * la hora). 'respondio' cuenta como en curso: el desenlace la cierra en la corrida siguiente, y si alguien le sumó una
+ * respuesta en el lienzo, la está atendiendo.
+ */
+export const PREFIJO_CLAVE_DIFUSION = 'difusion-';
+export const ESTADOS_DIFUSION_EN_CURSO = ['activa', 'pausada', 'respondio'] as const;
+/** Se prende ANTES de inscribir: una recién creada no se mira hasta pasado esto. */
+export const MIN_DIFUSION_ANTES_DE_PAUSAR = 15;
+
 /** El goteo pedido, en rango (`RANGOS_GOTEO`): un número fuera de rango no se guarda callado, se dice. */
 export function goteoValido(g: unknown): { minutos: number; dia: number } | null {
   const o = (g && typeof g === 'object' ? g : {}) as { minutos?: unknown; dia?: unknown };

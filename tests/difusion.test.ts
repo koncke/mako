@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import {
   alcanceDe, alcanceDeMotivos, motivosDe, pasosDeDifusion, problemaDeDifusion, nombreDeDifusion, textoDeDuracion, goteoValido,
   demoraDelTurno, claveDeDifusion, leerMarcaDifusion, decidirRepetida, ESPERA_DIFUSION_EN_CURSO_MIN, VENTANA_DIFUSION_REPETIDA_MIN,
+  PREFIJO_CLAVE_DIFUSION, ESTADOS_DIFUSION_EN_CURSO,
   type LeadDifusion,
 } from '../lib/difusion-reglas';
 import { decidirSalida, salidaHastaMs } from '../lib/canal-social';
@@ -112,7 +113,7 @@ test('el server y la hoja (leyendo el fuente)', () => {
   assert.equal(goteoValido({ minutos: 0, dia: 40 }), null, 'fuera de rango se dice, no se guarda callado');
   assert.equal(goteoValido({ minutos: 3, dia: 100000 }), null);
   const s = sinComentarios(leer('lib/difusion.ts'));
-  assert.match(s, /const fila = await crearSecuenciaVacia\(nombre\);/, 'A mano: sin cohorte, sólo entran los de acá');
+  assert.match(s, /const fila = await crearSecuenciaVacia\(nombre, \{ prefijoClave: PREFIJO_CLAVE_DIFUSION \}\);/, 'A mano: sin cohorte, sólo entran los de acá; y marcada en la clave');
   assert.match(s, /await guardarConfigAutomatizacion\(fila\.id, \{ goteo \}\);/, 'el goteo es de ESTA automatización');
   assert.match(s, /await setSecuenciaReentrada\(fila\.id, 'una_vez'\);/);
   assert.match(s, /await setSecuenciaActiva\(fila\.id, true, \{ aunqueDuplique: true, ws \}\);/, 'la prende por la puerta de siempre (el tope del plan)');
@@ -208,7 +209,7 @@ test('la misma difusión, una vez: la clave del pedido, la marca y retomar la qu
   assert.ok(i('const previo = await getSettingEstricto(key);') < i("if (repetida.es === 'en_curso') return { ok: false, error: EN_CURSO };"));
   assert.ok(i("if (repetida.es === 'retomar') {") < i('if (!(await cambiarSettingSi(key, previo, reclamo))) return { ok: false, error: EN_CURSO };'));
   assert.match(crear, /if \(repetida\.es === 'retomar'\) \{\s*const r = await retomarDifusion\(repetida\.secuenciaId, vista, p\.autor\);\s*if \(r\) return r;\s*\}/, 'el mismo pedido retoma la que creó');
-  assert.ok(i('if (!(await cambiarSettingSi(key, previo, reclamo)))') < i('const fila = await crearSecuenciaVacia(nombre);'), 'reclama ANTES de crear');
+  assert.ok(i('if (!(await cambiarSettingSi(key, previo, reclamo)))') < i('const fila = await crearSecuenciaVacia(nombre'), 'reclama ANTES de crear');
   assert.ok(i('await borrarSettingSi(key, reclamo)') < i('const marca = JSON.stringify('), 'lo que no se creó suelta el pedido');
   assert.ok(i('await cambiarSettingSi(key, reclamo, marca)') < i('await inscribirEnDifusion(fila.id, vista.alcance.ids)'), 'la marca apunta a la difusión antes de inscribir');
   assert.match(s, /\.upsert\(\s*tanda\.map\(\(leadId\) => \(\{ lead_id: leadId, secuencia_id: secuenciaId, paso_actual: 0, estado: 'activa', proximo_envio_at: ahora \}\)\),\s*\{ onConflict: 'lead_id,secuencia_id', ignoreDuplicates: true \},\s*\)\.select\('id'\);/, 'el que ya está no entra dos veces');
@@ -230,4 +231,23 @@ test('MaKo: la difusión sólo en la app, y el goteo fuera de rango se dice ante
   const preparar = run.slice(desde, run.indexOf('ejecutar: async (payload, ctx) => {', desde));
   const g = preparar.indexOf('const goteo = goteoValido(pedido.goteo);');
   assert.ok(g > 0 && g < preparar.indexOf('await prepararDifusion('), 'se valida antes de proponer');
+});
+
+// [baja] Cada difusión quedaba prendida para siempre y ocupaba un lugar del tope del plan Esencial (3 activas): la siguiente
+// fallaba con «Llegaste al tope de tu plan» por una que ya había terminado.
+test('la difusión que terminó se pausa sola, en la corrida de la hora, reconocida por su clave', () => {
+  assert.equal(PREFIJO_CLAVE_DIFUSION, 'difusion-');
+  assert.deepEqual([...ESTADOS_DIFUSION_EN_CURSO].sort(), ['activa', 'pausada', 'respondio']);
+  for (const terminado of ['completada', 'no_responde', 'cancelada']) assert.ok(!(ESTADOS_DIFUSION_EN_CURSO as readonly string[]).includes(terminado), terminado);
+  // La clave lleva la marca (la clave no cambia nunca; el nombre sí).
+  assert.match(sinComentarios(leer('lib/setting-secuencias.ts')), /const clave = `\$\{o\.prefijoClave \?\? 'automatizacion-'\}\$\{Date\.now\(\)\.toString\(36\)\}/);
+  const s = sinComentarios(leer('lib/difusion.ts'));
+  const f = s.slice(s.indexOf('export async function pausarDifusionesTerminadas('));
+  assert.match(f, /\.like\('clave', `\$\{PREFIJO_CLAVE_DIFUSION\}%`\)\.eq\('activa', true\)\.is\('archivada_at', null\)\.lt\('created_at', antes\)/, 'sólo las difusiones prendidas, y no la recién creada (se prende antes de inscribir)');
+  assert.match(f, /\.eq\('secuencia_id', d\.id\)\.in\('estado', \[\.\.\.ESTADOS_DIFUSION_EN_CURSO\]\)/);
+  assert.match(f, /if \(e \|\| count == null \|\| count > 0\) continue;/, '«no pude contar» no es «no queda nadie»');
+  assert.match(f, /\.update\(\{ activa: false, updated_at: new Date\(\)\.toISOString\(\) \}\)\s*\.eq\('id', d\.id\)\.eq\('activa', true\)/, 'apaga con compare-and-set');
+  // El motor la llama en la corrida de la hora, no en el tick ni en la vía rápida.
+  const n = sinComentarios(leer('lib/nutricion.ts'));
+  assert.match(n, /if \(wsCorrida != null && !opts\?\.soloLeadId && !opts\?\.vencidasDesde\) \{\s*const \{ pausarDifusionesTerminadas \} = await import\('@\/lib\/difusion'\);\s*await pausarDifusionesTerminadas\(\);/);
 });
