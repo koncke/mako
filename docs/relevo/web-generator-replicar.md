@@ -14,8 +14,9 @@ cerrados.**
 - **29/10 ~12:55 ART: VERDE mandado a Integración y al Cerebro**: rama `landing-high-ticket-2910` (C:/dev/wt-landing-ht-2910),
   punta 746b3fefe (2f2ccb5ab · 7d376c836 · 746b3fefe), sin pushear. Tests dirigidos 50/50, romper 10/10, tsc-acotado 0 propios
   (con `--heap=3584`). El Cerebro publicó el documento: respaldos #73 (antes) y #74 (6 tarjetas); #32 v12 con las 9 del taller.
-  Falta: que suba el código (los ✗, la tabla, el <title>/og, la portada sin JS); las páginas /vsl/_detalle y las #33–#40 siguen
-  con «VSL Funnel».
+- **29/10 ~13:30 ART:** f387e11ce (Acelerador en grafito) · cd841f433 (mosaico de 9) · 066231cf0 (/vsl/_detalle a High Ticket) ·
+  18cf6a960 (`--doc` para #33–#40), todo a Integración para tren-ab. Al Cerebro: la línea del mosaico (`--version 12`) y el bucle de
+  las #33–#40 (versiones 2, salvo #36=10). Abierto: /vsl/ads vende «crea tu campaña», que ya no existe; la #40 vende el Avatar.
 - DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
   «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
   Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
