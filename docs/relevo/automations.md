@@ -28,9 +28,14 @@ cuestión de baneo». Todo junto en un VERDE por SendMessage; lo pesado con `nod
 - 4cc29df29 — la DIFUSIÓN: `HojaDifusion` (app/automations/difusion/), lib/difusion.ts y -reglas.ts, `difundir_a_leads`.
 - 1ca902867 — «Para el Cerebro» de docs/relevo/automations-nube-2710.md al día.
 
-**Falta verificar:** tests afectados (`--base origin/main --rapido`) y los tipos de los archivos de la difusión: estaban
-esperando turno en la PC (salidas en el scratchpad de la sesión: afectados-072.txt, tsc-dif.txt). Los tipos de los 35
-archivos anteriores dieron limpio (sólo los 14 de `_opencut` y 2 de `Compartir.tsx`). Después, el VERDE al Cerebro.
+- 077f2913f — el hito de «Volver a probar» cierra también el ticket 20 (`tickets: [19, 20]`).
+- 2172da39b — los 11 rojos de tests-afectados sobre 5ddb4ae6a: ninguna regresión (tests que leían el fuente viejo, la
+  difusión leyendo Instagram fuera del canal y sin su lugar en las listas de activar, un `role="alert"` sin «Reportar a
+  Soporte»). Los 14 corridos de a uno, en verde.
+
+**Verificación:** tests-afectados corrió sobre 5ddb4ae6a (5947 tests, 595 archivos): 11 rojos, arreglados en 2172da39b y
+repetidos de a uno en verde. Tipos: los 35 archivos de antes y los de la difusión, limpios (sólo los 14 de `_opencut` y 2 de
+`Compartir.tsx`); los 4 tocados en 2172da39b, esperando turno. Después, el VERDE al Cerebro.
 
 **A medias / sin hacer:** el botón «Mandar mensaje» y la selección del tablero son del CRM (el Cerebro le pasó la interfaz);
 la difusión no se probó mandando; elegir la publicación o el Reel en el CRON de comentario (tanda siguiente); «Crear con IA»
