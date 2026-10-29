@@ -159,6 +159,12 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   teléfono (`movil-mas-secciones`: una query de `QUERY_DE_SECCION` tiene que volver por `RUTAS_CREACION`).
 - **Regla:** sacar pestañas o abrir una key toca lo que la barra prometía. Antes del VERDE va `tests-afectados`, no la
   lista de tests con el nombre de la tab.
+- Las herramientas del super admin que eran pestañas: Offer (rama de Create) ya las había mudado al pie de su lista
+  (`pieLista={superAdmin ? (…Link…) : undefined}`), y `tests/sidebar-nueva` busca ese pie por texto. El Copywriter copia
+  la MISMA forma (`{deLaPlataforma && (<span …><Link href=…>`), y el test mira los dos pies. Una pantalla hermana que
+  resolvió lo mismo distinto es una tercera forma que el test no conoce.
+- `ideas` se había caído del nav al sacar las secciones, y `app/ideas/page.tsx` la pide (`requireRolWs({ nav: 'ideas' })`):
+  la vio `movil-rutas` (`/ideas` → «pronto»), no un test del Copywriter. Antes de borrar una sección, `grep` de su key.
 - `tsc-acotado` con BlockNote se queda sin heap con 30 archivos y el heap por defecto (código 134, que NO es el vigía):
   van tandas de ~15 con `--heap=3000`. Y una tanda que arrastra `app/video-editor/_opencut` o `<style jsx>` da rojos que no
   son de nadie: se suman `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts` y `node_modules/styled-jsx/global.d.ts`

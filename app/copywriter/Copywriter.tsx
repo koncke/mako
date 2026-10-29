@@ -59,12 +59,6 @@ export type PropsCopywriter = {
   deLaPlataforma?: boolean;
 };
 
-/** Lo que el super admin edita para todos (nav.ts → HERRAMIENTAS, mismos nombres): Copywriting ya no tiene pestañas (D15). */
-const HERRAMIENTAS_COPY = [
-  { href: '/admin/copywriting', ico: '✍', nombre: 'Copy Method' },
-  { href: '/admin/guiones', ico: '▦', nombre: 'Angles & Structures' },
-] as const;
-
 /** «Nueva página»: los templates (la misma ruta de la tab con `?nueva`). */
 export const rutaNueva = (base: string) => `${base}?nueva=1`;
 
@@ -182,14 +176,14 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   })), [paginas, rutaDe, crear, enBlanco, avisar, papelera]);
 
   const enPapelera = dePapelera(paginas);
+  // Lo que el super admin edita para todos (nav.ts → HERRAMIENTAS, mismos nombres) va al pie, como Strategy y Offer
+  // Playbook en Offer: Copywriting ya no tiene pestañas (D15).
   const pieLista: ReactNode = (
     <>
       <PapeleraCopy paginas={enPapelera} onRestaurar={restaurar} />
-      {deLaPlataforma && HERRAMIENTAS_COPY.map((h) => (
-        <Link key={h.href} href={h.href} className="cr-item">
-          <span className="cr-item__ico" aria-hidden>{h.ico}</span><span className="cr-item__nombre">{h.nombre}</span>
-        </Link>
-      ))}
+      {deLaPlataforma && (
+        <span className="nt-pie-admin"><Link href="/admin/copywriting">Copy Method</Link> · <Link href="/admin/guiones">Angles & Structures</Link></span>
+      )}
     </>
   );
 

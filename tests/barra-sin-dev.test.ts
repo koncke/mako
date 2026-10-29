@@ -75,9 +75,9 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   const copy = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.label === 'Copywriting');
   assert.ok(copy && !copy.secciones?.length, 'Copywriting volvió a tener pestañas');
   const copywriter = sinComentarios(leer('app/copywriter/Copywriter.tsx'));
-  assert.match(copywriter, /href: '\/admin\/guiones'/, 'las bibliotecas no tienen casa en Copywriting');
-  assert.match(copywriter, /href: '\/admin\/copywriting'/, 'el método de redacción no tiene casa en Copywriting');
-  assert.match(copywriter, /\{deLaPlataforma && HERRAMIENTAS_COPY\.map\(/, 'las herramientas del super admin, para todos');
+  const pie = copywriter.match(/\{deLaPlataforma && \(([\s\S]*?)\)\}/)?.[1] ?? '';
+  assert.match(pie, /<Link href="\/admin\/guiones">/, 'las bibliotecas no tienen casa en Copywriting (o la ve cualquiera)');
+  assert.match(pie, /<Link href="\/admin\/copywriting">/, 'el método de redacción no tiene casa en Copywriting (o la ve cualquiera)');
   for (const p of ['app/copywriter/page.tsx', 'app/copywriter/[id]/page.tsx']) {
     assert.match(leer(p), /deLaPlataforma=\{!!admin\}/, `${p} no le dice al Copywriter quién es el super admin`);
   }
