@@ -88,6 +88,14 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **00:40, WhatsApp:**
+    - **La tanda A tiene su VERDE (`9b5fc9ad4`, wa-credito-grupos-2810).** Trae el crédito de Claude de los grupos para N
+      cuentas (una lista única: `CUENTAS_DEL_CREDITO`) y la corrección del dominio inventado (`conElDominioDeMaKo`). Lleva
+      adentro c358fd0c4, así que entra JUNTO con sus arreglos, y se verifica todo junto.
+    - De c358 ya están arreglados: el aviso de arreglo (`c6d63791a`), el acuse después de la cita (`78543b7dd`) y la lectura
+      estricta (`450677f90`). Faltan la ALTA de `pideAlgoAMaKo`, la MEDIA del cierre de la ventana y la BAJA de la firma.
+    - **Decidido por el Cerebro:** el banco de nivel 2 con modelo (gasta crédito) queda para la próxima cuenta, chico.
+    - **Para Martín:** si la cuenta 5 (claude5) es Max 20x, para sumarla a `CUENTAS_DEL_CREDITO`.
   - **00:35, ronda: el plan de Nadia de Leila.** Leila YA había contestado en su grupo el 28/10 a las 18:11 UTC (buffer
     324): «Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000». Le llegó a MaKo, no al equipo: la falla
     que arregla WhatsApp. Se le pidió confirmar si los 12.000 son por mes (6.000 por quincena, días 1 y 15) y hasta cuándo
