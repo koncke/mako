@@ -35,6 +35,8 @@ export type TicketDelGrupo = {
   delegado?: boolean;
   /** Lo que MaKo ya leyó para el DEBUG (`diagnosticar_negocio`): la evidencia, para que el Cerebro no tenga que volver a mirarlo. */
   evidencia?: string;
+  /** Lo que el turno YA hizo o propuso de un pedido compuesto (los nombres de las herramientas): lo demás es lo delegado. */
+  hecho?: readonly string[];
 };
 
 // Las piezas puras (el número que acaba de nombrar, la respuesta fija) viven en lib/despacho-grupo.ts, sin `server-only`: sus tests
@@ -57,6 +59,7 @@ export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbie
     `Lo que escribió en el grupo de WhatsApp, tal cual: «${t.pedido.trim().slice(0, 2500)}»`,
     t.ultimoDeMaKo ? `Lo que MaKo había dicho justo antes: «${t.ultimoDeMaKo.trim().slice(0, 800)}»` : '',
     t.evidencia ? `Lo que MaKo ya miró (diagnosticar_negocio):\n${t.evidencia.slice(0, 3000)}` : '',
+    t.hecho?.length ? `Lo que MaKo YA hizo o dejó propuesto en el grupo (no lo repitas): ${t.hecho.join(', ')}. Lo que falta es el resto del pedido.` : '',
     `Por qué ${t.delegado ? 'se delega' : 'es un ticket'}: ${t.clasificacion.porque}`,
   ].filter(Boolean).join('\n\n');
   // El pedido delegado lleva su propia referencia: el mismo mensaje puede dejar además un ticket (la secundaria TICKET).

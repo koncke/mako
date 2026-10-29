@@ -12012,3 +12012,32 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
   turno no puede leer la lista de artículos (después del merge, sumarla como lectura). Si el modelo contesta una PREGUNTA con
   «no tengo acceso» y su marca `[[no-pude: …]]`, el ticket se abre igual (causa «texto», `causaDelNoPude` en lib/no-pude.ts): así
   nació el #30. Con la respuesta correcta (el estado del arreglo) no hay marca ni ticket.
+
+## Lo que MaKo hace desde el grupo después de la llamada con Thiago (29/10/2026, claude3, decidido por el Cerebro)
+
+**Vive en:** `lib/despacho-grupo.ts` (`ACCIONES_SIMPLES`, `ACCIONES_CON_PANTALLA`, `faltaAlgunaParte`, `delegadosParaAvisar`) ·
+`lib/confirmacion-pura.ts` (`SE_APRUEBAN_EN_LA_APP`) · `lib/mako-intencion-ia.ts` (`partes`) · `lib/tickets-cierre.ts`
+(`avisarDelegadosSinTomar`) · la lista de promesas: rama `promesas-thiago-2910`, `docs/promesas/2910-llamada-thiago.md`
+
+- **El síntoma:** en una llamada, Martín le prometió a una agencia de 27 clientes que desde el grupo MaKo hace «lo que quieras» y
+  mostró «replicame esta landing». Con el despachante tal cual, replicar una landing, pausar una campaña y casi todo lo complejo
+  pasaban a ser un ticket del Cerebro: lo mostrado dejaba de andar.
+- **Lo que quedó:** directo (con su confirmación de siempre): replicar y analizar una landing, pausar o prender una campaña o un
+  anuncio. Con pantalla (/mako/revisar): el presupuesto. En la app: el WhatsApp a un lead. Un pedido compuesto hace lo que puede y
+  lo demás va como pedido delegado, con lo que ya se hizo; un delegado que nadie toma en 30 minutos avisa en su grupo (una vez).
+- ⚠️ **La «regla del 21/10» no era lo que decía el código.** El código de esa fecha (`4e8ff8136`, y main igual) dejaba confirmar un
+  WhatsApp a un lead con un «sí» puro en el grupo; el pedido de Martín leído por el Cerebro es que ese envío se aprueba con un toque
+  en la app. Ahora `enviar_borrador_whatsapp` no se confirma por WhatsApp con ningún «sí» (`SE_APRUEBAN_EN_LA_APP`), y el link a
+  Pendientes lo escribe el código. Las demás de `aTerceros` (un email, una invitación) siguen con el «sí» puro.
+- **Trampas medidas:** (1) con las `partes`, el JSON del clasificador pasa los 200 tokens: cortado no se lee y mandan las reglas sin
+  avisar. Subió a 300 (doer y banco). (2) El pedido compuesto se cuenta por CANTIDAD (escrituras o propuestas del turno contra
+  partes), a propósito: no se adivina qué parte fue cuál; delegar de más cuesta un ticket, perder una parte cuesta la promesa.
+  (3) Para probar el turno real hace falta que el modelo de mentira pida la herramienta: el hijo de la clase ahora devuelve un
+  `tool_call` de OpenAI (`escena.herramienta`) y el registro corre `replicar_landing` de verdad (sin red: la propuesta valida y deja
+  la pendiente).
+- **La regla:** una escritura que MaKo hace desde el grupo entra a `ACCIONES_SIMPLES` con su test por el turno real; si mueve plata
+  y tiene pantalla, a `ACCIONES_CON_PANTALLA`; si le llega a un lead por WhatsApp, a `SE_APRUEBAN_EN_LA_APP`. Lo que no está en
+  ninguna se delega.
+- **Sin hacer (al 29/10):** «subime este anuncio» con un Drive, un video o una imagen (la tanda siguiente, detrás de
+  `ZERNIO_ANUNCIOS_PROBADO`); el WhatsApp a un lead desde el grupo no tiene test por el turno real (necesita lead, teléfono y
+  línea en la base de mentira): están la puerta y el cableado.

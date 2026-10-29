@@ -42,7 +42,10 @@ const pg = crearPostgrest({
 });
 
 /** Lo que hace la red en cada escena: la clase que contesta el clasificador (o que se cae), y lo que contesta el turno. */
-const escena = { clase: '', claseCaida: false, respuesta: '' };
+/** `herramienta` (29/10/2026, la llamada con Thiago): la PRIMERA llamada del turno pide esa herramienta (un `tool_call` de OpenAI) y la
+ *  segunda contesta `respuesta`; así el turno real corre la herramienta del registro. */
+const escena: { clase: string; claseCaida: boolean; respuesta: string; herramienta?: { nombre: string; args: Record<string, unknown> } } = { clase: '', claseCaida: false, respuesta: '' };
+let llamadasAlTurno = 0;
 const red: Array<{ host: string; camino: string; cuerpo: string; clave?: string }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
@@ -59,6 +62,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   }
   // El turno: la IA del negocio (su GPT).
   if (u.host === 'api.openai.com' && u.pathname.endsWith('/chat/completions')) {
+    if (escena.herramienta && ++llamadasAlTurno === 1) {
+      const call = { id: 'call_1', type: 'function', function: { name: escena.herramienta.nombre, arguments: JSON.stringify(escena.herramienta.args) } };
+      return r(200, { id: 'c0', object: 'chat.completion', model: 'gpt-4o-mini', choices: [{ index: 0, message: { role: 'assistant', content: null, tool_calls: [call] }, finish_reason: 'tool_calls' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } });
+    }
     return r(200, { id: 'c1', object: 'chat.completion', model: 'gpt-4o-mini', choices: [{ index: 0, message: { role: 'assistant', content: escena.respuesta }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } });
   }
   return r(500, { error: { message: 'red de mentira' } });
@@ -94,7 +101,8 @@ async function main() {
   });
   let ts = 1793260000;
   const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes }: { limpiar?: boolean; jid?: string; antes?: () => void } = {}) => {
-    Object.assign(escena, { clase: '', claseCaida: false, respuesta: '' }, e);
+    Object.assign(escena, { clase: '', claseCaida: false, respuesta: '', herramienta: undefined }, e);
+    llamadasAlTurno = 0;
     red.splice(0);
     if (limpiar) { pg.db.mako_doer_conv.splice(0); pg.db.tickets.splice(0); }
     antes?.();
@@ -104,6 +112,7 @@ async function main() {
       r, salio: salio(), turno: turno(), clasificador: clasificador(),
       reacciones: red.filter((x) => x.camino.includes('/message/sendReaction/')).length,
       tickets: pg.db.tickets.map((t) => ({ id: t.id, tipo: t.tipo ?? null, titulo: t.titulo, descripcion: t.descripcion, contexto: t.contexto })),
+      pendientes: pg.db.mako_acciones_pendientes.map((p) => ({ tipo: p.tipo, resumen: p.resumen })),
     };
   };
 
@@ -155,6 +164,24 @@ async function main() {
       created_at: new Date(Date.now() - 3600_000).toISOString(), updated_at: new Date().toISOString(),
     }),
   });
+  // LA LLAMADA CON THIAGO (29/10/2026, docs/promesas/2910-llamada-thiago.md): «replicame esta landing» desde el grupo la hace MaKo (la
+  // propone y la arma con el «sí»), no la delega. El turno pide `replicar_landing` y el registro deja la pendiente.
+  await correr('replicarLanding', {
+    clase: '{"clase":"ACCION","resumen":"Replicar la landing de ejemplo.com","reenviado":false}',
+    herramienta: { nombre: 'replicar_landing', args: { url: 'https://ejemplo.com/oferta', formato: 'landing' } },
+    respuesta: 'Te dejo la réplica de la landing propuesta: respóndeme «sí» y la armo.',
+  }, 'replícame esta landing https://ejemplo.com/oferta en formato landing');
+  // Pausar una campaña y cambiarle el presupuesto: las dos herramientas viajan en el turno (la pausa directa, el presupuesto por pantalla).
+  await correr('campanas', {
+    clase: '{"clase":"ACCION","resumen":"Pausar la campaña Verano y subirle el presupuesto","reenviado":false,"partes":["pausar la campaña Verano","subirle el presupuesto a 50 por día"]}',
+    respuesta: '¿Cuál campaña Verano, la de Meta o la de Google?',
+  }, 'pausame la campaña Verano y subile el presupuesto a 50 por día');
+  // EL PEDIDO COMPUESTO: hace lo que puede (la réplica) y lo demás (la automatización) lo delega, con lo que ya hizo. Nunca en silencio.
+  await correr('compuesto', {
+    clase: '{"clase":"ACCION","resumen":"Replicar una landing y crear una automatización","reenviado":false,"partes":["replicar la landing https://ejemplo.com/oferta","crear una automatización de bienvenida"]}',
+    herramienta: { nombre: 'replicar_landing', args: { url: 'https://ejemplo.com/oferta', formato: 'landing' } },
+    respuesta: 'Te dejo la réplica de la landing propuesta.',
+  }, 'replícame https://ejemplo.com/oferta como landing y además créame una automatización de bienvenida para los leads nuevos');
   // Una respuesta que era TODO relleno: no sale nada (va la reacción).
   await correr('relleno', { clase: '{"clase":"PREGUNTA","resumen":"cómo va","reenviado":false}', respuesta: 'Excelente, quedo atento.' },
     '¿cómo vamos con lo de la campaña?');

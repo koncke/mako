@@ -72,7 +72,7 @@ const ESCRIBE = new Set(['ACCION']);
 let tokensIn = 0;
 let tokensOut = 0;
 let llamadas = 0;
-/** El TOPE: una llamada por caso y por corrida, nunca más (con `max_tokens` 200, la corrida entera de Haiku cuesta centavos). */
+/** El TOPE: una llamada por caso y por corrida, nunca más (con `max_tokens` 300, la corrida entera de Haiku cuesta centavos). */
 const TOPE_LLAMADAS = casos.length * CORRIDAS;
 async function llamar(system: string, usuario: string): Promise<string> {
   if (llamadas >= TOPE_LLAMADAS) throw new Error(`tope de ${TOPE_LLAMADAS} llamadas`);
@@ -80,7 +80,7 @@ async function llamar(system: string, usuario: string): Promise<string> {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': CLAVE, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: MODELO, max_tokens: 200, system, messages: [{ role: 'user', content: usuario }] }),
+    body: JSON.stringify({ model: MODELO, max_tokens: 300, system, messages: [{ role: 'user', content: usuario }] }),
     signal: AbortSignal.timeout(60_000),
   });
   const j = await r.json() as { content?: Array<{ type: string; text?: string }>; usage?: { input_tokens?: number; output_tokens?: number }; stop_reason?: string; error?: { message?: string } };

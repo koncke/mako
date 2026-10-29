@@ -2286,8 +2286,10 @@ lib/doer-salida.ts). Una regla nueva de lo que MaKo no dice llega con su chequeo
 
 - **MaKo en el grupo es un DESPACHANTE (lib/despacho-grupo.ts).** La clase la decide `clasificarConIA` (lib/mako-intencion-ia.ts)
   y el texto de TICKET, DEBUG y de una acción delegada lo escribe el CÓDIGO, con el número del ticket: el modelo no corre. Una
-  escritura que MaKo hace sola entra a `ACCIONES_SIMPLES` (una fila o un evento, reversible) con su test; lo demás se delega al
-  Cerebro como «pedido delegado» y el «listo» vuelve al grupo al cerrarlo. En la duda, se delega.
+  escritura que MaKo hace sola entra a `ACCIONES_SIMPLES` (una fila o un evento, reversible) con su test por el turno real; si mueve
+  plata y tiene pantalla, a `ACCIONES_CON_PANTALLA`; un WhatsApp a un lead, a `SE_APRUEBAN_EN_LA_APP` (lib/confirmacion-pura.ts:
+  se aprueba con un toque en la app, nunca con un «sí» por WhatsApp). Lo demás se delega al Cerebro como «pedido delegado» y el
+  «listo» vuelve al grupo al cerrarlo; un pedido compuesto delega lo que no hizo. En la duda, se delega.
 - **El banco de casos reales (tests/fixtures/banco-grupos-2910.json) se corre antes de tocar el clasificador**
   (`scripts/banco-clases.mts`): los ejemplos del prompt salen sólo del 60 % de ajuste; el 40 % retenido no se mira.
 

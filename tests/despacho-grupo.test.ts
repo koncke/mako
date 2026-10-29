@@ -21,8 +21,12 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ACCIONES_SIMPLES, WS_CON_CUIDADO, delegaLaAccion, esAccionSimple, negocioLeido, preguntaUnDato, respuestaDeLaDelegacion, respuestaDelDebug,
+  ACCIONES_CON_PANTALLA, ACCIONES_SIMPLES, MIN_SIN_TOMAR, WS_CON_CUIDADO, delegaLaAccion, delegadosParaAvisar, esAccionSimple, faltaAlgunaParte,
+  lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, preguntaUnDato, respuestaDeLaDelegacion, respuestaDelDebug, textoDelegadoSinTomar,
+  viajaEnLaAccion, type DelegadoSinTomar,
 } from '../lib/despacho-grupo';
+import { rechazoSiNoEsConfirmacionPura } from '../lib/confirmacion-pura';
+import { leerClase } from '../lib/mako-intencion-ia';
 import { hechosDelDiagnostico } from '../lib/diagnostico-negocio';
 import { numerosSinFuente, noLoPuedeHacer, sanearSalida, SIN_HACER, SIN_HACER_SIN_PROMESA } from '../lib/doer-salida';
 import { hitosDeLosTickets, textoDelAviso, sanearContexto } from '../lib/tickets-reglas';
@@ -186,4 +190,67 @@ test('8. lo que salió en producción para cada pedido: el hito de la bitácora,
   const { REGISTROS_SLUGS, registroDe } = await import('../app/admin/dev/registros');
   const reales = hitosDeLosTickets(REGISTROS_SLUGS.map((slug) => ({ bitacora: registroDe(slug).bitacora })));
   assert.match(reales.get(30)?.titulo ?? '', /^MaKo ya no te ofrece hacer lo que no puede/);
+});
+
+test('9. la llamada con Thiago: qué hace MaKo desde el grupo, qué confirma en pantalla y qué se aprueba en la app', async () => {
+  // Directo: replicar y analizar una landing, pausar o prender una campaña o un anuncio. Con pantalla: el presupuesto. En la app: el
+  // WhatsApp a un lead. Lo demás (crear una campaña, una automatización), delegado.
+  for (const n of ['replicar_landing', 'analizar_landing', 'proponer_estado_campana', 'proponer_estado_anuncio']) assert.ok(esAccionSimple(n), `${n} no es directa`);
+  for (const n of ['proponer_presupuesto_campana', 'proponer_presupuesto_conjunto']) {
+    assert.ok(ACCIONES_CON_PANTALLA.has(n) && !esAccionSimple(n), `${n}: el presupuesto es plata, va por pantalla`);
+    assert.ok(viajaEnLaAccion(n));
+  }
+  assert.ok(viajaEnLaAccion('enviar_borrador_whatsapp') && !esAccionSimple('enviar_borrador_whatsapp'));
+  for (const n of ['crear_automatizacion', 'crear_campana', 'borrar_landing']) assert.ok(!viajaEnLaAccion(n), `${n} viaja en la ACCIÓN`);
+  // Los de pantalla y el de la app son herramientas de verdad, y el presupuesto sigue con su pantalla en el registro.
+  const ads = leer('lib/api-mako/areas/ads.def.ts');
+  for (const n of ACCIONES_CON_PANTALLA) assert.match(ads, new RegExp(`id: '${n}', [^\\n]*confirmacion: 'pantalla', pantalla: '/mako/revisar'`));
+  assert.match(leer('lib/api-mako/areas/chats.def.ts'), /id: 'enviar_borrador_whatsapp', aTerceros: true/);
+});
+
+test('10. el WhatsApp a un lead no sale con un «sí» por WhatsApp: se aprueba con un toque en la app', () => {
+  // Rota: sin `SE_APRUEBAN_EN_LA_APP` en la puerta → un «sí» puro en el grupo manda el WhatsApp al lead.
+  const base = { canal: 'whatsapp', aTerceros: true, titulo: 'Enviar el WhatsApp', resumen: 'WhatsApp a Juan' };
+  assert.match(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí', id: 'enviar_borrador_whatsapp' }) ?? '', /sale sólo cuando lo aprueban con un toque en la app/);
+  assert.match(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'dale, mandalo', id: 'enviar_borrador_whatsapp' }) ?? '', /un «sí» por WhatsApp no alcanza/);
+  // En la app (el toque ES la aprobación), pasa; y las otras de `aTerceros` siguen con el «sí» puro.
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, canal: 'app', mensaje: null, id: 'enviar_borrador_whatsapp' }), null);
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, titulo: 'Mandar el email', mensaje: 'sí', id: 'enviar_email_alumno' }), null);
+  // Las dos puertas (la del registro y la del doer) le pasan el id.
+  assert.match(sinComentarios(leer('lib/api-mako/acciones.ts')), /rechazoSiNoEsConfirmacionPura\(\{[\s\S]{0,600}?id: def\?\.id,/);
+  assert.match(sinComentarios(leer('lib/mako-doer-acciones.ts')), /rechazoSiNoEsConfirmacionPura\(\{[\s\S]{0,600}?id: defReg\?\.id,/);
+  // Y en el grupo, la línea con el link a Pendientes la escribe el código.
+  assert.equal(lineaApruebaEnLaApp('https://hola-mako.com/mako/pendientes?ws=10'), 'Ese WhatsApp sale cuando lo apruebas con un toque aquí 👉 https://hola-mako.com/mako/pendientes?ws=10');
+  assert.match(sinComentarios(leer('lib/mako-doer-in.ts')), /escriturasDelTurno\.some\(\(n\) => SE_APRUEBAN_EN_LA_APP\.has\(n\)\)[^\n]*\n\s*respuesta = `\$\{respuesta\}\\n\\n\$\{lineaApruebaEnLaApp\(linkApp\('\/mako\/pendientes', wsData\)\)\}`;/);
+});
+
+test('11. el pedido compuesto: la IA lista las partes, y si el turno hizo menos, lo demás se delega', () => {
+  assert.deepEqual(leerClase('{"clase":"ACCION","resumen":"r","partes":["mover la reunión","mandarle un WhatsApp"]}')?.partes, ['mover la reunión', 'mandarle un WhatsApp']);
+  assert.equal(leerClase('{"clase":"ACCION","resumen":"r","partes":["una sola"]}')?.partes, undefined, 'una sola parte no es compuesto');
+  assert.equal(leerClase('{"clase":"ACCION","resumen":"r","partes":null}')?.partes, undefined);
+  assert.deepEqual(leerClase('{"clase":"ACCION","resumen":"r","partes":["a",3,"","b"]}')?.partes, ['a', 'b']);
+  // Rota: `faltaAlgunaParte` con `<=` → con las dos partes hechas, igual se delega.
+  assert.ok(faltaAlgunaParte(['mover', 'whatsapp'], 1));
+  assert.ok(!faltaAlgunaParte(['mover', 'whatsapp'], 2));
+  assert.ok(!faltaAlgunaParte(['mover', 'whatsapp'], 0), 'sin nada hecho, se delega entero por `delegaLaAccion`');
+  assert.ok(!faltaAlgunaParte(['una'], 0));
+  assert.equal(lineaDeLoQueFalta(7), 'Lo demás que me pediste lo pasé al equipo de MaKo (pedido #7). Te aviso por aquí cuando esté.');
+});
+
+test('12. un pedido delegado que nadie tomó en 30 minutos: un aviso en su grupo, uno solo', () => {
+  // Rota: sin el filtro de `yaAvisados` → el aviso sale cada 15 minutos.
+  const ahora = Date.parse('2026-10-29T21:00:00Z');
+  const hace = (min: number) => new Date(ahora - min * 60_000).toISOString();
+  const f = (id: number, min: number, extra: Partial<DelegadoSinTomar> = {}): DelegadoSinTomar => ({ id, workspace_id: 10, titulo: 'Crear la automatización', estado: 'esperando_decision', created_at: hace(min), canal: 'whatsapp', contexto: { delegado: true }, ...extra });
+  const filas = [
+    f(1, 31), f(2, 29), f(3, 60, { estado: 'en_curso' }), f(4, 45, { contexto: {} }), f(5, 45, { canal: 'chat_app' }), f(6, 7 * 60), f(7, 40), f(8, 120, { estado: 'nuevo' }),
+  ];
+  assert.deepEqual(delegadosParaAvisar(filas, new Set([7]), ahora).map((x) => x.id), [1, 8]);
+  assert.equal(MIN_SIN_TOMAR, 30);
+  assert.equal(textoDelegadoSinTomar(12, 'Crear la automatización de bienvenida.'), 'Tu pedido #12 («Crear la automatización de bienvenida») todavía no lo tomó nadie del equipo: sigue en la fila. Cuando esté, te aviso por aquí.');
+  // El cron de tickets lo corre, y cada aviso deja su renglón (`demora_avisada`) aunque no haya salido.
+  assert.match(sinComentarios(leer('app/api/cron/tickets/route.ts')), /const demorados = await avisarDelegadosSinTomar\(\)\.catch\(/);
+  const c = sinComentarios(leer('lib/tickets-cierre.ts'));
+  assert.match(c, /export async function avisarDelegadosSinTomar\(/);
+  assert.match(c, /await db\.from\('ticket_eventos'\)\.insert\(\{\n\s*ticket_id: f\.id, actor: 'sistema', tipo: TIPO_DEMORA_AVISADA,/);
 });

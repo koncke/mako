@@ -24,7 +24,9 @@ import { confirmacionPura } from './confirmacion-pura';
 export const CLASES = ['PREGUNTA', 'ACCION', 'TICKET', 'DEBUG', 'CHARLA', 'NO_REPLY'] as const;
 export type Clase = (typeof CLASES)[number];
 /** `negocio`: el negocio cliente del que se habla, si lo nombra (lo usa el DEBUG para mirarlo con `diagnosticar_negocio`). */
-export type ClaseDelModelo = { clase: Clase; resumen: string; reenviado: boolean; secundaria?: Clase; negocio?: string };
+/** `partes` (29/10/2026, el pedido compuesto: «moveme la reunión y mandale un WhatsApp»): cada cosa que pide, si pide más de una. El
+ *  turno de la ACCIÓN hace las que puede y lo demás se delega (lib/despacho-grupo.ts, `faltaAlgunaParte`). */
+export type ClaseDelModelo = { clase: Clase; resumen: string; reenviado: boolean; secundaria?: Clase; negocio?: string; partes?: string[] };
 
 /** Lo que el clasificador sabe del mensaje. El texto es el del turno: con sus marcas (REENVIADO, la cita, el audio, la imagen). */
 export type EntradaDeClase = {
@@ -66,6 +68,7 @@ export const SYSTEM_DE_CLASE = [
   '6. Si MaKo acaba de pedir un «sí» y la persona confirma, corrige o cancela eso, es ACCION.',
   '7. Un reporte dirigido a alguien del equipo por su nombre («Hola Martín, probamos X y falla Y») es TICKET. Un saludo o un gracias suelto a alguien del equipo es NO_REPLY.',
   '8. Un link o un archivo sin decir para qué es PREGUNTA (hay que ver qué es y preguntarle para qué lo manda).',
+  '9. Si pide VARIAS cosas («moveme la reunión y mandale un WhatsApp»), pon cada una en "partes", en pocas palabras. Si pide una sola, "partes" es null.',
   '',
   // Los ejemplos son del 60 % de AJUSTE del banco (tests/fixtures/banco-grupos-2910.json): el 40 % retenido no se mira al ajustar.
   'Ejemplos de grupos reales:',
@@ -78,7 +81,7 @@ export const SYSTEM_DE_CLASE = [
   '- «Esto habla solo ? @joan» → NO_REPLY.',
   '',
   'Contesta SÓLO con un objeto JSON en una línea, sin texto antes ni después y sin explicar:',
-  '{"clase":"PREGUNTA|ACCION|TICKET|DEBUG|CHARLA|NO_REPLY","resumen":"una oración, en español, de lo que pide","reenviado":true|false,"secundaria":null|"<otra clase>","negocio":null|"<el negocio cliente o la persona de la que se habla, si se nombra>"}',
+  '{"clase":"PREGUNTA|ACCION|TICKET|DEBUG|CHARLA|NO_REPLY","resumen":"una oración, en español, de lo que pide","reenviado":true|false,"secundaria":null|"<otra clase>","negocio":null|"<el negocio cliente o la persona de la que se habla, si se nombra>","partes":null|["<cada cosa que pide, si son varias>"]}',
 ].join('\n');
 
 /** El mensaje del usuario para el clasificador: el contexto que decide, y el mensaje cercado (es DATO, no instrucciones). */
@@ -106,6 +109,13 @@ const aClase = (x: unknown): Clase | null => {
   return (CLASES as readonly string[]).includes(k) ? (k as Clase) : SINONIMOS[k] ?? null;
 };
 
+/** Las partes de un pedido compuesto: sólo con dos o más (una sola no es compuesto), hasta 5, cada una corta. */
+const partesDe = (x: unknown): { partes?: string[] } => {
+  if (!Array.isArray(x)) return {};
+  const ps = x.filter((p): p is string => typeof p === 'string' && !!p.trim()).slice(0, 5).map((p) => recortar(p, 120));
+  return ps.length >= 2 ? { partes: ps } : {};
+};
+
 /**
  * La salida del modelo, leída SIN adivinar: el primer objeto JSON del texto, una clase de la lista (sin distinguir mayúsculas). Lo que
  * no se puede leer es null — nunca una clase por default: quien llama se queda con las reglas.
@@ -126,6 +136,7 @@ export function leerClase(texto: string): ClaseDelModelo | null {
     reenviado: o.reenviado === true,
     ...(sec && sec !== clase ? { secundaria: sec } : {}),
     ...(typeof o.negocio === 'string' && o.negocio.trim() ? { negocio: recortar(o.negocio, 80) } : {}),
+    ...partesDe(o.partes),
   };
 }
 

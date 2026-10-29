@@ -303,6 +303,7 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   const rechazoATercero = rechazoSiNoEsConfirmacionPura({
     canal: ctx.canal, aTerceros: def && esAccion(def) ? def.aTerceros : undefined, plata: def && esAccion(def) ? def.plata : undefined, mensaje: ctx.mensajeUsuario, titulo: def?.titulo ?? p.tipo, resumen: p.resumen,
     enElGrupo: ctx.enElGrupo ? { pidio: p.pidio ?? null, confirma: ctx.enElGrupo.quien, aMaKo: ctx.enElGrupo.aMaKo } : undefined,
+    id: def?.id,
   });
   if (rechazoATercero) return { error: rechazoATercero };
 

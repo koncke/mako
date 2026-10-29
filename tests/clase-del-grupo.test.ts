@@ -15,7 +15,9 @@
 //      «pedido» marcado `delegado`, con la respuesta fija;
 //   7. DEBUG: sólo en el grupo de SuperAdmin, lo resuelve el código (sin turno); afuera es una PREGUNTA;
 //   8. el #30 de Leandro: la pregunta por un arreglo ve lo que salió en producción, y «pídemelo otra vez y lo hago» no sale ante
-//      lo que MaKo no puede hacer.
+//      lo que MaKo no puede hacer;
+//   9. la llamada con Thiago (docs/promesas/2910-llamada-thiago.md): replicar una landing la hace MaKo (corre la herramienta, deja
+//      la pendiente, no delega); pausar/prender y el presupuesto viajan en la ACCIÓN; un pedido compuesto delega lo que no hace.
 //
 // Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base 7/7; restaurado con .rotura-bak): sin la delegación
 // → 6 · la ACCIÓN con todas las escrituras → 6 · sin el chequeo de los números → 5 · el DEBUG sin el deny → 7 · el DEBUG con el turno
@@ -30,7 +32,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ACCIONES_SIMPLES } from '../lib/despacho-grupo';
 
-type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[] }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } } }> };
+type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[] }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; pendientes: Array<{ tipo: string; resumen: string }>; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } } }> };
 let cache: Record<string, Escena> | null = null;
 function escena(k: string): Escena {
   if (!cache) {
@@ -160,4 +162,29 @@ test('7. DEBUG: lo resuelve el código en el grupo de SuperAdmin, sin turno; afu
   const a = escena('debugAfuera');
   assert.equal(a.turno.length, 1, 'afuera del grupo de SuperAdmin, un DEBUG no es un DEBUG');
   assert.deepEqual(a.turno[0].tools.filter((t) => t === 'diagnosticar_negocio' || ESCRIBEN.test(t)), []);
+});
+
+test('9. la llamada con Thiago: replicar una landing y las campañas se hacen desde el grupo; un pedido compuesto no pierde una parte', () => {
+  // Rota: sacar `replicar_landing` de ACCIONES_SIMPLES (lib/despacho-grupo.ts) → no viaja, el turno no la corre y se DELEGA (lo que
+  // rompía lo que Martín mostró: «desde el grupo, lo que quieras»).
+  const r = escena('replicarLanding');
+  assert.ok(r.turno[0]?.tools.includes('replicar_landing'), `replicar_landing no viajó: ${r.turno[0]?.tools.join(', ')}`);
+  assert.equal(r.turno.length, 2, 'el turno no corrió la herramienta (tool_call y respuesta)');
+  assert.ok(r.pendientes.some((p) => p.tipo === 'replicar_landing'), 'la réplica no quedó propuesta');
+  assert.equal(r.tickets.length, 0, 'se delegó lo que MaKo hace sola');
+  assert.deepEqual(r.salio, ['Te dejo la réplica de la landing propuesta: respóndeme «sí» y la armo.']);
+  // Pausar o prender, directo; el presupuesto, con su pantalla (/mako/revisar). Las cuatro viajan en la ACCIÓN.
+  const c = escena('campanas');
+  for (const t of ['proponer_estado_campana', 'proponer_estado_anuncio', 'proponer_presupuesto_campana', 'proponer_presupuesto_conjunto']) {
+    assert.ok(c.turno[0]?.tools.includes(t), `${t} no viajó en la ACCIÓN: ${c.turno[0]?.tools.join(', ')}`);
+  }
+  // Rota: sin `faltaAlgunaParte` en procesarDoer → la automatización se pierde en silencio.
+  const k = escena('compuesto');
+  assert.equal(k.tickets.length, 1, 'la parte que MaKo no hace no quedó en ningún lado');
+  const t = k.tickets[0];
+  assert.equal(t.tipo, 'pedido');
+  assert.equal((t.contexto as { delegado?: unknown }).delegado, true);
+  assert.match(t.titulo, /^Lo que faltó de: replicar la landing https:\/\/ejemplo\.com\/oferta; crear una automatización de bienvenida/);
+  assert.match(t.descripcion, /Lo que MaKo YA hizo o dejó propuesto en el grupo \(no lo repitas\): replicar_landing\./);
+  assert.deepEqual(k.salio, [`Te dejo la réplica de la landing propuesta.\n\nLo demás que me pediste lo pasé al equipo de MaKo (pedido #${t.id}). Te aviso por aquí cuando esté.`]);
 });

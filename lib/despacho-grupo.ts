@@ -15,10 +15,12 @@
 // («Pedido delegado #N»); el Cerebro elige el jefe, el modelo y el esfuerzo, y al cerrarlo el aviso le llega al grupo (el «listo»).
 // =============================================================================
 
+import { SE_APRUEBAN_EN_LA_APP } from './confirmacion-pura';
+
 /**
  * Las escrituras SIMPLES: una sola fila o un solo evento, reversibles, con su confirmación de siempre. Lo que no está aquí se delega.
- * Afuera a propósito: lo que mueve plata (links de pago, reembolsos, bajas, suscripciones), lo que cancela, lo de las campañas y las
- * automatizaciones, y lo que cambia varias cosas a la vez.
+ * Afuera a propósito: lo que mueve plata (links de pago, reembolsos, bajas, suscripciones; el presupuesto va por pantalla), lo que
+ * cancela, crear o editar campañas y automatizaciones, y lo que cambia varias cosas a la vez.
  */
 export const ACCIONES_SIMPLES: ReadonlySet<string> = new Set([
   // El CRM: una ficha, una etapa, una nota, una etiqueta, quién la atiende.
@@ -31,9 +33,63 @@ export const ACCIONES_SIMPLES: ReadonlySet<string> = new Set([
   'proponer_tareas_plan', 'mover_tarea_plan', 'cambiar_fecha_tarea_plan', 'actualizar_avance_tarea',
   // El «sí» y el «no» a lo que MaKo ya propuso.
   'confirmar_accion', 'cancelar_accion',
+  // LO QUE MARTÍN MOSTRÓ EN LA LLAMADA CON THIAGO (29/10/2026, el Cerebro: docs/promesas/2910-llamada-thiago.md, «desde el grupo, lo
+  // que quieras»): replicar y analizar una landing (deja un borrador en el Web Generator, se puede borrar) y pausar o prender una
+  // campaña o un anuncio (reversible; mueve plata, así que el «sí» es el puro de quien la pidió). El estado de las campañas es lectura
+  // y ya viaja.
+  'replicar_landing', 'analizar_landing', 'proponer_estado_campana', 'proponer_estado_anuncio',
 ]);
 
 export const esAccionSimple = (nombre: string): boolean => ACCIONES_SIMPLES.has(nombre);
+
+/**
+ * LO QUE SE CONFIRMA EN UNA PANTALLA: cambiar un presupuesto (es plata). MaKo lo propone desde el grupo y el link lleva a
+ * /mako/revisar, donde se aprueba (`confirmacion: 'pantalla'` en lib/api-mako/areas/ads.def.ts): no se delega, y por WhatsApp no
+ * se confirma.
+ */
+export const ACCIONES_CON_PANTALLA: ReadonlySet<string> = new Set(['proponer_presupuesto_campana', 'proponer_presupuesto_conjunto']);
+
+/** ¿Viaja en el turno de una ACCIÓN? Las simples, las de pantalla y el WhatsApp a un lead (que se aprueba en la app). */
+export const viajaEnLaAccion = (nombre: string): boolean =>
+  ACCIONES_SIMPLES.has(nombre) || ACCIONES_CON_PANTALLA.has(nombre) || SE_APRUEBAN_EN_LA_APP.has(nombre);
+
+/** La línea que va cuando quedó propuesto un WhatsApp a un lead: sale con un toque en la app, nunca con un «sí» por aquí. */
+export const lineaApruebaEnLaApp = (link: string): string => `Ese WhatsApp sale cuando lo apruebas con un toque aquí 👉 ${link}`;
+
+// ── EL PEDIDO COMPUESTO («moveme la reunión y mandale un WhatsApp», la llamada con Thiago) ─────────────────────────────────────────
+// La IA lista las PARTES de lo que pide (`partes`, lib/mako-intencion-ia.ts). El turno hace lo que puede; si hizo menos escrituras o
+// propuestas que partes, lo demás va al equipo como pedido delegado. Nunca se pierde una parte en silencio. Por cantidad, a propósito:
+// no se adivina qué parte fue cuál, y delegar de más cuesta un ticket; perder una parte cuesta la promesa.
+
+/** ¿Quedó alguna parte sin hacer ni proponer? `hechas`: las escrituras o propuestas que corrieron en el turno. */
+export function faltaAlgunaParte(partes: readonly string[], hechas: number): boolean {
+  return partes.length >= 2 && hechas > 0 && hechas < partes.length;
+}
+
+/** La línea que dice que lo demás se delegó. El número lo escribe el código. */
+export const lineaDeLoQueFalta = (id: number): string => `Lo demás que me pediste lo pasé al equipo de MaKo (pedido #${id}). Te aviso por aquí cuando esté.`;
+
+// ── EL PEDIDO DELEGADO QUE NADIE TOMÓ (el Cerebro, 29/10/2026: «si un pedido delegado no se toma en 30 minutos, MaKo avisa») ──────────
+
+export const MIN_SIN_TOMAR = 30;
+/** Sólo los de hoy: un delegado de hace días ya no se avisa (y en el primer deploy no sale una tanda de viejos). */
+export const HORAS_MAX_SIN_TOMAR = 6;
+
+export type DelegadoSinTomar = { id: number; workspace_id: number; titulo: string; estado: string; created_at: string; canal: string | null; contexto: unknown };
+
+/** Los delegados por WhatsApp que siguen sin tomar (nuevos o esperando la decisión) entre 30 minutos y 6 horas, y sin avisar. */
+export function delegadosParaAvisar(filas: readonly DelegadoSinTomar[], yaAvisados: ReadonlySet<number>, ahoraMs: number): DelegadoSinTomar[] {
+  return filas.filter((f) => {
+    const edad = ahoraMs - Date.parse(f.created_at);
+    const delegado = !!f.contexto && typeof f.contexto === 'object' && (f.contexto as { delegado?: unknown }).delegado === true;
+    return delegado && f.canal === 'whatsapp' && ['nuevo', 'esperando_decision'].includes(f.estado) && !yaAvisados.has(f.id)
+      && edad >= MIN_SIN_TOMAR * 60_000 && edad <= HORAS_MAX_SIN_TOMAR * 3600_000;
+  });
+}
+
+/** Lo que dice MaKo en el grupo. Sin promesas de hora: dice dónde está. */
+export const textoDelegadoSinTomar = (id: number, titulo: string): string =>
+  `Tu pedido #${id} («${titulo.trim().replace(/[.\s]+$/u, '').slice(0, 120)}») todavía no lo tomó nadie del equipo: sigue en la fila. Cuando esté, te aviso por aquí.`;
 
 /** ¿La respuesta termina pidiendo un dato que falta («¿a qué hora?»)? Entonces la acción simple sigue: no se delega todavía. */
 export function preguntaUnDato(respuesta: string): boolean {

@@ -49,7 +49,7 @@ import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
-import { quienEnElGrupo } from '@/lib/confirmacion-pura';
+import { quienEnElGrupo, SE_APRUEBAN_EN_LA_APP } from '@/lib/confirmacion-pura';
 import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
@@ -63,7 +63,7 @@ import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { conElReenvio, esReenviado } from '@/lib/doer-reenvio';
 import { clasificarConIA, type LlamarAlClasificador } from '@/lib/mako-intencion-ia';
 import { abrirTicketDelGrupo, respuestaDelTicket } from '@/lib/tickets-del-grupo';
-import { delegaLaAccion, esAccionSimple, negocioLeido, respuestaDeLaDelegacion, respuestaDelDebug } from '@/lib/despacho-grupo';
+import { delegaLaAccion, faltaAlgunaParte, lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, respuestaDeLaDelegacion, respuestaDelDebug, viajaEnLaAccion } from '@/lib/despacho-grupo';
 import { hechosDelDiagnostico } from '@/lib/diagnostico-negocio';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
@@ -133,6 +133,10 @@ function bloqueDeLaClase(v: VeredictoIntencion): string {
     : '';
   if (v.intencion === 'debug') {
     return `\n\nESTO ES UN DEBUG: el dueño de la plataforma te pide mirar qué le pasa a un negocio cliente, o te reenvía la consulta de uno (lo REENVIADO es de ese cliente, no de quien te lo pasa: no le hables como si la duda fuera suya). Averigua de qué negocio es (si no se sabe, pregúntalo en una línea) y míralo con diagnosticar_negocio. Contesta con los HECHOS que devuelve (qué tiene conectado, qué falla y desde cuándo), sin consejos genéricos. Si es una falla de MaKo, márcala con [[no-pude: …]] con la evidencia.${ticket}`;
+  }
+  if (v.intencion === 'actuar' || v.intencion === 'capturar') {
+    // El despacho (lib/despacho-grupo.ts): lo que no hace con sus herramientas lo pasa el CÓDIGO al equipo. Que no lo prometa.
+    return `\n\nESTE MENSAJE PIDE UNA ACCIÓN. Hazla con tus herramientas. Si pide varias cosas, haz las que puedas y NO prometas ni anuncies el resto: lo que no hagas lo pasa el código al equipo, con su número. Un WhatsApp a un lead queda propuesto y se aprueba con un toque en la app: no le pidas un «sí» por aquí.${ticket}`;
   }
   if (v.intencion === 'consultar' || v.intencion === 'pensar') {
     return `\n\nESTE MENSAJE ES UNA PREGUNTA. Contéstala con lo que devuelven tus herramientas de lectura o con CÓMO FUNCIONA MAKO. No te apoyes en lo que crees saber: si no lo ves ahí, di en una línea que no lo sabes y marca [[no-pude: …]]. Nada de pasos genéricos («revisa tu conexión», «puede ser que…») sin haberlo mirado.${ticket}`;
@@ -737,7 +741,8 @@ function conLaMarcaDelAdjunto(p: MsgIn, t: string): string {
 function clasificadorDelGrupo(recorte: string): LlamarAlClasificador {
   return async (system, usuario) => {
     const una = async (cuenta?: string): Promise<string> => (await chatClaudeTools(system, [{ role: 'user', content: usuario }], [], async () => '', {
-      feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 1, maxTokens: 200,
+      // 300: con las `partes` de un pedido compuesto, el JSON pasa los 200 (cortado no se lee y mandan las reglas).
+      feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 1, maxTokens: 300,
       motivo: `Clasificar el mensaje del grupo${cuenta ? ` (${cuenta})` : ''} «${recorte}»`,
     })).text ?? '';
     try { return await una(); } catch (e) {
@@ -1837,10 +1842,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const conFuncion = pideFuncion && !conAgenda.some((t) => t.name === MIS_TICKETS) ? [...conAgenda, ...MIS_TICKETS_TOOLS] : conAgenda;
     // La clase que decidió la IA (29/10/2026): una PREGUNTA sólo con lecturas (el DEBUG ya salió arriba, resuelto por el código).
     const soloLeer = intencion.fuente === 'ia' && ['consultar', 'pensar'].includes(intencion.intencion);
-    // Una ACCIÓN que decidió la IA (lib/despacho-grupo.ts): las lecturas y las escrituras SIMPLES, nada más. Lo otro se delega.
+    // Una ACCIÓN que decidió la IA (lib/despacho-grupo.ts): las lecturas, las escrituras SIMPLES, el presupuesto (se confirma en
+    // /mako/revisar) y el WhatsApp a un lead (se aprueba en la app). Lo otro se delega.
     const esAccionIA = intencion.fuente === 'ia' && (intencion.intencion === 'actuar' || intencion.intencion === 'capturar');
     const leidas = soloLeer ? conFuncion.filter((t) => !escribe(t.name))
-      : esAccionIA ? conFuncion.filter((t) => !escribe(t.name) || esAccionSimple(t.name)) : conFuncion;
+      : esAccionIA ? conFuncion.filter((t) => !escribe(t.name) || viajaEnLaAccion(t.name)) : conFuncion;
     const tools = leidas;
     const { ofrece } = turno;
     const ctxFalla = (reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '')
@@ -2031,7 +2037,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     /** Lo que devolvieron las herramientas del turno, como texto: con esto (y el system y el mensaje) se chequean los números de una
      *  consulta (`numerosSinFuente`). */
     const salidasDelTurno: string[] = [];
-    const anotarSalida = (out: unknown): void => { salidasDelTurno.push(typeof out === 'string' ? out : JSON.stringify(out ?? '')); };
+    /** Las escrituras y propuestas que CORRIERON en el turno (sin el «sí» y el «no» a lo de antes): cuántas partes de un pedido
+     *  compuesto se hicieron (`faltaAlgunaParte`), y si quedó propuesto un WhatsApp a un lead (`SE_APRUEBAN_EN_LA_APP`). */
+    const escriturasDelTurno: string[] = [];
+    const anotarSalida = (name: string, out: unknown): void => {
+      salidasDelTurno.push(typeof out === 'string' ? out : JSON.stringify(out ?? ''));
+      if (escribe(name) && name !== 'confirmar_accion' && name !== 'cancelar_accion') escriturasDelTurno.push(name);
+    };
     /**
      * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
      * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
@@ -2055,7 +2067,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
         // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
-        anotarSalida(previo.out);
+        anotarSalida(name, previo.out);
         anotarLaUltima(name, previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
@@ -2077,7 +2089,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       anotarLaUltima(name, out);
       if (esFallaTragadaDeHerramienta(out)) tragadasDelTurno++;
-      anotarSalida(out);
+      anotarSalida(name, out);
       // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
       if (name !== LEVANTAR_TICKET) {
         const errTicket = errorParaTicket(name, out);
@@ -3002,6 +3014,27 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         clasificacion: { clase: 'TICKET', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' },
       }).catch(() => null);
       if (abierto) respuesta = `${respuesta}\n\n${respuestaDelTicket(abierto, intencion.ticket.resumen)}`;
+    }
+    // EL PEDIDO COMPUESTO (29/10/2026, la llamada con Thiago: «moveme la reunión y mandale un WhatsApp»; lib/despacho-grupo.ts): si
+    // la IA listó varias partes y el turno hizo o propuso menos, lo demás va al equipo como pedido delegado, con lo que ya se hizo.
+    // Nunca se pierde una parte en silencio. La línea la escribe el código, después del saneo.
+    const partes = claseDeLaIA?.partes ?? [];
+    if (esAccionIA && respuesta && !avisoDeSistema && !textoFijo && faltaAlgunaParte(partes, escriturasDelTurno.length)) {
+      const abierto = await abrirTicketDelGrupo({
+        ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+        resumen: `Lo que faltó de: ${partes.join('; ')}`.slice(0, 200), pedido: sinPrefijoDeLote(texto),
+        ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
+        clasificacion: { clase: 'ACCION', porque: intencion.porque, fuente: 'ia' }, delegado: true, hecho: escriturasDelTurno,
+      }).catch(() => null);
+      if (abierto) {
+        void recordUsage('clase-doer', 'clase:delegada-parte', {}, `ws${wsData} · pedido #${abierto.id} · ${escriturasDelTurno.length} de ${partes.length} partes`.slice(0, 200), 'mako', 1).catch(() => {});
+        respuesta = `${respuesta}\n\n${lineaDeLoQueFalta(abierto.id)}`;
+      }
+    }
+    // EL WHATSAPP A UN LEAD SE APRUEBA EN LA APP (lib/confirmacion-pura.ts, `SE_APRUEBAN_EN_LA_APP`): si quedó propuesto, el link a
+    // Pendientes lo pone el código; un «sí» por acá no lo manda.
+    if (respuesta && !avisoDeSistema && escriturasDelTurno.some((n) => SE_APRUEBAN_EN_LA_APP.has(n)) && !respuesta.includes('/mako/pendientes')) {
+      respuesta = `${respuesta}\n\n${lineaApruebaEnLaApp(linkApp('/mako/pendientes', wsData))}`;
     }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan

@@ -20,6 +20,7 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro } from './tickets-db';
+import { HORAS_MAX_SIN_TOMAR, MIN_SIN_TOMAR, delegadosParaAvisar, textoDelegadoSinTomar, type DelegadoSinTomar } from './despacho-grupo';
 import { aprobadoPorRegla, hitosDeLosTickets, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
@@ -29,6 +30,45 @@ export type HitoDeTicket = { area: string; titulo: string };
 /** Los tickets que nombra alguna bitácora DESPLEGADA (la de este build), con el hito que los arregla. */
 export function ticketsDesplegados(): Map<number, HitoDeTicket> {
   return ticketsDeHitos(REGISTROS_SLUGS.map((slug) => ({ area: slug, bitacora: registroDe(slug).bitacora })));
+}
+
+/** El renglón del historial de un delegado al que ya se le avisó la demora: un aviso por pedido, nunca uno cada 15 minutos. */
+export const TIPO_DEMORA_AVISADA = 'demora_avisada';
+
+/**
+ * EL PEDIDO DELEGADO QUE NADIE TOMÓ (29/10/2026, el Cerebro, por la llamada con Thiago: «si un pedido delegado no se toma en 30
+ * minutos, MaKo avisa en el grupo»; lib/despacho-grupo.ts). Lo corre el cron de tickets (cada 15 minutos): los delegados por
+ * WhatsApp que siguen nuevos o esperando la decisión entre 30 minutos y 6 horas reciben UN aviso en su grupo. El renglón del
+ * historial va aunque el aviso no salga (sin grupo, Evolution caída): /tickets dice el estado, y reintentar cada 15 minutos sería
+ * ruido. Devuelve cuántos salieron.
+ */
+export async function avisarDelegadosSinTomar(ahoraMs = Date.now()): Promise<number> {
+  const db = getSupabaseServer();
+  const desde = new Date(ahoraMs - HORAS_MAX_SIN_TOMAR * 3600_000).toISOString();
+  const hasta = new Date(ahoraMs - MIN_SIN_TOMAR * 60_000).toISOString();
+  const { data, error } = await db.from(T).select('id, workspace_id, titulo, estado, created_at, canal, contexto')
+    .in('estado', ['nuevo', 'esperando_decision']).eq('canal', 'whatsapp').gte('created_at', desde).lte('created_at', hasta)
+    .order('created_at', { ascending: true }).limit(50);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as DelegadoSinTomar[];
+  if (!filas.length) return 0;
+  const { data: ev, error: eEv } = await db.from('ticket_eventos').select('ticket_id').in('ticket_id', filas.map((f) => f.id)).eq('tipo', TIPO_DEMORA_AVISADA);
+  // Sin poder leer a quién ya se avisó, no se avisa: mejor ninguno que uno repetido cada 15 minutos.
+  if (eEv) throw new Error(eEv.message);
+  const avisados = new Set((ev ?? []).map((e) => Number(e.ticket_id)));
+  let salieron = 0;
+  for (const f of delegadosParaAvisar(filas, avisados, ahoraMs)) {
+    const { enviarAlGrupoMaKo } = await import('./mako-grupo');
+    const r = await enviarAlGrupoMaKo(Number(f.workspace_id), textoDelegadoSinTomar(f.id, f.titulo), { de: 'equipo', ticket: f.id })
+      .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    await db.from('ticket_eventos').insert({
+      ticket_id: f.id, actor: 'sistema', tipo: TIPO_DEMORA_AVISADA,
+      texto: r.ok ? 'Sin tomar a los 30 minutos: se le avisó en su grupo.' : `Sin tomar a los 30 minutos: el aviso no salió (${'error' in r ? String(r.error).slice(0, 160) : 'sin detalle'}).`,
+      datos: null,
+    });
+    if (r.ok) salieron++;
+  }
+  return salieron;
 }
 
 /** Lo que salió en ESTE build para cada ticket, con sus puntos: lo lee el turno del grupo (`PedidoDelNegocio.desplegado`). */

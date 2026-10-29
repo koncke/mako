@@ -739,4 +739,23 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [30],
   },
+  {
+    fecha: '29 oct', hora: '20:30', chat: 'MaKo en WhatsApp', sesion: 'local_cf058ed5-4fbb-41b8-b1f9-93030d11d1a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Desde el grupo, MaKo replica tus landings y pausa tus campañas; el presupuesto y el WhatsApp a un lead se aprueban en la app',
+    puntos: [
+      'Lo que Martín mostró en la llamada con Thiago («desde el grupo, lo que quieras», «replicame esta landing») lo hace MaKo, no lo pasa al equipo: replicar y analizar una landing, pausar o prender una campaña o un anuncio.',
+      'Cambiar un presupuesto (es plata) queda propuesto y se aprueba en /mako/revisar. Un WhatsApp a un lead queda propuesto y sale con un toque en la app: un «sí» en el grupo no lo manda.',
+      'Si le pides varias cosas a la vez, hace las que puede y lo demás lo pasa al equipo con su número: no se pierde ninguna parte.',
+      'Si nadie del equipo toma un pedido en 30 minutos, MaKo te avisa en el grupo.',
+      '**Cómo se prueba:** en el grupo de un negocio, «replícame esta landing https://…», «pausa la campaña X» y «moveme la reunión con Juan y mándale un WhatsApp».',
+    ],
+    archivos: [
+      'lib/despacho-grupo.ts — qué hace MaKo directo, qué va por pantalla, el pedido compuesto y el aviso de los 30 minutos',
+      'lib/confirmacion-pura.ts — `SE_APRUEBAN_EN_LA_APP`: el WhatsApp a un lead',
+      'lib/mako-intencion-ia.ts — las `partes` de un pedido compuesto',
+      'lib/tickets-cierre.ts + app/api/cron/tickets — `avisarDelegadosSinTomar`',
+      'tests/clase-del-grupo.test.ts — por el turno real (el modelo pide la herramienta)',
+    ],
+  },
 ];
