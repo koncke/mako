@@ -31,7 +31,8 @@ cerrados.**
   encima de 90a760e4b) hace TODO el código: topes-plan, la fila `enTodos` en la tabla, la línea de Esencial. Mío: abfe143ed, la
   tarjeta «Tu avatar con IA» SEGUNDA en el script de la #32, en el lugar de «Su visita, grabada». Leído contra la v13, vista
   previa en `C:/dev/revisiones/landing-principal-2910/propuesta-avatar/`. Lo corre el Cerebro con `--aplicar --version 13`
-  recién con esa rama DESPLEGADA.
+  recién con DOS cosas: la rama (es `ai-avatar-todos-2910`, 51ab0774a, que trae abfe143ed) DESPLEGADA, y un look generado en
+  producción. El motor nunca generó uno, según docs/hallazgos-ai-avatar.md de esa rama (7511f5f14 lo dice en el script).
 - DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
   «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
   Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
