@@ -51,6 +51,12 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
   casos; el plan a mano `ya_tenia_cuenta` sin alta). No hay chat de Planes en claude3: se le propuso al Cerebro dárselas al
   chat Zernio (`local_4a831c28`). Los dos rojos de Zernio (puente-panel-copy y cobro-lanzamiento) los arreglan `a196d5a93` y
   `94633ec58`, de Planes: entran solos al mezclar Planes.
+  **Decidido (Cerebro, 29/10):** el chat Zernio mezcla Planes `ddfa645d4` en zernio-2510 sobre `df3f9bebf` y arregla las
+  tres ALTAS con los scripts del refutador; su VERDE llega a Integración y entra TODO junto (Zernio + Planes).
+- **La difusión de Leila llega como UNA rama, `crm-difusion-2910`** (crm-lote-2810 + aut-2510 + el enganche del «⋯» de la
+  columna): se toma esa y no las dos sueltas. La 0340 ya está en la base.
+- **⚠️ Choque de número 0340:** `motion-imagen-2610` (Video/Image Editor) trae otra `0340_image_editor_propuestas.sql`. Al
+  entrar esa rama, la que se RENUMERA al siguiente libre es la del Image Editor: la del CRM es la que está en la base.
 - **Cómo se sube (igual que claude4):** `node scripts/pausa-cerebro.mjs prender "<motivo>"`, `MAKO_TIPOS_SOLO_TANDAS=1
   MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main` en segundo plano, y `apagar` al terminar. La
   rama `integracion` NO avanza main (sin Actions): el push de docs de claude4 a las 01:40 quedó ahí (`5d36f97d5`).
@@ -202,8 +208,9 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
   - **01:00: VERDE del CRM `cc47d841d`** (crm-lote-2810, sobre `23b329b5e`): las acciones en bloque del tablero, los
     tickets de Leila (eliminar → PAPELERA de 30 días, pasar a otro funnel, descalificar o perder en bloque, la columna
     entera sin el corte de 1.000) y 5 operaciones de la API.
-    - **Necesita la tabla nueva 0340 (`leads_papelera` y 5 funciones), ANTES del deploy y con el sí de Martín en el chat,
-      y un cron nuevo en vercel.json (`app/api/cron/leads-papelera`, `45 10 * * *`).**
+    - **La tabla 0340 (`leads_papelera` y 5 funciones) YA ESTÁ APLICADA (29/10, el Cerebro de claude3 con el sí de Martín en
+      su chat, desde crm-lote-2810 @ 77679ed63: leads sigue en 3017, RLS prendido, sólo service_role ejecuta las 5).** El cron
+      nuevo (`app/api/cron/leads-papelera`, `45 10 * * *`) entra con su código en vercel.json.
     - Sin verificar. Como borra y recupera datos, se mira primero que no se pierda nada.
   - **FILA DE VERIFICACIÓN al 01:00** (Automations `69b49a31c` corriendo en `wf_a92bf13a-ec9`):
     1. Zernio `854a6fda0` + Planes `ddfa645d4`, juntos;
@@ -213,7 +220,7 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
     5. MaKo inteligente, cuando lleguen sus arreglos;
     6. las tres ramas de la nube.
   - **Los sí de Martín EN EL CHAT que destraban cosas** (la base de producción): la tabla de MaKo sin conexión (0346),
-    la de publicar desde el Calendar (0342), la papelera del CRM (0340) con su cron, los dos cambios del Sprint de
+    la de publicar desde el Calendar (0342), ~~la papelera del CRM (0340)~~ (APLICADA el 29/10), los dos cambios del Sprint de
     Mauricio y lo de Brigitte. Cada uno se aplica cuando su verificación sale limpia.
   - **00:55, los límites de Zernio (pedido de Martín): DISEÑADOS, sin código** (`35df0c483`, docs/relevo/zernio-capi.md).
     La «salida gratis» (conectar otra cuenta de Zernio) NO se puede decir hoy: un negocio tiene UNA clave, y pegar otra
@@ -452,7 +459,7 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
 - **Del 29/10:** archivar desde la barra los cinco chats de la nube: la herramienta
    de archivar no los encuentra, ni por nombre ni por id. **P2P es un cliente FANTASMA** (Martín, 29/10): no se le manda
    nada.
-0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar), 0346 (sin conexión) y la de la papelera del CRM; las decisiones de la revisión de Teo.
+0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar) y 0346 (sin conexión) (la 0340 de la papelera del CRM: APLICADA el 29/10); las decisiones de la revisión de Teo.
 1. **Su sí EN ESTE CHAT para:** leer la Ticketera de producción (el clasificador la niega); activar los avisos al grupo
    (lead de formulario y agenda) en ws15, ws18, ws20 y ws22 de Joan; subir los 21 audios de Makito a un bucket.
 2. **Decisiones de plata:** cuánto se le cobra a Joan (2 de 5 clientes pagan), el precio del Acelerador (en la llamada
