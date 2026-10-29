@@ -142,7 +142,7 @@ test('6. «Hola Martin, …» es para el equipo: MaKo no contesta como él, y el
   assert.ok(e.modelo[0].system.includes(bloqueParaElEquipo('Martín')), 'el turno no sabe que el mensaje es para Martín');
   assert.match(e.salio[0] ?? '', TICKET, 'el mensaje para el equipo no dejó ticket');
   assert.equal(e.tickets.length, 1);
-  assert.match(e.tickets[0].descripcion, /gracias por avisar lo del filtro.*\(lo que le escribió a Martín, del equipo de MaKo\)/s);
+  assert.match(e.tickets[0].descripcion, /gracias por avisar lo del filtro[\s\S]*\(lo que le escribió a Martín, del equipo de MaKo\)/);
   // La clave del ticket sale de lo que pidió, no del saludo: dos mensajes a Martín no son el mismo ticket.
   assert.notEqual(e.tickets[0].ref, escena('f2').tickets[0]?.ref);
   // Un «gracias» suelto a Martín: ni 👍, ni turno.
