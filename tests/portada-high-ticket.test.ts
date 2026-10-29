@@ -73,3 +73,13 @@ test('la portada dibuja cada tarjeta con lo que NO incluye y la tabla comparativ
   assert.match(tarjeta, /<ul class="mkpl-lista mkpl-no" aria-label="No incluye">/, 'la tarjeta de Esencial no dice lo que NO incluye');
   for (const x of noIncluyeDe('completo')) assert.ok(tarjeta.includes(`<li>${x}</li>`), `Esencial: falta el ✗ de «${x}»`);
 });
+
+// ── Sin fondo azul también en el Acelerador (29/10/2026, el Cerebro con la regla de Martín: «fondo claro, el azul sólo de
+// acento»): su bloque sigue oscuro para destacarse, pero en el grafito de la app. Verificado rompiéndolo: volver al azul
+// marino → rojo.
+test('el bloque del Acelerador es grafito, no azul', () => {
+  const t = leer('app/planes/Tarjetas.tsx');
+  const regla = /\.mkpl-programa \{ background: ([^;]+);/.exec(t)?.[1] ?? '';
+  assert.match(regla, /#101319/, 'el Acelerador no tiene el fondo grafito de la app');
+  assert.doesNotMatch(regla, /#142B66|#0B1735|122,162,255/, 'el Acelerador volvió al fondo azul');
+});
