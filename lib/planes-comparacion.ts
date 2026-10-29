@@ -44,17 +44,19 @@ export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], str
   // imágenes con IA NO (lib/image-editor/chat/catalogo.ts, `NO_SE_PUEDE_CHAT_IMAGEN`; Image Generator es «pronto»).
   'image-editor': 'Diseñar tus imágenes sin salir de MaKo',
   'video-editor': 'Editar tus videos sin salir de MaKo',
-  'ai-avatar': 'Videos con una persona hecha con IA que habla por ti',
 };
 
 /**
- * Las tabs de Pro que TODAVÍA no se abrieron: no se venden (28/10/2026, lo que Martín le prometió a Teo). AI Avatar la ve sólo el
- * super admin (app/ai-avatar/acceso.ts). El día que se abra, sale de esta lista y vuelve a la tabla (lo pide el test). Los videos
- * con avatar del Video Editor, que Pro sí ve, ya están en su fila.
+ * Las tabs de Pro que TODAVÍA no se abrieron: no se venden (28/10/2026, lo que Martín le prometió a Teo). Hoy ninguna: AI Avatar
+ * (la única que estuvo acá) se abrió el 29/10/2026 a los TRES planes y ya no es de Pro (su fila es `NOMBRE_AI_AVATAR`).
  */
-export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = ['ai-avatar'];
+export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = [];
+
+/** La fila de AI Avatar en la tabla: está en los tres planes (ya no es una tab de Pro). */
+export const NOMBRE_AI_AVATAR = 'Videos con una persona hecha con IA que habla por ti';
 
 /** Lo demás que es sólo de Pro (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`), dicho igual. */
+
 export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Sumar a tu lista los contactos de tus grupos de WhatsApp',
   partners: 'Ganar el primer mes de cada negocio que traes a MaKo',
@@ -81,10 +83,12 @@ export function filasDeComparacion(): FilaComparacion[] {
     // la extensión y de los créditos de Flow del cliente, y al motor nunca se lo midió en vivo). Vuelve cuando un cliente lo use.
     // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas ideas, del tope del plan.
     filaDeTope(anuncios, 'Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'),
+    // AI Avatar, en los tres planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»). Genera con la
+    // cuenta de Google Flow de la persona: la pantalla lo dice paso a paso antes de «Generar» (lib/ai-avatar/requisitos.ts).
+    enTodos(anuncios, NOMBRE_AI_AVATAR),
     soloPro(anuncios, 'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto'),
     soloPro(anuncios, NOMBRE_TAB_PRO['image-editor']),
     soloPro(anuncios, NOMBRE_TAB_PRO['video-editor']),
-    ...(TABS_TODAVIA_CERRADAS.includes('ai-avatar') ? [] : [soloPro(anuncios, NOMBRE_TAB_PRO['ai-avatar'])]),
     filaDeTope(equipo, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
     soloPro(recomendar, NOMBRE_FUNCION_PRO.partners),

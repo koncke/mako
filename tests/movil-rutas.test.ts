@@ -101,6 +101,8 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
     ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
+    // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
+    ['ai-avatar', 'ai-avatar', 'create', false],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
@@ -125,8 +127,8 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
   // se dibuja; lo diario (las hojas del Dashboard; la portada /m/hoy la suma `masCompleto`), Sales, Marketing y Create.
   assert.deepEqual(mas('admin', 'completo'), [
     ['dashboard'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
-    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
-    ['video', 'image', 'copywriting'],
+    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video; AI Avatar (de Pro) desde el 29/10/2026.
+    ['video', 'image', 'copywriting', 'ai-avatar'],
   ]);
   // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
   assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);

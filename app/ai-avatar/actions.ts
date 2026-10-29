@@ -32,6 +32,7 @@ import { imagenesDeRespuesta } from '@/lib/flow-imagen';
 import { plantillaPorId, PLANTILLAS_AVATAR } from '@/lib/ai-avatar/plantillas';
 import { promptDelLook, limpiarDetalle } from '@/lib/ai-avatar/prompt-look';
 import { videosDelLook, type VideoDeLook } from '@/lib/ai-avatar/proyectos';
+import type { PuenteVisto } from '@/lib/ai-avatar/requisitos';
 import { estadoContextoVideo, leerHistorial, guardarEnHistorial } from '@/app/video-generator/video-datos';
 import { generarPlanAction } from '@/app/video-generator/actions';
 import { avataresDelHistorial, conAvatar, type AvatarIA } from '@/app/video-editor/avatar/avatares';
@@ -48,7 +49,12 @@ async function puerta(): Promise<{ ok: true } | { ok: false; error: string }> {
 
 // ── El puente: ¿se puede generar ahora? ─────────────────────────────────────
 
-export type EstadoPuenteAvatar = { puede: boolean; motivo: string };
+/**
+ * El puente del negocio para AI Avatar: si se puede generar ahora (`puede`, y si no, el `motivo` en una frase) y lo que la
+ * pantalla necesita para listar los pasos que faltan (lib/ai-avatar/requisitos.ts): el estado, si late y si la extensión es
+ * la que genera por la interfaz. Lo de la persona (la extensión, su Flow, su foto) se dice ANTES de «Generar».
+ */
+export type EstadoPuenteAvatar = PuenteVisto & { puede: boolean; motivo: string };
 
 /**
  * Lo mismo que exige el Video Generator antes de encolar, más una cosa: los looks salen sólo por el motor por interfaz
@@ -57,12 +63,18 @@ export type EstadoPuenteAvatar = { puede: boolean; motivo: string };
  */
 async function puenteParaAvatar(): Promise<EstadoPuenteAvatar> {
   const p = await estadoPuente().catch(() => null);
-  if (!p || p.estado === 'sin_conectar') return { puede: false, motivo: 'Conecta la extensión de MaKo para generar.' };
-  if (p.estado === 'marcada') return { puede: false, motivo: 'Google pausó tu sesión de Flow. Abre la extensión de MaKo.' };
-  if (!estaVivo(p.ultimoVisto, Date.now())) return { puede: false, motivo: 'Tu navegador dejó de responder. Abre la extensión de MaKo.' };
-  if (!usaInterfaz(p.version)) return { puede: false, motivo: 'Actualiza la extensión de MaKo para crear avatares.' };
-  if (p.estado !== 'listo') return { puede: false, motivo: 'Abre Google Flow en un proyecto, con la extensión de MaKo.' };
-  return { puede: true, motivo: '' };
+  const visto: PuenteVisto = {
+    estado: p?.estado ?? 'sin_conectar',
+    vivo: !!p && estaVivo(p.ultimoVisto, Date.now()),
+    actualizada: !!p && usaInterfaz(p.version),
+  };
+  const no = (motivo: string): EstadoPuenteAvatar => ({ ...visto, puede: false, motivo });
+  if (!p || p.estado === 'sin_conectar') return no('Conecta la extensión de MaKo para generar.');
+  if (p.estado === 'marcada') return no('Google pausó tu sesión de Flow. Abre la extensión de MaKo.');
+  if (!visto.vivo) return no('Tu navegador dejó de responder. Abre la extensión de MaKo.');
+  if (!visto.actualizada) return no('Actualiza la extensión de MaKo para crear avatares.');
+  if (p.estado !== 'listo') return no('Abre Google Flow con tu cuenta, desde el ícono de MaKo.');
+  return { ...visto, puede: true, motivo: '' };
 }
 
 // ── Lo que dibuja la tab ─────────────────────────────────────────────────────

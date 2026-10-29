@@ -95,7 +95,10 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       `Tu CRM: ${n(T.completo['crm.funnels'])} embudo de ventas y hasta ${n(T.completo['crm.leads'])} contactos`,
       `${n(T.completo['chats.lineas_whatsapp'])} WhatsApp más Instagram, en una sola bandeja`,
       `Hasta ${n(T.completo['automations.activas'])} automatizaciones de mensajes y ${n(T.completo['web.landings_publicadas'])} páginas de venta`,
-      'Tu oferta armada con IA, tu agenda, tus tareas y tus cobros',
+      // 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»): el avatar, en los tres planes (Pro y el Acelerador lo
+      // heredan). Va en este renglón y no en uno propio: el programa tiene que traer más renglones que cualquier plan
+      // (tests/planes-tres-bloques.test.ts, «el acompañamiento se ve DISTINTO y con más»).
+      'Tu oferta armada con IA, tu agenda, tus tareas, tus cobros y tu avatar con IA (tu cara, hablando con tu guion)',
       `Tu media buyer con IA: ${n(T.completo['ads.recomendaciones_dia'])} recomendaciones por día para tus anuncios, y tú decides si las aplicas`,
     ],
     activo: true,
@@ -113,8 +116,8 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
       // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
       'Todo lo de Esencial, sin tope de contactos, páginas ni automatizaciones',
-      // 29/10/2026 (el taller del Cerebro): crear campañas desde MaKo ya no existe, y los avatares con IA no se venden desde el
-      // 28/10 (`TABS_TODAVIA_CERRADAS`). Lo que Pro sí trae: el media buyer que aplica solo y el Video Editor.
+      // 29/10/2026 (el taller del Cerebro): crear campañas desde MaKo ya no existe. Los avatares con IA son de los TRES planes
+      // desde el 29/10 (van en Esencial y Pro los hereda). Lo que Pro suma: el media buyer que aplica solo y el Video Editor.
       'Tu media buyer con IA aplica las mejoras de tus anuncios solo, sin pasarse de tu presupuesto',
       'Análisis de tus llamadas de venta con IA',
       // Y generar imágenes con IA no existe: el editor de imágenes sí (lib/planes-comparacion.ts, `NOMBRE_TAB_PRO`).
