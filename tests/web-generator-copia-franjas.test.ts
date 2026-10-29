@@ -16,8 +16,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import { JS_HIJOS_JUNTOS, JS_INSTANTANEA } from '../lib/editor-landing/copia-identica-script';
-import { PARTIR_DESDE, esCajaJunta, esParteVacia, partirParaCopia, sanearInstantanea } from '../lib/editor-landing/copia-identica';
-import { CSS_CAJA_BODY_EN_EL_EDITOR, documentoEditable } from '../lib/editor-landing/html-editable';
+import { PARTIR_DESDE, esCajaJunta, esParteVacia, esSeccionFija, pegarLoFijo, partirParaCopia, sanearInstantanea } from '../lib/editor-landing/copia-identica';
+import { ANCHO_COPIA_ESCRITORIO, CSS_CAJA_BODY_EN_EL_EDITOR, documentoEditable, escalaDeCopia } from '../lib/editor-landing/html-editable';
 import { TOPES } from '../lib/editor-landing/doc';
 
 const RAIZ = join(__dirname, '..');
@@ -146,4 +146,66 @@ test('4. en el editor, la caja del <body> de una copia no le impone su alto a ca
   for (const f of ['lib/editor-landing/render.ts', 'lib/editor-landing/pagina-publica.ts', 'lib/editor-landing/publicar.ts']) {
     assert.ok(!fuente(f).includes('CSS_CAJA_BODY_EN_EL_EDITOR'), `${f}: la publicada envuelve la página una vez y su alto vale`);
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. Lo FIJO (el aviso de cookies, un encabezado fijo) no es un bloque aparte
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('5. lo fijo va adentro de la primera sección en flujo: ni un bloque al final ni uno arriba', () => {
+  const cookies = '<div class="cookie fixed bottom-4" data-gm-fijo=""><p>Cookie Settings</p></div>';
+  const menu = '<header class="nav" data-gm-fijo=""><a href="#">Inicio</a></header>';
+  assert.equal(esSeccionFija(cookies), true);
+  assert.equal(esSeccionFija(`${menu}\n${cookies}<!-- x -->`), true, 'varias fijas, con espacios y comentarios');
+  assert.equal(esSeccionFija(`${menu}<section class="hero">Hola</section>`), false, 'con algo en flujo, no');
+  assert.equal(esSeccionFija('<header class="nav">Inicio</header>'), false);
+  assert.equal(esSeccionFija(`texto suelto ${cookies}`), false);
+  assert.equal(esSeccionFija(''), false);
+  const hero = { html: '<section class="hero"><h1>Hola</h1></section>', envoltorios: ['<div data-gm-copia="body">', '<main>'] };
+  const otra = { html: '<section class="mas">Más</section>', envoltorios: ['<div data-gm-copia="body">', '<main>'] };
+  const juntas = pegarLoFijo([{ html: menu, envoltorios: ['<div data-gm-copia="body">'] }, hero, otra, { html: cookies, envoltorios: ['<div data-gm-copia="body">'] }]);
+  assert.equal(juntas.length, 2);
+  assert.equal(juntas[0].html, menu + cookies + hero.html, 'lo fijo, en su orden, delante del hero');
+  assert.deepEqual(juntas[0].envoltorios, hero.envoltorios, 'con los envoltorios de la sección en flujo');
+  assert.equal(juntas[1], otra);
+  const grande = { html: `<section>${'x'.repeat(TOPES.htmlEditable)}</section>`, envoltorios: [] };
+  assert.equal(pegarLoFijo([grande, { html: cookies, envoltorios: [] }]).length, 2, 'si no entra, queda como estaba');
+  assert.equal(pegarLoFijo([{ html: cookies, envoltorios: [] }]).length, 1, 'sin nada en flujo, queda');
+  // Sin nada fijo, las secciones quedan (29/10: `pegarLoFijo` devolvía la MISMA lista y se vaciaba: 0 secciones en 100ads.ai).
+  assert.equal(partirParaCopia(foto(`<main class="a">${relleno(30_000, 'uno')}</main><section class="b">${relleno(30_000, 'dos')}</section>`)).length, 2);
+  // De punta a punta, por partirParaCopia: el aviso de cookies del final ya no es una sección, y la marca no viaja.
+  const partes = partirParaCopia(foto(`<main class="contenido"><section class="s1">${relleno(30_000, 'hola')}</section></main><div class="aviso" data-gm-fijo=""><p>Cookie Settings</p><button>Aceptar</button></div>`));
+  assert.equal(partes.length, 1, JSON.stringify(partes.map((x) => x.html.slice(0, 40))));
+  assert.ok(partes[0].html.startsWith('<div class="aviso">'), 'adelante de la primera sección');
+  assert.ok(!partes.some((x) => (x.html + x.envoltorios.join('')).includes('data-gm-fijo')));
+  // La foto lo marca por su posición calculada.
+  assert.match(JS_INSTANTANEA, /if \(getComputedStyle\(o\)\.position === 'fixed'\) c\.setAttribute\('data-gm-fijo', ''\);/);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. El editor dibuja la copia a ancho de escritorio, achicada al lienzo
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('6. la escala: en escritorio, lo que entra de 1440; en tableta, celular o fuera del lienzo, 1', () => {
+  assert.equal(ANCHO_COPIA_ESCRITORIO, 1440);
+  assert.equal(escalaDeCopia(980, 'escritorio'), 0.6806, 'el lienzo de Martín (1536 de pantalla, con los paneles)');
+  assert.equal(escalaDeCopia(1440, 'escritorio'), 1);
+  assert.equal(escalaDeCopia(1700, 'escritorio'), 1, 'nunca se agranda');
+  assert.equal(escalaDeCopia(820, 'tableta'), 1, 'la tableta muestra el diseño de tableta');
+  assert.equal(escalaDeCopia(390, 'movil'), 1, 'el celular, el de celular');
+  assert.equal(escalaDeCopia(980, null), 1, 'fuera del lienzo del editor, como siempre');
+  assert.equal(escalaDeCopia(0, 'escritorio'), 1);
+  assert.equal(escalaDeCopia(Number.NaN, 'escritorio'), 1);
+});
+
+test('6b. la vista del editor: la copia a 1440 escalada, y el clic reenviado y las capas vivas multiplicados por la escala', () => {
+  const v = fuente('app/web-generator/editor/nodos/HtmlEditableVista.tsx');
+  assert.match(v, /setEscala\(escalaDeCopia\(caja\.clientWidth, caja\.closest\('\.gma-lienzo'\)\?\.getAttribute\('data-dispositivo'\) \?\? null\)\)/);
+  assert.match(v, /if \(!caja \|\| !sinBase \|\| typeof ResizeObserver === 'undefined'\) \{ setEscala\(1\); return; \}/, 'sólo una copia');
+  assert.match(v, /new ResizeObserver\(calcular\)/, 'cuando cambia el lienzo o el aparato');
+  assert.match(v, /\{ width: ANCHO_COPIA_ESCRITORIO \+ 'px', height: alto \+ 'px', transform: `scale\(\$\{escala\}\)`, transformOrigin: '0 0' \}/);
+  assert.match(v, /style=\{escala < 1 \? \{ height: Math\.ceil\(alto \* escala\) \+ 'px', overflow: 'hidden' \} : undefined\}/, 'la caja mide lo que se ve');
+  assert.equal((v.match(/clientX: r\.left \+ e\.clientX \* k, clientY: r\.top \+ e\.clientY \* k/g) ?? []).length, 2, 'el pointerdown y el clic derecho');
+  assert.equal((v.match(/left: v\.x \* escala, top: v\.y \* escala, width: v\.w \* escala, height: v\.h \* escala/g) ?? []).length, 2, 'la red y los reproductores');
+  assert.ok(!/clientX: r\.left \+ e\.clientX,/.test(v), 'ningún reenvío sin la escala');
 });

@@ -54,7 +54,7 @@ import { EstilosG2, Flotante, Icono, SelectorDestino, VAR_COLOR, eliminarBloqueC
 import { SelectorIcono } from '../SelectorIcono';
 import { PanelInsertar } from './InsertadoVista';
 import { COLORES_TEMA, NODO, TOPES, esHex } from '@/lib/editor-landing/doc';
-import { ATTR_RAIZ_EDITABLE, CLASE_LIBRE, documentoEditable, envoltoriosValidos } from '@/lib/editor-landing/html-editable';
+import { ANCHO_COPIA_ESCRITORIO, ATTR_RAIZ_EDITABLE, CLASE_LIBRE, documentoEditable, envoltoriosValidos, escalaDeCopia } from '@/lib/editor-landing/html-editable';
 import { srcVideo } from '@/lib/editor-landing/especificacion';
 import { svgIcono } from '@/lib/editor-landing/iconos';
 import { varsDeTema } from '@/lib/editor-landing/temas';
@@ -161,6 +161,15 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const envoltorios = envoltoriosValidos(node.attrs.envoltorios);
   const claveEnv = envoltorios ? envoltorios.join('') : '';
   const marco = useRef<HTMLIFrameElement | null>(null);
+  /** La caja del iframe (su ancho es el del lienzo: de ahí sale la escala de una copia). */
+  const cajaMarco = useRef<HTMLDivElement | null>(null);
+  // UNA COPIA, A ANCHO DE ESCRITORIO (29/10/2026, Martín: «las páginas clonadas se desfasaron todas»). Dibujada al ancho del
+  // lienzo (~980 px) sus media queries elegían el diseño de tableta: se dibuja a ANCHO_COPIA_ESCRITORIO y se achica
+  // (`escalaDeCopia`). El clic, el cursor y la selección los lleva el navegador a través del `transform`; lo que esta vista
+  // pasa entre el iframe y la página (el clic reenviado, las capas vivas) va multiplicado por la escala.
+  const [escala, setEscala] = useState(1);
+  const escalaVivo = useRef(1);
+  escalaVivo.current = escala;
   const emitido = useRef<string>(html);
   const [fuente, setFuente] = useState(html);
   const [alto, setAlto] = useState(320);
@@ -303,8 +312,9 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       const m = marco.current;
       if (!m) return;
       const r = m.getBoundingClientRect();
+      const k = escalaVivo.current;
       m.dispatchEvent(new PointerEvent('pointerdown', {
-        bubbles: true, cancelable: true, composed: true, clientX: r.left + e.clientX, clientY: r.top + e.clientY,
+        bubbles: true, cancelable: true, composed: true, clientX: r.left + e.clientX * k, clientY: r.top + e.clientY * k,
         button: e.button, buttons: e.buttons, pointerType: e.pointerType || 'mouse', isPrimary: true,
       }));
     });
@@ -331,8 +341,9 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       const m = marco.current;
       if (!m) return;
       const r = m.getBoundingClientRect();
+      const k = escalaVivo.current;
       e.preventDefault();
-      m.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + e.clientX, clientY: r.top + e.clientY }));
+      m.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + e.clientX * k, clientY: r.top + e.clientY * k }));
     });
     // Un enlace en un contentEditable no navega; sin editar, tampoco: esto es el editor.
     d.addEventListener('click', (e) => { if ((e.target as Element | null)?.closest?.('a')) e.preventDefault(); });
@@ -345,6 +356,16 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     const id = setInterval(medir, SONDEO_MS);
     return () => clearInterval(id);
   }, [medir]);
+  // La escala de una copia: el ancho del lienzo y su aparato (escritorio, tableta, celular), cada vez que cambian.
+  useEffect(() => {
+    const caja = cajaMarco.current;
+    if (!caja || !sinBase || typeof ResizeObserver === 'undefined') { setEscala(1); return; }
+    const calcular = () => setEscala(escalaDeCopia(caja.clientWidth, caja.closest('.gma-lienzo')?.getAttribute('data-dispositivo') ?? null));
+    calcular();
+    const ro = new ResizeObserver(calcular);
+    ro.observe(caja);
+    return () => ro.disconnect();
+  }, [sinBase]);
 
   /** El elemento elegido si es de ese tipo; si no, el aviso de qué elegir y null. */
   const elegidoDe = (t: TipoElemento): Element | null => {
@@ -471,17 +492,20 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
           </div>
         )}
       </div>
-      <div className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable={false}>
+      <div ref={cajaMarco} className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable={false}
+        style={escala < 1 ? { height: Math.ceil(alto * escala) + 'px', overflow: 'hidden' } : undefined}>
         <iframe ref={marco} sandbox="allow-same-origin" srcDoc={doc} title="Diseño editable" referrerPolicy="no-referrer"
-          onLoad={alCargar} style={{ height: alto + 'px' }} />
+          onLoad={alCargar} style={escala < 1
+            ? { width: ANCHO_COPIA_ESCRITORIO + 'px', height: alto + 'px', transform: `scale(${escala})`, transformOrigin: '0 0' }
+            : { height: alto + 'px' }} />
         {/* Los reproductores y las agendas, REALES, encima de su lugar. Sin el mouse hasta que se eligen. La red de MaKo, un
             canvas de esta página que se pinta (el del iframe no se ve). */}
         {vivos.map((v) => v.tipo === 'red' ? (
-          <canvas key={v.clave} className="gmx-vivo-red" aria-hidden="true" style={{ left: v.x, top: v.y, width: v.w, height: v.h }} />
+          <canvas key={v.clave} className="gmx-vivo-red" aria-hidden="true" style={{ left: v.x * escala, top: v.y * escala, width: v.w * escala, height: v.h * escala }} />
         ) : (
           <iframe key={v.clave} className="gmx-vivo" src={v.src} title={v.titulo} sandbox={SANDBOX_EMBED} allow={ALLOW_EMBED}
             referrerPolicy={REFERRER_EMBED} loading="lazy"
-            style={{ left: v.x, top: v.y, width: v.w, height: v.h, pointerEvents: esActivo && !!elegidoEl && (elegidoEl === v.el || v.el.contains(elegidoEl)) ? 'auto' : 'none' }} />
+            style={{ left: v.x * escala, top: v.y * escala, width: v.w * escala, height: v.h * escala, pointerEvents: esActivo && !!elegidoEl && (elegidoEl === v.el || v.el.contains(elegidoEl)) ? 'auto' : 'none' }} />
         ))}
       </div>
 

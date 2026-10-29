@@ -174,6 +174,8 @@ export const JS_INSTANTANEA = String.raw`function () {
     var o = orig[i], c = cop[i];
     var tag = o.tagName.toLowerCase();
     try { if (esJunta(o)) c.setAttribute('data-gm-junto', ''); } catch (e) {}
+    // Lo FIJO (el aviso de cookies, un encabezado fijo): el server lo pega a la primera sección (partirParaCopia).
+    try { if (getComputedStyle(o).position === 'fixed') c.setAttribute('data-gm-fijo', ''); } catch (e) {}
     if (enFijo.has(o)) volver(o, c);
     else reaparecer(o, c);
     if (c.hasAttribute('style')) c.setAttribute('style', urlsDeEstilo(c.getAttribute('style')));

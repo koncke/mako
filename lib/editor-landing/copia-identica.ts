@@ -336,8 +336,38 @@ const RE_JUNTO = /\sdata-gm-junto(?:="[^"]*")?(?=[\s/>])/;
 const RE_JUNTO_TODOS = new RegExp(RE_JUNTO.source, 'g');
 /** ¿La etiqueta de apertura lleva la marca de «hijos juntos»? */
 export const esCajaJunta = (apertura: string): boolean => RE_JUNTO.test(apertura);
+/**
+ * La marca de la foto en lo FIJO (`position: fixed`: el aviso de cookies, un encabezado fijo, un botón de chat). Como
+ * sección propia, el editor la dibujaba en su iframe como un BLOQUE en su lugar (el aviso de cookies de tryholo.ai, al
+ * final). Se pega adentro de la primera sección en flujo (`pegarLoFijo`): en la publicada no cambia nada a la vista (lo
+ * fijo se ubica contra la ventana), y en el editor queda en el iframe de esa sección, encima, como en la primera pantalla.
+ */
+const RE_FIJO = /\sdata-gm-fijo(?:="[^"]*")?(?=[\s/>])/;
 /** La marca no viaja a la copia: es sólo para partirla. */
-const sinJunto = (h: string): string => h.replace(RE_JUNTO_TODOS, '');
+const sinJunto = (h: string): string => h.replace(RE_JUNTO_TODOS, '').replace(new RegExp(RE_FIJO.source, 'g'), '');
+
+/** ¿Todo lo que dibuja la sección es fijo? (cada etiqueta de su primer nivel lleva la marca; el resto, vacío) */
+export function esSeccionFija(html: string): boolean {
+  const nodos = nodosDeNivel(html);
+  const els = nodos.filter((n): n is Extract<NodoNivel, { tipo: 'el' }> => n.tipo === 'el' && !SUELTAS.has(n.tag));
+  if (!els.length) return false;
+  if (nodos.some((n) => n.tipo === 'texto' && html.slice(n.inicio, n.fin).trim() !== '')) return false;
+  return els.every((e) => RE_FIJO.test(html.slice(e.inicio, e.aperturaFin)));
+}
+
+/**
+ * Las secciones que son sólo algo FIJO, adentro de la primera sección en flujo (al principio de su HTML, en su orden). Si no
+ * entra en `TOPES.htmlEditable`, o no hay ninguna en flujo, quedan como estaban.
+ */
+export function pegarLoFijo(secciones: SeccionCopia[]): SeccionCopia[] {
+  const k = secciones.findIndex((s) => !esSeccionFija(s.html));
+  if (k < 0) return secciones;
+  const fijas = secciones.filter((s, i) => i !== k && esSeccionFija(s.html));
+  if (!fijas.length) return secciones;
+  const html = fijas.map((s) => s.html).join('') + secciones[k].html;
+  if (html.length > TOPES.htmlEditable) return secciones;
+  return secciones.filter((s, i) => i === k || !esSeccionFija(s.html)).map((s) => (s === secciones[k] ? { html, envoltorios: s.envoltorios } : s));
+}
 
 /**
  * ¿La parte no dibuja nada? Una etiqueta sola y VACÍA (sin hijos ni texto), sin clase (una clase le puede dar alto: un
@@ -365,7 +395,7 @@ const SUELTAS = new Set(['script', 'style', 'link', 'noscript', 'template', 'met
  * pasa a ser un envoltorio de sus hijos. Arriba de todo, la caja con las clases del <html> y del <body> de la página.
  * Una caja con la marca de «hijos juntos» (`esCajaJunta`) NO se abre mientras entre entera en una sección
  * (`TOPES.htmlEditable`): sus hijos no son franjas que se apilan, y separados el editor los dibuja corridos. Lo que no
- * dibuja nada (`esParteVacia`) no es una sección.
+ * dibuja nada (`esParteVacia`) no es una sección, y lo FIJO va adentro de la primera sección en flujo (`pegarLoFijo`).
  */
 export function partirParaCopia(inst: Instantanea): SeccionCopia[] {
   const clases = [inst.html.clase, inst.body.clase].join(' ').replace(/\s+/g, ' ').trim();
@@ -434,10 +464,11 @@ export function partirParaCopia(inst: Instantanea): SeccionCopia[] {
     for (const parte of partes) abrir(parte, prof);
   };
   bajar(inst.cuerpo, [caja], 0);
-  for (const s of out) { s.html = sinJunto(s.html); s.envoltorios = s.envoltorios.map(sinJunto); }
+  // Lo fijo, pegado; y las marcas, afuera (en una lista NUEVA: `pegarLoFijo` devuelve la misma cuando no hay nada fijo).
+  const limpias = pegarLoFijo(out).map((s) => ({ html: sinJunto(s.html), envoltorios: s.envoltorios.map(sinJunto) }));
   // Las piezas chicas seguidas, bajo los mismos envoltorios, van juntas: abrir lo grande de Elementor daba 116 secciones
   // de 1-3 KB en reportei.com (28/10/2026), y una página lleva hasta `TOPES.tarjetasPorPagina`.
-  let juntas = juntarVecinas(out, JUNTAR_HASTA);
+  let juntas = juntarVecinas(limpias, JUNTAR_HASTA);
   for (let tope = JUNTAR_HASTA * 2; juntas.length > TOPES.tarjetasPorPagina && tope <= TOPES.htmlEditable; tope *= 2) juntas = juntarVecinas(juntas, tope);
   return juntas;
 }

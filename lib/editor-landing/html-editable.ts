@@ -453,6 +453,23 @@ export function politicaDelEditor(html: string, css: string): string {
  */
 export const CSS_CAJA_BODY_EN_EL_EDITOR = '[data-gm-copia="body"]{min-height:0!important}';
 
+/**
+ * El ancho al que el editor dibuja una COPIA en escritorio (29/10/2026). El lienzo del editor mide ~980 px en la pantalla de
+ * Martín (1536, con los paneles), y una copia dibujada a ese ancho elegía su diseño de TABLETA por sus media queries: «las
+ * páginas clonadas se desfasaron». Se dibuja a este ancho y se achica al lienzo (`escalaDeCopia`).
+ */
+export const ANCHO_COPIA_ESCRITORIO = 1440;
+
+/**
+ * Cuánto se achica una copia en el editor: en ESCRITORIO, con un lienzo más angosto que `ANCHO_COPIA_ESCRITORIO`, lo que
+ * entra; si no, 1 (en tableta y celular el lienzo ya tiene el ancho del aparato, y sus media queries tienen que verlo).
+ * `dispositivo`: el `data-dispositivo` del lienzo (gamma.css), null fuera de él.
+ */
+export function escalaDeCopia(anchoLienzo: number, dispositivo: string | null): number {
+  if (dispositivo !== 'escritorio' || !(anchoLienzo > 0) || anchoLienzo >= ANCHO_COPIA_ESCRITORIO) return 1;
+  return Math.round((anchoLienzo / ANCHO_COPIA_ESCRITORIO) * 10_000) / 10_000;
+}
+
 /** La ventana contra la que se mide un `vh` de una copia en el iframe del editor: 1vh = 9 px (una ventana de 900). */
 export const PX_POR_VH_EDITOR = 9;
 
