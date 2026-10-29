@@ -9,7 +9,7 @@ marketing-main/05be9946-3313-4db7-ab72-196361b6fa78/scratchpad/scripts/`). Resul
 **Orden: 0 (P0 de la foto: VERDE mandado, falta que el Cerebro lo suba) → 2 (la réplica editable). El 1 y el 3 están
 cerrados.**
 
-## 00. P0 (29/10, del Cerebro) — «las páginas clonadas se desfasaron todas» — ARREGLO GENERAL hecho, falta lo fijo y el ancho
+## 00. P0 (29/10, del Cerebro) — «las páginas clonadas se desfasaron todas» — HECHO, commiteado; falta el tsc y el VERDE
 
 Martín: «Lo que más me interesa es que funcione al 100% Web Generator, porque las páginas clonadas se desfasaron todas...
 Y la última prueba que intenté hacer con 100ads no funcionó». **Rama `web-generator-foto-2910`: d413ad03b (arreglo +
@@ -31,6 +31,12 @@ test) · 4bfbf85db (cosecha).** Medido DOM contra DOM (`C:/dev/revisiones/clonad
   0,6806): 4/4 anclas reciben el mousedown en su punto exacto (±1 px). Cadena de medición: `scratchpad/scripts/
   cadena-final.sh` → `C:/dev/revisiones/clonadas-2910/final/` (antes = worktree `C:/dev/verif-clonadas-antes`, origin/main).
 - Reglas de la noche (Cerebro): todo lo pesado por `node C:/dev/con-turno.mjs`, un Chrome por vez, commits seguidos.
+- **29/10 ~06:40: TODO COMMITEADO en `web-generator-foto-2910`** (punta c3c6849bc): d413ad03b · 4bfbf85db · 997537fc2
+  (escala + lo fijo) · 40ea08e1b (lo fijo detrás del anunciador) · abced0bf1 (el <title>) · c3c6849bc (cosecha). Tests
+  85/85; romper 33/33 + el del <title>. Tabla antes/después por ancla: `C:/dev/revisiones/clonadas-2910/final/tabla.md`
+  (holo 913 → 98 a 1440, 1.755 → 107 a 980; respond 1.264 → 8 a 980; 100ads 0). FALTA: tsc-acotado (`tipos2.log`,
+  esperaba RAM) y el VERDE al Cerebro y a Integración con la tabla. Sin hacer: a 390 la publicada de holo/reportei
+  también se corre (la copia en celular); una sección de holo +486 px en el editor.
 
 ## 0. P0 (29/10 00:40) — «No pude sacar la foto de la página. Vuelve a intentar.» — ARREGLADO (claude3, 29/10 ~03:00)
 
