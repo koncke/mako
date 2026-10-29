@@ -9,8 +9,10 @@
 //   borrar_bloque      → saca un bloque;
 //   titulo             → el título de la página;
 //   propiedades        → ángulo, estructura y duración.
-// La IA no escribe JSON de ProseMirror: escribe bloques simples (texto, títulos, listas, cita, destacado, divisor) y el
-// código los convierte (`bloqueAJson`). Lo que vuelve se valida acá (y otra vez en el navegador, contra lo de AHORA):
+// La IA no escribe JSON de ProseMirror: escribe bloques simples (texto, títulos, listas, cita, destacado, divisor, tabla)
+// y el código los convierte (`bloqueAJson`). ⚠️ La TABLA entró el 29/10/2026 (plantillas reales, docs/plantillas-reales/
+// copywriter.md, trampa 2): sin ella, `escribir_seccion` sobre la HISTORIA del Reel, el CONTEXTO de las Stories, las SLIDES
+// del Carrusel o los GANCHOS convertía la tabla en párrafos, sin un error. Lo que vuelve se valida acá (y otra vez en el navegador, contra lo de AHORA):
 // un id que no existe, una operación que no está en el catálogo o un bloque sin texto se DESCARTAN con su motivo.
 //
 // «SE VE CONSTRUYÉNDOSE» (AGENTS.md, 28/10/2026): `cuadrosDeConstruccion` arma los cuadros que la pantalla pinta con un
@@ -24,7 +26,7 @@ import type { JsonNodo, PropsGuion } from './tipos';
 export const OPERACIONES_IA = ['escribir_seccion', 'reemplazar_bloque', 'insertar_despues', 'borrar_bloque', 'titulo', 'propiedades'] as const;
 export type NombreOperacion = (typeof OPERACIONES_IA)[number];
 
-export const TIPOS_BLOQUE_IA = ['texto', 'titulo1', 'titulo2', 'titulo3', 'cita', 'vinetas', 'numerada', 'tareas', 'destacado', 'separador'] as const;
+export const TIPOS_BLOQUE_IA = ['texto', 'titulo1', 'titulo2', 'titulo3', 'cita', 'vinetas', 'numerada', 'tareas', 'destacado', 'separador', 'tabla'] as const;
 export type TipoBloqueIA = (typeof TIPOS_BLOQUE_IA)[number];
 
 /**
@@ -37,6 +39,8 @@ export type BloqueIA = (
   | { tipo: 'vinetas' | 'numerada' | 'tareas'; items: string[] }
   | { tipo: 'destacado'; texto: string; emoji?: string }
   | { tipo: 'separador' }
+  /** La primera fila es el encabezado. Todas las filas con el mismo ancho (el saneo completa las cortas). */
+  | { tipo: 'tabla'; filas: string[][] }
 ) & { bid?: string };
 
 export type OperacionIA =
@@ -49,9 +53,22 @@ export type OperacionIA =
 
 export type Descartada = { op: string; motivo: string };
 
-export const TOPES_OPS = { operaciones: 40, bloquesPorOp: 60, texto: 4_000, items: 30 } as const;
+export const TOPES_OPS = { operaciones: 40, bloquesPorOp: 60, texto: 4_000, items: 30, columnas: 8, filas: 30, celda: 1_000 } as const;
 
 const texto = (v: unknown, max: number = TOPES_OPS.texto): string => (typeof v === 'string' ? v.replace(/\r/g, '').trim().slice(0, max) : '');
+
+/** Las filas de una tabla de la IA: hasta 8 columnas y 30 filas, cada celda hasta 1,000 caracteres, todas del mismo ancho. */
+function filasDeTabla(raw: unknown): string[][] | null {
+  const celda = (c: unknown) => (typeof c === 'number' && Number.isFinite(c) ? String(c) : texto(c, TOPES_OPS.celda));
+  const filas = (Array.isArray(raw) ? raw : [])
+    .filter((f): f is unknown[] => Array.isArray(f))
+    .map((f) => f.slice(0, TOPES_OPS.columnas).map(celda))
+    .filter((f) => f.some(Boolean))
+    .slice(0, TOPES_OPS.filas);
+  if (!filas.length) return null;
+  const ancho = Math.max(...filas.map((f) => f.length));
+  return filas.map((f) => [...f, ...Array<string>(ancho - f.length).fill('')]);
+}
 
 /** Un bloque de la IA, saneado; null si no sirve (sin texto, tipo desconocido). */
 export function sanearBloqueIA(raw: unknown): BloqueIA | null {
@@ -60,6 +77,10 @@ export function sanearBloqueIA(raw: unknown): BloqueIA | null {
   const tipo = typeof o.tipo === 'string' ? o.tipo : '';
   if (!(TIPOS_BLOQUE_IA as readonly string[]).includes(tipo)) return null;
   if (tipo === 'separador') return { tipo: 'separador' };
+  if (tipo === 'tabla') {
+    const filas = filasDeTabla(o.filas);
+    return filas ? { tipo, filas } : null;
+  }
   if (tipo === 'vinetas' || tipo === 'numerada' || tipo === 'tareas') {
     const items = (Array.isArray(o.items) ? o.items : []).map((i) => texto(i, 1_000)).filter(Boolean).slice(0, TOPES_OPS.items);
     return items.length ? { tipo, items } : null;
@@ -107,6 +128,15 @@ export function bloqueAJson(b: BloqueIA): JsonNodo {
       };
     case 'tareas':
       return { type: NODOS.tareas, attrs: { bid }, content: b.items.map((i) => ({ type: NODOS.tarea, attrs: { checked: false }, content: [conContenido({ type: NODOS.parrafo }, i)] })) };
+    case 'tabla':
+      // La forma de las tablas de las plantillas (plantillas.ts): la primera fila con celdas de encabezado.
+      return {
+        type: NODOS.tabla, attrs: { bid },
+        content: b.filas.map((f, i) => ({
+          type: NODOS.fila,
+          content: f.map((c) => ({ type: i === 0 ? NODOS.celdaTitulo : NODOS.celda, content: [conContenido({ type: NODOS.parrafo }, c)] })),
+        })),
+      };
   }
 }
 

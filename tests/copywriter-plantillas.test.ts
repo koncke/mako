@@ -16,7 +16,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bloquesDelDoc, sanearContenido, textoDelDoc } from '../lib/copywriter/doc';
 import { aBloques, deBloques } from '../lib/copywriter/notion-bloques';
-import { GRUPOS_PLANTILLA, gruposDePlantillas, plantillaPorId, plantillasDe } from '../lib/copywriter/plantillas';
+import { GRUPOS_PLANTILLA, chipsDe, extractoDe, gruposDePlantillas, plantillaPorId, plantillasDe, plantillasVisibles, restosDelEjemplo } from '../lib/copywriter/plantillas';
+import { bloquesDeTexto, docDeEjemplo } from '../lib/copywriter/texto';
+import { marcasDeVoseo } from '../lib/puestas-data';
 import { catalogosLite, conVsl } from '../lib/copywriter/catalogos';
 import { esIdPagina, TIPOS_GUION } from '../lib/copywriter/tipos';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
@@ -38,6 +40,13 @@ test('los templates: ids únicos, tipos que existen y los grupos en su orden', (
   // Lo que pidió Martín: Reels, copys de anuncios, emails, posts y VSL; y lo que ya tenía (el guion de anuncio, stories, YouTube).
   for (const id of ['reel', 'copy-anuncio', 'email', 'carrusel', 'guion-anuncio', 'stories', 'youtube', 'blanco']) assert.ok(plantillaPorId(catalogos, id), id);
   assert.ok(plantillas.some((p) => p.tipo === 'vsl'));
+  // Las 12 de las plantillas reales (docs/plantillas-reales/copywriter.md, 2), en la galería y en su orden, más la página
+  // en blanco. Las tres VSL sin ejemplo salen de la galería pero siguen resolviendo por id (la API).
+  assert.deepEqual(plantillasVisibles(plantillas).map((p) => p.id), [
+    'guion-anuncio', 'testimonio', 'copy-anuncio', 'banco-ganchos', 'reel', 'stories', 'carrusel', 'email', 'secuencia-nutricion',
+    'vsl-respuesta-directa', 'vsl-clase-educativa', 'youtube', 'blanco',
+  ]);
+  for (const id of ['vsl-anti-solucion', 'vsl-diagnostico', 'vsl-historia-fundador']) assert.equal(plantillaPorId(catalogos, id)?.visible, false, id);
 });
 
 test('cada template nace guardable y vuelve igual de BlockNote', () => {
@@ -127,6 +136,81 @@ test('la mudanza respeta el tope: el padre va sólo si va alguna hija', () => {
   assert.equal(loQueSeMuda([tres, reels], 5).length, 4);
   assert.equal(loQueSeMuda([muchas, reels], 10_000).length, 51 + 2);
   assert.ok(loQueSeMuda([muchas], 10_000).length <= TOPE_MUDANZA + 1);
+});
+
+// ── Los ejemplos reales (29/10/2026: docs/plantillas-reales/copywriter.md) ──────────────────────────────────
+
+/** Gente y negocios REALES (la lista de tests/variables-aviso.test.ts, leída de su fuente: la miran los dos). */
+const REALES = [...(readFileSync(join(__dirname, 'variables-aviso.test.ts'), 'utf8').match(/const REALES = \[([\s\S]*?)\];/)?.[1] ?? '')
+  .replace(/\/\/.*$/gm, '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+/** Un contraste del tipo «no es X, es Y» / «no son X: son Y» / «no… sino»: el experto lo permite una vez, en el gancho. */
+const CONTRASTE = /\bno (?:es|son|fue)\b[^.?!»]{1,80}?[,:;]\s*(?:es|son|fue)\b|\bno\b[^.?!»]{1,80}?\bsino\b|\bnunca fue\b[^.?!»]{1,80}?\bsino\b/gi;
+/** Las muletillas que el método prohíbe (lib/copywriter/experto.ts): los ejemplos tampoco las usan. */
+const MULETILLAS = /en el mundo de hoy|\bdescubre\b|\bpotencia\b|transforma tu vida|sin más preámbulos/i;
+
+test('cada ejemplo es completo y de un negocio ficticio: 🧪 arriba, sin [DATO:, sin {{, sin voseo, sin muletillas ni nombres reales', () => {
+  assert.ok(REALES.length >= 10, 'no se pudo leer la lista REALES');
+  const conEjemplo = plantillas.filter((p) => p.ejemplo);
+  assert.equal(conEjemplo.length, 12);
+  for (const p of conEjemplo) {
+    const doc = p.contenido();
+    const texto = textoDelDoc(doc);
+    assert.ok((doc.content ?? []).some((b) => b.type === 'callout' && b.attrs?.emoji === '🧪'), `${p.id}: sin el destacado 🧪 que dice que es ficticio`);
+    assert.ok(texto.includes(p.ejemplo!.negocio), `${p.id}: el ejemplo no nombra a su negocio`);
+    assert.ok(!texto.includes('[DATO:'), `${p.id}: el ejemplo está completo, sin [DATO:`);
+    assert.ok(!texto.includes('{{'), `${p.id}: {{ pasaría por renderPrompt como un slot`);
+    assert.deepEqual(marcasDeVoseo(texto), [], `${p.id}: voseo`);
+    assert.ok(!MULETILLAS.test(texto), `${p.id}: una muletilla que el experto prohíbe`);
+    for (const r of REALES) assert.ok(!sinAcentos(texto).includes(sinAcentos(r)), `${p.id} nombra a ${r}, que es real`);
+    for (const b of bloquesDelDoc(doc)) {
+      const n = (b.texto.match(CONTRASTE) ?? []).length;
+      assert.ok(n === 0 || (n === 1 && ['GANCHO', 'TEXTO PRINCIPAL'].includes(b.seccion ?? '')), `${p.id}: un contraste fuera del gancho (${b.seccion}): «${b.texto.slice(0, 80)}»`);
+    }
+    assert.ok(extractoDe(p).length > 10 && extractoDe(p).length <= 141, `${p.id}: el extracto de la tarjeta`);
+    assert.ok(texto.includes(extractoDe(p).replace(/…$/, '')), `${p.id}: el extracto sale del ejemplo`);
+    assert.ok(chipsDe(p).length >= 3, `${p.id}: los chips`);
+    assert.ok(p.pide?.length && p.insignia, `${p.id}: lo que pide y su insignia`);
+  }
+});
+
+test('el esqueleto: las mismas secciones que el ejemplo y nada del negocio ficticio', () => {
+  for (const p of plantillas.filter((x) => x.ejemplo)) {
+    const sEj = secciones(p.contenido());
+    const sEsq = secciones(p.esqueleto());
+    assert.deepEqual(sEsq, sEj, `${p.id}: el esqueleto tiene otras secciones`);
+    assert.ok(sanearContenido(p.esqueleto()).ok, p.id);
+    assert.ok(!textoDelDoc(p.esqueleto()).includes(p.ejemplo!.negocio), `${p.id}: el esqueleto nombra al negocio ficticio`);
+    const r = restosDelEjemplo(p.contenido(), p);
+    assert.ok(r.bloques > 0, `${p.id}: el ejemplo entero no cuenta como restos`);
+    assert.deepEqual(restosDelEjemplo(p.esqueleto(), p), { bloques: 0, datos: 0 }, `${p.id}: el esqueleto cuenta restos`);
+  }
+  // Un [DATO: …] que dejó la adaptación se cuenta.
+  const reel = plantillaPorId(catalogos, 'reel')!;
+  const adaptado = docDeEjemplo('GANCHO\n- **Frase hablada:** [DATO: el tema que enseñas]\nCTA\n[DATO: la palabra clave]');
+  assert.deepEqual(restosDelEjemplo(adaptado, reel), { bloques: 0, datos: 2 });
+});
+
+test('docDeEjemplo lee destacados, tablas y negritas; bloquesDeTexto (la API) sigue sin leerlos', () => {
+  const d = docDeEjemplo('!🧪 Ejemplo\nGANCHO\n| A | B |\n| 1 | **dos** |\nTexto con **negrita**');
+  assert.deepEqual(d.content?.map((b) => b.type), ['callout', 'heading', 'table', 'paragraph']);
+  assert.deepEqual(d.content?.[2].content?.map((f) => f.content?.map((c) => c.type)), [['tableHeader', 'tableHeader'], ['tableCell', 'tableCell']]);
+  assert.deepEqual(d.content?.[3].content?.map((n) => n.marks?.[0]?.type ?? null), [null, 'bold']);
+  // Lo que crea la API de MaKo no cambia: lo mismo, leído como texto, son párrafos.
+  const api = bloquesDeTexto('!🧪 Ejemplo\n| A | B |\nTexto con **negrita**');
+  assert.deepEqual(api.map((b) => b.type), ['paragraph', 'paragraph', 'paragraph']);
+  assert.equal(api[2].content?.[0]?.text, 'Texto con **negrita**');
+});
+
+test('«Guion de anuncio» y las demás FIJAN su estructura: si el super admin la cambió, la página nace sin estructura', () => {
+  assert.equal(plantillaPorId(catalogos, 'guion-anuncio')?.estructura, 'pas');
+  assert.equal(plantillaPorId(catalogos, 'youtube')?.estructura, 'youtube-retencion');
+  const cambiada = catalogosLite(ANGULOS_GUION_DEFAULT, conVsl(ESTRUCTURAS_GUION_DEFAULT.map((e) => (e.id === 'pas' ? { ...e, etiquetas: ['GANCHO', 'CTA'] } : e))));
+  assert.equal(plantillaPorId(cambiada, 'guion-anuncio')?.estructura, null, 'el ejemplo está escrito con las etiquetas de fábrica de PAS');
+  // Y la API crea con el ESQUELETO, nunca con el ejemplo (un agente externo le dejaría el anuncio de Cierre Consultivo).
+  const run = readFileSync(join(__dirname, '..', 'lib/api-mako/areas/copywriter.run.ts'), 'utf8');
+  assert.match(run, /contenido: texto \? docDeTexto\(texto\) : pl \? pl\.esqueleto\(\) :/);
+  assert.match(run, /plantilla: pl\?\.id \?\? null/);
 });
 
 test('el id de una página mudada sale de su origen: el mismo cada vez, distinto por negocio y por guion', () => {

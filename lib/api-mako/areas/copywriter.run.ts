@@ -12,7 +12,7 @@ import 'server-only';
 import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { abrir, crear, guardar, listar, papelera, renombrar, restaurar } from '@/lib/copywriter/server';
 import { bloquesDelDoc, docDeEstructura, textoDeNodo, textoDelDoc } from '@/lib/copywriter/doc';
-import { plantillaPorId, plantillasDe } from '@/lib/copywriter/plantillas';
+import { plantillaPorId, plantillasDe, plantillasVisibles } from '@/lib/copywriter/plantillas';
 import { aplicarTodo, sanearOperaciones } from '@/lib/copywriter/operaciones';
 import { editar as editarConIA } from '@/lib/copywriter/ia';
 import { bloquesDeTexto, docDeTexto } from '@/lib/copywriter/texto';
@@ -97,7 +97,9 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       const catalogos = await catalogosDelCopywriter();
-      // Un template manda su tipo, su estructura y su cuerpo (si no viene texto ya escrito).
+      // Un template manda su tipo, su estructura y su ESQUELETO (si no viene texto ya escrito). ⚠️ Nunca su ejemplo
+      // (`contenido`): es de un negocio ficticio, y un agente externo le dejaría a un cliente el anuncio de Cierre
+      // Consultivo (docs/plantillas-reales/copywriter.md, trampa 4). El ejemplo sólo lo abre la galería.
       const pl = plantillaPorId(catalogos, str(payload, 'plantillaId'));
       const tipo = pl?.tipo ?? str(payload, 'tipo');
       if (!esTipoGuion(tipo)) return { ok: false, resumen: 'La acción quedó con un tipo inválido.' };
@@ -106,8 +108,8 @@ export const RUNNERS: Runners = {
       const texto = str(payload, 'texto');
       const r = await crear({
         tipo, titulo: str(payload, 'titulo'), padre: str(payload, 'padreId') || null,
-        props: { estructura: e?.id ?? null },
-        contenido: texto ? docDeTexto(texto) : pl ? pl.contenido() : e ? docDeEstructura(e.etiquetas) : undefined,
+        props: { estructura: e?.id ?? null, plantilla: pl?.id ?? null, ...(pl?.duracion ? { duracion: pl.duracion } : {}) },
+        contenido: texto ? docDeTexto(texto) : pl ? pl.esqueleto() : e ? docDeEstructura(e.etiquetas) : undefined,
       });
       if (!r.ok) return { ok: false, resumen: `No se pudo crear: ${r.error}` };
       return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)} está en el Copywriter.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
@@ -277,13 +279,15 @@ export const RUNNERS: Runners = {
   listar_plantillas_copywriter: {
     leer: async (_input, ctx) => {
       if (await cerrada(ctx)) return error(CERRADA);
-      const ps = plantillasDe(await catalogosDelCopywriter());
+      // Las de la galería, con su ejemplo como TEXTO (para ver la forma) y avisado: es de un negocio ficticio.
+      const ps = plantillasVisibles(plantillasDe(await catalogosDelCopywriter()));
       return json({
         plantillas: ps.map((p) => ({
-          plantillaId: p.id, nombre: p.nombre, grupo: p.grupo, tipo: p.tipo, descripcion: p.descripcion, estructuraId: p.estructura,
-          secciones: bloquesDelDoc(p.contenido()).filter((b) => b.tipo === 'seccion').map((b) => b.seccion),
+          plantillaId: p.id, nombre: p.nombre, grupo: p.grupo, tipo: p.tipo, cuando: p.descripcion, estructuraId: p.estructura,
+          secciones: bloquesDelDoc(p.esqueleto()).filter((b) => b.tipo === 'seccion').map((b) => b.seccion),
+          ...(p.ejemplo ? { ejemplo: { negocio: `${p.ejemplo.negocio} (ficticio)`, texto: textoDelDoc(p.contenido()).slice(0, 2_000) } } : {}),
         })),
-        nota: 'plantillaId va en crear_documento_copywriter (con el tipo del template).',
+        nota: 'plantillaId va en crear_documento_copywriter (con el tipo del template): la página nace con las secciones vacías. El ejemplo es de un negocio ficticio y solo muestra la forma: sus datos no se usan.',
       });
     },
   },
