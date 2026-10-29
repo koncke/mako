@@ -52,15 +52,34 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - Sin ALTA: la puerta no abre nada más y MaKo no paga IA.
     - MEDIA: la fila de /planes y el «y tu avatar con IA» de Esencial venden un motor que nunca generó un look en producción,
       y no dicen que se paga con Google Flow del cliente.
-    - **Se le preguntó al Cerebro «sacar» o «vender».** Si dice «sacar», va en el tren-ae: la línea de Esencial vuelve a
-      la de main, sale `enTodos(anuncios, NOMBRE_AI_AVATAR)` y se ajusta `tests/planes-tres-bloques.test.ts`.
+    - **El Cerebro dijo «sacar»:** salió en el tren-ae (`AI_AVATAR_SE_VENDE = false`).
     - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
-- **tren-ae (sin armar):**
+- **tren-ae (rama `tren-ae`, subiendo):**
   - **Lleva:**
-    - La QA de Create: `create-qa-2910` en `95ac56201`.
-    - Las plantillas del Copywriter: `plantillas-copywriter-2910` en `1d9160f87`.
-    - El despachante de MaKo en WhatsApp (`wa-fallas-2710`) si llega su VERDE; le falta una tanda.
-  - Create y el Copywriter arman los dos `lib/avisos/`: acordaron el mismo archivo byte a byte.
+    - Create: la QA visual (`95ac56201`) y la base de las plantillas reales (`390229c3d`, que la contiene).
+    - Las plantillas del Copywriter (`1d9160f87`). El test de los ejemplos lee `REALES` de `tests/_reales.ts`, porque Create
+      la mudó ahí (`837d7f377`).
+    - La tabla de planes no vende AI Avatar (`b8c9c7a78`).
+  - **Chequeo:** 6658 tests en verde, salvo el rojo de las dos ramas cruzadas, ya arreglado; `alta-cliente-conducta` fue
+    flaky. Las guardas en verde. Después del arreglo, los tests que leen `docs/` y los del Copywriter: 71/71.
+- **Devueltos a su chat (NO entran hasta el sha nuevo):**
+  - **El despachante de MaKo en WhatsApp** (`wa-fallas-2710`, `85a0d9ead`; el #30 de Leandro). Dos ALTA de privacidad:
+    - un hito de la bitácora con tickets de dos negocios se le mostraba entero a uno;
+    - el pedido delegado dice «hazlo» sin respetar el triage.
+
+    Informe: `C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`. La mezcla con main ya resuelta quedó en la
+    rama `tren-ae-con-wa` (`bc74bd07f`).
+  - **Zernio, los leads por barrido y las publicaciones que se repiten** (`zernio-token-2910`, `ce56bd693`):
+    - el filtro de cuentas va sólo en la URL;
+    - una clave «propia» trae los leads de otros negocios;
+    - el lead con dos formularios alterna cada 30 minutos;
+    - la papelera se lee sin paginar;
+    - la serie hace renacer la vez borrada.
+
+    Informe: `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`.
+    - ⚠️ **La 0349 NO se aplica**, aunque Martín diga que sí, hasta que Integración dé por buena la punta nueva (acordado con
+      el Cerebro).
+    - El interruptor `zernio.cuenta_de_la_plataforma` sigue apagado.
 - **Antes: tren-ac, main `ff908e645`, READY 17:07 (`mako-8g8vtn7tv`, dpl_ioqDqJGw…).** Avisados el Cerebro (que le
   escribe a Leandro por el #29) y Zernio. Los demás dueños estaban archivados.
   - **Qué trae:**
