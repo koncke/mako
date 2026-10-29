@@ -115,13 +115,13 @@ test('una cantidad que no pasa las cobradas lo dice, en vez de armar de más', (
   assert.match(r.ok ? '' : r.error, /Ya hay 3 cuotas cobradas y cuentan en la cantidad: pon más de 3\./);
 });
 
-test('la ficha arma el plan libre con `cuotasDelPlanLibre` y las protegidas que ya leyó, y dice lo ya cobrado', () => {
+test('la ficha arma el plan ENCIMA de lo que hay (desde el 29/10, por tramos) con las protegidas que ya leyó, y dice lo ya cobrado', () => {
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /<ArmarPlan ctx=\{ctx\} protegidas=\{protegidas\} onListo=/);
-  assert.match(ui, /const armado = libre \? cuotasDelPlanLibre\(\{/);
-  assert.match(ui, /const \{ cuotas, aparte, vistos \} = armado;/, 'la lista y los vistos salen de la misma cuenta');
+  assert.match(ui, /const encima = armado\.ok \? cuotasDelPlanPorTramos\(\{\n\s+pagos: abiertas, protegidas: new Set\(/);
+  assert.match(ui, /const \{ aparte, vistos, nuevas \} = encima;\n\s+const cuotas = soloLoQueCambio\(encima\.cuotas, abiertas\);/, 'la lista y los vistos salen de la misma cuenta');
   assert.doesNotMatch(ui, /\.\.\.\(inicial > 0 \? \[\{ monto: inicial, fecha: plan\.desde \}\] : \[\]\)/, 'volvió la lista armada de cero');
-  assert.match(ui, /Ya cobrado: /);
+  assert.match(ui, / ya cobrada\$\{/);
 });
 
 test('editar una cobrada es explícito: sin `espera: \'cobrada\'` tira, y la ficha manda el estado del renglón que dibujó', () => {
@@ -185,7 +185,7 @@ test('el resto de un cobro por menos no toma un lugar del plan: ni se pierde una
   assert.equal(sinProteger.deuda, 1600, 'el resto de US$100 se borraba en silencio (era 1500)');
   assert.equal(guardar(CON_RESTO, { inicial: 1000, cuota: 500, cantidad: 8, cada: 'mes', dias: [10] }, { 107: ['link'] }).deuda, 2600, 'cantidad 8, mes (era 2100)');
   // La ficha manda lo de aparte tal cual: sin eso, el resto que vio se borraría.
-  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], \{/, 'la ficha no manda el resto: se borra');
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], columnas,/, 'la ficha no manda el resto: se borra');
 });
 
 test('las protegidas primero las decide el server con sus protecciones, aunque la ficha las tenga viejas (media)', () => {
@@ -200,14 +200,14 @@ test('las protegidas primero las decide el server con sus protecciones, aunque l
     [{ id: 14, monto_usd: 500, fecha_esperada: '2026-11-10' }], 'porId', { vistos: new Set([14, 15, 16]) });
   assert.deepEqual(sinServer.conservar.map((c) => c.id), [16]);
   // La ficha lo pide, y la acción lo pasa al server.
-  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /vistos, ctx\.crm\?\.id \?\? null, \{ protegidasPrimero: true \}\);/);
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /vistos, crm, \{ protegidasPrimero: true, conDeshacer: true \}\);/);
   assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /\{ vistos, crm: trato, protegidasPrimero: como\?\.protegidasPrimero === true \}/);
 });
 
 test('el link que se anuló al cambiar el monto se dice, y el Deshacer avisa que no vuelve (baja)', () => {
   const ed = bloque(fuente('lib/pagos.ts'), 'export async function editarCuota(');
   assert.match(ed, /linkAnulado = \(await anularLinksDeCuota\(ws, pagoId, [^;]*\)\) > 0;/, 'dice que anuló el link aunque no había ninguno vivo');
-  assert.match(ed, /return \{ antes, despues, numero: q\.numero, recordatorioCortado, linkAnulado \};/);
+  assert.match(ed, /return \{ antes, despues, numero: q\.numero, moneda: monedaPropia, recordatorioCortado, linkAnulado \};/);
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /r\.linkAnulado \? 'Cuota cambiada · el link anterior se anuló: manda uno nuevo'/, 'el cambio no dice que el link se anuló');
   assert.match(ui, /else if \(r\.linkAnulado\) show\('Monto devuelto · el link quedó anulado: manda uno nuevo'\);/, 'el Deshacer cree que deshizo todo');
@@ -235,7 +235,7 @@ test('un #0 cobrado de un plan SIN inicial es una cuota más: guardar, cobrarlo 
   assert.equal(otraVez.deuda, 900, 'cinco cuotas de 300 para un plan de 4 (era 1200)');
   // Con inicial en el plan guardado, la #0 cobrada sigue siendo el inicial, como siempre.
   assert.equal(guardar(cobrado, { ...plan, planConInicial: true }).armado.ok && guardar(cobrado, { ...plan, planConInicial: true }).deuda, 1200);
-  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /planConInicial: \(antes\.cobro_inicial_usd \?\? 0\) > 0,/, 'la ficha no le dice si el plan guardado tiene inicial');
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /const \[planConInicial\] = useState\(\(\) => \(l\.cobro_inicial_usd \?\? 0\) > 0\);/, 'la ficha no le dice si el plan guardado tiene inicial');
 });
 
 test('lo de aparte va tal cual: un resto quitado o cambiado en el medio no revive con los valores de la pantalla (baja)', () => {

@@ -5,6 +5,22 @@
 [hallazgos-planes-y-cobro.md](../hallazgos-planes-y-cobro.md) → «La pasarela» (Stripe, Mercado Pago, el plan de MaKo y
 el cliente de agencia). La historia de cada cambio está en `git log`.
 
+## 29/10/2026 · el plan por TRAMOS (chat «Pagos», cuenta `claude3`, ticket #13 de Leila)
+
+Rama `pagos-tramos-2910`, worktree `C:/dev/wt-pagos-tramos` (desde origin/main 7f36fa9c6). Lo aprendido:
+docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de las fases de Stripe y del plan de pagos de Kajabi.
+
+- **Hecho:** «Armar el plan» de la ficha es por tramos (hasta 10: monto, moneda, cada mes/quincena/semana, cuántas o hasta
+  cuándo), con anticipo y cada cuota editable antes de guardar; abre con el plan que ya hay; en una suscripción también (la
+  pasa a «Pago único»); Deshacer. Una cuota en pesos se recuerda, se marca pagada y se cobra por link en pesos.
+- **Probado:** tests/pagos-tramos.test.ts (18, con las cuotas reales de Nadia; 13 roturas atrapadas) y el editor dibujado con
+  su ficha (tests/_plan-tramos-hijo.ts). **No recorrido en el navegador** (sin build por la RAM): va en el ws3 después del deploy.
+- **Para retomar:** si el VERDE no salió, falta el tsc acotado (`node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …`
+  sobre los archivos de `git diff --name-only origin/main`) y `tests-afectados --rapido` por con-turno; después, el sha al
+  Cerebro y a Integración.
+- **No hecho a propósito:** el plan de Nadia (lead 2605) lo arma Leila; nadie le escribió. El ticket #13 está en
+  «esperando_decision»: el cron no lo cierra con el hito hasta que alguien lo apruebe.
+
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 
 Rama `cobros-lanzamiento-2310` (worktree `C:/Users/marti/wtp-lanz`), pasada al Cerebro para el tren. Lo aprendido:

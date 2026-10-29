@@ -44,8 +44,9 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type LeadCobro = { id: number; nombre: string; email: string | null; telefono: string | null };
-/** La cuota que salda el link: su id, cómo se llama («Cuota 2») y su valor en dólares. */
-export type CuotaACobrar = { pagoId: number; nombre: string; montoUsd: number };
+/** La cuota que salda el link: su id, cómo se llama («Cuota 2») y su valor en dólares. Pactada en otra moneda (un tramo en pesos),
+ *  también esa moneda y su monto en ella: el link en esa moneda lo propone. */
+export type CuotaACobrar = { pagoId: number; nombre: string; montoUsd: number; moneda?: string | null; montoOriginal?: number | null };
 
 export function CobrarConLink({ lead, pasarelas, cuentas, productos, onCreado }: {
   lead: LeadCobro;
@@ -138,8 +139,9 @@ function Asistente({ lead, pasarelas, cuentas, productos, cuota = null, onCreado
   const [que, setQue] = useState<Que | null>(null);
   const [cuentaElegida, setCuentaElegida] = useState<string | null>(null);
   const [monto, setMonto] = useState('');
+  const [montoTocado, setMontoTocado] = useState(false);
   const [concepto, setConcepto] = useState('');
-  const [monedaElegida, setMonedaElegida] = useState<string | null>(null);
+  const [monedaElegida, setMonedaElegida] = useState<string | null>(cuota?.moneda ?? null);
   const [usd, setUsd] = useState('');
   const [frecuencia, setFrecuencia] = useState<TipoCobro | null>(null);
   const [email, setEmail] = useState('');
@@ -171,6 +173,9 @@ function Asistente({ lead, pasarelas, cuentas, productos, cuota = null, onCreado
     ? monedaMp
     : monedaElegida && monedasStripe.includes(monedaElegida) ? monedaElegida : 'USD';
   const precioUsd = cuota?.montoUsd ?? producto?.monto_usd ?? null;
+  // La cuota pactada en ESTA moneda ya dice cuánto: se propone (sólo en la suya; en otra, se pregunta en blanco).
+  const montoPropuesto = cuota?.moneda && cuota.montoOriginal != null && moneda === cuota.moneda.toUpperCase() ? String(cuota.montoOriginal) : '';
+  const montoTexto = montoTocado ? monto : monto || montoPropuesto;
   // Una cuota: en dólares su valor ya está; en otra moneda, cuánto es en ésa. Nunca «en dólares» aparte: es el de la cuota.
   const necesitaMonto = cuota ? moneda !== 'USD' : !producto || precioUsd == null || moneda !== 'USD';
   const necesitaUsd = !cuota && !!moneda && moneda !== 'USD' && precioUsd == null;
@@ -200,7 +205,7 @@ function Asistente({ lead, pasarelas, cuentas, productos, cuota = null, onCreado
       case 'cuota': return true;
       case 'que': return que != null;
       case 'pasarela': return cuenta != null && !(pasarela === 'mercadopago' && sinMonedaMp);
-      case 'monto': return numero(monto) != null && !!moneda;
+      case 'monto': return numero(montoTexto) != null && !!moneda;
       case 'usd': return usd.trim() === '' || numero(usd) != null;
       case 'frecuencia': return frecuencia != null;
       case 'email': return EMAIL_RE.test(email.trim());
@@ -219,7 +224,7 @@ function Asistente({ lead, pasarelas, cuentas, productos, cuota = null, onCreado
       productoId: producto?.id ?? null,
       pagoId: cuota?.pagoId ?? null,
       concepto: producto ? null : cuota ? cuota.nombre : concepto.trim() || null,
-      monto: necesitaMonto ? numero(monto) : null,
+      monto: necesitaMonto ? numero(montoTexto) : null,
       moneda,
       montoUsd: necesitaUsd ? numero(usd) : null,
       tipo,
@@ -310,13 +315,13 @@ function Asistente({ lead, pasarelas, cuentas, productos, cuota = null, onCreado
                 ))}
               </div>
             )}
-            <input autoFocus value={monto} onChange={(e) => setMonto(e.target.value)} inputMode="decimal"
+            <input autoFocus value={montoTexto} onChange={(e) => { setMonto(e.target.value); setMontoTocado(true); }} inputMode="decimal"
               placeholder={moneda ? `Monto en ${moneda}` : 'Monto'} style={wizardInput} aria-label="Monto" />
             {/* Lo que se va a cobrar, ESCRITO como lo va a ver quien paga: «49.900» con punto de miles
                 se lee como 49,9 (el punto es el decimal acá), y en una pantalla de cobro eso es cobrar
                 mil veces menos sin que nada lo diga. */}
-            {numero(monto) != null && moneda && (
-              <span style={{ fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>Se cobra <b style={{ color: 'var(--ink)' }}>{formatoMonto(numero(monto)!, moneda)}</b>{tipo === 'suscripcion' ? ' al mes' : ''}</span>
+            {numero(montoTexto) != null && moneda && (
+              <span style={{ fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>Se cobra <b style={{ color: 'var(--ink)' }}>{formatoMonto(numero(montoTexto)!, moneda)}</b>{tipo === 'suscripcion' ? ' al mes' : ''}</span>
             )}
             {!producto && !cuota && (
               <input value={concepto} onChange={(e) => setConcepto(e.target.value)} maxLength={200}

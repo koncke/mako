@@ -1349,3 +1349,59 @@ en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, 
   de 4). Ahora la ficha le dice a `cuotasDelPlanLibre` si el plan GUARDADO tiene inicial (`planConInicial`); sin él, el #0 es
   una cuota. Y lo de aparte va `quedaComoEsta`: el server lo casa sin cambiarlo y, si ya no existe, no lo inserta (un resto
   quitado o cambiado en el medio revivía). El aviso del link anulado sale sólo si se anuló alguno.
+
+## El plan por TRAMOS (29/10/2026, ticket #13 de Leila, ws11): lo que se aprende al pasar de «un monto» a «varios»
+
+Chat «Pagos» (`claude3`), rama `pagos-tramos-2910`. Martín (28/10): «No tiene libertad o diversidad de tipos de cobros». Leila
+tenía que explicarnos sus planes por WhatsApp: Nadia (lead 2605) son US$300 cada quincena, días 1 y 15; otro cliente, «6 meses
+de 12.000 y luego 10.000» en pesos. **Copiado de** las fases de un «subscription schedule» de Stripe (la documentación oficial,
+docs.stripe.com/billing/subscriptions/subscription-schedules: el editor del Dashboard pide una cuenta) y del plan de pagos de
+Kajabi (help.kajabi.com, «Create a payment plan offer»): hasta 10 tramos seguidos, cada uno con su monto, su moneda, cada cuánto
+y cuántas cuotas o hasta qué fecha; el siguiente arranca donde termina el anterior; el anticipo es el «setup fee» de Kajabi; y
+la lista que sale se toca cuota por cuota antes de guardar.
+
+- **Medido en la base (sólo lectura):** Nadia es una SUSCRIPCIÓN de US$4.235,29 × 12 los días 8 (#91 a #102) más un pago
+  suelto de US$423,53 (#113). 4.235,29 = 72.000 / 17 y 423,53 = 7.200 / 17: alguien cargó pesos divididos por una tasa. El
+  editor del plan estaba ESCONDIDO para una suscripción, así que Leila no tenía cómo arreglarlo sola. Ahora se abre también ahí
+  y, al guardar, la venta pasa a «Pago único» (con su compare-and-set) antes de las cuotas, y lo dice antes.
+- **Sin migración, y es a propósito:** un tramo no se guarda; se guardan sus cuotas (filas de `pagos`, con `moneda` y
+  `monto_original`, que ya existían para lo cobrado). Las columnas del plan del lead (`total_cuotas` 1-6, `dia_de_pago` 1-28,
+  mig 0014) son de UN monto: con varios tramos van vacías. Al reabrir, los tramos se LEEN de las cuotas (`tramosDeCuotas`) y lo
+  que no encaja queda como «a mano» (`cambiosContra`). **La prueba de que el editor no rompe nada es «abrir y guardar sin cambiar
+  nada no cambia ninguna cuota»**: está en tests/pagos-tramos.test.ts con las cuotas reales de Nadia.
+- ⚠️ **El diagnóstico obvio era reusar la regla del plan libre, y era el equivocado.** En el libre, «la cantidad cuenta las
+  cobradas» y las que faltan se arman desde «Primera cuota»: la lista es LO QUE FALTA. En los tramos la lista es el plan ENTERO
+  (para que reabrir muestre lo que hay), y con esa regla una cobrada que no es la primera (la cuota 3 de 6) cubría la fila 1:
+  cada impaga tomaba la fecha de la siguiente. **Regla: una cobrada cubre SU lugar** (`lugaresDelPlan`, el mismo orden que
+  `lugarDe` del plan uniforme), y la impaga del lugar i se guarda POR ID en la fila i.
+- ⚠️ **«Las protegidas primero» en la PANTALLA corría todas las cuotas.** El libre ordena las impagas con link o recordatorio
+  primero para que no se queden sin lugar. Con la lista por posición, eso le cambiaba la fecha a cada cuota (y su recordatorio).
+  Acá van por posición, y la protegida que se queda sin fila la acomoda el server con las protecciones que acaba de leer
+  (`protegidasPrimero` en `reconciliarCuotas`), que ya existía por la revisión de 0b6d5b754.
+- **La moneda de una cuota impaga ahora importa, y tenía cuatro lectores que la ignoraban:** el recordatorio de cobranza decía
+  «US$ 600» a quien le pactaron MXN 12.000 (`cuota_monto`, lib/cobranza.ts; `getCuotasPendientes` no leía la moneda), «Marcar
+  pagada» proponía dólares, el link pedía el monto en pesos en blanco, y la ficha editaba la cuota como «$». En pesos, los
+  dólares los DECLARA la persona por tramo (`plataDeCuota`), como el pago a mano: `monto_usd` es lo que suman el Dashboard, el
+  Outstanding y la cobranza, y no hay tasa que inventar. Cambiar sólo los pesos (mismos dólares) es cambiar la plata: anula el
+  link y, con un recordatorio corriendo, no se toca.
+- **Deshacer:** el plan libre no tenía; `guardarCuotasAction(…, { conDeshacer: true })` devuelve las impagas y las columnas de
+  ANTES leídas en el server (con su número y su moneda), y las de después como `vistos`.
+
+**Sin hacer:**
+- Deshacer el cobro de una cuota en pesos (`marcarPago(false)`) deja la moneda de lo COBRADO (`cobrarCuota`: «lo último que se
+  dijo manda»): si se cobró en dólares, vuelve a impaga en dólares y se pierden los pesos pactados (lib/pagos.ts).
+- La API de MaKo (`guardar_cuotas`, `editar_cuota`, la lista de cuotas) no sabe de tramos ni de la moneda de una cuota: MaKo
+  dice el monto en dólares (lib/api-mako/areas/cobros.*).
+- `guardar_plan_pagos` (el plan uniforme por la API) sobre un plan de UN tramo con columnas llenas lo reimpondría entero; con
+  varios tramos las columnas van vacías y la guarda «se cargaron a mano» lo frena (`ajustarPlanAction`).
+- Un tramo «para siempre» (el «Forever» de Stripe) es una suscripción: el plan siempre termina.
+- Al pasar una suscripción a «Pago único», el monto de la venta queda vacío: lo pide el bloque «Venta», no lo pone el plan.
+- El plan de Nadia NO se cargó (lo arma Leila con la herramienta). El ticket #13 sigue en «esperando_decision» (leído el
+  29/10): con el hito desplegado, el cron no lo cierra hasta que alguien lo apruebe (docs/hallazgos-ticketera.md).
+- No se recorrió en el navegador (la PC con diez chats abiertos no aguanta un build): el editor se DIBUJA con la ficha real de
+  Nadia en tests/_plan-tramos-hijo.ts, sin estilos. Recorrerlo en el ws3 después del deploy.
+
+**Vive en:** lib/pagos-campo.ts (§ «El plan por tramos»: `cuotasDeTramos`, `tramosDeCuotas`, `cuotasDelPlanPorTramos`,
+`plataDeCuota`; la moneda en `reconciliarCuotas`) · lib/pagos.ts (`escribirReconciliacion`, `editarCuota`,
+`getCuotasPendientes`) · lib/cobranza.ts · app/crm/[id]/pagos-campo-actions.ts (`guardarCuotasAction`) ·
+app/crm/lead-view/ficha/pagos/bloques-cobro.tsx (`ArmarPlan`) · tests/pagos-tramos.test.ts.

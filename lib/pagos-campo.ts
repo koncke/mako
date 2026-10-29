@@ -315,11 +315,21 @@ export type CuotaExistente = {
   /** La diferencia de un cobro por menos: tampoco es del plan, no ocupa un lugar en 'slots'. */
   resto_de?: number | null;
   protegida?: readonly Proteccion[];
+  /** La moneda de la cuota (null = USD) y su monto en ella: una cuota de un tramo en pesos (el plan por tramos, 29/10). */
+  moneda?: string | null;
+  monto_original?: number | null;
 };
 
 /** `quedaComoEsta` (sólo en 'porId'): la que ya existe se casa por id SIN cambiarla, y si ya no existe no se inserta (lo de aparte
  *  del plan libre, `cuotasDelPlanLibre`). */
-export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null; quedaComoEsta?: boolean };
+export type CuotaDeseada = {
+  id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null; quedaComoEsta?: boolean;
+  /** Sin la clave (undefined), la moneda de la cuota no se toca: lo de siempre. null = dólares; si no, con `monto_original`. */
+  moneda?: string | null; monto_original?: number | null;
+};
+
+/** La moneda de una cuota como se guarda: null para dólares, y el monto en ella sólo si hay moneda. */
+type MonedaDeCuota = { moneda: string | null; monto_original: number | null };
 
 /**
  *   · 'porId' — la lista viene de una pantalla con el id de cada cuota (Editar deal): la que trae id se actualiza,
@@ -337,14 +347,27 @@ export type ModoReconciliar = 'porId' | 'lista' | 'slots';
 export type MotivoConservada = Proteccion | 'nueva';
 
 export type PlanDeCuotas = {
-  actualizar: Array<{ id: number; numero: number; monto_usd: number; fecha_esperada: string | null; antes: { monto_usd: number; fecha_esperada: string | null } }>;
-  insertar: Array<{ numero: number; monto_usd: number; fecha_esperada: string | null }>;
+  actualizar: Array<{ id: number; numero: number; monto_usd: number; fecha_esperada: string | null; antes: { monto_usd: number; fecha_esperada: string | null } & Partial<MonedaDeCuota> } & Partial<MonedaDeCuota>>;
+  insertar: Array<{ numero: number; monto_usd: number; fecha_esperada: string | null } & Partial<MonedaDeCuota>>;
   borrar: Array<{ id: number; numero: number; monto_usd: number; fecha_esperada: string | null }>;
   /** Las que se quisieron cambiar o quitar y no se tocaron, con el porqué (la pantalla lo dice). */
   conservar: Array<{ id: number; numero: number; motivo: MotivoConservada }>;
 };
 
 const mismaPlata = (a: number, b: number) => Math.abs(Number(a) - Number(b)) < 0.005;
+
+/** La moneda que pide una deseada, limpia (null = USD), o undefined si no dice nada de moneda. */
+function monedaPedida(d: CuotaDeseada): MonedaDeCuota | undefined {
+  if (d.moneda === undefined) return undefined;
+  const m = normalizarMoneda(d.moneda);
+  const original = d.monto_original == null ? null : Number(d.monto_original);
+  return m && m !== 'USD' && original != null && Number.isFinite(original) && original > 0
+    ? { moneda: m, monto_original: centavos(original) } : { moneda: null, monto_original: null };
+}
+const monedaDe = (q: CuotaExistente): MonedaDeCuota => {
+  const m = normalizarMoneda(q.moneda ?? null);
+  return m && m !== 'USD' && q.monto_original != null ? { moneda: m, monto_original: Number(q.monto_original) } : { moneda: null, monto_original: null };
+};
 
 /**
  * Decide, sin escribir nada, qué se actualiza por id, qué se inserta y qué se borra. Las cuotas PAGADAS y las
@@ -403,13 +426,20 @@ export function reconciliarCuotas(
   /** Casa una deseada con una existente: actualiza lo que se puede, o la conserva y dice por qué. */
   const casar = (q: CuotaExistente, d: CuotaDeseada) => {
     libres.delete(q.id);
-    const cambiaMonto = !mismaPlata(q.monto_usd, d.monto_usd);
+    // La moneda cuenta como el monto: «MXN 12.000» a «MXN 10.000» con los mismos dólares es otra plata para quien paga.
+    const pedida = monedaPedida(d);
+    const tenia = monedaDe(q);
+    const cambiaMoneda = !!pedida && (pedida.moneda !== tenia.moneda || (pedida.moneda != null && !mismaPlata(pedida.monto_original ?? 0, tenia.monto_original ?? 0)));
+    const cambiaMonto = !mismaPlata(q.monto_usd, d.monto_usd) || cambiaMoneda;
     const cambiaFecha = (q.fecha_esperada ?? null) !== (d.fecha_esperada ?? null);
     if (!cambiaMonto && !cambiaFecha) return;
     const p = prot(q);
     if (p.includes('recordatorio')) { out.conservar.push({ id: q.id, numero: q.numero, motivo: 'recordatorio' }); return; }
     if (p.includes('link') && cambiaMonto) { out.conservar.push({ id: q.id, numero: q.numero, motivo: 'link' }); return; }
-    out.actualizar.push({ id: q.id, numero: q.numero, monto_usd: d.monto_usd, fecha_esperada: d.fecha_esperada ?? null, antes: { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada ?? null } });
+    out.actualizar.push({
+      id: q.id, numero: q.numero, monto_usd: d.monto_usd, fecha_esperada: d.fecha_esperada ?? null, ...(pedida ?? {}),
+      antes: { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada ?? null, ...(pedida ? tenia : {}) },
+    });
   };
 
   const sinCasar: CuotaDeseada[] = [];
@@ -494,7 +524,7 @@ export function reconciliarCuotas(
     else numero = Math.max(max + 1, 1);
     usados.add(numero);
     max = Math.max(max, numero);
-    out.insertar.push({ numero, monto_usd: d.monto_usd, fecha_esperada: d.fecha_esperada ?? null });
+    out.insertar.push({ numero, monto_usd: d.monto_usd, fecha_esperada: d.fecha_esperada ?? null, ...(monedaPedida(d) ?? {}) });
   }
   return out;
 }
@@ -526,9 +556,10 @@ export function protegidasPrimero(impagas: readonly CuotaExistente[], deseadas: 
 
 /** «Cuota 3» / «Cobro inicial»: cómo se nombra una cuota en el historial. */
 export const nombreCuota = (numero: number): string => (numero === 0 ? 'Cobro inicial' : `Cuota ${numero}`);
-const textoCuota = (monto: number, fecha: string | null): string => {
+const textoCuota = (monto: number, fecha: string | null, m?: Partial<MonedaDeCuota>): string => {
   const f = fecha ? `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}/${fecha.slice(0, 4)}` : 'sin fecha';
-  return `USD ${centavos(monto)} · vence ${f}`;
+  const plata = m?.moneda && m.monto_original != null ? `${m.moneda} ${centavos(m.monto_original)} (USD ${centavos(monto)})` : `USD ${centavos(monto)}`;
+  return `${plata} · vence ${f}`;
 };
 
 /**
@@ -537,8 +568,8 @@ const textoCuota = (monto: number, fecha: string | null): string => {
  */
 export function lineasDeCuotas(plan: PlanDeCuotas): Array<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }> {
   return [
-    ...plan.actualizar.map((u) => ({ campo: nombreCuota(u.numero), valor_anterior: textoCuota(u.antes.monto_usd, u.antes.fecha_esperada), valor_nuevo: textoCuota(u.monto_usd, u.fecha_esperada) })),
-    ...plan.insertar.map((i) => ({ campo: nombreCuota(i.numero), valor_anterior: null, valor_nuevo: textoCuota(i.monto_usd, i.fecha_esperada) })),
+    ...plan.actualizar.map((u) => ({ campo: nombreCuota(u.numero), valor_anterior: textoCuota(u.antes.monto_usd, u.antes.fecha_esperada, u.antes), valor_nuevo: textoCuota(u.monto_usd, u.fecha_esperada, u) })),
+    ...plan.insertar.map((i) => ({ campo: nombreCuota(i.numero), valor_anterior: null, valor_nuevo: textoCuota(i.monto_usd, i.fecha_esperada, i) })),
     ...plan.borrar.map((b) => ({ campo: nombreCuota(b.numero), valor_anterior: textoCuota(b.monto_usd, b.fecha_esperada), valor_nuevo: null })),
   ];
 }
@@ -908,9 +939,14 @@ const iso = (y: number, m0: number, d: number): string => new Date(Date.UTC(y, m
  * días fuera de 1..31) → [].
  */
 export function fechasDelPlan(p: { desde: string; cantidad: number; cada: CadaPlan; dias?: readonly number[] }): string[] {
+  return generarFechas(p, TOPE_CUOTAS_PLAN);
+}
+
+/** `fechasDelPlan` con otro tope: los tramos piden UNA de más, la que sigue a la última (ahí arranca el tramo siguiente). */
+function generarFechas(p: { desde: string; cantidad: number; cada: CadaPlan; dias?: readonly number[] }, tope: number): string[] {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.desde ?? '');
   const n = Math.floor(Number(p.cantidad));
-  if (!m || !Number.isFinite(n) || n < 1 || n > TOPE_CUOTAS_PLAN) return [];
+  if (!m || !Number.isFinite(n) || n < 1 || n > tope) return [];
   const y0 = Number(m[1]), m0 = Number(m[2]) - 1, d0 = Number(m[3]);
   if (p.cada === 'semana') {
     const base = Date.UTC(y0, m0, d0);
@@ -922,7 +958,7 @@ export function fechasDelPlan(p: { desde: string; cantidad: number; cada: CadaPl
   if (p.cada === 'mes' && dias.length !== 1) return [];
   if (p.cada === 'quincena' && dias.length !== 2) return [];
   const out: string[] = [];
-  for (let k = 0; out.length < n && k < TOPE_CUOTAS_PLAN * 2 + 2; k++) {
+  for (let k = 0; out.length < n && k < tope * 2 + 2; k++) {
     const y = y0 + Math.floor((m0 + k) / 12), mm = (m0 + k) % 12;
     for (const d of dias) {
       const f = iso(y, mm, Math.min(d, diasDelMes(y, mm)));
@@ -962,13 +998,7 @@ export function cuotasDelPlanLibre(p: {
 }):
   | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null; quedaComoEsta: true }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
   | { ok: false; error: string; cobradas: number; inicialCobrado: boolean } {
-  const vivas = p.pagos.filter((q) => !noEsDeuda(q));
-  // ⚠️ UN #0 COBRADO DE UN PLAN SIN INICIAL ES UNA CUOTA (revisión de 1f02dd813, media): la seña protegida que tomó un lugar del
-  // plan (300 cada quincena, 4), una vez pagada contaba como «inicial cobrado» y no como cuota, y guardar el mismo plan armaba 4
-  // nuevas: cinco cuotas de 300 para un plan de 4 (1.200 de deuda en vez de 900).
-  const conInicial0 = p.planConInicial !== false;
-  const inicialCobrado = conInicial0 && vivas.some((q) => q.pagado && q.numero === 0);
-  const cobradas = vivas.filter((q) => q.pagado && (q.numero !== 0 || !conInicial0) && esCuotaDelPlan(q)).length;
+  const { vivas, inicialCobrado, cobradas } = loCobradoDelPlan(p.pagos, p.planConInicial);
   const nuevas = Math.floor(p.cantidad) - cobradas;
   if (nuevas < 1) {
     return { ok: false, cobradas, inicialCobrado, error: `Ya hay ${cobradas} cuota${cobradas === 1 ? '' : 's'} cobrada${cobradas === 1 ? '' : 's'} y cuenta${cobradas === 1 ? '' : 'n'} en la cantidad: pon más de ${cobradas}.` };
@@ -976,6 +1006,40 @@ export function cuotasDelPlanLibre(p: {
   const fechas = p.fechas(nuevas);
   if (fechas.length !== nuevas) return { ok: false, cobradas, inicialCobrado, error: 'Revisa el día y la fecha de la primera.' };
   const conInicial = p.inicial > 0 && !inicialCobrado;
+  const r = repartirEnLoQueHay(vivas, p.protegidas, conInicial ? { monto: p.inicial, fecha: p.desde } : null, fechas.map((f) => ({ monto: p.cuota, fecha: f })));
+  return { ok: true, ...r, cobradas, inicialCobrado, nuevas };
+}
+
+/**
+ * Lo cobrado del plan que ya hay: el inicial cobrado (no se vuelve a pedir) y cuántas cuotas del plan se cobraron. La MISMA
+ * cuenta para el plan libre y el plan por tramos.
+ */
+function loCobradoDelPlan(pagos: readonly CuotaParaPlanLibre[], planConInicial?: boolean): { vivas: CuotaParaPlanLibre[]; inicialCobrado: boolean; cobradas: number } {
+  const vivas = pagos.filter((q) => !noEsDeuda(q));
+  // ⚠️ UN #0 COBRADO DE UN PLAN SIN INICIAL ES UNA CUOTA (revisión de 1f02dd813, media): la seña protegida que tomó un lugar del
+  // plan (300 cada quincena, 4), una vez pagada contaba como «inicial cobrado» y no como cuota, y guardar el mismo plan armaba 4
+  // nuevas: cinco cuotas de 300 para un plan de 4 (1.200 de deuda en vez de 900).
+  const conInicial0 = planConInicial !== false;
+  const inicialCobrado = conInicial0 && vivas.some((q) => q.pagado && q.numero === 0);
+  const cobradas = vivas.filter((q) => q.pagado && (q.numero !== 0 || !conInicial0) && esCuotaDelPlan(q)).length;
+  return { vivas, inicialCobrado, cobradas };
+}
+
+/** Una cuota que el plan pide: su monto en dólares y su fecha; en otra moneda, también esa moneda y el monto en ella. */
+type CuotaPedida = { monto: number; fecha: string | null; moneda?: string | null; montoOriginal?: number | null };
+export type CuotaParaGuardar = { id: number | null; numero: number | null; monto: number; fecha: string | null; moneda?: string | null; montoOriginal?: number | null };
+
+/** Lo que trae la moneda una cuota pedida, sólo si la trae (sin la clave, el server no toca la moneda de la cuota). */
+const conMoneda = (c: CuotaPedida) => (c.moneda !== undefined ? { moneda: c.moneda, montoOriginal: c.montoOriginal ?? null } : {});
+
+/**
+ * Pone la lista que el plan pide ENCIMA de las impagas que ya hay (`vivas`): cada impaga del plan toma un lugar de la lista por su
+ * id (las protegidas primero) y lo que no es del plan va aparte, tal cual. La regla de `cuotasDelPlanLibre`, compartida.
+ */
+function repartirEnLoQueHay(vivas: readonly CuotaParaPlanLibre[], protegidas: ReadonlySet<number>, inicial: CuotaPedida | null, lista: readonly CuotaPedida[]): {
+  cuotas: CuotaParaGuardar[]; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null; quedaComoEsta: true }>; vistos: number[];
+} {
+  const conInicial = inicial != null;
   const todasImpagas = vivas.filter((q) => !q.pagado).sort((a, b) => a.numero - b.numero);
   const vistos = todasImpagas.map((q) => q.id);
   // ⚠️ LO QUE NO ES DEL PLAN NO TOMA LUGAR (revisión de 0b6d5b754, alta): el resto de un cobro por menos (`resto_de`, lo crea
@@ -989,10 +1053,291 @@ export function cuotasDelPlanLibre(p: {
   // El inicial impago que existe vuelve a ser el inicial. Sin inicial en el plan nuevo, uno sin proteger se quita (no se
   // convierte en una cuota común llamada «Cobro inicial»); uno protegido toma un lugar, como cualquier protegida.
   const inicialImpago = impagas.find((q) => q.numero === 0) ?? null;
-  const resto = impagas.filter((q) => q.numero !== 0 || (!conInicial && p.protegidas.has(q.id)));
-  const lugares = [...resto.filter((q) => p.protegidas.has(q.id)), ...resto.filter((q) => !p.protegidas.has(q.id))];
-  const cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }> = [];
-  if (conInicial) cuotas.push({ id: inicialImpago?.id ?? null, numero: 0, monto: p.inicial, fecha: p.desde });
-  fechas.forEach((f, i) => cuotas.push({ id: lugares[i]?.id ?? null, numero: null, monto: p.cuota, fecha: f }));
-  return { ok: true, cuotas, aparte, vistos, cobradas, inicialCobrado, nuevas };
+  const resto = impagas.filter((q) => q.numero !== 0 || (!conInicial && protegidas.has(q.id)));
+  const lugares = [...resto.filter((q) => protegidas.has(q.id)), ...resto.filter((q) => !protegidas.has(q.id))];
+  const cuotas: CuotaParaGuardar[] = [];
+  if (inicial) cuotas.push({ id: inicialImpago?.id ?? null, numero: 0, monto: inicial.monto, fecha: inicial.fecha, ...conMoneda(inicial) });
+  lista.forEach((c, i) => cuotas.push({ id: lugares[i]?.id ?? null, numero: null, monto: c.monto, fecha: c.fecha, ...conMoneda(c) }));
+  return { cuotas, aparte, vistos };
+}
+
+// =============================================================================
+// EL PLAN POR TRAMOS (29/10/2026, ticket #13 de Leila, ws11)
+// =============================================================================
+// Martín (28/10): «No tiene libertad o diversidad de tipos de cobros». El plan libre del 27/10 hacía quincena, semana y más de 6
+// cuotas, pero todas del MISMO monto: «6 meses de 12.000 y luego 10.000» no entraba, y Leila nos explicaba sus planes por WhatsApp.
+//
+// Copiado de las FASES de un «subscription schedule» de Stripe (docs.stripe.com/billing/subscriptions/subscription-schedules, la
+// documentación oficial: el editor del Dashboard pide una cuenta): fases seguidas, hasta 10, cada una con su precio y su moneda
+// (`phases.currency`), su intervalo y su duración (cuántos cobros, `iterations`, o una fecha de fin, `end_date`), y la siguiente
+// arranca donde termina la anterior. El anticipo es el «setup fee» del plan de pagos de Kajabi: se cobra al empezar, aparte. Y la
+// lista que sale se toca cuota por cuota antes de guardar.
+//
+// Sin migración: el tramo no se guarda, se guardan sus cuotas (filas de `pagos`, con su moneda y su monto en ella). Al abrir el
+// editor otra vez, los tramos se LEEN de las cuotas (`tramosDeCuotas`) y lo que no encaja en un tramo queda como cuota tocada a
+// mano (`cambiosContra`): abrir y guardar sin cambiar nada no cambia nada.
+// =============================================================================
+
+export const TOPE_TRAMOS = 10;
+
+export type TramoPlan = {
+  /** Lo que vale CADA cuota del tramo, en su moneda. */
+  monto: number;
+  /** null o 'USD': dólares. */
+  moneda?: string | null;
+  /** En otra moneda: lo que vale cada cuota en DÓLARES, declarado (nunca una tasa inventada, como `pagoEnMoneda`). */
+  montoUsd?: number | null;
+  cada: CadaPlan;
+  /** `mes`: [día]; `quincena`: [día, día]; `semana` no los usa. Sin días: el del arranque del tramo (quincena: 1 y 15). */
+  dias?: readonly number[];
+  /** La duración, una de las dos (Stripe: `iterations` o `end_date`): cuántas cuotas… */
+  cantidad?: number | null;
+  /** …o hasta qué fecha, incluida. */
+  hasta?: string | null;
+};
+
+/** Una cuota del plan: en dólares (`moneda` null) o en otra moneda, con su monto en ella y su valor en dólares. */
+export type CuotaArmada = { monto_usd: number; fecha: string | null; moneda: string | null; monto_original: number | null };
+
+const positivo = (v: unknown): number | null =>
+  (v != null && v !== '' && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) <= MAX_MONTO_USD ? centavos(Number(v)) : null);
+const dmy = (f: string): string => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)}`;
+const diaSiguiente = (f: string): string => new Date(Date.parse(`${f}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+/** null para dólares: una cuota en USD no lleva moneda (la columna es «null = USD»). */
+export const monedaDeCuota = (m: unknown): string | null => { const n = normalizarMoneda(m == null ? null : String(m)); return n && n !== 'USD' ? n : null; };
+
+/**
+ * Lo que vale una cuota: en dólares, o en otra moneda con su valor en dólares DECLARADO. Sin él se pide, como el pago a mano
+ * (`pagoEnMoneda`): `pagos.monto_usd` es lo que suman el Dashboard, el Outstanding y la cobranza, y no hay tasa que inventar.
+ */
+export function plataDeCuota(p: { monto: unknown; moneda?: unknown; montoUsd?: unknown }): Resultado<{ monto_usd: number; moneda: string | null; monto_original: number | null }> {
+  const cruda = p.moneda == null || p.moneda === '' ? null : String(p.moneda);
+  if (cruda != null && !normalizarMoneda(cruda)) return { ok: false, error: 'Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…).' };
+  const moneda = monedaDeCuota(cruda);
+  const monto = positivo(p.monto);
+  if (monto == null) return { ok: false, error: 'El monto tiene que ser mayor a cero.' };
+  if (moneda == null) return { ok: true, monto_usd: monto, moneda: null, monto_original: null };
+  const usd = positivo(p.montoUsd);
+  if (usd == null) return { ok: false, error: `¿Cuánto es en dólares? Hace falta para tus reportes (es en ${moneda}).` };
+  return { ok: true, monto_usd: usd, moneda, monto_original: monto };
+}
+
+/**
+ * Las cuotas de los tramos, en orden. El primero arranca en `desde`; cada uno de los siguientes, donde termina el anterior (como
+ * las fases de Stripe): con una cantidad, en la fecha que le habría tocado a la cuota siguiente; con una fecha de fin, al día
+ * siguiente. Hasta `TOPE_CUOTAS_PLAN` cuotas en total (el tope de `guardarCuotasAction`).
+ */
+export function cuotasDeTramos(p: { desde: string; tramos: readonly TramoPlan[] }): Resultado<{ cuotas: CuotaArmada[] }> {
+  if (!esFecha(p.desde)) return { ok: false, error: 'Falta la fecha de la primera cuota.' };
+  if (!p.tramos?.length) return { ok: false, error: 'Agrega al menos un tramo.' };
+  if (p.tramos.length > TOPE_TRAMOS) return { ok: false, error: `Hasta ${TOPE_TRAMOS} tramos.` };
+  const tope = { ok: false as const, error: `Son más de ${TOPE_CUOTAS_PLAN} cuotas: acorta un tramo.` };
+  const cuotas: CuotaArmada[] = [];
+  let inicio = p.desde;
+  for (let i = 0; i < p.tramos.length; i++) {
+    const t = p.tramos[i];
+    const mal = (texto: string) => ({ ok: false as const, error: p.tramos.length > 1 ? `Tramo ${i + 1}: ${texto}` : texto[0].toUpperCase() + texto.slice(1) });
+    const plata = plataDeCuota(t);
+    if (!plata.ok) return mal(plata.error.replace(/^[A-ZÁÉÍÓÚ]/, (c) => c.toLowerCase()));
+    const queda = TOPE_CUOTAS_PLAN - cuotas.length;
+    if (queda < 1) return tope;
+    const base = { desde: inicio, cada: t.cada, dias: t.dias && t.dias.length ? t.dias : undefined };
+    const cantidad = t.cantidad == null || (t.cantidad as unknown) === '' ? null : Number(t.cantidad);
+    let fechas: string[];
+    let siguiente: string;
+    if (cantidad != null) {
+      if (!Number.isInteger(cantidad) || cantidad < 1) return mal('la cantidad de cuotas va de 1 en adelante.');
+      if (cantidad > queda) return tope;
+      // Una de más: la que le tocaría después de la última es donde arranca el tramo siguiente.
+      const f = generarFechas({ ...base, cantidad: cantidad + 1 }, TOPE_CUOTAS_PLAN + 1);
+      if (f.length !== cantidad + 1) return mal('revisa los días de pago (del 1 al 31).');
+      fechas = f.slice(0, cantidad);
+      siguiente = f[cantidad];
+    } else if (esFecha(t.hasta)) {
+      const hasta = t.hasta;
+      if (hasta < inicio) return mal(`termina antes de empezar (empieza el ${dmy(inicio)}).`);
+      const f = generarFechas({ ...base, cantidad: queda + 1 }, TOPE_CUOTAS_PLAN + 1);
+      if (!f.length) return mal('revisa los días de pago (del 1 al 31).');
+      fechas = f.filter((x) => x <= hasta);
+      if (fechas.length > queda) return tope;
+      if (!fechas.length) return mal(`no le toca ninguna cuota hasta el ${dmy(hasta)}.`);
+      siguiente = diaSiguiente(hasta);
+    } else {
+      return mal('falta cuántas cuotas o hasta qué fecha.');
+    }
+    for (const f of fechas) cuotas.push({ monto_usd: plata.monto_usd, fecha: f, moneda: plata.moneda, monto_original: plata.monto_original });
+    inicio = siguiente;
+  }
+  return { ok: true, cuotas };
+}
+
+/** El cambio a mano de UNA cuota de la lista (la fila `i`): lo que no viene queda como lo armaron los tramos. */
+export type CambioDeCuota = { monto_usd?: number; monto_original?: number; fecha?: string | null };
+
+/** La lista con los cambios a mano encima. Un cambio de una fila que ya no existe (el plan se acortó) no hace nada. */
+export function aplicarCambios(lista: readonly CuotaArmada[], cambios: Readonly<Record<number, CambioDeCuota>>): CuotaArmada[] {
+  return lista.map((c, i) => {
+    const x = cambios[i];
+    if (!x) return c;
+    return {
+      ...c,
+      ...(x.monto_usd !== undefined ? { monto_usd: centavos(x.monto_usd) } : {}),
+      ...(x.monto_original !== undefined && c.moneda ? { monto_original: centavos(x.monto_original) } : {}),
+      ...(x.fecha !== undefined ? { fecha: x.fecha } : {}),
+    };
+  });
+}
+
+/** Lo que cambia entre lo que armaron los tramos y lo que se quiere, fila por fila. */
+export function cambiosContra(armadas: readonly CuotaArmada[], reales: readonly CuotaArmada[]): Record<number, CambioDeCuota> {
+  const out: Record<number, CambioDeCuota> = {};
+  reales.forEach((r, i) => {
+    const a = armadas[i];
+    if (!a) return;
+    const x: CambioDeCuota = {};
+    if (!mismaPlata(a.monto_usd, r.monto_usd)) x.monto_usd = centavos(r.monto_usd);
+    if (a.moneda && r.moneda === a.moneda && r.monto_original != null && !mismaPlata(a.monto_original ?? 0, r.monto_original)) x.monto_original = centavos(r.monto_original);
+    if ((a.fecha ?? null) !== (r.fecha ?? null)) x.fecha = r.fecha ?? null;
+    if (Object.keys(x).length) out[i] = x;
+  });
+  return out;
+}
+
+/** Una cuota de la ficha, para leer el plan que ya tiene (`lugaresDelPlan`, `tramosDeCuotas`). */
+export type CuotaDelLead = CuotaParaPlanLibre & { moneda?: string | null; monto_original?: number | string | null };
+
+/**
+ * Los LUGARES del plan que ya hay, en orden: cada cuota del plan (`esCuotaDelPlan`, no devuelta ni de baja) es un lugar, y una
+ * cobrada lo cubre (la regla del plan uniforme, `lugarDe` en 'slots'). El #0 es el anticipo si el plan guardado tiene cobro
+ * inicial (`planConInicial`); si no, es una cuota más (revisión de 1f02dd813).
+ */
+export function lugaresDelPlan(pagos: readonly CuotaDelLead[], planConInicial?: boolean): CuotaDelLead[] {
+  const conInicial0 = planConInicial !== false;
+  return pagos.filter((q) => !noEsDeuda(q) && esCuotaDelPlan(q) && !(conInicial0 && q.numero === 0)).sort((a, b) => a.numero - b.numero);
+}
+
+/** Una cuota de la ficha como la arma el plan: la moneda sólo si también tiene el monto en ella. */
+export const armadaDe = (q: CuotaDelLead): CuotaArmada => {
+  const moneda = monedaDeCuota(q.moneda);
+  const original = q.monto_original == null || q.monto_original === '' ? null : Number(q.monto_original);
+  const conMonedaPropia = moneda != null && original != null && Number.isFinite(original);
+  return { monto_usd: Number(q.monto_usd), fecha: q.fecha_esperada ?? null, moneda: conMonedaPropia ? moneda : null, monto_original: conMonedaPropia ? original : null };
+};
+
+/** La frecuencia que dicen unas fechas: la que, generada desde la primera, da EXACTAMENTE esas fechas. Si ninguna, cada mes. */
+function cadaDeFechas(fechas: readonly string[]): { cada: CadaPlan; dias: number[] } {
+  const dia = (f: string) => Number(f.slice(8, 10));
+  const candidatos: Array<{ cada: CadaPlan; dias: number[] }> = [];
+  if (fechas.length > 1) candidatos.push({ cada: 'semana', dias: [] });
+  candidatos.push({ cada: 'mes', dias: [Math.max(...fechas.map(dia))] });
+  const distintos = [...new Set(fechas.map(dia))];
+  if (distintos.length >= 2) candidatos.push({ cada: 'quincena', dias: [Math.min(...distintos), Math.max(...distintos)] });
+  for (const c of candidatos) {
+    const g = generarFechas({ desde: fechas[0], cantidad: fechas.length, cada: c.cada, dias: c.dias.length ? c.dias : undefined }, TOPE_CUOTAS_PLAN + 1);
+    if (g.length === fechas.length && g.every((f, i) => f === fechas[i])) return c;
+  }
+  return { cada: 'mes', dias: [dia(fechas[0])] };
+}
+
+/**
+ * Los tramos del plan que el lead YA tiene, para abrir el editor con lo que hay (Stripe abre el schedule con sus fases). Cada
+ * racha de cuotas iguales (monto y moneda) es un tramo, con la frecuencia que dicen sus fechas. Una cobrada no corta la racha:
+ * cubre su lugar, y lo que se cobró pudo ser otro monto (un descuento). Lo que no encaja queda en `cambiosContra`.
+ */
+export function tramosDeCuotas(lugares: readonly CuotaDelLead[], hoy: string): { desde: string; tramos: TramoPlan[] } | null {
+  if (!lugares.length) return null;
+  const armadas = lugares.map(armadaDe);
+  const clave = (c: CuotaArmada) => `${c.moneda ?? 'USD'}|${c.monto_original ?? ''}|${c.monto_usd}`;
+  // La clave de cada lugar: la suya si está impaga; la cobrada toma la de la impaga que sigue (o la de la anterior).
+  const claves: string[] = armadas.map((c, i) => (lugares[i].pagado ? '' : clave(c)));
+  for (let i = claves.length - 1, sig = ''; i >= 0; i--) { if (claves[i]) sig = claves[i]; else claves[i] = sig; }
+  for (let i = 0, ant = ''; i < claves.length; i++) { if (claves[i]) ant = claves[i]; else claves[i] = ant || clave(armadas[i]); }
+  const rachas: number[][] = [];
+  claves.forEach((k, i) => { if (i > 0 && k === claves[i - 1]) rachas[rachas.length - 1].push(i); else rachas.push([i]); });
+  // Más de 10 rachas: lo que sobra va en el último tramo, y cada cuota distinta queda como cambio a mano.
+  while (rachas.length > TOPE_TRAMOS) { const ultima = rachas.pop() as number[]; rachas[rachas.length - 1].push(...ultima); }
+  const tramos = rachas.map((r): TramoPlan => {
+    const muestra = armadas[r.find((i) => !lugares[i].pagado) ?? r[0]];
+    const fechas = r.map((i) => armadas[i].fecha).filter((f): f is string => !!f);
+    const { cada, dias } = fechas.length ? cadaDeFechas(fechas) : { cada: 'mes' as CadaPlan, dias: [] };
+    return {
+      monto: muestra.moneda ? (muestra.monto_original as number) : muestra.monto_usd, moneda: muestra.moneda ?? 'USD',
+      montoUsd: muestra.moneda ? muestra.monto_usd : null, cada, dias, cantidad: r.length, hasta: null,
+    };
+  });
+  return { desde: armadas.find((a) => a.fecha)?.fecha ?? hoy, tramos };
+}
+
+/**
+ * ⚠️ LO QUE LA PERSONA NO CAMBIÓ VA «TAL CUAL» (`quedaComoEsta`): la lista es el plan ENTERO, y mandarla entera le reescribía su
+ * valor de cuando se abrió el editor a una cuota que otra pestaña (o MaKo) cambió en el medio. Es la misma trampa que el plan
+ * uniforme cerró mandando «sólo lo que se cambió» (`ajustarSobre`, revisión del 16/10/2026). Una cuota de la lista con id que
+ * está igual que cuando se abrió (`abiertas`: las cuotas que leyó la pantalla al abrir) se casa por id SIN cambiarla; si ya no
+ * existe, no se vuelve a crear.
+ */
+export function soloLoQueCambio(cuotas: readonly CuotaParaGuardar[], abiertas: readonly CuotaDelLead[]): Array<CuotaParaGuardar & { quedaComoEsta?: true }> {
+  const firma = (monto: number, fecha: string | null, moneda: string | null, original: number | null) =>
+    `${centavos(monto)}|${fecha ?? ''}|${moneda ?? ''}|${moneda && original != null ? centavos(original) : ''}`;
+  const vistas = new Map(abiertas.filter((q) => !q.pagado).map((q) => { const a = armadaDe(q); return [q.id, firma(a.monto_usd, a.fecha, a.moneda, a.monto_original)]; }));
+  return cuotas.map((c) => (c.id != null && vistas.get(c.id) === firma(c.monto, c.fecha, monedaDeCuota(c.moneda), c.montoOriginal ?? null) ? { ...c, quedaComoEsta: true as const } : c));
+}
+
+/** El anticipo como lo pide el plan (el #0): su monto en dólares, su moneda y su fecha. */
+export type AnticipoPlan = { monto_usd: number; moneda: string | null; monto_original: number | null; fecha: string };
+
+/**
+ * La lista que guarda el plan POR TRAMOS encima de lo que ya hay, para `guardarCuotasAction` (POR ID, con `vistos`).
+ *
+ * `lista` es el plan ENTERO desde su primera cuota (lo que armaron los tramos, con los cambios a mano). Fila por fila contra los
+ * lugares del plan que ya hay (`lugaresDelPlan`): la fila de un lugar COBRADO está cubierta y no se pide otra vez; la de una impaga
+ * se guarda POR SU ID (no queda al lado de una nueva, y no pierde su link ni su recordatorio si no cambia); la que no tiene lugar
+ * es nueva, y la impaga que se queda sin fila se quita (protegida, el server la cambia por una sin proteger: `protegidasPrimero`).
+ * Lo que no es del plan (el resto de un cobro por menos) va aparte, tal cual. El anticipo cobrado no se vuelve a pedir. Son las
+ * reglas que le costaron tres revisiones al plan libre (`cuotasDelPlanLibre`), con una diferencia a propósito: acá una cobrada
+ * cubre SU lugar y no «uno de los primeros», porque la lista es el plan entero y no lo que falta.
+ */
+export function cuotasDelPlanPorTramos(p: {
+  pagos: readonly CuotaDelLead[];
+  protegidas: ReadonlySet<number>;
+  anticipo: AnticipoPlan | null;
+  lista: readonly CuotaArmada[];
+  planConInicial?: boolean;
+}):
+  | { ok: true; cuotas: CuotaParaGuardar[]; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null; quedaComoEsta: true }>; vistos: number[]; cubiertas: number; inicialCobrado: boolean; nuevas: number }
+  | { ok: false; error: string; cubiertas: number; inicialCobrado: boolean } {
+  const conInicial0 = p.planConInicial !== false;
+  const vivas = p.pagos.filter((q) => !noEsDeuda(q));
+  const lugares = lugaresDelPlan(p.pagos, p.planConInicial);
+  const inicialCobrado = conInicial0 && vivas.some((q) => q.pagado && q.numero === 0);
+  const cubiertas = p.lista.filter((_, i) => lugares[i]?.pagado).length;
+  if (p.lista.length > TOPE_CUOTAS_PLAN) return { ok: false, cubiertas, inicialCobrado, error: `Son más de ${TOPE_CUOTAS_PLAN} cuotas: acorta un tramo.` };
+  const pedida = (c: { monto_usd: number; fecha: string | null; moneda: string | null; monto_original: number | null }) => {
+    const moneda = monedaDeCuota(c.moneda);
+    return { monto: centavos(c.monto_usd), fecha: c.fecha, moneda, montoOriginal: moneda ? c.monto_original : null };
+  };
+  const conAnticipo = !!p.anticipo && p.anticipo.monto_usd > 0 && !inicialCobrado;
+  const anticipoImpago = conInicial0 ? vivas.find((q) => !q.pagado && q.numero === 0) ?? null : null;
+  const cuotas: CuotaParaGuardar[] = [];
+  if (conAnticipo && p.anticipo) cuotas.push({ id: anticipoImpago?.id ?? null, numero: 0, ...pedida(p.anticipo) });
+  let nuevas = 0;
+  p.lista.forEach((c, i) => {
+    const q = lugares[i];
+    if (q?.pagado) return;
+    nuevas++;
+    cuotas.push({ id: q?.id ?? null, numero: null, ...pedida(c) });
+  });
+  if (!nuevas && !conAnticipo) {
+    return { ok: false, cubiertas, inicialCobrado, error: cubiertas ? `Las ${cubiertas === 1 ? 'cuota' : `${cubiertas} cuotas`} del plan ya ${cubiertas === 1 ? 'está cobrada' : 'están cobradas'}: agrega cuotas para cobrar más.` : 'El plan no tiene cuotas.' };
+  }
+  // El anticipo impago que el plan nuevo no pide: sin proteger se quita; protegido (un link, un recordatorio) no se puede, así que
+  // toma el lugar de la ÚLTIMA cuota de la lista que es nueva o no está protegida (ésa es la que no se crea, o la que se quita).
+  if (!conAnticipo && anticipoImpago && p.protegidas.has(anticipoImpago.id)) {
+    for (let k = cuotas.length - 1; k >= 0; k--) {
+      const id = cuotas[k].id;
+      if (cuotas[k].numero !== 0 && (id == null || !p.protegidas.has(id))) { cuotas[k] = { ...cuotas[k], id: anticipoImpago.id }; break; }
+    }
+  }
+  const impagas = vivas.filter((q) => !q.pagado).sort((a, b) => a.numero - b.numero);
+  const aparte = impagas.filter((q) => !esCuotaDelPlan(q)).map((q) => ({ id: q.id, numero: null, monto: Number(q.monto_usd), fecha: q.fecha_esperada, quedaComoEsta: true as const }));
+  return { ok: true, cuotas, aparte, vistos: impagas.map((q) => q.id), cubiertas, inicialCobrado, nuevas };
 }

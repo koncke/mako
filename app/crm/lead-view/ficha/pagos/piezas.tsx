@@ -88,8 +88,9 @@ function Caja({ titulo, onCerrar, pie, children, ancho = 460 }: { titulo: string
  */
 type Plata = { moneda: string; monto: string; usd: string };
 
-function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto }: { plata: Plata; set: (p: Plata) => void; monedaNegocio: string; usdPorDefecto: number | null }) {
-  const monedas = [...new Set(['USD', monedaNegocio.toUpperCase()])];
+function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota = null }: { plata: Plata; set: (p: Plata) => void; monedaNegocio: string; usdPorDefecto: number | null; monedaCuota?: string | null }) {
+  // La de la cuota también (un tramo en pesos, 29/10/2026), aunque no sea la del negocio.
+  const monedas = [...new Set(['USD', monedaNegocio.toUpperCase(), ...(monedaCuota ? [monedaCuota.toUpperCase()] : [])])];
   const enOtra = plata.moneda !== 'USD';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -163,7 +164,9 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
   // Con un comprobante del chat, «leyendo» desde que abre: espera la moneda del negocio y lo lee solo.
   const [leyendo, setLeyendo] = useState(!!comprobante);
   const [leido, setLeido] = useState<{ nombre: string; nota: string | null } | null>(null);
-  const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: String(valorUsd), usd: '' });
+  // Una cuota pactada en otra moneda (un tramo en pesos) se propone en ESA moneda y monto; los dólares, vacíos = los de la cuota.
+  const monedaCuota = !cuota.pagado && cuota.moneda && cuota.moneda.toUpperCase() !== 'USD' && cuota.monto_original != null ? cuota.moneda.toUpperCase() : null;
+  const [plata, setPlata] = useState<Plata>(monedaCuota ? { moneda: monedaCuota, monto: String(Number(cuota.monto_original)), usd: '' } : { moneda: 'USD', monto: String(valorUsd), usd: '' });
   const [fecha, setFecha] = useState(hoy);
   const horaNegocio = useHoraDelNegocio();
   const [hora, setHora] = useState(horaNegocio);
@@ -241,7 +244,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido.nombre}</b>{leido.nota ? ` (${leido.nota})` : ''}. Revísalo antes de guardar.</p>}
-          <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio ?? 'USD'} usdPorDefecto={valorUsd} />
+          <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio ?? 'USD'} usdPorDefecto={valorUsd} monedaCuota={monedaCuota} />
           <CamposDeCuando fecha={fecha} hora={hora} metodo={metodo} setFecha={setFecha} setHora={setHora} setMetodo={setMetodo} />
           {falta > 0 && (
             <div role="radiogroup" aria-label="Qué pasa con la diferencia" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>

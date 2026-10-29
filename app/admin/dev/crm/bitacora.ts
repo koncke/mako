@@ -3828,4 +3828,25 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
     tickets: [14],
   },
+  {
+    fecha: '29 oct', hora: '04:00', chat: 'Pagos', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El plan de pagos por tramos: cada tramo con su monto, su moneda y cada cuánto, con anticipo y cuotas a mano',
+    puntos: [
+      'Ticket #13 (Leila): «Armar el plan» ahora arma tramos seguidos, hasta 10: por ejemplo 6 meses de $12.000 MXN y después 6 de $10.000, o $300 cada quincena los días 1 y 15. Cada tramo dura una cantidad de cuotas o hasta una fecha.',
+      'Lleva anticipo, y antes de guardar se ve cada cuota y se cambia una por una (monto y fecha).',
+      'En pesos, las cuotas se cobran y se recuerdan en pesos. Los dólares de cada tramo los pones vos: son los que suman a tus reportes.',
+      'Abre con el plan que el cliente ya tiene. En una suscripción también: al guardar pasa a «Pago único».',
+      'Copiado de las fases de los «subscription schedules» de Stripe y del plan de pagos de Kajabi.',
+    ],
+    commits: [],
+    archivos: [
+      'lib/pagos-campo.ts — el plan por tramos (cuotasDeTramos, tramosDeCuotas, cuotasDelPlanPorTramos)',
+      'app/crm/lead-view/ficha/pagos/bloques-cobro.tsx — «Armar el plan»',
+      'lib/cobranza.ts — el recordatorio en la moneda de la cuota',
+      'tests/pagos-tramos.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+    tickets: [13],
+  },
 ];

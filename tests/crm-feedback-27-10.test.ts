@@ -256,7 +256,8 @@ test('una cuota se edita sin trámites: cobrada a mano, con recordatorio o con l
   // Guardar no se adelanta a lo que lo protegía: primero se escribe, después se corta.
   assert.ok(ed.indexOf(".update({ monto_usd: despues.monto_usd, fecha_esperada") < ed.indexOf('cerrarCorridasDeCuota('), 'corta antes de guardar');
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
-  assert.match(ui, /\{lead\.venta_tipo !== 'suscripcion' && \(\s*<Button variant="secondary" size="sm" onClick=\{\(\) => setArmando\(true\)\}>/, '«Armar el plan» volvió a esconderse');
+  // Desde el plan por tramos (29/10), también en una suscripción: la pasa a «Pago único» al guardar (tests/pagos-tramos.test.ts).
+  assert.match(ui, /\n\s+<Button variant="secondary" size="sm" onClick=\{\(\) => setArmando\(true\)\}>/, '«Armar el plan» volvió a esconderse');
 });
 
 // ── #13 · el plan quincenal de Leila (ws11) ───────────────────────────────────
@@ -271,8 +272,9 @@ test('el plan libre: cada quincena en los días 1 y 15, más de 6 cuotas, y un 3
   assert.deepEqual(fechasDelPlan({ desde: '2026-11-01', cantidad: 61, cada: 'mes', dias: [1] }), [], 'el tope de 60');
   assert.deepEqual(fechasDelPlan({ desde: '2026-11-01', cantidad: 2, cada: 'quincena', dias: [1] }), [], 'una quincena son dos días');
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
-  assert.match(ui, /const libre = cada !== 'mes' \|\| cantidad > 6 \|\| \(dia != null && dia > 28\);/, 'el plan sigue atado a 1-6 cuotas y un día del 1 al 28');
+  // El plan por tramos (29/10) lo arma todo por lista: ningún tramo queda atado a 1-6 cuotas y un día del 1 al 28.
+  assert.doesNotMatch(ui, /ajustarPlanAction/, 'el plan sigue atado a 1-6 cuotas y un día del 1 al 28');
   // Con lo de aparte tal cual (el resto de un cobro por menos: revisión de 0b6d5b754, tests/pagos-revision-b335.test.ts).
-  assert.match(ui, /await guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], \{/, 'el plan libre no se guarda por lista');
+  assert.match(ui, /await guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], columnas,/, 'el plan no se guarda por lista');
   assert.match(ui, /<option value="quincena">Quincena<\/option>/);
 });
