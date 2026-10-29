@@ -50,6 +50,10 @@ preguntes: hacé esto en orden.
     `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main`.
   - **El deploy se confirma** con `npx vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y
     `vercel inspect hola-mako.com`.
+- **⭐ LOS PEDIDOS PERDIDOS (terminó a las 22:30): `docs/relevo/pedidos-perdidos-2810.md`.** Son 362 pedidos desde el
+  22/10; 70 PERDIDOS y 21 esperan a Martín. Arriba de todo, «Lo urgente», y abajo las fuentes que nadie leyó. Se
+  repartió a los chats con dueño vivo lo urgente de cliente (ver ese documento); lo demás queda en su lista, con el
+  dueño sugerido.
 - **Dos workflows corrían al escribir esto.** Otra cuenta no los reanuda, pero puede leer lo que devolvieron en
   `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/<runId>/journal.jsonl`:
   - `wf_fbaed0b3-099`, **los pedidos perdidos.** Martín: «Revisa todos los pedidos de absolutamente todos lados, a ver si
