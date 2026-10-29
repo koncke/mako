@@ -62,6 +62,10 @@ preguntes: hacé esto en orden.
   - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
     Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
     sugerido.
+  - **22:55, Mauricio sin mensajes:** WhatsApp midió que la entrada NO está rota. En su grupo no escribe nadie desde el
+    08/10, y MaKo le manda ~15 mensajes por día. Los tres participantes son el personal de Martín, MaKo y un +…8122 (la
+    línea `mako_ws1`). Le pregunté a Martín si el 8122 es Mauricio: si no lo es, Mauricio no recibe nada. Cosecha en
+    `0d61fcbe2` (wa-credito-grupos-2810). La tanda A está en `bea18e257`, esperando su barrido.
   - **22:50, el corte de Meta del 03/11:**
     - Zernio armó los cinco avisos, que están en `C:/dev/revisiones/2810-avisos-token-0311.md`.
     - **Joan: ENVIADO** a su grupo (3EB08A864B795B4A50C001).
