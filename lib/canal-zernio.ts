@@ -186,7 +186,7 @@ export async function charlaSocialDelLead(leadId: number, canal: CanalSocial, to
  * MANDA UN PASO de Instagram o Messenger. Nunca tira: todo fallo vuelve en el resultado, con
  * `terminal` cuando reintentar no lo arregla.
  *
- * `idempotencia`: una clave estable por inscripción y nodo (`nutri:<inscripción>:<nodo>`). Cada parte
+ * `idempotencia`: una clave estable por inscripción, vuelta y nodo (`claveDeEnvio`, lib/reentrada.ts). Cada parte
  * le suma su índice: si una respuesta se pierde, Zernio contesta la original en vez de mandar dos veces.
  */
 export async function enviarPasoSocial(input: {

@@ -51,6 +51,19 @@ export const puedeVolverAProbar = (fila: Pick<FilaPrevia, 'estado' | 'desenlace'
   (ESTADOS_TERMINADOS.includes(fila.estado) || fila.estado === 'respondio') && fila.desenlace !== 'cancelado';
 
 /**
+ * LA CLAVE DE IDEMPOTENCIA DE UN ENVÍO POR ZERNIO: inscripción, VUELTA y nodo (29/10/2026, la verificación del Cerebro
+ * sobre 69b49a31c). Una inscripción reusada («Volver a probar», «Cada vez», otra reunión) es una corrida NUEVA con el id
+ * viejo, y con `nutri:<inscripción>:<nodo>` Zernio contestaba lo de la vez anterior: la respuesta pública a OTRO comentario
+ * daba 422 y el DM, un 200 sin mandar nada. La segunda prueba de Leandro no salía. La vuelta es `inscripto_at`, que
+ * `reactivarInscripcion` renueva: los reintentos de la MISMA vuelta repiten la clave (si una respuesta se pierde, Zernio
+ * devuelve la original y no manda dos). Sin `inscripto_at` legible, la de siempre.
+ */
+export function claveDeEnvio(inscripcionId: number, inscriptoAt: string | null | undefined, nodo: string): string {
+  const vuelta = Date.parse(inscriptoAt ?? '');
+  return Number.isFinite(vuelta) ? `nutri:${inscripcionId}:${vuelta}:${nodo}` : `nutri:${inscripcionId}:${nodo}`;
+}
+
+/**
  * LA REENTRADA DE UNA AUTOMATIZACIÓN. La guardada, y sin guardar (la columna en null: las de antes de la 0279, o las que
  * crea la galería mientras sus plantillas no la escriban) ⚠️ LA REGLA DE HOY, TRANSITORIA: «Otra vez si es otra reunión»
  * si el flujo prepara una reunión, «Una sola vez» si no. Leer null como «Una sola vez» le sacaría el reuso a «Un Lead

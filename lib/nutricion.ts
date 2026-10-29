@@ -78,7 +78,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
-import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, puedeVolverAProbar, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
+import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, puedeVolverAProbar, claveDeEnvio, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -5318,7 +5318,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           const varsSocial = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
           const r = await enviarPasoSocial({
             ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesDe(paso), varsSocial),
-            vars: {}, idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
+            // La clave lleva la VUELTA (`claveDeEnvio`, lib/reentrada.ts): la inscripción reusada de «Volver a probar» no reusa la de antes.
+            vars: {}, idempotencia: claveDeEnvio(insc.id, insc.inscripto_at, idDe(paso, insc.paso_actual)), desde,
             // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
             cuenta: cuentaDelPaso(paso),
             // Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts): el `payload` de cada uno lleva ESTA inscripción y ESTA

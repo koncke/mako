@@ -183,6 +183,13 @@ filtraba con `reusaInscripciones` ANTES de mirar la fila: «Una sola vez» nunca
 regla nueva ahí no alcanzaba; hubo que abrir el filtro (`modoSec` con todas las que tienen pasos) y que `reusablesDe` deje
 pasar sólo la marcada. tests/volver-a-probar.test.ts.
 
+**⚠️ Y la segunda prueba NO SALÍA (la verificación del Cerebro sobre 69b49a31c, 29/10):** la inscripción reusada es la
+MISMA fila, y la clave de Zernio era `nutri:<inscripción>:<nodo>`. Zernio guarda la respuesta de cada clave 24 h: la pública
+a OTRO comentario volvía con 422 (misma clave, otro pedido) y el DM, con el 200 de la vez anterior, sin salir. Ahora la clave
+lleva la vuelta (`claveDeEnvio`, lib/reentrada.ts: `inscripto_at`, que `reactivarInscripcion` renueva). **La regla:** una
+clave de idempotencia identifica UN envío de UNA corrida; si la fila se reusa para otra corrida, la clave tiene que llevar
+algo que cambie con la corrida. Ya pasaba con «Cada vez» y «Empezar de nuevo»; lo destapó «Volver a probar».
+
 **Sin hacer:** «Crear con IA» no las pone (el modelo elige el CRON por su clave `dN`; sumarle palabras es otro campo de la
 salida y tokens contra el techo de Groq), y nada impide poner «Respuesta del formulario contiene» en una automatización de
 comentario (no se cumple nunca); no se probó con un comentario de verdad. Elegir la publicación o el Reel (lo último que
