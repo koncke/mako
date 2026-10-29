@@ -173,11 +173,13 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
  *   · `antes`: lo que va antes de la criatura en la cabecera (la «←» a la lista de proyectos de Create).
  */
 export function ConversacionCerebro({ tab, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
-  pantalla = null, onCerrar, esDeArriba, antes }: {
+  pantalla = null, onCerrar, esDeArriba, antes, titulo }: {
   tab: string; arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
   pedido?: { texto: string; vez: number } | null; onMandado?: () => void;
   entidad?: EntidadChat | null; modo?: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla?: string | null;
   onCerrar?: () => void; esDeArriba?: () => boolean; antes?: ReactNode;
+  /** El nombre de la cabecera, si no es el de la conversación («MaKo» en la tarjeta de Create: la persona le habla a MaKo). */
+  titulo?: string;
 }) {
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
@@ -210,7 +212,7 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
   return (
     <>
       <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
-        cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
+        cabecera={{ clave: 'cerebro', titulo: titulo ?? k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
         arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
         despues={<>
           <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />

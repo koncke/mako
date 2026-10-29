@@ -11,7 +11,7 @@ import { type ExportFormat, exportFormats, DEFAULT_EXPORT_OPTIONS } from './engi
 import { downloadFiles, runExport } from './engine/export/exporter'
 import { useNotesOpen } from './panels/notesVisibility'
 import { useTimelineView } from './workspace/timelineVisibility'
-import { PANEL_IA, type PanelDefinition } from './panels/registry'
+import type { PanelDefinition } from './panels/registry'
 import { preloadDialog } from './dialogs/registry'
 import { useVisiblePanels } from './panels/useVisiblePanels'
 import { SaveStatus } from './SaveStatus'
@@ -22,10 +22,10 @@ import { Toolbar } from './ui/Toolbar'
 import styles from './TopBar.module.css'
 
 /*
- * La barra superior de Canva (docs/editor-imagen/relevamiento-canva-armazon.md §2): degradado celeste→violeta,
- * 56 px, texto blanco. A la izquierda «Inicio» (el slot `start` de la cáscara), «Archivo», «Redimensionar»,
+ * La barra superior de Canva (docs/editor-imagen/relevamiento-canva-armazon.md §2), con los colores de MaKo: superficie,
+ * 56 px, la tinta de la app. A la izquierda la «‹» del teléfono (el slot `start`), «Archivo», «Redimensionar»,
  * Deshacer/Rehacer y el estado de guardado; a la derecha el nombre con las medidas, Comentarios, «Presentar» y
- * «Compartir» (botón claro). Las herramientas para agregar (Texto, Elementos, Subidos…) ya no viven acá: en
+ * «Compartir» (el botón primario). Las herramientas para agregar (Texto, Elementos, Subidos…) ya no viven acá: en
  * escritorio están en el riel izquierdo; debajo de 1024 px van en la tira de abajo (`CompactTools`) y abren
  * como hoja inferior.
  */
@@ -150,11 +150,10 @@ export function CompactTools() {
   const visible = useVisiblePanels()
   const { openId, toggle } = useOpenTool()
   const all = visible.filter((p) => p.slot !== 'end' && (!readOnly || p.readOnly))
-  // Las mismas pestañas del riel (`rail`); si ningún panel las marca todavía, todas las herramientas.
+  // Las mismas pestañas del riel (`rail`); si ningún panel las marca todavía, todas las herramientas. El chat de MaKo no
+  // va acá: en el teléfono es «MaKo» del interruptor de arriba de la pantalla de Create (app/_crear/PantallaCrear.tsx).
   const rail = all.filter((p) => p.rail)
-  // Y al final, el chat «MaKo IA» (en el escritorio es el botón redondo del pie del riel).
-  const ia = rail.length > 0 ? all.filter((p) => p.id === PANEL_IA) : []
-  const tools = rail.length > 0 ? [...rail, ...ia] : all
+  const tools = rail.length > 0 ? rail : all
   if (!compact || tools.length === 0) return null
   return (
     <Toolbar label={t.chrome.tools} className={styles.compactTools}>
@@ -227,7 +226,7 @@ function PresentMenu({ items, iconOnly }: { items: BarMenuItem[]; iconOnly: bool
 }
 
 /**
- * «Compartir»: el botón claro sobre el degradado. Abre la descarga (el «Compartir → Descargar» de Canva, §9.1):
+ * «Compartir»: el botón primario de la barra. Abre la descarga (el «Compartir → Descargar» de Canva, §9.1):
  * el panel completo, los formatos rápidos de Doory y, si el adaptador comparte, invitar personas.
  */
 function ShareMenu({ iconOnly }: { iconOnly: boolean }) {

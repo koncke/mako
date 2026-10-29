@@ -1,4 +1,4 @@
-/* Interruptor de Canva: riel gris, encendido violeta #8B3DFF (hover #7630D7), tirador blanco */
+/* Interruptor de Canva: riel gris, encendido azul (--primary), tirador blanco */
 .row {
   position: relative;
   display: flex;
@@ -40,7 +40,7 @@
   width: 40px;
   height: 24px;
   border-radius: 99px;
-  background: rgb(36 44 61 / 0.4); /* Canva: neutro «más fuerte» #242C3D66 */
+  background: var(--cv-color-neutral-strong);
   transition: background var(--cv-duration-base) var(--cv-ease-out);
 }
 

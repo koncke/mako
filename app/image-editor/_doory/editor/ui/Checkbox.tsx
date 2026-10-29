@@ -12,7 +12,7 @@ interface CheckboxProps {
   className?: string
 }
 
-/** Casilla de Canva: cuadrado de 16 px con radio 4, violeta #8B3DFF y tilde blanca al marcarla. */
+/** Casilla de Canva: cuadrado de 16 px con radio 4, el azul de MaKo (--primary) y la tilde de --on-primary al marcarla. */
 export function Checkbox({ label, checked, onChange, indeterminate = false, hint, disabled, className }: CheckboxProps) {
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {

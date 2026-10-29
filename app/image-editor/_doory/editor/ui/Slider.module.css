@@ -1,6 +1,6 @@
 /*
- * Deslizador de Canva: riel gris con el tramo recorrido en violeta #8B3DFF, tirador blanco redondo con sombra y
- * halo violeta claro (#EBDCFF) al arrastrarlo; rótulo 14 a la izquierda y caja numérica a la derecha.
+ * Deslizador de Canva: riel gris con el tramo recorrido en azul (--primary), tirador blanco redondo con sombra y
+ * halo azul claro al arrastrarlo; rótulo 14 a la izquierda y caja numérica a la derecha.
  */
 .field {
   display: flex;
@@ -28,7 +28,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* La caja numérica de Canva: 56 px, borde de campo, foco violeta */
+/* La caja numérica de Canva: 56 px, borde de campo, foco azul */
 .box {
   flex: none;
   width: 56px;
@@ -43,7 +43,7 @@
   text-align: center;
 }
 .box:hover {
-  border-color: rgb(28 33 48 / 0.5);
+  border-color: var(--cv-color-field-hover);
 }
 .box:focus {
   outline: none;
@@ -69,13 +69,13 @@
 .range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 99px;
-  background: linear-gradient(to right, var(--cv-color-brand) var(--pct), rgb(57 70 96 / 0.14) var(--pct));
+  background: linear-gradient(to right, var(--cv-color-brand) var(--pct), var(--cv-color-press) var(--pct));
 }
 
 .range::-moz-range-track {
   height: 4px;
   border-radius: 99px;
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 
 .range::-moz-range-progress {
@@ -92,7 +92,7 @@
   border: 0;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 0.5px rgb(64 79 109 / 0.2), 0 1px 3px rgb(21 30 130 / 0.3);
+  box-shadow: 0 0 0 0.5px rgb(64 79 109 / 0.2), 0 1px 3px rgb(18 21 27 / 0.3);
   transition: box-shadow var(--cv-duration-fast) var(--cv-ease-out);
 }
 
@@ -102,22 +102,22 @@
   border: 0;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 0.5px rgb(64 79 109 / 0.2), 0 1px 3px rgb(21 30 130 / 0.3);
+  box-shadow: 0 0 0 0.5px rgb(64 79 109 / 0.2), 0 1px 3px rgb(18 21 27 / 0.3);
 }
 
-/* Canva: halo violeta claro alrededor del tirador al pasar y al arrastrar */
+/* Canva: halo azul claro alrededor del tirador al pasar y al arrastrar */
 .range:hover::-webkit-slider-thumb,
 .range:active::-webkit-slider-thumb {
-  box-shadow: 0 0 0 6px #ebdcff, 0 1px 3px rgb(21 30 130 / 0.3); /* Canva: halo #EBDCFF */
+  box-shadow: 0 0 0 6px var(--cv-color-brand-halo), 0 1px 3px rgb(18 21 27 / 0.3); 
 }
 .range:hover::-moz-range-thumb,
 .range:active::-moz-range-thumb {
-  box-shadow: 0 0 0 6px #ebdcff, 0 1px 3px rgb(21 30 130 / 0.3);
+  box-shadow: 0 0 0 6px var(--cv-color-brand-halo), 0 1px 3px rgb(18 21 27 / 0.3);
 }
 
 .range:focus-visible::-webkit-slider-thumb {
-  box-shadow: var(--cv-focus-ring), 0 1px 3px rgb(21 30 130 / 0.3);
+  box-shadow: var(--cv-focus-ring), 0 1px 3px rgb(18 21 27 / 0.3);
 }
 .range:focus-visible::-moz-range-thumb {
-  box-shadow: var(--cv-focus-ring), 0 1px 3px rgb(21 30 130 / 0.3);
+  box-shadow: var(--cv-focus-ring), 0 1px 3px rgb(18 21 27 / 0.3);
 }

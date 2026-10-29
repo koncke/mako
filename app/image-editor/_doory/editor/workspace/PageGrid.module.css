@@ -1,4 +1,4 @@
-/* La vista de cuadrícula: tapa el área del lienzo con el mismo gris del cromo (Canva 2025–26). */
+/* La vista de cuadrícula: tapa el área del lienzo con el mismo cromo (--bg) (Canva 2025–26). */
 .grid {
   position: absolute;
   inset: 0;
@@ -42,7 +42,7 @@
   padding: 0;
   border: 0;
   border-radius: var(--cv-radius-sm);
-  background: var(--cv-color-border); /* Canva: neutro normal #39466024 */
+  background: var(--cv-color-border);
   color: var(--cv-color-text);
   cursor: pointer;
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
@@ -51,7 +51,7 @@
   background: var(--cv-color-border-strong);
 }
 .add:focus-visible {
-  outline: 2px solid #3d8bff; /* Canva: borde de foco de teclado */
+  outline: 2px solid var(--cv-color-brand); /* Canva: borde de foco de teclado */
   outline-offset: 2px;
 }
 

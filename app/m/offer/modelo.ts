@@ -40,7 +40,7 @@ export const ROTULOS = {
   principal: 'Principal', // arbol.ts
   sinTitulo: 'Oferta sin título', // arbol.ts
   tuOferta: 'Tu oferta', // PiezasRail.tsx
-  seArma: 'Tu oferta se arma acá mientras le contestas a MaKo.', // DocumentoVivo.tsx
+  seArma: 'Tu oferta se arma aquí mientras le contestas a MaKo.', // DocumentoVivo.tsx
   verMiOferta: 'Ver mi oferta', // PiezasRail.tsx
   diagnostico: 'Diagnóstico', // Generando.tsx y Conclusion.tsx
   ofertaNueva: 'Oferta nueva', // Generando.tsx y Conclusion.tsx

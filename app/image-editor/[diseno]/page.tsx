@@ -5,9 +5,8 @@
 // del diseño en la base (image_disenos, mig 0278); si no existe, la pantalla lo
 // dice y vuelve al inicio.
 //
-// Mismo marco que el Video Editor: la barra lateral y la de secciones se quedan
-// (pedido de Martín del 12/10 para el Video Editor) y el editor llena el alto que
-// queda debajo de las secciones.
+// La pantalla de Create (app/_crear/PantallaCrear.tsx, 29/10/2026): el chat de MaKo del editor a la izquierda, siempre
+// abierto, y el editor en el centro, del alto de la ventana (`ESTILO_PAGINA_CREAR`, el de toda tab de Create).
 //
 // Las señales del negocio (lib/plantillas-sugeridas-server.ts) se leen acá, en paralelo:
 // el panel de plantillas abre con las sugeridas primero y no salta (../mako/plantillas.ts).
@@ -15,6 +14,7 @@
 import { getWorkspaceActual } from '@/lib/workspace';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { Pagina } from '@/app/_ui';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { requireEditorImagen } from '../acceso';
 import { ImageEditorCliente } from '../ImageEditorCliente';
 
@@ -26,9 +26,7 @@ export default async function ImageEditorDisenoPage({ params }: { params: Promis
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   const { diseno } = await params;
   return (
-    // Menos la barra de arriba (`--barra-agencia`: la de «Estás viendo el dashboard de…» o la alerta de la voz caída): la regla
-    // global sólo corrige un alto que EMPIEZA con `height: 100vh`, y éste es un `calc(` (docs/hallazgos-ui.md, 22/10/2026).
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))', display: 'flex', flexDirection: 'column' }}>
+    <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
       <ImageEditorCliente vista="editor" disenoId={diseno} ws={ws} senales={senales} />
     </Pagina>
   );

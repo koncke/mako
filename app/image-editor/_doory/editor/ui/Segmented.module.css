@@ -4,7 +4,7 @@
   padding: 2px;
   gap: 2px;
   border-radius: var(--cv-radius-sm);
-  background: rgb(64 79 109 / 0.06); /* Canva: neutro sutil #404F6D0F */
+  background: var(--cv-color-bg-muted);
 }
 
 .option {
