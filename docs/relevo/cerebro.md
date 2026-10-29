@@ -102,6 +102,17 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **01:40, verificaciones:**
+    - **Automations `69b49a31c`: NO.** Una ALTA: un DM de Instagram recibe DOS respuestas del AI Step. Siete medias:
+      «Volver a probar» reusa las Idempotency-Key, la mudanza rechaza «social_tope», la difusión sale dos veces sin
+      idempotencia, el goteo de Instagram pasa la ventana de 24 h, HojaDifusion no está montada, y un setter puede
+      difundir por el grupo. Más bajas. Informe en `C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md`, ya
+      mandado al chat.
+    - **Zernio `254856316` + Planes `ddfa645d4`: corriendo**, en `wf_2f472ad6-193` (task `w1bp45jj0`). Los árboles son
+      `C:/dev/verif-254856316` y `C:/dev/verif-ddfa645d4`. Su journal está en
+      `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl`.
+    - Queda en fila: el CRM `cc47d841d`, Copywriter `7eef753da`, las tres ramas de la nube y WhatsApp (cuando lleguen
+      sus arreglos).
   - **01:25 — EN PRODUCCIÓN (verificado):** el Web Generator en blanco (`7f63046be`; deploy de `ed8c965d1` Ready a las
     23:58). Martín tiene que probarlo entrando por el menú. **MaKo inteligente** (`7f36fa9c6`, merge de `935e3c574`),
     subido a las 00:00, EN PRODUCCIÓN (deploy mako-nmbwa0pgu Ready, lo sirve el dominio). **main = `7f36fa9c6`.** La rama del próximo tren sale de ahí.
