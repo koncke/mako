@@ -37,6 +37,38 @@ cuestión de baneo». Todo junto en un VERDE por SendMessage; lo pesado con `nod
 repetidos de a uno en verde. Tipos: los 35 archivos de antes y los de la difusión, limpios (sólo los 14 de `_opencut` y 2 de
 `Compartir.tsx`); los 4 tocados en 2172da39b, esperando turno. Después, el VERDE al Cerebro.
 
+**LA VERIFICACIÓN DEL CEREBRO SOBRE 69b49a31c (29/10, NO ENTRA AL TREN hasta arreglar esto).** Informe con la entrada exacta
+y los scripts: C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md (y scratch-69b4/). Hecho: el ALTA (un DM con
+dos respuestas del AI Step) en 5e67180c7. Lo que queda, con cómo hacerlo (el siguiente chat: arreglar, probar rompiéndolo,
+tests-afectados con con-turno y un VERDE nuevo):
+- MEDIA — «Volver a probar» reusa la inscripción y las MISMAS Idempotency-Key de Zernio (`nutri:<insc>:<nodo>`, en
+  `procesarEnvios`, lib/nutricion.ts): Zernio devuelve lo de la vez anterior y la pública y el DM de la segunda prueba no
+  salen. La clave tiene que llevar la vuelta: p.ej. `nutri:<insc>:<inscripto_at>:<nodo>` (ya se lee `inscripto_at` en la
+  cola; `reactivarInscripcion` lo renueva). Ojo con los reintentos de la MISMA vuelta: tienen que seguir con la misma clave.
+- MEDIA — el aviso del tope no se puede crear: `scripts/mudanza-avisos-plataforma.mts --eventos=social_tope` rechaza
+  «social_tope». Ver qué lista de eventos valida la mudanza y sumarlo (con su plantilla `mako-social-tope`).
+- MEDIA — la difusión sale dos veces sin idempotencia (reintento, dos pestañas, la hoja más MaKo). En `crearDifusion`
+  (lib/difusion.ts): una clave del pedido (hash de la selección + canales + mensajes + goteo) reclamada con
+  `reclamarEspaciado(ws, 'difusion', minutos, clave)` antes de crear; la segunda devuelve «ya se mandó».
+- MEDIA — Instagram con goteo: los que pasan del tope del día se quedan sin DM (se les cierra la ventana de 24 h) y la hoja
+  prometía N. En `alcanceDe`/la hoja: para Instagram, «le llega» como mucho a `dia` en las 24 h; o avisar en la hoja «por
+  Instagram, sólo los primeros N: Meta no deja escribir pasadas 24 h».
+- MEDIA — HojaDifusion no está montada: el CRM dejó el enganche (`onMandarMensaje` y app/crm/seleccion-difusion.ts) en la
+  rama `crm-lote-2810`. Montar `<HojaDifusion>` ahí cuando esa rama esté en main (coordinar con el chat del CRM).
+- MEDIA — por el grupo de WhatsApp, un setter o un closer puede lanzar una difusión: el `gating` de `difundir_a_leads`
+  (lib/api-mako/areas/chatbot.def.ts) está en `rolMinimo: 'admin'` pero el doer del grupo trata a todos como admin (ver la
+  memoria api-mako-registro, «El doer de WhatsApp trata como admin a todo participante»). Pedir confirmación en PANTALLA
+  (`confirmacion: 'pantalla'`, como `proponer_leads`) o mirar el rol real de quien escribe en el grupo.
+- BAJA — la pública detrás de una espera sale debajo de un comentario posterior (`filaDe` pisa el comentario guardado). Guardar
+  el comentario del disparo en la inscripción, o no responder en público uno posterior al primero tras la inscripción.
+- BAJA — el aviso «cerca del tope» cuenta por negocio y no por cuenta de Instagram (`avisarTopesSociales`, lib/nutricion.ts).
+- BAJA — la zona del aviso diario cae a Tijuana si no se puede leer (`zonaDelNegocio` devuelve el default): usar
+  `zonaDelNegocioEstricta` y, sin zona, no filtrar por horario.
+- BAJA — cada difusión queda activa para siempre (ocupa el tope del plan Esencial): pausarla cuando no le queda nadie
+  corriendo (en el motor, al cerrar la última inscripción de una automatización «Difusión ·», o un barrido).
+- BAJA — la API propone un goteo fuera de rango y falla recién después del «sí»: en `preparar` de `difundir_a_leads`, llamar
+  `goteoValido(pedido.goteo)` y devolver el error.
+
 **A medias / sin hacer:** el botón «Mandar mensaje» y la selección del tablero son del CRM (el Cerebro le pasó la interfaz);
 la difusión no se probó mandando; elegir la publicación o el Reel en el CRON de comentario (tanda siguiente); «Crear con IA»
 no pone palabras clave en el CRON (fue lo que rompió la 680: usó la CONDITION del formulario).
