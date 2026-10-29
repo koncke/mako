@@ -24,7 +24,12 @@ devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 1
   Integración) y después las 6 fallas de Leandro: **152cfcd27** (las seis), **2f7bf68af** (IA caída, SuperAdmin, R9, ESCENAS),
   **cfcdac6e9** (el `/s` del test) y **f8d2901ce** (los 7 tests de cableado que el barrido dio en rojo: leían la forma vieja de
   `conMemoria`, del lote y de `eraDePlan`). tests/grupo-leandro-2910.test.ts 6/6, 14 roturas cazadas (`roturas.mjs` del scratchpad).
-- **EN EL ÁRBOL, sin commit todavía (29/10 ~10:30):** (a) **la ALTA 2** de la verificación de c358fd0c4, que frenó
+- **COMMITEADO (29/10 ~11:30): 1540681ca (los tickets) y 2d961c1ee (la ALTA 2).** Roturas: tickets T1–T15 cazadas (base 6/6);
+  ALTA 2 A1–A4 cazadas (respuesta-al-equipo base 4/4; el 7 de grupo-leandro caza A1). tsc acotado `--rama --heap=4096`: 0
+  errores propios (los 14 de `_opencut`). **El VERDE de la punta corre en `C:/dev/verif-<sha de la punta>`**; logs `verde4-*.log`
+  en el scratchpad. Al terminar: VERDE al Cerebro y a Integración, con que el Runner pase al cartero 1.23.0 (`cartero.mjs
+  instalar` desde main: lo corre el Cerebro) y sacar el worktree (junction primero).
+- Lo que había en el árbol antes de esos dos commits: (a) **la ALTA 2** de la verificación de c358fd0c4, que frenó
   Integración: `lib/doer-equipo.ts` (`PIDE_O_SE_QUEJA`, `esSoloUnPedidoAMaKo`), la guarda en `lib/mako-doer-in.ts`, la escena 10d
   de `tests/_respuesta-equipo-hijo.ts` y el test 7 de `tests/grupo-leandro-2910.test.ts` (turno entero: MaKo contesta). Las dos
   corridas pasan salvo un ajuste del test (reacciones ≥ 1). (b) **los tickets al Cerebro**: mig **0343** (número del Cerebro; YA
