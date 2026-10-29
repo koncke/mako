@@ -45,10 +45,17 @@ export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], str
   'ai-avatar': 'Videos con una persona hecha con IA que habla por ti',
 };
 
+/**
+ * Las tabs de Pro que TODAVÍA no se abrieron: no se venden (28/10/2026, lo que Martín le prometió a Teo). AI Avatar la ve sólo el
+ * super admin (app/ai-avatar/acceso.ts). El día que se abra, sale de esta lista y vuelve a la tabla (lo pide el test). Los videos
+ * con avatar del Video Editor, que Pro sí ve, ya están en su fila.
+ */
+export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = ['ai-avatar'];
+
 /** Lo demás que es sólo de Pro (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`), dicho igual. */
 export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Sumar a tu lista los contactos de tus grupos de WhatsApp',
-  partners: 'Ganar dinero por cada negocio que traes a MaKo',
+  partners: 'Ganar el primer mes de cada negocio que traes a MaKo',
 };
 
 export const GRUPOS_COMPARACION = [
@@ -74,7 +81,7 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPro(anuncios, 'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto'),
     soloPro(anuncios, NOMBRE_TAB_PRO['image-editor']),
     soloPro(anuncios, NOMBRE_TAB_PRO['video-editor']),
-    soloPro(anuncios, NOMBRE_TAB_PRO['ai-avatar']),
+    ...(TABS_TODAVIA_CERRADAS.includes('ai-avatar') ? [] : [soloPro(anuncios, NOMBRE_TAB_PRO['ai-avatar'])]),
     filaDeTope(equipo, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
     soloPro(recomendar, NOMBRE_FUNCION_PRO.partners),

@@ -39,6 +39,9 @@ Este archivo reemplaza a docs/relevo/planes-nube-2710.md (el relevo de la nube d
   de la más vieja a la más nueva y con reloj; el monto en unidad mínima y la misma regla en el cron; Partners no deja elegir ni
   heredar un código que ya trajo compras; con la base caída vale la cookie; el cron espera 10 min antes de mandar la compra a Meta.
 - En producción (lo hizo el Cerebro con el sí de Martín): la **0341 aplicada** (28/10).
+- Lo de Teo, los dos chicos (28/10, noche): /planes ya no le promete a Pro la tab AI Avatar (cerrada, sólo super admin;
+  `TABS_TODAVIA_CERRADAS` en lib/planes-comparacion.ts), y la fila de Partners dice «el primer mes de cada negocio». El resto de
+  Partners (panel, teléfono, landing, API) ya lo decía. Commit: el que sigue a e6fd6d88d.
 
 ## Estado de la entrega
 - Último VERDE mandado: 3ca2d8328 → verificado; a196d5a93 → verificado con 2 medias y bajas, arregladas en 1e6bd27e8.

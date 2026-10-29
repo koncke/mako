@@ -1679,6 +1679,12 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   (computadora y teléfono) muestra la landing con «Pasar a Pro», y `hacerme_partner` por la API no propone lo que va a frenar.
 - **Como todo candado de Pro, sólo a quien paga Esencial por la pasarela** (`esEsencialDe`): un alta a mano recibe más, nunca
   menos.
+- **Una tab CERRADA no se vende (28/10, lo prometido a Teo).** La tabla le prometía a Pro «videos con una persona hecha con IA»,
+  y AI Avatar la abre sólo el super admin (app/ai-avatar/acceso.ts). Va en `TABS_TODAVIA_CERRADAS` y no sale; el test lee esa
+  puerta, así que el día que se abra pide volver a sumarla. **El diagnóstico obvio («no prometer avatares») era de más:** el
+  Video Editor tiene su propio «Avatar de IA», que Pro SÍ ve, y el tope «1 video con avatar» de la prueba (`prueba.avatares`)
+  lo cuenta él también: esa pregunta frecuente es cierta y queda. Y la fila de Partners dice qué se gana: «el primer mes de
+  cada negocio», no «dinero» suelto.
 
 **Sin hacer:** «Datos de empresa» sobre leads tildados (app/crm/AccionesLoteLeads.tsx, `enriquecer-actions.ts`) usa el mismo
 núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo cuenta como scraper, va con `candadoDePro`.
