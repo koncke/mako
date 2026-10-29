@@ -40,7 +40,7 @@ import { isTypableDOMElement } from "@/app/video-editor/_opencut/utils/browser";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { nombreProyectoNuevo } from "@/app/video-editor/_opencut/inicio/nombre";
 import { DISENOS, useDisenoStore } from "./diseno-paneles";
-import { ExportButton } from "./export-button";
+import { ExportButton, PublicarButton } from "./export-button";
 
 export function EditorHeader() {
 	const [renombrando, setRenombrando] = useState(false);
@@ -64,7 +64,8 @@ export function EditorHeader() {
 				>
 					<HugeiconsIcon icon={KeyboardIcon} className="size-[18px]" />
 				</button>
-				<div className="ml-1.5">
+				<div className="ml-1.5 flex items-center gap-1.5">
+					<PublicarButton />
 					<ExportButton />
 				</div>
 			</div>

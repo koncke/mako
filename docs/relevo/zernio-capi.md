@@ -3,6 +3,22 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 29/10/2026 noche (cuenta `claude3`) — «Publicar» desde el Video Editor, el Image Editor y el Copywriter
+
+Rama `zernio-token-2910` (con origin/main 1cf06eba9 mezclado en `939b9b1ef`: trae el shell de Create y el Copywriter). Nada
+pusheado: sube el Cerebro.
+
+**Lo pedido (el Cerebro, 29/10):** «Publicar» en los tres: lleva lo exportado al Calendario con el evento armado, para elegir la
+red, el día y la hora. Un solo camino de publicación, el del Calendario, con los límites de cada red.
+
+**Lo hecho:** `7e7c04207` (+ el arreglo de la frontera «use client» del Image Editor) — `lib/calendario-desde-crear.ts`, `publicacionDesdeCrearAction`, `llevarAlCalendario`, el
+`?evento=` del Calendario, «Publicar» en la barra del Video Editor (exporta SÓLO el MP4, sin guardarlo) y «Publicar en redes» al
+terminar de exportar; «Publicar en redes» en el diálogo de descarga del Image Editor; «Publicar en redes» en el menú «⋯» del
+Copywriter. tests/publicar-desde-crear.test.ts (10/0, 14 roturas que muerden). Cosecha en docs/hallazgos-calendario.md.
+
+**Sin hacer / sin verificar:** carrusel (varias imágenes); publicar un texto solo (el Calendario pide archivo); no se vio en un
+navegador (capturas: el Cerebro, en producción, ws3). Las capturas de las redes, del aviso de la 3.ª red y del tutorial, también.
+
 ## ESTADO 29/10/2026 tarde (cuenta `claude3`) — varias claves de Zernio y todas las redes
 
 Rama `zernio-token-2910`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
