@@ -85,6 +85,12 @@ preguntes: hacé esto en orden.
   - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
     Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
     sugerido.
+  - **29/10 ~00:50 ART, P0: Martín no pudo replicar una landing** («No pude sacar la foto de la página», su ticket desde
+    /web-generator/68, ws9, 00:38). Lo encontré en el código y lo pasé al chat Web Generator, ANTES que la réplica editable.
+    Replicar.tsx:215 recibe ok sin `foto`. En lector-script.ts hay dos caminos mudos: el tope de `arrancar()` (TOPE+500, 40 s
+    con foto) que dispara `terminar(true)` antes de la instantánea, y el `catch` que deja `foto = null` y pierde el motivo.
+    Hecho = foto aunque llegue el tope y el motivo en pantalla. El ticket no trae la URL: la busca el chat. Al desplegar:
+    cerrar el ticket con el aviso a Martín.
   - **29/10 ~00:40 ART (03:40 UTC), ronda y tres respuestas de Martín** (cierres mandados; semana al 94 %):
     - **P2P:** el aviso del corte de Meta se lo manda Martín por su WhatsApp. El texto le quedó en el cierre. Regla en
       la memoria `contestar-clientes-sin-preguntar`.
