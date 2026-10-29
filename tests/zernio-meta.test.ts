@@ -55,7 +55,8 @@ test('Meta conectada: token + cuenta, o la conexión de Zernio + cuenta; una cue
   const cat = leer('../lib/metodo-catalogo.ts');
   const linea = (env: string) => cat.split('\n').find((l) => l.includes(`{ env: '${env}'`)) ?? '';
   const token = linea('META_ACCESS_TOKEN');
-  assert.match(token, /label: 'Access token'/);
+  // Ticket #28 (29/10/2026): el campo no se ve nunca y su rótulo ya no dice «token» (tests/zernio-una-pestana.test.ts).
+  assert.match(token, /label: 'Conexión anterior de Meta'/);
   assert.doesNotMatch(token, /opcional: true/);
   const z = linea(ENV_CUENTA_ZERNIO);
   assert.match(z, /opcional: true/);
@@ -252,12 +253,12 @@ test('transcribir: con la clave de Zernio y sin token NUNCA cae al token del ent
 
 test('la pantalla de Meta: con Zernio activo el token no se pide, y la pieza no dibuja nada para quien no lo tiene activo', () => {
   const form = leer('../app/integraciones/ServicioConfigForm.tsx');
-  // El token sólo se ve si el negocio lo tenía Y abrió «la conexión anterior».
-  assert.match(form, /!\(servicio\.key === 'meta' && metaZernio\.activo && c\.env === 'META_ACCESS_TOKEN' && !\(c\.configurado && verTokenMeta\)\)/);
-  // El botón de la app propia de MaKo («Conectar con Meta») no compite con «Conectar con Facebook».
-  assert.match(form, /servicio\.key === 'meta' && conectarMeta && !metaZernio\.activo &&/);
-  // Al guardar la conexión, el formulario vuelve a leer sus campos.
-  assert.match(form, /<ConectarMetaZernio onEstado=\{onEstadoMetaZernio\} onGuardado=\{\(\) => \{ cargar\(\); onGuardado\?\.\(\); \}\} \/>/);
+  // Ticket #28 (29/10/2026): un token de Meta no se ve NUNCA (ni el de antes), el modal de Meta no tiene «Conectar con Meta» ni
+  // «Conectar con Facebook»: lleva a Zernio, y «Anuncios de Meta» vive en su paso 2 (tests/zernio-una-pestana.test.ts).
+  assert.match(form, /!\(servicio\.key === 'meta' && esTokenDeMeta\(c\.env\)\)/);
+  assert.doesNotMatch(form, /ConectarMetaZernio/);
+  // Al guardar la conexión, el paso 2 vuelve a leer las redes.
+  assert.match(leer('../app/integraciones/ConectarRedes.tsx'), /<ConectarMetaZernio onGuardado=\{\(\) => \{ void leer\(\); \}\} \/>/);
   const pieza = leer('../app/integraciones/ConectarMetaZernio.tsx');
   // Apagado (todo cliente antes de la prueba): no dibuja nada. Y todos los hooks van ANTES de ese return.
   const corte = pieza.indexOf('if (!estado?.activo) return null;');
@@ -323,8 +324,8 @@ test('Meta por Zernio se usa por la API de MaKo: leer, elegir (con su «sí») y
     assert.equal(d.tipo, 'accion');
     assert.equal((d as { confirmacion?: string }).confirmacion, 'chat', `${id}: elegir se confirma con un «sí»`);
   }
-  // La lectura dice SI hay token del píxel, nunca su valor.
-  assert.match(run, /token_del_pixel_cargado: !!tokenPixel/);
+  // La lectura dice SI hay una conexión anterior del píxel, nunca su valor (y sin la palabra «token» desde el ticket #28).
+  assert.match(run, /conexion_anterior_del_pixel: !!tokenPixel/);
   // El código de prueba viaja hasta Zernio (`testCode`) y hasta Meta directo (`test_event_code`).
   assert.match(run, /sendMetaCAPIEvent\(\{[\s\S]{0,200}testCode: codigo/);
   const capi = leer('../lib/meta-capi.ts');

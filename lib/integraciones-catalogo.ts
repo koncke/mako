@@ -23,6 +23,19 @@ export type Def = { key: string; nombre: string; categoria: string; descripcion:
 // tarjetas de la grilla; se conectan desde «Tus cuentas de IA», con el MISMO modal: `getIntegracion` no mira `oculto`).
 // «Depreca Hotmart, Skool... Elimina Apify» (mismo día): salieron, con su ruta y su API. «Elimina la de Google Calendar»:
 // `oculto`, porque la agenda sigue (ver su entrada).
+/**
+ * DÓNDE SE CONFIGURA una integración que no se configura en su propia tarjeta (29/10/2026, ticket #28, Martín: «en una sola
+ * pestaña, la de Zernio, se pueda configurar tanto para pegar primero tu API y después para loguearte... ya no debería pedirte
+ * nada de Access Token»). Meta se conecta en la tarjeta de Zernio: paso 1 la clave de Zernio, paso 2 «Anuncios de Meta» con
+ * Facebook. La tarjeta de Meta queda como el ESTADO de la cuenta publicitaria (saldo, medio de pago, entrega). Lo usan
+ * `?abrir=` (avisos, la API de MaKo, MaKo en WhatsApp) y el botón de conectar de cualquier tab (`useConectarIntegracion`).
+ */
+export const SE_CONFIGURA_EN: Readonly<Record<string, string>> = { meta: 'zernio' };
+/** La integración cuyo modal se abre para CONFIGURAR `key` (la misma, salvo las de `SE_CONFIGURA_EN`). */
+export const integracionQueConfigura = (key: string): string => SE_CONFIGURA_EN[key] ?? key;
+/** Lo que dice la tarjeta de Meta sin conectar: dónde se conecta, nunca qué campo falta (el token ya no se pide). */
+export const META_SE_CONECTA_EN_ZERNIO = 'Se conecta en la tarjeta de Zernio: tu API key y después «Anuncios de Meta».';
+
 export const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
   // WhatsApp (Chatwoot) salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.

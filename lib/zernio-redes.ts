@@ -42,7 +42,9 @@ export const REDES = {
   // sistema. Pide una página de Facebook y que quien entre sea admin del Business.
   metaads: { etiqueta: 'Anuncios de Meta', plataforma: 'metaads', ruta: 'facebook/ads', anuncios: true, params: { loginMode: 'business' }, ayuda: 'Tu cuenta publicitaria, para publicar anuncios.', visible: true },
   linkedin: { etiqueta: 'LinkedIn', plataforma: 'linkedin', ruta: 'linkedin', anuncios: false, ayuda: 'Tu perfil o tu página.', visible: false },
-  tiktok: { etiqueta: 'TikTok', plataforma: 'tiktok', ruta: 'tiktok', anuncios: false, ayuda: 'Tu cuenta de TikTok.', visible: false },
+  // Visible desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio). El Calendario ya
+  // publica en TikTok (lib/calendario-publicar-reglas.ts).
+  tiktok: { etiqueta: 'TikTok', plataforma: 'tiktok', ruta: 'tiktok', anuncios: false, ayuda: 'Tu cuenta de TikTok.', visible: true },
   // Visible desde el 27/10/2026 (feedback 876470842-22): el canal se conecta con el login de Zernio, no pegando una clave.
   youtube: { etiqueta: 'YouTube', plataforma: 'youtube', ruta: 'youtube', anuncios: false, ayuda: 'Tu canal.', visible: true },
   twitter: { etiqueta: 'X', plataforma: 'twitter', ruta: 'twitter', anuncios: false, ayuda: 'Tu cuenta de X.', visible: false },

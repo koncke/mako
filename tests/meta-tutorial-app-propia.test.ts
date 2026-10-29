@@ -30,10 +30,10 @@ test('el tutorial lleva a «Conectar con Facebook» sin nombrar el token; el cor
   assert.ok(p.some((x) => /"Conectar con Facebook"/.test(x)), 'no lleva al botón de la conexión por Zernio');
   // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». Ningún paso lo nombra.
   assert.deepEqual(p.filter((x) => /token/i.test(x)), []);
-  // El corte lo ve sólo quien tenía el token: en la nota de su campo, con la misma fecha que el código.
+  // El corte sigue en el código (lo dijo el aviso del 28/10). Desde el ticket #28 (29/10/2026) el campo del token no se ve NUNCA,
+  // ni para quien lo tenía: su nota no avisa nada a nadie (tests/zernio-una-pestana.test.ts).
   assert.ok(CORTE_TOKEN_META, 'sin fecha de corte no hay nada que avisar');
-  const [, mes, dia] = CORTE_TOKEN_META!.split('-');
-  assert.match(meta, new RegExp(`env: 'META_ACCESS_TOKEN'[^\n]*nota: 'Se retira el [a-z]+ ${dia}/${mes}`));
+  assert.match(meta, /env: 'META_ACCESS_TOKEN'[^\n]*retirado: true/);
 });
 
 test('ya no enseña a sacar el token (el usuario del sistema, los permisos): ése era el laberinto', () => {

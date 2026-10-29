@@ -2251,3 +2251,35 @@ Martín (28/10): «Super importante advertir en la conexión de Zernio las limit
   the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).
   Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio. Por eso
   Martín dijo que NO (29/10): varias claves de Zernio por negocio quedó DESCARTADO, no pendiente.
+
+## Una sola pestaña, la de Zernio, y ningún token de Meta a la vista (29/10/2026, ticket #28)
+
+Martín, por WhatsApp (29/10 12:56): «en una sola pestaña, la de Zernio, se pueda configurar tanto para pegar primero tu API y
+después para loguearte... ya no debería pedirte nada de Access Token. Toda esa parte de los tokens ya no debería existir».
+
+**Vive en:** `lib/integraciones-catalogo.ts` (`SE_CONFIGURA_EN`, `integracionQueConfigura`, `META_SE_CONECTA_EN_ZERNIO`) ·
+`app/_components/ConectarIntegracion.tsx` (`abrir`) · `app/integraciones/IntegracionesBoard.tsx` (`?abrir=`) ·
+`app/integraciones/ServicioConfigForm.tsx` (los pasos de Zernio; el modal de Meta lleva a Zernio; `esTokenDeMeta`) ·
+`app/integraciones/ConectarRedes.tsx` (el paso 2, con `ConectarMetaZernio`) · `lib/integraciones.ts` (la tarjeta de Meta) ·
+tests/zernio-una-pestana.test.ts.
+
+- **La regla:** una integración que se configura en OTRA tarjeta se dice en un solo lugar (`SE_CONFIGURA_EN`: `meta → zernio`), y
+  lo usan las dos puertas: `?abrir=` (avisos, la API, MaKo en WhatsApp) y el botón de cualquier tab (`useConectarIntegracion`).
+  La tarjeta de Meta se queda (es el ESTADO de la cuenta: saldo, medio de pago, entrega frenada), pero su modal no pide nada.
+- ⚠️ **El diagnóstico obvio («ocultar el campo del token») era corto:** el token aparecía en NUEVE lugares que ve un cliente o
+  MaKo. El campo del modal estaba oculto sólo con Zernio activo; sin la clave de Zernio aparecían «Conectar con Meta / O pega un
+  token abajo». Además estaban las notas de cuatro campos («lo completa MaKo al pegar el token»), las ayudas que enseñaban a
+  generar tokens y el «Token del píxel», visible para todos. También: `ver_integracion`, que listaba el token cargado (el modelo
+  lo explicaba); `ver_conexion_meta` («token_del_pixel»); dos descripciones de herramientas; los avisos de la conexión y del Media
+  Buyer; y dos errores de la extracción del onboarding. **Regla:** un concepto retirado se barre por lo que se LEE, no por el
+  campo. El test fija una regex de «nombra el token» sobre cada lugar.
+- ⚠️ **Y la grilla tenía su propio hueco:** medía Meta con los `envs` de la tarjeta (el token y la cuenta), así que un negocio
+  conectado SÓLO por Zernio quedaba «Sin conectar» y lo que faltaba era el token. Los otros tres lectores ya usaban
+  `metaConectadaConCampos`; la grilla no. Lo que falta ahora se dice en palabras (`META_SE_CONECTA_EN_ZERNIO`).
+- **Lo que no se rompe:** el token guardado no se borra y sigue de respaldo. El corte es el **03/11** (`CORTE_TOKEN_META`): Martín
+  dijo «el 11», que es el mes. Desde ese día se frena escribir con el token, pero LEER sigue, porque el aviso que salió el 28/10
+  lo prometió («Tus números se siguen viendo»). Cortar también la lectura es otra decisión, con otro aviso.
+- **Sin verificar en el navegador:** no se levanta `next dev` local (regla). Lo fijan tests de fuente; la primera vez que un
+  cliente conecte desde la pantalla nueva hay que mirarla en producción.
+- **Sin hacer:** el ID del conjunto de datos de CRM (`META_CRM_DATASET_ID`, opcional) sólo se carga desde el modal de Meta con
+  «Cargarlos a mano». Ese modal ya no se abre con `?abrir=meta`, sólo desde su tarjeta.

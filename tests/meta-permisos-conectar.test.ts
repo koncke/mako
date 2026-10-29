@@ -33,8 +33,10 @@ test('el callback lo mira después de guardar la conexión y vuelve con «sin-pe
   assert.match(src, /if \(faltan\.length\) \{[\s\S]*?return salir\('sin-permisos', ws\);/);
 });
 
-test('el resultado viaja en la cookie y el formulario lo dice', () => {
+test('el resultado viaja en la cookie; el formulario ya no ofrece «Conectar con Meta» (ticket #28, 29/10/2026)', () => {
   assert.equal(leerResultadoMeta('sin-permisos'), 'sin-permisos');
+  // Meta se conecta en la tarjeta de Zernio (tests/zernio-una-pestana.test.ts): el modal de Meta no tiene el botón de la app propia,
+  // así que tampoco dice cómo terminó. La ruta y la cookie siguen (un link viejo vuelve sin romper nada).
   const form = readFileSync(join(import.meta.dirname, '..', 'app/integraciones/ServicioConfigForm.tsx'), 'utf8');
-  assert.match(form, /'sin-permisos': '/);
+  assert.doesNotMatch(form, /\/api\/integraciones\/meta[?'`]/);
 });

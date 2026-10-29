@@ -207,18 +207,19 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     core: true,
     paraQue: 'Campañas, gasto, resultados y salud de la cuenta publicitaria. Sin esto no hay métricas de ads ni Ads Manager.',
     campos: [
-      // El token de Meta se RETIRA (27/10/2026, corte `CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts): con Zernio prendido no se pide, y
-      // sólo lo ve el negocio que ya lo tenía («Ver la conexión anterior»). La nota y el tutorial ya no enseñan a sacarlo.
-      // `retirado` (27/10/2026): la API de MaKo tampoco lo lista como «falta» (ver_integracion), y el modal ya lo escondía.
-      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'Se retira el lunes 03/11. Conecta con Facebook (Zernio) arriba: hasta ese día queda de respaldo.' },
-      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token; si tienes varias cuentas, eliges una. A mano, va con act_ adelante.' },
-      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Lo saca MaKo del "Access token". Trae los contactos de tus formularios de Facebook e Instagram.' },
-      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Si tienes más de un píxel, te pregunta cuál.' },
+      // ⚠️ LOS TOKENS DE META NO SE VEN NUNCA (29/10/2026, ticket #28, Martín: «ya no debería pedirte nada de Access Token. Toda esa
+      // parte de los tokens ya no debería existir»): `retirado`, y el modal de Meta los filtra siempre (`esTokenDeMeta`,
+      // ServicioConfigForm). Meta se conecta en la tarjeta de Zernio (`SE_CONFIGURA_EN`, lib/integraciones-catalogo.ts). El token
+      // GUARDADO no se borra: sigue de respaldo hasta el corte (`CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts).
+      { env: 'META_ACCESS_TOKEN', label: 'Conexión anterior de Meta', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'La conexión de antes: ya no se pide ni se muestra. Meta se conecta en Zernio.' },
+      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo elige MaKo al conectar «Anuncios de Meta» en Zernio; con varias, eliges una ahí. Va con act_ adelante.' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Conexión anterior de la página', secreto: true, opcional: true, auto: true, retirado: true, placeholder: 'EAAG…', nota: 'La conexión de antes: ya no se pide. Los contactos de tus formularios llegan por Zernio.' },
+      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al conectar «Anuncios de Meta» en Zernio. Con más de un píxel, eliges uno ahí.' },
       // El token del PÍXEL (25/10/2026): con el token de Meta deprecado, es la salida de CAPI cuando la conexión de Facebook por
       // Zernio no llega al píxel (lib/meta-capi.ts). Ya no es `auto`: MaKo no lo completa (nunca lo hizo) y la persona lo tiene
       // que VER para pegarlo. Tutorial entero: docs/tutorial-capi-pixel.md.
-      { env: 'META_CAPI_TOKEN', label: 'Token del píxel', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Opcional. Del Administrador de eventos: MaKo lo usa si tu conexión no llega a tu píxel.' },
-      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Hace que los contactos de tus formularios lleguen a tu cuenta.' },
+      { env: 'META_CAPI_TOKEN', label: 'Conexión anterior del píxel', secreto: true, opcional: true, retirado: true, placeholder: 'EAAG…', nota: 'La salida de antes para tu píxel: ya no se pide. Las conversiones salen por tu Zernio.' },
+      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al conectar con Facebook en Zernio. Hace que tus formularios lleguen a tu cuenta.' },
       // ⚠️ OPCIONAL A PROPÓSITO, Y NO ES UN DETALLE DE COPY. `opcional` es lo que
       // leen los TRES lectores de «está conectado» (lib/credenciales.ts:227,
       // lib/metodo-verificar.ts:601, app/api/metodo/route.ts:28): marcarlo requerido
@@ -250,11 +251,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // ⚠️ Sigue valiendo la regla de Martín del 16/09: ningún paso pide publicar ni activar una app.
       // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». El tutorial ya no nombra
       // el token (el corte del 03/11 lo dice sólo la nota del campo, que ve quien lo tenía): conectar es con Facebook.
+      // 29/10/2026 (ticket #28): se conecta en la tarjeta de Zernio, en dos pasos. Este modal ya no tiene un botón propio.
       pasos: [
-        'Meta se conecta con tu Facebook, por Zernio: no hay que crear ninguna app ni copiar nada de Meta.',
-        'Arriba, en esta misma ventana, toca "Conectar con Facebook".',
-        'Si te pide tu API key de Zernio: sácala en zernio.com → "Settings" → "API Keys" y pégala.',
-        'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
+        'Meta se conecta con tu Facebook, por Zernio, en su tarjeta: no hay que crear ninguna app ni copiar nada de Meta.',
+        'Paso 1: pega tu API key de Zernio (zernio.com → "Settings" → "API Keys").',
+        'Paso 2: en «Anuncios de Meta» toca "Conectar con Facebook" y acepta.',
+        'Si tienes varias cuentas publicitarias o píxeles, eliges el tuyo ahí mismo.',
       ],
     },
   },
@@ -962,7 +964,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_AD_ACCOUNT_ID: {
     pasos: [
         'Para qué sirve: le dice a MaKo de qué cuenta de anuncios traer el gasto y los resultados.',
-        'Normalmente lo completa MaKo al pegar el "Access token"; si tienes varias cuentas, eliges una.',
+        'Normalmente lo elige MaKo al conectar «Anuncios de Meta» en la tarjeta de Zernio; con varias cuentas, eliges una ahí.',
         'A mano: en adsmanager.facebook.com, el número largo junto al nombre de la cuenta, arriba a la izquierda.',
         'Escríbelo con act_ adelante y sin espacios (act_1234567890): sin el act_, el tablero queda en blanco.',
       ],
@@ -971,11 +973,9 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   META_PAGE_ACCESS_TOKEN: {
     pasos: [
-        'Para qué sirve: trae los datos de quien deja su contacto en tus formularios de Facebook e Instagram.',
-        'No lo escribes tú: MaKo lo saca del "Access token". Si queda vacío, falta la página o algún permiso.',
-        'En business.facebook.com/settings → "Usuarios del sistema" → tu usuario → "Agregar activos" → "Páginas".',
-        'Marca tu página con "Control total", guarda y genera un token nuevo con: leads_retrieval, pages_show_list, pages_read_engagement, pages_manage_ads.',
-        'Pega el token nuevo en "Access token" y guarda: el token de la página se completa solo.',
+        'Para qué sirve: ya no se usa. Traía los contactos de tus formularios con la conexión de antes.',
+        'No se pide: esos contactos llegan por Zernio.',
+        'Para recibirlos, conecta «Anuncios de Meta» en la tarjeta de Zernio con la página de tus formularios.',
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',
@@ -983,7 +983,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_PIXEL_ID: {
     pasos: [
         'Para qué sirve: con el píxel, MaKo le devuelve a Meta las ventas que se cierran fuera de la web.',
-        'Normalmente lo completa MaKo al conectar con Meta; si tienes varios píxeles, te pregunta cuál.',
+        'Normalmente lo completa MaKo al conectar «Anuncios de Meta» en Zernio; con varios píxeles, eliges uno ahí.',
         'A mano: en business.facebook.com/events_manager2 ("Administrador de eventos") toca tu píxel y copia su número.',
         'Pégalo aquí, solo dígitos. Si no tienes píxel, déjalo vacío: MaKo funciona igual.',
         'Si tu página ya manda "Schedule" con el píxel, MaKo no lo repite: así Meta no lo cuenta dos veces.',
@@ -999,10 +999,9 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // deduplicación, en docs/tutorial-capi-pixel.md.
   META_CAPI_TOKEN: {
     pasos: [
-        'Para qué sirve: que tus contactos, calificados y agendas lleguen a tu píxel aunque tu conexión no alcance.',
-        'En business.facebook.com/events_manager2 elige tu píxel y abre la pestaña "Configuración".',
-        'En "API de conversiones" toca "Generar token de acceso" (lo ve un administrador del negocio).',
-        'Copia el token (empieza con EAA, se ve UNA vez) y pégalo en este campo.',
+        'Para qué sirve: ya no se usa. Mandaba tus contactos y agendas a tu píxel con la conexión de antes.',
+        'No se pide: las conversiones salen por tu conexión de Zernio («Anuncios de Meta»).',
+        'Si no llegan, en Meta dale a esa cuenta publicitaria acceso a tu píxel y vuelve a conectar en Zernio.',
       ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
@@ -1010,8 +1009,8 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // La conexión de Zernio (25/10/2026): no se pega, la escribe MaKo al conectar con Facebook (`derivado`).
   META_ZERNIO_CUENTA: {
     pasos: [
-        'Para qué sirve: con esta conexión MaKo lee tus métricas y publica tus anuncios sin pedirte el token de Meta.',
-        'No la escribes tú: toca "Conectar con Facebook" arriba, en esta misma ventana.',
+        'Para qué sirve: con esta conexión MaKo lee tus métricas y publica tus anuncios, sin pedirte nada de Meta.',
+        'No la escribes tú: en la tarjeta de Zernio, paso 2, «Anuncios de Meta» → "Conectar con Facebook".',
         'En la ventana de Facebook elige tu negocio, tu página y tu cuenta publicitaria, y acepta.',
       ],
     url: 'https://zernio.com',
@@ -1020,10 +1019,8 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_PAGE_ID: {
     pasos: [
         'Para qué sirve: sin esto, quien deja su teléfono en tus formularios de Facebook e Instagram no llega a ningún lado.',
-        'Lo completa MaKo al pegar el "Access token"; si tienes varias páginas, eliges la de tus anuncios.',
-        'Si quedó vacío: business.facebook.com/settings → "Usuarios del sistema" → tu usuario → "Agregar activos".',
-        'En "Páginas" marca tu página con "Control total" y guarda.',
-        'Toca "Generar nuevo token" y pégalo en "Access token": la página se completa sola.',
+        'Lo completa MaKo al conectar «Anuncios de Meta» en la tarjeta de Zernio; con varias páginas, eliges la de tus anuncios.',
+        'Si quedó vacío, vuelve a conectar ahí y elige la página en la ventana de Facebook.',
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',

@@ -31,7 +31,7 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { DEFS, ordenCategoria } from '@/lib/integraciones-catalogo';
+import { DEFS, integracionQueConfigura, ordenCategoria } from '@/lib/integraciones-catalogo';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
@@ -263,7 +263,9 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   // Se limpia el parámetro después (router.replace, sin scroll): si queda pegado,
   // un F5 o el botón de atrás vuelven a abrir el modal que la persona ya cerró.
   // Va con el router de app/_ui/Link para no perder el ?ws= del super admin.
-  const abrir = searchParams.get('abrir');
+  // Se abre DONDE SE CONFIGURA (29/10/2026, ticket #28): `?abrir=meta` (los avisos del corte, MaKo, la API) abre Zernio.
+  const abrirCrudo = searchParams.get('abrir');
+  const abrir = abrirCrudo ? integracionQueConfigura(abrirCrudo) : null;
   const yaAbierto = useRef(false);
   useEffect(() => {
     // ⚠️ Sin parámetro se REARMA (06/10/2026). La ref se ponía en true la primera vez

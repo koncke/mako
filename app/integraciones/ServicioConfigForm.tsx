@@ -20,12 +20,13 @@
 // íconos aparecen. Solo se envían los campos TIPEADOS: "vacío" nunca pisa nada.
 // OJO: no existe el concepto "configurada en el servidor" — TODO campo es editable.
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { useWs } from '@/app/_ui/Link';
+import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { conWs } from '@/lib/ws-tab';
 // Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
 import { esPasarela } from '@/lib/cobros-tipos';
@@ -36,8 +37,9 @@ import { esProveedorAgendaConCuentas } from '@/lib/cuentas-integracion';
 const GithubRepoPicker = dynamic(() => import('./GithubRepoPicker').then((m) => m.GithubRepoPicker), { ssr: false });
 // Zernio (23/10/2026): conectar Facebook, Instagram y los anuncios de Meta desde acá. Mismo motivo: sólo se baja con ESE servicio.
 const ConectarRedes = dynamic(() => import('./ConectarRedes'), { ssr: false });
-// Meta por Zernio (25/10/2026): «Conectar con Facebook» arriba del formulario de Meta, sólo con Zernio activo para el negocio.
-const ConectarMetaZernio = dynamic(() => import('./ConectarMetaZernio'), { ssr: false });
+
+/** ¿Es un token de Meta? (el de la cuenta, el de la página, el del píxel): no se le muestra a nadie (ticket #28). */
+const esTokenDeMeta = (env: string): boolean => /^META_[A-Z_]*TOKEN$/.test(env);
 
 /** Lo que Meta devolvió y el cliente todavía tiene que elegir (si hay varias). */
 type OpcionesMeta = {
@@ -97,19 +99,6 @@ type Servicio = {
 };
 type Msg = { ok: boolean; text: string };
 
-/**
- * Cómo terminó el último «Conectar con Meta» (lo cuenta la ruta de credenciales,
- * que lo lee de la cookie de un uso del callback). El `ok` no tiene texto acá:
- * lo dice la búsqueda de datos que arranca sola. Texto corto: es lo que se dibuja.
- */
-const RESULTADO_META: Record<string, string> = {
-  cancelado: 'Cancelaste la conexión en Meta.',
-  vencido: 'El intento venció. Vuelve a conectar.',
-  'no-permitido': 'Sólo un admin de este espacio puede conectar Meta.',
-  'no-disponible': 'Conectar con Meta todavía no está disponible.',
-  'meta-fallo': 'Meta no completó la conexión. Vuelve a intentarlo.',
-  'sin-permisos': 'Conectó sin permisos de anuncios. Reconecta y acéptalos.',
-};
 
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
@@ -382,15 +371,10 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
   // la app. Cerrado por default — si estuviera abierto, volveríamos a la pantalla
   // de seis inputs que este rediseño vino a sacar.
   const [manual, setManual] = useState(false);
-  // «Conectar con Meta»: si el server lo ofrece a esta sesión (ver
-  // conectarMetaDisponible) y cómo terminó el último intento.
-  const [conectarMeta, setConectarMeta] = useState(false);
-  const [intentoMeta, setIntentoMeta] = useState<string | null>(null);
-  // Meta por Zernio (lib/meta-via.ts): con Zernio activo para el negocio, el token de Meta queda DEPRECADO. No se pide;
-  // si el negocio ya lo tenía, se ve plegado como «conexión anterior», porque sigue andando de respaldo.
-  const [metaZernio, setMetaZernio] = useState<{ activo: boolean; conectada: boolean }>({ activo: false, conectada: false });
-  const [verTokenMeta, setVerTokenMeta] = useState(false);
-  const onEstadoMetaZernio = useCallback((e: { activo: boolean; conectada: boolean }) => setMetaZernio(e), []);
+  // ⚠️ META SE CONECTA EN LA TARJETA DE ZERNIO (29/10/2026, ticket #28, Martín: «en una sola pestaña, la de Zernio... ya no
+  //    debería pedirte nada de Access Token»): el modal de Meta no pide nada, ni el token (el de antes queda guardado y sigue
+  //    andando de respaldo hasta el corte, sin verse) ni el «Conectar con Meta» de la app propia. Abre Zernio.
+  const integracion = useConectarIntegracion({ onConectado: () => { cargar(); onGuardado?.(); } });
   const wsPestana = useWs();
   // Cuentas EXTRA del mismo proveedor que el usuario pidió agregar en esta sesión.
   // Las ya cargadas se muestran siempre; las vacías, solo cuando las pide — si no,
@@ -436,13 +420,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       .then((j) => {
         if (j.ok && j.servicio) {
           aplicar(j.servicio as Servicio, n);
-          setConectarMeta(j.conectarMeta === true);
-          // Llega UNA vez (la cookie se consume): un `ok` arranca la búsqueda que
-          // muestra lo que hay que elegir; cualquier otro es el motivo, a la vista.
-          if (typeof j.ultimoIntento === 'string') {
-            setIntentoMeta(j.ultimoIntento);
-            if (j.ultimoIntento === 'ok') void descubrirMeta(undefined, true);
-          }
+          // Llega UNA vez (la cookie se consume): un `ok` de una vuelta de antes arranca la búsqueda de lo que hay que elegir.
+          if (j.ultimoIntento === 'ok') void descubrirMeta(undefined, true);
         }
         else setErrorCarga(j.error === 'solo admin' ? 'Necesitas ser admin para configurar esta integración.' : (j.error ?? 'No se pudo cargar el estado.'));
       })
@@ -644,9 +623,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       const faltan = Array.isArray(j.faltanScopes) ? (j.faltanScopes as string[]) : [];
       // Con el botón, faltan porque se destildaron en el diálogo de Meta: la salida
       // es reconectar, no generar un token.
-      if (faltan.length) avisos.unshift(porBoton || conectarMeta
-        ? `Faltan permisos (${faltan.join(', ')}). Vuelve a conectar con Meta dejándolos marcados.`
-        : `A tu token le faltan permisos (${faltan.join(', ')}). Vuelve a generarlo marcándolos y pégalo de nuevo.`);
+      if (faltan.length) avisos.unshift(`Faltan permisos (${faltan.join(', ')}). Vuelve a conectar con Facebook dejándolos marcados.`);
       setAvisosMeta(avisos);
       if (mostrarMsgEn) {
         const guardadas = Array.isArray(j.guardadas) ? j.guardadas.length : 0;
@@ -749,41 +726,18 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── Meta por Zernio (25/10/2026): «Conectar con Facebook», el camino principal. Sin Zernio activo para el negocio
-          (todo cliente antes de la prueba) la pieza no dibuja nada y queda lo de siempre. */}
-      {servicio.key === 'meta' && <ConectarMetaZernio onEstado={onEstadoMetaZernio} onGuardado={() => { cargar(); onGuardado?.(); }} />}
-
-      {/* El token de Meta, deprecado: sólo para el negocio que ya lo tenía, plegado. */}
-      {servicio.key === 'meta' && metaZernio.activo && servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) && (
-        <button type="button" onClick={() => setVerTokenMeta((v) => !v)}
-          style={{ alignSelf: 'flex-start', border: 0, background: 'none', padding: 0, color: 'var(--faint)', fontFamily: SANS, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
-          {verTokenMeta ? 'Ocultar la conexión anterior (token de Meta)' : 'Ver la conexión anterior (token de Meta)'}
-        </button>
-      )}
-
-      {/* ── Meta: conectar con un botón, sin pegar nada ─────────────────────
-          Con Zernio activo no se ofrece. Sin Zernio es el camino principal cuando el server lo ofrece; el token a mano queda
-          abajo como alternativa. Navegación de página entera (el OAuth es un
-          redirect), así que lleva el `?ws=` explícito y la pantalla a la que volver. */}
-      {servicio.key === 'meta' && conectarMeta && !metaZernio.activo && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-          <a
-            href={conWs('/api/integraciones/meta', wsPestana)}
-            onClick={(e) => {
-              e.preventDefault();
-              const volver = `${window.location.pathname}${window.location.search}`;
-              window.location.href = conWs(`/api/integraciones/meta?volver=${encodeURIComponent(volver)}`, wsPestana);
-            }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10,
-              background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 650, textDecoration: 'none',
-            }}
-          >
-            {servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) ? 'Reconectar con Meta' : 'Conectar con Meta'}
-          </a>
-          {intentoMeta === 'ok' && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>✓ Conectado con Meta.</div>}
-          {intentoMeta && RESULTADO_META[intentoMeta] && <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>{RESULTADO_META[intentoMeta]}</div>}
-          <div style={{ fontSize: 12, color: 'var(--faint)' }}>O pega un token abajo.</div>
+      {/* ── Meta se conecta en Zernio (29/10/2026, ticket #28): este modal no pide nada. Lo de la cuenta (saldo, medio de
+          pago, entrega) lo dice la tarjeta; conectar, elegir la cuenta publicitaria y el píxel, el paso 2 de Zernio. */}
+      {servicio.key === 'meta' && (
+        <div data-meta-en-zernio style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', fontFamily: SANS }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Meta se conecta en Zernio</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--dim)' }}>
+            Paso 1, tu API key de Zernio. Paso 2, «Anuncios de Meta» con tu Facebook: ahí eliges la cuenta publicitaria y el píxel.
+          </span>
+          <button type="button" data-abrir-zernio onClick={() => integracion.abrir('zernio')}
+            style={{ padding: '9px 15px', borderRadius: 10, border: 0, background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 650, cursor: 'pointer' }}>
+            Abrir Zernio
+          </button>
         </div>
       )}
 
@@ -795,12 +749,16 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           de 6) no se piden acá — salen abajo como resultado, y solo se pueden
           editar a mano si el cliente abre "cargarlos a mano". Pedir seis tokens
           cuando cinco se descubren solos era la fricción entera del paso. */}
+      {/* Zernio, en dos pasos y en este orden (29/10/2026, ticket #28): 1) la clave; 2) las redes, cada una con su login. */}
+      {servicio.key === 'zernio' && (
+        <span data-paso-zernio="1" style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--ink)', fontFamily: SANS }}>Paso 1 · Pega tu API key de Zernio</span>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Un `derivado` no se abre ni a mano: lo escribe sólo el servidor (el server además lo
             rechaza en 'guardar'), y un input que no guarda es peor que no tener input. */}
         {servicio.campos.filter((c) => (!c.auto || (manual && !c.derivado)) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env)))
-          // Con Zernio activo el token de Meta no se pide: se ve sólo si el negocio lo tenía y abrió «la conexión anterior».
-          .filter((c) => !(servicio.key === 'meta' && metaZernio.activo && c.env === 'META_ACCESS_TOKEN' && !(c.configurado && verTokenMeta)))
+          // Un token de Meta no se ve NUNCA (29/10/2026, ticket #28): ni para pegarlo ni el de antes. El guardado no se borra.
+          .filter((c) => !(servicio.key === 'meta' && esTokenDeMeta(c.env)))
           // Un campo retirado (la clave de YouTube, 27/10/2026) no se pide: queda sólo para quien ya lo tenía.
           .filter((c) => !c.retirado || c.configurado)
           .map((c) => {
@@ -1093,14 +1051,6 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         />
       )}
 
-      {/* Reintento a mano: si el cliente arregla los permisos o asigna la página
-          en Business Manager, no tiene que borrar y volver a pegar el token. */}
-      {servicio.key === 'meta' && !descubriendo && servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) && (
-        <button type="button" onClick={() => descubrirMeta('META_ACCESS_TOKEN')}
-          style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
-          ↻ Buscar mis datos en Meta
-        </button>
-      )}
 
       {/* Pasarela: volver a conectar con la clave guardada. Es lo que se hace después de agregar en
           Stripe el permiso que faltaba (sin borrar la clave) o de una mudanza de dominio: el aviso
@@ -1129,6 +1079,12 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       {/* Zernio: con la key guardada, las redes que se conectan con ella (Facebook, Instagram, anuncios de Meta), una fila por red.
           Es la MISMA pieza que usan Ads Manager, Automations y Chats (`useConectarViaZernio`). Sin la key no se dibuja: no hay con qué. */}
       {servicio.key === 'zernio' && servicio.campos.some((c) => c.configurado) && <ConectarRedes />}
+      {servicio.key === 'zernio' && !servicio.campos.some((c) => c.configurado) && (
+        <div data-paso-zernio="2" style={{ border: '1px dashed var(--border-strong)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: SANS }}>
+          <span style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--dim)' }}>Paso 2 · Conecta tus redes</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--faint)' }}>Falta tu API key de Zernio (paso 1). Con ella guardada, aquí conectas Facebook, Instagram, TikTok, YouTube y tus anuncios de Meta.</span>
+        </div>
+      )}
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}

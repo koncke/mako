@@ -6048,7 +6048,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer/campanas` — Campañas que ve el Media Buyer
 
-Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.
+Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o la conexión anterior), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.
 
 - **Ruta por operación:** `GET /api/v1/ads/ver_campanas_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -16673,7 +16673,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/meta/prueba-capi` — Probar las conversiones al píxel
 
-Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».
+Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook por Zernio, o la conexión anterior), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».
 
 - **Ruta por operación:** `GET /api/v1/integraciones/probar_capi_meta`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)

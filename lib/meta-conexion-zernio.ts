@@ -227,15 +227,15 @@ export async function pingMetaPorZernio(v: Record<string, string>): Promise<
     const pixeles = await pixelesPorZernio(canal.clave, canal.accountId).catch(() => null);
     const px = pixeles?.find((x) => x.id === v.META_PIXEL_ID);
     if (px) facts.push({ k: 'Tu píxel', v: px.nombre ?? px.id });
-    else if (pixeles) avisos.push(`tu conexión de Facebook no ve el píxel ${v.META_PIXEL_ID}: los eventos salen con el token del píxel, si lo pegaste`);
+    else if (pixeles) avisos.push(`tu conexión de Facebook no ve el píxel ${v.META_PIXEL_ID}: dale acceso en Meta y vuelve a conectar en Zernio`);
     if (v.META_CAPI_TOKEN) {
       const ver = process.env.META_API_VERSION || 'v24.0';
       const u = new URL(`https://graph.facebook.com/${ver}/${v.META_PIXEL_ID}`);
       u.searchParams.set('fields', 'name');
       u.searchParams.set('access_token', v.META_CAPI_TOKEN);
       const r = await fetch(u.toString(), { signal: AbortSignal.timeout(15_000) }).then((x) => x.json()).catch(() => null) as { error?: { message?: string } } | null;
-      if (!r || r.error) avisos.push(`el token del píxel no llega a tu píxel${r?.error?.message ? ` (${r.error.message})` : ''}`);
-      else facts.push({ k: 'Token del píxel', v: 'Llega a tu píxel', c: 'var(--good)' });
+      if (!r || r.error) avisos.push(`la conexión anterior del píxel ya no llega a tu píxel${r?.error?.message ? ` (${r.error.message})` : ''}`);
+      else facts.push({ k: 'Conexión anterior del píxel', v: 'Llega a tu píxel', c: 'var(--good)' });
     }
   }
   return {

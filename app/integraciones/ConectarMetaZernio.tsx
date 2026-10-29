@@ -13,9 +13,8 @@
 // del negocio la manda sola; con varias pregunta ANTES de abrir la ventana; y si la ventana vuelve sin conexión habiendo abierto
 // sin página, pide la página (de la lista, o su ID) y se reintenta con ella (`paginaParaConectar`, lib/zernio-meta-cuerpo.ts).
 //
-// Va arriba del formulario de Meta (ServicioConfigForm) y SÓLO con Zernio activo para el negocio (`estado.activo`): antes de
-// la prueba en la cuenta de MaKo, sólo el negocio de la plataforma lo ve. Le avisa al formulario (`onEstado`) para que esconda
-// el token de Meta cuando no hace falta.
+// Desde el 29/10/2026 (ticket #28) va en el PASO 2 de Zernio (ConectarRedes), como la fila «Anuncios de Meta»: todo lo de Meta se
+// configura en la tarjeta de Zernio, y SÓLO con la clave de Zernio del negocio (`estado.activo`).
 // Se carga A DEMANDA (`next/dynamic`): los demás servicios no la traen.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -89,7 +88,7 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
 
   // Quedó conectada la ventana: MaKo guarda la conexión y lo que se puede elegir solo.
   const z = useConectarViaZernio({
-    volver: '/integraciones?abrir=meta',
+    volver: '/integraciones?abrir=zernio',
     // La pieza común ya guardó la conexión (`conectada-meta`, app/api/zernio/route.ts) antes de avisar: acá sólo se vuelve a leer.
     onConectado: () => {
       setGuardando(true);
@@ -129,10 +128,10 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
         <span aria-hidden style={{ width: 8, height: 8, borderRadius: 4, flex: 'none', background: conectada && cuenta ? 'var(--good)' : conectada ? 'var(--warn)' : 'var(--border-strong)' }} />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
-            {conectada ? (cuenta ? `Conectada · ${cuenta.nombre ?? cuenta.id}` : 'Conectada: elige tu cuenta publicitaria') : 'Conecta tu cuenta de Meta'}
+            {conectada ? (cuenta ? `Anuncios de Meta · ${cuenta.nombre ?? cuenta.id}` : 'Anuncios de Meta: elige tu cuenta publicitaria') : 'Anuncios de Meta'}
           </span>
           <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-            {conectada ? 'Métricas, leads, anuncios y conversiones, con tu Zernio.' : 'Un clic, sin pegar tokens: se abre la ventana de Facebook.'}
+            {conectada ? 'Métricas, leads, anuncios y conversiones, con tu Zernio.' : 'Tu cuenta publicitaria: se abre la ventana de Facebook.'}
           </span>
         </span>
         <Button size="sm" variant={conectada ? 'secondary' : 'primary'} loading={z.fase === 'abriendo' || guardando}
@@ -189,7 +188,7 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
 
       {conectada && estado.pixeles.length === 0 && !error && (
         <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>
-          Tu conexión no ve ningún píxel. Si tienes uno, pega su número abajo y, si los eventos no llegan, el token del píxel.
+          Tu conexión no ve ningún píxel. Si tienes uno, dale acceso a esa cuenta publicitaria en Meta y vuelve a conectar.
         </span>
       )}
 
