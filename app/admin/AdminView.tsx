@@ -42,6 +42,7 @@ import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import { avisoAltaAMano } from '@/lib/plan-esencial-reglas';
+import { DIAS_PLAN_A_MANO } from '@/lib/plan-a-mano-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -902,14 +903,29 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     } finally { setAccionando(false); }
   };
 
-  const cambiarPlan = async (w: Workspace, capa: string) => {
+  const cambiarPlan = async (w: Workspace, capa: string, dias: number | null) => {
     if (accionando) return;
     setErrAccion(null); setAccionando(true); setAvisoPlan(null);
     try {
-      const j = await postWs({ action: 'capa', id: w.id, capa }) as
-        { ok?: boolean; error?: string; aviso?: ResultadoAvisoPlan | null };
-      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo cambiar el plan.'); return; }
-      setAvisoPlan(avisoCambioPlan(j.aviso, capaDef(capa as Workspace['capa']).nombre));
+      if (capa !== w.capa) {
+        const j = await postWs({ action: 'capa', id: w.id, capa }) as
+          { ok?: boolean; error?: string; aviso?: ResultadoAvisoPlan | null };
+        if (!j.ok) { setErrAccion(j.error ?? 'No se pudo cambiar el plan.'); return; }
+        setAvisoPlan(avisoCambioPlan(j.aviso, capaDef(capa as Workspace['capa']).nombre));
+      }
+      // La prueba a mano (28/10/2026): después del plan, así vence el plan que quedó.
+      if (dias != null) {
+        const j = await postWs({ action: 'plan_a_mano', id: w.id, dias }) as { ok?: boolean; error?: string; planAMano?: { hasta: string } | null };
+        if (!j.ok) { setErrAccion(j.error ?? 'No se pudo guardar la prueba a mano.'); return; }
+        if (capa === w.capa) {
+          setAvisoPlan({
+            tono: 'ok',
+            texto: j.planAMano
+              ? `${w.nombre}: prueba hasta el ${new Date(j.planAMano.hasta).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}.`
+              : `${w.nombre}: su plan ya no vence.`,
+          });
+        }
+      }
       setCambiandoPlan(null);
       await recargar();
     } finally { setAccionando(false); }
@@ -1294,7 +1310,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
           nClientes={clientesDeAgencia(cambiandoPlan.id).length}
           ocupado={accionando}
           onCancel={() => setCambiandoPlan(null)}
-          onConfirm={(capa) => { void cambiarPlan(cambiandoPlan, capa); }}
+          onConfirm={(capa, dias) => { void cambiarPlan(cambiandoPlan, capa, dias); }}
         />
       )}
 
@@ -1645,7 +1661,8 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
   nClientes: number;
   ocupado: boolean;
   onCancel: () => void;
-  onConfirm: (capa: string) => void;
+  /** `dias`: la prueba a mano (7, 14 o 30; 0 = sin vencimiento); null = no se toca. */
+  onConfirm: (capa: string, dias: number | null) => void;
 }) {
   // ⚠️ ACÁ NO VA `useCapaModal`: LO LLAMA `Modal`, con el `anidada` que se le pasa
   // abajo. Llamarlo también acá registra DOS capas para un solo modal, y el Escape deja
@@ -1654,7 +1671,9 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
   // hacía nada. Lo que sí hace falta es el `anidada` del `Modal`: sin él, la ficha de
   // atrás se apaga y parece que el menú la cerró.
   const [elegida, setElegida] = useState<string>(w.capa);
+  const [dias, setDias] = useState<number | null>(null);
   const pierdeCartera = w.capa === 'agencia' && elegida !== 'agencia' && nClientes > 0;
+  const nada = elegida === w.capa && dias == null;
 
   return (
     <Modal
@@ -1666,10 +1685,10 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
       pie={
         <>
           <button type="button" style={btnGhost} onClick={onCancel}>Cancelar</button>
-          <button type="button" style={{ ...btnPrimary, opacity: elegida === w.capa || ocupado ? 0.5 : 1 }}
-            disabled={elegida === w.capa || ocupado}
-            onClick={() => onConfirm(elegida)}>
-            {ocupado ? 'Cambiando…' : 'Cambiar el plan y avisarle'}
+          <button type="button" style={{ ...btnPrimary, opacity: nada || ocupado ? 0.5 : 1 }}
+            disabled={nada || ocupado}
+            onClick={() => onConfirm(elegida, dias)}>
+            {ocupado ? 'Cambiando…' : elegida !== w.capa ? 'Cambiar el plan y avisarle' : 'Guardar'}
           </button>
         </>
       }
@@ -1699,6 +1718,19 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
       )}
       <p className="pm-pie">Se le avisa por mail al dueño de la cuenta.</p>
 
+      {/* LA PRUEBA A MANO (28/10/2026, lib/plan-a-mano.ts): el plan elegido, con los topes de la prueba y un vencimiento. Al
+          vencer les avisa a Martín y al dueño; no pausa (el corte de acceso general está apagado). */}
+      <div className="pm-mano">
+        <b>Prueba a mano</b>
+        <span>Con los topes de la prueba. Al vencer, les avisamos a ti y al dueño.</span>
+        <div className="pm-dias">
+          {DIAS_PLAN_A_MANO.map((d) => (
+            <button key={d} type="button" className={`pm-dia${dias === d ? ' pm-on' : ''}`} onClick={() => setDias(dias === d ? null : d)}>{d} días</button>
+          ))}
+          <button type="button" className={`pm-dia${dias === 0 ? ' pm-on' : ''}`} onClick={() => setDias(dias === 0 ? null : 0)}>Sin vencimiento</button>
+        </div>
+      </div>
+
       <style dangerouslySetInnerHTML={{ __html: CSS_PERMISOS }} />
     </Modal>
   );
@@ -1718,6 +1750,13 @@ const CSS_PERMISOS = `
 .pm-op > span > span{ font-size:12.5px; color:var(--dim); line-height:1.45; }
 .pm-ojo{ margin:12px 2px 0; font-size:12.5px; font-weight:600; color:var(--warn); line-height:1.5; }
 .pm-pie{ margin:10px 2px 0; font-size:12.5px; color:var(--faint); line-height:1.5; }
+.pm-mano{ margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:4px; }
+.pm-mano b{ font-size:14px; font-weight:650; color:var(--ink); }
+.pm-mano > span{ font-size:12.5px; color:var(--dim); line-height:1.45; }
+.pm-dias{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.pm-dia{ font:inherit; font-size:13px; font-weight:600; padding:7px 12px; border:1px solid var(--border); border-radius:999px;
+  background:transparent; color:var(--ink); cursor:pointer; }
+.pm-dia:hover{ background:var(--surface-2); }
 `;
 
 /**

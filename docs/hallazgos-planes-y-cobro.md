@@ -1686,6 +1686,27 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   lo cuenta él también: esa pregunta frecuente es cierta y queda. Y la fila de Partners dice qué se gana: «el primer mes de
   cada negocio», no «dinero» suelto.
 
+## El plan dado a mano con vencimiento (28/10/2026, lo prometido a Teo: «te doy 7 días de prueba»)
+
+- **Lo que hace:** en Customers, el diálogo del plan suma «Prueba a mano: 7, 14 o 30 días / sin vencimiento». Se guarda como un
+  setting del negocio (`plan.a_mano`, sin migración). Mientras lo tiene, vigente o vencido sin resolver, `estadoDePrueba` lo da
+  «en prueba» con el plan que le dieron, y valen los topes de la prueba. El cron diario de las pruebas
+  (app/api/cron/aviso-fin-de-prueba) avisa al vencer, una sola vez, a la persona y a Martín.
+- **La decisión (el Cerebro, de una de Martín): al vencer NO se pausa.** El corte de acceso general está apagado
+  (`CORTE_DE_ACCESO_PRENDIDO = false`); el día que se prenda, este plan cae en el corte como cualquier otro, sin una regla aparte.
+  El aviso a la persona no le dice que se corta (porque no se corta), y el de Martín dice que no se pausó nada.
+- **La trampa que encontró un test viejo (prueba-topes):** mirar el plan a mano siempre que no hubiera una prueba por la
+  pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
+  suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
+- Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+
+**Sin hacer:** Customers no muestra en la tarjeta del negocio hasta cuándo va su prueba a mano (se ve en el aviso al guardar).
+El envío de los mails y la lectura de la base no se corrieron de punta a punta (el test mira el fuente); el primer vencimiento
+real hay que mirarlo en el log del cron.
+**Vive en:** lib/plan-a-mano-reglas.ts · lib/plan-a-mano.ts · lib/prueba-uso.ts (`deUnPlanAMano`) ·
+app/api/admin/workspaces/route.ts (`plan_a_mano`) · app/admin/AdminView.tsx (`PermisosDialog`) ·
+app/api/cron/aviso-fin-de-prueba/route.ts · tests/plan-a-mano.test.ts · tests/prueba-topes.test.ts.
+
 **Sin hacer:** «Datos de empresa» sobre leads tildados (app/crm/AccionesLoteLeads.tsx, `enriquecer-actions.ts`) usa el mismo
 núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo cuenta como scraper, va con `candadoDePro`.
 **Vive en:** lib/planes-comparacion.ts · lib/topes-plan.ts · app/crm/grupo-wa-actions.ts · app/crm/TraerDeGrupoWA.tsx ·
