@@ -1458,6 +1458,23 @@ versiones de historial, y la IA vuelve al texto de fábrica **en silencio**.
 **Vive en:** lib/prompt-registry.ts · lib/prompt-render.ts (`getPromptText`) ·
 `app_settings['mako.prompt-overrides']` · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense*
 
+
+**29/10/2026, plantillas reales: Un slot NUEVO en un prompt ya editado nunca llega: el experto de cada tab va en una key aparte.** (docs/plantillas-reales/)
+- **Síntoma posible:** agregarle `{{plantilla}}` o `{{negocio}}` a `copywriter.editar.user`, `offer.turno.system` o
+  `video_editor.chat.user`. Quien ya los editó tiene su versión guardada, sin el slot, y el dato no llega nunca, sin
+  error.
+- **Causa:** el override reemplaza el template entero. Además, los system de los chats de Video e Image son `sensitive`
+  y `static-only` (llevan `{{catalogo}}` y `{{formato}}`), así que tocarlos no aplica nada.
+- **Regla:** el método de un experto va en una **key nueva que el código suma** al system de siempre:
+  - `copywriter.experto`, `video_editor.experto` e `image_editor.experto` son instruction sin slots;
+  - `offer.experto` lleva sus slots y se suma solo si la conversación nació de una plantilla.
+
+  El pedido de adaptar va en una key `user` nueva (`<grupo>.adaptar.user`). Una tab sin chat previo (AI Avatar)
+  estrena su par (`ai_avatar.director.system` y `.user`). Después de tocar el registro, `verify-prompt-registry-sync`.
+
+**Vive en:** lib/prompt-registry.ts · lib/copywriter/experto.ts · lib/editor-video/chat-prompts.ts ·
+lib/image-editor/chat/prompts.ts · lib/offer-ia.ts · lib/ai-avatar/director-reglas.ts (todos del plan)
+
 ### ⚠️ Los prompts de la matriz de razones y de los ángulos nunca se registraron
 
 `razones.system`, `razones.user` y `razones.guion` (los de `formatos.*` ya no existen: la recomendación de formatos se
