@@ -31,6 +31,7 @@
 //   MaKo → página  { fase: 'dale' }                 recién ahí toca algo: un link compartido con el
 //                                                   parámetro, abierto por otro, no hace nada
 //   página → MaKo  { fase: 'fin', camino, titulo, piezas, ms, quieto, parcial, estilo }
+//                  con la foto pedida (`dale` con `foto: true`), además `foto` o, si no salió, `sinFoto` (su motivo)
 //   página → MaKo  { fase: 'error', error }         la página no se pudo bajar o el lector se cayó
 // MaKo sólo acepta mensajes de LA ventana que abrió (`ev.source`), con SU id y desde un origen esperado
 // (`origenDeLecturaValido`): el de la landing, el opaco de la ventana aislada («null») o el propio.
@@ -42,7 +43,7 @@
 import type { Lectura as LecturaDelServer } from './lectura-tipos';
 // El ESTILO de la página (tanda 6, d): su saneo es puro y vive con el resto del estilo.
 import { sanearEstilo, type EstiloOriginal } from './estilo-original';
-import { sanearInstantanea, type Instantanea } from './copia-identica';
+import { TOPES_COPIA, sanearInstantanea, type Instantanea } from './copia-identica';
 
 export type { LecturaDelServer };
 
@@ -366,10 +367,42 @@ function lecturaDe(url: string, crudo: Record<string, unknown>, camino: CaminoLe
 
 const caminoValido = (v: unknown): v is CaminoLectura => (CAMINOS_LECTURA as readonly unknown[]).includes(v);
 
+/**
+ * Por qué no hay FOTO cuando MaKo la pidió (29/10/2026, el ticket «No pude sacar la foto de la página. Vuelve a
+ * intentar.» de Martín replicando https://100ads.ai/: el «Vuelve a intentar» no decía por qué). Los manda el lector
+ * (lector-script.ts), salvo `grande`, que lo ve el saneo de acá:
+ *   · `tope`: se acabó el tiempo y la foto tampoco salió al final;
+ *   · `vacia`: la página no se dibujó (el cuerpo vino vacío);
+ *   · `excepcion`: la foto misma se cayó (`detalle`: el error);
+ *   · `error`: la lectura se cayó antes de la foto (`detalle`: el error);
+ *   · `salio`: la página se fue a otra dirección mientras se leía;
+ *   · `grande`: la foto no entra (`TOPES_COPIA.cuerpo`);
+ *   · `otro`: terminó sin foto y sin decir por qué.
+ */
+export const MOTIVOS_SIN_FOTO = ['tope', 'vacia', 'excepcion', 'error', 'salio', 'grande', 'otro'] as const;
+export type MotivoSinFoto = (typeof MOTIVOS_SIN_FOTO)[number];
+export type SinFoto = { motivo: MotivoSinFoto; detalle?: string };
+
+/** El motivo que mandó la página, saneado (lo que no tiene forma es `otro`). */
+function sanearSinFoto(v: unknown): SinFoto {
+  const m = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const motivo = (MOTIVOS_SIN_FOTO as readonly unknown[]).includes(m.motivo) ? (m.motivo as MotivoSinFoto) : 'otro';
+  const detalle = linea(m.detalle, TOPES_LECTOR.error);
+  return detalle ? { motivo, detalle } : { motivo };
+}
+
+/** Una foto que el saneo no deja pasar: por qué (vacía o demasiado grande). */
+function porQueNoPasa(foto: unknown): SinFoto {
+  const cuerpo = foto && typeof foto === 'object' ? (foto as Record<string, unknown>).cuerpo : undefined;
+  if (typeof cuerpo === 'string' && cuerpo.length > TOPES_COPIA.cuerpo) return { motivo: 'grande' };
+  if (typeof cuerpo !== 'string' || !cuerpo.trim()) return { motivo: 'vacia' };
+  return { motivo: 'otro' };
+}
+
 /** Un mensaje del protocolo, saneado. null si no es de ESTA lectura o no tiene forma. */
 export type MensajeLectura =
   | { fase: 'hola'; camino: CaminoLectura | null }
-  | { fase: 'fin'; detalle: LecturaDetallada; foto?: Instantanea }
+  | { fase: 'fin'; detalle: LecturaDetallada; foto?: Instantanea; sinFoto?: SinFoto }
   | { fase: 'error'; mensaje: string };
 
 /**
@@ -384,8 +417,10 @@ export function sanearMensajeLectura(data: unknown, esperado: { id: string; url:
   if (m.fase === 'error') return { fase: 'error', mensaje: linea(m.error, TOPES_LECTOR.error) || 'No pude leer la página.' };
   if (m.fase === 'fin' && caminoValido(m.camino)) {
     // La foto de la copia idéntica (copia-identica.ts), si MaKo la pidió: viene de la página, se sanea como todo lo demás.
+    // Sin foto, su motivo: el que mandó la página, o el del saneo si la foto vino y no pasa.
     const foto = m.foto === undefined ? null : sanearInstantanea(m.foto);
-    return { fase: 'fin', detalle: lecturaDe(esperado.url, m, m.camino), ...(foto ? { foto } : {}) };
+    const sinFoto = foto ? null : m.foto !== undefined ? porQueNoPasa(m.foto) : m.sinFoto !== undefined ? sanearSinFoto(m.sinFoto) : null;
+    return { fase: 'fin', detalle: lecturaDe(esperado.url, m, m.camino), ...(foto ? { foto } : {}), ...(sinFoto ? { sinFoto } : {}) };
   }
   return null;
 }
