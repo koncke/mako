@@ -48,6 +48,9 @@ grafo:
 Y como cada toque ahora SÍ manda un DM: **hasta 10 toques que mueven por vuelta** (`TOPE_TOQUES_POR_VUELTA`, la marca
 `nutricion.boton.<inscripción>` los cuenta; «Volver a probar» es otra vuelta). La guía de /docs «Palabras clave y botones de
 Instagram» lo dice, con las reglas de las palabras clave (el punto 2 del ticket).
+⚠️ La guía va en /docs y NO en las descripciones de la API: alargarlas (los botones, el CRON, `palabras`) sacó
+editar_pasos_secuencia_mensajes y cambiar_crons_secuencia del presupuesto del turno (Integración, tren-ac). La regla ya
+estaba escrita: docs/hallazgos-api-mako.md, «El presupuesto del turno de la app» (medir con scripts/presupuesto-turno-app.mts).
 
 **La regla:** cuando algo «no pasa», mirar `nutricion_envios` contra lo que llegó de verdad antes de tocar el grafo: un
 envío «enviado» con la misma Idempotency-Key que otro NO salió. Y la prueba va con un Zernio de mentira que REPITE la
