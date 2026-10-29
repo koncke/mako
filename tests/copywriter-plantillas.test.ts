@@ -27,6 +27,7 @@ import { ESTRUCTURAS_VSL_DEFAULT } from '../lib/vsl-estructuras';
 import { idDeMudanza, loQueSeMuda, paginasDeAdsWriter, paginasDeReels, TOPE_MUDANZA } from '../lib/copywriter/mudanza-reglas';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { REALES, sinAcentos } from './_reales';
 
 const catalogos = catalogosLite(ANGULOS_GUION_DEFAULT, conVsl(ESTRUCTURAS_GUION_DEFAULT));
 const plantillas = plantillasDe(catalogos);
@@ -140,10 +141,7 @@ test('la mudanza respeta el tope: el padre va sólo si va alguna hija', () => {
 
 // ── Los ejemplos reales (29/10/2026: docs/plantillas-reales/copywriter.md) ──────────────────────────────────
 
-/** Gente y negocios REALES (la lista de tests/variables-aviso.test.ts, leída de su fuente: la miran los dos). */
-const REALES = [...(readFileSync(join(__dirname, 'variables-aviso.test.ts'), 'utf8').match(/const REALES = \[([\s\S]*?)\];/)?.[1] ?? '')
-  .replace(/\/\/.*$/gm, '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
-const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+// Gente y negocios REALES: la lista vive en tests/_reales.ts desde el 29/10/2026 (la miran las cinco tabs de Create).
 /** Un contraste del tipo «no es X, es Y» / «no son X: son Y» / «no… sino»: el experto lo permite una vez, en el gancho. */
 const CONTRASTE = /\bno (?:es|son|fue)\b[^.?!»]{1,80}?[,:;]\s*(?:es|son|fue)\b|\bno\b[^.?!»]{1,80}?\bsino\b|\bnunca fue\b[^.?!»]{1,80}?\bsino\b/gi;
 /** Las muletillas que el método prohíbe (lib/copywriter/experto.ts): los ejemplos tampoco las usan. */
