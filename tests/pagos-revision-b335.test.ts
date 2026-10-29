@@ -200,7 +200,7 @@ test('las protegidas primero las decide el server con sus protecciones, aunque l
     [{ id: 14, monto_usd: 500, fecha_esperada: '2026-11-10' }], 'porId', { vistos: new Set([14, 15, 16]) });
   assert.deepEqual(sinServer.conservar.map((c) => c.id), [16]);
   // La ficha lo pide, y la acción lo pasa al server.
-  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /vistos, crm, \{ protegidasPrimero: true, conDeshacer: true \}\);/);
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /vistos, crm, \{ protegidasPrimero: true, conDeshacer: true, sobreLoVisto: true \}\);/);
   assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /\{ vistos, crm: trato, protegidasPrimero: como\?\.protegidasPrimero === true \}/);
 });
 

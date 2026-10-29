@@ -18,12 +18,13 @@ import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { etapaContradiceElEstado } from './pipeline';
-import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
+import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, type RestoDeCobro } from './pagos-diferencia';
 import {
   aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
-  diferenciaDePlan, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
-  type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
-  type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
+  diferenciaDePlan, planCambiadoAfuera, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
+  avisoDeConservadas, lineasDeCuotas, planComoEstaba, planPorTramosDelServer,
+  type AnticipoPlan, type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
+  type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal, type TramoPlan,
 } from './pagos-campo';
 import { getLead, logLeadChanges, logLeadEvent } from './leads';
 import { esCuotaDeBaja, esCuotaDevuelta, noEsDeuda } from './cobrado-lead';
@@ -455,11 +456,20 @@ export async function reponerMarcasDeCobranza(antes: MarcasDeCobranza, pagoIds: 
  * `crm`: el CRM agregado cuyo plan se toca (mig 0324); sin él, el de la casa. Los números son los de ESE trato.
  */
 export async function reconciliarYGuardar(
-  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number>; crm?: Crm; protegidasPrimero?: boolean } = {},
+  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar,
+  opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number>; crm?: Crm; protegidasPrimero?: boolean; sobreLoVisto?: boolean } = {},
 ): Promise<PlanDeCuotas> {
   await asegurarLeadDelNegocio(leadId);
   const crm = opts.crm ?? null;
-  const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId, crm), deseadas, modo, opts);
+  const existentes = await cuotasParaReconciliar(leadId, crm);
+  // ⚠️ UN PLAN ENTERO SE GUARDA SÓLO SOBRE EL QUE SE VIO (`sobreLoVisto`, el plan por tramos; revisión de 9fc4030dd, media). Con
+  // dos pestañas abiertas, las cuotas nuevas de la primera eran «nuevas» para la segunda, que las conservaba y agregaba las suyas:
+  // 3 cuotas pedidas «5» dos veces quedaban en 7. Si el plan tiene una impaga que la pantalla no vio, no se escribe nada.
+  if (opts.sobreLoVisto && opts.vistos) {
+    const cambio = planCambiadoAfuera(existentes, opts.vistos);
+    if (cambio) throw new Error(cambio);
+  }
+  const plan = reconciliarCuotas(existentes, deseadas, modo, opts);
   await escribirReconciliacion(leadId, plan, crm);
   await sincronizarTotalCobrado(leadId);
   return plan;
@@ -474,9 +484,43 @@ export async function reconciliarYGuardar(
 export async function guardarCuotasPorId(
   leadId: number,
   cuotas: ReadonlyArray<CuotaDeseada>,
-  opts: { vistos?: ReadonlySet<number>; crm?: Crm; protegidasPrimero?: boolean } = {},
+  opts: { vistos?: ReadonlySet<number>; crm?: Crm; protegidasPrimero?: boolean; sobreLoVisto?: boolean } = {},
 ): Promise<PlanDeCuotas> {
   return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
+}
+
+/**
+ * El plan POR TRAMOS desde la API de MaKo (`armar_plan_por_tramos`; ticket #26 de Mauricio, 29/10/2026). Lee las cuotas y sus
+ * protecciones AHORA, arma la lista con la MISMA regla que «Guardar el plan» de la ficha (`planPorTramosDelServer`) y la guarda POR
+ * ID sobre lo que leyó (`sobreLoVisto`: si otro la cambió en el medio, no escribe nada). Después, las columnas del plan del lead y
+ * el historial. Sólo el plan de la casa, de un pago único: una suscripción se pasa antes a pago único (`escribirVenta`), como en
+ * la ficha. NO gana el lead ni toca el monto de la venta.
+ */
+export async function guardarPlanPorTramos(
+  leadId: number,
+  p: { desde: string; tramos: readonly TramoPlan[]; anticipo: AnticipoPlan | null },
+  autor: string,
+): Promise<{ cambios: PlanDeCuotas; cuotas: number; nuevas: number; cubiertas: number; sinTocar: string | null }> {
+  await asegurarLeadDelNegocio(leadId);
+  const lead = await getLead(leadId);
+  if (!lead) throw new Error('Ese lead no existe en este negocio.');
+  const tipo = ventaTipoDe(lead.venta_tipo);
+  if (tipo !== 'unico') throw new Error(tipo === 'suscripcion' ? 'Es una suscripción: pásala a pago único antes de armarle cuotas.' : 'Está como becado (sin cobro): no tiene cuotas que armar.');
+  const pagos = await getPagosByLead(leadId);
+  const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id));
+  const armado = planPorTramosDelServer({
+    pagos, protegidas: new Set([...prot].filter(([, x]) => x.length > 0).map(([id]) => id)),
+    planConInicial: (Number(lead.cobro_inicial_usd) || 0) > 0, cobroInicialUsd: lead.cobro_inicial_usd ?? null,
+    desde: p.desde, tramos: p.tramos, anticipo: p.anticipo,
+  });
+  if (!armado.ok) throw new Error(armado.error);
+  const cambios = await guardarCuotasPorId(leadId, armado.deseadas, { vistos: new Set(armado.vistos), protegidasPrimero: true, sobreLoVisto: true });
+  const { error } = await (await getTenantDb()).from('leads').update({ ...planComoEstaba(armado.columnas) }).eq('id', leadId);
+  if (error) throw new Error(`Las cuotas quedaron, pero no pude guardar el plan del lead: ${error.message}`);
+  await anotarEnHistorial(leadId, lineasDeCuotas(cambios), autor);
+  const sinTocar = avisoDeConservadas(cambios);
+  await logLeadEvent(leadId, 'Plan de pagos', `Plan por tramos: ${armado.lista.length} cuota(s)${sinTocar ? ` · no se tocó: ${sinTocar}` : ''}`, autor);
+  return { cambios, cuotas: armado.lista.length, nuevas: armado.nuevas, cubiertas: armado.cubiertas, sinTocar };
 }
 
 export type ResultadoPlan = { pagos: Pago[]; cambios: PlanDeCuotas };
@@ -994,7 +1038,9 @@ export async function cobrarCuota(
     const porLink = await linkYaPagado(pagoId);
     if (porLink) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink, yaEstaba: false };
   }
-  const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
+  // Sin los dólares, un cobro en la moneda de la cuota (un tramo en pesos) va a SU tasa: con «la cuota entera», un cobro a
+  // medias no dejaba diferencia (revisión de 9fc4030dd, alta). La API de MaKo manda los pesos sin los dólares.
+  const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : dolaresALaTasaDeLaCuota(fila, datos);
   // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
   const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto ?? original, moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
   if (enMonedaR && !enMonedaR.ok) throw new Error(enMonedaR.error);

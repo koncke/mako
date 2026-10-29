@@ -20,6 +20,21 @@ docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de l
   Cerebro y a Integración.
 - **No hecho a propósito:** el plan de Nadia (lead 2605) lo arma Leila; nadie le escribió. El ticket #13 está en
   «esperando_decision»: el cron no lo cierra con el hito hasta que alguien lo apruebe.
+- **La revisión de Integración sobre 9fc4030dd (29/10): NO ENTRABA.** Dos altas de plata (A1: cobrar a medias una cuota en
+  pesos con los dólares vacíos la tomaba entera; A2: el anticipo quitado o devuelto volvía al abrir y guardar) y tres medias
+  (M1 «tal cual» en la protegida reasignada, M2 la moneda en los cambios a mano, M3 dos pestañas duplicaban). Arregladas las
+  cinco, más B4 (tope con el anticipo) y B5 (el total en dos monedas). Informe: C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md;
+  lo aprendido, en hallazgos-pagos.md → «La revisión adversarial de 9fc4030dd». B1, B2 y B3 quedan anotadas como «sin hacer».
+  **Para retomar:** si el VERDE nuevo no salió, falta correr tests/pagos-tramos.test.ts, el tsc acotado y tests-afectados por
+  con-turno, commitear y mandar el sha a Integración (que re-verifica con sus guiones de C:/dev/revisiones/scratch-9fc4/).
+- **Ticket #26 (Mauricio, ws1, pedido del Cerebro el 29/10):** MaKo no podía armar un plan desde el Ops Center («7500 dolares
+  en 3 pagos, primer pago 28 de octubre…»). Se sumó `armar_plan_por_tramos` (área cobros, por chat, `plata`) con su ruta
+  `PUT /cobros/ventas/{leadId}/plan`: la misma regla que la ficha (`planPorTramosDelServer`, lib/pagos-campo.ts) y la misma
+  escritura (`guardarPlanPorTramos`, lib/pagos.ts). Probado de punta a punta en tests/api-mako-plan-tramos.test.ts con el caso
+  del ticket en el ws de prueba. **Para retomar:** medir que la frase del ticket le traiga la herramienta al Ops Center
+  (scratchpad `medir-turno.ts`, después una fila en tests/ops-center-clasificador-app.test.ts), regenerar docs/api-mako.md, el
+  snapshot y plugin/ (`node --import tsx scripts/generar-api-doc.mjs`, `node scripts/generar-plugin.mjs`), y el VERDE con
+  `tickets: [13, 26]` a Integración y al Cerebro. Nada en el ws1.
 
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 

@@ -20,7 +20,7 @@ import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaPa
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
 import { cobrosDelTrato, cobrosSinLosDe } from '@/lib/pagos-crm';
 import {
-  aplicarCambios, armadaDe, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, lugaresDelPlan, plataDeCuota, soloLoQueCambio, tramosDeCuotas, TOPE_CUOTAS_PLAN, TOPE_TRAMOS,
+  aplicarCambios, armadaDe, cambiosContra, columnasDelPlan, cuotasDeTramos, cuotasDelPlanPorTramos, lugaresDelPlan, plataDeCuota, soloLoQueCambio, tramosDeCuotas, TOPE_CUOTAS_PLAN, TOPE_TRAMOS,
   type AnticipoPlan, type CadaPlan, type CambioDeCuota, type PlanUniforme, type TramoPlan,
 } from '@/lib/pagos-campo';
 import { formatoMonto } from '@/lib/pasarela-moneda';
@@ -434,11 +434,14 @@ export function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegi
       if (a.ok) cambios = Object.fromEntries(Object.entries(cambiosContra(a.cuotas, lugares.map(armadaDe))).filter(([k]) => !lugares[Number(k)]?.pagado));
     }
     const delLead: TramoForm = { ...tramoVacio(), monto: l.monto_cuota_usd ? String(l.monto_cuota_usd) : '', cantidad: l.total_cuotas ? String(l.total_cuotas) : '', dia: l.dia_de_pago ? String(l.dia_de_pago) : '' };
+    // ⚠️ EL ANTICIPO SALE DE UNA FILA #0 VIVA, NUNCA DE LA COLUMNA (revisión de 9fc4030dd, alta): «Quitar» no limpia
+    // `cobro_inicial_usd`, y una devolución tampoco. Con la columna, el anticipo quitado o devuelto volvía al abrir el editor, y
+    // guardarlo sin tocar nada lo cobraba HOY otra vez (la deuda de US$1.500 pasaba a 2.500). Sin #0 vivo, vacío.
     const cero = planConInicial ? abiertas.find((q) => q.numero === 0 && !noEsDeuda(q)) ?? null : null;
     const c0 = cero ? armadaDe(cero) : null;
     const anticipo: AnticipoForm = cero && c0
       ? { monto: String(c0.moneda ? c0.monto_original : c0.monto_usd), moneda: c0.moneda ?? 'USD', usd: c0.moneda ? String(c0.monto_usd) : '', fecha: cero.fecha_esperada ?? ctx.hoy, cobrado: cero.pagado }
-      : { monto: l.cobro_inicial_usd ? String(l.cobro_inicial_usd) : '', moneda: 'USD', usd: '', fecha: ctx.hoy, cobrado: false };
+      : { monto: '', moneda: 'USD', usd: '', fecha: ctx.hoy, cobrado: false };
     return { desde: leido?.desde ?? ctx.hoy, tramos: leido ? leido.tramos.map(formDeTramo) : [delLead], cambios, anticipo };
   });
   const [desde, setDesde] = useState(inicio.desde);
@@ -469,7 +472,11 @@ export function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegi
   const porMoneda = new Map<string, number>();
   for (const c of aCobrar) if (c.moneda && c.monto_original != null) porMoneda.set(c.moneda, (porMoneda.get(c.moneda) ?? 0) + c.monto_original);
   const totalUsd = aCobrar.reduce((s, c) => s + c.monto_usd, 0);
-  const total = [...[...porMoneda].map(([m, v]) => formatoMonto(v, m)), formatoMonto(totalUsd, 'USD')].join(' · ');
+  // «US$ 600 + $ 24.000 MXN (US$ 1.800 en total)»: con «· US$ 1.800» al lado de los pesos, se leía como si sumara dos veces.
+  const soloUsd = aCobrar.filter((c) => !c.moneda || c.monto_original == null).reduce((s, c) => s + c.monto_usd, 0);
+  const total = porMoneda.size
+    ? `${[...(soloUsd > 0 ? [formatoMonto(soloUsd, 'USD')] : []), ...[...porMoneda].map(([m, v]) => formatoMonto(v, m))].join(' + ')} (${formatoMonto(totalUsd, 'USD')} en total)`
+    : formatoMonto(totalUsd, 'USD');
 
   const guardar = () => {
     setErr(null);
@@ -477,16 +484,8 @@ export function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegi
     if (plataAnticipo && !plataAnticipo.ok && !anticipo.cobrado) { setErr(`Anticipo: ${plataAnticipo.error}`); return; }
     if (!encima) return;
     if (!encima.ok) { setErr(encima.error); return; }
-    const uno = tramos.length === 1 ? tramoDeForm(tramos[0]) : null;
-    const plataUno = uno ? plataDeCuota(uno) : null;
-    // Las columnas del plan tienen sus CHECK (1 a 6 cuotas, día 1 a 28) y son de UN monto: lo que no entra va vacío, y las
-    // cuotas dicen el resto (como el plan libre). `planEnLead` y el #0 como anticipo se leen de acá.
-    const columnas: PlanUniforme = {
-      cobro_inicial_usd: anticipo.cobrado ? l.cobro_inicial_usd ?? null : anticipoPlan?.monto_usd ?? null,
-      monto_cuota_usd: plataUno?.ok ? plataUno.monto_usd : null,
-      total_cuotas: uno && lista.length <= 6 ? lista.length : null,
-      dia_de_pago: uno && uno.cada === 'mes' && uno.dias?.[0] != null && uno.dias[0] <= 28 ? uno.dias[0] : null,
-    };
+    // Las columnas del plan (de UN monto, con sus CHECK): las mismas que arma la API (lib/pagos-campo.ts).
+    const columnas: PlanUniforme = columnasDelPlan({ tramos: tramos.map(tramoDeForm), cuotas: lista.length, anticipoUsd: anticipo.cobrado ? l.cobro_inicial_usd ?? null : anticipoPlan?.monto_usd ?? null });
     const { aparte, vistos, nuevas } = encima;
     const cuotas = soloLoQueCambio(encima.cuotas, abiertas);
     start(async () => {
@@ -498,7 +497,7 @@ export function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegi
         ventaAtras = v.deshacer;
         ctx.parchear({ venta_tipo: v.ventaTipo, suscripcion_monto_usd: null, suscripcion_meses: null });
       }
-      const r = await guardarCuotasAction(l.id, [...cuotas, ...aparte], columnas, vistos, crm, { protegidasPrimero: true, conDeshacer: true });
+      const r = await guardarCuotasAction(l.id, [...cuotas, ...aparte], columnas, vistos, crm, { protegidasPrimero: true, conDeshacer: true, sobreLoVisto: true });
       // Sin las cuotas, la venta vuelve a ser la suscripción que era: un «Pago único» sin su plan no es lo que se pidió.
       if (!r.ok) { setErr(r.error); if (ventaAtras.length) await deshacerVenta(l.id, ventaAtras, 'unico', crm); ctx.releer(); return; }
       ctx.releer();

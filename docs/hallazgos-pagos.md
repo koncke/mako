@@ -1390,8 +1390,8 @@ la lista que sale se toca cuota por cuota antes de guardar.
 **Sin hacer:**
 - Deshacer el cobro de una cuota en pesos (`marcarPago(false)`) deja la moneda de lo COBRADO (`cobrarCuota`: «lo último que se
   dijo manda»): si se cobró en dólares, vuelve a impaga en dólares y se pierden los pesos pactados (lib/pagos.ts).
-- La API de MaKo (`guardar_cuotas`, `editar_cuota`, la lista de cuotas) no sabe de tramos ni de la moneda de una cuota: MaKo
-  dice el monto en dólares (lib/api-mako/areas/cobros.*).
+- La API de MaKo arma el plan por tramos desde el 29/10 (`armar_plan_por_tramos`, abajo), pero `editar_cuota` no cambia los
+  pesos de una cuota (lib/api-mako/areas/cobros.*).
 - `guardar_plan_pagos` (el plan uniforme por la API) sobre un plan de UN tramo con columnas llenas lo reimpondría entero; con
   varios tramos las columnas van vacías y la guarda «se cargaron a mano» lo frena (`ajustarPlanAction`).
 - Un tramo «para siempre» (el «Forever» de Stripe) es una suscripción: el plan siempre termina.
@@ -1405,3 +1405,73 @@ la lista que sale se toca cuota por cuota antes de guardar.
 `plataDeCuota`; la moneda en `reconciliarCuotas`) · lib/pagos.ts (`escribirReconciliacion`, `editarCuota`,
 `getCuotasPendientes`) · lib/cobranza.ts · app/crm/[id]/pagos-campo-actions.ts (`guardarCuotasAction`) ·
 app/crm/lead-view/ficha/pagos/bloques-cobro.tsx (`ArmarPlan`) · tests/pagos-tramos.test.ts.
+
+### La revisión adversarial de 9fc4030dd (29/10/2026): dos de plata, y las dos venían de un valor POR DEFECTO
+
+Integración corrió la cadena real de «Guardar el plan» y de «Marcar pagada» con casos armados a propósito (el informe:
+C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md, fuera del repo). Cada caso quedó como test en
+tests/pagos-tramos.test.ts, con su entrada.
+
+- ⚠️ **Abrir «Marcar pagada» en la moneda de la cuota cambia lo que significa el campo vacío.** «Dólares vacíos = el valor de la
+  cuota» ya estaba y era inocuo mientras el modal abría en dólares. Al abrir en pesos, el cobro a medias normal de Leila (6.000
+  de una cuota de MXN 12.000 = US$600) mandaba US$600: no preguntaba por la diferencia y se perdían 6.000 pesos. El server tenía
+  el mismo agujero para la API de MaKo, que manda los pesos sin los dólares (`monto ?? original` en `cobrarCuota`). **Regla:**
+  un cobro en la moneda de la cuota, sin dólares, va a la tasa que ya se declaró para ESA cuota (`dolaresALaTasaDeLaCuota`,
+  lib/pagos-diferencia.ts), en la pantalla y en el server.
+- ⚠️ **El anticipo del formulario sale de una fila #0 viva, nunca de la columna `cobro_inicial_usd`.** «Quitar» y una devolución
+  dejan la columna escrita, y era el valor por defecto del campo: abrir el editor y guardar sin tocar nada volvía a cobrar HOY
+  un anticipo devuelto (la deuda pasaba de US$1.500 a 2.500). «Abrir y guardar no cambia nada» se rompía por un DEFAULT del
+  formulario, no por la reconciliación, y los tests lo probaban con leads sin anticipo.
+- **Una marca que viaja en una fila no puede seguirla cuando el server le cambia el id.** `soloLoQueCambio` marca «tal cual» la
+  fila que no cambió, y `protegidasPrimero` le daba esa fila (con la marca) a la protegida que se quedaba sin lugar. La protegida
+  no se casaba: no tomaba la fecha que pide el plan, y no se avisaba que su link o su recordatorio no la dejaba cambiar.
+- **Lo que se guarda «a mano» tiene que cubrir TODO lo que una cuota puede tener distinto de su tramo, también la moneda.** Con
+  más de 10 rachas, `tramosDeCuotas` junta las que sobran en el último tramo, y `cambiosContra` sin la moneda ponía en pesos
+  (MXN 9.000) una cuota de US$600 con sólo abrir y guardar. El recordatorio pasaba a pedir pesos.
+- **Mandar el plan ENTERO necesita un compare-and-set.** Con la lista entera, una impaga del plan que la pantalla no vio era
+  «nueva» y se conservaba al lado de las propias: dos pestañas que guardaban «5 cuotas» sobre 3 dejaban 7. El plan uniforme de
+  main era seguro porque mandaba la diferencia. Ahora, con `sobreLoVisto`, el server no escribe nada si el plan tiene una impaga
+  que la pantalla no vio (`planCambiadoAfuera`). El resto de un cobro por menos no cuenta: va aparte.
+- El tope de 60 cuotas cuenta lo que se MANDA (el anticipo y lo de aparte también): la pantalla dejaba pasar 61 y el server
+  contestaba «Son demasiadas cuotas.». El total en dos monedas se lee «US$ 600 + $ 24.000 MXN (US$ 1.800 en total)»: con
+  «$ 24.000 MXN · US$ 1.800» parecía que sumaba dos veces.
+
+**Sin hacer (de esa revisión):**
+- El resto de un cobro a medias en pesos queda en DÓLARES (US$300, no MXN 6.000): lo crea `cobrar_con_resto` (mig 0318) sin
+  moneda. Cambiarlo es SQL (lib/pagos.ts, `cobrarCuota`).
+- El compare-and-set de `sobreLoVisto` lee y después escribe: dos «Guardar» en el mismo instante todavía pasan los dos.
+- Fin de mes: un tramo mensual sin día hereda el día ya recortado del anterior (desde el 31/10, el tramo 2 cae los 30; desde un
+  31/08, los 28). Se ve en la lista antes de guardar (`cuotasDeTramos`).
+- Un plan con una pausa (cobrada en junio, el resto desde diciembre): cambiar el monto del tramo rehace las fechas desde
+  «Primera cuota» y manda las impagas al pasado. El uniforme de main hace lo mismo (`rehacer` en `ArmarPlan`).
+- Acortar el plan por debajo de una cobrada la deja fuera del plan sin decirlo (`cuotasDelPlanPorTramos`).
+- Si el Deshacer falla, la pantalla no se entera: se llama con `void`, igual que el de `ajustarPlan`.
+
+### MaKo arma el plan: `armar_plan_por_tramos` (29/10/2026, ticket #26 de Mauricio, ws1)
+
+En el Ops Center, Mauricio le pidió a MaKo el plan de Fernando Muñoz: «7500 dolares en 3 pagos, primer pago 28 de octubre, segundo
+pago 28 de noviembre y tercer pago 28 de diciembre». MaKo contestó que sus herramientas «leen la cobranza, pero no crean el plan».
+
+- ⚠️ **«Falta la herramienta» era la mitad del diagnóstico.** `guardar_plan_pagos` y `guardar_cuotas` ya existían. Pero el plan
+  uniforme no puede armar este plan: cuenta las cuotas desde la fecha de cierre, de 1 a 6, con día de pago hasta el 28. Y
+  `guardar_cuotas` marca el lead como ganado. Además, la frase NO TRAÍA ninguna herramienta que sirviera. Medido con el turno
+  real del chat de la app (`clasificarIntencion` + `herramientasDelChat`): la frase literal no arranca con un verbo ni dice
+  «cuotas», y traía sólo `guardar_plan_pagos`. «300 dólares cada quincena» traía las tareas del Plan y las plantillas. **Regla:** a
+  una herramienta nueva se la mide con la frase LITERAL del ticket; sin una familia que la reconozca (`plan-dictado`,
+  lib/mako-intencion-app.ts), existe para la API y no para quien la pide.
+- **Una sola regla para la ficha y la API.** `planPorTramosDelServer` (lib/pagos-campo.ts) es la cadena de «Guardar el plan»
+  sin cambios a mano. Sin pantalla, lo que «se vio» son las cuotas que se leen al guardar. `columnasDelPlan` escribe las mismas
+  columnas en los dos caminos. La escritura es `guardarPlanPorTramos` (lib/pagos.ts), y el runner no escribe la base por su
+  cuenta. Repetir el mismo «sí» no cambia nada (probado).
+- **El anticipo por la API sigue la regla de A2:** si no se pasa, queda el #0 sin cobrar que ya tiene (de una fila viva, nunca de
+  la columna), y `sinAnticipo` lo quita. Una suscripción no se convierte sola: se pasa antes con `editar_venta_lead`.
+- ⚠️ **Lo que la persona confirma y lo que se escribe tienen que salir de la MISMA regla.** Con A1 arreglado en `cobrarCuota`, la
+  propuesta de `marcar_pago_cobrado` seguía diciendo «USD 600» de un cobro de MXN 6.000 sobre una cuota de 12.000, y el «sí» dejaba
+  300 pendientes que nadie había leído. Ahora la propuesta usa también `dolaresALaTasaDeLaCuota`. Y `cobranza_lead` le decía
+  «cobrada_en» a una cuota en pesos SIN cobrar: ahora es «pactada_en».
+
+**Sin hacer:**
+- Por la API se arma sólo el plan de la casa, no el de un CRM agregado (la ficha sí lo arma).
+- `editar_cuota` todavía no cambia los pesos de una cuota en otra moneda: sólo sus dólares y su fecha (lib/api-mako/areas/cobros.*).
+- El plan de Fernando (ws1) NO se cargó: lo arma Mauricio con MaKo después del deploy. El ticket #26 está en «esperando_decision».
+- La venta de Fernando sigue sin monto. El plan no la cambia: la propuesta lo dice y nombra `editar_venta_lead`.

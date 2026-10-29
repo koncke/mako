@@ -187,8 +187,9 @@ export async function guardarCuotasAction(
   /** El CRM agregado del plan (mig 0324); sin él, la casa. */
   crm: number | null = null,
   /** El plan libre y el por tramos: las protegidas van primero, con las protecciones que se leen ACÁ (lib/pagos-campo.ts →
-   *  protegidasPrimero). `conDeshacer`: devuelve con qué deshacerlo (el plan por tramos, 29/10/2026). */
-  como: { protegidasPrimero?: boolean; conDeshacer?: boolean } = {},
+   *  protegidasPrimero). `conDeshacer`: devuelve con qué deshacerlo (el plan por tramos, 29/10/2026). `sobreLoVisto`: la lista es
+   *  el plan ENTERO, y si tiene una impaga que la pantalla no vio, no se guarda (lib/pagos.ts → reconciliarYGuardar). */
+  como: { protegidasPrimero?: boolean; conDeshacer?: boolean; sobreLoVisto?: boolean } = {},
 ): Promise<(ResultadoCuotas & { deshacer?: DeshacerPlan }) | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
@@ -209,7 +210,7 @@ export async function guardarCuotasAction(
       const numero = typeof c?.numero === 'number' && Number.isInteger(c.numero) && c.numero >= 0 && c.numero <= 60 ? c.numero : null;
       const moneda = c?.moneda === undefined ? {} : { moneda: monedaDeCuota(c.moneda), monto_original: monedaDeCuota(c.moneda) ? Number(c.montoOriginal) : null };
       return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null, ...moneda, ...(c?.quedaComoEsta === true ? { quedaComoEsta: true } : {}) };
-    }), { vistos, crm: trato, protegidasPrimero: como?.protegidasPrimero === true });
+    }), { vistos, crm: trato, protegidasPrimero: como?.protegidasPrimero === true, sobreLoVisto: como?.sobreLoVisto === true });
     if (plan) {
       // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null
       // (las cuotas se habían cargado a mano) fallaba la validación y se descartaba en silencio, así que el

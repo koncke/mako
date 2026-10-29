@@ -33,11 +33,13 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
-  aplicarCambios, armadaDe, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, lineasDeCuotas, lugaresDelPlan, monedaDeCuota,
-  reconciliarCuotas, soloLoQueCambio, tramosDeCuotas, type AnticipoPlan, type CuotaArmada, type CuotaDelLead, type CuotaExistente, type PlanDeCuotas,
-  type Proteccion, type TramoPlan,
+  aplicarCambios, armadaDe, avisoDeConservadas, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, lineasDeCuotas, lugaresDelPlan, monedaDeCuota,
+  planCambiadoAfuera, reconciliarCuotas, soloLoQueCambio, tramosDeCuotas, type AnticipoPlan, type CambioDeCuota, type CuotaArmada, type CuotaDelLead,
+  type CuotaExistente, type PlanDeCuotas, type Proteccion, type TramoPlan,
 } from '../lib/pagos-campo';
 import { disparosDeCobranza } from '../lib/cobranza';
+import { diferenciaPendiente, dolaresALaTasaDeLaCuota } from '../lib/pagos-diferencia';
+import { noEsDeuda } from '../lib/cobrado-lead';
 
 const raiz = join(__dirname, '..');
 const fuente = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
@@ -57,7 +59,7 @@ type Fila = CuotaDelLead & { moneda?: string | null; monto_original?: number | n
  * «Guardar el plan»: la lista de la ficha (`cuotasDelPlanPorTramos`), lo que hace con ella `guardarCuotasAction` (la moneda
  * limpia, `quedaComoEsta`) y la reconciliación POR ID con las protecciones que lee el server. Devuelve también la base después.
  */
-function guardar(pagos: Fila[], p: { desde: string; tramos: TramoPlan[]; anticipo?: AnticipoPlan | null; cambios?: Record<number, { monto_usd?: number; monto_original?: number; fecha?: string | null }>; planConInicial?: boolean; abiertas?: Fila[] }, protegidas: Record<number, Proteccion[]> = {}) {
+function guardar(pagos: Fila[], p: { desde: string; tramos: TramoPlan[]; anticipo?: AnticipoPlan | null; cambios?: Record<number, CambioDeCuota>; planConInicial?: boolean; abiertas?: Fila[] }, protegidas: Record<number, Proteccion[]> = {}) {
   const armado = cuotasDeTramos({ desde: p.desde, tramos: p.tramos });
   assert.ok(armado.ok, armado.ok ? '' : armado.error);
   const lista = aplicarCambios(armado.cuotas, p.cambios ?? {});
@@ -72,12 +74,25 @@ function guardar(pagos: Fila[], p: { desde: string; tramos: TramoPlan[]; anticip
       ...('quedaComoEsta' in c && c.quedaComoEsta ? { quedaComoEsta: true } : {}),
     };
   });
-  const existentes: CuotaExistente[] = pagos.map((q) => ({
-    id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
-    nacio_cobrada: !!q.nacio_cobrada, resto_de: q.resto_de ?? null, protegida: protegidas[q.id] ?? [], moneda: q.moneda ?? null, monto_original: q.monto_original ?? null,
-  }));
-  const plan = reconciliarCuotas(existentes, deseadas, 'porId', { vistos: new Set(encima.vistos), protegidasPrimero: true });
+  const plan = reconciliarCuotas(existentesDe(pagos, protegidas), deseadas, 'porId', { vistos: new Set(encima.vistos), protegidasPrimero: true });
   return { encima, plan, filas: aplicar(pagos, plan), deuda: deudaDe(aplicar(pagos, plan)), lista };
+}
+
+/** Las cuotas como las lee el server (`cuotasParaReconciliar`), con las protecciones de la base. */
+const existentesDe = (pagos: Fila[], protegidas: Record<number, Proteccion[]> = {}): CuotaExistente[] => pagos.map((q) => ({
+  id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado, devuelta: noEsDeuda(q),
+  nacio_cobrada: !!q.nacio_cobrada, resto_de: q.resto_de ?? null, protegida: protegidas[q.id] ?? [], moneda: q.moneda ?? null, monto_original: q.monto_original ?? null,
+}));
+
+/** «Abrir» el editor como `ArmarPlan`: los tramos que se leen y, de las impagas, lo que no encaja (un cambio a mano). */
+function abrir(pagos: Fila[], planConInicial = false) {
+  const lugares = lugaresDelPlan(pagos, planConInicial);
+  const leido = tramosDeCuotas(lugares, '2026-10-29');
+  assert.ok(leido, 'no leyó el plan');
+  const a = cuotasDeTramos(leido);
+  assert.ok(a.ok, a.ok ? '' : a.error);
+  const cambios: Record<number, CambioDeCuota> = Object.fromEntries(Object.entries(cambiosContra(a.cuotas, lugares.map(armadaDe))).filter(([k]) => !lugares[Number(k)]?.pagado));
+  return { ...leido, cambios };
 }
 
 /** La base después de escribir la reconciliación (actualizar por id, insertar, borrar). */
@@ -302,7 +317,7 @@ test('la ficha: el editor por tramos encima de lo que hay, con Deshacer, tambié
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /const leido = tramosDeCuotas\(lugares, ctx\.hoy\);/, 'el editor no abre con el plan que hay');
   assert.match(ui, /const encima = armado\.ok \? cuotasDelPlanPorTramos\(\{/);
-  assert.match(ui, /await guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], columnas, vistos, crm, \{ protegidasPrimero: true, conDeshacer: true \}\)/);
+  assert.match(ui, /await guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], columnas, vistos, crm, \{ protegidasPrimero: true, conDeshacer: true, sobreLoVisto: true \}\)/);
   // «Armar el plan» ya no se esconde en una suscripción: la pasa a «Pago único» con su compare-and-set, antes de las cuotas.
   assert.doesNotMatch(ui, /lead\.venta_tipo !== 'suscripcion' && \(\s*<Button[^\n]*setArmando\(true\)/, 'el plan se volvió a esconder en una suscripción');
   const iVenta = ui.indexOf("await guardarVentaAction(l.id, { campo: 'tipo', valor: 'unico' }, { tipoVisto: 'suscripcion', crm })");
@@ -336,4 +351,115 @@ test('cobrar una cuota en pesos: «Marcar pagada» y el link la proponen en su m
   assert.match(ui, /onGuardar=\{\(v\) => editar\(q, \{ montoOriginal: Number\(v\) \}\)\}/);
   const ed = fuente('lib/pagos.ts');
   assert.match(ed, /if \(!monedaPropia\) throw new Error\('Esa cuota es en dólares: cambia su monto\.'\);/);
+});
+
+// ── La verificación adversarial de 9fc4030dd (Integración, 29/10/2026) ────────
+// Cada caso con la entrada del informe (C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md).
+
+const mes = (y: number, m0: number, d: number) => new Date(Date.UTC(y, m0, d)).toISOString().slice(0, 10);
+const tresDe500 = (): Fila[] => [1, 2, 3].map((i) => ({ id: i, numero: i, monto_usd: 500, fecha_esperada: mes(2026, 9 + i, 10), pagado: false }));
+/** El editor dibujado sin navegador (tests/_plan-tramos-hijo.ts) con ese lead y esas cuotas. */
+const dibujar = (lead: Record<string, unknown>, pagos: Fila[]) =>
+  execFileSync(process.execPath, ['--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', join(raiz, 'tests/_plan-tramos-hijo.ts'), JSON.stringify({ lead, pagos, hoy: '2026-10-29' })], { cwd: raiz, encoding: 'utf8', timeout: 120_000 });
+
+test('A1 · cobrar a medias una cuota en pesos: los dólares vacíos van a la tasa de la cuota y la diferencia queda pendiente', () => {
+  // MXN 12.000 = US$600; se cobraron 6.000 y «Cuánto es en dólares» quedó vacío.
+  const cuota = { monto_usd: 600, moneda: 'MXN', monto_original: 12000 };
+  const mitad = dolaresALaTasaDeLaCuota(cuota, { moneda: 'MXN', montoOriginal: 6000 });
+  assert.equal(mitad, 300, 'la mitad de los pesos no es la mitad de los dólares');
+  assert.equal(diferenciaPendiente(600, mitad, { yaPagada: false, resto: 'pendiente' }), 300, 'la cuota quedó cobrada entera: se perdían 6.000 pesos');
+  assert.equal(dolaresALaTasaDeLaCuota(cuota, { moneda: 'mxn', montoOriginal: 12000 }), 600, 'los pesos enteros son la cuota entera');
+  // Otra moneda que la de la cuota, o una cuota en dólares: no hay tasa, y vale lo de siempre (la cuota).
+  assert.equal(dolaresALaTasaDeLaCuota(cuota, { moneda: 'ARS', montoOriginal: 6000 }), null);
+  assert.equal(dolaresALaTasaDeLaCuota({ monto_usd: 600 }, { moneda: 'MXN', montoOriginal: 6000 }), null);
+  assert.equal(dolaresALaTasaDeLaCuota(cuota, { moneda: 'USD', montoOriginal: null }), null);
+  // «Marcar pagada» y el server la usan: la API de MaKo manda los pesos sin los dólares.
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/piezas.tsx'), /const aLaTasa = dolaresALaTasaDeLaCuota\(cuota, \{ moneda: plata\.moneda, montoOriginal: numero\(plata\.monto\) \}\);\n  const p = plataParaServer\(plata, aLaTasa \?\? valorUsd\);/, '«Marcar pagada» toma los dólares de la cuota entera');
+  assert.match(fuente('lib/pagos.ts'), /\? centavos\(datos\.monto\) : dolaresALaTasaDeLaCuota\(fila, datos\);/, '`cobrarCuota` toma los dólares de la cuota entera');
+});
+
+test('A2 · el editor abre SIN el anticipo que se quitó o se devolvió (y el total en dos monedas no se lee doble)', () => {
+  // `cobro_inicial_usd` 1000 sigue en el lead, pero el #0 se devolvió por la pasarela (impago, sin vencimiento, con proveedor).
+  const pagos: Fila[] = [
+    { id: 10, numero: 0, monto_usd: 1000, fecha_esperada: null, pagado: false, proveedor: 'stripe', cobro_id: 77 },
+    { id: 1, numero: 1, monto_usd: 300, fecha_esperada: '2026-11-01', pagado: false },
+    { id: 2, numero: 2, monto_usd: 300, fecha_esperada: '2026-12-01', pagado: false },
+    { id: 3, numero: 3, monto_usd: 600, fecha_esperada: '2027-01-01', pagado: false, moneda: 'MXN', monto_original: 12000 },
+    { id: 4, numero: 4, monto_usd: 600, fecha_esperada: '2027-02-01', pagado: false, moneda: 'MXN', monto_original: 12000 },
+  ];
+  const lead = { id: 77, nombre: 'Prueba', estado_lead: 'ganado', venta_tipo: 'unico', cobro_inicial_usd: 1000, monto_cuota_usd: 300, total_cuotas: 4, dia_de_pago: 1 };
+  const html = dibujar(lead, pagos);
+  assert.match(html, /placeholder="Sin anticipo" value=""/, 'el anticipo devuelto volvió (salía de la columna `cobro_inicial_usd`)');
+  assert.doesNotMatch(html, /value="1000"/);
+  // B5: los US$1.800 ya incluyen los pesos; «$ 24.000 MXN · US$ 1.800» se leía como si sumara dos veces.
+  assert.match(html, /4 cuotas · se cobran US\$ 600 \+ \$ 24\.000 MXN \(US\$ 1\.800 en total\)/);
+  // Y guardar lo que abrió no cobra nada de nuevo, con el #0 devuelto o quitado.
+  assert.ok(nada(guardar(pagos, { ...abrir(pagos, true), anticipo: null, planConInicial: true }).plan), 'abrir y guardar cambió cuotas');
+  const quitado = pagos.slice(1);
+  assert.ok(nada(guardar(quitado, { ...abrir(quitado, true), anticipo: null, planConInicial: true }).plan), 'abrir y guardar cambió cuotas');
+});
+
+test('M1 · acortar el plan con la última impaga protegida: toma la fecha que pide el plan, o se avisa por qué no', () => {
+  const plan2 = (cantidad: number): TramoPlan[] => [{ monto: 500, moneda: 'USD', cada: 'mes', dias: [10], cantidad }];
+  // Con un link sin pagar, la fecha se puede mover: la del link pasa al 10/12 (antes quedaba el 10/01, sin aviso).
+  const link = guardar(tresDe500(), { desde: '2026-11-10', tramos: plan2(2) }, { 3: ['link'] });
+  assert.deepEqual(impagas(link.filas).map((q) => [q.id, q.fecha_esperada]), [[1, '2026-11-10'], [3, '2026-12-10']], 'la protegida no tomó su lugar en el plan');
+  assert.equal(link.deuda, 1000);
+  // Dos tramos (2 × 500 y 1 × 800 con link) y se quita el segundo: el link no deja bajar el monto, y se dice.
+  const dos: Fila[] = [...tresDe500().slice(0, 2), { id: 3, numero: 3, monto_usd: 800, fecha_esperada: '2027-01-10', pagado: false }];
+  const sinTramo2 = guardar(dos, { desde: '2026-11-10', tramos: plan2(2) }, { 3: ['link'] });
+  assert.match(avisoDeConservadas(sinTramo2.plan as PlanDeCuotas) ?? '', /Cuota 3: tiene un link sin pagar/, 'la deuda quedó en US$1.300 para un plan de US$1.000, sin aviso');
+  // Con un recordatorio corriendo no se toca nada de ella, y también se dice.
+  const rec = guardar(tresDe500(), { desde: '2026-11-10', tramos: plan2(2) }, { 3: ['recordatorio'] });
+  assert.match(avisoDeConservadas(rec.plan as PlanDeCuotas) ?? '', /Cuota 3: tiene un recordatorio en curso/);
+});
+
+test('M2 · más de 10 rachas con monedas mezcladas: abrir y guardar no le cambia la moneda a ninguna cuota', () => {
+  // 12 cuotas los días 5 desde el 05/11/2026: de US$100 a US$900, MXN 9.000 (US$450), US$600 y MXN 9.000 (US$450).
+  const base: Fila[] = Array.from({ length: 12 }, (_, i) => {
+    const f = { id: 101 + i, numero: i + 1, fecha_esperada: mes(2026, 10 + i, 5), pagado: false };
+    if (i < 9) return { ...f, monto_usd: 100 * (i + 1) };
+    if (i === 10) return { ...f, monto_usd: 600 };
+    return { ...f, monto_usd: 450, moneda: 'MXN', monto_original: 9000 };
+  });
+  const o = abrir(base);
+  assert.equal(o.tramos.length, 10, 'el caso es el de más de 10 rachas');
+  const r = guardar(base, { desde: o.desde, tramos: o.tramos, cambios: o.cambios });
+  assert.ok(nada(r.plan), `abrir y guardar cambió cuotas: ${JSON.stringify(r.plan?.actualizar)}`);
+  const once = r.filas.find((q) => q.id === 111) as Fila;
+  assert.equal(once.moneda ?? null, null, 'la cuota de US$600 quedó en pesos');
+  const [d] = disparosDeCobranza({ vencidas: [], porVencer: [{ pago_id: 111, lead_id: 1, lead_nombre: 'X', numero: 11, monto_usd: Number(once.monto_usd), fecha_esperada: once.fecha_esperada as string, dias: 1, moneda: once.moneda ?? null, monto_original: once.monto_original ?? null }] });
+  assert.equal(d.datosEstables.cuota_monto, 'US$ 600', 'el recordatorio pasó a pedir pesos');
+});
+
+test('M3 · dos pestañas guardan el mismo plan: la segunda no duplica las cuotas nuevas, dice que el plan cambió', () => {
+  const base = tresDe500();
+  const cinco: TramoPlan[] = [{ monto: 500, moneda: 'USD', cada: 'mes', dias: [10], cantidad: 5 }];
+  const a = guardar(base, { desde: '2026-11-10', tramos: cinco });
+  assert.equal(impagas(a.filas).length, 5);
+  // La pestaña B abrió antes de que A guardara: sus `vistos` son los 3 de antes, y el server lee la base de AHORA.
+  const armado = cuotasDeTramos({ desde: '2026-11-10', tramos: cinco });
+  assert.ok(armado.ok);
+  const b = cuotasDelPlanPorTramos({ pagos: base, protegidas: new Set(), anticipo: null, lista: armado.cuotas, planConInicial: false });
+  assert.ok(b.ok);
+  assert.match(planCambiadoAfuera(existentesDe(a.filas), new Set(b.vistos)) ?? '', /cambió en otra pantalla .*«Cuota 4».*No se guardó nada/, 'B agregaba sus 2 al lado: 7 cuotas');
+  // Lo que la pantalla vio entero pasa; y el resto de un cobro por menos que nació en el medio no frena nada (va aparte).
+  const todas = new Set(impagas(a.filas).map((q) => q.id));
+  assert.equal(planCambiadoAfuera(existentesDe(a.filas), todas), null);
+  const conResto = [...a.filas, { id: 900, numero: 9, monto_usd: 100, fecha_esperada: '2026-12-10', pagado: false, resto_de: 2 }];
+  assert.equal(planCambiadoAfuera(existentesDe(conResto), todas), null);
+  // El server lo mira ANTES de escribir, y sólo para el editor por tramos (`sobreLoVisto`).
+  const srv = fuente('lib/pagos.ts');
+  assert.match(srv, /if \(opts\.sobreLoVisto && opts\.vistos\) \{\n    const cambio = planCambiadoAfuera\(existentes, opts\.vistos\);\n    if \(cambio\) throw new Error\(cambio\);/);
+  assert.ok(srv.indexOf('planCambiadoAfuera(existentes, opts.vistos)') < srv.indexOf('const plan = reconciliarCuotas(existentes, deseadas, modo, opts);'), 'se mira después de reconciliar');
+  assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /sobreLoVisto: como\?\.sobreLoVisto === true \}\);/);
+});
+
+test('B4 · 60 cuotas y un anticipo: lo frena la pantalla, no el server con «Son demasiadas cuotas.»', () => {
+  const a = cuotasDeTramos({ desde: '2026-11-01', tramos: [{ monto: 100, moneda: 'USD', cada: 'mes', cantidad: 60 }] });
+  assert.ok(a.ok);
+  const anticipo: AnticipoPlan = { monto_usd: 500, moneda: null, monto_original: null, fecha: '2026-10-29' };
+  const con = cuotasDelPlanPorTramos({ pagos: [], protegidas: new Set(), anticipo, lista: a.cuotas, planConInicial: false });
+  assert.ok(!con.ok && /Son más de 60 cuotas contando el anticipo/.test(con.error), 'la pantalla dejó pasar 61 cuotas');
+  assert.ok(cuotasDelPlanPorTramos({ pagos: [], protegidas: new Set(), anticipo: null, lista: a.cuotas, planConInicial: false }).ok, 'sin anticipo, 60 entran');
 });

@@ -24,6 +24,7 @@ import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
 import type { Pago } from '@/lib/pagos';
 import { METODOS_PAGO, ROTULO_METODO, nombreCuota, type MetodoPago } from '@/lib/pagos-campo';
+import { dolaresALaTasaDeLaCuota } from '@/lib/pagos-diferencia';
 import { fechaEnPalabras, horaEnTz } from '@/lib/date-utils';
 import { useTzWorkspace } from '../../useTzWorkspace';
 import { usd } from '@/lib/pagos-vistazo';
@@ -88,7 +89,11 @@ function Caja({ titulo, onCerrar, pie, children, ancho = 460 }: { titulo: string
  */
 type Plata = { moneda: string; monto: string; usd: string };
 
-function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota = null }: { plata: Plata; set: (p: Plata) => void; monedaNegocio: string; usdPorDefecto: number | null; monedaCuota?: string | null }) {
+function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota = null, aLaTasa = false }: {
+  plata: Plata; set: (p: Plata) => void; monedaNegocio: string; usdPorDefecto: number | null; monedaCuota?: string | null;
+  /** `usdPorDefecto` sale de la tasa de la cuota (cobrada en su moneda), no es el valor entero de la cuota. */
+  aLaTasa?: boolean;
+}) {
   // La de la cuota también (un tramo en pesos, 29/10/2026), aunque no sea la del negocio.
   const monedas = [...new Set(['USD', monedaNegocio.toUpperCase(), ...(monedaCuota ? [monedaCuota.toUpperCase()] : [])])];
   const enOtra = plata.moneda !== 'USD';
@@ -105,7 +110,7 @@ function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota =
         <Input type="number" inputMode="decimal" min={0} step="0.01" value={plata.monto} onChange={(e) => set({ ...plata, monto: e.target.value })} />
       </Field>
       {enOtra && (
-        <Field label="Cuánto es en dólares" hint={usdPorDefecto != null ? `Vacío, ${usd(usdPorDefecto)} (el de la cuota). Es lo que suma a tus reportes.` : 'Es lo que suma a tus reportes.'}>
+        <Field label="Cuánto es en dólares" hint={usdPorDefecto != null ? `Vacío, ${usd(usdPorDefecto)} (${aLaTasa ? 'a la tasa de la cuota' : 'el de la cuota'}). Es lo que suma a tus reportes.` : 'Es lo que suma a tus reportes.'}>
           <Input type="number" inputMode="decimal" min={0} step="0.01" value={plata.usd} placeholder={usdPorDefecto != null ? String(usdPorDefecto) : 'US$'} onChange={(e) => set({ ...plata, usd: e.target.value })} />
         </Field>
       )}
@@ -206,7 +211,10 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- una sola vez, con el comprobante con que se abrió
   }, [comprobante, monedaNegocio]);
 
-  const p = plataParaServer(plata, valorUsd);
+  // Los dólares vacíos de un cobro en la moneda de la cuota van a SU tasa, no son la cuota entera (lib/pagos-diferencia.ts): un
+  // cobro a medias en pesos pregunta por la diferencia, como uno en dólares (revisión de 9fc4030dd, alta).
+  const aLaTasa = dolaresALaTasaDeLaCuota(cuota, { moneda: plata.moneda, montoOriginal: numero(plata.monto) });
+  const p = plataParaServer(plata, aLaTasa ?? valorUsd);
   const falta = p.ok && p.monto != null && p.monto < valorUsd ? Math.round((valorUsd - p.monto) * 100) / 100 : 0;
   const guardar = () => {
     if (!p.ok) { setError(p.error); return; }
@@ -244,7 +252,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido.nombre}</b>{leido.nota ? ` (${leido.nota})` : ''}. Revísalo antes de guardar.</p>}
-          <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio ?? 'USD'} usdPorDefecto={valorUsd} monedaCuota={monedaCuota} />
+          <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio ?? 'USD'} usdPorDefecto={aLaTasa ?? valorUsd} monedaCuota={monedaCuota} aLaTasa={aLaTasa != null} />
           <CamposDeCuando fecha={fecha} hora={hora} metodo={metodo} setFecha={setFecha} setHora={setHora} setMetodo={setMetodo} />
           {falta > 0 && (
             <div role="radiogroup" aria-label="Qué pasa con la diferencia" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
