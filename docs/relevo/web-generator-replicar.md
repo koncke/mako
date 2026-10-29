@@ -11,7 +11,11 @@ cerrados.**
 
 ## 000. Landing principal → High Ticket + precios completos + sin fondo azul (29/10 ~11:15-11:20, Martín por el Cerebro)
 
-- Rama `landing-high-ticket-2910` en `C:/dev/wt-landing-ht-2910` (desde origin/main 9f8216dc8), SIN commitear todavía al escribir esto.
+- **29/10 ~12:55 ART: VERDE mandado a Integración y al Cerebro**: rama `landing-high-ticket-2910` (C:/dev/wt-landing-ht-2910),
+  punta 746b3fefe (2f2ccb5ab · 7d376c836 · 746b3fefe), sin pushear. Tests dirigidos 50/50, romper 10/10, tsc-acotado 0 propios
+  (con `--heap=3584`). El Cerebro publicó el documento: respaldos #73 (antes) y #74 (6 tarjetas); #32 v12 con las 9 del taller.
+  Falta: que suba el código (los ✗, la tabla, el <title>/og, la portada sin JS); las páginas /vsl/_detalle y las #33–#40 siguen
+  con «VSL Funnel».
 - DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
   «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
   Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
