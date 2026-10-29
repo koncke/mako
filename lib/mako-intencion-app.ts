@@ -200,8 +200,10 @@ const FAMILIAS: readonly Familia[] = [
   // La constancia del cliente que se pasa al chat («este es el doc fiscal», Leila 26/10/2026): con el adjunto era «pensar», sin
   // herramientas que escriban, y MaKo decía que desde el chat no se puede guardar. `guardar_documento_fiscal` la guarda.
   //   Nombrar el DOCUMENTO actúa; «datos fiscales» sólo suma el área (`area-fiscal`): «¿qué datos fiscales tiene Fabi?» es una pregunta.
-  { id: 'documento-fiscal', test: /\bconstancias?\b|\b(?:doc|documento)s? fiscal(?:es)?\b|\bsituacion fiscal\b|\bcedula fiscal\b/, areas: ['cobros', 'crm'], relevancia: 'guardar documento fiscal constancia ficha lead datos fiscales', actua: true },
-  { id: 'area-fiscal', test: /\bdatos fiscales\b/, areas: ['cobros', 'crm'], relevancia: 'datos fiscales deal' },
+  //   Las dos relevancias nombran `editar_dato_deal`: con la constancia viaja junto a guardar_documento_fiscal (lo que el PDF no
+  //   trae se escribe a mano), y con los datos adjuntos es lo primero que se ofrece (tests/mako-no-puedo-falsos.test.ts, el 4).
+  { id: 'documento-fiscal', test: /\bconstancias?\b|\b(?:doc|documento)s? fiscal(?:es)?\b|\bsituacion fiscal\b|\bcedula fiscal\b/, areas: ['cobros', 'crm'], relevancia: 'guardar documento fiscal constancia; editar dato deal fiscal', actua: true },
+  { id: 'area-fiscal', test: /\bdatos fiscales\b/, areas: ['cobros', 'crm'], relevancia: 'editar dato deal fiscal' },
   { id: 'rol-equipo', test: /\brol\b[^.\n]{0,30}\b(?:closer|setter|admin|miembro|equipo)\b|\b(?:cambi\w+)\b[^.\n]{0,12}\brol\b/, areas: ['equipo'], relevancia: 'cambiar rol miembro', actua: true, ganaAlLead: true },
   { id: 'renombrar-chat', test: /\brenombr\w+\b[^.\n]{0,15}\bchat\b/, areas: ['mako'], relevancia: 'renombrar chat mako', actua: true, ganaALaAgenda: true },
   // ── Offer, Copywriting, Second Brain y experimentos (tanda 5) ──
