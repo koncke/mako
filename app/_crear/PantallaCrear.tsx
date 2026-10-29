@@ -20,7 +20,8 @@
 //     estrella para volver al chat, «Nuevo …» como primer renglón y los proyectos;
 //   · «Nuevo …» NO navega: el centro muestra «¿Qué vas a crear hoy?» (la caja de siempre, `CajaPedido`) con las PLANTILLAS de
 //     la tab, y la pieza abierta queda montada detrás (volver es instantáneo). Sin nada abierto, el centro ES eso: la portada
-//     de la tab es elegir qué crear, como el Panel del Web Generator;
+//     de la tab es elegir qué crear, como el Panel del Web Generator. Cada tarjeta muestra el EJEMPLO lleno de un negocio
+//     ficticio (./TarjetaPlantilla.tsx, 29/10/2026), en una sección por `grupo`;
 //   · lo que se escribe en la caja va al chat de MaKo (sale al Cerebro, que crea) salvo que la tab lo tome (`onPedido`).
 // Sin tabs internas en la barra de arriba (nav.ts: Create sin `secciones`) y sin onboarding: la plantilla es el arranque.
 // En el teléfono no entran las dos columnas: arriba el interruptor «MaKo | <la tab>» y se ve una por vez (crear.css).
@@ -28,7 +29,7 @@
 // =============================================================================
 
 import './crear.css';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { PlegarChatCtx } from '@/app/admin/operaciones/PanelChat';
@@ -39,9 +40,10 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import type { EntidadChat } from '@/lib/chat-desde';
 import {
-  SIN_NOMBRE, centroDe, haceCuanto, marcoDe, proyectosVisibles,
+  SIN_NOMBRE, centroDe, haceCuanto, proyectosVisibles, seccionesDeCrear,
   type AccionProyecto, type CaraTarjeta, type PlantillaCrear, type ProyectoCrear, type VistaMovil,
 } from './reglas';
+import { TarjetaPlantilla } from './TarjetaPlantilla';
 
 export type { AccionProyecto, PlantillaCrear, ProyectoCrear } from './reglas';
 // ⚠️ `ESTILO_PAGINA_CREAR` NO se re-exporta desde acá: lo usan las <Pagina> de los server components, y un VALOR de un módulo
@@ -68,8 +70,11 @@ export type PropsPantallaCrear = {
   plantillas: readonly PlantillaCrear[];
   /** Crear con una plantilla. Si devuelve un error (texto), se muestra; mientras corre, la tarjeta dice «Creando». */
   onPlantilla: (p: PlantillaCrear) => void | string | null | Promise<void | string | null>;
-  /** El título de la grilla («Plantillas», «Tamaños»). */
+  /** El título de la grilla («Plantillas», «Tamaños»); con `grupo`, el de las que no traen ninguno. */
   tituloPlantillas?: string;
+  /** La miniatura propia de una tab (Video dibuja la plantilla con `MiniaturaPlantilla`): si devuelve algo, va en lugar de
+   *  la hoja, la imagen o el marco. `activa`: el mouse o el foco está sobre esa tarjeta. */
+  miniatura?: (p: PlantillaCrear, activa: boolean) => ReactNode;
   /** Los ejemplos que se escriben solos en la caja («Un reel de 30 s sobre…»). */
   ejemplos: readonly string[];
   /** Lo escrito en la caja. Sin esto, va al chat de MaKo (al Cerebro, que crea) y la tarjeta vuelve al chat. Si devuelve un
@@ -210,7 +215,8 @@ export function PantallaCrear(p: PropsPantallaCrear) {
       <div className="cr-centro">
         {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
         {centro === 'nueva' && (
-          <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} />
+          <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} miniatura={p.miniatura}
+            ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} />
         )}
       </div>
     </div>
@@ -314,8 +320,9 @@ function MenuProyecto({ nombre, acciones }: { nombre: string; acciones: readonly
 }
 
 /** «¿Qué vas a crear hoy?»: la caja de siempre (`CajaPedido`, la del Web Generator, Automations y el Dashboard) y las plantillas. */
-export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', ejemplos, onPedido, onCreado }: {
+export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', miniatura, ejemplos, onPedido, onCreado }: {
   tab: string; plantillas: readonly PlantillaCrear[]; onPlantilla: PropsPantallaCrear['onPlantilla']; titulo?: string;
+  miniatura?: PropsPantallaCrear['miniatura'];
   ejemplos: readonly string[];
   /** Lo escrito en la caja; un texto de vuelta es un error. */
   onPedido: (texto: string) => Promise<string | null>;
@@ -325,6 +332,10 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
   const [valor, setValor] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [usando, setUsando] = useState<string | null>(null);
+  // La tarjeta con el mouse o el foco encima: la miniatura de una tab (Video) y el video de AI Avatar se mueven sólo ahí.
+  const [activa, setActiva] = useState<string | null>(null);
+  const secciones = useMemo(() => seccionesDeCrear(plantillas), [plantillas]);
+  const idGrilla = useId();
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): la caja, quieta.
   const appEscritorio = useAppDeEscritorio();
   useEffect(() => { setError(null); }, [plantillas]);
@@ -358,28 +369,18 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
             bloqueo={appEscritorio.bloqueo} />
         </div>
         {error && <p className="cr-error" role="alert">{error}<ReportarASoporte /></p>}
-        {plantillas.length > 0 && (
-          <section className="cr-plantillas" aria-labelledby="cr-plantillas-titulo">
-            <h2 id="cr-plantillas-titulo" className="cr-plantillas__titulo">{titulo}</h2>
+        {/* Una sección por `grupo`, en el orden en que llegan; sin grupos, una sola con el título de la grilla. */}
+        {secciones.map((s, i) => (
+          <section key={s.titulo ?? ''} className="cr-plantillas" aria-labelledby={`${idGrilla}-${i}`}>
+            <h2 id={`${idGrilla}-${i}`} className="cr-plantillas__titulo">{s.titulo ?? titulo}</h2>
             <div className="cr-plantillas__grilla">
-              {plantillas.map((pl) => (
-                <button key={pl.id} type="button" className="cr-plantilla" onClick={() => { void usar(pl); }} disabled={!!usando}
-                  data-creando={usando === pl.id ? 'si' : undefined} aria-label={`Usar la plantilla ${pl.nombre}`}>
-                  <span className="cr-plantilla__mini" style={{ aspectRatio: '4 / 3' }}>
-                    {pl.imagen
-                      ? <img src={pl.imagen} alt="" loading="lazy" />
-                      : <span className="cr-plantilla__marco" style={marcoDe(pl.formato)} />}
-                    {!pl.imagen && pl.rotulo ? <span className="cr-plantilla__rotulo">{pl.rotulo}</span> : null}
-                    {usando === pl.id
-                      ? <span className="cr-plantilla__usar" data-visible="si"><span className="cr-giro" /> Creando</span>
-                      : <span className="cr-plantilla__usar">Usar plantilla</span>}
-                  </span>
-                  <span className="cr-plantilla__nombre">{pl.nombre}</span>
-                </button>
+              {s.plantillas.map((pl) => (
+                <TarjetaPlantilla key={pl.id} pl={pl} activa={activa === pl.id} usando={usando} miniatura={miniatura}
+                  onUsar={() => { void usar(pl); }} onActiva={(si) => setActiva((a) => (si ? pl.id : a === pl.id ? null : a))} />
               ))}
             </div>
           </section>
-        )}
+        ))}
       </div>
     </div>
   );

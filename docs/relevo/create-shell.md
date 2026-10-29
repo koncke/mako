@@ -46,3 +46,16 @@ del Cerebro `banco-create-qa/`; capturas antes/después a 1920/1440/1366/390 en 
 - Falta: el editor de Video no carga en el banco (queda «Cargando…», docs/hallazgos-video-editor.md); AI Avatar es de su chat.
 - VERDE (punta 5031af55a): 70 tests dirigidos 613/613; las roturas R1–R9 y la R2 de Doory dan 1 rojo cada una.
   tsc-acotado sin errores en las tres tandas (12, 8 y 9 archivos). Con `--heap=4096`: con 3000, sale con 134.
+
+## Plantillas reales, tanda 0: la base común (29/10/2026, noche) — rama `plantillas-base-2910`
+
+Sobre `create-qa-2910`, con el plan `plantillas-reales-2910` mezclado (docs/plantillas-reales/README.md, sección 6).
+- **La tarjeta** (app/_crear/TarjetaPlantilla.tsx): la miniatura de la tab, la hoja con el ejemplo, la imagen a su
+  proporción o el marco de siempre; arriba la insignia y la cinta «Ejemplo»; una sección por `grupo`.
+- **Reglas puras** (app/_crear/reglas.ts): `chipsVisibles`, `seccionesDeCrear`, `cajaDeMiniatura` y `hojaDe`.
+- **El rótulo y el primer mensaje** (app/_crear/ejemplo.ts), con la excepción de Offer.
+- **El negocio** (lib/negocio-para-crear.ts), leído con `grafoParaChat`; lib/copywriter/contexto.ts re-exporta.
+- **Las once licencias MIT literales** (lib/avisos/).
+- **Los tests:** tests/_reales.ts (`REALES` mudada, `problemasDelEjemplo`) y tests/avisos-licencias.test.ts.
+- **Capturas** a los cuatro anchos en C:/dev/revisiones/plantillas-tanda0/; el banco tiene `?p=plantillas`.
+- **Sigue:** cada tab llena sus campos (Copywriter ya trabaja las suyas; no toca app/_crear ni el contexto).

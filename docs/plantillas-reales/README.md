@@ -1,7 +1,7 @@
 # Plantillas reales en Create: el plan (29/10/2026)
 
 **Qué es:** el plan para que «Nuevo …» de las cinco tabs de Create (Copywriter, Video, Image, AI Avatar y Offer) muestre plantillas **llenas** (un ejemplo completo de un negocio ficticio) en lugar de rectángulos con un nombre. Cada tab suma un **agente experto editable en `/configuraciones`** que adapta la plantilla al negocio de quien la abre.
-**Estado:** es un plan; no hay nada implementado. Se midió contra `origin/main` `1cf06eba9` (29/10/2026, 13:55), leído con `git show` en un árbol limpio. La copia de OneDrive quedó en el 23/10 y da datos falsos.
+**Estado:** la tanda 0, la base común, está hecha (29/10/2026, rama `plantillas-base-2910`; sección 6). Las tabs, todavía no. Se midió contra `origin/main` `1cf06eba9` (29/10/2026, 13:55), leído con `git show` en un árbol limpio. La copia de OneDrive quedó en el 23/10 y da datos falsos.
 **Cómo leerlo:** este README es lo común (unos 10 minutos). Cada tab tiene su archivo, con las plantillas enteras, el prompt base del experto y la implementación sobre el código de hoy.
 
 | Tab | Archivo | Plantillas | El experto |
@@ -136,7 +136,7 @@ Se corrigió en las cinco partes, también en los guiones que repetían esos dat
 ### 2.4 Qué lee el agente
 
 - **El negocio:** `contextoDelNegocio` (`lib/copywriter/contexto.ts`: el Second Brain, con un tope de 1,800 tokens). Va a un `lib/` común en la tanda 0, porque hoy Video e Image no leen el negocio.
-  - Ese común lee el grafo con `grafoParaChat` (`lib/cerebro-para-chat.ts:33`), que está en `main` desde el 28/10 (`c272b97dd`) y ya lo usa `lib/api-mako/areas/negocio.run.ts`. `contexto.ts` todavía lee `construirCerebro()` (`const GRAFO`, línea 24), y su cabecera (líneas 12 a 15) dice que `grafoParaChat` no llegó: es un comentario viejo.
+  - Ese común lee el grafo con `grafoParaChat` (`lib/cerebro-para-chat.ts:33`), que está en `main` desde el 28/10 (`c272b97dd`) y ya lo usa `lib/api-mako/areas/negocio.run.ts`. **Hecho en la tanda 0:** vive en `lib/negocio-para-crear.ts`, y `lib/copywriter/contexto.ts` quedó como re-exportación.
   - **Nombres que ya existen:** `lib/plan-senales.ts` exporta otra `contextoDelNegocio`, con otra firma. Lo mismo pasa con dos nombres que el borrador proponía para la tanda 0: `gruposDePlantillas` (`lib/copywriter/plantillas.ts:162`) y `miniaturaDe` (`app/crm/lead-view/ficha/galeria.ts:99` y `lib/embeds.ts:665`). Las funciones nuevas se llaman `seccionesDeCrear` y `cajaDeMiniatura`.
 - **La voz:** `vozDelNegocio` (`lib/nutricion-generator.ts`) y `vozParaPrompt` (`lib/offer-ia.ts`), la misma fuente que el slot `{{voz}}` de los prompts `offer.*`.
 - **El ejemplo:** va en el prompt marcado FICTICIO, como forma y nunca como dato del dueño. **Nunca** entra en las fuentes con las que el código valida cifras (`ContextoReglas.fuentes` de Offer). Sí van envueltos con `contenidoNoConfiable` lo que escribió la persona y su negocio.
@@ -211,7 +211,7 @@ Se retiran `gancho-escrito` y `oferta-glitch`: con el ejemplo lleno serían tarj
 | 11 | Anuncio · Comparación · Inmobiliaria | Tu cliente duda entre tú y otra opción | Torre Alameda |
 | 12 | Presentación · Clase que vende · Infoproducto | Das una clase o un webinar que enseña y termina en tu oferta | Consulta Rentable |
 
-Las 10 de Doory salen de «Nuevo diseño». El crédito de Doory se queda, porque es del código.
+Las 10 de Doory salen de «Nuevo diseño». El crédito visible de Doory ya no está: el 29/10/2026 Martín decidió sacarlo, a su riesgo. Su licencia sigue en `app/image-editor/_doory/` mientras quede código suyo (docs/hallazgos-editor-imagen.md).
 
 ### 3.4 AI Avatar · [avatar.md](avatar.md)
 
@@ -337,7 +337,15 @@ Antes de subir se corre `verify-prompt-registry-sync`.
 
 ## 6. El orden de implementación
 
-**Tanda 0, la base común** (una sola vez, antes de cualquier tab):
+**Tanda 0, la base común** (una sola vez, antes de cualquier tab). **Hecha el 29/10/2026**, rama `plantillas-base-2910`:
+- la tarjeta: `app/_crear/TarjetaPlantilla.tsx`;
+- el rótulo y el primer mensaje: `app/_crear/ejemplo.ts`;
+- el negocio: `lib/negocio-para-crear.ts`;
+- las once licencias: `lib/avisos/`;
+- los tests: `tests/_reales.ts` (`problemasDelEjemplo`) y `tests/avisos-licencias.test.ts`;
+- las capturas a los cuatro anchos: `C:/dev/revisiones/plantillas-tanda0/`.
+
+Lo que se pedía:
 - **`PlantillaCrear`** (`app/_crear/reglas.ts`) suma estos campos. **Son todos opcionales:** una tab que no los pasa se dibuja igual que hoy.
   - `grupo?: string`: la sección de la grilla;
   - `insignia?: string`: el formato y la duración («📣 Anuncio · 45 s», «Sugerida · 24 s · 1 clip», «1 de 8»);
@@ -384,9 +392,8 @@ Cada paso pasa `tsc` acotado y los tests de su tab. La cosecha va en el mismo co
 
 ## 7. Lo que queda sin hacer (con dónde vive)
 
-- **Nada está implementado:** las secciones 5 de cada archivo.
+- **Las tabs no están implementadas** (la tanda 0 sí, sección 6): las secciones 5 de cada archivo.
 - **Elegir el material a mano:** los ~30 clips de Pexels (`lib/editor-video/plantillas.ts`, `ejemplo.creditos`) y las 5 fotos (`public/cv/plantillas/fotos/`). Ninguno está elegido.
-- **`grafoParaChat` en el Copywriter:** cambiar `const GRAFO` y su comentario en `lib/copywriter/contexto.ts` (2.4).
 - **AI Avatar:**
   - la prueba de la plantilla 5 (podcast, dos personas);
   - los 5 retratos, los 10 pósters y los 10 loops (`public/ai-avatar/plantillas/`), que esperan al motor.

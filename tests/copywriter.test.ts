@@ -280,8 +280,11 @@ test('la IA del Copywriter: su feature registrada y la regla de lo que no existe
   assert.match(ia, /feature: FEATURE_COPY/);
 });
 
-test('el contexto del negocio sale del grafo del Second Brain con recuperar (el punto de enganche de grafoParaChat)', () => {
-  const c = leer('lib/copywriter/contexto.ts');
+test('el contexto del negocio sale del grafo de los chats (grafoParaChat) con recuperar, en el lib común de Create', () => {
+  // 29/10/2026: se mudó a lib/negocio-para-crear.ts (lo leen las cinco tabs) y dejó de rearmar el mapa con su física.
+  const c = leer('lib/negocio-para-crear.ts');
+  assert.match(c, /const grafo = await grafoParaChat\(\);/);
   assert.match(c, /recuperar\(grafo,/);
-  assert.match(c, /const GRAFO = \(\) =>/);
+  assert.doesNotMatch(c.replace(/^[ \t]*\/\/.*$/gm, ''), /construirCerebro\(/, 'rearma el mapa entero con su física');
+  assert.match(leer('lib/copywriter/contexto.ts'), /export \{ contextoDelNegocio,[^}]*\} from '\.\.\/negocio-para-crear';/);
 });
