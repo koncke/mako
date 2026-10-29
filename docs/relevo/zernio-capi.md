@@ -356,3 +356,29 @@ notas del Cerebro). P2P (ws14) no tiene grupo de WhatsApp: por eso nunca le lleg
   no pagar, desconecta en zernio.com una que ya no uses y vuelve a intentarlo» (Zernio cobra sólo las ACTIVAS). La de «otra
   cuenta de Zernio» espera a varias claves; el test fija que no aparezca. Probado rompiéndolo (12/1 → 11/2; el 1 es el «Mirá»
   de Planes), tsc 0. Falta: punto 1 (los límites en la nota y el modal, con Analytics MEDIDO de nuevo), punto 4 y punto 3.
+
+## ESTADO 29/10 madrugada (claude3, el «Continúa» después del corte de claude4)
+
+**La segunda verificación** (C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md, llegó después del corte):
+cinco MAL de publicar desde el Calendario, ARREGLADOS en el commit «Calendario: los arreglos de la segunda verificación…» de esta rama:
+- N1 (media): la ventana del mismo x-request-id se cuenta desde el PRIMER envío (`anotarIntento` → `<uuid>@<ms>` en
+  `publicacion_intento`, sin migración nueva: entra en el CHECK de 80); la relectura de un trabado borra el intento; la anotación
+  de «programada» se reintenta una vez.
+- N2: en el reintento sólo el post resuelve; un 429/422 deja `dudosa` con su intento.
+- N3 y N7: «Ya lo resolví en Zernio» (`resolverEnZernio`, en la pantalla) suelta una `dudosa` o una programada con OTRA clave: sin
+  programar y SIN la cuenta (no vuelve a «Programar las listas»). Tildar, mover y borrar dicen el porqué de su estado
+  (`textoDeBloqueo`; `marcarEvento` devuelve `{ bloqueo }` y borrar tira `BloqueadaEnLaRed`).
+- N6: el reclamo exige el `updated_at` leído. N5: el «Deshacer» doble (23505) no escribe la publicación.
+Probado rompiéndolo: 11 roturas, 11 ROJO (base 37/0), anotadas en la cabecera de tests/calendario-publicar.test.ts.
+Afectados de a uno: 36 archivos verdes; los rojos NO son de esta rama: `puente-panel-copy` (el «Mirá» de Planes, lo arregla
+a196d5a93) y `cobro-lanzamiento` («una pasarela en modo prueba no se ofrece en /planes»: ROJO también en 254856316 limpio, entró con
+el merge de Planes).
+
+**Los límites de Zernio, punto 1: HECHO** (mismo commit): `textoGratisZernio` en el modal (ConectarRedes, abajo de la línea de las
+cuentas). La nota de la key NO cambia (tope de una línea y la fija zernio-sin-respaldo). Sin Analytics (test).
+**Punto 4, medido a medias:** `GET /v1/usage?range=cycle&granularity=total` y `/v1/billing` andan (200) con la clave de la
+plataforma, pero esa cuenta no manda nada: `lineItems` vacío. Falta medirlo con la clave de un negocio que mande mensajes (ws10 o
+ws13) con el sí del Cerebro. Detalle: docs/hallazgos-integraciones.md, «Los límites de Zernio, dichos al conectar…».
+**Siguen sin hacer:** el aviso al 80% (con Automations), varias claves por negocio (punto 3). Los términos de Zernio están en
+zernio.com/tos (09/10/2026): no prohíben varias cuentas gratis por escrito, pero «Abuse of the API may result in immediate suspension»
+deja el riesgo a criterio de Zernio. Avisado al Cerebro: es una decisión de Martín antes de arrancar el punto 3.

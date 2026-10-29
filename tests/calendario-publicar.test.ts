@@ -19,6 +19,10 @@
 //   8. LA CUENTA ES DEL NEGOCIO (la verificación del 28/10, lo primero): la de otro negocio no se guarda ni se programa.
 //   9. LA CLAVE DE ZERNIO CAMBIÓ: un 404 con otra clave no es «cancelado» ni «ya no está».
 //  10. LA CARRERA: mover, borrar y tildar llevan la condición EN la escritura.
+//  11. (la segunda verificación, 29/10) LA VENTANA DEL MISMO PEDIDO SE CUENTA DESDE EL PRIMER ENVÍO; en el reintento sólo el
+//      post resuelve la duda (un 429 o un 422 no); la anotación de «programada» se reintenta; el reclamo exige que el evento no
+//      haya cambiado desde que se leyó; «Ya lo resolví en Zernio» saca de la duda y de la clave cambiada; el «Deshacer» doble no
+//      pisa una programada; y lo que no se mueve, borra ni tilda dice el porqué de su estado.
 //
 // Probado ROMPIÉNDOLO (28/10/2026), una rotura por vez y restaurando, con este test y tests/calendario-publicar-reglas.test.ts
 // (16 pases y 0 fallos con el código como está). Rota:
@@ -52,11 +56,26 @@
 //   · YouTube sin el tope del título                                                   → 24 / 1
 //   · el resumen sin la cuenta                                                         → 24 / 1
 //
+// ROTO 29/10 madrugada (los arreglos de la segunda verificación, 2910-verificacion-zernio-254856316-planes-ddfa645d4.md; con
+// este test y el de reglas: 37 pases y 0 fallos como está):
+//   · N1: la ventana se cuenta desde la última anotación (updated_at)                  → 36 / 1
+//   · N1: la relectura de un trabado deja el intento                                   → 35 / 2
+//   · N1: la anotación de «programada» no se reintenta                                 → 35 / 2
+//   · N2: en el reintento un 4xx borra la duda                                         → 35 / 2
+//   · N6: el reclamo no mira si el evento cambió                                       → 36 / 1
+//   · N3: «Ya lo resolví» deja la cuenta (vuelve a las listas)                         → 36 / 1
+//   · N7: «Ya lo resolví» suelta una programada con la MISMA clave                     → 36 / 1
+//   · N3: tildar o mover una dudosa dice «se tilda sola» / «cancela»                   → 35 / 2
+//   · N7: tildar con otra clave dice «se tilda sola»                                   → 35 / 2
+//   · N5: el «Deshacer» doble escribe la publicación sin condición                     → 36 / 1
+//   · la pantalla sin «Ya lo resolví» en la duda                                       → 36 / 1
+//
 // Correr: node --import tsx --test tests/calendario-publicar.test.ts
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = join(__dirname, '..');
@@ -111,7 +130,7 @@ test('lo programado no se mueve ni se borra; se cancela en Zernio y después sí
   assert.equal(e.mover.ok, false);
   assert.match(e.mover.error, /cancela la programación/);
   assert.match(e.borrar.tira ?? '', /cancela la programación/);
-  assert.equal(e.marcar, 'programada', 'uno programado no se tilda a mano: se tilda solo cuando sale');
+  assert.deepEqual(e.marcar, { bloqueo: 'Está programada en la red: se tilda sola cuando sale.' }, 'uno programado no se tilda a mano: se tilda solo cuando sale');
   assert.deepEqual(e.cancelar, { ok: true });
   assert.equal(e.deletes.length, 1, 'un DELETE en Zernio, el del post programado');
   assert.match(e.deletes[0], /^\/posts\/post_\d+$/);
@@ -227,6 +246,8 @@ test('una que quedó programándose (la función murió) pasa a la duda a los 10
   assert.equal(R.m.cambiados, 1);
   assert.equal(R.m.q.publicacion, 'dudosa');
   assert.equal(R.m.r.publicacion, 'programando', 'la de hace 2 minutos todavía se está programando');
+  assert.equal(R.m.intentoQ, null, 'la que pasa a la duda pierde el intento: su x-request-id ya salió de la ventana de Zernio');
+  assert.equal(R.m.intentoR, 'req-r');
 });
 
 test('LA CLAVE CAMBIÓ: cancelar no dice «cancelado» y la relectura no la da por perdida; con la misma clave, sí', () => {
@@ -252,7 +273,7 @@ test('LA CARRERA: si otro pedido la programa entre que se decide y se escribe, m
   assert.equal(o.inicioU, '2026-11-03T13:00:00.000Z');
   assert.match(o.borrarCarrera.tira ?? '', /cancela la programación para borrarla/);
   assert.equal(o.existeV, true);
-  assert.equal(o.marcarCarrera, 'programada');
+  assert.deepEqual(o.marcarCarrera, { bloqueo: 'Está programada en la red: se tilda sola cuando sale.' });
   assert.equal(o.estadoW, 'planeado');
 });
 
@@ -264,4 +285,116 @@ test('YouTube: el título del evento es el del video, hasta 100 caracteres', () 
   assert.deepEqual(R.q.r.programadas, ['evz']);
   assert.match(R.q.r.fallidas[0].motivo, /hasta 100 caracteres/);
   assert.deepEqual(R.q.posts, ['evz']);
+});
+
+// ── La segunda verificación (29/10, C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md) ──────────────────
+
+test('N1: la ventana del MISMO pedido se cuenta desde el PRIMER envío; un trabado que pasa a la duda no se reintenta a ciegas', () => {
+  const r = R.r;
+  assert.match(r.n1.fallidas[0].motivo, /Quedó programada en Zernio \(post_\d+\) y no pude anotarlo/);
+  assert.equal(r.n1Fila.publicacion, 'programando');
+  assert.match(r.n1Fila.intento ?? '', /^[0-9a-f-]{36}@\d+$/, 'el intento lleva la hora del primer envío');
+  assert.equal(r.n1bFila.publicacion, 'programando', 'N1b: la base no anotó la duda');
+  assert.equal(r.n1Releer, 2);
+  for (const f of r.n1Duda) {
+    assert.equal(f.publicacion, 'dudosa');
+    assert.equal(f.intento, null, 'a los 11 minutos el x-request-id ya no lo deduplica Zernio: se borra');
+  }
+  assert.deepEqual(r.n1Reintento.programadas, []);
+  for (const f of r.n1Reintento.fallidas) assert.match(f.motivo, /revisa en Zernio/);
+  assert.equal(r.pedidos, 2, 'el reintento a los 12 minutos no sale a Zernio');
+  assert.equal(r.creados, 2, 'un post por evento: ninguno duplicado');
+});
+
+test('Zernio la creó y la base falló UNA vez al anotarla: se reintenta la anotación con el post que ya se conoce', () => {
+  assert.deepEqual(R.r1.r, { programadas: ['evR1'], fallidas: [] });
+  assert.equal(R.r1.fila.publicacion, 'programada');
+  assert.equal(R.r1.creados, 1);
+});
+
+test('N1c: dos respuestas perdidas seguidas: a los 3:54 se repite el pedido, a los 7:48 del PRIMER envío ya no', () => {
+  const r = R.r2;
+  assert.equal(r.c2Fila.publicacion, 'dudosa');
+  assert.equal(r.c2Fila.intento, r.fila.intento, 'el reintento conserva el intento y su hora');
+  assert.deepEqual(r.c3.programadas, []);
+  assert.match(r.c3.fallidas[0].motivo, /revisa en Zernio/);
+  assert.equal(r.pedidos.length, 2, 'el tercero no sale');
+  assert.equal(r.pedidos[0], r.pedidos[1]);
+  assert.equal(r.creados, 1, 'un solo post');
+});
+
+for (const status of ['429', '422']) {
+  test(`N2: en el reintento, un ${status} de Zernio no borra la duda; el siguiente recupera el post original`, () => {
+    const r = R[`r3_${status}`];
+    assert.equal(r.aFila.publicacion, 'dudosa', `un ${status} al reintento no dice que el primero no exista`);
+    assert.equal(r.aFila.intento, r.intento0, 'conserva el intento (y su hora)');
+    assert.match(r.a.fallidas[0].motivo, /no confirmó el reintento/);
+    assert.deepEqual(r.b, { programadas: ['evN2'], fallidas: [] });
+    assert.equal(r.fila.publicacion, 'programada');
+    assert.equal(new Set(r.pedidos).size, 1, 'siempre el mismo x-request-id');
+    assert.equal(r.creados, 1, 'un solo post');
+  });
+}
+
+test('N3: una en duda que SÍ quedó: tildar, mover y borrar dicen la verdad, y «Ya lo resolví en Zernio» la suelta sin la cuenta', () => {
+  const s = R.s;
+  assert.match(s.marcar.bloqueo ?? '', /No se sabe si quedó/);
+  assert.doesNotMatch(s.marcar.bloqueo ?? '', /se tilda sola/);
+  assert.equal(s.mover.ok, false);
+  assert.match(s.mover.error, /No se sabe si quedó/);
+  assert.match(s.borrar.tira ?? '', /No se sabe si quedó/);
+  assert.deepEqual(s.resolver, { ok: true });
+  assert.equal(s.tras.publicacion, null);
+  assert.deepEqual([s.tras.red, s.tras.cuenta, s.tras.intento, s.tras.post_id], [null, null, null, null], 'sin la cuenta: no vuelve a las listas');
+  assert.equal(s.tras.archivo, '3/calendario/evN3/abcdef123456.mp4', 'el archivo y el texto quedan');
+  assert.equal(s.tras.texto, 'Mira esto');
+  assert.match(s.tras.motivo ?? '', /MaKo ya no la sigue/);
+  assert.deepEqual(s.listas, [], '«Programar las listas» no la ofrece otra vez (duplicaría lo que quedó en Zernio)');
+  assert.equal(s.marcarDespues, true, 'ahora se tilda a mano');
+  assert.equal(s.resolverOtra.ok, false);
+  assert.equal(s.creados, 1);
+});
+
+test('N7: programada con OTRA clave: tildar lo dice y «Ya lo resolví en Zernio» la suelta; con la MISMA clave, no', () => {
+  const s = R.s2;
+  assert.equal(s.misma.otra, false);
+  assert.match(s.misma.marcar.bloqueo ?? '', /se tilda sola cuando sale/);
+  assert.equal(s.misma.resolver.ok, false, 'con la misma clave MaKo la sigue y la cancela: no se suelta');
+  assert.match(s.misma.resolver.error, /cancélala desde aquí/);
+  assert.equal(s.otra, true);
+  assert.match(s.marcar.bloqueo ?? '', /otra clave de Zernio/);
+  assert.deepEqual(s.resolver, { ok: true });
+  assert.equal(s.fila.publicacion, null);
+  assert.equal(s.sigueEnZernio, 1, 'soltarla no toca Zernio (la otra cuenta es de la persona)');
+});
+
+test('N6: si otro pedido mueve el evento entre la lectura y el reclamo, el reclamo no gana y no sale nada a la hora vieja', () => {
+  const t = R.t;
+  assert.deepEqual(t.t1.programadas, []);
+  assert.match(t.t1.fallidas[0].motivo, /Cambió mientras la programaba/);
+  assert.equal(t.tPosts, 0, 'nada a Zernio');
+  assert.equal(t.tFila.publicacion, null);
+  assert.equal(t.tFila.inicio, '2026-11-07T23:00:00.000Z');
+  assert.deepEqual(t.t2, { programadas: ['evN6'], fallidas: [] }, 'el siguiente pedido lee lo nuevo y la programa');
+  assert.deepEqual(t.scheduledFor, ['2026-11-07T23:00:00.000Z'], 'sale a la hora NUEVA');
+});
+
+test('N5: el «Deshacer» de un evento que ya volvió no pisa el archivo ni el texto de uno programado', () => {
+  const u = R.u;
+  assert.equal(u.rest5, 'ok');
+  assert.equal(u.publicacion, 'programada');
+  assert.equal(u.texto, 'texto que va a salir');
+  assert.equal(u.archivo, '3/calendario/evN5/abcdef123456.mp4');
+});
+
+test('la pantalla: «Ya lo resolví en Zernio» en la duda y en la programada con otra clave (la action dice cuál es)', () => {
+  const src = readFileSync(join(RAIZ, 'app', 'calendario', 'PublicarEnRed.tsx'), 'utf8');
+  const actions = readFileSync(join(RAIZ, 'app', 'calendario', 'actions.ts'), 'utf8');
+  const duda = src.slice(src.indexOf("{d.publicacion === 'dudosa' && ("), src.indexOf("{!bloqueada && d.publicacion !== 'publicada'"));
+  assert.ok(duda.length > 0);
+  assert.match(duda, /onClick=\{\(\) => void resolver\(\)\}>Ya lo resolví en Zernio</);
+  assert.match(src, /otraClave && d\.publicacion === 'programada' \? \([\s\S]{0,400}void resolver\(\)\}>Ya lo resolví en Zernio</);
+  assert.match(src, /setOtraClave\(r\.otraClave === true\)/);
+  assert.match(actions, /otraClave: await programadaConOtraClave\(datos\)/);
+  assert.match(actions, /await resolverEnZernio\(idDe\(id\)\)/);
 });

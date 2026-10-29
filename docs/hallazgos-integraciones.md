@@ -2204,3 +2204,39 @@ tests/zernio-sin-respaldo.test.ts (la regla nueva).
   «Conectar» sin key y decir quién paga. El onboarding no tiene todavía un paso «Conectá Instagram y Facebook» (y
   tests/sin-instagram.test.ts prohíbe un paso de onboarding cuyo texto nombre Instagram: hay que decidir cómo se llama). El aviso
   de «la 3.ª cuenta se paga» (`aceptaCobro`) es de la cuenta del negocio: con la de la plataforma no le corresponde.
+
+## Los límites de Zernio, dichos al conectar, y de dónde se leería el consumo de mensajes (29/10/2026)
+
+Martín (28/10): «Super importante advertir en la conexión de Zernio las limitaciones, como que hasta 2 redes sociales es gratis».
+
+**Vive en:** `lib/zernio-redes.ts` (`textoGratisZernio`, `MENSAJES_GRATIS_ZERNIO`, `ANUNCIOS_GRATIS_ZERNIO`, `USD_CUENTA_EXTRA_ZERNIO`,
+`textoAvisoCobro`) · `app/integraciones/ConectarRedes.tsx` (la línea, abajo de la de las cuentas) · tests/zernio-aviso-cobro.test.ts.
+
+- **Lo gratis, de zernio.com/pricing (leído el 28/10 23:40 y otra vez el 29/10 02:20):** 2 cuentas; 10.000 mensajes ENVIADOS por mes
+  (los recibidos, los comentarios y las reseñas no cuentan; los DM de X y los SMS van aparte); 500 anuncios gestionados. Sin tarjeta,
+  al llegar a 10.000 los ENVÍOS se frenan hasta el mes siguiente (leer, Analytics y publicar siguen); con tarjeta, US$1 cada 10.000.
+  ⚠️ La página se contradice: la tabla dice US$6 de la 3.ª a la 10.ª y su FAQ dice «$6/account for 1-10». Vale la tabla (2 gratis,
+  y así cobró a Leila).
+- ⚠️ **Analytics NO se promete.** La página dice «incluido en cada cuenta», la doc dice que `follower-stats` pide el complemento, y
+  MaKo midió un 402 que lo pedía. El test fija que el texto no lo nombre hasta que alguien lo mida con una cuenta real.
+- ⚠️ **La nota de la key no da para los límites:** el tope de una nota es una línea (120, tests/tutoriales-legibles.test.ts) y su
+  texto lo fija tests/zernio-sin-respaldo.test.ts. Los límites van en el modal, abajo de la línea de las cuentas (con la key guardada).
+- ⚠️ **La salida gratis «conecta otra cuenta de Zernio (de otro email)» NO se dice todavía:** MaKo usa UNA clave por negocio y pegar
+  otra reemplaza la anterior (las redes de la vieja dejan de verse). La que sí existe hoy va en el aviso de la 3.ª: «desconecta en
+  zernio.com una que ya no uses» (Zernio cobra sólo las activas).
+- **El consumo de mensajes del mes (para avisar antes del tope de 10.000, el audio de Leandro): medido a medias.** La OpenAPI v1.358
+  tiene `GET /v1/usage` (sin parámetros: la foto del plan; con `range=cycle&granularity=total`: lo FACTURADO en USD por familia, con
+  `lineItems[]` de `product: 'messages'` y `quantity`) y `GET /v1/billing` (el ciclo: `period.start/end`). Medido el 29/10 con la
+  clave de la plataforma (sólo lectura): las dos contestan 200, cuenta `metronome` (por uso), ciclo del 01/10 al 01/11; pero esa
+  cuenta no tiene redes ni envíos, así que `lineItems` sale vacío y **no se sabe si los 10.000 gratis aparecen con su `quantity`**
+  (podrían no ser una línea, por ser US$0). Falta medirlo con la clave de un negocio que mande mensajes (Fiesta Music, ws10, o Código
+  Inmobiliario, ws13), con el sí del Cerebro. Si no aparecen, la salida es contar en MaKo lo que MaKo manda por Zernio (no ve lo que
+  se manda desde el inbox de Zernio u otra herramienta con la misma cuenta). Y el «mes» es el CICLO de Zernio, no el calendario.
+- **Sin hacer:** el aviso al 80% de los 10.000 (una vez por ciclo, en el grupo del negocio), coordinado ANTES con Automations, que
+  ya avisa los topes de Meta y los 429 de Zernio (`social_tope`, c6f78deb4): que no queden dos avisos. Y varias claves de Zernio por
+  negocio (el diseño de 4 pasos, docs/relevo/zernio-capi.md).
+- **Los términos de Zernio están en zernio.com/tos** (no en /terms ni /terms-of-service, que dan 404; la portada no los enlaza),
+  fechados el 09/10/2026. Leídos el 29/10: NO hablan de varias cuentas gratis, de agencias ni de compartir claves; sólo «Abuse of
+  the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).
+  Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio: es una
+  decisión de Martín antes de ofrecerlo como salida gratis.

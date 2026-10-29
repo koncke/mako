@@ -15,8 +15,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cuerpoDelPost, estadoDeZernio, motivoParaNoProgramar, rutaDelArchivo, rutaValida, segundosDeFirma, tipoDeArchivo, TOPE_TEXTO,
-  type EventoParaPublicar,
+  anotarIntento, cuerpoDelPost, estadoDeZernio, leerIntento, motivoParaNoProgramar, repiteElMismoPedido, rutaDelArchivo, rutaValida, segundosDeFirma,
+  textoDeBloqueo, tipoDeArchivo, TOPE_TEXTO, type EventoParaPublicar,
 } from '../lib/calendario-publicar-reglas';
 
 const AHORA = Date.parse('2026-11-02T12:00:00Z');
@@ -107,4 +107,37 @@ test('el estado de Zernio, sin inventar: esperar, publicada con su link, o fallo
     { publicacion: 'fallo', motivo: 'Media too large', url: null });
   assert.equal(estadoDeZernio({ status: 'partial' })?.publicacion, 'fallo');
   assert.equal(estadoDeZernio({ status: 'algo-nuevo' }), null, 'un estado que no conocemos no se da por publicado');
+});
+
+// La segunda verificación (29/10): la ventana del x-request-id se cuenta desde el PRIMER envío, y el porqué de lo que no se mueve,
+// borra ni tilda es el de su estado.
+test('el reintento repite el MISMO pedido sólo dentro de los 4 minutos del PRIMER envío', () => {
+  const intento = anotarIntento('6f1c0a2e-uuid', AHORA);
+  assert.deepEqual(leerIntento(intento), { requestId: '6f1c0a2e-uuid', primerEnvio: AHORA });
+  const duda = { publicacion: 'dudosa' as const, publicacion_intento: intento };
+  assert.equal(repiteElMismoPedido(duda, AHORA + 3 * 60_000 + 59_000), true);
+  assert.equal(repiteElMismoPedido(duda, AHORA + 4 * 60_000), false, 'a los 4 minutos del primer envío, no: Zernio está por olvidarlo');
+  assert.equal(repiteElMismoPedido(duda, AHORA + 7 * 60_000 + 48_000), false);
+  assert.equal(repiteElMismoPedido({ ...duda, publicacion: 'fallo' }, AHORA), false, 'sólo una en duda');
+  assert.equal(repiteElMismoPedido({ ...duda, publicacion_intento: '6f1c0a2e-uuid' }, AHORA), false, 'un intento sin la hora no se repite');
+  assert.equal(repiteElMismoPedido({ ...duda, publicacion_intento: null }, AHORA), false);
+  assert.ok(intento.length <= 80, 'entra en el CHECK de la 0342');
+});
+
+test('lo que espera a Zernio dice por qué no se mueve, borra ni tilda, según su estado', () => {
+  assert.equal(textoDeBloqueo(null, false, 'tildar'), null);
+  assert.equal(textoDeBloqueo('publicada', false, 'borrar'), null);
+  assert.equal(textoDeBloqueo('fallo', false, 'cambiar'), null);
+  assert.match(textoDeBloqueo('programada', false, 'tildar') ?? '', /se tilda sola cuando sale/);
+  assert.match(textoDeBloqueo('programada', false, 'borrar') ?? '', /cancela la programación para borrarla/);
+  assert.match(textoDeBloqueo('programada', false, 'cambiar') ?? '', /cancela la programación para cambiarla/);
+  for (const a of ['tildar', 'borrar', 'cambiar'] as const) {
+    const duda = textoDeBloqueo('dudosa', false, a) ?? '';
+    assert.match(duda, /No se sabe si quedó/);
+    assert.doesNotMatch(duda, /se tilda sola|cancela la programación/, 'una en duda ni se tilda sola ni se cancela');
+    const otra = textoDeBloqueo('programada', true, a) ?? '';
+    assert.match(otra, /otra clave de Zernio/);
+    assert.doesNotMatch(otra, /se tilda sola/, 'con otra clave la relectura no la encuentra');
+  }
+  assert.match(textoDeBloqueo('programando', false, 'tildar') ?? '', /prueba en un minuto/);
 });

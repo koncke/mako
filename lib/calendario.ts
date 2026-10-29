@@ -41,7 +41,7 @@ import {
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
 import type { LlamadaDeVenta } from './calendario-llamadas';
-import { esSinMigracion, estaProgramadoEnLaRed, leerPublicaciones } from './calendario-publicar';
+import { bloqueoEnLaRed, esSinMigracion, leerPublicaciones } from './calendario-publicar';
 import { rutaValida, TOPE_TEXTO, type DatosPublicacion } from './calendario-publicar-reglas';
 
 export type FallosCalendario = {
@@ -366,12 +366,14 @@ export async function cambiarEvento(id: string, e: EntradaEvento, tz: string): P
   const w = await sinPublicacionEnCurso((c) => conCondicion(db.from('calendario_eventos').update(fila).eq('id', id), c).select('id'));
   if ('error' in w) throw new Error(`No pude cambiar el evento: ${w.error}`);
   if (w.filas.length) return { ok: true };
-  return (await estaProgramadoEnLaRed(id)) ? { ok: false, error: PROGRAMADA_CAMBIAR } : { ok: false, error: 'Ese evento ya no existe.' };
+  return { ok: false, error: (await bloqueoEnLaRed(id, 'cambiar')) ?? 'Ese evento ya no existe.' };
 }
 
-const PROGRAMADA_CAMBIAR = 'Está programada en la red: cancela la programación para cambiarla.';
-export const PROGRAMADA_BORRAR = 'Está programada en la red: cancela la programación para borrarla.';
-export const PROGRAMADA_TILDAR = 'Está programada en la red: se tilda sola cuando sale.';
+/**
+ * Uno que espera a Zernio no se borra: el motivo (`bloqueoEnLaRed`, el texto verdadero para cada estado) llega a la persona. Es
+ * una clase para que la action lo distinga de un error de la base sin comparar textos.
+ */
+export class BloqueadaEnLaRed extends Error {}
 
 type Condicion = 'nulo' | 'libres' | 'sin';
 type Filtrable = { is(c: string, v: null): Filtrable; in(c: string, v: readonly string[]): Filtrable };
@@ -403,16 +405,18 @@ async function sinPublicacionEnCurso<T>(armar: (c: Condicion) => PromiseLike<{ d
 }
 
 /**
- * Tilda (o destilda) un evento: una publicación que ya salió, un bloque que se hizo. 'programada' si espera a Zernio: esa se tilda
- * sola cuando sale (la verificación del 28/10: la tarjeta la tildaba y quedaba «hecha» y programada a la vez).
+ * Tilda (o destilda) un evento: una publicación que ya salió, un bloque que se hizo. `{ bloqueo }` si espera a Zernio, con el
+ * porqué de su estado (la verificación del 28/10: la tarjeta la tildaba y quedaba «hecha» y programada a la vez; la del 29/10:
+ * «se tilda sola cuando sale» no es cierto de una `dudosa` ni de una programada con otra clave).
  */
-export async function marcarEvento(id: string, hecho: boolean): Promise<boolean | 'programada'> {
+export async function marcarEvento(id: string, hecho: boolean): Promise<boolean | { bloqueo: string }> {
   const db = await getTenantDb();
   const fila = { estado: hecho ? 'hecho' : 'planeado', updated_at: new Date().toISOString() };
   const w = await sinPublicacionEnCurso((c) => conCondicion(db.from('calendario_eventos').update(fila).eq('id', id), c).select('id'));
   if ('error' in w) throw new Error(`No pude marcar el evento: ${w.error}`);
   if (w.filas.length) return true;
-  return (await estaProgramadoEnLaRed(id)) ? 'programada' : false;
+  const bloqueo = await bloqueoEnLaRed(id, 'tildar');
+  return bloqueo ? { bloqueo } : false;
 }
 
 /**
@@ -433,7 +437,8 @@ export async function borrarEvento(id: string): Promise<EventoBorrado | null> {
   if ('error' in w) throw new Error(`No pude borrar el evento: ${w.error}`);
   const b = w.filas[0] ?? null;
   if (!b) {
-    if (await estaProgramadoEnLaRed(id)) throw new Error(PROGRAMADA_BORRAR);
+    const bloqueo = await bloqueoEnLaRed(id, 'borrar');
+    if (bloqueo) throw new BloqueadaEnLaRed(bloqueo);
     return null;
   }
   // El «Deshacer» devuelve el archivo y el texto, NUNCA la cuenta: la cuenta se vuelve a elegir entre las del negocio.
@@ -464,6 +469,9 @@ export async function restaurarEvento(f: EventoBorrado): Promise<void> {
     updated_at: new Date().toISOString(),
   });
   if (error && error.code !== '23505') throw new Error(`No pude volver a poner el evento: ${error.message}`);
+  // Ya había vuelto (dos «Deshacer»): la publicación la escribió el primero, y ésta no se escribe encima (la verificación del
+  // 29/10: el segundo pisaba el archivo y el texto de un evento que ya estaba programado otra vez, y Zernio publicaba lo de antes).
+  if (error) return;
   // La publicación que tenía armada, validada como todo lo demás (lo manda el navegador). Aparte: sin la 0342, el evento
   // vuelve igual. Nunca vuelve programada: lo de Zernio se canceló antes de borrar.
   const p = f.publicacion;
@@ -476,7 +484,8 @@ export async function restaurarEvento(f: EventoBorrado): Promise<void> {
       texto: typeof p.texto === 'string' ? p.texto.slice(0, TOPE_TEXTO) : '',
     };
     if (!fila.archivo) fila.archivo_tipo = null;
-    const { error: eP } = await db.from('calendario_eventos').update(fila).eq('id', f.id);
+    // Y sólo sobre uno que no espera a Zernio: lo que se programó es lo que sale.
+    const { error: eP } = await db.from('calendario_eventos').update(fila).eq('id', f.id).is('publicacion', null);
     if (eP) console.warn(`[calendario] el evento ${f.id} volvió sin su publicación: ${eP.message}`);
   }
 }

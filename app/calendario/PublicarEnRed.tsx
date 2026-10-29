@@ -12,6 +12,8 @@
 //   · LO PROGRAMADO NO SE TOCA: el archivo, la cuenta y el texto se cambian después de «Cancelar la programación»; el modal
 //     esconde «Borrar» y «Ya se publicó» mientras tanto (`onProgramada`).
 //   · EL ARCHIVO lo sube el navegador a una URL firmada que arma el server (la ruta no la elige el navegador).
+//   · LO QUE MaKo NO PUEDE ACLARAR SOLO (la verificación del 29/10): una en duda que sí quedó en Zernio, o una programada con
+//     OTRA clave de Zernio (no se relee ni se cancela desde acá), se suelta con «Ya lo resolví en Zernio».
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
@@ -21,7 +23,8 @@ import { TextField } from '@/app/_ui/Field';
 import { useConfirm } from '@/app/_ui/Confirm';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import {
-  cancelarPublicacionAction, guardarPublicacionAction, noQuedoProgramadaAction, programarAction, publicacionAction, subidaArchivoAction,
+  cancelarPublicacionAction, guardarPublicacionAction, noQuedoProgramadaAction, programarAction, publicacionAction, resolverEnZernioAction,
+  subidaArchivoAction,
 } from './actions';
 import { MIMES_PUBLICAR, ROTULO_RED, TOPE_TEXTO, type DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 import type { CuentaParaPublicar } from '@/lib/calendario-publicar';
@@ -39,6 +42,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
 }) {
   const [datos, setDatos] = useState<DatosPublicacion | null | undefined>(undefined);
   const [cuentas, setCuentas] = useState<Cuentas | null>(null);
+  const [otraClave, setOtraClave] = useState(false);
   const [texto, setTexto] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [subida, setSubida] = useState<number | null>(null);
@@ -52,6 +56,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
     if (!r) { setError('No pude leer la publicación.'); return; }
     setDatos(r.datos);
     setCuentas(r.cuentas);
+    setOtraClave(r.otraClave === true);
     setTexto(r.datos?.texto ?? '');
     onProgramada(r.datos?.publicacion === 'programada' || r.datos?.publicacion === 'programando' || r.datos?.publicacion === 'dudosa');
   }, [id, onProgramada]);
@@ -125,6 +130,19 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
     }
   };
 
+  const resolver = async () => {
+    if (!(await confirm('MaKo deja de seguirla. El evento queda en el Calendario sin cuenta: si la vuelves a programar, sale otra.', { title: 'Ya lo resolví en Zernio', confirmLabel: 'Ya lo resolví', danger: false }))) return;
+    setOcupado(true);
+    try {
+      const r = await resolverEnZernioAction(id);
+      if (!r.ok) setError(r.error);
+      await cargar();
+      onCambio();
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const cancelar = async () => {
     if (!(await confirm('Se saca de la red antes de que salga. El evento queda en el Calendario.', { title: 'Cancelar la programación', confirmLabel: 'Cancelar la programación' }))) return;
     setOcupado(true);
@@ -155,8 +173,18 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
       )}
       {bloqueada && (
         <>
-          <span style={{ fontSize: 13.5 }}>{d.publicacion === 'programando' ? 'Programándose…' : `Programada en ${nombreCuenta}: sale sola a la hora del evento.`}</span>
-          <Button variant="secondary" size="sm" loading={ocupado} disabled={d.publicacion !== 'programada'} onClick={() => void cancelar()}>Cancelar la programación</Button>
+          {otraClave && d.publicacion === 'programada' ? (
+            <>
+              {/* Con otra clave, Zernio no la encuentra: ni se relee ni se cancela desde acá (la verificación del 29/10). */}
+              <span style={{ fontSize: 13.5 }}>Se programó con otra clave de Zernio: cancélala (o déjala) desde esa cuenta.</span>
+              <Button variant="secondary" size="sm" loading={ocupado} onClick={() => void resolver()}>Ya lo resolví en Zernio</Button>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 13.5 }}>{d.publicacion === 'programando' ? 'Programándose…' : `Programada en ${nombreCuenta}: sale sola a la hora del evento.`}</span>
+              <Button variant="secondary" size="sm" loading={ocupado} disabled={d.publicacion !== 'programada'} onClick={() => void cancelar()}>Cancelar la programación</Button>
+            </>
+          )}
         </>
       )}
       {d.publicacion === 'dudosa' && (
@@ -166,12 +194,14 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="secondary" size="sm" loading={ocupado} onClick={() => void reintentar()}>Reintentar</Button>
             <Button variant="tertiary" size="sm" disabled={ocupado} onClick={() => void noQuedo()}>No quedó programada</Button>
+            <Button variant="tertiary" size="sm" disabled={ocupado} onClick={() => void resolver()}>Ya lo resolví en Zernio</Button>
           </div>
         </>
       )}
       {!bloqueada && d.publicacion !== 'publicada' && d.publicacion !== 'dudosa' && (
         <>
           {d.publicacion === 'fallo' && d.publicacion_motivo && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No salió: {d.publicacion_motivo}</span>}
+          {d.publicacion === null && d.publicacion_motivo && <span style={DIM}>{d.publicacion_motivo}</span>}
           {cuentas && !cuentas.ok ? (
             <span style={{ ...DIM, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {cuentas.motivo === 'sin-clave' ? 'Conecta Instagram, Facebook, TikTok o YouTube para programar desde aquí.' : 'No pude leer tus cuentas conectadas.'}

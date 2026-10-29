@@ -275,15 +275,31 @@ listas» (en serie) · la operación `programar_publicacion` · mig 0342 · test
   `C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md`). Si la conexión se corta o Zernio da 5xx, el post PUEDE haber
   quedado creado; reprogramar con un `x-request-id` nuevo lo duplica en la red (y el 409 no salva: no está documentado que
   cubra un pedido nuevo con el mismo contenido; la línea vieja «el 409 de las 24 h» no se sostenía). La regla: sin respuesta
-  (no `ZernioError`, o status 0 o ≥500) → `dudosa`, con el `x-request-id` guardado en `publicacion_intento`. Dentro de 4
-  minutos se reintenta el MISMO pedido (la idempotencia de Zernio devuelve el que había creado); después NO se reprograma:
-  alguien mira en Zernio y, si no está, «No quedó programada» la pasa a `fallo`. Un `programando` de más de 10 minutos (la
-  función murió en el medio) pasa a `dudosa` en la relectura. Una `dudosa` no se mueve, no se borra ni se cancela.
+  (no `ZernioError`, o status 0 o ≥500) → `dudosa`, con el `x-request-id` y la hora del PRIMER envío guardados en
+  `publicacion_intento` (`<id>@<ms>`, `anotarIntento`). Dentro de 4 minutos **desde el primer envío** se reintenta el MISMO
+  pedido (la idempotencia de Zernio devuelve el que había creado); después NO se reprograma: alguien mira en Zernio y, si no
+  está, «No quedó programada» la pasa a `fallo`; si está, «Ya lo resolví en Zernio» la suelta (sin la cuenta, para que
+  «Programar las listas» no la duplique). Un `programando` de más de 10 minutos (la función murió en el medio) pasa a
+  `dudosa` en la relectura, SIN el intento. Una `dudosa` no se mueve, no se borra ni se cancela.
+- ⚠️ **La ventana se cuenta desde el PRIMER envío, no desde la última anotación** (la segunda verificación, 29/10,
+  `C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md`). Contarla desde `updated_at` parecía lo mismo y
+  no lo era: la relectura de un trabado y cada reintento cortado renuevan `updated_at`, así que «Reintentar» a los 12 minutos
+  repetía un `x-request-id` que Zernio ya no recordaba (~5 min) y salían DOS posts. Y en el reintento, sólo el post resuelve: un
+  429 o un 422 dicen que Zernio no creó ESE pedido, no que el primero no exista (si el `x-request-id` se porta como su
+  Idempotency-Key, el 422 «mismo key, cuerpo distinto» sale SIEMPRE: la media se firma de nuevo en cada intento). Sigue `dudosa`.
+- ⚠️ **El reclamo exige que el evento no haya cambiado desde que se leyó** (`.eq('updated_at', …)`). La condición en la escritura
+  de mover y borrar cerraba un orden de la carrera, no el otro: programar leía, otro pedido lo movía o le cambiaba la cuenta
+  (todavía sin publicación, así que la condición lo dejaba), y el reclamo ganaba con lo viejo. Regla para código nuevo: todo lo
+  que escribe `calendario_eventos` renueva `updated_at` (no hay trigger).
+- **Una programada con OTRA clave** (o sin clave) ni se relee ni se cancela desde MaKo: la pantalla lo dice y ofrece «Ya lo
+  resolví en Zernio». Tildar, mover y borrar dicen el porqué de su estado (`textoDeBloqueo`): «se tilda sola cuando sale» es
+  cierto sólo de una programada con la clave de hoy.
 - ⚠️ **La cuenta es del NEGOCIO, no la que manda el navegador.** `guardarPublicacion` y `programarPublicaciones` validan la
   cuenta contra `conexionesViaZernio(ws)` (filtradas por el perfil del negocio) y la red sale de la cuenta. Antes se guardaba
   cualquier `acc_…` que llegara: con la cuenta prestada de la plataforma (un perfil por negocio en la MISMA cuenta de Zernio)
   eso publicaba en la cuenta de otro negocio. Si las cuentas no se pueden leer, no se programa a ciegas. El «Deshacer» de un
-  borrado devuelve el archivo y el texto, NUNCA la cuenta.
+  borrado devuelve el archivo y el texto, NUNCA la cuenta, y si el evento ya había vuelto (un segundo «Deshacer», 23505) no
+  escribe nada: el segundo pisaba el archivo y el texto de uno ya programado otra vez.
 - ⚠️ **Un 404 de Zernio con OTRA clave no es «no está».** Un post es de la cuenta de Zernio con cuya clave se creó; si el
   negocio cambia de clave (pasa: el ws 11 cambió de cuenta, el ws 1 va a dejar la de la plataforma), el post viejo da 404 y
   sigue programado allá. Se guarda la huella de la clave (`publicacion_clave`, sha256 corto, nunca la clave): con otra clave,

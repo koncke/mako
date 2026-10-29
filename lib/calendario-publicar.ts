@@ -21,6 +21,16 @@
 //     hasta que alguien diga «No quedó programada»): reprogramar duplicaba un post PÚBLICO. Un reintento en 4 minutos usa el
 //     MISMO x-request-id (Zernio devuelve el original).
 //   · UN 404 CON OTRA CLAVE NO ES «YA CANCELADO»: se guarda la huella de la clave con que se programó.
+// ⚠️ LO QUE ENCONTRÓ LA SEGUNDA (29/10, C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md):
+//   · LOS 4 MINUTOS SE CUENTAN DESDE EL PRIMER ENVÍO (`anotarIntento`), no desde la última anotación: un `programando` trabado
+//     que pasaba a `dudosa` o dos respuestas perdidas seguidas renovaban la hora, y el reintento salía con un x-request-id que
+//     Zernio ya no recordaba (dos posts públicos). La relectura de un trabado además borra el intento.
+//   · EN EL REINTENTO, SÓLO EL POST RESUELVE: un 4xx (429, 422, 409 en vuelo) dice que Zernio no creó ESE pedido, no que el
+//     primero no exista. Sigue `dudosa`.
+//   · EL RECLAMO EXIGE QUE EL EVENTO NO HAYA CAMBIADO desde que se leyó (`updated_at`): si otro pedido lo movía o le cambiaba la
+//     cuenta en el medio, salía a la hora vieja en la cuenta vieja.
+//   · DOS ESTADOS SIN SALIDA, CON SALIDA: una `dudosa` que sí quedó y una programada con OTRA clave se sueltan con «Ya lo resolví
+//     en Zernio» (`resolverEnZernio`), y lo que no se mueve, borra o tilda dice por qué de verdad (`bloqueoEnLaRed`).
 // =============================================================================
 
 import 'server-only';
@@ -33,9 +43,9 @@ import { ZernioError } from './zernio';
 import { esFormato, sumarDias, type FormatoPublicacion } from './calendario-modelo';
 import { instanteDe } from './cron-aviso';
 import {
-  BUCKET_PUBLICAR, cuerpoDelPost, esFallaDudosa, esRedPublicar, estaProgramada, estadoDeZernio, huellaParaConfirmar, motivoParaNoProgramar,
-  REDES_PUBLICAR, rutaDelArchivo, rutaValida, segundosDeFirma, tipoDeArchivo, TOPE_TEXTO,
-  type DatosPublicacion, type EventoParaPublicar, type RedPublicar,
+  anotarIntento, BUCKET_PUBLICAR, cuerpoDelPost, esFallaDudosa, esRedPublicar, estaProgramada, estadoDeZernio, huellaParaConfirmar, leerIntento,
+  motivoParaNoProgramar, REDES_PUBLICAR, repiteElMismoPedido, rutaDelArchivo, rutaValida, segundosDeFirma, textoDeBloqueo, tipoDeArchivo, TOPE_TEXTO,
+  type AccionBloqueada, type DatosPublicacion, type EventoParaPublicar, type RedPublicar,
 } from './calendario-publicar-reglas';
 
 export const COLS_PUBLICACION = 'red, cuenta_red, archivo, archivo_tipo, texto, post_id, publicacion, publicacion_motivo, publicacion_url, publicacion_intento, publicacion_clave';
@@ -45,9 +55,9 @@ export const FALTA_MIGRACION_PUBLICAR = 'Falta la migración 0342 para publicar 
 export const MAX_PROGRAMAR = 40;
 /** Un reclamo `programando` más viejo que esto murió en el medio (la función, la base): pasa a `dudosa`. */
 const PROGRAMANDO_TRABADO_MS = 10 * 60_000;
-/** Dentro de esta ventana, reintentar una `dudosa` repite el MISMO x-request-id y Zernio devuelve el post original (~5 min). */
-const VENTANA_MISMO_PEDIDO_MS = 4 * 60_000;
 const MOTIVO_DUDOSA = 'Zernio no contestó: puede que haya quedado programada. Revisa en Zernio; si no quedó, márcala con «No quedó programada».';
+const MOTIVO_DUDOSA_REINTENTO = 'Zernio no confirmó el reintento: puede que haya quedado programada la primera vez. Revisa en Zernio; si no quedó, márcala con «No quedó programada».';
+const MOTIVO_RESUELTA = 'Resuelta en Zernio: MaKo ya no la sigue. Si la vuelves a programar, sale otra.';
 
 /** ¿El error es el de una base sin la 0342? (la columna no existe, o PostgREST todavía no la ve). */
 export const esSinMigracion = (m: string | null | undefined): boolean =>
@@ -114,6 +124,42 @@ export async function estaProgramadoEnLaRed(id: string): Promise<boolean> {
     throw new Error(`No pude leer si el evento está programado: ${error.message}`);
   }
   return estaProgramada(data ? datosDeFila(data as Record<string, unknown>) : null);
+}
+
+/**
+ * ¿La clave de Zernio de HOY no es la que programó (`publicacion_clave`)? Sin clave también: MaKo ya no la puede seguir ni
+ * cancelar. null si no se pudo leer (la base): no se sabe.
+ */
+async function otraClave(ws: number, clave: string | null | undefined): Promise<boolean | null> {
+  if (!clave) return false;
+  try {
+    return (await huellaClaveActual(ws)) !== clave;
+  } catch (e) {
+    return e instanceof ZernioError && e.status === 0 && /no está configurado/i.test(e.message) ? true : null;
+  }
+}
+
+/** ¿Esta programada se programó con OTRA clave de Zernio? (la pantalla ofrece «Ya lo resolví en Zernio»). */
+export async function programadaConOtraClave(datos: DatosPublicacion | null | undefined): Promise<boolean> {
+  const ws = await getWorkspaceActual();
+  return ws != null && datos?.publicacion === 'programada' && (await otraClave(ws, datos.publicacion_clave)) === true;
+}
+
+/**
+ * Por qué uno que espera a Zernio no se mueve, se borra o se tilda, en palabras de la pantalla (`textoDeBloqueo`); null si no
+ * espera. Lo usan mover, borrar y tildar (lib/calendario.ts) DESPUÉS de una escritura condicionada que no escribió. Si no se puede
+ * leer, tira.
+ */
+export async function bloqueoEnLaRed(id: string, accion: AccionBloqueada): Promise<string | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('calendario_eventos').select('publicacion, publicacion_clave').eq('id', id).maybeSingle();
+  if (error) {
+    if (esSinMigracion(error.message)) return null;
+    throw new Error(`No pude leer si el evento está programado: ${error.message}`);
+  }
+  const d = data ? datosDeFila(data as Record<string, unknown>) : null;
+  if (!d || !estaProgramada(d)) return null;
+  return textoDeBloqueo(d.publicacion, await programadaConOtraClave(d), accion);
 }
 
 /** Una cuenta donde se puede publicar (las conectadas en Zernio, de las redes que se publican). */
@@ -288,8 +334,9 @@ export async function programarPublicaciones(ids: readonly string[], ahora = Dat
     const ev = await eventoParaPublicar(id);
     if (ev === 'sin-migracion') return { error: FALTA_MIGRACION_PUBLICAR };
     if (!ev) { out.fallidas.push({ id, titulo: '', motivo: 'Ese evento ya no existe.' }); continue; }
-    // Una `dudosa` de hace un momento se reintenta con el MISMO pedido: si Zernio la había creado, devuelve esa.
-    const reintento = ev.publicacion === 'dudosa' && !!ev.publicacion_intento && !!ev.updated_at && ahora - Date.parse(ev.updated_at) < VENTANA_MISMO_PEDIDO_MS;
+    // Una `dudosa` cuyo PRIMER envío fue hace menos de 4 minutos se reintenta con el MISMO pedido: si Zernio la había creado,
+    // devuelve esa. Pasada la ventana, no (Zernio ya no recuerda el x-request-id y crearía otra): se aclara en Zernio.
+    const reintento = repiteElMismoPedido(ev, ahora);
     const no = reintento ? motivoParaNoProgramar({ ...ev, publicacion: null }, ahora) : motivoParaNoProgramar(ev, ahora);
     if (no) { out.fallidas.push({ id, titulo: ev.titulo, motivo: no }); continue; }
     if (opts.huellas && opts.huellas[id] !== huellaParaConfirmar(ev)) {
@@ -299,22 +346,34 @@ export async function programarPublicaciones(ids: readonly string[], ahora = Dat
     const c = cuentaDelNegocio(cuentas, ev.red, ev.cuenta_red);
     if (typeof c === 'string') { out.fallidas.push({ id, titulo: ev.titulo, motivo: c }); continue; }
     if (!rutaValida(ev.archivo as string, ws, id)) { out.fallidas.push({ id, titulo: ev.titulo, motivo: 'El archivo no es de este evento: súbelo de nuevo.' }); continue; }
-    // El reclamo: de `null`, `fallo` (o la `dudosa` del reintento) a `programando`, con el x-request-id anotado.
-    const requestId = reintento ? (ev.publicacion_intento as string) : randomUUID();
+    // El reclamo: de `null`, `fallo` (o la `dudosa` del reintento) a `programando`, con el intento anotado: el x-request-id y la
+    // hora del PRIMER envío (el reintento conserva los dos).
+    const intento = reintento ? (ev.publicacion_intento as string) : anotarIntento(randomUUID(), ahora);
+    const requestId = (leerIntento(intento) as { requestId: string }).requestId;
     const desde = reintento ? 'dudosa' : ev.publicacion;
-    const q = db.from('calendario_eventos').update({ publicacion: 'programando', publicacion_motivo: null, publicacion_intento: requestId, updated_at: new Date().toISOString() }).eq('id', id);
-    const { data: ganado, error: eRec } = await (desde === null ? q.is('publicacion', null) : q.eq('publicacion', desde as string)).select('id');
+    const q = db.from('calendario_eventos').update({ publicacion: 'programando', publicacion_motivo: null, publicacion_intento: intento, updated_at: new Date().toISOString() }).eq('id', id);
+    const conEstado = desde === null ? q.is('publicacion', null) : q.eq('publicacion', desde as string);
+    // ⚠️ Y SIN CAMBIOS desde que se leyó: lo que sale es lo que se validó (la verificación del 29/10: otro pedido que lo movía o
+    //    le cambiaba la cuenta entre la lectura y el reclamo hacía salir la hora y la cuenta viejas). Todos los que escriben el
+    //    evento renuevan `updated_at`.
+    const { data: ganado, error: eRec } = await (ev.updated_at ? conEstado.eq('updated_at', ev.updated_at) : conEstado).select('id');
     if (eRec) throw new Error(`No pude reclamar la publicación: ${eRec.message}`);
-    if (!ganado?.length) { out.fallidas.push({ id, titulo: ev.titulo, motivo: 'Ya está programada.' }); continue; }
+    if (!ganado?.length) {
+      out.fallidas.push({ id, titulo: ev.titulo, motivo: (await estaProgramadoEnLaRed(id)) ? 'Ya está programada.' : 'Cambió mientras la programaba: vuelve a intentarlo.' });
+      continue;
+    }
     let pidioAZernio = false;
     try {
       const firma = await getSupabaseServer().storage.from(BUCKET_PUBLICAR).createSignedUrl(ev.archivo as string, segundosDeFirma(ev.inicio, ahora));
       if (firma.error || !firma.data?.signedUrl) throw new Error('No encontré el archivo: súbelo de nuevo.');
       pidioAZernio = true;
       const post = await crearPostZernio(ws, cuerpoDelPost(ev, firma.data.signedUrl), requestId);
-      const { error } = await db.from('calendario_eventos')
+      const anotarProgramada = () => db.from('calendario_eventos')
         .update({ publicacion: 'programada', post_id: post.id, publicacion_clave: post.clave, publicacion_motivo: null, publicacion_intento: null, updated_at: new Date().toISOString() })
         .eq('id', id).eq('publicacion', 'programando');
+      let { error } = await anotarProgramada();
+      // Zernio YA la creó: si la base falla una vez, se reintenta con el post que ya se conoce (si no, quedaba en duda).
+      if (error) ({ error } = await anotarProgramada());
       if (error) {
         console.error(`[calendario-publicar] quedó programada en Zernio (${post.id}) y no pude anotarlo: ${error.message}`);
         out.fallidas.push({ id, titulo: ev.titulo, motivo: `Quedó programada en Zernio (${post.id}) y no pude anotarlo: no la vuelvas a programar.` });
@@ -322,9 +381,11 @@ export async function programarPublicaciones(ids: readonly string[], ahora = Dat
       }
       out.programadas.push(id);
     } catch (e) {
-      // ⚠️ Si se le pidió a Zernio y no contestó (o contestó un error suyo), PUEDE haberla creado: `dudosa`, nunca `fallo`.
-      const dudosa = pidioAZernio && (!(e instanceof ZernioError) || esFallaDudosa(e.status));
-      const motivo = dudosa ? MOTIVO_DUDOSA : motivoDeFallo(e);
+      // ⚠️ Si se le pidió a Zernio y no contestó (o contestó un error suyo), PUEDE haberla creado: `dudosa`, nunca `fallo`. Y en
+      //    el REINTENTO de una `dudosa`, todo lo que no sea el post (un 429, un 422, un 409 sin el post) la deja en duda: el
+      //    PRIMER pedido pudo haber quedado (la verificación del 29/10).
+      const dudosa = reintento || (pidioAZernio && (!(e instanceof ZernioError) || esFallaDudosa(e.status)));
+      const motivo = !dudosa ? motivoDeFallo(e) : reintento && e instanceof ZernioError && !esFallaDudosa(e.status) ? MOTIVO_DUDOSA_REINTENTO : MOTIVO_DUDOSA;
       await anotar(id, dudosa ? { publicacion: 'dudosa', publicacion_motivo: motivo } : { publicacion: 'fallo', publicacion_motivo: motivo, publicacion_intento: null });
       out.fallidas.push({ id, titulo: ev.titulo, motivo });
     }
@@ -340,6 +401,39 @@ export async function noQuedoProgramada(id: string): Promise<{ ok: true } | { ok
     .eq('id', id).eq('publicacion', 'dudosa').select('id');
   if (error) return { ok: false, error: esSinMigracion(error.message) ? FALTA_MIGRACION_PUBLICAR : 'No se pudo guardar.' };
   return data?.length ? { ok: true } : { ok: false, error: 'No está en duda: vuelve a abrirla.' };
+}
+
+/**
+ * «Ya lo resolví en Zernio»: MaKo deja de seguir una publicación que no puede aclarar sola (la verificación del 29/10, dos estados
+ * sin salida): una `dudosa` que SÍ quedó en Zernio, o una programada con OTRA clave (con la de hoy Zernio no la encuentra, ni para
+ * releerla ni para cancelarla). Vuelve a ser un evento sin programar y SIN la cuenta: «Programar las listas» no la ofrece otra vez
+ * (duplicaría lo que quedó allá); programarla de nuevo es elegir la cuenta a propósito. El archivo y el texto quedan.
+ */
+export async function resolverEnZernio(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'No hay un negocio elegido.' };
+  const ev = await eventoParaPublicar(id);
+  if (ev === 'sin-migracion') return { ok: false, error: FALTA_MIGRACION_PUBLICAR };
+  if (!ev) return { ok: false, error: 'Ese evento ya no existe.' };
+  if (ev.publicacion === 'programada') {
+    // Con la MISMA clave MaKo la sigue y la cancela: soltarla dejaría un post vivo sin nadie que lo mire.
+    const otra = await otraClave(ws, ev.publicacion_clave);
+    if (otra === null) return { ok: false, error: 'No pude leer tu clave de Zernio: vuelve a intentarlo en un momento.' };
+    if (!otra) return { ok: false, error: 'Sigue programada con tu clave de Zernio: cancélala desde aquí.' };
+  } else if (ev.publicacion !== 'dudosa') {
+    return { ok: false, error: 'No hay nada que resolver: vuelve a abrirla.' };
+  }
+  const db = await getTenantDb();
+  const q = db.from('calendario_eventos')
+    .update({
+      publicacion: null, post_id: null, publicacion_clave: null, publicacion_intento: null, publicacion_url: null, red: null, cuenta_red: null,
+      publicacion_motivo: MOTIVO_RESUELTA, updated_at: new Date().toISOString(),
+    })
+    .eq('id', id).eq('publicacion', ev.publicacion);
+  // Sin cambios desde que se leyó (un reintento que la programó en el medio no se suelta).
+  const { data, error } = await (ev.updated_at ? q.eq('updated_at', ev.updated_at) : q).select('id');
+  if (error) return { ok: false, error: esSinMigracion(error.message) ? FALTA_MIGRACION_PUBLICAR : 'No se pudo guardar.' };
+  return data?.length ? { ok: true } : { ok: false, error: 'Cambió mientras tanto: vuelve a abrirla.' };
 }
 
 /** Cancela una publicación programada (la saca de Zernio). Una ya publicada no se cancela: se borra en la red. */
@@ -384,7 +478,9 @@ export async function releerPublicaciones(ahora = Date.now()): Promise<number> {
   const db = await getTenantDb();
   let cambiados = 0;
   const trabado = new Date(ahora - PROGRAMANDO_TRABADO_MS).toISOString();
-  const { data: trabados } = await db.from('calendario_eventos').update({ publicacion: 'dudosa', publicacion_motivo: MOTIVO_DUDOSA, updated_at: new Date(ahora).toISOString() })
+  // Sin el intento: pasaron más de 10 minutos del envío, y repetir ese x-request-id ya no lo deduplica Zernio (la verificación
+  // del 29/10). Una `dudosa` sin intento no se reintenta: se aclara en Zernio.
+  const { data: trabados } = await db.from('calendario_eventos').update({ publicacion: 'dudosa', publicacion_motivo: MOTIVO_DUDOSA, publicacion_intento: null, updated_at: new Date(ahora).toISOString() })
     .eq('publicacion', 'programando').lt('updated_at', trabado).select('id');
   cambiados += (trabados ?? []).length;
   const { data, error } = await db.from('calendario_eventos').select('id, post_id, inicio, publicacion_clave')

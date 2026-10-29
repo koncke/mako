@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { requireRolWs } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import {
-  crearEventos, cambiarEvento, marcarEvento, borrarEvento, restaurarEvento, zonaDelCalendario, PROGRAMADA_BORRAR, PROGRAMADA_TILDAR, type EventoBorrado,
+  crearEventos, cambiarEvento, marcarEvento, borrarEvento, restaurarEvento, zonaDelCalendario, BloqueadaEnLaRed, type EventoBorrado,
 } from '@/lib/calendario';
 import type { EntradaEvento } from '@/lib/calendario-modelo';
 import { crearEventoGoogle, cambiarEventoGoogle, borrarEventoGoogle, restaurarEventoGoogle, type ResultadoEscrituraGoogle } from '@/lib/calendario-google';
@@ -21,7 +21,7 @@ import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { linkDeAgenda, type LinkDeAgenda } from '@/lib/agenda-link';
 import {
   cancelarPublicacion, cuentasParaPublicar, FALTA_MIGRACION_PUBLICAR, guardarPublicacion, leerPublicaciones, listasParaProgramar, noQuedoProgramada,
-  programarPublicaciones, releerPublicaciones, subidaDelArchivo, type ResultadoProgramar,
+  programadaConOtraClave, programarPublicaciones, releerPublicaciones, resolverEnZernio, subidaDelArchivo, type ResultadoProgramar,
 } from '@/lib/calendario-publicar';
 import type { DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 
@@ -64,8 +64,8 @@ export async function cambiarEventoAction(id: string, entrada: EntradaEvento): P
 export async function marcarEventoAction(id: string, hecho: boolean): Promise<boolean | { error: string }> {
   await guard();
   const ok = await marcarEvento(String(id), !!hecho);
-  // Uno programado en la red se tilda solo cuando sale (la verificación del 28/10): se dice, no se traga.
-  if (ok === 'programada') return { error: PROGRAMADA_TILDAR };
+  // Uno que espera a Zernio no se tilda acá (la verificación del 28/10): se dice por qué, según su estado, no se traga.
+  if (typeof ok === 'object') return { error: ok.bloqueo };
   if (ok) revalidatePath('/calendario');
   return ok;
 }
@@ -79,7 +79,7 @@ export async function borrarEventoAction(id: string): Promise<EventoBorrado | nu
     return b;
   } catch (e) {
     // El motivo de uno programado llega a la persona (antes el toast decía «No se pudo borrar» y nada más).
-    if (e instanceof Error && e.message === PROGRAMADA_BORRAR) return { error: PROGRAMADA_BORRAR };
+    if (e instanceof BloqueadaEnLaRed) return { error: e.message };
     throw e;
   }
 }
@@ -148,10 +148,12 @@ const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
 const idDe = (x: unknown) => (typeof x === 'string' ? x.slice(0, 40) : '');
 
 /** La publicación de un evento y las cuentas donde se puede publicar. `datos: null` = la base no tiene la mig 0342. */
-export async function publicacionAction(id: string): Promise<{ datos: DatosPublicacion | null; cuentas: Awaited<ReturnType<typeof cuentasParaPublicar>> }> {
+export async function publicacionAction(id: string): Promise<{ datos: DatosPublicacion | null; cuentas: Awaited<ReturnType<typeof cuentasParaPublicar>>; otraClave: boolean }> {
   await guard();
   const [m, cuentas] = await Promise.all([leerPublicaciones([idDe(id)]), cuentasParaPublicar()]);
-  return { datos: m.get(idDe(id)) ?? null, cuentas };
+  const datos = m.get(idDe(id)) ?? null;
+  // Una programada con OTRA clave de Zernio no se cancela ni se relee desde acá: la pantalla ofrece «Ya lo resolví en Zernio».
+  return { datos, cuentas, otraClave: await programadaConOtraClave(datos) };
 }
 
 export async function guardarPublicacionAction(id: string, cambio: { red?: string | null; cuentaRed?: string | null; texto?: string; archivo?: string | null; archivoTipo?: string | null }): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -227,6 +229,19 @@ export async function noQuedoProgramadaAction(id: string): Promise<{ ok: true } 
   const r = await noQuedoProgramada(idDe(id));
   if (r.ok) revalidatePath('/calendario');
   return r;
+}
+
+/** «Ya lo resolví en Zernio»: una en duda que sí quedó, o una programada con otra clave. MaKo deja de seguirla. */
+export async function resolverEnZernioAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await guard();
+  try {
+    const r = await resolverEnZernio(idDe(id));
+    if (r.ok) revalidatePath('/calendario');
+    return r;
+  } catch (e) {
+    console.error('[calendario] resolver en Zernio:', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo guardar.' };
+  }
 }
 
 /** Relee en Zernio lo programado cuya hora ya pasó (al abrir el Calendario). Devuelve cuántas cambiaron. */

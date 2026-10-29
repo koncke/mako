@@ -113,6 +113,25 @@ export function lineaDeCobro(total: number | null | undefined): string {
 
 /** Las cuentas que Zernio no cobra (su tabla de precios, leída el 27/10/2026: «1 to 2 — Free»). */
 export const CUENTAS_GRATIS_ZERNIO = 2;
+/**
+ * Lo demás que Zernio da gratis (zernio.com/pricing, leído el 28/10/2026 23:40): 10.000 mensajes ENVIADOS por mes (los recibidos no
+ * cuentan; sin tarjeta, los envíos se frenan hasta el mes siguiente; con tarjeta, US$1 cada 10.000 más), los comentarios y las
+ * reseñas sin contar como mensaje, y 500 anuncios gestionados. De la 3.ª a la 10.ª cuenta, US$6 por mes cada una.
+ * ⚠️ Nada de Analytics: la página dice «incluido» y medimos un 402 que pedía el complemento. Hasta volver a medirlo, no se promete.
+ */
+export const MENSAJES_GRATIS_ZERNIO = 10_000;
+export const ANUNCIOS_GRATIS_ZERNIO = 500;
+export const USD_CUENTA_EXTRA_ZERNIO = 6;
+
+/**
+ * Los límites de Zernio, dichos al conectar (Martín, 28/10: «Super importante advertir en la conexión de Zernio las limitaciones,
+ * como que hasta 2 redes sociales es gratis»). Va en el modal de Zernio, abajo de la línea de las cuentas (`lineaDeCobro`).
+ */
+export function textoGratisZernio(): string {
+  const n = (x: number) => String(x).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `También gratis: ${n(MENSAJES_GRATIS_ZERNIO)} mensajes enviados por mes (los recibidos, los comentarios y las reseñas no cuentan) y ${n(ANUNCIOS_GRATIS_ZERNIO)} anuncios. `
+    + `Desde la ${CUENTAS_GRATIS_ZERNIO + 1}.ª cuenta, US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una. Sin tarjeta en Zernio, al llegar a ${n(MENSAJES_GRATIS_ZERNIO)} envíos se frenan hasta el mes siguiente.`;
+}
 
 /**
  * ¿Hay que avisar ANTES de abrir el login? (27/10/2026, feedback de Leila 876470842-23: Zernio le cobró US$16 y MaKo sólo lo decía en

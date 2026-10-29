@@ -50,7 +50,7 @@ export const formatosDeRed = (red: RedPublicar): FormatoPublicacion[] => Object.
 export type DatosPublicacion = {
   red: RedPublicar | null; cuenta_red: string | null; archivo: string | null; archivo_tipo: TipoArchivo | null; texto: string;
   post_id: string | null; publicacion: EstadoPublicacion | null; publicacion_motivo: string | null; publicacion_url: string | null;
-  /** El x-request-id del último intento (se repite si Zernio no contestó) y la huella de la clave con que se programó. */
+  /** El x-request-id del intento con su primer envío (`anotarIntento`; se repite si Zernio no contestó) y la huella de la clave con que se programó. */
   publicacion_intento?: string | null; publicacion_clave?: string | null;
 };
 export type EventoParaPublicar = {
@@ -67,8 +67,50 @@ export const TOPE_TITULO_YOUTUBE = 100;
 /**
  * ¿Zernio pudo haber creado el post aunque falló? (la verificación del 28/10). Sin respuesta (la red, el tope de tiempo: status 0)
  * o un error suyo (5xx): no se sabe, y reprogramar duplicaba un post PÚBLICO. Un 4xx es un «no» de Zernio: no creó nada.
+ * ⚠️ Sólo en el PRIMER pedido: en el reintento de una `dudosa`, un 4xx dice que Zernio no creó ESE pedido, no que el primero no
+ *    exista (la verificación del 29/10: un 429 o un 422 la pasaba a `fallo` y «Programar» duplicaba el post).
  */
 export const esFallaDudosa = (status: number): boolean => status === 0 || status >= 500;
+
+/** Zernio devuelve el post original si el mismo x-request-id se repite en ~5 minutos: se reintenta con el MISMO hasta los 4. */
+export const VENTANA_MISMO_PEDIDO_MS = 4 * 60_000;
+
+/**
+ * El intento que se anota en `publicacion_intento`: el x-request-id y CUÁNDO salió por PRIMERA vez (`<id>@<ms>`). La ventana de
+ * Zernio se cuenta desde el primer envío, no desde la última anotación (la verificación del 29/10: un `programando` trabado que
+ * pasaba a `dudosa`, o dos respuestas perdidas seguidas, renovaban la hora y el reintento salía con un id que Zernio ya no recordaba:
+ * dos posts públicos).
+ */
+export const anotarIntento = (requestId: string, primerEnvio: number): string => `${requestId}@${Math.floor(primerEnvio)}`;
+
+/** El x-request-id y su primer envío. null si no hay, o si no trae la hora (sin hora no se sabe si sigue en la ventana). */
+export function leerIntento(intento: string | null | undefined): { requestId: string; primerEnvio: number } | null {
+  const m = /^([^@\s]{1,60})@(\d{1,15})$/.exec(intento ?? '');
+  return m ? { requestId: m[1], primerEnvio: Number(m[2]) } : null;
+}
+
+/** ¿Reintentar esta `dudosa` repite el MISMO pedido a Zernio? Sólo dentro de la ventana, contada desde el primer envío. */
+export function repiteElMismoPedido(ev: { publicacion: EstadoPublicacion | null; publicacion_intento?: string | null }, ahora: number): boolean {
+  const i = ev.publicacion === 'dudosa' ? leerIntento(ev.publicacion_intento) : null;
+  return !!i && ahora >= i.primerEnvio && ahora - i.primerEnvio < VENTANA_MISMO_PEDIDO_MS;
+}
+
+export type AccionBloqueada = 'cambiar' | 'borrar' | 'tildar';
+
+/**
+ * Por qué no se mueve, se borra o se tilda uno que espera a Zernio, en palabras de la pantalla; null si no espera. La verificación
+ * del 29/10: «se tilda sola cuando sale» no pasa con una `dudosa` (la relectura sólo mira las programadas) ni con una programada con
+ * OTRA clave (Zernio no la encuentra), y «cancela la programación» no se puede en una `dudosa`. `otraClave`: la clave de hoy no es
+ * la que la programó (o ya no hay clave).
+ */
+export function textoDeBloqueo(estado: EstadoPublicacion | null, otraClave: boolean, accion: AccionBloqueada): string | null {
+  if (estado === 'programando') return 'Se está programando ahora: prueba en un minuto.';
+  if (estado === 'dudosa') return 'No se sabe si quedó programada en Zernio: resuélvela primero en «Publicar en la red».';
+  if (estado !== 'programada') return null;
+  if (otraClave) return 'Se programó con otra clave de Zernio: cancélala en esa cuenta y márcala con «Ya lo resolví en Zernio».';
+  if (accion === 'tildar') return 'Está programada en la red: se tilda sola cuando sale.';
+  return `Está programada en la red: cancela la programación para ${accion === 'borrar' ? 'borrarla' : 'cambiarla'}.`;
+}
 
 /** La huella de lo que se confirma (la hora, la cuenta, el archivo, el formato, el texto): si cambió, el «sí» no vale. */
 export function huellaParaConfirmar(ev: { inicio: string; red: string | null; cuenta_red: string | null; archivo: string | null; formato: string | null; texto: string; titulo: string }): string {

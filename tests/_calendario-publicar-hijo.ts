@@ -7,18 +7,21 @@
 // base y lo que salió a Zernio. Lo que no es la base, Storage ni Zernio se anota en `red`.
 //
 // El Zernio de mentira hace lo que importa del real: las cuentas son de un PERFIL (las de otro negocio vienen en la lista y se
-// filtran por perfil), el `x-request-id` es idempotente (el mismo pedido devuelve el mismo post) y un post es de la CUENTA de
-// Zernio con cuya clave se creó (con otra clave, 404).
+// filtran por perfil), el `x-request-id` es idempotente POR ~5 MINUTOS desde el primer pedido (después crea otro, como documenta
+// docs/api-mako-inventario.md) y un post es de la CUENTA de Zernio con cuya clave se creó (con otra clave, 404). El reloj avanza
+// (`reloj`): la segunda verificación (29/10) pasa por minutos.
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
 
 const WS = 3;
 const AHORA = Date.parse('2026-11-02T12:00:00Z');
+/** La hora de la prueba: arranca en AHORA en cada caso y la mueven los casos que pasan por minutos. */
+let reloj = AHORA;
 const DateReal = Date;
 class DateFijo extends DateReal {
-  constructor(...a: ConstructorParameters<typeof Date> | []) { if (a.length === 0) super(AHORA); else super(...(a as ConstructorParameters<typeof Date>)); }
-  static now() { return AHORA; }
+  constructor(...a: ConstructorParameters<typeof Date> | []) { if (a.length === 0) super(reloj); else super(...(a as ConstructorParameters<typeof Date>)); }
+  static now() { return reloj; }
 }
 globalThis.Date = DateFijo as DateConstructor;
 const haceMin = (n: number) => new DateReal(AHORA - n * 60_000).toISOString();
@@ -30,14 +33,21 @@ const zernio: Array<{ metodo: string; ruta: string; requestId: string | null; cl
 const firmas: Array<{ ruta: string; expiresIn: number }> = [];
 /**
  * Lo que contesta Zernio a la próxima creación de un post: 'ok'; 'rechazo' (400: no la creó); 'error500' (500: no la creó);
- * 'cae-creado' (la CREA y la conexión se corta antes de la respuesta); '409' (ya había una igual).
+ * 'cae-creado' (la CREA y la conexión se corta antes de la respuesta; si el pedido se repite en la ventana, se corta igual la
+ * respuesta del original); '409' (ya había una igual); '429' y '422' (un «no» de Zernio al pedido repetido: no dice nada del
+ * original).
  */
-let proximoPost: 'ok' | 'rechazo' | 'error500' | 'cae-creado' | '409' = 'ok';
+let proximoPost: 'ok' | 'rechazo' | 'error500' | 'cae-creado' | '409' | '429' | '422' = 'ok';
+/** La ventana del x-request-id de Zernio (~5 min, desde el PRIMER pedido). */
+const VENTANA_ZERNIO_MS = 5 * 60_000;
+/** Cuántas escrituras (PATCH) de calendario_eventos fallan con un 503 DESPUÉS del próximo post creado: la base cae en el medio. */
+let fallarTrasPost = 0;
+let fallarPatch = 0;
 let nPost = 0;
 /** El estado de cada post en Zernio (con la clave de la cuenta que lo creó), para la relectura y el borrado. */
 const posts: Record<string, Record<string, unknown>> = {};
-/** El x-request-id de cada post creado: Zernio no crea dos veces el mismo pedido. */
-const porPedido: Record<string, string> = {};
+/** El x-request-id de cada post creado y cuándo: Zernio no crea dos veces el mismo pedido dentro de su ventana. */
+const porPedido: Record<string, { id: string; en: number }> = {};
 /** Sin la mig 0342: cualquier lectura o escritura que nombre sus columnas contesta 400, como PostgREST. */
 let sinMigracion = false;
 /** GET /accounts contesta 500. */
@@ -76,6 +86,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
       antesDeEscribir = null;
       f();
     }
+    if (u.pathname.endsWith('/calendario_eventos') && metodo === 'PATCH' && fallarPatch > 0) {
+      fallarPatch -= 1;
+      return json(503, { message: 'Service Unavailable' });
+    }
     if (sinMigracion && u.pathname.endsWith('/calendario_eventos')) {
       // Las CLAVES del cuerpo, no sus valores: `tipo: 'publicacion'` no nombra la columna `publicacion`.
       let claves: string[] = [];
@@ -96,16 +110,23 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     if (ruta === '/profiles' && metodo === 'GET') return json(200, { profiles: [{ _id: 'prof_ws3', name: 'mako_ws_3', isDefault: true }] });
     if (ruta === '/accounts' && metodo === 'GET') return cuentasCaidas ? json(500, { error: 'Internal error' }) : json(200, { accounts: CUENTAS });
     if (metodo === 'POST' && ruta === '/posts') {
-      if (requestId && porPedido[requestId]) return json(200, { post: posts[porPedido[requestId]] });
       const modo = proximoPost;
       proximoPost = 'ok';
+      const previo = requestId ? porPedido[requestId] : undefined;
+      if (previo && reloj - previo.en < VENTANA_ZERNIO_MS) {
+        if (modo === 'cae-creado') throw new TypeError('fetch failed');
+        if (modo === '429') return json(429, { error: 'Too many requests', type: 'rate_limit_error' });
+        if (modo === '422') return json(422, { error: 'Idempotency key reused with a different body', type: 'validation_error' });
+        return json(200, { post: posts[previo.id] });
+      }
       if (modo === 'rechazo') return json(400, { error: 'Invalid media', type: 'validation_error' });
       if (modo === 'error500') return json(500, { error: 'Internal error', type: 'api_error' });
       if (modo === '409') return json(409, { error: 'Duplicate content', details: { existingPostId: 'post_ya' } });
       nPost += 1;
       const id = `post_${nPost}`;
       posts[id] = { _id: id, status: 'scheduled', clave };
-      if (requestId) porPedido[requestId] = id;
+      if (requestId) porPedido[requestId] = { id, en: reloj };
+      if (fallarTrasPost > 0) { fallarPatch = fallarTrasPost; fallarTrasPost = 0; }
       if (modo === 'cae-creado') throw new TypeError('fetch failed');
       return json(200, { post: posts[id] });
     }
@@ -145,6 +166,7 @@ async function main() {
   const reset = () => {
     pg.vaciar();
     zernio.length = 0; firmas.length = 0; red.length = 0; proximoPost = 'ok'; sinMigracion = false; cuentasCaidas = false; antesDeEscribir = null;
+    reloj = AHORA; fallarTrasPost = 0; fallarPatch = 0;
     for (const k of Object.keys(posts)) delete posts[k];
     for (const k of Object.keys(porPedido)) delete porPedido[k];
     db.workspaces.push({ id: WS, nombre: 'Prueba' });
@@ -305,7 +327,7 @@ async function main() {
   proximoPost = 'error500';
   const p1 = await enWs(() => P.programarPublicaciones(['evp']));
   const fila1 = fila('evp');
-  crudo('evp')!.updated_at = haceMin(10);
+  reloj = AHORA + 10 * 60_000;
   const p2 = await enWs(() => P.programarPublicaciones(['evp']));
   const postsTrasP2 = posts0().length;
   const noQuedo = await enWs(() => P.noQuedoProgramada('evp'));
@@ -317,7 +339,7 @@ async function main() {
   reset();
   db.calendario_eventos.push(evento('evq', { publicacion: 'programando', publicacion_intento: 'req-q', updated_at: haceMin(15) }));
   db.calendario_eventos.push(evento('evr', { publicacion: 'programando', publicacion_intento: 'req-r', updated_at: haceMin(2) }));
-  out.m = { cambiados: await enWs(() => P.releerPublicaciones()), q: fila('evq'), r: fila('evr') };
+  out.m = { cambiados: await enWs(() => P.releerPublicaciones()), q: fila('evq'), r: fila('evr'), intentoQ: crudo('evq')?.publicacion_intento ?? null, intentoR: crudo('evr')?.publicacion_intento ?? null };
 
   // (n) LA CLAVE CAMBIÓ (el negocio pegó la de otra cuenta de Zernio): Zernio no encuentra el post con la clave nueva (404) aunque
   //     siga programado en la cuenta de antes. Cancelar NO dice «cancelado», y la relectura no la da por perdida. Con la misma
@@ -366,6 +388,124 @@ async function main() {
   db.calendario_eventos.push(evento('evy', { red: 'youtube', cuenta_red: 'acc_yt_1', formato: 'video', titulo: 'T'.repeat(101) }));
   db.calendario_eventos.push(evento('evz', { red: 'youtube', cuenta_red: 'acc_yt_1', formato: 'video', titulo: 'T'.repeat(100) }));
   out.q = { r: await enWs(() => P.programarPublicaciones(['evy', 'evz'])), posts: posts0().map((p) => (p.cuerpo?.metadata as { calendarioEventoId?: string })?.calendarioEventoId) };
+
+  // ── La segunda verificación (29/10, C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md) ──────────────
+  const conIntento = (id: string) => ({ ...fila(id), intento: crudo(id)?.publicacion_intento ?? null });
+
+  // (r) N1: LA VENTANA SE CUENTA DESDE EL PRIMER ENVÍO. Zernio crea y la base no anota «programada» (ni al reintentar la
+  //     anotación): queda `programando`. A los 11 minutos la relectura la pasa a la duda SIN el intento, y «Reintentar» a los
+  //     12 no repite un x-request-id que Zernio ya olvidó: no sale otro post. Y N1b: crea, la respuesta se corta y la base no
+  //     anota la duda; igual.
+  reset();
+  db.calendario_eventos.push(evento('evN1'));
+  db.calendario_eventos.push(evento('evN1b', { inicio: '2026-11-04T13:00:00.000Z' }));
+  fallarTrasPost = 2;
+  const n1 = await enWs(() => P.programarPublicaciones(['evN1']));
+  const n1Fila = conIntento('evN1');
+  proximoPost = 'cae-creado';
+  fallarTrasPost = 1;
+  const n1b = await enWs(() => P.programarPublicaciones(['evN1b']));
+  const n1bFila = conIntento('evN1b');
+  reloj = AHORA + 11 * 60_000;
+  const n1Releer = await enWs(() => P.releerPublicaciones());
+  const n1Duda = [conIntento('evN1'), conIntento('evN1b')];
+  reloj = AHORA + 12 * 60_000;
+  const n1Reintento = await enWs(() => P.programarPublicaciones(['evN1', 'evN1b']));
+  out.r = { n1, n1Fila, n1b, n1bFila, n1Releer, n1Duda, n1Reintento, pedidos: posts0().length, creados: Object.keys(posts).length };
+
+  // (r1) Zernio crea y la base falla UNA vez al anotarlo: se reintenta la anotación con el post que ya se conoce.
+  reset();
+  db.calendario_eventos.push(evento('evR1'));
+  fallarTrasPost = 1;
+  out.r1 = { r: await enWs(() => P.programarPublicaciones(['evR1'])), fila: conIntento('evR1'), creados: Object.keys(posts).length };
+
+  // (r2) N1c: dos respuestas perdidas seguidas, sin falla de la base. A los 3:54 el reintento repite el pedido (dentro de la
+  //      ventana) y la respuesta se vuelve a cortar; a los 7:48 del PRIMER envío ya no se repite: se aclara en Zernio.
+  reset();
+  db.calendario_eventos.push(evento('evN1c'));
+  proximoPost = 'cae-creado';
+  const c1 = await enWs(() => P.programarPublicaciones(['evN1c']));
+  reloj = AHORA + 3 * 60_000 + 54_000;
+  proximoPost = 'cae-creado';
+  const c2 = await enWs(() => P.programarPublicaciones(['evN1c']));
+  const c2Fila = conIntento('evN1c');
+  reloj = AHORA + 7 * 60_000 + 48_000;
+  const c3 = await enWs(() => P.programarPublicaciones(['evN1c']));
+  out.r2 = { c1, c2, c2Fila, c3, fila: conIntento('evN1c'), pedidos: posts0().map((p) => p.requestId), creados: Object.keys(posts).length };
+
+  // (r3) N2: en el REINTENTO, un 429 o un 422 de Zernio no dice nada del primer pedido: sigue en duda con su intento, y el
+  //      reintento siguiente (todavía en la ventana) recupera el post original. Un solo post.
+  for (const status of ['429', '422'] as const) {
+    reset();
+    db.calendario_eventos.push(evento('evN2'));
+    proximoPost = 'cae-creado';
+    await enWs(() => P.programarPublicaciones(['evN2']));
+    const intento0 = crudo('evN2')?.publicacion_intento ?? null;
+    reloj = AHORA + 60_000;
+    proximoPost = status;
+    const a = await enWs(() => P.programarPublicaciones(['evN2']));
+    const aFila = conIntento('evN2');
+    reloj = AHORA + 2 * 60_000;
+    const b = await enWs(() => P.programarPublicaciones(['evN2']));
+    out[`r3_${status}`] = { intento0, a, aFila, b, fila: fila('evN2'), pedidos: posts0().map((p) => p.requestId), creados: Object.keys(posts).length };
+  }
+
+  // (s) N3: una `dudosa` que SÍ quedó en Zernio y nadie reintentó a tiempo. Tildar, mover y borrar dicen la verdad (no «se tilda
+  //     sola» ni «cancela»), y «Ya lo resolví en Zernio» la suelta: sin programar y SIN la cuenta (no vuelve a «Programar las
+  //     listas»), con el archivo y el texto, y ahí se tilda a mano.
+  reset();
+  db.calendario_eventos.push(evento('evN3'));
+  proximoPost = 'cae-creado';
+  await enWs(() => P.programarPublicaciones(['evN3']));
+  reloj = AHORA + 6 * 60_000;
+  out.s = {
+    marcar: await enWs(() => C.marcarEvento('evN3', true)),
+    mover: await enWs(() => C.cambiarEvento('evN3', { ...entrada, titulo: 'Reel evN3' }, TZ)),
+    borrar: await enWs(() => C.borrarEvento('evN3')),
+    resolver: await enWs(() => P.resolverEnZernio('evN3')),
+    tras: { ...fila('evN3'), red: crudo('evN3')?.red ?? null, cuenta: crudo('evN3')?.cuenta_red ?? null, archivo: crudo('evN3')?.archivo ?? null, texto: crudo('evN3')?.texto ?? null, intento: crudo('evN3')?.publicacion_intento ?? null },
+    listas: await enWs(() => P.listasParaProgramar('2026-11-02', '2026-11-08', TZ)),
+    marcarDespues: await enWs(() => C.marcarEvento('evN3', true)),
+    resolverOtra: await enWs(() => P.resolverEnZernio('evN3')),
+    creados: Object.keys(posts).length,
+  };
+
+  // (s2) N7: programada con una clave y el negocio pega OTRA. Tildar lo dice; «Ya lo resolví en Zernio» la suelta. Con la MISMA
+  //      clave no se suelta (MaKo la sigue y la cancela).
+  reset();
+  db.calendario_eventos.push(evento('evN7'));
+  await enWs(() => P.programarPublicaciones(['evN7']));
+  const otraClaveDe = () => enWs(async () => P.programadaConOtraClave((await P.leerPublicaciones(['evN7'])).get('evN7')));
+  const misma = { otra: await otraClaveDe(), marcar: await enWs(() => C.marcarEvento('evN7', true)), resolver: await enWs(() => P.resolverEnZernio('evN7')) };
+  ponerClave('sk_otra_cuenta');
+  out.s2 = {
+    misma, otra: await otraClaveDe(), marcar: await enWs(() => C.marcarEvento('evN7', true)),
+    resolver: await enWs(() => P.resolverEnZernio('evN7')), fila: fila('evN7'), sigueEnZernio: Object.keys(posts).length,
+  };
+
+  // (t) N6: LA CARRERA AL REVÉS. Programar lee el evento y, antes de su reclamo, otro pedido lo mueve (y renueva `updated_at`,
+  //     como cambiarEvento): el reclamo no gana, y no sale nada a la hora vieja.
+  reset();
+  db.calendario_eventos.push(evento('evN6'));
+  antesDeEscribir = () => { const f = crudo('evN6'); if (f) { f.inicio = '2026-11-07T23:00:00.000Z'; f.updated_at = new Date().toISOString(); } };
+  const t1 = await enWs(() => P.programarPublicaciones(['evN6']));
+  const tFila = { ...fila('evN6'), inicio: crudo('evN6')?.inicio ?? null };
+  const tPosts = posts0().length;
+  const t2 = await enWs(() => P.programarPublicaciones(['evN6']));
+  out.t = { t1, tFila, tPosts, t2, scheduledFor: posts0().map((p) => p.cuerpo?.scheduledFor ?? null) };
+
+  // (u) N5: el «Deshacer» de un evento que ya volvió (23505) no escribe la publicación encima de uno programado.
+  reset();
+  db.calendario_eventos.push(evento('evN5', { texto: 'texto que va a salir' }));
+  await enWs(() => P.programarPublicaciones(['evN5']));
+  const b5 = {
+    id: 'evN5', tipo: 'publicacion', formato: 'reel', titulo: 'Reel evN5', notas: '', inicio: '2026-11-03T13:00:00.000Z', fin: null, dia_completo: false,
+    estado: 'planeado', origen: 'user', creado_por: null,
+    publicacion: { red: null, cuenta_red: null, archivo: `${WS}/calendario/evN5/ffffffffffffffffffffffff.mp4`, archivo_tipo: 'video', texto: 'OTRO texto' },
+  };
+  const rest5 = await enWs(() => C.restaurarEvento(b5 as never));
+  const f5 = crudo('evN5');
+  out.u = { rest5: rest5 ?? 'ok', publicacion: f5?.publicacion ?? null, texto: f5?.texto ?? null, archivo: f5?.archivo ?? null };
 
   out.red = [...red];
   // Se cierra a mano: algún módulo del Calendario deja un temporizador vivo y el padre (execFileSync) esperaba para siempre.
