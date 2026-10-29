@@ -10,7 +10,8 @@
 // el MISMO layout, el redirect se vuelve a tirar. Sólo pasaba donde hay landings (el negocio de la plataforma, el 9).
 // Lo que fija:
 //   1. La regla pura: navegación del cliente = `Next-Url` o `Sec-Fetch-Dest` de un fetch; sin ninguno, documento.
-//   2. /web-generator y /plan (/plan ↔ /plan/agencia, el mismo layout) redirigen así; sus páginas, siempre.
+//   2. /web-generator, /plan (/plan ↔ /plan/agencia, el mismo layout) y el resumen de /crm (al mismo resumen en el negocio
+//      del lead) redirigen así; sus páginas, siempre.
 //   3. TODO `app/`: un layout que redirige a una ruta LITERAL debajo de sí mismo pregunta `esNavegacionDelCliente`.
 // Probado rompiéndolo: docs/hallazgos-infra.md («El blanco del Web Generator»).
 // =============================================================================
@@ -40,7 +41,7 @@ test('1. navegación del cliente: el router manda Next-Url y el navegador Sec-Fe
   assert.match(helper, /return esNavegacionDelClienteDe\(h\.get\('next-url'\), h\.get\('sec-fetch-dest'\)\);/);
 });
 
-test('2. /web-generator y /plan: el layout redirige SÓLO en la carga; navegando, la página', () => {
+test('2. /web-generator, /plan y el resumen de /crm: el layout redirige SÓLO en la carga; navegando, la página', () => {
   const wg = sinComentarios(leer('app/web-generator/layout.tsx'));
   assert.match(wg, /if \(cual && !\(await esNavegacionDelCliente\(\)\)\) \{/);
   assert.match(sinComentarios(leer('app/web-generator/page.tsx')), /if \(!errorLista && esPanelPelado\(sp\)\) \{\s*const ultima = landingMasReciente\(docs\);\s*if \(ultima\) redirect\(/, 'navegando, salta la página');
@@ -50,6 +51,10 @@ test('2. /web-generator y /plan: el layout redirige SÓLO en la carga; navegando
   assert.match(plan, antes('\\/plan\\$'), '/plan/agencia → /plan');
   assert.match(sinComentarios(leer('app/plan/page.tsx')), /redirect\(await rutaConWs\(`\/plan\/agencia/);
   assert.match(sinComentarios(leer('app/plan/agencia/page.tsx')), /redirect\(await rutaConWs\(`\/plan\$/);
+  // El destino no es literal (`destinoDelResumen`): el recorrido de abajo no lo ve. /crm/<id>/resumen → el mismo ?ws=<dueño>.
+  const crm = sinComentarios(leer('app/crm/layout.tsx'));
+  assert.match(crm, /if \(await esNavegacionDelCliente\(\)\) return children;\n\s*const \[wsDueno, wsActual\]/, '/crm/<id>/resumen → el de su negocio');
+  assert.match(sinComentarios(leer('app/crm/[id]/resumen/page.tsx')), /redirect\(destinoDelResumen\(leadId, wsDueno\)\)/);
 });
 
 test('3. ningún layout redirige a una ruta LITERAL debajo de sí mismo sin preguntar si es una navegación', () => {
