@@ -898,3 +898,34 @@ documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas,
 con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
 Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda
 que mirar; su red es la del texto. Si uno suma herramientas, cuenta las guardas como el turno de la app (AGENTS.md).
+
+## El despachante de MaKo en el grupo: un hito con tickets de dos negocios se le mostraba entero a uno (29/10/2026, Integración)
+
+La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en el tren-ae y volvió a su chat. El informe está en
+`C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`.
+
+- ⚠️ **ALTA: el filtro de hitos era por los tickets del negocio, pero el hito se mostraba ENTERO, con título y 3 puntos.**
+  - La bitácora de mako-doer es GLOBAL: un hito puede nombrar tickets de varios negocios. Por ejemplo, `app/admin/dev/crm/bitacora.ts`
+    tiene `tickets: [13, 26]`: el #13 es de Leila y el #26 de Mauricio.
+  - Con la rama sobre main, el turno del ws1 recibía para su #26 el punto «Ticket #13 (Leila): …6 meses de $12.000 MXN…», y la
+    voz de la consulta le pedía contestar con eso.
+  - Se verificó corriendo la función de la rama sobre las bitácoras de main. **Regla:** a un negocio sólo le llega un hito que
+    nombra tickets SUYOS y nada más; si nombra otros, ni los puntos ni el título.
+- ⚠️ **ALTA: el pedido delegado le decía al Cerebro «hazlo» aunque el triage dijera «lo decide Martín».**
+  - Le pasaba justo a lo que `ACCIONES_SIMPLES` deja afuera: plata, envíos y borrados. Eso es lo que se delega, y lo puede pedir
+    cualquiera del grupo, sin el «sí» de nadie.
+  - El texto autorizaba «una escritura que no es del negocio», donde el de ticket le reserva a Martín «una escritura en producción»
+    (`lib/tickets-aviso.ts`).
+  - El Runner marca `delegado` sin mirar el triage ni el estado (`lib/tickets-runner.ts`, `cartero.mjs`).
+  - **Regla:** un pedido delegado respeta el triage igual que un ticket. Lo que es de Martín espera a Martín.
+- **MEDIA:**
+  - El «listo» de un pedido delegado es texto libre del Cerebro y llega tal cual al grupo del cliente. Sólo pasa el filtro de
+    promesas y groserías; nada saca ids, nombres de otros negocios ni notas internas.
+  - El clasificador usa la clave del negocio. Si no tiene, usa el crédito de los grupos de la plataforma: tope de US$200 por cuenta
+    y por mes, sin tope por negocio ni por grupo.
+  - El DEBUG lo habilita el GRUPO (el de la plataforma y los de prueba de la allowlist), no quién escribe. Desde el grupo oficial
+    de un cliente no se llega, y está verificado.
+- **Lo que está bien (verificado):**
+  - La puerta del DEBUG desde un cliente está cerrada.
+  - Los textos fijos del ticket y del pedido los arma el código.
+  - Cada cosa vuelve a su grupo.
