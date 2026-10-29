@@ -37,9 +37,15 @@ import { rutaDe } from '@/lib/copywriter/arbol';
 import { estructurasDelTipo, type CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { quienYCuando } from '@/lib/copywriter/editado';
 import { pedirGuardar, type GuardarGuion } from '../cliente';
+import dynamic from 'next/dynamic';
 import { useCerrarAfuera } from './cerrar-afuera';
-import { CuerpoNotion } from './CuerpoNotion';
 import type { DocVivo } from './propuesta';
+
+// BlockNote es sólo del navegador (usa el DOM al crearse): en Next se carga sin SSR, como pide su documentación. El
+// renglón de espera ocupa el alto de un párrafo para que la página no salte al llegar.
+const CuerpoNotion = dynamic(() => import('./CuerpoNotion').then((m) => m.CuerpoNotion), {
+  ssr: false, loading: () => <div className="nt-bn-cargando" aria-busy="true" style={{ minHeight: 30 }} />,
+});
 
 type EstadoGuardado = 'guardado' | 'pendiente' | 'guardando' | 'error' | 'conflicto' | 'roto';
 

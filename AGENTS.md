@@ -2546,7 +2546,7 @@ memoria, y volvió a pasar — por eso ahora vive acá, que es lo que se lee ant
 **Y la evidencia de que funciona es todo el producto.** Lo que en este repo salió bien está
 copiado, y se nombra por su fuente: el Video Editor es CapCut, el Image Editor es Canva, el
 Web Generator es Gamma, el Dashboard es Looker Studio, `/api-mako` es GitHub (con su CSS de
-Primer limitado a `.gh`), los Chats son respond.io. Lo que se dibujó «con buen criterio» —el
+Primer limitado a `.gh`), los Chats son respond.io, el Copywriter es Notion (BlockNote, 29/10/2026). Lo que se dibujó «con buen criterio» —el
 panel de seguridad, el Centro de Operaciones— se rechazó a la primera, las dos veces con la
 misma palabra: *horrible*.
 
