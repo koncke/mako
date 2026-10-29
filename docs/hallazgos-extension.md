@@ -340,11 +340,23 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
 - **Google compara la ficha contra el manifest y contra la política.** Al escribir la ficha se vio que /privacidad/extension
   no decía que, desde la 0.73, la extensión abre el perfil de cada miembro (71d0e5682 lo corrigió). Antes de subir una
   versión, releer la política contra lo que hace esa versión.
+- **La subida por API murió sin avisar** (medido el 29/10): `publicar-extension.mjs` respondió `deleted_client` («The
+  OAuth client was deleted»). Las tres `CWS_*` siguen en el `.env.local` del clon principal, así que el script NO dice
+  «faltan credenciales»: falla recién al pedir el token. Alguien borró la credencial de escritorio en Google Cloud. El
+  diagnóstico obvio («vencido el refresh token, se canjea otro») es el equivocado: sin cliente no hay qué canjear; hay que
+  crear la credencial de nuevo (pasos 1 a 4 de `--ayuda`). Mientras tanto, el camino es el panel del desarrollador. Y la
+  API nunca cambia la ficha (descripción, capturas): eso es siempre desde el panel.
+- **El `.env.local` de las credenciales es el del clon principal** (dashboard-marketing/), no el del worktree del tren, y
+  `public/mako-puente.zip` no se versiona: en el tren no existe. Para subir desde el tren hay que cargar las `CWS_*` en el
+  entorno (dotenv no pisa lo que ya está) y poner el zip; el de la tienda está en feedback/chrome-web-store/.
 
 ## Sin hacer
 
-- **Subir la 0.74.3 a la tienda** (Martín, desde su Chrome, con feedback/chrome-web-store/). Cuando Google apruebe: medir
-  con `node scripts/version-en-tienda.mjs` y recién ahí mezclar `tienda-cws-2710`.
+- **Subir la 0.74.3 a la tienda, con la ficha nueva** (desde el panel del desarrollador en el Chrome de Martín, con
+  feedback/chrome-web-store/). El 29/10 el panel pidió volver a poner la contraseña de la cuenta de Google: eso es de
+  Martín. Cuando Google apruebe: medir con `node scripts/version-en-tienda.mjs` y recién ahí mezclar `tienda-cws-2710`.
+- **Volver a crear la credencial de la API de la tienda** (`--ayuda`, pasos 1 a 4; la autorización es de Martín), para que
+  cada versión nueva se suba con un comando.
 
 - **Cuántos llegan sin teléfono** (Aaron: WhatsApp esconde números en grupos): medirlo en un grupo con la pantalla de
   «Traer de grupo» (`sinNumero`) y en el registro, antes de construir nada.
