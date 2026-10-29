@@ -55,8 +55,13 @@ preguntes: hacé esto en orden.
   - `wf_fbaed0b3-099`, **los pedidos perdidos.** Martín: «Revisa todos los pedidos de absolutamente todos lados, a ver si
     no se perdieron otras cosas», y «No frenes la investigación... me sirve para la próxima cuenta». Lo que devuelva se
     reparte a los chats y se le reporta a él.
-  - `wf_750ef430-595`, **la verificación de Zernio y de las horas del CRM.** Los defectos vuelven a su chat; si da verde,
-    se mergea en tren-w.
+  - `wf_750ef430-595`, **la verificación de Zernio y de las horas del CRM: TERMINÓ, las dos con defectos.** No entran al
+    tren. Informes: `C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md` y `…-crm-horas-b799f7ed4.md`.
+    - Zernio: programaba en el Instagram de OTRO negocio, entre otros. Ya se los mandé.
+    - CRM (`crm-horas-2810`, chat CRM y Chats): ALTA. En el chat de la app, `listar_horarios_reunion` convierte el `startIso` y
+      `proponer_agendar_reunion` no lo encuentra: la reserva falla siempre. Más dos bajas: claves `_utc` con hora local, y
+      el «inicio» de un evento de comunidad al lado de otra zona. **SIN MANDAR al chat** (tope de 10 mensajes): va en cuanto
+      Martín escriba.
 - **VERDEs que faltan verificar** (cada uno con verificador + refutador; informes en `C:/dev/revisiones/`):
   - **MaKo en WhatsApp, urgente.** Cuatro altas:
     - un «?» dentro de un link cuenta como pregunta;
