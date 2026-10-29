@@ -3739,3 +3739,60 @@ Tests: tests/web-generator-foto.test.ts (8; el lector corre de verdad en un `vm`
 reloj frena los temporizadores como en una ventana en segundo plano para que el tope llegue antes que la foto). Probado
 rompiéndolo: 18 roturas, cada una caza. El arnés de la ventana aislada y las mediciones: `C:/dev/revisiones/web-generator-foto/`
 (`ventana-repro.mts`: `node --conditions=react-server --import tsx ventana-repro.mts <worktree> <url> <salida.json>`).
+
+## «Las páginas clonadas se desfasaron todas»: la publicada era fiel, el EDITOR no (29/10/2026, claude3)
+
+**Vive en:** `lib/editor-landing/copia-identica-script.ts` (`JS_HIJOS_JUNTOS`), `lib/editor-landing/copia-identica.ts`
+(`partirParaCopia`, `esCajaJunta`, `esParteVacia`), `lib/editor-landing/html-editable.ts` (`documentoEditable`,
+`CSS_CAJA_BODY_EN_EL_EDITOR`), `app/web-generator/editor/nodos/HtmlEditableVista.tsx`.
+
+Martín: «Lo que más me interesa es que funcione al 100% Web Generator, porque las páginas clonadas se desfasaron todas».
+Medido DOM contra DOM (`C:/dev/revisiones/clonadas-2910/`, arnés `medir-clonadas.mts`): cada sección con su primer texto
+como ancla, y dónde cae (x, y, ancho, letra) en la ORIGINAL, la PUBLICADA (armarFoto + armarDocumento) y el EDITOR (un
+iframe por sección con `documentoEditable`, alto medido como `medir()`), a 1440 y a 390, con las copias reales #68–#72.
+
+- **El diagnóstico obvio era el equivocado.** Parecía la copia (CSS perdido, fuentes, medidas). La PUBLICADA estaba bien
+  en las 5: el mismo alto que la original a 1440 y a 390, y cada ancla a menos de 100 px. Lo que se desfasaba era el
+  EDITOR, y las capturas «como las dibuja el editor» del 28/10 ya lo mostraban; nadie las comparó. **Regla:** una copia
+  se verifica también en el EDITOR, no sólo en la publicada.
+- **La causa grande: el corte partía columnas.** La publicada arma las secciones juntas en un documento, con los
+  envoltorios abiertos una vez; el editor pone CADA sección sola en su iframe. `partirParaCopia` abría una caja en sus
+  hijos sin saber si eran franjas apiladas o columnas de una fila (el HTML no lo dice). El hero de tryholo.ai, una grilla
+  de dos columnas, eran dos secciones: en el editor «30+ posts a month» pasaba de x 727 · y 170 a x 197 · y 1064. Ahora
+  la foto marca con la geometría de la página armada las cajas cuyos hijos van juntos (columnas, encimados, un absoluto:
+  `data-gm-junto`) y el corte no las abre si entran en `TOPES.htmlEditable`, **tampoco bajando por un envoltorio de un
+  solo hijo** (por ahí se llegaba al hero, y la primera versión del arreglo no cambió nada). En holo, la mediana del
+  corrimiento en el editor bajó de 912 a 177 px.
+- **La caja del <body> se repetía por sección.** Lleva las clases del body (`min-h-screen` en 100ads.ai): en la
+  publicada envuelve la página una vez; en el editor, cada sección, y un `<div>` vacío medía 900 px. En el editor no
+  impone su alto (`CSS_CAJA_BODY_EN_EL_EDITOR`). Y lo que no dibuja nada (`<div hidden>`, el anunciador de rutas de
+  Next) ya no es una sección (`esParteVacia`; ojo: llega con comentarios de Suspense adentro). Con eso, la copia NUEVA de
+  100ads.ai mide en el editor lo mismo que la original: 10.330 px a 1440 y 11.590 a 390.
+- **Trampa del arnés:** una página sin `<meta viewport>` con la emulación de teléfono se dibuja a 980 px, y sus iframes
+  también. El editor se mide en escritorio (el lienzo «movil» es una columna de 390 en la computadora).
+
+- **El editor dibujaba al ancho del LIENZO** (~980 px en la pantalla de Martín) y la copia elegía su diseño de tableta.
+  Ahora una copia en escritorio se dibuja a 1440 y se achica al lienzo (`escalaDeCopia`, `transform: scale`); en tableta
+  y celular, como siempre. El clic, el cursor y la selección los lleva el navegador a través del transform; lo que la
+  vista pasa entre el iframe y la página (el clic reenviado, las capas vivas) va × escala. Medido con clics REALES (CDP
+  `Input.dispatchMouseEvent`, arnés `clic-escalado.mts`) a escala 0,68: cada clic llega a su punto exacto (±1 px).
+  **Trampa del arnés:** al llevar un elemento a la vista cargan imágenes diferidas de arriba y la sección se corre
+  (588 px): el punto se recalcula hasta que se queda quieto.
+- **Lo FIJO** (el aviso de cookies, un encabezado fijo) era una sección propia: en el editor, un bloque al final. La foto
+  lo marca (`data-gm-fijo`) y el corte lo pega adentro de la primera sección en flujo (`pegarLoFijo`), también cuando
+  viene detrás de algo vacío o adentro de una caja que sólo lo tiene a él. Y un `<title>` en el body no es una sección.
+- **Antes y después, DOM contra DOM** (`C:/dev/revisiones/clonadas-2910/final/tabla.md`, cada ancla). Mediana de la
+  distancia de cada ancla en el editor a la original, antes (producción, copia vieja) → después (copia nueva): holo
+  913 → 98 px a 1440 y 1.755 → 107 a 980 (el lienzo); respond 42 → 2 y 1.264 → 8; reportei 870 → 289 y 1.035 → 295;
+  closermood y masterads 0 → 0 a 1440 y 248/230 → 0 a 980; 100ads, sin copia (la foto no salía) → 0.
+
+**Sin hacer:**
+- A 390, holo y reportei están corridos también en la PUBLICADA (~320 px en holo): la foto se saca a 1280 y lo que la
+  página arma recién en el celular no viaja igual. Es de la copia, no del editor.
+- Una sección de holo mide en el editor ~486 px más que en la publicada (la de «from bakeries to B2B SaaS.», con algo
+  pegajoso adentro). Sin mirar.
+- Las copias viejas (#68–#72) se abren igual (no cambia cómo se guardan) y ganan con la escala y la regla del body, pero
+  sus columnas siguen partidas: para tenerlas tal cual, replicarlas de nuevo.
+
+Tests: tests/web-generator-copia-franjas.test.ts (10; la geometría corre en un `vm` con cajas de mentira). Probado
+rompiéndolo: 33 roturas, cada una caza (`romper_franjas.py`).

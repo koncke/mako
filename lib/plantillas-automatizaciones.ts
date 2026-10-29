@@ -1060,6 +1060,27 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       mako('ic_permiso_mk', '⚠️ *Tus llamadas de venta no se están analizando*\nTu cuenta de Claude no deja usar tu clave (desde el {{ia_caida_desde}}).\n\n👉 Revisa sus permisos en console.anthropic.com, o pega otra clave en Tus cuentas de IA. Apenas funcione, las {{ia_caida_pendientes}} que esperan se analizan solas.\n{{ia_caida_link}} — MaKo', null),
     ],
   },
+  {
+    // INSTAGRAM O ZERNIO FRENAN LOS MENSAJES DE UN NEGOCIO (28/10/2026, Leandro: «que MaKo me avise antes de que se trabe la
+    // automatización, para no encontrarme con mil mensajes sin responder»). Lo emite el motor al final de una corrida que se
+    // topó con un tope, o que se acerca al de Meta (`avisarTopesSociales`, lib/nutricion.ts), no más de uno por hora. Lo que
+    // no salió NO se pierde: vuelve a salir solo. La CONDITION elige el texto de cada estado. Nace PRENDIDA.
+    id: 'mako-social-tope',
+    nombre: 'Instagram Frenó a un Negocio',
+    emoji: '⚠️',
+    linea: 'Le avisa a un negocio que Instagram frenó sus mensajes, y antes de llegar al tope.',
+    origen: 'el motor de las automatizaciones (lib/nutricion.ts), una vez por tanda y no por mensaje',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'social_tope' },
+    pasos: [
+      condicion('st_estado', [
+        [[{ campo: 'dato:tope_estado', valor: 'cerca' }], 'st_cerca_mk'],
+      ], 'st_frenado_mk'),
+      mako('st_cerca_mk', '⚠️ *Te estás acercando al tope de {{tope_canal}}*\nEn la última hora una de tus cuentas mandó {{tope_cuantos}}, y {{tope_quien}} deja {{tope_limite}} por cuenta.\n\nSi pasa el tope, los mensajes esperan y salen solos: no se pierde ninguno. — MaKo', null),
+      mako('st_frenado_mk', '⚠️ *{{tope_quien}} frenó los mensajes de tus automatizaciones*\nLlegaste al tope por {{tope_canal}}: {{tope_cuantos}} esperan.\n\nNo se pierde ninguno: salen solos {{tope_espera}}. — MaKo', null),
+    ],
+  },
 ];
 
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {

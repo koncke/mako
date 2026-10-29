@@ -140,6 +140,7 @@ import {
 } from '@/lib/probar-grupo';
 import { TEXTO_SOLO_AUDIO } from '@/lib/mako-tarjeta';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -191,8 +192,9 @@ export const CANALES_PROBAR: Record<CanalProbar, DefCanalProbar> = {
  * que más importa leer— era lo que se cortaba. Ahora el renglón ENVUELVE, y la flecha va PEGADA al destino con
  * un espacio duro, así nunca queda sola al final de una línea y el destino arranca la siguiente. Pura (test).
  */
+// «SALE DESDE» (27/10/2026, la llamada con Aaron: «De otro número, el de Mac»): desde qué número sale, dicho, no sólo el nombre.
 export function lineaDeEnvio(emisor: string | null, destino: string): string {
-  return emisor ? `${emisor} →\u00a0${destino}` : `Llega a\u00a0${destino}`;
+  return emisor ? `Sale desde ${emisor} →\u00a0${destino}` : `Llega a\u00a0${destino}`;
 }
 
 /** De qué canal es un mensaje del flujo. Un paso sin canal es un WhatsApp, como en el motor. */
@@ -336,7 +338,8 @@ function SobreGmail() {
 function Inicial({ nombre }: { nombre: string }) {
   return (
     <span aria-hidden style={{ width: 32, height: 32, borderRadius: '50%', flex: 'none', background: 'var(--primary)', color: 'var(--on-primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
-      {(nombre.trim()[0] ?? '·').toUpperCase()}
+      {/* La primera LETRA (lib/unicode-seguro): `trim()[0]` partía un emoji y daba React #418. */}
+      {iniciales(nombre, 1, '·')}
     </span>
   );
 }
@@ -760,8 +763,8 @@ export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onN
         </div>
       )}
       {emisor && (
-        <div role="group" aria-label="De" style={{ borderBottom: '1px solid var(--border)', marginBottom: 4, paddingBottom: 4 }}>
-          <div style={rotuloSeccion}>De</div>
+        <div role="group" aria-label="Sale desde" style={{ borderBottom: '1px solid var(--border)', marginBottom: 4, paddingBottom: 4 }}>
+          <div style={rotuloSeccion}>Sale desde</div>
           {emisor.opciones === null && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>}
           {emisor.opciones === 'error' && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--dim)' }}>{esEmail ? 'No pude leer tu remitente' : 'No pude leer tus números'}</div>}
           {Array.isArray(emisor.opciones) && emisor.opciones.length === 0 && (
@@ -1909,7 +1912,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {rolAdmin && !real && !social && !enElGrupo && (sinConectar
           // SIN CONECTAR, «Conectar» (GENERAL 6): el modal del medio ahí mismo, sin salir de la pestaña.
           ? <Button size="sm" data-conectar-medio={medioProbar ?? undefined} aria-haspopup="dialog" onClick={() => { cerrarMenu(); setVinculando('conectar'); }}>Conectar</Button>
-          : <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
+          : <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu} title={rotuloEmisor ? `Sale desde: ${rotuloEmisor}` : undefined}
             onClick={() => (menu ? cerrarMenu() : !frenado() && setMenu(true))}>{def.probarEn}</Button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>

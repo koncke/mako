@@ -160,7 +160,8 @@ test('6. la red de MaKo se dibuja en el editor, en un canvas de la PÁGINA encim
   assert.doesNotMatch(r, /doc\.querySelectorAll/, 'la red vuelve a pintarse en el canvas del iframe (no se ve)');
   const v = sinComentarios(leer(VISTA));
   assert.match(v, /d\.querySelectorAll\('canvas\[data-animacion="mako-red"\]'\)\.forEach\(\(el, i\) => \{/);
-  assert.match(v, /<canvas key=\{v\.clave\} className="gmx-vivo-red" aria-hidden="true" style=\{\{ left: v\.x, top: v\.y, width: v\.w, height: v\.h \}\} \/>/);
+  // 29/10/2026: con la copia achicada al lienzo, la red va encima de su lugar × la escala.
+  assert.match(v, /<canvas key=\{v\.clave\} className="gmx-vivo-red" aria-hidden="true" style=\{\{ left: v\.x \* escala, top: v\.y \* escala, width: v\.w \* escala, height: v\.h \* escala \}\} \/>/);
   assert.match(v, /animarRedDeMako\(\(\) => Array\.from\(marco\.current\?\.parentElement\?\.querySelectorAll<HTMLCanvasElement>\('canvas\.gmx-vivo-red'\)/);
   assert.match(v, /'\.gmx-editable-vivo>canvas\.gmx-vivo-red\{position:absolute;display:block;pointer-events:none;z-index:2\}'/);
   // Si un diseño viejo guardó el tamaño de dibujo en su canvas, se saca al guardar.

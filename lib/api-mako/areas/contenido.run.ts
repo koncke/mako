@@ -49,6 +49,10 @@ import { estadoContextoReels } from '@/app/reels/reels-datos';
 import { getSettingEstricto } from '@/lib/settings';
 import { escribirGuionAuto, escribirGuionConDecisiones, bloquesDeGuion, tzSinResolver, diaEnTz, getRazonesEstricto, leerMatrizEstricta, grabadoComoDe, huellaTexto } from './contenido.helpers';
 import { avataresParaEscribir } from './negocio.helpers';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { hoyEnWorkspace } from '@/lib/timezone';
+import { diaLocal, rangoOrganico } from '@/lib/organico-reglas';
+import { rendimientoInstagram } from '@/lib/zernio-organico';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -656,6 +660,38 @@ export const RUNNERS: Runners = {
       const w = await borrarGuionDeCelda(r.celda.id, r.guion.id);
       if (!w.ok) return { ok: false, resumen: `No se pudo borrar el guion: ${w.error}` };
       return { ok: true, resumen: `Borrado ${rotuloGuion(r.celda, r.guion)}.`, datos: { celdaId: r.celda.id, guionId: r.guion.id } };
+    },
+  },
+
+  // 28/10/2026: la fuente de Instagram orgánico por Zernio (lib/zernio-organico.ts). Lo que no se pudo leer va en `faltan` y
+  // es null: un 0 inventado le diría al cliente que nadie vio su reel.
+  ver_rendimiento_redes: {
+    leer: async (input) => {
+      const ws = await getWorkspaceActual();
+      if (ws == null) return error('No hay un negocio elegido.');
+      const r0 = rangoOrganico(str(input, 'desde') || null, str(input, 'hasta') || null, await hoyEnWorkspace());
+      if ('error' in r0) return error(r0.error);
+      const lim = typeof input.limite === 'number' && Number.isFinite(input.limite) ? input.limite : 10;
+      const [r, zona] = await Promise.all([rendimientoInstagram(ws, { ...r0, usuario: str(input, 'cuenta') || null, limite: lim }), tzSinResolver()]);
+      if ('error' in r) return JSON.stringify({ error: r.texto, motivo: r.error });
+      return JSON.stringify({
+        cuenta: r.cuenta.usuario ? `@${r.cuenta.usuario}` : r.cuenta.nombre, desde: r.desde, hasta: r.hasta,
+        seguidores: r.seguidores ? { actual: r.seguidores.actual, ganados: r.seguidores.ganados, perdidos: r.seguidores.perdidos } : null,
+        cuenta_metricas: r.cuentaMetricas ? {
+          alcance: r.cuentaMetricas.reach, vistas: r.cuentaMetricas.views, cuentas_que_interactuaron: r.cuentaMetricas.accounts_engaged,
+          interacciones: r.cuentaMetricas.total_interactions, me_gusta: r.cuentaMetricas.likes, comentarios: r.cuentaMetricas.comments,
+          guardados: r.cuentaMetricas.saves, compartidos: r.cuentaMetricas.shares, visitas_al_perfil: r.cuentaMetricas.profile_views,
+        } : null,
+        publicaciones: r.publicaciones?.map((p) => ({
+          // El día en la zona del negocio: Zernio lo manda en UTC y lo de la noche caía al día siguiente (la verificación del 28/10).
+          fecha: diaLocal(p.fecha, zona.tz), tipo: p.tipo, texto: p.texto, link: p.url, alcance: p.alcance, vistas: p.vistas,
+          me_gusta: p.meGusta, comentarios: p.comentarios, guardados: p.guardados, compartidos: p.compartidos, interaccion_pct: p.interaccionPct,
+          // Sin números porque todavía no hay, no porque sean cero (la verificación del 28/10): cuál y por qué.
+          ...(p.sinMetricas ? { sin_metricas: p.sinMetricas === 'pendiente' ? 'Zernio todavía no las trajo (hasta 48 h)' : 'Instagram no las entrega' } : {}),
+        })) ?? null,
+        faltan: r.faltan,
+        nota: 'Los números los entrega Instagram por Zernio y pueden tardar hasta 48 h. Un null es «no se pudo leer», no un cero.',
+      });
     },
   },
   // `crear_borrador_instagram` salió el 06/10/2026 con la tab Instagram: dejaba un

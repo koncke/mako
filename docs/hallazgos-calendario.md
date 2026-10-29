@@ -246,23 +246,77 @@ UNA letra no tenía esa forma.
 barre el Calendario y el Classroom (escritorio y teléfono) buscando cualquier primera unidad recortada o sola en mayúscula;
 `charAt(0).toUpperCase() + x.slice(1)` (poner la mayúscula) no rompe y no se marca. **Vive en:** app/calendario/ListaLlamadas.tsx.
 
-## Publicar desde el Calendar: los «4 minutos del mismo pedido» se cuentan desde el PRIMER envío (29/10/2026)
+## Una Publicación se programa en la red, por Zernio (28/10/2026)
 
-**Vive en:** lib/calendario-publicar.ts (`programarPublicaciones`, `releerPublicaciones`, `esFallaDudosa`) ·
-app/…/PublicarEnRed.tsx («Reintentar»). Medido por la verificación de `254856316` (informe con los scripts:
-C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md).
+Martín a Teo (28/10, 00:23:08): «publicás reels e historias desde el Calendar los días y a la hora que elijas». El Cerebro:
+la decisión que este documento esperaba («ESPERA UNA DECISIÓN de Martín», abajo) es ese pedido. Chat «Zernio y CAPI».
 
-- **El síntoma:** dos posts públicos a la misma hora en el Instagram del negocio, y uno de ellos MaKo no lo puede cancelar.
-- **La causa:** el reintento reusa el `x-request-id` si `updated_at` es de hace menos de 4 min. Pero `updated_at` se
-  pisa en cada anotación: la relectura pasa un «programando» trabado a «dudosa» con la hora nueva, y una respuesta
-  perdida otra vez la renueva. Para Zernio, el pedido salió hace más de ~5 min: es uno NUEVO, y lo crea.
-- **El diagnóstico obvio («el reintento dentro de 4 min es seguro») es el equivocado:** se mide desde el primer envío.
-  La hora se guarda junto al intento, y la relectura de un trabado borra `publicacion_intento`.
-- **Un 4xx en el reintento NO prueba que el original no exista:** sólo un 2xx o un 409 con `existingPostId` resuelve la
-  duda. Hoy un 429 o un 422 la borran y «Programar» crea otro post.
-- **Sin hacer** (los cuatro, del chat Zernio): el arreglo de arriba. Una salida para la «dudosa» que SÍ salió y para la
-  «programada» con la clave cambiada (hoy hace falta SQL), con un texto de tildar que no prometa «se tilda sola». Y el
-  reclamo con `.eq('updated_at', ev.updated_at)` para la carrera G al revés.
+**Vive en:** `lib/calendario-publicar-reglas.ts` (puro: si se puede, el cuerpo del post, la ruta, el estado) ·
+`lib/calendario-publicar.ts` (la base, el archivo y Zernio) · `lib/zernio-publicar.ts` (los posts de Zernio, el molde de
+`8d16c6ff^:lib/zernio.ts`) · `app/calendario/PublicarEnRed.tsx` (dentro del modal) · «Crear → Programar las publicaciones
+listas» (en serie) · la operación `programar_publicacion` · mig 0342 · tests/calendario-publicar*.test.ts.
+
+- **La regla:** una Publicación con su cuenta (las conectadas en Zernio: Instagram, Facebook, TikTok, YouTube), su archivo y
+  su hora se programa con `POST /v1/posts` y sale sola. Lo programado no se mueve, no se borra ni se le cambia el archivo
+  sin cancelar antes (saldría igual a la hora vieja). Al abrir el Calendario se relee lo que ya tenía que salir.
+- ⚠️ **Las columnas nuevas se leen APARTE** (`leerPublicaciones`, que tolera que no existan). Sumarlas a `COLS` rompía la
+  lectura entera del Calendario en una base sin la 0342 (la trampa de docs/hallazgos-pagos.md, «Una columna nueva en un
+  select explícito rompe la lectura entera sin la migración»). Y el «Deshacer» de un borrado las devuelve aparte del INSERT.
+- ⚠️ **El estado de la red va APARTE de `estado`** (planeado | hecho): cambiar ese CHECK obligaba a tocar el «Deshacer», que
+  inserta una lista fija de columnas. Cuando Zernio dice «publicada», el evento además pasa a `hecho`.
+- ⚠️ **La hora es un instante:** `scheduledFor` va con su Z (Zernio ignora `timezone` si la hora trae zona). Un evento «todo
+  el día» NO se programa: nace a las 00:00 del negocio y saldría a la medianoche.
+- ⚠️ **La media se firma hasta 7 días DESPUÉS de la hora:** Zernio la lee al publicar, días después de programarla. Una firma
+  corta (la de 12 h de `wa-media`) muere antes. Bucket privado `ig-media` (mig 0136, ya en el Reset), ruta
+  `<ws>/calendario/<evento>/<al azar>` armada por el server y validada por segmentos.
+- **Una vez:** el evento se reclama (`programando`, compare-and-set) antes de pedirle a Zernio, con `x-request-id`; un 409
+  de Zernio con `existingPostId` es el post que ya estaba, no un error.
+- ⚠️ **El diagnóstico obvio era el equivocado: «si Zernio falla, `fallo` y se reprograma»** (la verificación del 28/10,
+  `C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md`). Si la conexión se corta o Zernio da 5xx, el post PUEDE haber
+  quedado creado; reprogramar con un `x-request-id` nuevo lo duplica en la red (y el 409 no salva: no está documentado que
+  cubra un pedido nuevo con el mismo contenido; la línea vieja «el 409 de las 24 h» no se sostenía). La regla: sin respuesta
+  (no `ZernioError`, o status 0 o ≥500) → `dudosa`, con el `x-request-id` y la hora del PRIMER envío guardados en
+  `publicacion_intento` (`<id>@<ms>`, `anotarIntento`). Dentro de 4 minutos **desde el primer envío** se reintenta el MISMO
+  pedido (la idempotencia de Zernio devuelve el que había creado); después NO se reprograma: alguien mira en Zernio y, si no
+  está, «No quedó programada» la pasa a `fallo`; si está, «Ya lo resolví en Zernio» la suelta (sin la cuenta, para que
+  «Programar las listas» no la duplique). Un `programando` de más de 10 minutos (la función murió en el medio) pasa a
+  `dudosa` en la relectura, SIN el intento. Una `dudosa` no se mueve, no se borra ni se cancela.
+- ⚠️ **La ventana se cuenta desde el PRIMER envío, no desde la última anotación** (la segunda verificación, 29/10,
+  `C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md`). Contarla desde `updated_at` parecía lo mismo y
+  no lo era: la relectura de un trabado y cada reintento cortado renuevan `updated_at`, así que «Reintentar» a los 12 minutos
+  repetía un `x-request-id` que Zernio ya no recordaba (~5 min) y salían DOS posts. Y en el reintento, sólo el post resuelve: un
+  429 o un 422 dicen que Zernio no creó ESE pedido, no que el primero no exista (si el `x-request-id` se porta como su
+  Idempotency-Key, el 422 «mismo key, cuerpo distinto» sale SIEMPRE: la media se firma de nuevo en cada intento). Sigue `dudosa`.
+- ⚠️ **El reclamo exige que el evento no haya cambiado desde que se leyó** (`.eq('updated_at', …)`). La condición en la escritura
+  de mover y borrar cerraba un orden de la carrera, no el otro: programar leía, otro pedido lo movía o le cambiaba la cuenta
+  (todavía sin publicación, así que la condición lo dejaba), y el reclamo ganaba con lo viejo. Regla para código nuevo: todo lo
+  que escribe `calendario_eventos` renueva `updated_at` (no hay trigger).
+- **Una programada con OTRA clave** (o sin clave) ni se relee ni se cancela desde MaKo: la pantalla lo dice y ofrece «Ya lo
+  resolví en Zernio». Tildar, mover y borrar dicen el porqué de su estado (`textoDeBloqueo`): «se tilda sola cuando sale» es
+  cierto sólo de una programada con la clave de hoy.
+- ⚠️ **La cuenta es del NEGOCIO, no la que manda el navegador.** `guardarPublicacion` y `programarPublicaciones` validan la
+  cuenta contra `conexionesViaZernio(ws)` (filtradas por el perfil del negocio) y la red sale de la cuenta. Antes se guardaba
+  cualquier `acc_…` que llegara: con la cuenta prestada de la plataforma (un perfil por negocio en la MISMA cuenta de Zernio)
+  eso publicaba en la cuenta de otro negocio. Si las cuentas no se pueden leer, no se programa a ciegas. El «Deshacer» de un
+  borrado devuelve el archivo y el texto, NUNCA la cuenta, y si el evento ya había vuelto (un segundo «Deshacer», 23505) no
+  escribe nada: el segundo pisaba el archivo y el texto de uno ya programado otra vez.
+- ⚠️ **Un 404 de Zernio con OTRA clave no es «no está».** Un post es de la cuenta de Zernio con cuya clave se creó; si el
+  negocio cambia de clave (pasa: el ws 11 cambió de cuenta, el ws 1 va a dejar la de la plataforma), el post viejo da 404 y
+  sigue programado allá. Se guarda la huella de la clave (`publicacion_clave`, sha256 corto, nunca la clave): con otra clave,
+  cancelar da error y la relectura no la da por perdida.
+- ⚠️ **La condición «no espera a Zernio» va EN la escritura**, no en una lectura antes (`sinPublicacionEnCurso` en
+  `lib/calendario.ts`, dos pasos: `is null` y `in (publicada, fallo)`, porque el PostgREST de los tests no entiende un `or`
+  con `in`). Leer «libre» y escribir sin condición movía o borraba una recién programada por otro pedido.
+- **El «sí» de la API lleva la HUELLA** de lo que se resumió (la hora, la cuenta, el archivo, el texto): el «sí» puede llegar
+  horas después; uno que cambió no se programa con el resumen viejo. El resumen dice la cuenta (`@usuario`), no sólo la red.
+- **No medido:** el cuerpo para TikTok y YouTube (`platformSpecificData`, el `title`) sale del código viejo y de la
+  documentación, sin una cuenta real. En YouTube el título del evento es el título público (tope 100). La primera publicación
+  real la confirma el Cerebro antes (es producción). Tampoco está medido con una cuenta real que el `x-request-id` de Zernio
+  devuelva el mismo post al repetir el pedido (lo dice su documentación; el test lo supone).
+- **Sin hacer:** el webhook `post.published`/`post.failed` (hoy no se suscribe: el estado se relee sólo cuando alguien abre el
+  Calendario); la media que queda en `ig-media` al borrar un evento (el «Deshacer» la necesita; falta barrerla); por WhatsApp
+  no se sube el archivo (la operación programa lo que ya está armado). La mig 0342 (con `publicacion_intento`,
+  `publicacion_clave` y el estado `dudosa`) NO está aplicada: la pide el Cerebro.
 
 ## Lo que quedó SIN hacer
 
@@ -283,8 +337,9 @@ C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md).
 - **La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google (las sesiones de Customer Success son
   grabaciones pasadas, no turnos futuros). Si CS agenda sesiones en MaKo, se suma como capa. Vive en `lib/calendario.ts`.
 - **Las sesiones en vivo de la comunidad del curso** (`comunidad_eventos`) no se leen todavía: son otra capa posible.
-- **Publicaciones de Instagram, TikTok, YouTube… programadas de verdad** (pedido del 14/10/2026: «poder gestionar
-  publicaciones de Instagram, TikTok, YouTube, etc»). ESPERA UNA DECISIÓN de Martín: el 06/10 sacó el programador de
+- ~~**Publicaciones de Instagram, TikTok, YouTube… programadas de verdad**~~ **HECHO el 28/10/2026**: ver «Una Publicación se
+  programa en la red» (arriba). Lo que decía antes: (pedido del 14/10/2026: «poder gestionar
+  publicaciones de Instagram, TikTok, YouTube, etc»). ESPERABA UNA DECISIÓN de Martín: el 06/10 sacó el programador de
   publicaciones de la tab Instagram («C: sacar la tab», 0 filas en `contenido_posts` en toda su historia) y
   `tests/sin-instagram.test.ts` fija que Zernio se habla SÓLO desde el canal de Automations. El lib de hoy
   (lib/zernio.ts) no tiene posts; el de antes sí (`createPost`/`getPost`/`deletePost` en `8d16c6ff^:lib/zernio.ts`,

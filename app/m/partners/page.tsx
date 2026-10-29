@@ -22,6 +22,9 @@ import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { ProgramaM, ReferidosM } from './ReferidosM';
 import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
+import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
+import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '@/lib/topes-plan';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { LandingPartners } from '@/app/mako-partners/LandingPartners';
 import { AltaPartner } from '@/app/partners/AltaPartner';
@@ -57,6 +60,15 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
     getSupabaseServer().from('workspaces').select('nombre').eq('id', ws).maybeSingle().then((r) => (r.data as { nombre?: string } | null)?.nombre ?? null, () => null),
   ]);
   if (!alta) {
+    // SÓLO MaKo Pro (27/10/2026), como en la computadora (app/partners/page.tsx): un Esencial ve «Pasar a Pro».
+    if (await esEsencialDeLaSesion()) {
+      return (
+        <PantallaM>{cabecera}
+          <p style={{ margin: '0 16px 12px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>{textoSoloPro('partners')}</p>
+          <LandingPartners modo="app" accion={{ href: await rutaConWs(RUTA_CAMBIAR_PLAN), texto: ROTULO_PASAR_A_PRO }} />
+        </PantallaM>
+      );
+    }
     if (sp.alta === '1') return <PantallaM>{cabecera}<AltaPartner nombreNegocio={nombre} /></PantallaM>;
     return <PantallaM>{cabecera}<LandingPartners modo="app" accion={{ href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' }} /></PantallaM>;
   }
@@ -64,7 +76,7 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
   const [tablero, enLinea] = await Promise.all([tableroDe(ws).catch(() => null), cobraEnLinea()]);
   return (
     <PantallaM>
-      {tablero ? <ReferidosM tablero={tablero} agencia={agencia} cobraEnLinea={enLinea} emailMako={EMAIL_MAKO} /> : <>{cabecera}<ErrorM frase="No pudimos leer tu panel. No es nada tuyo." /></>}
+      {tablero ? <ReferidosM tablero={tablero} agencia={agencia} cobraEnLinea={enLinea} emailMako={EMAIL_MAKO} nombreNegocio={nombre} /> :<>{cabecera}<ErrorM frase="No pudimos leer tu panel. No es nada tuyo." /></>}
     </PantallaM>
   );
 }

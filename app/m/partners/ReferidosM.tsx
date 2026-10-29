@@ -14,10 +14,11 @@ import Link from '@/app/_ui/Link';
 import { PAGO_HOY, PAGOS_PARA_ACREDITAR, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, textoProgramaSinReferidos, textoSinReferidos } from '@/lib/partners-reglas';
 import type { ResumenPrograma, Tablero } from '@/lib/partners-programa';
 import { RUTA_MAS } from '@/lib/movil-rutas';
+import { RecursosParaRecomendar } from '@/app/partners/RecursosPartner';
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 
-export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emailMako }: { tablero: Tablero; agencia?: boolean; cobraEnLinea?: boolean; emailMako: string }) {
+export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emailMako, nombreNegocio = null }: { tablero: Tablero; agencia?: boolean; cobraEnLinea?: boolean; emailMako: string; nombreNegocio?: string | null }) {
   const toast = useToastM();
   const r = tablero.resumen;
   const copiar = async (que: string, valor: string | null) => {
@@ -46,6 +47,12 @@ export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emai
           )
           : <VacioM frase="Todavía no tienes tu link. Prueba otra vez en un minuto." />}
       </SeccionM>
+      {/* Los recursos para revender (27/10/2026): el mismo PDF y los mismos mensajes que la computadora. */}
+      {tablero.link && tablero.codigo && (
+        <SeccionM titulo="Para recomendar MaKo">
+          <RecursosParaRecomendar link={tablero.link} codigo={tablero.codigo} nombreNegocio={nombreNegocio} />
+        </SeccionM>
+      )}
       <SeccionM titulo="Tu panel" accion={<Link className="m-lnk" href={RUTA_LANDING_PARTNERS}>Ver la landing</Link>}>
         <ListaM>
           <FilaDatoM k="Visitas a tu link" v={String(tablero.visitas.total)} />

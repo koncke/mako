@@ -143,7 +143,7 @@ export function FlujoLienzo({
   onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, eventoMako, productos, posiciones, onPosiciones, linea,
-  disparadores, onNuevoDisparador, onAbrirDisparador, accionesTodo, secuenciaId, pieWhatsApp,
+  disparadores, onNuevoDisparador, onAbrirDisparador, accionesTodo, secuenciaId, pieWhatsApp, comentarioEn,
 }: {
   /**
    * LA AUTOMATIZACIÓN que se edita (AI Step v2, décima tanda): el ensayo de un AI Step deja contestar a MaKo con
@@ -271,6 +271,11 @@ export function FlujoLienzo({
    */
   eventoMako?: SubtipoMako | null;
   productos?: ProductoOpcion[];
+  /**
+   * Los canales en los que la automatización arranca con un COMENTARIO (`canalesConComentario`, lib/disparadores.ts): su
+   * mensaje ofrece responder en público, debajo del comentario (ticket #17 de Leandro, 28/10/2026).
+   */
+  comentarioEn?: ReadonlyArray<'instagram' | 'messenger'>;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   /** Las tarjetas elegidas con el LAZO (general 3). Se copian, se eliminan y se pegan juntas. */
@@ -733,7 +738,7 @@ export function FlujoLienzo({
         <EditorDeNodo
           nodo={n} paso={pasoDe(n.id)} pasos={pasos} secuencias={secuencias}
           audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy} envioAutoSecuencia={envioAutoSecuencia}
-          etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} eventoMako={eventoMako} productos={productos}
+          etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} eventoMako={eventoMako} productos={productos} comentarioEn={comentarioEn}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea} pieWhatsApp={pieWhatsApp}
@@ -1043,6 +1048,8 @@ type PropsEditor = {
   triggerTipo?: string; productos?: ProductoOpcion[];
   /** El evento de una fila de «MaKo en WhatsApp» (ver FlujoLienzo): lo que ofrece el «{ }» de la tarjeta MaKo. */
   eventoMako?: SubtipoMako | null;
+  /** Los canales en los que arranca con un comentario (ver FlujoLienzo): la respuesta pública del mensaje. */
+  comentarioEn?: ReadonlyArray<'instagram' | 'messenger'>;
   nombres: NombresParaTexto;
   paraGuion?: ParaGuion;
   /** La biblioteca de archivos ya leída (undefined = el editor la pide solo). */
@@ -1162,6 +1169,7 @@ function EditorDeNodo(pr: PropsEditor) {
           <EditorMensajeSocial key={`social-${id}`} paso={paso} canal={paso.canal} negocio={pr.negocio} deshabilitado={pr.busy}
             adjuntos={pr.adjuntos} onAdjuntoNuevo={pr.onAdjuntoNuevo} onError={pr.onError}
             mako={rolAdmin ? { disparador: pr.disparador, paraGuion: pr.paraGuion, chat: chatDe(id) } : null}
+            comentario={pr.comentarioEn?.includes(paso.canal) ?? false}
             onChange={(patch) => cambiar(patch, cambioApila(patch, paso))} />
         );
       }

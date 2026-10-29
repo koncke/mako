@@ -430,6 +430,43 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'reactiva su inscripción en nutricion_inscripciones desde el primer paso (desliga los envíos y borradores de la corrida anterior, sin borrarlos), deja historial del lead y dispara el primer envío si ya toca',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // LA DIFUSIÓN (28/10/2026, pedido de Martín por Leila): un mensaje a muchos leads, como UNA automatización de una sola vez
+  // (lib/difusion.ts). La hoja del CRM la arma con sus tarjetas; esto es lo que MaKo propone con UNA confirmación («mandale a
+  // los 394 de Contacto nuevo…»). SIN http: le escribe a muchos, y el que lo pide tiene que ver el ritmo antes del «sí».
+  {
+    id: 'difundir_a_leads', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Mandar un mensaje a muchos leads (difusión)',
+    descripcion: 'PROPONE mandar UN mensaje a varios leads a la vez —los de una columna del CRM (etapa) o una lista de ids— por WhatsApp (sólo por QR), email y/o Instagram (queda pendiente hasta el «sí»). Crea una automatización de una sola vez con ese mensaje, con goteo (de a uno cada N minutos) y tope por día en cada canal, y la deja en Automations con sus métricas. A cada lead le llega por los canales que tiene: el resumen dice a cuántos por cada canal y quién queda afuera y por qué (sin teléfono, dado de baja del email, sin conversación de Instagram en las últimas 24 h). Pide antes la etapa (listar etapas del CRM) o los leadIds (buscar_leads). Para UN lead, usa una automatización o el chat.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', descripcion: 'la columna del CRM (la clave de la etapa). Con esto van TODOS los que están hoy en ella (abiertos). Esto o leadIds.' },
+      { nombre: 'funnelId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el embudo de esa etapa, si el negocio tiene varios.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 500, descripcion: 'ids de los leads (de buscar_leads), hasta 500. Esto o etapa.' },
+      { nombre: 'canales', tipo: 'string[]', obligatorio: true, max: 3, enum: ['whatsapp', 'email', 'instagram'], descripcion: 'por dónde: uno o varios.' },
+      { nombre: 'mensaje', tipo: 'string', obligatorio: true, descripcion: 'el texto, TAL CUAL lo pidió la persona ({{nombre}} es el nombre del lead). Va en WhatsApp, en Instagram y como cuerpo del email.' },
+      { nombre: 'asunto', tipo: 'string', descripcion: 'el asunto del email (obligatorio si va por email).' },
+      { nombre: 'minutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'minutos entre un mensaje y el siguiente, en cada canal. Sin esto, 3.' },
+      { nombre: 'porDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'tope de mensajes por día en cada canal (hasta 500). Sin esto, 40 (el de una línea de WhatsApp).' },
+    ],
+    reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen',
+    // ⚠️ SÓLO EN LA APP (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): por el grupo de WhatsApp el doer arma el rol
+    // como 'admin' para cualquiera que escriba (lib/mako-doer-in.ts), y un setter o un closer lanzaba una difusión a toda una
+    // columna. Es la regla de AGENTS.md «Traer leads de a muchos…»: lo que toca números de terceros en lote, sólo en la app.
+    canales: ['app'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // «Volver a probar» (28/10/2026, ticket #19 de Leandro): «un lead no vuelve a entrar a una secuencia en la que ya estuvo»,
+  // ¿cómo prueba el negocio de nuevo con su cuenta? La ficha del lead tiene su botón (lib/automatizaciones-del-lead.ts). No
+  // le manda nada ahora: marca la inscripción terminada y lo próximo que arranca la secuencia la vuelve a correr, una vez.
+  {
+    id: 'volver_a_probar_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Volver a probar una secuencia con un lead',
+    descripcion: 'PROPONE que UN lead que YA TERMINÓ una secuencia (o contestó en ella) vuelva a entrar con lo PRÓXIMO que la arranca —otro comentario con la palabra clave, otro mensaje, moverlo de nuevo a la etapa—, una vez, aunque la secuencia sea de «Una sola vez» (queda pendiente hasta el «sí»). No le manda nada ahora: es para que el negocio pruebe su automatización otra vez con su propia cuenta. Para que le salga YA desde el primer paso, empezar_de_nuevo_lead_secuencia. No reabre una inscripción cancelada (puede ser una baja) ni la de un lead que atiende una persona. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion).',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' },
+      pSecuenciaId,
+    ],
+    reversible: false, escribe: 'marca su inscripción terminada en nutricion_inscripciones (desenlace volver_a_probar) para que el próximo evento la vuelva a correr, y deja historial del lead; no manda nada',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
   // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y
   // te avisa»— es ahora una tarjeta ⚡ Acción con esta operación, que el conversor de las
   // secuencias de antes pone sola (lib/flujo-legado.ts → OP_AVISAR; el id es el MISMO literal,
@@ -555,7 +592,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cambiar_botones_mensaje', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Botones de un DM de Instagram',
-    descripcion: 'SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.',
+    descripcion: 'SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.',
     parametros: [
       pSecuenciaId,
       { nombre: 'tarjeta', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id del DM (de ficha_secuencia_mensajes).' },
@@ -568,8 +605,10 @@ export const DEFS: readonly OperacionDef[] = [
         ],
       },
       { nombre: 'texto', tipo: 'string', max: 1000, descripcion: 'opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}.' },
+      // Ticket #17 de Leandro (28/10/2026): la respuesta PÚBLICA al comentario, un dato del mismo DM.
+      { nombre: 'en_comentario', tipo: 'boolean', descripcion: 'opcional: true = su texto se publica debajo del comentario que disparó el flujo, a la vista de todos (con un CRON de comentario; sólo texto, sin botones); false = vuelve a ir por mensaje privado.' },
     ],
-    reversible: true, escribe: 'reemplaza el texto o los botones de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
+    reversible: true, escribe: 'reemplaza el texto, los botones o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // LOS CRON DE UNA AUTOMATIZACIÓN (sexta tanda, segunda pasada, 09/10/2026): hasta acá la API los
@@ -598,6 +637,9 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'ignorar', tipo: 'string[]', max: 50, descripcion: 'con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15").' },
           { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
+          // Ticket #17 de Leandro (28/10/2026): las palabras clave del CRON de comentario, como ManyChat.
+          { nombre: 'palabras', tipo: 'string[]', max: 20, descripcion: 'con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario.' },
+          { nombre: 'coincidencia', tipo: 'string', enum: ['contiene', 'exacta'], descripcion: 'con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra).' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
             campos: [

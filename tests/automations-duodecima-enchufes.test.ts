@@ -80,7 +80,8 @@ test('la ruta lee el CRON de la LISTA (`disparadoresDeSecuencia`) y lo pasa a ed
   // Una lectura que falla no tumba el pedido: editar pregunta igual, el 409 cae a las columnas.
   assert.match(cron, /catch \(e\) \{[\s\S]*return null;/);
   const editar = tramo(RUTA, "const delCron = [...respuestas]", 'send({ t: \'fase\', fase: \'modelo\' });');
-  assert.match(editar, /const \[leido, disparadorActual\] = await Promise\.all\(\[armarContexto\(ws, pedido\), cronGuardado\(\)\]\);/);
+  // (28/10/2026: primero el CRON guardado, porque el contexto trae el del anuncio si es el guardado: tests/crear-ia-anuncio.)
+  assert.match(editar, /const disparadorActual = await cronGuardado\(\);\s*const leido = await armarContexto\(ws, pedido, \{ anuncio: [^}]+\}\);/);
   assert.match(editar, /aplicarRespuestas\(\{ \.\.\.leido\.ctx, disparadorActual \}, pedido, respuestas\)/);
   // El MISMO ctx (con el CRON) llega al user, a deIAEdicion y a erroresEdicion.
   assert.match(editar, /userDeEditar\(ctx, /);
@@ -101,7 +102,7 @@ test('Publicar muestra el `aviso` del PATCH después de «Publicado ✓»', () =
   assert.match(pub, /aviso = typeof rp\.aviso === 'string' && rp\.aviso \? rp\.aviso : null;/);
   assert.match(pub, /flashOk\('Publicado ✓'\); onCambio\(\);\n\s*if \(aviso\) setErr\(aviso\);/);
   // El server lo manda así (app/api/whatsapp/secuencias/route.ts).
-  assert.match(leer('app/api/whatsapp/secuencias/route.ts'), /return Response\.json\(aviso \? \{ ok: true, aviso \} : \{ ok: true \}\);/);
+  assert.match(leer('app/api/whatsapp/secuencias/route.ts'), /return Response\.json\(\{ ok: true, \.\.\.\(aviso \? \{ aviso \} : \{\}\)/);
 });
 
 test('la tarjeta CRON se siembra con lo que guardó el server (`disparadorDeValorIA`), entero', () => {

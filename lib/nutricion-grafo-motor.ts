@@ -30,6 +30,7 @@ import {
 // La libertad de un escenario del AI Step (undécima tanda): la única que escribe `sola` / `no_contesta`.
 import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
 import { botonesDe } from './botones-social';
+import { respondeEnComentario } from './canal-social';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { condicionPorId, reunionesDeFila, valoresDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
 import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, finDeLaReunionMs, type FilaReunion } from './nutricion-reinscripcion';
@@ -1383,6 +1384,8 @@ export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'no
   | 'objetivo' | 'audio' | 'ejemplos'
   // 24/10/2026: los BOTONES de un mensaje de Instagram o Messenger (lib/botones-social.ts). Son SALIDAS del flujo.
   | 'botones'
+  // Ticket #17 (28/10/2026): la respuesta PÚBLICA al comentario, un dato del mensaje de Instagram o Messenger.
+  | 'en_comentario'
   // Tanda A3 de las pruebas A/B (25/10/2026): las RAMAS de la tarjeta «A/B TEST». Sin esto, el primer guardado la dejaba
   // sin ramas (una tarjeta que no lleva a ningún lado).
   | 'ramas_ab'>;
@@ -1462,6 +1465,9 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   // ⚠️ LA QUINTA PUERTA, OTRA VEZ (24/10/2026): los BOTONES de un mensaje social son salidas del flujo (`btn:<id>`), y sin
   // esta línea el primer guardado los borraba en silencio. Las reglas (canal, cuántos, a dónde) las dice `validarGrafo`.
   if (!nodo && Array.isArray(o.botones)) { const bs = botonesDe(o); if (bs.length) out.botones = bs; }
+  // ⚠️ Y LA RESPUESTA EN EL COMENTARIO (ticket #17 de Leandro, 28/10/2026): sin esta línea el interruptor se apagaba solo
+  // en el primer guardado y la tarjeta salía por DM. Sólo `true`, y sólo en un mensaje de Instagram o Messenger.
+  if (!nodo && respondeEnComentario(o)) out.en_comentario = true;
   return out;
 }
 

@@ -33,6 +33,7 @@ import { tzActual, TZ_DEFAULT } from './timezone';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
 import { productosConEtapas, TriggerInvalidoError } from './setting-secuencias';
 import { duplicadaDeLaActivacion, DuplicadaError } from './nutricion';
+import { problemaDePalabras } from './palabras-clave';
 
 const COLS = 'id, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id, cron, cron_proxima_at';
 
@@ -95,6 +96,12 @@ async function validarContraElNegocio(nuevos: readonly Disparador[]): Promise<vo
 function listaValida(entrada: unknown): Disparador[] {
   if (!Array.isArray(entrada)) throw new TriggerInvalidoError('Falta la lista de CRON.');
   if (entrada.length > TOPE_DISPARADORES) throw new TriggerInvalidoError(`Hasta ${TOPE_DISPARADORES} CRON.`);
+  // Una palabra clave que no se lee («?») NO se tira callada (lib/palabras-clave.ts): si era la única, el CRON quedaba
+  // para cualquier comentario. Se mira en lo que LLEGÓ, antes de sanear, que es donde todavía está.
+  for (const d of entrada) {
+    const p = d && typeof d === 'object' ? problemaDePalabras((d as { palabras?: unknown }).palabras) : null;
+    if (p) throw new TriggerInvalidoError(`${p}.`);
+  }
   const lista = sanearDisparadores(entrada);
   if (lista.length !== entrada.length) throw new TriggerInvalidoError('Hay un CRON que no se entiende.');
   const problema = problemaDeDisparadores(lista);

@@ -37,9 +37,44 @@ preguntes: hacé esto en orden.
 
 Integración arma y chequea cada tren en `C:/dev/wt-push-q` (rama `tren-y`, la que antes era tren-x) y lo sube; el Cerebro de
 claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 de más abajo.
-- **tren-y = main `7f36fa9c6` + los docs de claude4 + el P0 de Martín: la foto de Replicar** (`a24437bb3`, rama
-  `web-generator-foto-2910`, merge `531bb04da`). Guardas en verde; los tests del tren corren. Al desplegarse: avisarle al chat
-  Web Generator (`local_12107aea`) y cerrar el ticket de Martín (ws9, /web-generator/68) con el aviso.
+- **tren-y SUBIDO: main = `eab9c62e1` (29/10 05:46).** Trae los docs de claude4 y el P0 de Martín, la foto de Replicar
+  (`22b4b75c4`, rama `web-generator-foto-2910`). Tests del tren verdes (la tanda de 43 re-corrida de a 6: 608/608), las
+  guardas, la batería y las 3 tandas de tipos en 0. Al estar Ready: avisarles al Web Generator (`local_12107aea`) y al
+  Cerebro, que se lo dice a Martín y cierra su ticket (ws9, /web-generator/68). **READY 05:50: hola-mako.com sirve
+  `mako-mf08d4332` (dpl_46nkYU9H…); avisados el Cerebro y el Web Generator.**
+  - Fuera de tren-y: `d413ad03b` del Web Generator (las copias idénticas en el editor). Es otra pieza y necesita su VERDE.
+- **tren-z (rama `tren-z` de `C:/dev/wt-push-q`, sin subir): main `eab9c62e1` + Zernio + Planes `4b6acf1c0` (merge
+  `4e9a099d9`) + Web Generator `c3c6849bc` (las copias idénticas en el editor, merge `d45a0665f`).** Choques sólo de docs;
+  `docs/api-mako.md` regenerado. Los guiones del refutador de Planes sobre `4b6acf1c0` (salidas en
+  `C:/dev/revisiones/scratch-4b6a/`): en todos los casos de SEPA, tarjeta y segundo voucher queda UNA cuota, y sub_A se cancela
+  antes de armar B.
+  - **Más Automations `f8a13def3`** (merge `ff8ec04b6`; lo de Leandro). La primera re-verificación de `0265924c6`
+    (`C:/dev/revisiones/2910-reverificacion-automations-0265924c6.md`) halló una regresión: el primer DM de quien ya estaba en
+    una automatización de comentario quedaba sin respuesta (`tomadas` contaba cualquier inscripción pausada). La arregló
+    `b3d734055`, que pasa a `contestada`. Con el mismo arnés (`C:/dev/revisiones/scratch-f8a1/`), el primer DM se contesta, el
+    doble sigue cerrado y «Volver a probar» sale entero.
+  - **Rojos del chequeo, arreglados en el tren.** Tres tests del editor que fijaban el JSX sin la escala: los arregló el Web
+    Generator (`9e73cfb2b`). Dos de Zernio los hizo Integración (`2f9f2ab98`), porque su chat estaba ARCHIVADO: los avisos de
+    publicar con «Reportar a Soporte», y `keyDeSeguimiento` otra vez con la key PROPIA. `tests/zernio-sin-respaldo.test.ts` de
+    la rama pedía `cfg(ws)` y `tests/condiciones-instagram.test.ts` pedía la propia: se contradecían. Ganó la decisión de
+    Martín del 28/10 («NO a la cuenta de MaKo»), en `75a6ff630`.
+  - **Chequeo final: 9351 tests de 961 archivos en verde**, con la referencia de la API al día.
+- **Pagos por tramos `9fc4030dd`: NO entra.** Verificación adversarial en
+  `C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md` (guiones en `scratch-9fc4/`). Dos ALTAS de plata. A1: una
+  cuota en pesos que se cobra a medias y se deja vacío «en dólares» queda pagada entera. A2: el anticipo quitado o devuelto
+  vuelve al guardar sin tocar nada. Además tres medias y cinco bajas. No hay cruces de negocio. Devuelto al chat
+  (`local_9b34bb88`).
+- **WhatsApp `450677f90` (wa-fallas-2710): NO trae lo de Leandro.** Sus 6 fallas están en `152cfcd27`, sin VERDE, y la
+  ALTA 2 de su verificación sigue abierta: `pideAlgoAMaKo` calla los pedidos reales mientras hay una pregunta del equipo
+  viva, una REGRESIÓN contra producción. Se le preguntó al Cerebro si entra igual o espera a `152cfcd27`.
+- **aut-2510 `0265924c6`: VERDE, sin re-verificar todavía.** El árbol es `C:/dev/verif-0265924c6` y los scripts del
+  refutador de 69b49a31c, con la ruta cambiada, están en `C:/dev/revisiones/scratch-0265/`. Se corren de a uno por con-turno.
+  Le faltan además las 710 barredoras.
+- **Zernio + Planes: VERDE `4b6acf1c0`** (zernio-2510; el chat arregló las tres ALTAS de Planes). El diff lo leí yo y no
+  encontré hueco nuevo; queda una baja: un admin que invita el email de otro cliente que pagó se saca los topes de la prueba.
+  Siguen sin hacer la media del 429 de Resend (el aviso de vencimiento se repite) y las bajas del plan a mano. La 0341 ya
+  está aplicada (28/10). La 0342 NO, y el código anda sin ella (publicar desde el Calendar avisa que falta). El árbol es
+  `C:/dev/verif-4b6acf1c0`.
 - **Zernio `8d48ef4c3` + `df3f9bebf`: sus arreglos PASAN** (re-corrí el refutador de la verificación sobre `df3f9bebf`, en
   `C:/dev/verif-df3f9bebf`; scripts y salida en `C:/dev/revisiones/scratch-df3f/`). Las dobles publicaciones de «Reintentar»
   (R1a-d, también con el replay `{existingPost}`), los 4xx (R2), el «Deshacer» (R5) y la carrera (R6) dejan UN post o frenan;

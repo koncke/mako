@@ -21,6 +21,9 @@
 //   · Hasta el 23/10 la key de la PLATAFORMA (`envCred`) era el respaldo, y el aislamiento lo daba un PROFILE por
 //     workspace (`ensureProfile`, `mako_ws_<ws>`). Esa rama sigue SÓLO para el `OWNER_WS` (el ws1, que es un
 //     cliente y tiene su fila, pegada el 23/10 con la misma key que la de la plataforma): se va con su key.
+//   · 28/10/2026 (el Cerebro, la promesa a Teo: «te logueás con Instagram y Facebook y ya tiene acceso»): un negocio SIN key
+//     vuelve a poder usar la cuenta de la plataforma con su profile `mako_ws_<ws>`, PERO sólo si el negocio de la plataforma
+//     prende `zernio.cuenta_de_la_plataforma` (apagado por defecto: cada cuenta conectada la paga MaKo). La key propia gana.
 //   · ⚠️ La key puede CAMBIAR después de guardar el profile (ws11: profile acuñado con la de la
 //     plataforma el 15/08, key propia el 28/08), así que el profile guardado se valida contra la
 //     cuenta de la key de HOY (`profileIdEfectivo`, lib/zernio-profile.ts), en las dos direcciones.
@@ -30,9 +33,10 @@
 // lib/webhook-routing.ts.
 
 import 'server-only';
+import { esperaDeRetryAfter, topeDeError, type TopeSocial } from './zernio-tope';
 import { credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
 import { getSupabaseServer } from './supabase';
-import { OWNER_WS } from './workspace';
+import { OWNER_WS, wsSuperAdmin } from './workspace';
 import { upsertRouting } from './webhook-routing';
 import { linkApp } from './app-url';
 import { webhookDeLaCuenta } from './zernio-firma';
@@ -82,15 +86,29 @@ export class ZernioError extends Error {
   readonly code: string | null;
   readonly type: string | null;
   readonly body: ZernioErrorBody | null;
+  /** Cuánto pide esperar Zernio antes de reintentar (`Retry-After`, 28/10/2026: el tope de Leandro). null = no lo dijo. */
+  readonly esperaMs: number | null;
+  /** Cuántos pedidos le quedan a la key en la ventana (`X-RateLimit-Remaining`). null = no lo dijo. */
+  readonly restantes: number | null;
 
-  constructor(message: string, status: number, body: ZernioErrorBody | null) {
+  constructor(message: string, status: number, body: ZernioErrorBody | null, cabeceras: { esperaMs?: number | null; restantes?: number | null } = {}) {
     super(message);
     this.name = 'ZernioError';
     this.status = status;
     this.code = body?.code ?? null;
     this.type = body?.type ?? null;
     this.body = body;
+    this.esperaMs = cabeceras.esperaMs ?? null;
+    this.restantes = cabeceras.restantes ?? null;
   }
+}
+
+// EL TOPE (28/10/2026, Leandro): lo puro vive en lib/zernio-tope.ts (lo prueba el test sin este módulo, que es server-only).
+export { esperaDeRetryAfter, ESPERA_TOPE_META_MS, ESPERA_TOPE_ZERNIO_MS, type TopeSocial } from './zernio-tope';
+
+/** ¿Este error de Zernio es un TOPE (de Zernio o de Meta)? Ver `topeDeError`. */
+export function topeDe(e: unknown): TopeSocial | null {
+  return e instanceof ZernioError ? topeDeError(e) : null;
 }
 
 // ── Config por workspace ─────────────────────────────────────────────────────
@@ -103,7 +121,29 @@ export async function cfg(ws: number): Promise<ZernioCfg> {
   const propia = await credDelClienteEstricta('ZERNIO_API_KEY', ws, { ilegibleTira: true });
   // El OWNER_WS (el ws1) sigue en el modo de la cuenta de la plataforma hasta que se le saque la key (ver la cabecera).
   if (propia) return { apiKey: propia, byok: ws !== OWNER_WS };
+  // ⚠️ SIN KEY PROPIA, LA CUENTA DE ZERNIO DE LA PLATAFORMA, con un perfil por negocio (`ensureProfile`, `mako_ws_<ws>`), SÓLO
+  // si MaKo lo prendió (28/10/2026, el Cerebro: «conectar Instagram y Facebook sin pegar una clave de Zernio», la promesa a Teo).
+  // Apagado por defecto: cada cuenta conectada de cada cliente la paga la plataforma. Nunca para el negocio de la plataforma
+  // (su key es su fila) y la key propia gana siempre.
+  if (ws !== (await wsSuperAdmin()) && (await plataformaPrestaSuCuenta())) {
+    const deLaPlataforma = await envCred('ZERNIO_API_KEY');
+    if (deLaPlataforma) return { apiKey: deLaPlataforma, byok: false };
+  }
   throw new ZernioError('Zernio no está configurado', 0, null);
+}
+
+/** El ajuste del negocio de la PLATAFORMA que presta su cuenta de Zernio a los negocios sin key ('1'). Apagado por defecto. */
+export const AJUSTE_CUENTA_PLATAFORMA = 'zernio.cuenta_de_la_plataforma';
+
+/**
+ * ¿La plataforma presta su cuenta de Zernio a los negocios sin key? «No pude leer» TIRA (como todo `cfg`): un negocio no pasa a
+ * la cuenta de la casa, ni deja de pasar, por una base caída.
+ */
+export async function plataformaPrestaSuCuenta(): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('app_settings').select('value')
+    .eq('workspace_id', await wsSuperAdmin()).eq('key', AJUSTE_CUENTA_PLATAFORMA).maybeSingle();
+  if (error) throw new ZernioError(`app_settings (${AJUSTE_CUENTA_PLATAFORMA}): ${error.message}`, 0, null);
+  return String((data as { value?: unknown } | null)?.value ?? '').trim() === '1';
 }
 
 /**
@@ -140,7 +180,12 @@ export async function zFetch<T>(apiKey: string, path: string, init?: RequestInit
   try { body = text ? JSON.parse(text) : null; } catch { body = null; }
   if (!res.ok) {
     const b: ZernioErrorBody = body != null && typeof body === 'object' ? (body as ZernioErrorBody) : { error: text.slice(0, 300) };
-    throw new ZernioError(`Zernio ${res.status}: ${b.error ?? text.slice(0, 200)}`, res.status, b);
+    // El TOPE (28/10/2026): cuánto esperar y cuánto queda, de las cabeceras (docs.zernio.com/rate-limits). Las lee `topeDe`.
+    const restantes = Number(res.headers.get('x-ratelimit-remaining'));
+    throw new ZernioError(`Zernio ${res.status}: ${b.error ?? text.slice(0, 200)}`, res.status, b, {
+      esperaMs: esperaDeRetryAfter(res.headers.get('retry-after')),
+      restantes: res.headers.get('x-ratelimit-remaining') != null && Number.isFinite(restantes) ? restantes : null,
+    });
   }
   if (body == null) throw new ZernioError(`Zernio: respuesta no-JSON en ${path}`, res.status, { error: text.slice(0, 300) });
   // ⚠️ UN 200 NO ES «SALIÓ BIEN» (AGENTS.md): si el envelope trae `success: false`, es un fallo.
@@ -380,6 +425,26 @@ export async function responderComentario(ws: number, input: { accountId: string
   return { messageId: r.messageId ?? null };
 }
 
+/**
+ * LA RESPUESTA PÚBLICA a un comentario (ticket #17 de Leandro, 28/10/2026): POST /v1/inbox/comments/{postId} con
+ * `commentId`, medido en la OpenAPI de Zernio v1.394.0 (zernio.com/openapi.json, 28/10/2026). Sale DEBAJO del comentario,
+ * a la vista de todos; no gasta la respuesta privada ni mira la ventana de 24 h. Sólo texto (`attachmentUrl` es sólo de
+ * Facebook). 403 = falta el add-on Inbox o la cuenta no puede comentar ese post; 422 = Meta lo rechazó (post cerrado,
+ * comentario borrado) o la clave se reusó con otro texto. Las dos son terminales (`esRechazoDelComentario`).
+ */
+export async function responderComentarioEnPublico(ws: number, input: { accountId: string; postId: string; commentId: string; texto: string; idempotencyKey?: string }): Promise<{ commentId: string | null }> {
+  const c = await cfg(ws);
+  const r = await zFetch<{ data?: { commentId?: string }; commentId?: string }>(c.apiKey, `/inbox/comments/${encodeURIComponent(input.postId)}`, {
+    method: 'POST',
+    headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey.slice(0, 255) } : {},
+    body: JSON.stringify({ accountId: input.accountId, message: input.texto, commentId: input.commentId }),
+  });
+  return { commentId: r.data?.commentId ?? r.commentId ?? null };
+}
+
+/** ¿Zernio dijo que esa respuesta pública no va a salir nunca? (403: sin add-on o sin permiso; 422: Meta la rechazó.) */
+export const esRechazoDelComentario = (e: unknown): boolean => e instanceof ZernioError && (e.status === 403 || e.status === 422);
+
 // ── «¿Te sigue?» (duodécima tanda) ─────────────────────────────────────────────
 
 /** Cuánto se espera UN «¿te sigue?»: corre adentro del motor, por lead que escribió. */
@@ -446,6 +511,9 @@ export async function estadosDeSeguimiento(
  */
 export function esLimiteDeMeta(e: unknown): boolean {
   if (!(e instanceof ZernioError)) return false;
+  // ⚠️ UN TOPE NO ES «META NO DEJA» (28/10/2026): pasa solo. Sin esto, un «muchos pedidos» de Meta (un 400 `platform_error`)
+  // caía en la última regla y CERRABA el hilo: el mensaje se perdía. Lo decide `topeDe`, y quien llama reintenta.
+  if (topeDe(e)) return false;
   const d = e.body?.details as { privateReplyConsumed?: unknown } | undefined;
   return e.code === 'PLATFORM_LIMITATION' || e.code === 'not_thread_owner' || d?.privateReplyConsumed === true
     || (e.status === 400 && e.type === 'platform_error');

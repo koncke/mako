@@ -258,3 +258,15 @@ test('la API: un flujo no la corre (preparar lo rechaza y el lienzo no la ofrece
 // flujo-ia-ruta: base 34 / 0). El chat del core también con id → 32 / 2 («con id» cae acá); el chat ANTES del CRON →
 // 31 / 3 (los dos órdenes de acá); la ruta sin `respuestas, historial, via` → 31 / 3 (la MISMA función cae acá); el link
 // de la API sin `&mako=1` → 33 / 1 (el link, acá).
+
+// QUÉ IA LO ESCRIBIÓ (27/10/2026, lib/quien-contesto.ts; tests/automations-quien-contesto.test.ts): lo que devuelve
+// `generar` llega tal cual a lo creado, y sin él es null (la ruta no dice nada). Rotura: el core sin `quien` → 10 / 1 (cae éste).
+test('lo creado lleva qué IA lo escribió (el `quien` de `generar`), y null si no se sabe', async () => {
+  const c = deps();
+  const conQuien: DepsCrearIA = { ...c.d, generar: async (p) => ({ r: p.traducir(DEL_MODELO).r, quien: { proveedor: 'openai', de: 'negocio' } }) };
+  const r = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida' }, conQuien);
+  assert.ok(r.ok, 'no se creó');
+  assert.deepEqual(r.ok ? r.quien : undefined, { proveedor: 'openai', de: 'negocio' });
+  const sin = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida' }, deps().d);
+  assert.equal(sin.ok ? sin.quien : undefined, null);
+});

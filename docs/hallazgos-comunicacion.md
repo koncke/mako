@@ -51,6 +51,33 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Este lead no es de esta cuenta»: todo lo que sale al grupo lleva el `?ws=`, y el link de Leila era el del EJEMPLO (28/10/2026, Leila 1)
+
+**El síntoma** (Leila, ws11, 27/10): reenvió «Mira el resumen del lead: hola-mako.com/crm/482/resumen» y al abrirlo, «Este
+lead no es de esta cuenta».
+
+**Lo arreglado (922af2d5d, de la cuenta 5):** los dos envíos al grupo de un negocio (`enviarAlGrupoMaKo` y
+`enviarPartesAlGrupoMaKo`, lib/mako-grupo.ts) completan cada link a MaKo con el `?ws=` de ESE negocio (`linksConWs`,
+`partesConLinksDeWs`, lib/links-con-ws.ts): el texto y el pie de un archivo. Lo que arma el código ya lo llevaba desde el
+06/10 (`linkApp`); lo escrito a mano en una tarjeta («MaKo en WhatsApp», «Avisar al equipo») podía salir pelado.
+tests/links-con-ws.test.ts.
+
+**⚠️ Pero el diagnóstico obvio puede ser el equivocado:** `crm/482/resumen` sólo existe en los EJEMPLOS del catálogo de
+avisos (lib/avisos-catalogo.ts: la «REUNIÓN» con *Laura Gil*, ficticia por regla). El aviso de verdad arma el link con
+`linkResumenLead(leadId, ws)` (lib/lead-resumen.ts), con el `?ws=`. **Medido el 28/10 (sólo lectura, `mako_doer_conv` del
+ws11):** MaKo le mandó a su grupo CUATRO veces, del 02 al 05/10 a las 16:01 UTC, «REUNIÓN · En 30 min tienes la R2 con
+Francisco Ramos (Dental Ramos) · https://hola-mako.com/crm/482/resumen»: el EJEMPLO de `reunion-recordatorio`, que entonces
+nombraba a un lead REAL de otro cliente, agendado «por tiempo». Es el incidente que cerró `motivoNoAgendable` el 06/10 (un
+ejemplo de fábrica no se agenda). Lo que reenvió el 27/10 era uno de esos. Ninguna automatización suya ni de la plataforma
+tiene el link, y ni la cola de avisos ni las notificaciones lo tienen.
+
+**La regla que queda:** lo que sale al grupo de un negocio pasa por `linksConWs` en la salida; un ejemplo de fábrica no se
+agenda (`motivoNoAgendable`). **Sin hacer:** el ejemplo de hoy («Laura Gil») sigue apuntando a `crm/482`, el id de aquel lead
+real; y si la IA del aviso falla, `generarMensajeAviso` devuelve la referencia tal cual (el ejemplo, con su link), para un
+aviso que se emite con `contexto` y una plantilla sin editar.
+
+---
+
 ## «No me respondiste lo de este audio»: el aviso de arreglo salió y el audio CITADO no se escucha (28/10/2026)
 
 **Síntoma.** El Cerebro le avisó a Leandro (negocio 10) a las 16:39 «ya quedó solucionado lo de las notas de voz». A las
@@ -442,6 +469,31 @@ Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`; los pedidos textuales e
 **Sin hacer:** el nombre de relleno `'+' + teléfono` de los traídos de un grupo (`app/crm/grupo-wa-server.ts`, del chat CRM:
 «Completar nombres» lo cambia después) · el CRM del teléfono (`app/m/crm`) sigue sin la foto en vivo · cambiar de etapa desde
 la cabecera de Chats sigue siendo sólo del funnel principal (`/api/chats/etapa`).
+
+## «Probar» decía una línea y salía por otra, en la plataforma: los SELECTORES leían otra lista que el envío (27/10/2026)
+
+**El síntoma** (876825880-06): la prueba por WhatsApp le llegó a Aaron desde el número de MaKo, y la pantalla decía la
+línea de Martín. Aaron: «De otro número, el de Mac».
+
+**La causa.** En la plataforma, el ENVÍO y el estado usan `lineasParaMandar` (lib/evolution.ts): la de MaKo va primero y
+por defecto, según la decisión del 15/10 (lib/linea-plataforma.ts). Los SELECTORES leían `?lineas=1`, que es
+`listarLineas` y no trae la de MaKo:
+- el «De» de «Probar»;
+- el número de salida de la automatización;
+- el número de un mensaje.
+
+Así, la línea que se veía como «la de por defecto» (la de Martín, valor '') no era la que salía. Y elegirla mandaba
+`linea: ''`, que el server resuelve a la de MaKo: **desde «Probar» no se podía probar por la línea de Martín.**
+
+**El arreglo:**
+- `?lineas=1&para=mandar` (`lineasParaMandarAqui`) para todo lo de Automations (`RUTA_LINEAS`, app/automations/SalidaWhatsApp.tsx);
+- la bandeja sigue con las del negocio: no ve ni opera la de MaKo;
+- «Sale desde» en el menú, en el renglón de la prueba y en el title del botón.
+
+Fuera de la plataforma no cambia nada (`deMaKo` es null).
+
+**La regla:** lo que ofrece elegir una línea PARA MANDAR lee las mismas líneas que el envío (`para=mandar`); lo que opera la
+línea (QR, desconectar, la bandeja) lee las del negocio (tests/linea-plataforma.test.ts).
 
 ## ⚠️ Nueve avisos de Notificaciones no le salen a nadie: el interruptor de la pantalla y el del store son dos cortes distintos (26/10/2026)
 
@@ -11626,8 +11678,32 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
 - **Lo que pidió Martín (24/10, 20 puntos, #4): «para esto tenemos las notificaciones de advertencia al grupo de mako».** El
   camino anda: el cron vive (marca reescrita en la última hora), la #261 de SuperAdmin está prendida, el ws1 tiene grupo y le
   llegaron 26. Lo que NO hace hoy es seguir avisando: con el techo agotado, una cuenta frenada nueve días calla desde el día 2.
-- **SIN hacer, decisión de producto de Martín (el Cerebro lo reparte):** si un incidente abierto varios días vuelve a avisar
-  (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4 (P1: quitar «Cliente de Diseño»).
+- **HECHO el 27/10/2026 (MAU-33; decidido por el Cerebro: «un incidente abierto varios días avisa una vez por día, y uno
+  resuelto avisa "ya está"»).** El techo de la automatización («Aviso número ≤ 3») ahora se cuenta por DÍA del incidente
+  (`ventana`, lib/alerta-critica-texto.ts), sin tocar la fila de la #261:
+  - el primer día, cada hora hasta el techo, como antes;
+  - desde el segundo, uno por día (`tocaAvisar`), y si ese día no llegó, reintenta a la hora;
+  - el «ya está» mira lo que llegó en TODO el incidente (`total`, `llegoAlguno`), no el último día;
+  - «hace 12 días» y no «hace 288 h».
+  La marca vieja de Mauricio (25, sin `ventana`) cuenta como del día 0: al desplegar, su cuenta frenada vuelve a avisar una
+  vez por día. tests/alerta-critica.test.ts (5 roturas en rojo).
+- **⚠️ «Una vez por día» sin zona horaria (la revisión del Cerebro, 28/10):** el día del incidente son 24 h desde que se
+  abrió, así que el recordatorio caía a la hora en que Meta frenó la cuenta: abierto a las 03:05 de Buenos Aires, avisaba
+  «DETÉN TODO» todos los días a las 03:05. Ahora, desde el segundo día, sale de 9 a 21 en la zona del negocio
+  (`enHorarioDeRecordatorio`, `zonaDelNegocio`); el primer día sigue en el acto. La cuenta compartida se sigue tomando ANTES
+  de mirar el horario, así otro negocio de la misma cuenta no avisa con su reloj mientras éste espera las 9.
+  **⚠️ Y con la zona ESTRICTA (la verificación sobre 69b49a31c, 29/10):** `zonaDelNegocio` nunca tira y, sin poder leer, da
+  Tijuana; el `.catch(() => null)` de después no se alcanzaba nunca. Con una lectura caída en el tick que abre el día, el
+  recordatorio de un negocio argentino frenado a las 23:00 salía a las 23:00. Ahora `zonaDelNegocioEstricta` y, si tira, esa
+  vuelta no avisa (el cron vuelve en 10 min) DESPUÉS de tomar la cuenta. **La regla** (AGENTS.md, «Una zona, un default»):
+  cuando la zona decide una ventana, la que tira; un `.catch` detrás de una función que nunca tira es código muerto.
+  **⚠️ Pero frenar TODO era el exceso contrario** (la reverificación de Integración, 29/10): con la lectura caída de forma
+  persistente no salía ni el PRIMER aviso, que no necesita la zona. Se frena sólo lo que la zona decide (`necesitaLaZona`: el
+  recordatorio de un día que no es el primero), lo mismo que mira `tocaAvisar`.
+- **El aviso de cancelación doble de Guillermo Wong (MAU-33) era del 13/10:** 17:21:59 y 17:22:35, el mismo texto. Fue una
+  reentrega de Calendly, y el freno (`claveCancelada`, 24 h) entró el 17/10 en 6904a447f. Desde ese día los avisos de
+  cancelación salen por su automatización y no quedan en `notificaciones`: no hay dato después que lo confirme, ni ningún doble.
+- **SIN hacer:** separar la cuenta compartida ws1/ws4 (P1: quitar «Cliente de Diseño»).
 
 ## «No me deja editar sus cuotas» era charla: la queja corta caía en la 9-bis (27/10/2026, claude4, Leila)
 

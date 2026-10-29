@@ -15,7 +15,7 @@ import { revalidatePath } from 'next/cache';
 import { adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { abrirCuentaDePartner, leadParaPartners, type CuentaAbierta } from '@/lib/partners';
-import { cambiarCobroPartner, hacermePartner, registrarPagoAPartner, type ResultadoAlta } from '@/lib/partners-programa';
+import { cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, type ResultadoAlta } from '@/lib/partners-programa';
 
 /**
  * «Hacerme partner» (25/10/2026): el último paso del onboarding corto de /partners (app/partners/AltaPartner.tsx). Guarda lo
@@ -26,6 +26,15 @@ export async function hacermePartnerAction(respuestas: unknown): Promise<Resulta
   const ws = await adminDeWorkspaceActual();
   if (ws == null) return { ok: false, error: 'Sólo el admin del negocio puede hacerlo partner.' };
   const r = await hacermePartner(ws, respuestas);
+  if (r.ok) revalidatePath('/partners');
+  return r;
+}
+
+/** «Cambiar» el código del panel del partner (27/10/2026): el nuevo, único; el viejo sigue acreditándole. Sólo el admin. */
+export async function cambiarCodigoPartnerAction(codigo: string): Promise<{ ok: true; codigo: string; link: string } | { ok: false; error: string }> {
+  const ws = await adminDeWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'Sólo el admin del negocio puede cambiarlo.' };
+  const r = await cambiarCodigoPartner(ws, codigo);
   if (r.ok) revalidatePath('/partners');
   return r;
 }

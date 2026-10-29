@@ -22,6 +22,7 @@ import type { TipoCobro } from './cobros-tipos';
 import { aUnidadMinima, deUnidadMinima } from './pasarela-moneda';
 import { formStripe } from './stripe-form';
 import { finDelPlazo } from './cobros-reglas';
+import { sesionExternaDe, type SesionExterna } from './cobros-externos-reglas';
 
 export const STRIPE_API = 'https://api.stripe.com';
 export const STRIPE_VERSION = '2026-09-30.endive';
@@ -229,9 +230,16 @@ export async function crearCheckoutStripe(
   p: {
     idem: string; tipo: TipoCobro; concepto: string; monto: number; moneda: string; email?: string | null;
     token: string; ws: number; cobroId: number; successUrl: string; cancelUrl: string; venceEnSeg?: number;
+    /**
+     * LA PRUEBA GRATIS de un plan de MaKo (27/10/2026): los días sin cobro. Stripe junta la tarjeta igual y cobra solo al
+     * terminar; los días cuentan desde que la persona COMPLETA el checkout (no desde que se armó el link, como el
+     * `start_date` de Mercado Pago). La factura en cero del inicio no es un pago (`confirmarFactura` la descarta).
+     */
+    diasDePrueba?: number | null;
   },
 ): Promise<R<CheckoutStripe>> {
   const sus = p.tipo === 'suscripcion';
+  const prueba = sus && p.diasDePrueba && p.diasDePrueba > 0 ? Math.round(p.diasDePrueba) : null;
   const metadata = { mako_cobro: p.token, mako_ws: String(p.ws), mako_cobro_id: String(p.cobroId) };
   // Entre 30 min y 24 h (lo que acepta Stripe); 23 h por defecto para dejar margen de reloj.
   const vence = Math.min(Math.max(p.venceEnSeg ?? 23 * 3600, 31 * 60), 23 * 3600 + 59 * 60);
@@ -250,7 +258,10 @@ export async function crearCheckoutStripe(
     metadata,
     // La metadata del Checkout NO baja sola a lo que crea: se repite en el pago o en la suscripción,
     // y de la suscripción llega a cada factura en `parent.subscription_details.metadata` (renovaciones).
-    ...(sus ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }),
+    ...(sus ? { subscription_data: { metadata, ...(prueba ? { trial_period_days: prueba } : {}) } } : { payment_intent_data: { metadata } }),
+    // Con prueba, la tarjeta se pide SIEMPRE (es lo que la hace una prueba con tarjeta y no un mes regalado), y SÓLO tarjeta
+    // (28/10/2026): con Link o un débito bancario no hay `card.fingerprint`, la huella quedaba vacía y se repetía la prueba.
+    ...(prueba ? { payment_method_collection: 'always', payment_method_types: ['card'] } : {}),
     success_url: p.successUrl,
     cancel_url: p.cancelUrl,
     expires_at: Math.floor(Date.now() / 1000) + vence,
@@ -274,6 +285,12 @@ export type SesionStripe = {
   paymentLink?: string | null;
   /** El teléfono que dejó el comprador (`customer_details.phone`), si Stripe lo pidió. */
   telefono?: string | null;
+  /**
+   * Si Stripe le cobró en OTRA moneda (`currency_conversion`, el precio adaptado al país): el monto y la moneda en que se armó
+   * la sesión. Lo compara `sesionDelCobro` (lib/cobros-eventos.ts) contra el cobro (28/10/2026). Sin conversión, null.
+   */
+  montoOrigen?: number | null;
+  monedaOrigen?: string | null;
 };
 
 const metadataDe = (v: unknown): Record<string, string> => {
@@ -288,11 +305,16 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
   const b = r.body;
   const moneda = str(b.currency)?.toUpperCase() ?? null;
   const total = Number(b.amount_total);
+  const cc = obj(b.currency_conversion);
+  const monedaOrigen = str(cc.source_currency)?.toUpperCase() ?? null;
+  const totalOrigen = Number(cc.amount_total);
   return {
     ok: true,
     id: str(b.id) ?? id,
     estado: str(b.status),
     pagoEstado: str(b.payment_status),
+    montoOrigen: monedaOrigen && Number.isFinite(totalOrigen) ? deUnidadMinima(totalOrigen, monedaOrigen) : null,
+    monedaOrigen,
     paymentIntent: idDe(b.payment_intent),
     subscription: idDe(b.subscription),
     invoice: idDe(b.invoice),
@@ -307,6 +329,17 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
   };
 }
 
+/**
+ * Una sesión de Checkout AJENA (un Payment Link armado en el Stripe del negocio, 27/10/2026, MAU-10), con su primer ítem: el
+ * comprador, el monto que pagó, el de origen si Stripe convirtió la moneda y el nombre del producto. La lee
+ * lib/cobros-externos-reglas.ts (`sesionExternaDe`).
+ */
+export async function leerCheckoutExternoStripe(key: string, id: string): Promise<R<{ sesion: SesionExterna }>> {
+  const r = await llamar(key, 'GET', `/v1/checkout/sessions/${encodeURIComponent(id)}`, { expand: ['line_items'] });
+  if (!r.ok) return fallo(r);
+  return { ok: true, sesion: sesionExternaDe(r.body) };
+}
+
 export async function expirarCheckoutStripe(key: string, id: string): Promise<R<{ estado: string | null }>> {
   const r = await llamar(key, 'POST', `/v1/checkout/sessions/${encodeURIComponent(id)}/expire`, {}, `mako-expirar-${id}`);
   if (!r.ok) return fallo(r);
@@ -318,16 +351,12 @@ export type FacturaStripe = {
   suscripcion: string | null; metadata: Record<string, string>; email: string | null; modo: 'real' | 'prueba';
 };
 
-/** GET /v1/invoices/{id}. Desde basil la suscripción vive en `parent.subscription_details`. */
-export async function leerFacturaStripe(key: string, id: string): Promise<R<FacturaStripe>> {
-  const r = await llamar(key, 'GET', `/v1/invoices/${encodeURIComponent(id)}`);
-  if (!r.ok) return fallo(r);
-  const b = r.body;
+/** Una factura de Stripe. Desde basil la suscripción vive en `parent.subscription_details`. */
+function facturaDe(b: Json, id: string): FacturaStripe {
   const det = obj(obj(b.parent).subscription_details);
   const moneda = str(b.currency)?.toUpperCase() ?? null;
   const pagado = Number(b.amount_paid);
   return {
-    ok: true,
     id: str(b.id) ?? id,
     estado: str(b.status),
     montoPagado: moneda && Number.isFinite(pagado) ? deUnidadMinima(pagado, moneda) : null,
@@ -340,10 +369,57 @@ export async function leerFacturaStripe(key: string, id: string): Promise<R<Fact
   };
 }
 
+/** GET /v1/invoices/{id}. */
+export async function leerFacturaStripe(key: string, id: string): Promise<R<FacturaStripe>> {
+  const r = await llamar(key, 'GET', `/v1/invoices/${encodeURIComponent(id)}`);
+  if (!r.ok) return fallo(r);
+  return { ok: true, ...facturaDe(r.body, id) };
+}
+
+/**
+ * Las facturas PAGADAS de una suscripción, de la más nueva a la más vieja (como las da Stripe), con el día en que se pagaron
+ * (28/10/2026). Para el cron: el cobro del día 8 de una prueba gratis es una factura, y si su `invoice.paid` se perdió, la
+ * sesión del checkout no lo dice nunca (queda en `no_payment_required`). Las primeras 20 alcanzan: el cron mira la primera
+ * con plata, y una suscripción de 20 meses ya no está pendiente.
+ */
+export async function facturasPagadasStripe(key: string, subId: string): Promise<R<{ facturas: Array<FacturaStripe & { pagadoAt: string | null }> }>> {
+  const r = await llamar(key, 'GET', '/v1/invoices', { subscription: subId, status: 'paid', limit: 20 });
+  if (!r.ok) return fallo(r);
+  const data = Array.isArray(r.body.data) ? r.body.data : [];
+  return {
+    ok: true,
+    facturas: data.map((x) => {
+      const b = obj(x);
+      const en = Number(obj(b.status_transitions).paid_at);
+      return { ...facturaDe(b, ''), pagadoAt: Number.isFinite(en) && en > 0 ? new Date(en * 1000).toISOString() : null };
+    }),
+  };
+}
+
 export async function leerSuscripcionStripe(key: string, id: string): Promise<R<{ id: string; estado: string | null; metadata: Record<string, string> }>> {
   const r = await llamar(key, 'GET', `/v1/subscriptions/${encodeURIComponent(id)}`);
   if (!r.ok) return fallo(r);
   return { ok: true, id: str(r.body.id) ?? id, estado: str(r.body.status), metadata: metadataDe(r.body.metadata) };
+}
+
+export type PruebaStripe = { id: string; estado: string | null; finPrueba: string | null; huella: string | null; referencia: string | null };
+
+/**
+ * La PRUEBA GRATIS de un plan de MaKo en Stripe (27/10/2026): la suscripción con su tarjeta. `trialing` = la tarjeta quedó
+ * cargada y no se cobró nada; `trial_end`, el día del primer cobro; la huella, el `card.fingerprint` de la tarjeta por
+ * defecto (la misma tarjeta da la misma huella en esa cuenta de Stripe: docs.stripe.com, «detect duplicate cards»).
+ */
+export async function leerPruebaStripe(key: string, id: string): Promise<R<PruebaStripe>> {
+  const r = await llamar(key, 'GET', `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ['default_payment_method'] });
+  if (!r.ok) return fallo(r);
+  const b = r.body;
+  const fin = Number(b.trial_end);
+  return {
+    ok: true, id: str(b.id) ?? id, estado: str(b.status),
+    finPrueba: Number.isFinite(fin) && fin > 0 ? new Date(fin * 1000).toISOString() : null,
+    huella: str(obj(obj(b.default_payment_method).card).fingerprint),
+    referencia: str(metadataDe(b.metadata).mako_cobro),
+  };
 }
 
 export async function leerCargoStripe(key: string, id: string): Promise<R<{ id: string; paymentIntent: string | null; reembolsado: boolean; montoReembolsado: number | null; monto: number | null; moneda: string | null; creado: string | null }>> {

@@ -41,6 +41,8 @@ import {
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
 import type { LlamadaDeVenta } from './calendario-llamadas';
+import { bloqueoEnLaRed, esSinMigracion, leerPublicaciones } from './calendario-publicar';
+import { rutaValida, TOPE_TEXTO, type DatosPublicacion } from './calendario-publicar-reglas';
 
 export type FallosCalendario = {
   propios?: boolean;
@@ -357,29 +359,91 @@ export async function crearEventos(entradas: readonly EntradaEvento[], tz: strin
 export async function cambiarEvento(id: string, e: EntradaEvento, tz: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const r = filaDeEntrada(e, tz);
   if (!r.ok) return r;
+  // Lo que espera a Zernio sale a esa hora con ese contenido: moverlo acá no lo mueve allá (28/10/2026). Primero se cancela. La
+  // condición va EN la escritura (la verificación del 28/10: leer «libre» y escribir sin condición movía uno recién programado).
   const db = await getTenantDb();
-  const { data, error } = await db.from('calendario_eventos').update({ ...r.fila, updated_at: new Date().toISOString() }).eq('id', id).select('id');
-  if (error) throw new Error(`No pude cambiar el evento: ${error.message}`);
-  return data?.length ? { ok: true } : { ok: false, error: 'Ese evento ya no existe.' };
+  const fila = { ...r.fila, updated_at: new Date().toISOString() };
+  const w = await sinPublicacionEnCurso((c) => conCondicion(db.from('calendario_eventos').update(fila).eq('id', id), c).select('id'));
+  if ('error' in w) throw new Error(`No pude cambiar el evento: ${w.error}`);
+  if (w.filas.length) return { ok: true };
+  return { ok: false, error: (await bloqueoEnLaRed(id, 'cambiar')) ?? 'Ese evento ya no existe.' };
 }
 
-/** Tilda (o destilda) un evento: una publicación que ya salió, un bloque que se hizo. */
-export async function marcarEvento(id: string, hecho: boolean): Promise<boolean> {
-  const db = await getTenantDb();
-  const { data, error } = await db.from('calendario_eventos').update({ estado: hecho ? 'hecho' : 'planeado', updated_at: new Date().toISOString() }).eq('id', id).select('id');
-  if (error) throw new Error(`No pude marcar el evento: ${error.message}`);
-  return !!data?.length;
+/**
+ * Uno que espera a Zernio no se borra: el motivo (`bloqueoEnLaRed`, el texto verdadero para cada estado) llega a la persona. Es
+ * una clase para que la action lo distinga de un error de la base sin comparar textos.
+ */
+export class BloqueadaEnLaRed extends Error {}
+
+type Condicion = 'nulo' | 'libres' | 'sin';
+type Filtrable = { is(c: string, v: null): Filtrable; in(c: string, v: readonly string[]): Filtrable };
+/**
+ * La condición «no espera a Zernio» sobre un UPDATE o DELETE: sin publicación, o ya publicada o fallida. 'sin': sin la 0342.
+ * `.is` y `.in` del constructor de Supabase devuelven el mismo constructor: el cast es estructural (inferir `T` contra ese tipo
+ * daba «Type instantiation is excessively deep» en tsc).
+ */
+function conCondicion<Q>(q: Q, c: Condicion): Q {
+  const f = q as unknown as Filtrable;
+  return (c === 'nulo' ? f.is('publicacion', null) : c === 'libres' ? f.in('publicacion', ['publicada', 'fallo']) : f) as unknown as Q;
 }
 
-/** Lo que se borró, entero (con su origen y su autor): el «Deshacer» lo vuelve a poner tal cual. */
-export type EventoBorrado = FilaEvento & { origen: string; creado_por: string | null };
+/**
+ * Escribe SÓLO si el evento no espera a Zernio, en la misma escritura (dos pasos: sin publicación, o publicada/fallida; un
+ * `or` con `in` no lo entiende el PostgREST de los tests). Sin la 0342 no hay nada programado: se escribe sin condición.
+ */
+async function sinPublicacionEnCurso<T>(armar: (c: Condicion) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<{ filas: T[] } | { error: string }> {
+  for (const c of ['nulo', 'libres'] as const) {
+    const { data, error } = await armar(c);
+    if (error) {
+      if (!esSinMigracion(error.message)) return { error: error.message };
+      const r = await armar('sin');
+      return r.error ? { error: r.error.message } : { filas: r.data ?? [] };
+    }
+    if (data?.length) return { filas: data };
+  }
+  return { filas: [] };
+}
+
+/**
+ * Tilda (o destilda) un evento: una publicación que ya salió, un bloque que se hizo. `{ bloqueo }` si espera a Zernio, con el
+ * porqué de su estado (la verificación del 28/10: la tarjeta la tildaba y quedaba «hecha» y programada a la vez; la del 29/10:
+ * «se tilda sola cuando sale» no es cierto de una `dudosa` ni de una programada con otra clave).
+ */
+export async function marcarEvento(id: string, hecho: boolean): Promise<boolean | { bloqueo: string }> {
+  const db = await getTenantDb();
+  const fila = { estado: hecho ? 'hecho' : 'planeado', updated_at: new Date().toISOString() };
+  const w = await sinPublicacionEnCurso((c) => conCondicion(db.from('calendario_eventos').update(fila).eq('id', id), c).select('id'));
+  if ('error' in w) throw new Error(`No pude marcar el evento: ${w.error}`);
+  if (w.filas.length) return true;
+  const bloqueo = await bloqueoEnLaRed(id, 'tildar');
+  return bloqueo ? { bloqueo } : false;
+}
+
+/**
+ * Lo que se borró, entero (con su origen y su autor): el «Deshacer» lo vuelve a poner tal cual. Con la publicación que tenía
+ * armada (la cuenta, el archivo y el texto; mig 0342), sin lo de Zernio: un evento programado no se borra.
+ */
+export type EventoBorrado = FilaEvento & {
+  origen: string; creado_por: string | null;
+  publicacion?: Pick<DatosPublicacion, 'red' | 'cuenta_red' | 'archivo' | 'archivo_tipo' | 'texto'>;
+};
 
 /** Borra un evento propio y devuelve lo que borró (para el «Deshacer», que lo vuelve a poner con el MISMO id). */
 export async function borrarEvento(id: string): Promise<EventoBorrado | null> {
+  // Uno que espera a Zernio se publicaría igual: primero se cancela (28/10/2026). La condición va EN el DELETE.
+  const pub = (await leerPublicaciones([id])).get(id);
   const db = await getTenantDb();
-  const { data, error } = await db.from('calendario_eventos').delete().eq('id', id).select(`${COLS}, origen, creado_por`);
-  if (error) throw new Error(`No pude borrar el evento: ${error.message}`);
-  return ((data ?? []) as EventoBorrado[])[0] ?? null;
+  const w = await sinPublicacionEnCurso<EventoBorrado>((c) => conCondicion(db.from('calendario_eventos').delete().eq('id', id), c).select(`${COLS}, origen, creado_por`) as never);
+  if ('error' in w) throw new Error(`No pude borrar el evento: ${w.error}`);
+  const b = w.filas[0] ?? null;
+  if (!b) {
+    const bloqueo = await bloqueoEnLaRed(id, 'borrar');
+    if (bloqueo) throw new BloqueadaEnLaRed(bloqueo);
+    return null;
+  }
+  // El «Deshacer» devuelve el archivo y el texto, NUNCA la cuenta: la cuenta se vuelve a elegir entre las del negocio.
+  if (pub && (pub.archivo || pub.texto)) b.publicacion = { red: null, cuenta_red: null, archivo: pub.archivo, archivo_tipo: pub.archivo_tipo, texto: pub.texto };
+  return b;
 }
 
 /**
@@ -405,6 +469,25 @@ export async function restaurarEvento(f: EventoBorrado): Promise<void> {
     updated_at: new Date().toISOString(),
   });
   if (error && error.code !== '23505') throw new Error(`No pude volver a poner el evento: ${error.message}`);
+  // Ya había vuelto (dos «Deshacer»): la publicación la escribió el primero, y ésta no se escribe encima (la verificación del
+  // 29/10: el segundo pisaba el archivo y el texto de un evento que ya estaba programado otra vez, y Zernio publicaba lo de antes).
+  if (error) return;
+  // La publicación que tenía armada, validada como todo lo demás (lo manda el navegador). Aparte: sin la 0342, el evento
+  // vuelve igual. Nunca vuelve programada: lo de Zernio se canceló antes de borrar.
+  const p = f.publicacion;
+  const ws = await getWorkspaceActual();
+  if (p && typeof p === 'object' && ws != null) {
+    // ⚠️ La cuenta NO vuelve (lo manda el navegador y no se valida contra las del negocio sin ir a Zernio): se vuelve a elegir.
+    const fila = {
+      archivo: typeof p.archivo === 'string' && rutaValida(p.archivo, ws, f.id) ? p.archivo : null,
+      archivo_tipo: p.archivo_tipo === 'image' || p.archivo_tipo === 'video' ? p.archivo_tipo : null,
+      texto: typeof p.texto === 'string' ? p.texto.slice(0, TOPE_TEXTO) : '',
+    };
+    if (!fila.archivo) fila.archivo_tipo = null;
+    // Y sólo sobre uno que no espera a Zernio: lo que se programó es lo que sale.
+    const { error: eP } = await db.from('calendario_eventos').update(fila).eq('id', f.id).is('publicacion', null);
+    if (eP) console.warn(`[calendario] el evento ${f.id} volvió sin su publicación: ${eP.message}`);
+  }
 }
 
 /** Los eventos propios de un rango, para la API de MaKo (sin Google ni el CRM: lo propio y nada más). */

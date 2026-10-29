@@ -159,8 +159,10 @@ export const SESION_PAGO_RE = /^cs_(test|live)_[A-Za-z0-9]{10,200}$/;
  */
 export function compraDeLaSesion(s: {
   id: string; pagoEstado: string | null; paymentLink?: string | null; monto: number | null; moneda: string | null;
-  email: string | null; telefono?: string | null;
+  email: string | null; telefono?: string | null; modo?: 'real' | 'prueba';
 }): { eventId: string; value: number; currency: string; email: string | null; phone: string | null } | null {
+  // Una venta de PRUEBA (la clave `sk_test`) no se le avisa a Meta: entraría al píxel como una compra de verdad (el diseño, §5).
+  if (s.modo !== 'real') return null;
   if (s.pagoEstado !== 'paid' || !s.paymentLink || s.monto == null || !(s.monto > 0) || !s.moneda) return null;
   return { eventId: eventIdCompra(s.id), value: s.monto, currency: s.moneda, email: s.email, phone: s.telefono ?? null };
 }

@@ -1267,6 +1267,63 @@ del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutSt
   tiene Stripe conectado; los 12 checkouts del Sprint no traen ninguna atribución (`client_reference_id`, metadata y
   `marketing_attributions` en null) y son anteriores al Pixel en la página.
 
+## La venta de un Payment Link propio ya entra como cobro externo, APAGADA (MAU-10, 27-28/10/2026)
+
+Chat «Zernio y CAPI» (`claude5` lo escribió, `claude4` lo terminó en la PC). Sigue a la entrada de arriba y al diseño
+(docs/diseno-venta-externa-stripe.md, §8 «Lo que cambió al construirlo»).
+
+**Vive en:** `lib/cobros-externos-reglas.ts` (`esVentaExterna`, `filaDeVentaExterna`, `esCobroExterno`) · `lib/cobros.ts`
+(`registrarVentaExterna`; el corte en `reembolsarCobro` y `cancelarSuscripcionCobro`) · `lib/cobros-webhook.ts`
+(`ventaExternaStripe`, `avisarCompraAMeta`, la puerta en la rama de checkout) · `lib/crm-auto-plan.ts` (T2 no mueve a quien
+pagó) · tests/venta-externa.test.ts (de punta a punta) · tests/cobros-externos-reglas.test.ts ·
+tests/venta-externa-no-toca-mako.test.ts.
+
+- **La regla:** una sesión pagada de un Payment Link del negocio, sin cobro de MaKo y sin su metadata, fuera de la
+  plataforma, en el modo del aviso y con `cobros.ventas_externas = '1'`, entra como cobro `pagado` marcado
+  `creado_por = 'externo:stripe:<plink_>'`, con su lead (el del email, si no el del teléfono, si no uno nuevo con origen
+  «stripe»), su cuota y UNA compra a Meta. El interruptor está APAGADO en todos: prenderlo en el ws1 es el paso 5.
+- ⚠️ **El diagnóstico obvio era el equivocado: «el reintento sigue desde el paso que falte».** El diseño reclamaba la venta
+  con el INSERT antes del lead para que un segundo aviso chocara con el `cs_` y siguiera desde ahí. Pero el reintento de
+  Stripe nunca llegaba al escritor: `cobroStripe` encontraba la fila por el `cs_` y la mandaba por el camino de los cobros
+  de MaKo, que decía «ya estaba pagado». Un aviso cortado entre el INSERT y el lead (la base, o el tope de 8 s del webhook,
+  que es donde más tarda: lead, trato, cuota, Meta) dejaba la venta sin lead, sin cuota y sin compra para siempre. Ahora la
+  puerta deja pasar también un cobro EXTERNO encontrado. **Para cualquier camino que reclama antes de completar: el
+  reintento tiene que llegar al mismo código que reclamó, no al que encuentra la fila.**
+- **El `event_id` es `purchase:<cs_>`, no `pi_`/`in_`** (el Cerebro, 27/10): es el único id que conoce la página de
+  gracias, y el Pixel v28 manda el del navegador con el mismo: Meta deduplica en vez de tener que prohibir uno.
+- **Los dos «rojos» de la última tanda del chat cortado no eran de la rama:** tests/pago-link-anulado.test.ts y
+  tests/sin-instagram.test.ts dan verde corridos después de mezclar main (el primero lo arregló main).
+- **Sin modo prueba, se probó con el código real:** el hijo corre `procesarEventoStripe` sobre la base, Stripe y Meta de
+  mentira; con eso salió el agujero de arriba, que ningún test que lee el fuente veía. La prueba en el ws 3 con `sk_test`
+  NO se hizo: no hay claves de prueba de Stripe en el proyecto (las credenciales viven en la base de cada negocio).
+- **Sin hacer:** el script de recuperación de ventas ya ignoradas (paso 6; un aviso ignorado no vuelve, `reclamarEvento`
+  lo da por duplicado); un fallo de Meta en el primer aviso no se reintenta (queda en el historial); `eventSourceUrl` y
+  `visitor_id` no viajan; unir la compra con la visita por el `session_id` del pageview; que el redirect del Payment Link
+  de Mauricio lleve `?session_id={CHECKOUT_SESSION_ID}` (se cambia en SU Stripe); con el interruptor apagado a mitad, el
+  reintento de una venta ya reclamada no la completa.
+
+### Lo que encontró la verificación de la rama unida con Planes (3ca2d8328, 28/10/2026)
+
+Informe del Cerebro: C:/dev/revisiones/2810-verificacion-3ca2d8328.md, «La venta externa». El ALTO (el cruce del
+`client_reference_id`) lo arregló Planes: ver «Un Payment Link con el token de un cobro de MaKo lo marcaba pagado», más abajo.
+Lo de acá lo arregló este chat en `lib/cobros.ts` y el módulo nuevo `lib/cobros-externos-meta.ts`; lo prueba
+tests/venta-externa.test.ts (el reintento de l, o, p, y el cruce de punta a punta en n).
+
+- **Los dos chats arreglaron el cruce a la vez, con la misma función** (`sesionDelCobro`): el Cerebro se lo pasó a los dos y
+  ninguno esperó la respuesta del otro antes de escribir. Se quedó la de Planes. Cuando un hallazgo se reparte entre dos chats,
+  el que lo toma lo dice ANTES de escribir, y el otro espera esa respuesta.
+- ⚠️ **«Todavía no, reintentá» sin status es un 200.** El error del reclamo («otro aviso está registrando esta venta») no
+  llevaba status, `esErrorTransitorio` lo daba por definitivo, la ruta contestaba 200 y Stripe no volvía NUNCA: un «Reenviar»
+  desde el panel de Stripe dentro de los 2 minutos dejaba la venta sin lead para siempre. Ahora va con status 503. **Regla:
+  todo error que signifique «volvé más tarde» lleva su status transitorio.** Y el test del corte probaba la puerta llamando a
+  `procesarEventoStripe` con un error que la ruta NO reintenta (un XX000): un test de «el reintento lo completa» tiene que mirar
+  qué contestaría la ruta (`esErrorTransitorio`), no sólo llamar a la función.
+- **La compra a Meta de una venta cortada en la cuota** la manda ahora también el cron (`reconciliarCobros` →
+  `compraExternaQueFalto`), una sola vez por venta: si el historial ya dice algo de esa compra, no la repite (sin píxel, no
+  deja una línea por pasada).
+- **Sigue sin hacer:** una venta externa pagada y SIN lead (un error permanente al crear el lead, o el corte pasado el tope de
+  8 s, cuando la ruta ya contestó 200) no la completa nadie: el cron sólo repara pagados con lead.
+
 ## «No tiene LIBERTAD» (27/10/2026): editar una cuota sin trámites, y la suscripción en el total de la columna
 
 Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`. Martín: «Los pagos funcionan mal, no tiene LIBERTAD... No se cargan
@@ -1475,3 +1532,98 @@ pago 28 de noviembre y tercer pago 28 de diciembre». MaKo contestó que sus her
 - `editar_cuota` todavía no cambia los pesos de una cuota en otra moneda: sólo sus dólares y su fecha (lib/api-mako/areas/cobros.*).
 - El plan de Fernando (ws1) NO se cargó: lo arma Mauricio con MaKo después del deploy. El ticket #26 está en «esperando_decision».
 - La venta de Fernando sigue sin monto. El plan no la cambia: la propuesta lo dice y nombra `editar_venta_lead`.
+
+## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
+
+- **El síntoma (el refutador, por la ruta real):** una venta de US$1 por un Payment Link del negocio, con
+  `?client_reference_id=<token>`, dejaba PAGADO un cobro de MaKo de US$1.500, con su cuota, el lead ganado y el historial
+  «Pago de Programa: US$ 1.500 por Stripe». Igual con el interruptor de ventas externas apagado o prendido. Venía de main, de
+  antes de MAU-10.
+- **La causa, y por qué «releer» no alcanzaba:** el aviso busca el cobro por la metadata `mako_cobro` o, si no está, por el
+  `client_reference_id` (`avisoStripe`), y la rama de MaKo relee la sesión y compara la REFERENCIA (`esDelCobro`), que es justo
+  lo que el atacante puso. `confirmarCheckout` no miraba ni el monto ni de dónde salía la sesión. El token viaja en
+  /pagar/<token>, los Payment Links aceptan ese parámetro en la URL, y la landing de Mauricio lo copia a cada link de Stripe.
+- **El arreglo (`sesionDelCobro`, lib/cobros-eventos.ts, en la rama de MaKo del checkout):** la sesión tiene que llevar la
+  metadata de MaKo de ESE cobro, o ser la guardada en el cobro (`proveedor_ref`); nunca salir de un Payment Link; y el monto y
+  la moneda tienen que alcanzar los del cobro. Si Stripe convirtió la moneda (`currency_conversion`), vale el de origen
+  (`leerCheckoutStripe` lo trae). Si no cuadra, no se asienta y se abre un ticket, uno por sesión (`cobro-ajeno:<cs_>`). Un
+  pago diferido que falló en un link ajeno tampoco marca el cobro.
+- **Trampa del doble, para quien lo vuelva a probar:** con un `data.object` recortado (sin `client_reference_id`) el cruce
+  NO aparece. El evento real trae la sesión entera: un doble con el cuerpo recortado esconde toda búsqueda por referencia.
+- **El monto, en UNIDAD MÍNIMA (la verificación de a196d5a93).** Un cobro de 49900.4 CLP se arma en Stripe por 49900 (sin
+  decimales), y comparar contra el 49900.4 rechazaba una sesión que cobró justo lo pedido, con un ticket falso; el cron la
+  asentaba igual media hora después. Ahora se compara `aUnidadMinima` contra `aUnidadMinima`, como se lo pidió MaKo a Stripe,
+  y **el cron pasa por la misma regla** (`pagoDelLinkEnLaPasarela`; lo que el aviso no asienta, el cron tampoco, con el mismo
+  ticket). El ticket vive en lib/cobro-sesion-ajena.ts para que lo usen los dos.
+
+**Sin hacer:** una sesión de Payment Link que trae el token de un cobro de MaKo queda ignorada con su ticket, no registrada
+como venta externa (con el interruptor prendido, la venta de verdad no entra al CRM sola). La puerta es de Zernio
+(`ventaExternaStripe`). Con Mercado Pago no se midió un cruce parecido.
+**Vive en:** lib/cobros-eventos.ts (`sesionDelCobro`) · lib/cobros-webhook.ts (rama de checkout) · lib/cobros.ts
+(`pagoDelLinkEnLaPasarela`) · lib/cobro-sesion-ajena.ts (`avisarSesionQueNoCuadra`) · lib/stripe-api.ts (`leerCheckoutStripe`:
+`montoOrigen`, `monedaOrigen`) · tests/cobro-sesion-ajena.test.ts · C:/dev/revisiones/scratch-3ca2/B-refuta/refuta.ts (H2) ·
+C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r3-monto-cero-decimales.ts y s1-sesion-ajena.ts.
+
+## Una guarda nueva que vale para TODO cobro rompió un caso que no era el suyo: el pago diferido fallido (28/10/2026, a196d5a93)
+
+- **El síntoma:** después de un OXXO, Boleto o SEPA que FALLÓ, /pagar contestaba «ya pagado» y /listo ofrecía «Volver a
+  intentar», que volvía a /pagar: un bucle. El cobro quedaba `fallido` para siempre (y el link de una cuota también:
+  `crearCobro` devuelve el mismo cobro).
+- **La causa:** la guarda «sesión anterior `complete` → ya pagado» se escribió para la PRUEBA de Stripe (que queda `complete`
+  sin cobrar) y se extendió a todo cobro de Stripe para cerrar el doble pago de la sesión vieja. Un pago diferido también deja
+  la sesión `complete` sin pagar (`unpaid`), y ahí no significa «pagado» sino «falló».
+- **La regla:** al generalizar una guarda de un caso a todos, listar los ESTADOS que llegan a ella (acá: `complete` con
+  `paid`, `no_payment_required` y `unpaid`, con el cobro pendiente o fallido) y decidir cada uno. El arreglo: con el cobro
+  `fallido` y la sesión `unpaid`, se arma otra; con el voucher EN CURSO (el cobro pendiente) no, que se pagaría dos veces. Y si
+  Stripe no contesta la lectura de la anterior, no se arma otra (antes armaba B con A todavía abierta).
+- **Y el arreglo abrió un cobro doble (la verificación de e6fd6d88d, scratch-e6fd/cobros-v/v1-segunda-sesion.ts):** al armar
+  B el cobro seguía `fallido`, así que con un SEGUNDO voucher en curso en B la misma excepción («fallido + unpaid») armaba C;
+  pagadas B y C, dos cuotas y ningún aviso (con SEPA el segundo cargo entra solo). La sesión nueva ahora vuelve el cobro a
+  `pendiente` (y borra el motivo) en el mismo compare-and-set. **La regla:** una excepción que mira el ESTADO del cobro tiene
+  que dejar ese estado como corresponde a la sesión nueva; si no, la excepción vale para la sesión siguiente también.
+
+**Vive en:** lib/cobros.ts (`urlParaPagar`) · tests/planes-stripe-afuera.test.ts ·
+C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r1-pagar-tras-fallo.ts.
+
+## «Volver a intentar» una SUSCRIPCIÓN: el fallo tardío de la sesión vieja y la suscripción vieja viva (29/10/2026, la verificación de ddfa645d4)
+
+- **El síntoma (dos ALTAs, C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md):** una suscripción con
+  SEPA cuya primera factura falla se reintenta, y «Volver a intentar» arma la sesión B, que es OTRA suscripción. Con la sesión
+  nueva el cobro vuelve a `pendiente` (be95f7555), pero (1) el SEGUNDO aviso del mismo fallo de A (Stripe manda dos:
+  `invoice.payment_failed` y `checkout.session.async_payment_failed`), o un reintento de Stripe sobre la factura de A, lo
+  devolvía a `fallido` con el SEPA de B en curso, y se armaba C: dos cuotas y tres suscripciones vivas; y (2) MaKo nunca
+  cancelaba sub_A: si su factura se reintentaba y ENTRABA, era otra cuota «renovación» y dos suscripciones cobrando todos los meses.
+- ⚠️ **El diagnóstico obvio era el equivocado: «be95 ya vuelve el cobro a pendiente, alcanza».** Volver a `pendiente` cierra el
+  caso en que nada llega tarde (S3, el control). Pero Stripe avisa el mismo fallo DOS veces y reintenta facturas solo: todo lo
+  que mira «¿es de este cobro?» por el token (`sesionDelCobro` deja pasar por `metadata.mako_cobro`, la factura por la metadata)
+  acepta una sesión o una suscripción VIEJA del mismo cobro. «Es de este cobro» no es «es la vigente».
+- **La regla:** un fallo sólo toca el cobro si es de la sesión VIGENTE (`proveedor_ref`) o de una factura de la suscripción
+  VIGENTE (la anotada o, antes del primer pago, la de la sesión vigente: `suscripcionVigente`, lib/cobros-webhook.ts). Un PAGO
+  de una sesión anterior sí entra (es plata; `urlParaPagar` la expiró si seguía abierta); un pago de una factura de una
+  suscripción anterior NO se asienta y abre un ticket (`avisarFacturaDeOtraSuscripcion`): la plata entró y hay que devolverla.
+  Al armar B, la suscripción de A se cancela antes (si no se puede, no se arma B). `aplicarPagoFallido` escribe con
+  compare-and-set también por la sesión que se leyó (la carrera: un aviso que leyó A antes de que se armara B).
+- ⚠️ **Y el arreglo traía su propio defecto, encontrado antes de entregar:** cancelar sub_A dispara
+  `customer.subscription.deleted` de sub_A, y la rama de suscripción del webhook marcaba el COBRO «cancelada» (y la suscripción
+  del lead: el MRR la dejaba de contar) aunque B estuviera cobrando. La cancelación también se filtra por la vigente. **Regla:**
+  una acción nueva en la pasarela (cancelar, expirar, reembolsar) vuelve como AVISO: mirá qué rama del webhook lo recibe.
+- **Sin medir contra Stripe:** que Stripe reintente la primera factura de una suscripción con SEPA depende de la cuenta (Smart
+  Retries); que una factura abierta de una suscripción cancelada todavía pueda cobrarse (un SEPA en vuelo), también. Por eso el
+  pago tardío de la vieja abre un ticket en vez de suponer que no llega.
+
+**Vive en:** lib/cobros-webhook.ts (las ramas de checkout, factura y suscripción; `suscripcionVigente`) · lib/cobros.ts
+(`urlParaPagar`, `aplicarPagoFallido`, `actualizar` con `ref`) · lib/cobro-sesion-ajena.ts · tests/cobro-reintento.test.ts (el
+guion del refutador, versionado, con dos casos nuevos: la cancelación de sub_A y la carrera).
+
+## La compra a Meta de una venta externa salía DOS veces si el cron y el aviso coincidían (28/10/2026, a196d5a93)
+
+- **El síntoma (z-meta.ts R2):** el cron corría mientras el aviso mandaba la compra a Meta; los dos miraban el historial («¿ya
+  salió?»), ninguno lo encontraba y salían dos `purchase:cs_…` con el mismo event_id. Meta los debería descartar, pero entre dos
+  eventos de SERVIDOR no lo garantiza (docs/hallazgos-ads.md).
+- **El arreglo:** el cron no manda la compra que falta de un cobro externo que cambió hace menos de 10 minutos (el aviso puede
+  estar trabajando); la manda en la vuelta siguiente. R2: antes 2 envíos, ahora 1.
+
+**Sin hacer:** si la línea del historial no se puede escribir NUNCA (lead_audit rota), cada vuelta del cron pasados los 10
+minutos la vuelve a mandar (R5). Lo arregla un reclamo escrito ANTES de mandar, en lib/cobros-externos-meta.ts (de Zernio).
+**Vive en:** lib/cobros.ts (`reconciliarCobros`, `avisoTrabajando`) · tests/venta-externa.test.ts (o, p) ·
+C:/dev/revisiones/scratch-a196/partners-zernio-refuta/z-meta.ts.

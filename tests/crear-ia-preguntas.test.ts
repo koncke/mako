@@ -304,7 +304,8 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   // Editar lee el contexto y el CRON guardado juntos (`Promise.all([armarContexto(ws, pedido), cronGuardado()])`, enchufe
   // del cierre): se busca la llamada, y que exista (un indexOf -1 dejaría la comparación sin sentido). Roto cambiando la
   // llamada (12/10, en un espejo): 15 / 1, cae éste.
-  const contexto = RUTA.indexOf('armarContexto(ws, pedido)');
+  // (28/10/2026: con el CRON guardado y lo de «Otra cosa» de tercer argumento, `armarContexto(ws, pedido, { anuncio, textos })`.)
+  const contexto = RUTA.indexOf('armarContexto(ws, pedido');
   assert.ok(contexto > 0, 'editar no lee el contexto');
   assert.ok(fin < contexto && fin < RUTA.indexOf('await generar({'), 'la rama del CRON llega al modelo');
   assert.match(RUTA.slice(i, fin), /respuestaDelCron\(delCron, historial\)/);

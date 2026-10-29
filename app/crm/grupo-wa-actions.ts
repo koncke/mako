@@ -8,7 +8,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { exigirSesion } from '@/lib/sesion-accion';
-import { getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
+import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '@/lib/topes-plan';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { autorDelMovimiento } from '@/lib/leads';
 import type { GrupoWA, ParticipanteWA } from '@/lib/grupo-wa-reglas';
@@ -17,15 +19,28 @@ import {
   participantesDelGrupo, traerDelGrupo, type LineaGrupos, type ResultadoCompletar, type ResultadoFichas, type ResultadoPerfiles, type ResultadoTraer,
 } from './grupo-wa-server';
 
-type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
+/** `pasarAPro`: el candado de Pro (abajo), con a dónde lleva el botón. */
+type Res<T> = ({ ok: true } & T) | { ok: false; error: string; pasarAPro?: string };
 const SOLO_ADMIN = 'Sólo el administrador del negocio puede traer los contactos de un grupo.';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const funnelDe = async (funnelId: number | null): Promise<number | null> => funnelId ?? (await idDelFunnelDefault());
+
+/**
+ * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): un
+ * Esencial que paga por la pasarela ve el candado y «Pasar a Pro». Lo mira CADA acción, no sólo la de abrir: la pantalla no es
+ * la única puerta. Ante la duda (no se pudo leer el plan) no hay candado, como en las tabs de Pro (lib/plan-esencial.ts).
+ */
+async function candadoDePro(): Promise<{ ok: false; error: string; pasarAPro: string } | null> {
+  if (!(await esEsencialDeLaSesion())) return null;
+  return { ok: false, error: textoSoloPro('scraper-whatsapp'), pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) };
+}
 
 /** Al abrir: las líneas del negocio y las etapas de este funnel (las que mandan algo, marcadas: no se ofrecen). */
 export async function abrirTraerDeGrupoAction(funnelId: number | null): Promise<Res<{ lineas: LineaGrupos[]; etapas: Array<{ key: string; label: string; manda: boolean }>; entrada: string | null }>> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const destino = await funnelDe(funnelId);
     if (destino == null) return { ok: false, error: 'Este negocio todavía no tiene un funnel.' };
@@ -38,6 +53,8 @@ export async function abrirTraerDeGrupoAction(funnelId: number | null): Promise<
 export async function etapasDeFunnelAction(funnelId: number | null): Promise<Res<{ etapas: Array<{ key: string; label: string; manda: boolean }>; entrada: string | null }>> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const destino = await funnelDe(funnelId);
     if (destino == null) return { ok: false, error: 'Este negocio todavía no tiene un funnel.' };
@@ -49,6 +66,8 @@ export async function etapasDeFunnelAction(funnelId: number | null): Promise<Res
 export async function gruposDeLineaAction(linea: string | null, completo = false): Promise<Res<{ linea: string; grupos: GrupoWA[]; deLaBase: boolean; refrescar: boolean }>> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try { return await gruposDeLinea(linea, completo === true); } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
@@ -56,6 +75,8 @@ export async function gruposDeLineaAction(linea: string | null, completo = false
 export async function participantesDeGrupoAction(linea: string | null, jid: string): Promise<Res<{ participantes: Array<ParticipanteWA & { enElCrm: boolean }>; sinNumero: number }>> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const r = await participantesDelGrupo(linea, jid);
     if (!r.ok) return r;
@@ -67,6 +88,8 @@ export async function participantesDeGrupoAction(linea: string | null, jid: stri
 export async function traerDeGrupoAction(p: { linea: string | null; jid: string; nombreGrupo: string; funnelId: number | null; etapa: string; telefonos: string[]; etiqueta?: string }): Promise<ResultadoTraer> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const destino = await funnelDe(p.funnelId);
     if (destino == null) return { ok: false, error: 'Este negocio todavía no tiene un funnel.' };
@@ -90,6 +113,8 @@ export async function traerDeGrupoAction(p: { linea: string | null; jid: string;
 export async function completarNombresDeGrupoAction(p: { linea: string | null; jid: string }): Promise<ResultadoCompletar> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const r = await completarNombresDelGrupo({ linea: p.linea, jid: String(p.jid ?? ''), autor: await autorDelMovimiento(), hasta: Date.now() + 45_000 });
     if (r.ok && r.completados) revalidatePath('/crm');
@@ -105,6 +130,8 @@ export async function completarNombresDeGrupoAction(p: { linea: string | null; j
 export async function completarPerfilesDeGrupoAction(p: { linea: string | null; jid: string; hechas?: number; saltear?: string[]; soloContar?: boolean }): Promise<ResultadoPerfiles> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const hechas = Number.isInteger(p.hechas) && (p.hechas as number) >= 0 ? (p.hechas as number) : 0;
     const saltear = (Array.isArray(p.saltear) ? p.saltear : []).filter((t) => typeof t === 'string');
@@ -123,6 +150,8 @@ export async function completarPerfilesDeGrupoAction(p: { linea: string | null; 
 export async function completarFichasDeGrupoAction(p: { linea: string | null; jid: string; fichas: unknown[] }): Promise<ResultadoFichas> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const pro = await candadoDePro();
+  if (pro) return pro;
   try {
     const r = await completarFichasDelGrupo({
       linea: p.linea, jid: String(p.jid ?? ''), fichas: Array.isArray(p.fichas) ? p.fichas : [], autor: await autorDelMovimiento(), hasta: Date.now() + 40_000,

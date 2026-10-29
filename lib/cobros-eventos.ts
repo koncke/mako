@@ -20,6 +20,7 @@
 // escritos con la forma genérica de su doc: falta medirlos con un cuerpo real.
 
 import { esTokenCobro } from './cobros-tipos';
+import { aUnidadMinima } from './pasarela-moneda';
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});
@@ -242,6 +243,35 @@ export function confirmarCheckout(
   return s.paymentIntent ? { ok: true, proveedorPagoId: s.paymentIntent, suscripcionId: null } : { ok: false, motivo: 'la sesión pagada no trae el pago' };
 }
 
+/**
+ * ¿La sesión RELEÍDA es la que MaKo armó para ESTE cobro, y cobró lo que el cobro pide? (28/10/2026, la verificación de
+ * 3ca2d8328). El aviso encuentra el cobro por el `client_reference_id`, y un Payment Link lo acepta en su URL: una venta de US$1
+ * con `?client_reference_id=<token>` (el token viaja en /pagar/<token>) marcaba PAGADO un cobro de MaKo de US$1.500, con su
+ * cuota y el lead ganado. MaKo arma su sesión con `metadata.mako_cobro` y un solo ítem al monto del cobro, sin cupones ni
+ * impuestos (lib/stripe-api.ts, `crearCheckoutStripe`): se exige eso, y nunca un Payment Link. Si Stripe le cobró en otra
+ * moneda (`currency_conversion`), vale el monto de origen. Un pago diferido que FALLÓ no trae plata: ahí no se mira el monto.
+ */
+export function sesionDelCobro(
+  c: { token: string; monto: number; moneda: string; proveedor_ref: string | null },
+  s: { id: string; metadata: Record<string, string>; paymentLink?: string | null; monto: number | null; moneda: string | null; montoOrigen?: number | null; monedaOrigen?: string | null },
+  accion: 'aprobado' | 'fallido',
+): Confirmacion<object> {
+  if (s.paymentLink) return { ok: false, motivo: `la sesión salió de un Payment Link (${s.paymentLink}), no del checkout de MaKo de este cobro` };
+  if (s.metadata.mako_cobro !== c.token && s.id !== c.proveedor_ref) return { ok: false, motivo: 'la sesión no es la que MaKo armó para este cobro' };
+  if (accion === 'fallido') return { ok: true };
+  const pide = c.moneda.toUpperCase();
+  // En UNIDAD MÍNIMA, como se lo pidió MaKo a Stripe (la verificación de a196d5a93): un cobro de 49900.4 CLP se arma por 49900, y
+  // comparar contra el 49900.4 abría un ticket falso por una sesión que cobró justo lo pedido.
+  const enUnidad = (monto: number | null | undefined, moneda: string): number | null => (monto != null && monto > 0 ? aUnidadMinima(monto, moneda) : null);
+  const pedido = enUnidad(c.monto, pide);
+  const alcanza = (monto: number | null | undefined, moneda: string | null | undefined) => {
+    const pagado = (moneda ?? '').toUpperCase() === pide ? enUnidad(monto, pide) : null;
+    return pagado != null && pedido != null && pagado >= pedido;
+  };
+  if (alcanza(s.monto, s.moneda) || alcanza(s.montoOrigen, s.monedaOrigen)) return { ok: true };
+  return { ok: false, motivo: `la sesión cobró ${s.monto ?? '—'} ${s.moneda ?? ''} y el cobro es de ${c.monto} ${pide}`.replace(/\s+/g, ' ') };
+}
+
 /** La factura RELEÍDA confirma el aviso. Una renovación lleva el id de ESA factura (es otra cuota). */
 export function confirmarFactura(
   accion: 'aprobado' | 'fallido',
@@ -256,6 +286,24 @@ export function confirmarFactura(
   if (!FACTURAS_DE_PAGO.has(f.motivo ?? '')) return { ok: false, motivo: `factura de ${f.motivo ?? 'motivo desconocido'}: no es un pago de la suscripción` };
   if (!(Number(f.montoPagado) > 0)) return { ok: false, motivo: 'factura en cero: no hay plata que registrar' };
   return { ok: true, proveedorPagoId: f.id, monto: f.montoPagado, moneda: f.moneda, suscripcionId: f.suscripcion };
+}
+
+/**
+ * EL COBRO DEL DÍA 8 DE UNA PRUEBA DE STRIPE, para el cron (28/10/2026): de las facturas pagadas de su suscripción (la más
+ * nueva primero, como las da Stripe), la más VIEJA que es un pago de ESTE cobro, con el mismo filtro que el aviso
+ * (`confirmarFactura`: la de US$ 0 del inicio no cuenta). Con el id de la factura, como el `invoice.paid`: si el aviso llega
+ * después, no es otra cuota. Null si todavía no se cobró nada.
+ */
+export function primerCobroDeLaPrueba(
+  facturas: ReadonlyArray<{ id: string; estado: string | null; montoPagado: number | null; moneda: string | null; motivo: string | null; suscripcion: string | null; metadata: Record<string, string>; pagadoAt: string | null }>,
+  token: string,
+): { proveedorPagoId: string; monto: number | null; moneda: string | null; suscripcionId: string | null; pagadoAt: string | null } | null {
+  for (const f of [...facturas].reverse()) {
+    if (f.metadata.mako_cobro !== token) continue;
+    const conf = confirmarFactura('aprobado', f);
+    if (conf.ok) return { proveedorPagoId: conf.proveedorPagoId, monto: conf.monto, moneda: conf.moneda, suscripcionId: conf.suscripcionId, pagadoAt: f.pagadoAt };
+  }
+  return null;
 }
 
 /** La devolución RELEÍDA confirma que falló: `failed` (o `canceled`, que tampoco devolvió nada). Un aviso viejo de una que después salió, no. */

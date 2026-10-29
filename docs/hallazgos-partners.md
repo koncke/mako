@@ -325,3 +325,54 @@ app/agency/ · lib/partners-*.ts · lib/api-mako/areas/negocio.* (`ver_mi_progra
 negocio no se pause: `seFueSegunSusCobros` sólo decide cuando hay una prueba caída (un plan anual dado de alta a mano puede
 no tener suscripción, y no se quiso dar por ido a quien paga). **Vive en:** lib/partners-reglas.ts (`seFueSegunSusCobros`) ·
 lib/partners-programa.ts (`mesesPagadosDe`, `tableroDe`) · tests/partners-empezar-ya.test.ts · tests/partners-referidos.test.ts.
+
+## Recursos para revender y el código que se puede cambiar (27/10/2026)
+
+La llamada con Leila (Fathom 876470842-25 y -06). Chat «Planes, pagos y Partners», cuenta 5. Desde el mismo día, hacerse
+partner es de MaKo Pro (docs/hallazgos-planes-y-cobro.md, «La tabla de /planes para quien no sabe nada…»).
+
+- **«Para recomendar MaKo» en el panel:** el PDF de venta y cinco mensajes para copiar, todos con SU link (y el del precio,
+  con SU código). El PDF se arma EN EL NAVEGADOR con jsPDF (ya estaba, lo usa el Image Editor): un archivo fijo se
+  desactualiza con el primer cambio de precio. Los planes y lo que trae cada uno salen de lib/planes-mako.ts y de la tabla de
+  /planes, sin jerga. No promete descuento a quien llega con el código: no está decidido. La API los devuelve en
+  `ver_mi_programa_partners`.
+- **Lo que falta de material (lo graba Martín), y NO se muestra hasta que exista:** audios de WhatsApp (presentación de 1
+  minuto, respuesta a «¿cuánto cuesta?», respuesta a «no tengo tiempo»), videos (demo de 3 minutos de MaKo por dentro, un caso
+  real con números) y capturas para estados e historias. Se suman en lib/partners-recursos.ts.
+- **El código editable (mig 0341), y el diagnóstico obvio era el equivocado: «es un update de `partner_codigos`».** Un update
+  suelto dejaba sin dueño todo lo que el partner ya había mandado: los links /r/<viejo> por WhatsApp, la cookie de 60 días y
+  los cobros con `ref_codigo = <viejo>`, que `acreditarReferidos` resuelve por código. El viejo pasa a
+  `partner_codigos_anteriores` y CADA lectura que va de un código a un negocio mira también ahí: `wsDelCodigo` (acreditar y
+  visitas), `esCodigoDePartner` (el código escrito al pagar), `codigoVigente` (/r/<viejo> deja la cookie con el código nuevo),
+  `tableroDe` y `resumenDelPrograma`.
+- **Único entre los actuales Y los anteriores de otros,** atómico en la base (`cambiar_codigo_partner`, con candado de la
+  transacción). Un trigger impide que el código que nace del nombre (`codigoDe`) sea el viejo de otro: choca con 23505 y
+  prueba con sufijo, como siempre. Sin la migración, «Cambiar» contesta «todavía no se puede» y no toca nada.
+
+- **Un `?ref=` que no era de nadie quedaba en el cobro, y el partner que después ELEGÍA ese texto se llevaba el crédito (la
+  verificación de 3ca2d8328, 28/10).** Sólo se validaba el código ESCRITO; el que trae un link (la cookie de /r/<código> o el
+  `?ref=` de /planes/<plan>) entraba sin mirar. Con el código editable, Beto eligió `promo-octubre` y cobró US$97 de una compra
+  que no trajo (r4-partners.ts, por la ruta real). Ahora se guarda sólo si es de un partner (`codigoQueCuenta`,
+  lib/compra-plan-reglas.ts), y una cookie de nadie no tapa el `?ref=` de uno. Si no se puede leer, la compra sigue con él.
+
+La mig 0341 quedó APLICADA en producción el 28/10 (el Cerebro, con el sí de Martín: era 0340 y chocó con la del editor de
+imágenes, de otra rama). **Sin hacer:** el teléfono muestra el código sin «Cambiar» (como dónde cobra: se cambia en la
+computadora). Un ref que ya quedó guardado de antes no se limpia (cuando se midió, más arriba, había 0 cobros con `ref_codigo`).
+
+- **Un código que quedó LIBRE lo tomaba otro partner y heredaba al referido (la verificación de a196d5a93, p-partners.ts H2).**
+  `acreditarReferidos` resuelve el código en CADA vuelta, no usa el referidor que ya ató. Al borrar el negocio de Ana se van sus
+  códigos (cascade) y `referido_por_ws` vuelve a null; Beto elegía `ana-partner`, la vuelta siguiente le ataba el cliente (las
+  dos bienvenidas a nombre de Beto) y el 2º mes le pagaba los US$97. **El diagnóstico obvio era el equivocado («si ya está
+  atado, acreditar a ése»): la FK lo deja en null al borrar.** Ahora no se puede ELEGIR un código que ya trajo compras
+  (`cobros.ref_codigo`) y no es tuyo, ni heredarlo por el nombre (`codigoDe` prueba con sufijo); volver a uno tuyo siempre se
+  puede (`esCodigoPropio`). En TS, sin migración: la 0341 ya está aplicada.
+- **Con la base caída, el `?ref=` crudo se guardaba «por las dudas» (H3).** `codigoQueCuenta` daba por bueno lo que no podía
+  leer. Ahora, sin poder leer, vale la cookie (la dejó /r/<código>, que ya la validó) y el `?ref=` de la URL se descarta.
+
+**Sin hacer:** `cambiar_codigo_partner` (la RPC de la 0341) no mira `cobros.ref_codigo`: el chequeo vive en TS, antes de
+llamarla, así que una carrera exacta entre las dos lecturas podría pasar (hace falta un partner borrado en ese segundo). Una
+cookie de un código muerto en /r todavía tapa el link del partner vigente (preexistente, CAE en la verificación).
+**Vive en:** lib/partners-recursos.ts · app/partners/RecursosPartner.tsx · app/partners/PanelPartner.tsx ·
+app/m/partners/ReferidosM.tsx · lib/partners-reglas.ts (`codigoNuevoValido`) · lib/partners-programa.ts
+(`cambiarCodigoPartner`, `codigoVigente`) · app/r/[codigo]/route.ts · supabase/migrations/0341_partner_codigo_editable.sql ·
+lib/api-mako/areas/negocio.* · tests/partners-recursos.test.ts · tests/partners-codigo-editable.test.ts.

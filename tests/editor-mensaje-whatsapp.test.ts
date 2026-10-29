@@ -188,6 +188,8 @@ test('lo guardado antes se ve como sus burbujas: un audio con pie son dos, y SIN
   assert.equal(placeholderDe('texto', undefined, 'audio'), 'Texto después del audio');
   assert.equal(placeholderDe('ia'), 'Qué tiene que lograr');
   assert.equal(placeholderDe(undefined, 'Tu mensaje'), 'Tu mensaje');
+  // MK-24 (27/10/2026): un texto sale TAL CUAL; lo dice el cuadro (Joan escribió una instrucción y le llegó así al lead).
+  assert.equal(placeholderDe('texto'), 'Escribe lo que le llega, tal cual');
 });
 
 test('al pasar a algo que no es UN texto, las variantes se sueltan EXPLÍCITAS (costuras-1)', () => {
@@ -332,7 +334,7 @@ test('una sola columna: el chat, y la barra abajo de todo con «{ }» al lado de
     assert.ok(!arriba.includes('✦ MaKo') && !arriba.includes('<button'), `${disposicion}: quedó algo arriba del chat`);
     assert.ok(!arriba.includes('Insertar un dato'), `${disposicion}: «{ }» quedó arriba`);
     const abajo = html.slice(barra);
-    for (const t of ['placeholder="Escribe un mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
+    for (const t of ['placeholder="Escribe lo que le llega, tal cual"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
     // «{ }» AL LADO del clip: después del clip y antes del campo, en la MISMA fila.
     const iClip = abajo.indexOf('aria-label="Adjuntar archivo"');
     const iDatos = abajo.indexOf('aria-label="Insertar un dato"');

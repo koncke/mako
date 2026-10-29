@@ -310,7 +310,8 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
     // 16/10/2026: y el REPORTE semanal ya armado (`conReporte`, el evento de la plataforma `reporte_semanal`), y la CUENTA
     // PUBLICITARIA frenada (`conAnuncios`, `meta_cuenta_frenada`).
     // 26/10/2026: y el Claude del negocio que no puede analizar sus llamadas (`conIaCaida`, `closing_ia_caida`).
-    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true, conLinea: true, conGrabacion: true, conCancelada: true, conFusion: true, conRecordatorio: true, conFlow: true, conTracking: true, conPixel: true, conLanding: true, conOptin: true, conPrueba: true, conGrabaciones: true, conMeta: true, conReporte: true, conOferta: true, conAnuncios: true, conReunionPlan: true, conIaCaida: true }).flatMap((g) => g.items).length,
+    // 28/10/2026: y el tope de Instagram o Zernio que frenó los mensajes de un negocio (`conTope`, `social_tope`).
+    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true, conLinea: true, conGrabacion: true, conCancelada: true, conFusion: true, conRecordatorio: true, conFlow: true, conTracking: true, conPixel: true, conLanding: true, conOptin: true, conPrueba: true, conGrabaciones: true, conMeta: true, conReporte: true, conOferta: true, conAnuncios: true, conReunionPlan: true, conIaCaida: true, conTope: true }).flatMap((g) => g.items).length,
     // (15/10/2026: lo que es SÓLO para una persona —el link de restablecer— no es del equipo.)
     VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead' && v.soloPara !== 'usuario').length,
     'con lead, cuota, el texto del código, el pago, lo escrito y el análisis se puede resolver TODO lo del equipo',

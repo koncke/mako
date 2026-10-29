@@ -10,7 +10,8 @@
 //   1. El plan sale de lib/planes-mako.ts (con el setting `planes.mako` de la plataforma): la capa y el precio NUNCA
 //      salen del pedido.
 //   2. La pasarela: las conectadas en el workspace de la plataforma, y de esas las que tienen precio en su moneda (MP
-//      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece).
+//      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece). Y según el PAÍS de quien
+//      compra (27/10/2026): Mercado Pago sólo en el de su cuenta, Stripe en el resto (`pasarelasDelPais`).
 //   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña.
 //   4. Si ya tiene un link VIVO de ese plan por esa pasarela (de las últimas 23 h), se devuelve ése: dos clics o
 //      volver atrás no crean otro checkout.
@@ -37,7 +38,7 @@ import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { diagnosticoEnTexto, pasarelaDeLaCompra, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { listarUsuarios } from './usuarios';
 
@@ -85,14 +86,16 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
  * que con las claves de prueba conectadas en el ws9 cualquiera sacaba una cuenta REAL pagando con la tarjeta 4242. Sólo
  * el super admin la ve (`conPrueba`), que es quien hace la prueba de humo antes de pasar a las claves reales.
  */
-export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean } = {}): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
+export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean; pais?: string | null } = {}): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
   const plan = (await planesMako()).find((p) => p.id === planId && p.activo);
   if (!plan) return null;
   try {
     const ws = await wsSuperAdmin();
     const monedas = (await monedasDeLaPlataforma(ws)).filter((m) => !m.prueba || opts.conPrueba === true);
     const pasarelas = monedas.map((m) => ({ pasarela: m.pasarela, moneda: m.moneda, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
-    return { plan, pasarelas };
+    // Mercado Pago sólo en su país; afuera, Stripe (27/10/2026, `pasarelasDelPais`). Después del precio: en Argentina sin
+    // precio en pesos, Mercado Pago no sirve y queda Stripe.
+    return { plan, pasarelas: pasarelasDelPais(opts.pais ?? null, pasarelas) };
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
     return { plan, pasarelas: [] };
@@ -105,7 +108,7 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean 
  * checkout no puede cobrar (lib/compra-plan-reglas.ts, `botonDelPlan`). Una pasarela en modo prueba no cuenta. Sin poder leer las pasarelas, ninguno se cobra:
  * ofrecer la agenda de más es un llamado; ofrecer un pago que no existe es un callejón.
  */
-export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
+export async function ofertasDeLosPlanes(pais: string | null = null): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
   const planes = (await planesMako()).filter((p) => p.activo);
   let monedas: Array<{ pasarela: Pasarela; moneda: string }> = [];
   try {
@@ -115,7 +118,11 @@ export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobr
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
   }
-  return planes.map((plan) => ({ plan, cobrable: monedas.some((m) => precioEn(plan, m.moneda) != null) }));
+  // Por plan y por país, la misma cuenta que `ofertaDelPlan`: en México con sólo Mercado Pago no se ofrece «Empezar».
+  return planes.map((plan) => ({
+    plan,
+    cobrable: pasarelasDelPais(pais, monedas.filter((m) => precioEn(plan, m.moneda) != null)).length > 0,
+  }));
 }
 
 /** La moneda de la Mercado Pago de MaKo (la de su sitio: ARS, MXN…), o null si no está conectada o no se pudo leer. */
@@ -255,14 +262,18 @@ async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ 
   }
 }
 
-/** El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). */
-export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean } = {}): Promise<ResultadoCompra> {
+/**
+ * El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). `pais`: de
+ * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`).
+ */
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null } = {}): Promise<ResultadoCompra> {
   const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
   const eleccion = pasarelaDeLaCompra({ pedida: p.pasarela, sirven: pasarelas.map((x) => x.pasarela) });
   if (!eleccion.ok) {
-    if (eleccion.motivo === 'elegir') return { ok: false, status: 409, error: '¿Con qué quieres pagar?', elegir: pasarelas };
+    // Pidió una que desde su país no cobra (Mercado Pago desde México) y hay otra: se le ofrece la que sirve, no «no cobramos».
+    if (eleccion.motivo === 'elegir' || (eleccion.motivo === 'no-sirve' && pasarelas.length)) return { ok: false, status: 409, error: '¿Con qué quieres pagar?', elegir: pasarelas };
     return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };
   }
   const via = pasarelas.find((x) => x.pasarela === eleccion.pasarela)!;

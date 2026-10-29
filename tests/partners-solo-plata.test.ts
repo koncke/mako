@@ -95,7 +95,9 @@ test('el CÓDIGO en el carrito: escrito gana; si no, el primer link (cookie) y d
   const ruta = fuente('app/api/planes/comprar/route.ts');
   assert.match(ruta, /if \(pedido\.codigoEscritoMal\) return Response\.json\(\{ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' \}, \{ status: 400 \}\);/);
   assert.match(ruta, /if \(pedido\.codigoEscrito && !\(await esCodigoDePartner\(pedido\.codigoEscrito\)\.catch\(\(\) => true\)\)\)/, 'no pude leer: la compra sigue');
-  assert.match(ruta, /const ref = codigoDeLaCompra\(\{ escrito: pedido\.codigoEscrito, cookie: codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\), url: pedido\.ref \}\);/);
+  // Desde el 28/10/2026 la ruta guarda sólo el código de un partner (`codigoQueCuenta`, con el mismo orden: el escrito, la cookie
+  // y después el `?ref=`; tests/partners-codigo-editable.test.ts).
+  assert.match(ruta, /const refQueCuenta = await codigoQueCuenta\(\{ escrito: pedido\.codigoEscrito, cookie: codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\), url: pedido\.ref \}, esCodigoDePartner\);/);
   assert.match(TEXTO_CODIGO_NO_EXISTE, /no existe/);
   const compra = fuente('app/planes/[plan]/CompraPlan.tsx');
   assert.ok(compra.indexOf('<CodigoReferido') > 0 && compra.indexOf('<CodigoReferido') < compra.indexOf('<button className="planes-btn" type="submit"'), 'arriba del botón de pagar');
@@ -113,8 +115,10 @@ test('el PANEL del partner (Tolt): visitas, negocios, lo ganado y lo que tiene a
   for (const k of kpis) { const i = p.indexOf(`<span className="pp-kpi-etq">${k}</span>`); assert.ok(i > ultimo, k); ultimo = i; }
   assert.match(p, /<div className="pp-kpi destacado"><span className="pp-kpi-etq">A cobrar<\/span>/, 'lo que tiene a cobrar, destacado');
   assert.match(p, /<BarrasPorMes datos=\{tablero\.porMes\}/);
-  assert.match(p, /<Copiable etiqueta="Tu link" valor=\{tablero\.link\} \/>/);
-  assert.match(p, /<Copiable etiqueta="Tu código, para poner al pagar" valor=\{tablero\.codigo\} \/>/);
+  // Desde el 27/10/2026 el link y el código son los VIVOS (`ref`): «Cambiar» el código los cambia sin recargar.
+  assert.match(p, /<Copiable etiqueta="Tu link" valor=\{ref\.link\} \/>/);
+  assert.match(p, /<CodigoEditable codigo=\{ref\.codigo\} onCambio=\{setRef\} \/>/);
+  assert.match(p, /<Copiable etiqueta="Tu código, para poner al pagar" valor=\{codigo\}/);
   assert.match(p, /https:\/\/wa\.me\/\?text=/);
   assert.match(p, /const r = await cambiarCobroPartnerAction\(valor\)/);
   const b = fuente('app/partners/BarrasPorMes.tsx');
