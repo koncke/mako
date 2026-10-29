@@ -51,6 +51,8 @@ import {
 export const COLS_PUBLICACION = 'red, cuenta_red, archivo, archivo_tipo, texto, post_id, publicacion, publicacion_motivo, publicacion_url, publicacion_intento, publicacion_clave';
 const COLS_EVENTO = 'id, tipo, formato, titulo, inicio, dia_completo, estado, updated_at';
 export const FALTA_MIGRACION_PUBLICAR = 'Falta la migración 0342 para publicar desde el Calendario.';
+/** LinkedIn, X, Threads o Google Business antes de la mig 0348: la base todavía no acepta esa red. */
+export const FALTA_MIGRACION_REDES = 'Publicar en esa red todavía no está activo en tu cuenta. Elige otra cuenta por ahora.';
 /** Hasta cuántas se programan de una vez (el mismo tope de un lote del Calendario). */
 export const MAX_PROGRAMAR = 40;
 /** Un reclamo `programando` más viejo que esto murió en el medio (la función, la base): pasa a `dudosa`. */
@@ -226,6 +228,7 @@ export async function guardarPublicacion(id: string, cambio: {
     const { data, error } = await (libre === null ? q.is('publicacion', null) : q.eq('publicacion', libre)).select('id');
     if (error) {
       if (esSinMigracion(error.message)) return { ok: false, error: FALTA_MIGRACION_PUBLICAR };
+      if (/calendario_eventos_red_ok/.test(error.message ?? '')) return { ok: false, error: FALTA_MIGRACION_REDES };
       throw new Error(`No pude guardar la publicación: ${error.message}`);
     }
     if (data?.length) return { ok: true };

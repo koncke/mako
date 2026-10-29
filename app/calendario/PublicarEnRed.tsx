@@ -27,7 +27,7 @@ import {
   cancelarPublicacionAction, guardarPublicacionAction, noQuedoProgramadaAction, programarAction, publicacionAction, resolverEnZernioAction,
   subidaArchivoAction,
 } from './actions';
-import { MIMES_PUBLICAR, ROTULO_RED, TOPE_TEXTO, type DatosPublicacion } from '@/lib/calendario-publicar-reglas';
+import { MIMES_PUBLICAR, ROTULO_RED, topeDeTexto, type DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 import type { CuentaParaPublicar } from '@/lib/calendario-publicar';
 
 type Cuentas = { ok: true; cuentas: CuentaParaPublicar[] } | { ok: false; motivo: string };
@@ -223,7 +223,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subir(f); }} />
             {subida != null && <span style={DIM}>Subiendo… {subida}%</span>}
           </label>
-          <TextField label="Texto de la publicación" multiline value={texto} maxLength={TOPE_TEXTO} disabled={ocupado}
+          <TextField label="Texto de la publicación" multiline value={texto} maxLength={topeDeTexto(d.red)} disabled={ocupado}
             onChange={(e) => setTexto(e.target.value)} onBlur={() => { if (texto !== d.texto) void guardar({ texto }); }} />
           {d.red === 'youtube' && <span style={DIM}>En YouTube, el título del evento sale como título del video (hasta 100 caracteres).</span>}
           {sinGuardar && <span style={DIM}>Guarda los cambios de la fecha y la hora antes de programarla.</span>}

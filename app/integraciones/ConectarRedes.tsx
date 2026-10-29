@@ -21,7 +21,7 @@ import dynamic from 'next/dynamic';
 import { Button } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { EstadoConexion, leerConexiones, useConectarViaZernio } from '@/app/_components/ConectarViaZernio';
-import { REDES, REDES_VISIBLES, estadoDeRed, lineaDeCobro, textoGratisZernio, type ConexionZernio, type RedZernio } from '@/lib/zernio-redes';
+import { CLAVE_SIGUE_ZERNIO, REDES, REDES_VISIBLES, esRedZernio, estadoDeRed, lineaDeCobro, textoGratisZernio, type ConexionZernio, type RedZernio } from '@/lib/zernio-redes';
 
 const SANS = "'Geist', sans-serif";
 // Los anuncios de Meta: conectar con Facebook, la cuenta publicitaria y el píxel (se baja sólo con este paso).
@@ -46,6 +46,17 @@ export default function ConectarRedes() {
     if ('conexiones' in r) { setLista(r.conexiones); setTotal(r.total); setErrorLectura(null); } else setErrorLectura(r.error);
   }, []);
   useEffect(() => { void leer(); }, [leer]);
+
+  // La red que SIGUE (29/10/2026): la pidió una tarjeta de red o un «Conectar…» sin clave. Se resalta hasta que queda conectada.
+  const [sigue, setSigue] = useState<RedZernio | null>(null);
+  useEffect(() => {
+    try { const r = window.sessionStorage.getItem(CLAVE_SIGUE_ZERNIO); if (esRedZernio(r)) setSigue(r); } catch { /* sin almacenamiento */ }
+  }, []);
+  useEffect(() => {
+    if (!sigue || !lista || estadoDeRed(sigue, lista).estado !== 'conectada') return;
+    setSigue(null);
+    try { window.sessionStorage.removeItem(CLAVE_SIGUE_ZERNIO); } catch { /* sin almacenamiento */ }
+  }, [sigue, lista]);
 
   // `volver`: la pestaña sin ventana emergente (teléfono, navegador interno) vuelve acá y se reabre este mismo modal.
   // `keyAca`: este bloque vive ADENTRO del modal de Zernio, donde está el campo de la key: con una key mala, lo dice acá (abrir otro modal de Zernio
@@ -78,13 +89,17 @@ export default function ConectarRedes() {
           // ⚠️ «Conectando…» sólo mientras se pide el link: en «esperando» el botón de ESA fila sigue vivo (es la salida de quien cerró la ventana).
           const activaAhora = z.red === red && z.fase === 'abriendo';
           const quien = e?.estado === 'conectada' ? quienes(e.conexiones, clavesUsadas > 1) : '';
+          const esLaQueSigue = sigue === red && e?.estado !== 'conectada';
           return (
-            <li key={red} data-red={red} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <li key={red} data-red={red} data-sigue={esLaQueSigue ? '' : undefined}
+              ref={esLaQueSigue ? (n) => { n?.scrollIntoView({ block: 'nearest' }); } : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--surface)', border: esLaQueSigue ? '1.5px solid var(--accent)' : '1px solid var(--border)' }}>
               <span aria-hidden style={{ width: 8, height: 8, borderRadius: 4, flex: 'none', background: e?.estado === 'conectada' ? 'var(--good)' : e?.estado === 'vencida' ? 'var(--warn)' : 'var(--border-strong)' }} />
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>{REDES[red].etiqueta}</span>
                 <span style={{ fontSize: 12, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {e?.estado === 'conectada' ? `Conectada${quien ? ` · ${quien}` : ''}` : e?.estado === 'vencida' ? 'Zernio pide reconectar esta cuenta.' : REDES[red].ayuda}
+                  {e?.estado === 'conectada' ? `Conectada${quien ? ` · ${quien}` : ''}` : e?.estado === 'vencida' ? 'Zernio pide reconectar esta cuenta.'
+                    : esLaQueSigue ? `Sigue aquí: conecta tu ${REDES[red].etiqueta}.` : REDES[red].ayuda}
                 </span>
               </span>
               <Button size="sm" variant={e?.estado === 'conectada' ? 'secondary' : 'primary'} loading={activaAhora} disabled={ocupado}

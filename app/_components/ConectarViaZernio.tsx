@@ -41,6 +41,7 @@ import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useConectarIntegracion } from './ConectarIntegracion';
 import {
+  CLAVE_SIGUE_ZERNIO,
   EVENTO_OTRA_CLAVE_ZERNIO,
   CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, estadoDeRed, guardarVuelta,
   errorDeVueltaAjena, leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
@@ -210,6 +211,8 @@ export function useConectarViaZernio(opts: {
       const motivo = res.motivo ?? 'error';
       if (motivo === 'sin-clave' || motivo === 'clave-mala') {
         if (optsRef.current.keyAca) { fallar(`${MENSAJES_DE_MOTIVO[motivo]} Está arriba, en esta misma pantalla.`, null); return; }
+        // Zernio PRIMERO, ahí mismo, y después el login de esta red (29/10/2026): el paso 2 la resalta al guardar la clave.
+        try { window.sessionStorage.setItem(CLAVE_SIGUE_ZERNIO, redElegida); } catch { /* sin almacenamiento: el paso 2 lista todas */ }
         setFase('listo'); ponerNota(MENSAJES_DE_MOTIVO[motivo]); abrirIntegracion('zernio'); return;
       }
       // Ésta se paga en SU Zernio: se pregunta antes de abrir Facebook. «Conectar igual» es otro clic (la ventana se abre sin bloqueo).

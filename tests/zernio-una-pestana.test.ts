@@ -39,7 +39,9 @@ test('meta se configura en Zernio: el «dónde» es uno y lo usan ?abrir= y el b
   assert.equal(integracionQueConfigura('meta'), 'zernio');
   assert.equal(integracionQueConfigura('zernio'), 'zernio');
   assert.equal(integracionQueConfigura('calendly'), 'calendly', 'las demás se configuran en su tarjeta');
-  assert.deepEqual(Object.keys(SE_CONFIGURA_EN), ['meta']);
+  // Meta, y desde el 29/10/2026 cada red social con tarjeta propia que se conecta (tests/zernio-todas-las-redes.test.ts).
+  assert.deepEqual(Object.entries(SE_CONFIGURA_EN).filter(([k]) => !k.startsWith('red-')), [['meta', 'zernio']]);
+  assert.ok(Object.entries(SE_CONFIGURA_EN).every(([, v]) => v === 'zernio'), 'todo lo que se configura en otra tarjeta, va a la de Zernio');
   assert.match(codigo('app/_components/ConectarIntegracion.tsx'), /setAbierto\(\{ servicio: integracionQueConfigura\(servicio\), motivoGoogle \}\)/);
   const tablero = codigo('app/integraciones/IntegracionesBoard.tsx');
   assert.match(tablero, /const abrirCrudo = searchParams\.get\('abrir'\);\s*const abrir = abrirCrudo \? integracionQueConfigura\(abrirCrudo\) : null;/);

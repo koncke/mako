@@ -82,8 +82,9 @@ test('volverConMarca y sinParamsDeVuelta: la marca de la red viaja y se consume 
 
 test('el catálogo: Facebook, Instagram y anuncios hoy; «toString» y compañía no son redes; Messenger es la página de Facebook', () => {
   // YouTube, desde el 27/10/2026: el canal se conecta con el login de Zernio (la tarjeta ya no pide la clave de Google). TikTok,
-  // desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio).
-  assert.deepEqual([...REDES_VISIBLES], ['facebook', 'instagram', 'metaads', 'tiktok', 'youtube']);
+  // desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio). LinkedIn, X, Threads y
+  // Google Business, ese mismo día (Martín: «todas las redes sociales»); Pinterest y Reddit no (tests/zernio-todas-las-redes.test.ts).
+  assert.deepEqual([...REDES_VISIBLES], ['facebook', 'instagram', 'metaads', 'linkedin', 'tiktok', 'youtube', 'twitter', 'threads', 'googlebusiness']);
   assert.equal(REDES.metaads.ruta, 'facebook/ads');
   assert.deepEqual(REDES.metaads.params, { loginMode: 'business' });
   assert.equal(REDES.metaads.plataforma, 'metaads');

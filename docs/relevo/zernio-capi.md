@@ -3,6 +3,28 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 29/10/2026 tarde (cuenta `claude3`) — varias claves de Zernio y todas las redes
+
+Rama `zernio-token-2910`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
+
+**Lo pedido (el Cerebro, con el audio de Martín del 29/10):** varias claves de Zernio por negocio (cada una de una cuenta del
+cliente), el aviso de la 3.ª red con [Agregar otra clave] [Conectar igual], Zernio primero en todo «Conectar…», todas las redes de
+Zernio en Integraciones y publicables desde lo que ya existe, un tutorial claro con capturas reales, un paso por pantalla.
+
+**Lo hecho:**
+- `27d7f63ce` — varias claves (la red atada a su clave, conectar en la primera con lugar, el aviso, el webhook en cada clave).
+- `<SHA_REDES>` — todas las redes (LinkedIn, X, Threads, Google Business en el paso 2 y en el Calendario; una tarjeta por red;
+  Pinterest y Reddit se ven sin conectarse), el «sigue» después del paso 1, el tutorial un paso por pantalla, la mig 0348 y la
+  cosecha (docs/hallazgos-integraciones.md).
+
+**A medias / sin hacer:**
+- Capturas: el paso 2 del tutorial (panel de API keys de Zernio, pide una sesión) y las de MaKo (pestaña antes/después, aviso de la
+  3.ª red, pasos 3 y 4): sin `next dev` local. Se sacan en producción, en el ws3, después del deploy.
+- La mig 0348 (escrita, NO aplicada): sin ella el Calendario dice «todavía no está activo» para LinkedIn, X, Threads y Google
+  Business.
+- El cuerpo del post de las cuatro redes nuevas no se midió con una cuenta real. `usoZernioDelCiclo` mira el ciclo de la clave 1.
+- El «Publicar» de los editores de Video e Imagen y del Copywriter no existe (sólo exportan).
+
 ## ESTADO DE LA CUENTA `claude4` (28/10/2026, noche) — para seguir con un «Continua»
 
 Rama `zernio-2510`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.

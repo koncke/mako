@@ -41,16 +41,24 @@ export const REDES = {
   // `loginMode=business` (medido por Ads Manager): crea una conexión `metaads` independiente, con el token de un usuario del
   // sistema. Pide una página de Facebook y que quien entre sea admin del Business.
   metaads: { etiqueta: 'Anuncios de Meta', plataforma: 'metaads', ruta: 'facebook/ads', anuncios: true, params: { loginMode: 'business' }, ayuda: 'Tu cuenta publicitaria, para publicar anuncios.', visible: true },
-  linkedin: { etiqueta: 'LinkedIn', plataforma: 'linkedin', ruta: 'linkedin', anuncios: false, ayuda: 'Tu perfil o tu página.', visible: false },
+  // LinkedIn, X, Threads y Google Business visibles desde el 29/10/2026 (Martín: «aprovechar todas las conexiones que tiene [Zernio]
+  // para implementar en integraciones todas las redes sociales... publicar en Facebook, TikTok, LinkedIn»). El login es el de Zernio,
+  // igual que las otras; lo que MaKo hace con cada una lo dice `QUE_HACE_MAKO`.
+  linkedin: { etiqueta: 'LinkedIn', plataforma: 'linkedin', ruta: 'linkedin', anuncios: false, ayuda: 'Tu perfil o tu página.', visible: true },
   // Visible desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio). El Calendario ya
   // publica en TikTok (lib/calendario-publicar-reglas.ts).
   tiktok: { etiqueta: 'TikTok', plataforma: 'tiktok', ruta: 'tiktok', anuncios: false, ayuda: 'Tu cuenta de TikTok.', visible: true },
   // Visible desde el 27/10/2026 (feedback 876470842-22): el canal se conecta con el login de Zernio, no pegando una clave.
   youtube: { etiqueta: 'YouTube', plataforma: 'youtube', ruta: 'youtube', anuncios: false, ayuda: 'Tu canal.', visible: true },
-  twitter: { etiqueta: 'X', plataforma: 'twitter', ruta: 'twitter', anuncios: false, ayuda: 'Tu cuenta de X.', visible: false },
-  threads: { etiqueta: 'Threads', plataforma: 'threads', ruta: 'threads', anuncios: false, ayuda: 'Tu cuenta de Threads.', visible: false },
+  // ⚠️ X pide una tarjeta en Zernio aunque sea de las 2 gratis (docs.zernio.com/quickstart, 29/10/2026: «A card only if you connect
+  // X (twitter), because X bills every API call»). Se dice en la fila y en su tarjeta, antes del login.
+  twitter: { etiqueta: 'X', plataforma: 'twitter', ruta: 'twitter', anuncios: false, ayuda: 'Tu cuenta de X. Zernio pide una tarjeta para X.', visible: true },
+  threads: { etiqueta: 'Threads', plataforma: 'threads', ruta: 'threads', anuncios: false, ayuda: 'Tu cuenta de Threads.', visible: true },
+  googlebusiness: { etiqueta: 'Google Business', plataforma: 'googlebusiness', ruta: 'googlebusiness', anuncios: false, ayuda: 'La ficha de tu negocio en Google.', visible: true },
+  // Pinterest y Reddit se conectan igual, pero MaKo todavía no publica en ellas (un pin pide el tablero; un post de Reddit, la
+  // comunidad y un título): no se ofrecen para no gastar una de las 2 gratis en algo que no se usa. Su tarjeta dice por qué.
   pinterest: { etiqueta: 'Pinterest', plataforma: 'pinterest', ruta: 'pinterest', anuncios: false, ayuda: 'Tu cuenta de Pinterest.', visible: false },
-  googlebusiness: { etiqueta: 'Google Business', plataforma: 'googlebusiness', ruta: 'googlebusiness', anuncios: false, ayuda: 'La ficha de tu negocio en Google.', visible: false },
+  reddit: { etiqueta: 'Reddit', plataforma: 'reddit', ruta: 'reddit', anuncios: false, ayuda: 'Tu cuenta de Reddit.', visible: false },
 } as const satisfies Record<string, RedDef>;
 
 export type RedZernio = keyof typeof REDES;
@@ -60,6 +68,49 @@ export const esRedZernio = (v: unknown): v is RedZernio => typeof v === 'string'
 
 /** Las que la pantalla ofrece hoy, en su orden. */
 export const REDES_VISIBLES: readonly RedZernio[] = (Object.keys(REDES) as RedZernio[]).filter((r) => (REDES[r] as RedDef).visible);
+
+// ── Las redes en /integraciones: una tarjeta por red (29/10/2026) ─────────────
+
+/**
+ * Las redes con TARJETA propia en /integraciones (Martín, 29/10: «Y que aparezcan en integraciones»). Se conectan en el paso 2 de la
+ * tarjeta de Zernio: la tarjeta de la red abre ésa y marca la red que sigue (`CLAVE_SIGUE_ZERNIO`). YouTube no: ya tiene la suya
+ * (las vistas del VSL, lib/integraciones-catalogo.ts), y dos tarjetas «YouTube» confunden. Los anuncios de Meta, tampoco: son Meta Ads.
+ */
+export const REDES_CON_TARJETA = ['facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'googlebusiness', 'pinterest', 'reddit'] as const satisfies readonly RedZernio[];
+export type RedConTarjeta = (typeof REDES_CON_TARJETA)[number];
+/** La key de la tarjeta de una red (`red-linkedin`): con prefijo, para no pisar ninguna key de integración que ya exista. */
+export const tarjetaDeRed = (red: RedConTarjeta): string => `red-${red}`;
+/** La red de una key de tarjeta; null si no es una tarjeta de red. */
+export const redDeTarjeta = (key: string): RedConTarjeta | null => {
+  const r = key.startsWith('red-') ? key.slice(4) : '';
+  return (REDES_CON_TARJETA as readonly string[]).includes(r) ? (r as RedConTarjeta) : null;
+};
+
+/** Lo que MaKo hace HOY con cada red, en la línea de su tarjeta. Nada que no ande: lo que falta, se dice. */
+export const QUE_HACE_MAKO: Readonly<Record<RedConTarjeta, string>> = {
+  facebook: 'Mensajes y comentarios de tu página en MaKo, y publicar desde el Calendario.',
+  instagram: 'Mensajes y comentarios en MaKo, y publicar posts, reels e historias desde el Calendario.',
+  tiktok: 'Publica tus videos desde el Calendario. Sus mensajes no llegan a MaKo.',
+  linkedin: 'Publica posts con imagen o video desde el Calendario. Sus mensajes no llegan a MaKo.',
+  twitter: 'Publica desde el Calendario, hasta 280 caracteres. Zernio pide una tarjeta para X. Sus mensajes no llegan a MaKo.',
+  threads: 'Publica posts con imagen o video desde el Calendario (hasta 500 caracteres). Sus mensajes no llegan a MaKo.',
+  googlebusiness: 'Publica novedades con imagen en tu ficha de Google desde el Calendario (sin video). Las reseñas no llegan a MaKo.',
+  pinterest: 'MaKo todavía no publica en Pinterest: cada pin pide elegir el tablero.',
+  reddit: 'MaKo todavía no publica en Reddit: cada post pide la comunidad y un título.',
+};
+
+/** Las que se ven pero todavía no se conectan desde MaKo (la tarjeta dice por qué, y no cuenta como un pendiente). */
+export const SIN_USO_TODAVIA: Readonly<Partial<Record<RedConTarjeta, string>>> = {
+  pinterest: QUE_HACE_MAKO.pinterest,
+  reddit: QUE_HACE_MAKO.reddit,
+};
+
+/**
+ * La red que SIGUE después de pegar la clave (29/10/2026, el Cerebro: «cualquier "Conectar Meta/Instagram" sin un Zernio empieza en
+ * el Paso 1 ahí mismo y continúa con el login»). La deja quien pidió conectar una red sin clave (o la tarjeta de la red); el paso 2
+ * la marca y la borra al quedar conectada. En `sessionStorage`: es de esta pestaña.
+ */
+export const CLAVE_SIGUE_ZERNIO = 'mako:zernio-sigue';
 
 /** Messenger es la PÁGINA de Facebook: lo que Automations llama canal `messenger` se conecta como la red `facebook`. */
 export const redDeCanal = (canal: 'instagram' | 'messenger'): RedZernio => (canal === 'messenger' ? 'facebook' : 'instagram');

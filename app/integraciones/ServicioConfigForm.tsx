@@ -27,7 +27,7 @@ import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { useWs } from '@/app/_ui/Link';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
-import { EVENTO_OTRA_CLAVE_ZERNIO } from '@/lib/zernio-redes';
+import { CLAVE_SIGUE_ZERNIO, EVENTO_OTRA_CLAVE_ZERNIO, REDES, esRedZernio, type RedZernio } from '@/lib/zernio-redes';
 import { conWs } from '@/lib/ws-tab';
 // Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
 import { esPasarela } from '@/lib/cobros-tipos';
@@ -58,7 +58,7 @@ const SANS = "'Geist', sans-serif";
 const OCULTAR_MS = 8_000;
 
 type OrigenCampo = 'servidor' | 'panel' | null;
-type Tutorial = { pasos: string[]; url?: string; urlLabel?: string };
+type Tutorial = { pasos: string[]; url?: string; urlLabel?: string; capturas?: ReadonlyArray<string | null> };
 type Campo = {
   env: string;
   label: string;
@@ -188,6 +188,7 @@ export function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
 // va a leer nadie», y tapaba el «Cómo configurarlo». Algunas dicen algo que los pasos no dicen
 // («Lo completa MaKo», «con el prefijo act_»), así que no se borra: se muda.
 function PasosAyuda({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) {
+  if (ayuda.capturas?.some(Boolean)) return <PasosUnoPorPantalla ayuda={ayuda} nota={nota} />;
   return (
     <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', animation: 'mkFade .18s ease' }}>
       {ayuda.url && (
@@ -205,6 +206,47 @@ function PasosAyuda({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) 
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/**
+ * La ayuda UN PASO POR PANTALLA (29/10/2026, el tutorial de Zernio: «claro, con capturas reales... un paso por pantalla»): la captura
+ * de ese paso (si la hay), su línea, y «Anterior» / «Siguiente». El link al proveedor y la nota, arriba, como en la lista.
+ */
+function PasosUnoPorPantalla({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) {
+  const [i, setI] = useState(0);
+  const total = ayuda.pasos.length;
+  const captura = ayuda.capturas?.[i] ?? null;
+  return (
+    <div data-tutorial-por-pantalla="" style={{ marginTop: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', animation: 'mkFade .18s ease', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {ayuda.url && (
+        <a href={ayuda.url} target="_blank" rel="noreferrer"
+          style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 'var(--r-sm)', background: 'var(--surface)', border: '1px solid var(--primary-weak)', fontSize: 13, fontWeight: 650, color: 'var(--primary-strong)', textDecoration: 'none' }}>
+          {ayuda.urlLabel ?? 'Abrir'} ↗
+        </a>
+      )}
+      {nota && <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{nota}</div>}
+      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--primary-strong)' }}>Paso {i + 1} de {total}</span>
+      {captura && (
+        // eslint-disable-next-line @next/next/no-img-element -- una captura estática de public/, sin optimizar a propósito
+        <img src={captura} alt={`Paso ${i + 1}: ${ayuda.pasos[i]}`} loading="lazy"
+          style={{ width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)' }} />
+      )}
+      <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{ayuda.pasos[i]}</span>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+        <button type="button" disabled={i === 0} onClick={() => setI((n) => Math.max(0, n - 1))}
+          style={{ padding: '6px 11px', borderRadius: 'var(--r-sm)', border: '1px solid var(--primary-weak)', background: 'var(--surface)', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.45 : 1 }}>
+          Anterior
+        </button>
+        <span aria-hidden style={{ display: 'inline-flex', gap: 5 }}>
+          {ayuda.pasos.map((_, n) => <span key={n} style={{ width: 6, height: 6, borderRadius: 3, background: n === i ? 'var(--primary-strong)' : 'var(--primary-weak)' }} />)}
+        </span>
+        <button type="button" disabled={i === total - 1} onClick={() => setI((n) => Math.min(total - 1, n + 1))}
+          style={{ padding: '6px 11px', borderRadius: 'var(--r-sm)', border: '1px solid var(--primary-weak)', background: 'var(--surface)', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', cursor: i === total - 1 ? 'default' : 'pointer', opacity: i === total - 1 ? 0.45 : 1 }}>
+          Siguiente
+        </button>
+      </div>
     </div>
   );
 }
@@ -383,6 +425,12 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
   // sirven a la enorme mayoría, que tiene una sola cuenta.
   const [extrasAbiertas, setExtrasAbiertas] = useState<string[]>([]);
   const [pedirOtraClave, setPedirOtraClave] = useState(0);
+  // La red que sigue después de la clave (29/10/2026, `CLAVE_SIGUE_ZERNIO`): sin clave, el paso 2 la nombra.
+  const [sigueRed, setSigueRed] = useState<RedZernio | null>(null);
+  useEffect(() => {
+    if (servicioKey !== 'zernio') return;
+    try { const r = window.sessionStorage.getItem(CLAVE_SIGUE_ZERNIO); if (esRedZernio(r)) setSigueRed(r); } catch { /* sin almacenamiento */ }
+  }, [servicioKey]);
   // [Agregar otra clave] del aviso de la 3.ª red de Zernio (29/10/2026): abre el campo de la clave siguiente (al montarse, si la
   // marca quedó en la pestaña; o en el acto, si este modal ya estaba abierto).
   useEffect(() => {
@@ -1111,7 +1159,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       {servicio.key === 'zernio' && !servicio.campos.some((c) => c.configurado) && (
         <div data-paso-zernio="2" style={{ border: '1px dashed var(--border-strong)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: SANS }}>
           <span style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--dim)' }}>Paso 2 · Conecta tus redes</span>
-          <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--faint)' }}>Falta tu API key de Zernio (paso 1). Con ella guardada, aquí conectas Facebook, Instagram, TikTok, YouTube y tus anuncios de Meta.</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--faint)' }}>
+            {sigueRed
+              ? `Falta tu API key de Zernio (paso 1). Con ella guardada, sigue el login de ${REDES[sigueRed].etiqueta}.`
+              : 'Falta tu API key de Zernio (paso 1). Con ella guardada, aquí conectas Facebook, Instagram, TikTok, YouTube, LinkedIn, X, Threads, Google Business y tus anuncios de Meta.'}
+          </span>
         </div>
       )}
 

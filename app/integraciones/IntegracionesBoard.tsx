@@ -32,6 +32,7 @@ import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
 import { DEFS, integracionQueConfigura, ordenCategoria } from '@/lib/integraciones-catalogo';
+import { CLAVE_SIGUE_ZERNIO, redDeTarjeta } from '@/lib/zernio-redes';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
@@ -457,8 +458,9 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
   // Y un grabador que HOY no se conecta (Loom sin API; Read AI y Meet, sin su inicio de sesión: `sinConexion`): no hay nada
   // que la persona pueda hacer para conectarlo, así que no es un pendiente.
+  // Y una red social sin conectar (29/10/2026): cada negocio usa las suyas; ninguna es un pendiente.
   const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) && sevOf(i) !== 'good')
-    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO || !!i.sinConexion;
+    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO || !!i.sinConexion || (redDeTarjeta(i.key) != null && sevOf(i) !== 'good');
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
   // ⚠️ Y las que no son tarjetas (`sinTarjeta`, 25/10/2026): desde que las IA dejaron la grilla, la caja de Claude, OpenAI
@@ -531,6 +533,18 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   const ocultas = sinConectarVis.length - catalogo.length;
   const limpiar = () => { setQ(''); setCatF(TODAS); setEstadoF(TODAS); };
 
+  // Una red social (29/10/2026) se conecta en la tarjeta de Zernio: abre ésa y deja marcada la red que sigue (el paso 2 la resalta;
+  // sin clave, el paso 1 dice que después viene su login). Las que todavía no se usan (`sinConexion`) abren la suya, que dice por qué.
+  const abrirTarjeta = (i: Integracion) => {
+    const red = redDeTarjeta(i.key);
+    if (red && !i.sinConexion) {
+      try { window.sessionStorage.setItem(CLAVE_SIGUE_ZERNIO, red); } catch { /* sin almacenamiento: abre Zernio igual */ }
+      setModal({ t: 'svc', key: integracionQueConfigura(i.key) });
+      return;
+    }
+    setModal({ t: 'svc', key: i.key });
+  };
+
   // La tarjeta (Vercel: el logo, la categoría en una píldora, el nombre y una línea). Toda la tarjeta abre su modal.
   const tarjeta = (i: Integracion) => {
     const conectada = estaConectada(i);
@@ -540,7 +554,7 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
     return (
       // Sin conectar, más apagada (25/10/2026, Martín: «para que se diferencien»): app/globals.css, `[data-sin-conectar]`.
       <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" data-sin-conectar={conectada || motivo ? undefined : ''}
-        onClick={() => setModal({ t: 'svc', key: i.key })}>
+        onClick={() => abrirTarjeta(i)}>
         <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <SvcIcon k={i.key} box={36} radius={10} size={21} />
           <span className="int-pildora">{i.categoria}</span>

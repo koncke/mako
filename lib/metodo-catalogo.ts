@@ -140,6 +140,11 @@ export type ServicioMetodo = {
     /** Link directo a donde se crea el token. */
     url?: string;
     urlLabel?: string;
+    /**
+     * Capturas REALES de cada paso, en el mismo orden (`null` = ese paso todavía no tiene una). Con capturas, la ayuda va UN PASO
+     * POR PANTALLA (29/10/2026, el pedido del tutorial de Zernio). Viven en public/tutoriales/<servicio>/. Nunca una imagen armada.
+     */
+    capturas?: ReadonlyArray<string | null>;
   };
   /** true → la UI solo muestra estado, sin inputs (no se carga desde la app).
    *  HOY NINGÚN SERVICIO LO USA: Supabase era el único y salió del catálogo (es
@@ -292,12 +297,17 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     tutorial: {
       url: 'https://zernio.com',
       urlLabel: 'Zernio',
+      // Un paso por pantalla, con la captura real de cada uno (29/10/2026, el Cerebro: «el tutorial debe ser claro»). Los nombres de
+      // los botones, tal cual los muestra zernio.com (docs.zernio.com/quickstart: «Open API keys and click Create API key»).
       pasos: [
-        'Entra a zernio.com con tu cuenta, o crea una.',
-        'En "Settings" → "API Keys" toca "Create API Key" y copia la key: se ve UNA sola vez.',
-        'Pégala en "API key de Zernio" y guarda.',
-        'Con la key guardada, conecta Facebook, Instagram o tus anuncios desde esta misma tarjeta en Integraciones.',
+        'Entra a zernio.com y crea tu cuenta con «Continue with Google»: con tu Gmail.',
+        'En «API keys» toca «Create API key» y copia la clave: empieza con sk_ y Zernio la muestra UNA vez.',
+        'Vuelve aquí, pégala en «API key de Zernio» y toca Guardar.',
+        'En el Paso 2 toca «Conectar» en cada red y entra con su usuario. Cada clave conecta 2 redes gratis.',
       ],
+      // El 1, la página real de registro (zernio.com/signup, 29/10/2026). El 2 pide entrar a una cuenta de Zernio, y el 3 y el 4 son
+      // pantallas de MaKo: se suman cuando se puedan sacar de verdad (docs/hallazgos-integraciones.md).
+      capturas: ['/tutoriales/zernio/1-crear-cuenta.webp', null, null, null],
     },
   },
   {
