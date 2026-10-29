@@ -392,7 +392,8 @@ export function esParteVacia(parte: string): boolean {
 }
 
 /** Las etiquetas que no son partes (las saca la foto, pero una página puede traerlas sueltas). */
-const SUELTAS = new Set(['script', 'style', 'link', 'noscript', 'template', 'meta']);
+// `title`: React deja el <title> de la página adentro del <body> (tryholo.ai), y no dibuja nada.
+const SUELTAS = new Set(['script', 'style', 'link', 'noscript', 'template', 'meta', 'title']);
 
 /**
  * Las secciones de la copia: baja por los envoltorios de un solo hijo hasta el primer nivel con varias partes (lo chico

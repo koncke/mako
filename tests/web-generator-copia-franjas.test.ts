@@ -130,6 +130,9 @@ test('3. una etiqueta vacía, escondida o absoluta, no es sección; un espaciado
   const s = partirParaCopia(foto(`<div hidden=""><!--$--><!--/$--></div><div class="app"><section class="s1">${relleno(70_000, 'hola')}</section><section class="s2">${relleno(20_000, 'chau')}</section></div><div style="position:absolute"></div>`));
   assert.equal(s.length, 2, JSON.stringify(s.map((x) => x.html.slice(0, 40))));
   assert.ok(s.every((x) => textoDe(x.html).trim() !== ''), 'ninguna sección sin nada');
+  // El <title> que React deja en el <body> (tryholo.ai) tampoco es una sección.
+  const conTitulo = partirParaCopia(foto(`<main class="contenido">${relleno(70_000, 'hola')}</main><title>Holo | AI Marketing</title>`));
+  assert.ok(!conTitulo.some((x) => /<title\b/i.test(x.html)), JSON.stringify(conTitulo.map((x) => x.html.slice(-40))));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
