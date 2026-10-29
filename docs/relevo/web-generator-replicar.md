@@ -5,7 +5,12 @@ Pegar en un chat nuevo: `Leé docs/relevo/web-generator-replicar.md y seguimos d
 compartida (`…/side-session-notes/local_797d5445-…/desktop-offline-2810.md`, `replicar-landings-2810.md`). Scripts en el
 scratchpad de la sesión 05be9946 (`…/Temp/claude/…/05be9946-…/scratchpad/scripts/`).
 
-## 1. P0 — el Web Generator en blanco (ARREGLADO, falta verificar con el build)
+## 1. P0 — el Web Generator en blanco: CERRADO (28/10 ~23:45)
+
+VERDE mandado con 11a0e8211; el Cerebro lo aceptó y lo subió en tren-x (merge 7f63046be). tests-afectados VERDE (2597),
+tsc-acotado 0 propios (sólo los 14 conocidos de _opencut). Las copias #68–#72 van a la papelera cuando cierre la MATRIZ
+de la réplica editable (acordado con el Cerebro). Falta sólo medirlo en producción después del deploy (menú → Web Generator).
+Lo de abajo queda de historia.
 
 Martín: «Cada vez que entro a web generator, hay un bug que aparece todo en blanco, le tengo que dar a refresh para que me
 cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier dispositivo».
