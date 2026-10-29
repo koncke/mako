@@ -59,8 +59,8 @@ export function TarjetaTicket({ s }: { s: Soporte }) {
       <p className="ch-tarjeta__nota sp-tarjeta__detalle">{b.descripcion}</p>
       {s.errorTarjeta && <p className="ch-tarjeta__nota sp-tarjeta__error" role="status">{s.errorTarjeta}</p>}
       <div className="ch-tarjeta__botones">
-        <button type="button" className="co-chip co-chip--primario" disabled={s.mandando || s.notasPendientes} onClick={() => void s.mandarTicket()}>
-          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : s.notasPendientes ? 'Esperando tu nota…' : 'Mandárselo al equipo'}
+        <button type="button" className="co-chip co-chip--primario" disabled={s.mandando || s.notasPendientes || s.mensajeEnCamino} onClick={() => void s.mandarTicket()}>
+          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : s.notasPendientes ? 'Esperando tu nota…' : s.leyendoCaja ? 'Leyendo lo que adjuntaste…' : s.mensajeEnCamino ? 'Esperando tu mensaje…' : 'Mandárselo al equipo'}
         </button>
         <span className="ch-tarjeta__nota">Como «{rotuloTipo(tipo)}». Te aviso aquí cuando conteste.</span>
       </div>
@@ -135,7 +135,7 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
       adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
       // Lo que la caja LEE (un .pptx, un audio) también es de su conversación, como lo adjuntado (la verificación de 05d7c3187).
-      conversacion={s.claveCaja}
+      conversacion={s.claveCaja} onLeyendo={s.onLeyendo}
       // La nota de voz sale en el acto y se pasa a texto por detrás (useSoporte.ts → `nota`).
       onGrabada={s.onGrabada}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />

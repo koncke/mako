@@ -27,7 +27,15 @@ Ya se corrigió dos veces y volvió las dos, porque una memoria lo afirmaba y ca
 repetía. La segunda vez (07/10/2026) costó una recomendación entera armada sobre la premisa
 falsa: proponer `mauricio@hola-mako.com` como remitente de MaKo.
 
-# LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?», leé `docs/relevo.md`
+# LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?» o te dicen «Continua», leé el relevo
+
+**«Continua» es el traspaso de cuenta** (regla de Martín, 28/10/2026: «al llegar al 97% deben frenar y asegurarse de
+que esté todo el contexto de todo el trabajo desde que se inició en esa cuenta... Así yo paso a la siguiente y le digo
+"Continua" y ya sabe»). Al 97% cada chat dejó su relevo commiteado y el hook del corte anotó dónde: el `.tsv` más nuevo
+de `~/.claude/relevos-cuenta/` dice qué chats cortaron, en qué carpeta, rama y transcript. Se lee eso, el
+`docs/relevo/cerebro.md` de `C:/dev/wt-push-q` (puede estar en la rama del tren y no en main: `git log -5` primero) y el
+relevo de cada chat (`git -C <carpeta> show HEAD:docs/relevo/<chat>.md`), y se sigue sin preguntar. Un workflow que
+quedó corriendo dejó lo suyo en el `journal.jsonl` que nombra el relevo: otra cuenta no lo puede reanudar, sí leer.
 
 Martín trabaja con **varias cuentas de Claude** y se pasa de una a otra cuando se le acaban
 los tokens. Al entrar, abre un chat y pregunta **«en qué quedamos»** — y el 100% del trabajo
@@ -84,6 +92,20 @@ pusheado, lo a medias NO (pushear es desplegar a clientes, y el código sigue en
 cambiar de cuenta). El detalle, las piezas y cómo replicarlo, en
 [docs/guardado-automatico.md](docs/guardado-automatico.md); la copia versionada del hook, en
 `scripts/claude-hooks/`.
+
+**Y al 97% —de la semanal O de la ventana de 5 horas— el chat CORTA, en todas las cuentas** (`~/.claude/guardia/corte-97.mjs`;
+copia en `scripts/claude-hooks/guardia/`, test en `tests/corte-97.test.ts`). Prendido otra vez el 28/10/2026 para que nada
+se pierda al cambiar de cuenta. Cuando llega la orden:
+- **El relevo cubre TODA la cuenta, no el último turno**: lo pedido (con sus palabras), lo hecho con su commit y rama, lo
+  que quedó a medias con su archivo, lo que falta verificar y lo que espera una decisión de Martín. Commit por ruta, y fin
+  del turno.
+- **El hook niega LANZAR** Workflow, Agent y los comandos que gastan; deja guardar y mirar. **Lo que ya corre en un
+  subagente no se corta** (Martín: «No frenes la investigación de pedidos perdidos... eso me sirve para la próxima
+  cuenta»): el relevo nombra su runId y su `journal.jsonl`.
+- **«Vayas guardando todo»**: el relevo se mantiene al día durante la ventana. Llegar al 97% con el relevo por escribir es
+  apostar el traspaso al 3% que queda, compartido con todos los chats de la cuenta.
+- El número sale de `~/.claude/uso-cinco.txt` y `uso-semanal.txt`, que el Runner (`cartero.mjs`) reescribe cada 2 minutos.
+  Interruptor: `~/.claude/guardia/sin-corte` (no está; así estuvo apagado del 18 al 28/10).
 
 **Y si igual se corta, hay una red que no depende del modelo.** El hook `SessionEnd`
 (`~/.claude/bitacora-sesion.sh fin`) commitea `docs/relevo/` y `docs/relevo.md` si quedaron
@@ -556,7 +578,14 @@ El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO c
 build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mjs <archivos>` o
 `--rama` (lo que cambió la rama contra el merge-base con `origin/main`; contra `origin/main` a
 secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
-segundos. **No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
+segundos.
+
+**UN tsc por PC (28/10/2026, la app de Claude se cayó con todos los chats adentro por tres tsc acotados a la vez).** El
+acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typecheck.lock`) y espera su turno solo: no
+lo esquives ni lances dos tuyos en paralelo. Si tu rama todavía no tiene esa versión del script, envolvelo:
+`node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` (y lo mismo para `tests-afectados.mjs`).
+
+**No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
 eran del código:
 
 - `"files"` con la lista **y** `"include": []`. Sin el include vacío, `extends` hereda el del
@@ -1787,6 +1816,14 @@ código nuevo:
       MaKo acaba de escribir se lee en el turno siguiente: un camino nuevo que EJECUTA una acción sin pasar por
       lib/api-mako/acciones.ts llama a `invalidarGrafoChat(ws)` (lib/cerebro-cache-chat.ts). Una lectura nueva del grafo que
       se degrada a vacío lo hace con `vacioAvisando` (un grafo con una lectura caída no se guarda).
+    - **Un chat con su propio turno trae del Second Brain lo que nombra la pregunta ANTES del modelo**: `paqueteParaElTurno`
+      (lib/cerebro-para-chat.ts), con `sinPlata` para quien no es admin (sin objetivos, KPIs ni clientes del negocio: el grafo
+      en caché es del negocio, no de la persona). Como el turno de la app (lib/mako-turno-app.ts). No depende de que el
+      modelo pida una herramienta.
+    - **Un tipo de nodo nuevo del grafo NO lo ve un closer ni un setter hasta que se lo suma a `VE_SIN_PLATA`**
+      (lib/cerebro-union.ts, 28/10/2026): lo que ve un rol sin plata va EN POSITIVO. Con la lista de lo que se sacaba, el
+      nodo `objetivo` («Y USD 30.000 de facturación») le llegaba a un closer. Si el nodo nuevo no trae plata, súmalo ahí con
+      su caso en tests/second-brain-turno.test.ts.
     - **Una tab o una capacidad nueva suma o cambia su entrada en lib/funciones-mako.ts en el MISMO commit** (28/10/2026,
       Martín: «que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades»): qué hace, qué no hace
       (lo que todavía no, como «Todavía no: …»), qué reemplaza y cómo le dice la gente. Es lo que un chat lee para no negar
@@ -5311,7 +5348,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
-  `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
+  `pii: true`. Un `return` nuevo de `chatCheapCascade` con lo aceptado lleva su `anotarQuien` (`quienOut`, 27/10/2026): el chat
+  de Automations dice qué IA contestó (tests/automations-quien-contesto.test.ts los cuenta). Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
   misma regla él mismo: el corte de la cascada no lo cubre. Si la red manda HERRAMIENTAS de la API, «¿lee datos de
   clientes?» lo contesta el registro (`leeDatosDeClientes`: `DATOS_DE_CLIENTES_POR_AREA` y la marca `datosDeClientes`
   de cada operación), y se corta por lo que el turno PIDE, no por lo que viaja (molde: `turnoParaLaRed`,
@@ -6791,6 +6829,13 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
 - **Con clave, el registro es estricto** (sin base, no se crea nada: sin fila no hay cómo
   deduplicar), **y se abre DESPUÉS de los chequeos que pueden cortar**: una fila en 'creando'
   dejada por un 409 hace esperar al reintento legítimo.
+- **Si la fila se REUSA para otra corrida, la clave lleva la corrida** (29/10/2026, la verificación
+  sobre 69b49a31c): Zernio guarda la respuesta de cada clave 24 h, y `nutri:<inscripción>:<nodo>`
+  servía mientras una inscripción era UNA corrida. «Volver a probar» la reusa: la segunda prueba
+  mandaba con la clave de la primera, la pública daba 422 y el DM volvía con el 200 viejo sin
+  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). Y lo que se CREA
+  a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
+  otro: `crearDifusion` (lib/difusion.ts).
 
 # Un ticket de un cliente: el contexto lo junta el código, lo del cliente es DATO, y se cierra con el deploy
 
@@ -6886,6 +6931,10 @@ que ya está solucionado».
 - **«Resuelto» es resuelto PARA EL CLIENTE.** Si se arregló la herramienta pero el dato del cliente sigue mal (el plan de
   pagos de una clienta de Leila, el 28/10), no se cierra: se dice qué falta.
 - **A Martín, un ticket se le nombra por quién y de qué trata** («Leila: no podía adjuntar un documento»), nunca por su número.
+- **Antes del aviso, se contesta lo que el error le dejó SIN RESPONDER al cliente.** El arreglo no reprocesa el pasado: el
+  28/10 Leandro mandó un audio un minuto antes de que subiera el arreglo de las notas de voz, el aviso «ya quedó solucionado»
+  salió igual, y él contestó citándolo: «No me respondiste lo de este audio». Antes de `--enviar`, mirá los mensajes de ese
+  grupo desde que empezó la falla (`mako_doer_buffer` del negocio) y respondé lo que quedó colgado; el aviso puede incluirlo.
 
 # En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
 
@@ -9943,6 +9992,16 @@ veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 ya costó las `variantes` borradas en silencio. Y al revés (25/10/2026): quien cambia el TEXTO de un
 mensaje manda `variantes: []` —son formas de decir el texto viejo, y el motor las sortea—; la clave
 ausente las conserva (docs/hallazgos-chatbot.md).
+Y un selector de línea PARA MANDAR (el número de salida de la automatización o de un mensaje, el «Sale desde» de
+«Probar») lee `RUTA_LINEAS` (app/automations/SalidaWhatsApp.tsx, `para=mandar`): en la plataforma el envío pone la de
+MaKo primero y por defecto, y con la lista del negocio la pantalla decía una línea y salía por otra (27/10/2026,
+docs/hallazgos-comunicacion.md). La bandeja y las operaciones de la línea siguen con las del negocio.
+Y un campo nuevo del CRON (un `Disparador`) tiene SU quinta puerta: `disparadoresDe` rearma el primero de las columnas y
+le devuelve de la lista sólo lo que nombra; sin sumarlo ahí (y a `higiene` y a `firmaDisparador`) se pierde en cada lectura
+del primero, sin error (28/10/2026, las palabras clave del comentario, docs/hallazgos-chatbot.md).
+Y un campo que se EDITA no muestra lo saneado (27/10/2026, ticket #12: el `trim` de `botonesDe` en cada tecla volvía
+«Obtener recurso» «Obtenerrecurso»): sanear es para lo que sale (el motor, Publicar), no para lo que se está escribiendo
+(`botonesDe(…, { comoSeEscribe: true })`, docs/hallazgos-chatbot.md).
 
 **La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
 adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa
@@ -10739,3 +10798,13 @@ papelera NO cae al borrado de antes: lo dice y no borra. Una tabla nueva con FK 
 columnas en cascada la frena entera (no la sabe guardar). Lo fijan tests/crm-acciones-bloque.test.ts y
 scripts/probar-0340-pglite.mjs (contra un Postgres de verdad); el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la
 papelera»).
+
+# Lo que corre el chat de un editor devuelve su MOTIVO, no lo deja sólo en un store (28/10/2026)
+
+El chat del Video Editor sabe si algo salió por una sola señal: si la línea de tiempo cambió. Una operación larga que no
+lanza y guarda su error en un store (como hacía `generarSubtitulos`) llega al chat como el genérico «no se pudo …», y el
+ticket de soporte sale sin la causa (ticket 23: se sospechó de la IA del negocio y era Whisper en el navegador). **Regla
+para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{ ok } | { ok: false, motivo }`, sin
+`return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
+molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
+el porqué, en docs/hallazgos-video-editor.md.

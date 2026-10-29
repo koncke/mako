@@ -43,24 +43,22 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { getSetting, setSetting } from './settings';
+import { zonaDelNegocioEstricta } from './timezone';
 import { credWs } from './credenciales';
 import { emitirEventoDePlataforma } from './avisos';
-import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, type Insistencia } from './alerta-critica-texto';
+import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, tocaAvisar, ventanaDelIncidente, llegoAlguno, type Insistencia } from './alerta-critica-texto';
 
-/**
- * CADA CUÁNTO VUELVE A AVISAR mientras el problema siga abierto.
+/*
+ * CADA CUÁNTO VUELVE A AVISAR mientras el problema siga abierto (`tocaAvisar`, lib/alerta-critica-texto.ts).
  *
- * UNA HORA, sin escalones. Lo bajó el dueño el 12/8 después de verlo andando:
- * la primera versión arrancaba cada 10 minutos y en la práctica eso no es
- * insistir, es tapar el grupo — con el resto de los avisos de MaKo compitiendo
- * ahí adentro, seis mensajes por hora del mismo tema entierran todo lo demás.
+ * El primer día, UNA HORA (`CADENCIA_MIN`), hasta el techo de la automatización. Lo bajó el dueño el 12/8 después de
+ * verlo andando: la primera versión arrancaba cada 10 minutos y eso no es insistir, es tapar el grupo.
  *
- * Lo que hace que funcione no es la frecuencia: es que NO SE DETIENE. Cada hora,
- * sin aflojar nunca, hasta que se resuelva.
+ * ⚠️ DESDE EL SEGUNDO DÍA, UNO POR DÍA (27/10/2026, MAU-33; decidido por el Cerebro: «un incidente abierto varios días avisa
+ * una vez por día, y uno resuelto avisa "ya está"»). Antes el techo de 3 se contaba sobre el incidente entero: a Mauricio le
+ * salió «DETÉN TODO» 25 veces en 28 horas y después calló nueve días con la cuenta frenada. Ahora el techo es por día
+ * (`ventana`) y lo que no se detiene es el recordatorio diario, hasta que se resuelva.
  */
-const CADENCIA_MIN = 60;
-
-const cadaCuanto = (_minAbierto: number): number => CADENCIA_MIN;
 
 /** Estado de la insistencia de UN incidente. Vive en settings, por workspace. */
 /** Estado de la insistencia de UN incidente (`Insistencia`, lib/alerta-critica-texto.ts). Vive en settings, por workspace. */
@@ -155,7 +153,9 @@ export async function insistirAlertasCriticas(
       // Sólo si le LLEGÓ alguna alerta (`veces`): decir «ya está» de algo que nunca se avisó es otro mensaje sin contexto.
       // ⚠️ Y SALE ANTES DE BORRAR LA MARCA (revisión del 16/10/2026): sin poder leer las automatizaciones, la marca queda y el
       // próximo tick lo vuelve a intentar. Borrándola primero, el «ya está» se perdía para siempre.
-      const llegaronAlertas = ((JSON.parse(marca) as Partial<Insistencia>).veces ?? 0) > 0;
+      // Las de TODO el incidente (`total`), no las del último día: con el aviso diario, el día en que se resolvió puede no
+      // haber salido ninguno todavía.
+      const llegaronAlertas = llegoAlguno(JSON.parse(marca) as Partial<Insistencia>);
       if (c.service === 'meta' && llegaronAlertas) {
         const r = await emitirEventoDePlataforma('meta-cuenta-recuperada', { ws });
         if (!r.ok) { out.errores += 1; continue; }
@@ -192,6 +192,18 @@ export async function insistirAlertasCriticas(
   const yaAvisadas = opts.cuentasYaAvisadas;
   const cuentaTomada = Boolean(cuentaId && yaAvisadas?.has(cuentaId));
   if (cuentaTomada) console.log(`[alerta-critica] ws=${ws} comparte la cuenta ${cuentaId} con otro workspace ya avisado — no repito`);
+  // La zona del negocio: el recordatorio de cada día sale de día ahí (`tocaAvisar`). ⚠️ ESTRICTA (la verificación de
+  // 69b49a31c, 29/10/2026; AGENTS.md «Una zona, un default»): `zonaDelNegocio` no tira y, sin poder leer, daba Tijuana, así
+  // que el recordatorio de un negocio argentino podía caer a las 23:00. Sin poder leerla, esta vuelta no avisa (el cron
+  // vuelve en 10 min) y la cuenta queda tomada igual: otro negocio con la misma cuenta no avisa con SU reloj.
+  let tz: string | null = null;
+  let zonaIlegible = false;
+  if (abiertos.length) {
+    try { tz = await zonaDelNegocioEstricta(ws); } catch (e) {
+      zonaIlegible = true;
+      console.error(`[alerta-critica] ws=${ws}: no pude leer la zona (${e instanceof Error ? e.message : String(e)}) — no aviso en esta vuelta`);
+    }
+  }
 
 
   // ── Los que siguen abiertos: perseguir ────────────────────────────────────
@@ -205,6 +217,7 @@ export async function insistirAlertasCriticas(
     // Diseño» (ws4), la misma cuenta impaga, emitían cada hora con media hora de diferencia. No llegaba doble sólo porque
     // ws4 no tiene grupo.
     if (cuentaId) yaAvisadas?.add(cuentaId);
+    if (zonaIlegible) continue;
     try {
       const key = keyInsistencia(inc.id);
       const raw = await getSetting(key).catch(() => null);
@@ -212,17 +225,16 @@ export async function insistirAlertasCriticas(
 
       const desdeMs = Date.now() - Date.parse(inc.started_at);
       const minAbierto = Math.max(0, Math.round(desdeMs / 60_000));
-      // Los que llegaron del ESTADO de ahora (un empeoramiento vuelve a avisar: `vecesDelEstado`).
-      const veces = vecesDelEstado(estado, inc.status_label);
+      // Los que llegaron del ESTADO y del DÍA de ahora (un empeoramiento vuelve a avisar, y un día nuevo también:
+      // `vecesDelEstado`). Con eso el `anuncios_vez` del primero de cada día es 1 y pasa el techo de la automatización.
+      const ventana = ventanaDelIncidente(minAbierto);
+      const veces = vecesDelEstado(estado, inc.status_label, ventana);
 
-      if (estado) {
-        const desdeUltimo = (Date.now() - Date.parse(estado.ultimaIso)) / 60_000;
-        if (desdeUltimo < cadaCuanto(minAbierto)) continue; // todavía no toca
-      }
+      if (!tocaAvisar(estado, minAbierto, veces, Date.now(), tz)) continue; // todavía no toca
 
       // EL EVENTO DE LA PLATAFORMA (16/10/2026): los HECHOS del incidente, y la automatización de SuperAdmin dice qué
       // contar de cada estado y hasta cuántas veces (`anuncios_vez`, la CONDITION «Aviso número ≤ 3»). ⚠️ SIN `dedupTtlMin`,
-      // a propósito: el ritmo es el de acá (`cadaCuanto`), y el dedup lo callaría.
+      // a propósito: el ritmo es el de acá (`tocaAvisar`), y el dedup lo callaría.
       const res = await emitirEventoDePlataforma('meta-cuenta-frenada', {
         ws,
         datos: datosCuentaFrenada(
@@ -233,7 +245,7 @@ export async function insistirAlertasCriticas(
       // La marca se escribe DESPUÉS de emitir, y sólo un aviso que LLEGÓ suma al techo (`marcaTrasEmitir`): si no se pudo
       // emitir, el próximo ciclo reintenta; si se emitió y no llegó (sin automatización, sin grupo), vuelve en la próxima
       // cadencia sin gastar avisos.
-      const marca = marcaTrasEmitir(estado, inc.status_label, res, new Date().toISOString());
+      const marca = marcaTrasEmitir(estado, inc.status_label, res, new Date().toISOString(), ventana);
       if (marca) {
         await setSetting(key, JSON.stringify(marca)).catch(() => {});
         // La cuenta ya quedó tomada arriba, también cuando el aviso está apagado o llegó al techo: que otro workspace lo

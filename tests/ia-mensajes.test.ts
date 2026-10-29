@@ -298,7 +298,8 @@ test('si alguno CONTESTÓ, el motivo no culpa a la cuota ni a la key aunque otro
 test('la cascada ESCRIBE el descarte antes de pasar a la cuenta siguiente', () => {
   const src = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
     .replace(/^[ \t]*\/\/.*$/gm, '');
-  const i = src.indexOf('if (t.trim() && (!opts.validar || opts.validar(t))) return t;');
+  // Desde el 27/10/2026 la línea anota quién contestó antes de devolverlo (`anotarQuien`, tests/automations-quien-contesto).
+  const i = src.indexOf("if (t.trim() && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: prov, modelo: model ?? null, de: 'negocio' }); return t; }");
   assert.ok(i > 0, 'no encontré la línea que acepta la salida de un proveedor');
   const hastaElBreak = src.slice(i, src.indexOf('break;', i));
   assert.match(hastaElBreak, /opts\.erroresOut\?\.push\(`\$\{rotulo\(inst\)\}: \$\{t\.trim\(\) \? 'contestó y lo descartamos/);

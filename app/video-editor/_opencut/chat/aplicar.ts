@@ -37,6 +37,7 @@ import { buscarClip } from "@/app/video-editor/_opencut/reemplazo/puro";
 import { TICKS_PER_SECOND, roundMediaTime } from "@/app/video-editor/_opencut/wasm";
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
+import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/element/revertir";
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
@@ -108,8 +109,10 @@ async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (
 		return hecho.ok ? [] : [SIN_SILENCIOS[hecho.motivo]];
 	}
 	if (r.op === "generar_subtitulos") {
-		await generarSubtitulos(editor);
-		return [];
+		// generarSubtitulos no lanza: sin leer lo que devuelve, el chat sólo ve que la línea no
+		// cambió y dice «no se pudo generar los subtítulos» por cualquier causa (ticket 23, 28/10).
+		const hecho = await generarSubtitulos(editor);
+		return hecho.ok ? [] : [MOTIVO_SUBTITULOS[hecho.motivo]];
 	}
 	if (r.op === "usar_plantilla") {
 		const plantilla = plantillaPorId(r.plantilla);

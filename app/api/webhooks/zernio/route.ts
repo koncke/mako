@@ -49,7 +49,7 @@ import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
-import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
+import { procesarEventoSocial, dispararEventoSocial, contestarDisparoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
 import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
 import { leerLeadDeZernio } from '@/lib/zernio-lead';
 import { cargarLeadDeZernio, alNacerLeadDeZernio } from '@/lib/zernio-leads';
@@ -234,10 +234,13 @@ export async function POST(req: NextRequest) {
             catch (e) { console.error(`[webhook:zernio] botón ${canal} lead ${leadId}: ${msg(e)}`); }
             if (toque !== 'no_es') { console.log(`[webhook:zernio] ${canal} lead ${leadId} ws=${wsFinal}: botón (${toque})`); return; }
           }
+          // Cuántas automatizaciones del lead tomaron este mensaje como respuesta (su AI Step ya le contesta por ahí).
+          let tomadas = 0;
           if (r.pausar) {
             try {
               // Con lo que escribió y la cuenta que lo recibió: el AI Step de ese medio le contesta por ahí.
               const n = await runWithWorkspace(wsFinal, () => pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId }));
+              tomadas = n;
               console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: respondió, ${n} pausada(s)`);
             } catch (e) {
               console.error(`[webhook:zernio] pausar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);
@@ -245,8 +248,16 @@ export async function POST(req: NextRequest) {
           }
           if (!r.disparar) return;
           try {
-            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo));
+            // Con lo que escribió (ticket #17): las palabras clave de un CRON de comentario.
+            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto));
             console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: ${n} automatización(es)`);
+            // EL AI STEP CONTESTA ESTE MISMO MENSAJE si es la primera tarjeta (28/10/2026, como ManyChat): después de inscribir.
+            // ⚠️ SÓLO SI NINGUNA CHARLA ABIERTA LO TOMÓ (la revisión del Cerebro, 29/10/2026): un lead con una charla abierta y otra
+            // automatización «envía un mensaje» con el AI Step primero recibía DOS respuestas al mismo DM. Una, como mucho.
+            if (n > 0 && tomadas === 0) {
+              const c = await runWithWorkspace(wsFinal, () => contestarDisparoSocial(leadId, canal, subtipo, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId, fecha: ev.evento.fecha }));
+              if (c > 0) console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: el AI Step contestó el mensaje que la arrancó (${c})`);
+            }
           } catch (e) {
             console.error(`[webhook:zernio] disparar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);
           }

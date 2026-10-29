@@ -38,6 +38,59 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
+
+**Síntoma.** A las 18:34 la app se cerró y se reabrió a las 18:38: los nueve chats y los dos workflows del Cerebro quedaron
+cortados a mitad. Al volver había 6,5 GB en procesos de node: un tsc acotado de Motion de 2,8 GB HUÉRFANO (su chat ya no
+existía), dos tsc acotados de Copywriter EN PARALELO (1,7 + 1,4 GB) y una barredora de tipos.
+
+**Por qué** (el diagnóstico obvio, «los chats no respetan la regla de un proceso pesado por vez», era el equivocado: la
+regla estaba en cada encargo y no la puede cumplir nadie que no vea a los demás): `scripts/typecheck-lock.mjs`, el
+respaldo de tipos del push y antes-de-subir comparten un lock por máquina (`os.tmpdir()/mako-typecheck.lock`), pero
+`scripts/tsc-acotado.mjs`, que es lo que corre cada chat para su VERDE, no lo tomaba. Y un tsc acotado de un chat que se
+cae sigue vivo comiendo RAM.
+
+**La red:**
+- `scripts/tsc-acotado.mjs` toma el MISMO lock: espera su turno hasta 30 min (después NO corre: sale con 99) y saca el lock
+  de un proceso muerto. Con `MAKO_TURNO_TOMADO=1` no se espera a sí mismo.
+- Mientras eso no llega a cada worktree (los chats corren el script de SU rama), `C:/dev/con-turno.mjs` envuelve cualquier
+  comando pesado con el mismo lock: `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` o `… tests-afectados.mjs …`.
+- **«Correr igual» después de esperar es otra estampida (19:15, el mismo día):** un test colgado sin timeout retuvo el turno
+  y siete trabajos de cinco chats iban a arrancar juntos a los 30 min. Sin turno, ninguno corre (99); el que tiene el turno
+  se corta a los 60 min con su árbol entero (`taskkill /T`: en Windows `kill()` deja vivos a los nietos).
+- **Una sola fila para todo frena a todos (~20:00, el mismo día):** un barrido de tests de 30-60 min tenía el turno y los tsc
+  acotados de cinco chats (minutos cada uno) salían con 99 sin correr. La caída fue por tsc, no por tests: `con-turno` tiene
+  DOS filas, la de tipos (`mako-typecheck.lock`, la misma del push) y la de tests (`mako-tests.lock`: tests-afectados,
+  antes-de-subir, `--test`). Corre uno de cada a la vez.
+- Después de una caída, antes de retomar nada, se cortan los node huérfanos y los duplicados (`Get-CimInstance
+  Win32_Process` con su padre: un padre que no existe es un huérfano).
+
+---
+
+## La pausa del Cerebro, por archivo: pedida por mensaje no frenaba a nadie (28/10/2026)
+
+**Síntoma.** Para subir tren-v el Cerebro pausó los chats por mensaje («nada de tests hasta mi seguí»). El push cayó dos
+veces «sin RAM» y hubo que cortar a mano, en tres rondas, pruebas que los chats lanzaban igual: un tests-afectados de
+Automations, el de desktop offline y los tsc-acotado de Copywriter.
+
+**Por qué el mensaje no alcanza** (el diagnóstico obvio, «los chats no obedecen», era el equivocado):
+- un mensaje a un chat llega recién cuando TERMINA su turno, y un subagente de un workflow no lo ve nunca;
+- tests-afectados espera sólo ~1,3 GB libres (`pisoRam(1)`), y el chequeo de tipos del push pide 4,8 con 4.608 MB de heap.
+  Con 4 GB libres, la prueba del chat arranca y el push queda sin lugar.
+
+**La red:** `scripts/pausa-cerebro.mjs`. El Cerebro la prende con `node scripts/pausa-cerebro.mjs prender "<motivo>"` y la
+apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.txt`).
+- tests-afectados la toma como «no hay RAM»: respeta su tope y el candado de antes-de-subir, y `MAKO_TESTS_SIN_ESPERA` no
+  la saltea.
+- tsc-acotado espera antes de arrancar.
+- Una pausa de más de 90 minutos se da por olvidada, y nadie espera más de 60.
+- El chequeo del propio Cerebro corre con `MAKO_IGNORAR_PAUSA=1`. El hook del push no pasa por acá.
+
+**De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
+programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
+
+---
+
 ## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
 
 - **Mensajes entre chats:** después de 10 `SendMessage` a otros chats sin un mensaje de Martín en el chat del
@@ -472,6 +525,53 @@ layout repite en esa ruta.
 **Sin medir en producción** (la receta, en la entrada de arriba).
 
 *25/10/2026, chat «Ops Center» (claude5).*
+
+## El Web Generator en blanco entrando por el menú: el `redirect()` de un LAYOUT, navegando, queda guardado en el router (28/10/2026)
+
+**Síntoma (Martín):** «Cada vez que entro a web generator, hay un bug que aparece todo en blanco, le tengo que dar a refresh
+para que me cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier dispositivo».
+
+**La causa (reproducida con el build de producción 23b329b5e, `next start` + Chrome sin ventana, sesión admin en el ws9):**
+el layout de /web-generator redirige a la última landing (lo subió ahí el #310 de arriba). En una CARGA es un 307 y anda.
+Entrando por el MENÚ, el `redirect()` de un layout no es un 307: viaja adentro del RSC, en el nodo del layout
+(`NEXT_REDIRECT;replace;/web-generator/72?ws=9;307;`), y el router GUARDA ese nodo. Al llegar a /web-generator/72, que cuelga
+del MISMO layout, lo reusa, el redirect se vuelve a tirar, y el router renavega a la misma URL cada ~1 s para siempre: en
+blanco (sólo el banner de impersonación) y `/web-generator/72?ws=9&_rsc=…` en la red una y otra vez. El refresh es una carga:
+307 real, el editor. «Sólo el super admin»: el redirect sale sólo si hay landings, y el negocio con landings es el de la
+plataforma (el 9).
+
+**Lo que despistaba:** parecía otra vez el #310 (loader + redirect) o una respuesta pesada que se cortaba (vi «64 KB» y era mi
+propio recorte al imprimir: el RSC llega entero). Y la cura del #310 —subir el redirect al layout para que salga antes del
+loader— es justo lo que lo provoca navegando: las dos reglas valen juntas.
+
+**La regla:** un LAYOUT que redirige a una ruta DEBAJO de sí mismo lo hace sólo en la CARGA del documento; navegando, redirige
+la PÁGINA, cuyo segmento se reemplaza. `esNavegacionDelCliente()` (lib/pedido-actual.ts): `headers()` no deja ver el `RSC: 1`
+(Next saca los `FLIGHT_HEADERS`), pero sí llegan `Next-Url` (lo manda el router) y `Sec-Fetch-Dest` (`empty` en un fetch;
+`document`/`iframe` en una carga; sin ninguno, carga, como siempre). Aplicado en /web-generator, /plan (/plan ↔ /plan/agencia),
+/m/second-brain (→ /mapa, lo encontró el recorrido del test) y el resumen de /crm (al mismo resumen con el `?ws=` del
+negocio del lead; el destino no es literal y el test lo fija aparte). tests/redirige-navegando.test.ts recorre todo `app/`; probado
+rompiéndolo (9 roturas, 9 atrapadas).
+
+**Verificado:** con el build del arreglo (mismo `next start`, misma sesión): desde el menú 5/5 el editor (antes 5/5 en blanco con 4-15
+pedidos `_rsc` repetidos; ahora 0-2); `router.push` a #68, #69 y #70 llega a cada una (antes las tres terminaban en
+/72, en blanco: el redirect guardado secuestra cualquier navegación debajo del layout); directo, el editor, como antes.
+Datos: C:/dev/revisiones/web-generator-blanco/{prueba3,arreglo2}/informe.json.
+
+**Sin hacer:** sin medir en producción ni en el teléfono (después del deploy: entrar a /web-generator desde el menú, con el
+ws9). Los otros layouts con destino calculado se miraron a mano y no caen debajo de sí mismos: /dashboard (→ /plan o /crm)
+y /admin/operaciones (→ /inicio o /second-brain). Un layout NUEVO con destino calculado no lo ve el recorrido del test.
+
+**Para reproducirlo en local (Windows), tres trampas:** `next build --debug-build-paths` (Next 16.2.6) NO compila ninguna ruta de
+`app/` y sale 0: `applyDebugFilter` (node_modules/next/dist/build/route-discovery.js) compara `/x/page.tsx` con `\x\page.tsx`.
+Y los CORCHETES de una ruta son un patrón: `app/web-generator/[id]/page.tsx` no compila esa página (va `?id?`).
+Y `next start` sirve el `.next` VIEJO sin quejarse: las dos primeras corridas midieron un build de otra hora. Parche local en
+ese node_modules (normalizar `\` → `/`), `rm -rf .next` antes de cada build y mirar que el build.log liste las rutas. Además el
+vigía mata el build parcial en zona roja: esperar ≥3 GB libres y compilar sólo las páginas que se miden.
+
+Vive en: lib/pedido-actual.ts · lib/pedido-actual-reglas.ts · app/web-generator/layout.tsx · app/plan/layout.tsx ·
+app/m/second-brain/layout.tsx · app/crm/layout.tsx · tests/redirige-navegando.test.ts.
+
+*28/10/2026, chat «Web Generator: replicar landings» (claude4).*
 
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
@@ -6496,6 +6596,17 @@ posterior al leído, o una revisión. La primera escritura (esperado `null`) sí
 **Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
 tanda de Automations*
 
+**28/10/2026: la regla escrita no alcanzó, y ahora la red está en `cambiarSettingSi` mismo.** Copywriter volvió a caer (un
+guion de más de ~6 KB no se guardaba más, y el índice con ~40 guiones congelaba el árbol), y medido ese día en producción el
+`onboarding.historial` ya pasaba los 6 KB codificados en cuatro negocios: su historial había dejado de guardarse en silencio
+(es best-effort). Unas treinta funciones llaman a `cambiarSettingSi` y nadie se acuerda de esta entrada. **El arreglo:** con
+un `esperado` de más de 6 KB en la URL (`lib/settings-cas.ts`, medido codificado: un JSON con comillas pesa el triple),
+`cambiarSettingSi` lee la fila, compara el valor en el server y escribe filtrando por `updated_at`, uno estrictamente
+posterior al leído (toda escritura de app_settings marca `updated_at`, así que si otro escribió en el medio, pierde). Sin
+cambiar a nadie que lo llame. tests/settings-cas-largo.test.ts corre el lib/settings.ts real con una base de mentira que
+anota cada filtro. **Medir antes de culpar al código:** el script del 28/10 (scratchpad del Cerebro, settings-largos.cjs)
+lista las claves de app_settings por peso codificado.
+
 ## El typecheck que «salía con 1 sin errores»: lo mataba el vigía, y el fallo mudo alimentaba la estampida (13/10/2026)
 
 **El síntoma, tal como llegó:** `node node_modules/typescript/bin/tsc --noEmit` sale con
@@ -8926,3 +9037,45 @@ tabnews.com.br (el dato de 80 MB por instancia).
 - **Un test que lee el fuente tiene que normalizar CRLF:** con `core.autocrlf` en Windows, el worktree del Cerebro tiene
   CRLF y `indexOf('\n}\n')` no encuentra el cierre de una función (tests/crm-ticket-14 daba «no está fathomDeFila»). En
   el worktree del chat, con LF, pasaba. `readFileSync(…).replace(/\r\n/g, '\n')`.
+
+## El corte del 97% vuelve, para guardar TODO antes de cambiar de cuenta (28/10/2026, Cerebro)
+
+**Vive en:** `scripts/claude-hooks/guardia/corte-97.mjs` (copia de `~/.claude/guardia/corte-97.mjs`), `scripts/claude-hooks/bitacora-sesion.sh`, `tests/corte-97.test.ts`
+
+- **Síntoma:** Martín cambia de cuenta cuando se acaba la cuota y escribe «Continua»; la cuenta nueva tenía que reconstruir
+  a mano qué chat hacía qué. Pidió, para todas las cuentas: al 97%, frenar y dejar guardado el contexto de todo el trabajo
+  hecho en esa cuenta.
+- **Causa:** el corte estaba APAGADO desde el 18/10 (`guardia/sin-corte`, por «sacá el límite de 97%»), así que ningún
+  chat recibía nunca la orden de guardar. Y aun prendido, su orden pedía el relevo «de lo que quedó a medias», no el de
+  toda la cuenta, y no dejaba rastro de qué chats habían cortado ni dónde.
+- **Lo que quedó:** al 97% de la semanal o de las 5 horas, el hook pide el relevo de TODA la cuenta y anota cada sesión
+  que cruza en `~/.claude/relevos-cuenta/<cuenta>.tsv` (carpeta, rama, transcript): un registro que no depende de que el
+  chat se acuerde. El SessionStart dice qué hacer con «Continua».
+- ⚠️ **La trampa del diagnóstico obvio: «cortar todo al 97%» habría cortado lo que Martín quería guardar.** El hook
+  niega herramientas, y también las de los subagentes de un workflow que ya corre: la investigación de pedidos perdidos
+  —que él quería justamente para la cuenta siguiente— moría a la mitad. Ahora lo que trae `agent_id`/`agent_type` pasa, y
+  se niega sólo LANZAR uno nuevo.
+- ⚠️ **Un workflow no se reanuda desde otra cuenta:** `resumeFromRunId` es de la MISMA sesión. Lo que la cuenta siguiente
+  puede hacer es LEER `~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/journal.jsonl`, donde cada
+  agente dejó lo que devolvió al terminar. Por eso el relevo nombra el runId y esa ruta.
+- **No medido:** que la entrada de un PreToolUse dentro de un subagente traiga `agent_id` en esta versión de la app. Si no
+  lo trae, los subagentes reciben la orden de corte y devuelven lo que tienen: se degrada a «resultado parcial», no a
+  nada. Se mira la próxima vez que una cuenta cruce el 97% con un workflow corriendo (`guardia.log` no lo registra hoy).
+- **28/10 ~21:30 — el primer corte real, y lo que costó la excepción de los subagentes.** A las 21:15 el Cerebro cruzó el
+  97% de la ventana de 5 h. El hook negó un Bash, anotó la sesión en `relevos-cuenta/claude4.tsv`, y los chats cortaron con
+  su relevo commiteado. **Pero el workflow que corría siguió, y la cuenta llegó al 100% igual**: 12 de sus 21 agentes
+  murieron con «You've hit your session limit». No se perdió nada, porque dejar terminar lo que corre fue la decisión de
+  Martín: los 9 que terminaron quedaron en el journal, y al renovarse la ventana el MISMO chat lo reanudó desde la caché.
+  Desde otra cuenta, eso no se puede reanudar; se leería el journal. Si llega a importar el 3% de margen, la palanca es no
+  lanzar un workflow grande pasado el 90%, no cortarle los agentes.
+- **La fila de tests de `C:/dev/con-turno.mjs`, con dos lugares (28/10, 21:33).** Con uno, siete chats hacían fila para
+  barridos de 30-60 min y el que esperaba 30 min salía con 99 y relanzaba: «no se liberó» se leyó como un cuelgue y no lo
+  era. Un barrido pesa ~600 MB y `tests-afectados` ya espera RAM por su cuenta. Ahora son dos lugares, con 90 min de
+  espera; los tsc siguen de a uno con 30. Un con-turno que ya estaba esperando corre el código viejo (un lugar).
+- **28-29/10: lo que se commitea en la rama del tren MIENTRAS corre su push termina en main (causa NO encontrada).** Dos
+  veces seguidas: el push mandó `c17134274` y, 11 s después, origin/main ya estaba en `b59d14943`; después mandó
+  `7f63046be` y 11 s más tarde estaba en `ed8c965d1`. Las dos veces, los commits de más eran del relevo, hechos durante el
+  chequeo de tipos del push. No los empujaba el pre-push, ni el cartero, ni `bitacora-sesion.sh`, y `remote.origin.push` no
+  está configurado (medido). Sólo eran docs y no cambiaron nada para los clientes. **Regla hasta encontrar la causa:**
+  mientras corre el push de un tren, en esa rama no se commitea NADA que no sea docs. Un merge de código va DESPUÉS de que
+  el push termine y el deploy esté Ready.

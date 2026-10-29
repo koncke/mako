@@ -67,7 +67,7 @@ function NodoDelRiel({ n, en }: { n: NodoRiel; en: EntornoTarjeta }) {
  * UNA AUTOMATIZACIÓN, ABIERTA: el sello y el estado, el riel y el pie. Pura: lo que pasa al tocar lo decide la pantalla.
  * Exportada también para dibujarla sin servidor y sacarle la foto (la vista previa del rediseño, docs/hallazgos-crm.md).
  */
-export function TarjetaAutomatizacion({ a, en, todo, verMenos, error, onAntes, onFrenar, onEmpezar, onPlegar }: {
+export function TarjetaAutomatizacion({ a, en, todo, verMenos, error, onAntes, onFrenar, onEmpezar, onProbar, onPlegar }: {
   a: InscripcionVista; en: EntornoTarjeta;
   /** El riel entero (épico, «Línea de tiempo», o después de «Ver N antes»). */
   todo: boolean;
@@ -76,6 +76,8 @@ export function TarjetaAutomatizacion({ a, en, todo, verMenos, error, onAntes, o
   /** Lo que no salió al frenar o empezar de nuevo, en el pie de ESTA tarjeta. */
   error: string | null;
   onAntes: () => void; onFrenar: () => void; onEmpezar: () => void;
+  /** «Volver a probar» (28/10/2026, ticket #19 de Automations): una terminada vuelve a entrar con lo próximo que la arranca. */
+  onProbar?: () => void;
   /** Una terminada abierta se pliega desde su cabecera. */
   onPlegar?: () => void;
 }) {
@@ -84,6 +86,7 @@ export function TarjetaAutomatizacion({ a, en, todo, verMenos, error, onAntes, o
   const riel = rielDeTarjeta(a, en.noEntro, { todo, ahoraMs: en.ahora });
   const frena = estaViva(a) && a.puede.frenar;
   const empieza = a.puede.empezarDeNuevo;
+  const prueba = !!onProbar && a.puede.volverAProbar === true;
   const cuando = delEstado(e);
   return (
     <article className="fr-aut" data-tono={e.tono} data-automatizacion={a.secuenciaId}>
@@ -119,14 +122,16 @@ export function TarjetaAutomatizacion({ a, en, todo, verMenos, error, onAntes, o
         </ol>
       )}
       {riel.vacio && <p className="fr-aut-vacio">Todavía no le salió nada.</p>}
-      {(frena || empieza || error) && (
+      {(frena || empieza || prueba || a.listaParaProbar || error) && (
         <footer className="fr-aut-pie">
           {frena && (
             <button type="button" className="fr-aut-frenar" onClick={onFrenar}>Frenar</button>
           )}
-          {empieza && (
+          {a.listaParaProbar && <span className="fr-sub">Lista para volver a probar: entra con lo próximo que la arranca.</span>}
+          {(empieza || prueba) && (
             <span className="fr-aut-pie-fin">
-              <Button variant="secondary" size="sm" icon={<IconoMenu nombre="restaurar" size={15} />} onClick={onEmpezar}>Empezar de nuevo</Button>
+              {prueba && <Button variant="secondary" size="sm" onClick={onProbar}>Volver a probar</Button>}
+              {empieza && <Button variant="secondary" size="sm" icon={<IconoMenu nombre="restaurar" size={15} />} onClick={onEmpezar}>Empezar de nuevo</Button>}
             </span>
           )}
           {error && <p className="fr-aut-error" role="status">{error}</p>}

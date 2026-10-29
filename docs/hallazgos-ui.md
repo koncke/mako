@@ -12,6 +12,20 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Iniciales cortadas por índice: quedan seis fuera de Automations (27/10/2026)
+
+`nombre.trim()[0]` es la primera unidad UTF-16, no la primera letra. Con «🚀 Ana» sale medio emoji, el server y el navegador
+dibujan cosas distintas, y React tira #418. Automations ya usa `iniciales` (lib/unicode-seguro.ts;
+tests/automations-iniciales.test.ts barre app/automations).
+
+**Quedan, sin tocar** (cada uno es de su chat):
+- app/_components/ServicioVisual.tsx:106
+- app/calendario/ListaLlamadas.tsx:187
+- app/classroom/ClientsShell.tsx:335
+- app/m/_ui/formato.ts:29
+- app/video-editor/_opencut/subtitles/components/texto-a-voz.tsx:72
+- app/web-generator/editor/paneles/PanelComentarios.tsx:46
+
 ## El desplegable que se abre y se cierra solo en el teléfono era el TECLADO (26/10/2026)
 
 **Vive en:** `app/components/Dropdown.tsx` (`onResize`, el foco del buscador) · `app/m/layout.tsx` (`interactive-widget`).

@@ -52,6 +52,10 @@ import {
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
 } from '@/lib/nutricion-etapa';
 import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA, RESIDUO_POR_DIA } from '@/lib/nutricion-residuo';
+// Los TOPES de Instagram y Messenger, dichos al negocio (Leandro, 28/10/2026).
+import { resumirTopes, cercaDelTopeDeMeta, cuentaMasCargada, datosTopeSocial, VENTANA_AVISO_TOPE_MIN, type TopeDeLaCorrida } from '@/lib/tope-social';
+// Los que YA están en la etapa al activar (Leila 2, 28/10/2026): la ventana de 90 días y lo que se cuenta.
+import { ultimoHitoMs, VENTANA_HITO_DIAS, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
 import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
 import { decidirAgenda } from '@/lib/nutricion-agenda';
@@ -74,7 +78,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
-import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
+import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, puedeVolverAProbar, claveDeEnvio, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -83,7 +87,7 @@ import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, extrasDeCaso, MAX_RAMAS_AB, type MedioAIStep,
+  juntarPasosIA, escuchaPor, contestaElDisparo, extrasDeCaso, MAX_RAMAS_AB, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -139,7 +143,7 @@ import {
 // Y desde TikTok fase 0 (14/10/2026), el AI Step contesta por Instagram y Messenger: la charla de ese canal
 // (`charlaSocialDelLead`) y la respuesta por Zernio (`enviarPasoSocial`), en `asistirRespuesta` con su medio.
 import {
-  esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, NOMBRE_CANAL, TOPE_TEXTO_SOCIAL,
+  esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, respondeEnComentario, NOMBRE_CANAL, TOPE_TEXTO_SOCIAL,
   type CanalSocial, type ConversacionesPorLead,
 } from '@/lib/canal-social';
 import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram, charlaSocialDelLead } from '@/lib/canal-zernio';
@@ -297,6 +301,8 @@ export type PasoSecuencia = {
    * `enviarPasoSocial` y, si alguno sigue el flujo, el mensaje espera el toque (`esperaToque`, `tocarBoton`).
    */
   botones?: PasoGrafo['botones'];
+  /** La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): la guarda `camposDelFlujo`, la manda `enviarPasoSocial`. */
+  en_comentario?: PasoGrafo['en_comentario'];
   /** Las ramas de la tarjeta «A/B TEST» (tanda A3 de las pruebas A/B): las guarda `camposDelFlujo`, las sigue `resolverControl`. */
   ramas_ab?: PasoGrafo['ramas_ab'];
 };
@@ -514,7 +520,26 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null), 'getSecuenciasActivas');
-  return rows.map((r) => ({
+  return rows.map(filaASecuencia);
+}
+
+/**
+ * UNA AUTOMATIZACIÓN POR SU ID, activa o pausada (sin las archivadas), como la lee el motor. La usan los que tienen que
+ * mirarla ANTES de prenderla: contar a los que ya están en la etapa (`existentesEnEtapa`, Leila 2). null = no existe.
+ */
+async function secuenciaDeId(id: number): Promise<Secuencia | null> {
+  const supabase = (await getTenantDb());
+  const rows = await leerFilasDeSecuencias((cols) => supabase
+    .from('nutricion_secuencias')
+    .select(cols)
+    .eq('id', id)
+    .is('archivada_at', null), 'secuenciaDeId');
+  return rows[0] ? filaASecuencia(rows[0]) : null;
+}
+
+/** La fila de `nutricion_secuencias` como la lee el motor. UNA regla para las lecturas de arriba. */
+function filaASecuencia(r: FilaSecuencia): Secuencia {
+  return {
     id: r.id,
     clave: r.clave,
     nombre: r.nombre,
@@ -539,7 +564,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     ...listaDe(r),
     // La «Reentrada» guardada (mig 0279); sin guardar, null: la decide `reentradaDeSecuencia`.
     reentrada: esReentrada(r.reentrada) ? r.reentrada : null,
-  }));
+  };
 }
 
 export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: number; estrategia: unknown };
@@ -1276,6 +1301,8 @@ export async function leadsDeCohorte(
   funnelId?: number | null,
   productoId?: number | null,
   etiquetaId?: number | null,
+  /** `sinVentana`: los de la etapa SIN la ventana de 90 días (Leila 2: los que se ofrecen al activar). El barrido nunca. */
+  o: { sinVentana?: boolean } = {},
 ): Promise<number[]> {
   /**
    * La ENTREGA no pasa por el ámbito de embudo ni por las columnas del funnel: su
@@ -1324,7 +1351,7 @@ export async function leadsDeCohorte(
       throw new Error(`cohorte entrega_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null);
+  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId), etiquetaId ?? null, o);
 }
 
 /**
@@ -1431,7 +1458,7 @@ async function agregadosEnEtapa(
 // sí misma con otro trigger— no vuelva a consultar `funnels`, y sobre todo para
 // que no pueda perderlo en el camino: el trigger hermano juntaría los leads de
 // todos los embudos y la exclusión de familia no se enteraría.
-async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambito: AmbitoFunnel, etiquetaId: number | null = null): Promise<number[]> {
+async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambito: AmbitoFunnel, etiquetaId: number | null = null, o: { sinVentana?: boolean } = {}): Promise<number[]> {
   const supabase = (await getTenantDb());
 
   if (triggerTipo === TRIGGER_ETIQUETA) return leadsConEtiqueta(supabase, etiquetaId, ambito);
@@ -1472,16 +1499,11 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
       throw new Error(`cohorte etapa_actual(${keys.join(', ')}): ${e instanceof Error ? e.message : String(e)}`);
     }
     type LeadEtapa = { id: number; estado_lead: 'abierto'; pipeline_stage: string | null; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null; created_at: string };
-    const corte = Date.now() - 90 * 86400 * 1000;
-    const ultimoHito = (l: LeadEtapa): number => Math.max(
-      ...[l.created_at, l.fecha_agenda, l.fecha_junta_1, l.fecha_junta_2]
-        .filter((x): x is string => Boolean(x))
-        .map((x) => Date.parse(x))
-        .filter((ms) => Number.isFinite(ms)),
-      0,
-    );
+    // ⚠️ MOVER DE ETAPA NO ES UN HITO (Leila 2, 28/10/2026): `leads` no guarda cuándo cambió de etapa, así que un lead viejo
+    // que se pasó a mano a «reactivación» no entra solo. Al activar se ofrece (`existentesEnEtapa`), con `sinVentana`.
+    const corte = o.sinVentana ? -Infinity : Date.now() - VENTANA_HITO_DIAS * 86400 * 1000;
     const deLaCasa = (data as LeadEtapa[])
-      .filter((l) => ultimoHito(l) >= corte)
+      .filter((l) => ultimoHitoMs(l) >= corte)
       .filter((l) => keys.includes(pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined })))
       .map((l) => l.id);
     // ⚠️ Y LOS AGREGADOS A ESTE CRM (21/10/2026): la etapa que tienen EN ESTE CRM y, para la ventana, cuándo se los
@@ -1773,7 +1795,10 @@ async function reusablesDe(
   const out = new Map<number, { fila: FilaInsc; reunionMs: number | null; porque: string }>();
   const posibles = filas.filter((f) => {
     const modo = modoDe(f.secuencia_id);
-    return modo != null && modo !== 'una_vez' && (ESTADOS_TERMINADOS.includes(f.estado) || soloQuedaElCarril(f));
+    if (modo == null) return false;
+    // La marcada «Volver a probar» por una persona (lib/reentrada.ts) entra a la pregunta con cualquier reentrada.
+    if (f.desenlace === DESENLACE_VOLVER_A_PROBAR) return puedeVolverAProbar(f);
+    return modo !== 'una_vez' && (ESTADOS_TERMINADOS.includes(f.estado) || soloQuedaElCarril(f));
   });
   if (!posibles.length) return out;
   const [marcas, juntas] = await Promise.all([
@@ -1876,6 +1901,73 @@ async function aTiempo(
     for (const f of filas) creado.set(f.id, f.created_at);
   }
   return ids.filter((id) => dentroDeAntiguedad({ maxHoras, createdAt: creado.get(id) ?? null, ahoraMs }));
+}
+
+/**
+ * LOS QUE YA ESTÁN EN LA ETAPA (Leila 2, 28/10/2026: «la activé para todos los que están en reactivación… todavía no pasa
+ * nada»). Por cada CRON «llega a etapa» SIN horario, con la MISMA puerta que el barrido (`aTiempo` + `aInscribir`): los que
+ * entran solos en la próxima pasada (`recientes`) y los que están en la etapa pero quedan afuera por la ventana de 90 días
+ * (`viejos`). Sólo lee: es lo que la pantalla cuenta al activar. Un CRON con horario no se ofrece (lo decide su ocurrencia).
+ */
+type PlanDeInscripcion = Awaited<ReturnType<typeof aInscribir>>;
+async function existentesPorCron(sec: Secuencia): Promise<Array<{ vista: Secuencia; recientes: PlanDeInscripcion; viejos: PlanDeInscripcion }>> {
+  const supabase = (await getTenantDb());
+  const out: Array<{ vista: Secuencia; recientes: PlanDeInscripcion; viejos: PlanDeInscripcion }> = [];
+  const vistos = new Set<number>();
+  for (const vista of vistasPorDisparador(sec)) {
+    if (vista.trigger_tipo !== TRIGGER_ETAPA || vista.cron) continue;
+    const etapas = etapasDe(vista);
+    const pedir = (sinVentana: boolean) => leadsDeCohorte(vista.trigger_tipo, etapas, vista.funnel_id, vista.producto_id, vista.etiqueta_id, { sinVentana });
+    const recientes = (await aTiempo(supabase, vista, await pedir(false))).filter((id) => !vistos.has(id));
+    const conVentana = new Set(recientes);
+    const viejos = (await aTiempo(supabase, vista, await pedir(true))).filter((id) => !vistos.has(id) && !conVentana.has(id));
+    const planR = await aInscribir(supabase, vista, recientes);
+    const planV = await aInscribir(supabase, vista, viejos);
+    for (const x of [...planR.nuevas, ...planR.reusar, ...planV.nuevas, ...planV.reusar]) vistos.add(x.lead_id);
+    out.push({ vista, recientes: planR, viejos: planV });
+  }
+  return out;
+}
+
+/** Lo que cuenta la pantalla al ACTIVAR una automatización por etapa. null = no tiene un CRON «llega a etapa» sin horario. */
+export async function existentesEnEtapa(secuenciaId: number): Promise<ExistentesEnEtapa | null> {
+  const sec = await secuenciaDeId(secuenciaId);
+  if (!sec) return null;
+  const porCron = await existentesPorCron(sec);
+  if (!porCron.length) return null;
+  return {
+    etapas: [...new Set(porCron.flatMap((c) => etapasDe(c.vista)))],
+    entran: porCron.reduce((n, c) => n + c.recientes.nuevas.length + c.recientes.reusar.length, 0),
+    viejos: porCron.reduce((n, c) => n + c.viejos.nuevas.length + c.viejos.reusar.length, 0),
+  };
+}
+
+/**
+ * «INCLUIRLOS» (Leila 2): inscribe YA a los que están en la etapa y la ventana de 90 días dejaba afuera, como el barrido
+ * los inscribiría si se hubieran movido: misma fila, mismo `proximo_envio_at`, y salen con el goteo y los topes de la línea
+ * (eso lo decide el envío, no esto). Sólo una ACTIVA: pausada, se inscribirían leads que el motor congela. Devuelve cuántos.
+ */
+export async function incluirExistentes(secuenciaId: number): Promise<number> {
+  const sec = await secuenciaDeId(secuenciaId);
+  if (!sec?.activa) return 0;
+  const supabase = (await getTenantDb());
+  let creadas = 0;
+  for (const { vista, viejos } of await existentesPorCron(sec)) {
+    if (viejos.nuevas.length) {
+      const { error } = await supabase.from('nutricion_inscripciones').insert(viejos.nuevas.map((n) => ({
+        lead_id: n.lead_id,
+        secuencia_id: vista.id,
+        paso_actual: 0,
+        estado: 'activa',
+        proximo_envio_at: n.proximo_envio_at,
+        ...(preparaReunion(vista) ? { reunion_at: n.reunion_at } : {}),
+      })));
+      if (error) throw new Error(`incluirExistentes: ${error.message}`);
+      creadas += viejos.nuevas.length;
+    }
+    creadas += await reactivarReusables(supabase, vista, viejos.reusar);
+  }
+  return creadas;
 }
 
 export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
@@ -2204,6 +2296,8 @@ export type CtxEvento = {
   etiquetaId?: number | string | null;
   /** Instagram / Messenger / Email: QUÉ pasó en el canal (ver `EventoNutricion`). */
   subtipo?: string;
+  /** Lo que COMENTÓ la persona: las palabras clave de un CRON de comentario (ticket #17, `disparaPorEvento`). */
+  texto?: string | null;
   /**
    * El evento de etapa es de un lead AGREGADO a ese CRM (`lead_funnel`, lib/lead-funnel.ts), no de su casa: entra con la
    * MISMA regla que el barrido de la hora (`agregadosQueEntran`). Ver `enrolarPorEvento`.
@@ -2514,7 +2608,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     const decididoAt = ahoraISO();
     const previas = await inscripcionesDe(supabase, [leadId], (q) => q.in('secuencia_id', elegidas.map((s) => s.id)), preparan);
     const previaDe = new Map(previas.map((f) => [f.secuencia_id, f]));
-    const modoSec = new Map(elegidas.filter(reusaInscripciones).map((s) => [s.id, reentradaDeSecuencia(s)] as const));
+    // También «Una sola vez» (con pasos): `reusablesDe` la deja afuera salvo la marcada «Volver a probar» (ticket #19).
+    const modoSec = new Map(elegidas.filter((s) => s.pasos.length > 0).map((s) => [s.id, reentradaDeSecuencia(s)] as const));
     const reusables = await reusablesDe(supabase, previas, (secId) => modoSec.get(secId) ?? null, true);
     const juntas = (preparan || elegidas.some((s) => pasoDeEntrada(s.pasos)?.ancla === 'reunion')) ? (await juntasDe(supabase, [leadId])).get(leadId) ?? null : null;
 
@@ -3453,6 +3548,8 @@ async function hechosDelCatalogo(
 type FilaCola = {
   id: number; lead_id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null;
   proximo_envio_at?: string | null; hilos?: unknown; hilos_rev?: number | null; h?: string | null;
+  /** Cuándo entró (la respuesta pública va sólo al comentario del disparo). Ausente = no se leyó. */
+  inscripto_at?: string | null;
   /**
    * Lo que se LEYÓ (undécima tanda, M4): 'activa', o 'respondio' con el carril del recordatorio vivo. Es el
    * compare-and-set de toda escritura de la posición, y una 'respondio' sigue en 'respondio' (`estadoAlEscribir`).
@@ -4079,6 +4176,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   const enviadoEnCorrida: EnviadoEnCorrida = new Map();
   // El workspace de la corrida, UNA vez: lo usan el nombre del negocio y cada acción.
   const wsCorrida = await getWorkspaceActual();
+  // Los TOPES de Instagram y Messenger de esta corrida, y cuántos DM salieron (28/10/2026, Leandro): al final, UN aviso.
+  const topesSociales: TopeDeLaCorrida[] = [];
+  let socialesEnviados = 0;
   // El nombre del negocio, UNA vez por corrida y no por lead: es del workspace, no de
   // la fila. Si no se puede leer, `{{negocio}}` sale crudo (no vacío) — ver
   // `valoresVariablesLead`.
@@ -4429,7 +4529,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     let q = supabase
       .from('nutricion_inscripciones')
       // `hilos, hilos_rev` (mig 0228, ANTES del deploy): sin la columna PostgREST rechaza la consulta entera.
-      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace')
+      // `inscripto_at`: la respuesta pública va sólo al comentario del disparo (`decidirRespuestaPublica`).
+      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at')
       // Y las 'respondio' con el carril del recordatorio vivo (undécima tanda, M4): `pausarPorRespuesta` les deja el
       // próximo envío SÓLO a ésas, y acá se mueven sólo sus tarjetas del carril (`seMueveEnLaCorrida`).
       .in('estado', ['activa', 'respondio'])
@@ -5217,18 +5318,26 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           const varsSocial = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
           const r = await enviarPasoSocial({
             ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesDe(paso), varsSocial),
-            vars: {}, idempotencia: `nutri:${insc.id}:${idDe(paso, insc.paso_actual)}`, desde,
+            // La clave lleva la VUELTA (`claveDeEnvio`, lib/reentrada.ts): la inscripción reusada de «Volver a probar» no reusa la de antes.
+            vars: {}, idempotencia: claveDeEnvio(insc.id, insc.inscripto_at, idDe(paso, insc.paso_actual)), desde,
             // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
             cuenta: cuentaDelPaso(paso),
             // Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts): el `payload` de cada uno lleva ESTA inscripción y ESTA
             // tarjeta, y el toque vuelve por el webhook (`tocarBoton`).
             ...(botonesDe(paso).length ? { botones: { lista: botonesDe(paso), inscripcionId: insc.id, nodoId: idDe(paso, insc.paso_actual) } } : {}),
+            // La respuesta PÚBLICA al comentario (ticket #17): debajo del comentario, no por DM.
+            ...(respondeEnComentario(paso) ? { enComentario: true, inscriptoAt: insc.inscripto_at ?? null } : {}),
           });
+          // Un TOPE no se pierde (vuelve a salir con el backoff de su espera) y se cuenta para el aviso de la corrida.
+          if (r.tope) topesSociales.push({ ...r.tope, canal: paso.canal });
+          if (r.ok) socialesEnviados += 1;
           partesSalidas = r.salieron;
           destinoSocial = r.destino;
           textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
-          estado = r.ok ? 'enviado' : 'fallo';
-          if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras ?? 4; terminal = r.terminal === true; }
+          // `omitir`: la respuesta pública que no puede salir se anota 'omitido' y el flujo SIGUE (el DM de después sale).
+          estado = r.ok ? 'enviado' : r.omitir ? 'omitido' : 'fallo';
+          if (r.omitir) nota = r.error;
+          else if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras ?? 4; terminal = r.terminal === true; }
           else if (r.nota) nota = r.nota;
         }
       } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
@@ -5660,9 +5769,62 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     res.esperaDespuesDeResponder = await seguirDespuesDeResponder(opts.soloLeadId, cortaSinTope);
   }
 
+  // El TOPE de Instagram o Zernio, dicho UNA vez por corrida (y no más de uno por hora): Leandro, 28/10/2026.
+  await avisarTopesSociales(wsCorrida, topesSociales, socialesEnviados);
+  // La difusión que ya terminó se pausa (la verificación de 69b49a31c): prendida, ocupaba un lugar del tope del plan. Sólo en
+  // la corrida de la hora: ni el tick de cada minuto ni la vía rápida de un lead.
+  if (wsCorrida != null && !opts?.soloLeadId && !opts?.vencidasDesde) {
+    const { pausarDifusionesTerminadas } = await import('@/lib/difusion');
+    await pausarDifusionesTerminadas();
+  }
+
   // Con el tope diario cumplido sólo corrieron acciones: el corte se sigue diciendo. Fuera del horario sólo corrió
   // el carril y «MaKo en WhatsApp» (M3 f): también se dice.
   return fueraDeHorario ? { ...res, saltado: fueraDeHorario } : presupuesto <= 0 ? { ...res, saltado: 'tope-diario' } : res;
+}
+
+/**
+ * EL AVISO DEL TOPE (28/10/2026, Leandro: «que MaKo me avise antes de que se trabe la automatización, para no encontrarme con
+ * mil mensajes sin responder»). Al final de una corrida:
+ *   · si algún DM o respuesta a un comentario se topó con el tope de Zernio o de Meta: cuántos esperan, de quién es el tope y
+ *     cuándo salen (vuelven a salir solos: `porTope`, lib/canal-zernio.ts);
+ *   · si ninguno se topó pero salieron mensajes, y lo que salió por Instagram o Messenger en la última hora ya está cerca del
+ *     tope de Meta (`cercaDelTopeDeMeta`): el aviso ANTES de llegar.
+ * UNO por estado y por hora (`reclamarEspaciado`): el motor corre cada minuto y un tope dura una hora. Sale por el evento de
+ * la plataforma `social_tope` (sin su fila en el ws 9 no sale nada: la regla del 16/10). Nunca tira.
+ */
+async function avisarTopesSociales(ws: number | null, topes: readonly TopeDeLaCorrida[], socialesEnviados: number): Promise<void> {
+  if (ws == null || (!topes.length && !socialesEnviados)) return;
+  try {
+    let resumen = resumirTopes(topes);
+    if (!resumen) {
+      const supabase = await getTenantDb();
+      const desde = new Date(Date.now() - 3_600_000).toISOString();
+      const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+        .in('canal', ['instagram', 'messenger']).eq('estado', 'enviado').gte('created_at', desde);
+      // La suma del negocio es un techo: si ni ella llega, ninguna cuenta llega (y no se lee nada más).
+      if (error || !cercaDelTopeDeMeta(count ?? 0)) return;
+      // ⚠️ POR CUENTA (la verificación de 69b49a31c): el tope de Meta es de cada cuenta. Cada envío, en la cuenta de la
+      // conversación del lead por ese canal (`cuentaMasCargada`, lib/tope-social.ts).
+      const envios = await leerTodo<{ id: number; lead_id: number | null; canal: string | null }>(supabase, 'nutricion_envios', 'id, lead_id, canal', {
+        orden: 'id', filtros: (q) => q.in('canal', ['instagram', 'messenger']).eq('estado', 'enviado').gte('created_at', desde) as ConsultaPaginada,
+      });
+      const deLeads = envios.flatMap((e) => (e.lead_id != null && (e.canal === 'instagram' || e.canal === 'messenger') ? [{ leadId: Number(e.lead_id), canal: e.canal as 'instagram' | 'messenger' }] : []));
+      const convs = await conversacionesDeLeads(deLeads.map((e) => e.leadId));
+      const mas = cuentaMasCargada(deLeads, (leadId, canal) => {
+        const f = convs.get(leadId)?.[canal];
+        return f ? conversacionDeFila(f).cuentaId : null;
+      });
+      if (!mas || !cercaDelTopeDeMeta(mas.cuantos)) return;
+      resumen = { estado: 'cerca', quien: 'meta', canales: [mas.canal], cuantos: mas.cuantos, esperaMs: 0 };
+    }
+    const { reclamarEspaciado } = await import('@/lib/espaciado');
+    if (!(await reclamarEspaciado(ws, 'social-tope', VENTANA_AVISO_TOPE_MIN, resumen.estado).catch(() => false))) return;
+    const { emitirEventoDePlataforma } = await import('@/lib/avisos');
+    await emitirEventoDePlataforma('social-tope', { ws, datos: datosTopeSocial(resumen) });
+  } catch (e) {
+    console.error(`[nutricion] el aviso del tope de Instagram (ws ${ws}): ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 // Pausa la nutrición de un lead cuando responde (webhook de Chatwoot y espejo
@@ -5824,6 +5986,49 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
+}
+
+/**
+ * EL AI STEP CONTESTA EL MENSAJE QUE ARRANCÓ LA AUTOMATIZACIÓN (28/10/2026, decisión del Cerebro, la (a): «como ManyChat»).
+ * Un DM de Instagram o Messenger que dispara una automatización cuya PRIMERA tarjeta es el AI Step (`contestaElDisparo`,
+ * lib/flujo-grafo.ts) la inscribía y la dejaba esperando el SEGUNDO mensaje: el primero no lo leía nadie. Lo llama el
+ * webhook DESPUÉS de inscribir (`contestarDisparoSocial`, lib/zernio-entrante.ts), con lo que escribió la persona.
+ *
+ * Toma SÓLO las inscripciones de ESTE evento que todavía no mandaron nada (las recién inscriptas: una vieja que ya
+ * conversa contesta por `pausarPorRespuesta`), las anota 'respondio' con compare-and-set contra 'activa' (como una
+ * respuesta) y las pasa por la MISMA puerta que una respuesta (`asistirRespuesta`): el mismo clasificador, el mismo
+ * redactor, «sale sola» o borrador, y el anti-ban. `subtipo`: en las palabras del CRON (`dm`, `historia`…). Devuelve
+ * cuántas contestó. Nunca tira: el lead ya quedó inscripto, que es lo crítico.
+ */
+export async function contestarElDisparo(
+  leadId: number, canal: CanalSocial, subtipo: string, opts: { texto?: string | null; cuenta?: string | null; recibidoAt?: string | null },
+): Promise<number> {
+  const texto = opts.texto?.trim();
+  if (!texto) return 0;
+  try {
+    const supabase = await getTenantDb();
+    const delEvento = (await getSecuenciasActivas()).filter((s) => contestaElDisparo(s.pasos, canal)
+      && vistasPorDisparador(s).some((v) => disparaPorEvento(v.disparador, canal, { subtipo, texto })));
+    if (!delEvento.length) return 0;
+    const { data, error } = await supabase.from('nutricion_inscripciones').select('id, secuencia_id')
+      .eq('lead_id', leadId).eq('estado', 'activa').in('secuencia_id', delEvento.map((s) => s.id));
+    if (error) throw new Error(error.message);
+    const frescas: number[] = [];
+    for (const i of (data ?? []) as Array<{ id: number }>) if (!(await yaLeSalioAlgo(supabase, i.id))) frescas.push(i.id);
+    if (!frescas.length) return 0;
+    const { data: marcadas, error: eMarca } = await supabase.from('nutricion_inscripciones')
+      .update({ estado: 'respondio', updated_at: ahoraISO() })
+      .in('id', frescas).eq('estado', 'activa')
+      .select('id, secuencia_id');
+    if (eMarca) throw new Error(eMarca.message);
+    const contestan = (marcadas ?? []) as Array<{ id: number; secuencia_id: number }>;
+    if (!contestan.length) return 0;
+    await asistirRespuesta(leadId, contestan.map((m) => m.secuencia_id), texto, null, { medio: canal, cuenta: opts.cuenta ?? null, recibidoAt: opts.recibidoAt ?? null });
+    return contestan.length;
+  } catch (e) {
+    console.error(`[nutricion] el AI Step no contestó el mensaje que arrancó la automatización (lead ${leadId}, ${canal}): ${e instanceof Error ? e.message : String(e)}`);
+    return 0;
+  }
 }
 
 /** ¿A esta inscripción ya le salió algo? (enviado, o simulado en una prueba.) Un error cuenta como sí: corta de más, nunca manda de más. */
@@ -6815,6 +7020,7 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
       idempotencia: `si-responde:${inscId ?? `lead${leadId}`}:${idDe(p, i)}:${c.respondeA ?? Date.now()}`,
       // La cuenta que eligió la tarjeta; si no eligió, la que recibió el mensaje.
       cuenta: cuentaDelPaso(p) ?? c.social.cuenta,
+      ...(respondeEnComentario(p) ? { enComentario: true } : {}),
     });
     await anotar(r.ok ? 'enviado' : 'fallo', r.destino, r.ok ? (r.nota ?? null) : (r.error ?? 'no salió'), r.textos.join('\n\n') || null);
     return r.ok ? si(`Le contesté por ${nombre}: «${textoPartes.slice(0, 120)}».`) : no(`No salió la respuesta por ${nombre} (${(r.error ?? '').slice(0, 120)}).`);

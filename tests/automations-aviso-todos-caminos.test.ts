@@ -78,7 +78,7 @@ test('1. una ACTIVA que ya le escribe lo mismo a la misma gente lo dice al lado 
 
 test('2. el interruptor «Activar» del lienzo y la nota del chat miran lo PUBLICADO, no el borrador', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /conAvisoDuplicada\(true, 'Activar igual', \(\) => void toggle\(\), abiertoPublicado\)/);
+  assert.match(perfil, /conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void toggle\(\)\), abiertoPublicado\)/);
   assert.match(perfil, /if \(!activa && dejaBorradores\(abiertoPublicado, est\?\.envio_automatico === true\)\) \{/);
   // Publicar sí compara lo del lienzo: es lo que pasa a mandarse.
   assert.match(perfil, /conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)/);

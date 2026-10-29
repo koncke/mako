@@ -69,14 +69,15 @@ test('La entrega frenada INSISTE, y la insistencia no se apoya en el dedup', () 
   // volver a `emitirAviso(` → 39 / 1, cae éste.)
   // (Y por `emitirEventoDePlataforma`, que dice cuántas tarjetas LLEGARON: la marca la arma `marcaTrasEmitir`, abajo.)
   assert.match(src, /emitirEventoDePlataforma\('meta-cuenta-frenada', \{\s*ws,\s*datos: datosCuentaFrenada\(/, 'dejó de emitir el evento');
-  assert.match(src, /const marca = marcaTrasEmitir\(estado, inc\.status_label, res, new Date\(\)\.toISOString\(\)\);\s*if \(marca\) \{\s*await setSetting\(key, JSON\.stringify\(marca\)\)/, 'la marca dejó de salir de `marcaTrasEmitir`');
+  assert.match(src, /const marca = marcaTrasEmitir\(estado, inc\.status_label, res, new Date\(\)\.toISOString\(\), ventana\);\s*if \(marca\) \{\s*await setSetting\(key, JSON\.stringify\(marca\)\)/, 'la marca dejó de salir de `marcaTrasEmitir`');
   assert.ok(!/emitirAviso\(/.test(src), 'volvió el envío directo, sin automatización');
 
   // Una hora, fija. El dueño la bajó de 10 min a 60 el 12/8 después de verla
   // andando: seis mensajes por hora del mismo tema entierran el resto de los
   // avisos de MaKo en el mismo grupo. Lo que hace que funcione no es la
   // frecuencia, es que NO SE DETIENE — por eso el techo se testea igual.
-  const cadencia = Number(/CADENCIA_MIN = (\d+)/.exec(src)?.[1] ?? '0');
+  // (27/10/2026: la cadencia vive con `tocaAvisar`, en lib/alerta-critica-texto.ts.)
+  const cadencia = Number(/CADENCIA_MIN = (\d+)/.exec(leer('../lib/alerta-critica-texto.ts'))?.[1] ?? '0');
   assert.ok(cadencia > 0, 'se perdió la cadencia');
   assert.ok(cadencia <= 60,
     `la insistencia bajó a cada ${cadencia} min: con la cuenta suspendida eso ya es silencio`);
@@ -108,7 +109,7 @@ test('Una cuenta publicitaria compartida se avisa UNA vez, no una por workspace'
   // producción: Mauricio y «Cliente de Diseño», la misma cuenta impaga, cada hora con media hora de diferencia).
   const loop = src.slice(src.indexOf('for (const inc of abiertos)'));
   const iToma = loop.indexOf('if (cuentaId) yaAvisadas?.add(cuentaId);');
-  assert.ok(iToma > 0 && iToma < loop.indexOf('if (desdeUltimo < cadaCuanto(minAbierto)) continue;'),
+  assert.ok(iToma > 0 && iToma < loop.indexOf('if (!tocaAvisar(estado, minAbierto, veces, Date.now(), tz)) continue;'),
     'la cuenta compartida se toma recién al emitir: el otro workspace avisa en las vueltas en que éste espera');
 });
 
@@ -260,18 +261,96 @@ test('⚠️ el techo cuenta los avisos que LLEGARON, de cada estado; sin poder 
   // Sin poder emitir (no se leyeron las automatizaciones): nada, y el próximo tick reintenta.
   assert.equal(marcaTrasEmitir(null, 'Saldo impago', { ok: false }, T), null);
   // Emitido y llegó: suma. Emitido sin llegar (sin automatización, sin grupo, la línea caída): anota la hora y NO gasta el techo.
-  assert.deepEqual(marcaTrasEmitir(null, 'Saldo impago', { ok: true, llegaron: 1 }, T), { ultimaIso: T, veces: 1, estado: 'Saldo impago' });
-  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 2, estado: 'Saldo impago' }, 'Saldo impago', { ok: true, llegaron: 0 }, T), { ultimaIso: T, veces: 2, estado: 'Saldo impago' });
-  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 2, estado: 'Saldo impago' }, 'Saldo impago', { ok: true }, T), { ultimaIso: T, veces: 2, estado: 'Saldo impago' }, 'sin `llegaron`, cero');
-  // Un estado NUEVO vuelve a contar (el empeoramiento se avisa); una marca de antes, sin estado, es el mismo estado: el
-  // incidente que ya pasó el techo (Mauricio, 25 avisos el 16/10) no vuelve a salir.
+  // (27/10/2026: la marca lleva también el día del incidente, `ventana`, y lo que llegó en TODO el incidente, `total`.)
+  assert.deepEqual(marcaTrasEmitir(null, 'Saldo impago', { ok: true, llegaron: 1 }, T), { ultimaIso: T, veces: 1, estado: 'Saldo impago', ventana: 0, total: 1 });
+  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 2, estado: 'Saldo impago' }, 'Saldo impago', { ok: true, llegaron: 0 }, T), { ultimaIso: T, veces: 2, estado: 'Saldo impago', ventana: 0, total: 2 });
+  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 2, estado: 'Saldo impago' }, 'Saldo impago', { ok: true }, T), { ultimaIso: T, veces: 2, estado: 'Saldo impago', ventana: 0, total: 2 }, 'sin `llegaron`, cero');
+  // Un estado NUEVO vuelve a contar (el empeoramiento se avisa); una marca de antes, sin estado, es el mismo estado: en el
+  // mismo DÍA, el incidente que ya pasó el techo no vuelve a salir (el día siguiente, sí: el test de abajo).
   assert.equal(vecesDelEstado({ ultimaIso: 'x', veces: 3, estado: 'En período de gracia' }, 'Pendiente de cierre'), 0);
-  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 3, estado: 'En período de gracia' }, 'Pendiente de cierre', { ok: true, llegaron: 1 }, T), { ultimaIso: T, veces: 1, estado: 'Pendiente de cierre' });
+  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 3, estado: 'En período de gracia' }, 'Pendiente de cierre', { ok: true, llegaron: 1 }, T), { ultimaIso: T, veces: 1, estado: 'Pendiente de cierre', ventana: 0, total: 4 });
   assert.equal(vecesDelEstado({ ultimaIso: 'x', veces: 25 }, 'Saldo impago'), 25);
   assert.equal(vecesDelEstado(null, 'Saldo impago'), 0);
-  // Y el cron le pasa al evento el número del ESTADO de ahora.
+  // Y el cron le pasa al evento el número del ESTADO y del DÍA de ahora.
   const src = sinComentarios(leer('../lib/alerta-critica.ts'));
-  assert.match(src, /const veces = vecesDelEstado\(estado, inc\.status_label\);/);
+  assert.match(src, /const veces = vecesDelEstado\(estado, inc\.status_label, ventana\);/);
+});
+
+// ── MAU-33 (27/10/2026): un incidente de varios días avisa UNA vez por día ───────────────────────────────────────────────
+// Mauricio: «DETÉN TODO, cuenta suspendida» 25 veces en 28 horas (15-16/10) y después calló con la cuenta frenada nueve días.
+// Decidido por el Cerebro: «un incidente abierto varios días avisa una vez por día, y uno resuelto avisa "ya está"».
+// Roturas (scratchpad romper-alerta.cjs): ver docs/hallazgos-comunicacion.md («Una alerta con el techo agotado…»).
+test('⚠️ un incidente de varios días avisa UNA vez por día, y el «ya está» mira todo el incidente', async () => {
+  const { tocaAvisar, ventanaDelIncidente, vecesDelEstado, marcaTrasEmitir, llegoAlguno, horasYMinutos, MIN_DIA } = await import('../lib/alerta-critica-texto');
+  const T0 = Date.parse('2026-10-15T08:18:00.000Z');
+  const en = (min: number) => T0 + min * 60_000;
+  const iso = (min: number) => new Date(en(min)).toISOString();
+  // El día 0: cada hora (el techo lo pone la automatización, «Aviso número ≤ 3»).
+  assert.equal(ventanaDelIncidente(30), 0);
+  assert.equal(tocaAvisar(null, 2, 0, en(2)), true);
+  const primera = { ultimaIso: iso(2), veces: 1, estado: 'Saldo impago', ventana: 0, total: 1 };
+  assert.equal(tocaAvisar(primera, 40, 1, en(40)), false, 'antes de la hora');
+  assert.equal(tocaAvisar(primera, 70, 1, en(70)), true);
+  // La marca que tiene Mauricio: 25 que llegaron, sin `ventana`. El día 12 vuelve a contar desde cero: el aviso del día es
+  // el número 1 y pasa el techo de la automatización.
+  const vieja = { ultimaIso: iso(12 * MIN_DIA - 70), veces: 25 };
+  const dia12 = 12 * MIN_DIA + 5;
+  assert.equal(ventanaDelIncidente(dia12), 12);
+  assert.equal(vecesDelEstado(vieja, 'Saldo impago', 12), 0);
+  assert.equal(tocaAvisar(vieja, dia12, 0, en(dia12)), true, 'calla aunque la cuenta siga frenada');
+  // Llegó el del día: nada más hasta mañana, aunque pase la hora.
+  const hoy = marcaTrasEmitir(vieja, 'Saldo impago', { ok: true, llegaron: 1 }, iso(dia12), 12)!;
+  assert.deepEqual(hoy, { ultimaIso: iso(dia12), veces: 1, estado: 'Saldo impago', ventana: 12, total: 26 });
+  assert.equal(tocaAvisar(hoy, dia12 + 120, vecesDelEstado(hoy, 'Saldo impago', 12), en(dia12 + 120)), false, 'dos el mismo día');
+  const dia13 = 13 * MIN_DIA + 5;
+  assert.equal(tocaAvisar(hoy, dia13, vecesDelEstado(hoy, 'Saldo impago', 13), en(dia13)), true, 'el de mañana no sale');
+  // Si el del día no llegó (la línea caída), reintenta a la hora sin perder el día.
+  const sinLlegar = marcaTrasEmitir(vieja, 'Saldo impago', { ok: true, llegaron: 0 }, iso(dia12), 12)!;
+  assert.equal(tocaAvisar(sinLlegar, dia12 + 61, vecesDelEstado(sinLlegar, 'Saldo impago', 12), en(dia12 + 61)), true);
+  // El «ya está»: si llegó alguno en TODO el incidente, aunque hoy no haya salido ninguno.
+  assert.equal(llegoAlguno(sinLlegar), true);
+  assert.equal(llegoAlguno({ ultimaIso: 'x', veces: 0, ventana: 3, total: 0 }), false);
+  assert.equal(llegoAlguno({ ultimaIso: 'x', veces: 2 }), true, 'una marca de antes cuenta sus veces');
+  // «hace 12 días», no «hace 288 h».
+  assert.equal(horasYMinutos(12 * MIN_DIA + 125), '12 días y 2 h');
+  assert.equal(horasYMinutos(MIN_DIA), '1 día');
+  assert.equal(horasYMinutos(125), '2 h 5 min');
+  // El cron usa las piezas.
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  assert.match(src, /const ventana = ventanaDelIncidente\(minAbierto\);/);
+  assert.match(src, /if \(!tocaAvisar\(estado, minAbierto, veces, Date\.now\(\), tz\)\) continue;/);
+  assert.match(src, /const llegaronAlertas = llegoAlguno\(/);
+});
+
+test('⚠️ el recordatorio de cada día sale DE DÍA en la zona del negocio, no a la hora en que Meta frenó la cuenta (la revisión, 28/10)', async () => {
+  const { tocaAvisar, horaEnZona, enHorarioDeRecordatorio, MIN_DIA } = await import('../lib/alerta-critica-texto');
+  const BA = 'America/Argentina/Buenos_Aires';
+  // El caso del refutador: abierto el 20/10 a las 06:05 UTC (03:05 en Buenos Aires).
+  const T0 = Date.parse('2026-10-20T06:05:00.000Z');
+  const en = (min: number) => T0 + min * 60_000;
+  assert.equal(horaEnZona(T0, BA), 3);
+  // El día 0 avisa en el acto, aunque sea de madrugada: la cuenta acaba de frenarse.
+  assert.equal(tocaAvisar(null, 0, 0, en(0), BA), true);
+  // …y a la hora, el segundo del día 0 (04:05 en Buenos Aires), también.
+  assert.equal(tocaAvisar({ ultimaIso: new Date(en(0)).toISOString(), veces: 1, estado: 'Saldo impago', ventana: 0, total: 1 }, 61, 1, en(61), BA), true);
+  const d0 ={ ultimaIso: new Date(en(120)).toISOString(), veces: 3, estado: 'Saldo impago', ventana: 0, total: 3 };
+  // El día 1 a las 03:05 de Buenos Aires: todavía no (antes salía).
+  assert.equal(tocaAvisar(d0, MIN_DIA, 0, en(MIN_DIA), BA), false);
+  assert.equal(tocaAvisar(d0, MIN_DIA + 5 * 60, 0, en(MIN_DIA + 5 * 60), BA), false, '08:05');
+  // A las 09:05 sí, y a las 21:05 ya no.
+  assert.equal(tocaAvisar(d0, MIN_DIA + 6 * 60, 0, en(MIN_DIA + 6 * 60), BA), true, '09:05');
+  assert.equal(enHorarioDeRecordatorio(en(MIN_DIA + 18 * 60), BA), false, '21:05');
+  // Sin zona, como antes; con una zona que no existe, cuenta como UTC.
+  assert.equal(tocaAvisar(d0, MIN_DIA, 0, en(MIN_DIA)), true);
+  assert.equal(horaEnZona(T0, 'Marte/Olympus'), 6);
+  // El cron le pasa la zona del negocio, ESTRICTA (la verificación de 69b49a31c): sin poder leerla, `zonaDelNegocio` daba
+  // Tijuana y el recordatorio podía caer de noche. Sin zona, esa vuelta no avisa, DESPUÉS de dejar la cuenta tomada.
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  assert.match(src, /try \{ tz = await zonaDelNegocioEstricta\(ws\); \} catch \(e\) \{\s*zonaIlegible = true;/);
+  assert.doesNotMatch(src, /zonaDelNegocio\(ws\)/, 'la que nunca tira no decide la ventana');
+  const iTomada = src.indexOf('if (cuentaId) yaAvisadas?.add(cuentaId);');
+  const iSalta = src.indexOf('if (zonaIlegible) continue;');
+  assert.ok(iTomada > 0 && iSalta > iTomada && iSalta < src.indexOf('tocaAvisar(estado, minAbierto, veces, Date.now(), tz)'), 'salta después de tomar la cuenta y antes de decidir');
 });
 
 // Rotura: sin poder emitir, borrar la marca igual → 42 / 1, cae éste.

@@ -51,6 +51,7 @@ import { datosReunionesAlPlan } from '../lib/reunion-plan-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosIaCaida } from '../lib/closing-ia-caida-reglas';
+import { datosTopeSocial } from '../lib/tope-social';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
 import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
@@ -155,6 +156,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     anuncios: set(datosCuentaFrenada({ statusLabel: 'Deshabilitada', disableReason: 'Riesgo de pago', entregaFrenada: true }, 205, 2)),
     // 26/10/2026: y la cuenta de Claude del negocio que no pudo analizar sus llamadas, que pasa el Closing (`datosIaCaida`).
     iacaida: set(datosIaCaida({ motivo: 'sin crédito', desdeDia: '8 de octubre', pendientes: 12, link: 'https://hola-mako.com/integraciones?abrir=anthropic' })),
+    // 28/10/2026: y el tope de Instagram o Zernio que frenó los mensajes de un negocio, que pasa el motor (`datosTopeSocial`).
+    tope: set(datosTopeSocial({ estado: 'frenado', quien: 'meta', canales: ['instagram'], cuantos: 37, esperaMs: 3_600_000 })),
   };
 }
 

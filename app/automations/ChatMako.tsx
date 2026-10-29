@@ -504,6 +504,8 @@ export function ChatMako(p: ChatMakoProps) {
       ...(l.noHecho?.length ? { noHecho: l.noHecho } : {}),
       // Lo que pidió y no está en MaKo (f23): el globo ofrece pasárselo al equipo.
       ...(l.falta ? { falta: l.falta } : {}),
+      // Y qué IA lo contestó (27/10/2026), como lo guarda la ruta.
+      ...(l.ia ? { ia: l.ia } : {}),
     }]);
     return true;
   };
@@ -877,6 +879,8 @@ function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: bool
           {viva && <TarjetaPregunta pregunta={viva} onElegir={onElegir} deshabilitado={deshabilitado} />}
           {m.falta && secuenciaId != null && <PedirAlEquipo secuenciaId={secuenciaId} falta={m.falta} />}
           {abrirConfiguraciones && nombraConfiguraciones(m.texto) && <TuercaEnElGlobo onClick={abrirConfiguraciones} />}
+          {/* QUÉ IA CONTESTÓ (27/10/2026, el Cerebro: «el chat dice qué IA contestó»): chico y en gris, al pie. */}
+          {m.ia && <span data-ia-mako="" style={S.ia}>{m.ia}</span>}
         </>
       ),
     },
@@ -1203,6 +1207,7 @@ const S: Record<string, CSSProperties> = {
   avisosTitulo: { cursor: 'pointer', fontWeight: 600, listStylePosition: 'inside' },
   avisosLista: { margin: '4px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2 },
   listo: { alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 700, color: 'var(--good)' },
+  ia: { fontSize: 11.5, color: 'var(--faint)' },
   noHecho: { margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--bad)', maxWidth: '92%' },
   opciones: { display: 'flex', flexWrap: 'wrap', gap: 6, maxWidth: '92%' },
   vacio: { margin: 'auto', color: 'var(--faint)', fontSize: 13.5, textAlign: 'center' },
