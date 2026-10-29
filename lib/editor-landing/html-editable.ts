@@ -375,6 +375,7 @@ export function documentoEditable(html: string, css: string, op: { envoltorios?:
     '<style>html,body{margin:0;padding:0;background:transparent}</style>',
     '<style>' + baseLibre(op.sinBase) + '</style>',
     hojaLimpia ? '<style>' + fijo(hojaLimpia) + '</style>' : '',
+    op.sinBase ? '<style>' + CSS_CAJA_BODY_EN_EL_EDITOR + '</style>' : '',
     '</head><body><div class="' + CLASE_LIBRE + '">',
     abre + (op.sinBase ? propio.replace(/(\sstyle=")([^"]*)(")/gi, (_t, a: string, v: string, c: string) => a + conVhFijo(v) + c) : propio) + cierra,
     '</div></body></html>',
@@ -442,6 +443,31 @@ export function politicaDelEditor(html: string, css: string): string {
     "base-uri 'none'",
     "form-action 'none'",
   ].map((d) => d.trim()).join('; ');
+}
+
+/**
+ * La caja con las clases del <body> de una copia (`data-gm-copia="body"`, copia-identica.ts) envuelve a TODAS las secciones:
+ * en la publicada, una vez alrededor de la página; en el editor, una vez por sección. Su alto mínimo (`min-h-screen` en
+ * 100ads.ai) era de la página entera, y en el editor estiraba cada sección a una pantalla: un `<div>` vacío medía 900 px
+ * (29/10/2026). Sólo en el editor (`documentoEditable`).
+ */
+export const CSS_CAJA_BODY_EN_EL_EDITOR = '[data-gm-copia="body"]{min-height:0!important}';
+
+/**
+ * El ancho al que el editor dibuja una COPIA en escritorio (29/10/2026). El lienzo del editor mide ~980 px en la pantalla de
+ * Martín (1536, con los paneles), y una copia dibujada a ese ancho elegía su diseño de TABLETA por sus media queries: «las
+ * páginas clonadas se desfasaron». Se dibuja a este ancho y se achica al lienzo (`escalaDeCopia`).
+ */
+export const ANCHO_COPIA_ESCRITORIO = 1440;
+
+/**
+ * Cuánto se achica una copia en el editor: en ESCRITORIO, con un lienzo más angosto que `ANCHO_COPIA_ESCRITORIO`, lo que
+ * entra; si no, 1 (en tableta y celular el lienzo ya tiene el ancho del aparato, y sus media queries tienen que verlo).
+ * `dispositivo`: el `data-dispositivo` del lienzo (gamma.css), null fuera de él.
+ */
+export function escalaDeCopia(anchoLienzo: number, dispositivo: string | null): number {
+  if (dispositivo !== 'escritorio' || !(anchoLienzo > 0) || anchoLienzo >= ANCHO_COPIA_ESCRITORIO) return 1;
+  return Math.round((anchoLienzo / ANCHO_COPIA_ESCRITORIO) * 10_000) / 10_000;
 }
 
 /** La ventana contra la que se mide un `vh` de una copia en el iframe del editor: 1vh = 9 px (una ventana de 900). */

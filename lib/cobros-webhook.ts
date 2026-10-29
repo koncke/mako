@@ -27,17 +27,25 @@ import { credDelCliente, credWsEstricta } from './credenciales';
 import { TAG } from './cache';
 import {
   aplicarContracargo, aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
+  registrarVentaExterna,
 } from './cobros';
+import {
+  INTERRUPTOR_VENTAS_EXTERNAS, MOTIVO_APAGADO, esCobroExterno, esVentaExterna, filaDeVentaExterna, ventasExternasPrendidas,
+} from './cobros-externos-reglas';
+import { getSettingEstricto } from './settings';
+import { wsSuperAdmin } from './workspace';
+import { avisarCompraAMeta } from './cobros-externos-meta';
 import type { Cobro } from './cobros-tipos';
+import { avisarFacturaDeOtraSuscripcion, avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
 import {
   avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
-  mismoModo, nombreModo, planDePagoMp, suscripcionMpCancelada, tokenReleido,
+  mismoModo, nombreModo, planDePagoMp, sesionDelCobro, suscripcionMpCancelada, tokenReleido,
   type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
-  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
+  facturaDePagoStripe, leerCargoStripe, leerCheckoutExternoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -84,10 +92,28 @@ const PRINCIPAL_SIN_REF: QuienAvisa = { cuenta: CUENTA_PRINCIPAL, ref: null };
 const deOtraCuenta = (c: Cobro, q: QuienAvisa): boolean =>
   c.cuenta_ref ? c.cuenta_ref.trim() !== (q.ref ?? '').trim() : (c.cuenta ?? CUENTA_PRINCIPAL) !== q.cuenta;
 
+/**
+ * La suscripción VIGENTE de un cobro de Stripe (29/10/2026): la que ya se le anotó o, antes del primer pago, la de la sesión que
+ * MaKo armó por última vez (`proveedor_ref`; null si todavía no se completó). Una factura o una cancelación de OTRA suscripción
+ * es de un intento anterior (`urlParaPagar` la canceló al armar otra sesión). Si no se puede leer, tira: Stripe reintenta el aviso.
+ */
+async function suscripcionVigente(key: string, c: Cobro): Promise<string | null> {
+  if (c.proveedor_suscripcion_id) return c.proveedor_suscripcion_id;
+  if (!c.proveedor_ref) return null;
+  const s = await leerCheckoutStripe(key, c.proveedor_ref);
+  if (!s.ok) {
+    if (s.status === 404) return null;
+    throw errorDelProveedor('Stripe', 'la sesión vigente del cobro', s);
+  }
+  return s.subscription;
+}
+
 /** El cobro del aviso de Stripe, con el corte de modo (real/prueba) contra el del evento, y el de la cuenta. */
-async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, quien: QuienAvisa = PRINCIPAL_SIN_REF): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento }> {
+async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, quien: QuienAvisa = PRINCIPAL_SIN_REF): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento; noEsDeMako?: true }> {
   const c = await cobroDelAviso(ws, { proveedor: 'stripe', ...buscar });
-  if (!c) return { ignorar: ignorado('no es un cobro de MaKo') };
+  // ⚠️ Se SUMA `noEsDeMako` y se conserva `ignorar` (el diseño, §1): todos los llamadores miran `'ignorar' in b`, y el respaldo por
+  // factura de un reembolso o una disputa de una cuota (también de la suscripción de MaKo) depende de esta forma.
+  if (!c) return { ignorar: ignorado('no es un cobro de MaKo'), noEsDeMako: true };
   if (deOtraCuenta(c, quien)) return { ignorar: ignorado('el cobro es de otra cuenta de Stripe del negocio', c.id) };
   if (!mismoModo(ev.livemode, c.modo)) {
     return { ignorar: ignorado(`el aviso es de modo ${nombreModo(ev.livemode!)} y el cobro de modo ${c.modo}`, c.id) };
@@ -96,22 +122,36 @@ async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, qui
 }
 
 /**
- * La venta de un Payment Link propio del negocio: se relee la sesión y, si está pagada y vino de un link, va el Purchase por CAPI
- * (lib/meta-capi.ts, Zernio primero). El cobro en el CRM, todavía no (lo arma el chat de Pagos): el evento queda «ignorado» con lo que
- * se hizo en el motivo. Un fallo de Meta no se reintenta acá (sería otra compra si el id cambiara; con el mismo id, Meta deduplica).
+ * La venta de un Payment Link PROPIO del negocio (MAU-10, 27/10/2026, docs/diseno-venta-externa-stripe.md): no es un cobro de MaKo,
+ * pero es plata que entró. Se relee la sesión con su ítem y, si es una venta externa (`esVentaExterna`: nunca en la plataforma,
+ * nunca con metadata de MaKo, sólo desde un Payment Link, pagada y en el modo del aviso) y el negocio lo prendió, entra como un
+ * cobro externo ya pagado con su lead y su cuota (`registrarVentaExterna`, lib/cobros.ts). Después, la compra a Meta.
+ * Apagado, sólo la compra a Meta (lo que había antes de esto): sin lead no hay línea que la marque, y Meta deduplica por el id.
  */
-async function compraDeUnLinkPropio(ws: number, key: string, sesionId: string, ev: EventoStripe): Promise<ResultadoEvento> {
-  const s = await leerCheckoutStripe(key, sesionId);
-  if (!s.ok) throw errorDelProveedor('Stripe', 'la sesión de pago', s);
-  const { compraDeLaSesion, EVENTO_COMPRA } = await import('./meta-capi-payload');
+async function ventaExternaStripe(ws: number, key: string, sesionId: string, ev: EventoStripe, quien: QuienAvisa): Promise<ResultadoEvento> {
+  const r = await leerCheckoutExternoStripe(key, sesionId);
+  if (!r.ok) throw errorDelProveedor('Stripe', 'la sesión de pago', r);
+  const s = r.sesion;
+  const [plataforma, interruptor] = await Promise.all([wsSuperAdmin(), getSettingEstricto(INTERRUPTOR_VENTAS_EXTERNAS)]);
+  const d = esVentaExterna({ esPlataforma: ws === plataforma, prendido: ventasExternasPrendidas(interruptor), s, livemodeEvento: ev.livemode });
+  const { compraDeLaSesion } = await import('./meta-capi-payload');
+  // null en una venta de prueba: no entra al píxel como una compra de verdad.
   const compra = compraDeLaSesion(s);
-  if (!compra) return ignorado('no es un cobro de MaKo');
-  const { sendMetaCAPIEvent } = await import('./meta-capi');
-  const r = await sendMetaCAPIEvent({
-    eventName: EVENTO_COMPRA, email: compra.email, phone: compra.phone, eventId: compra.eventId,
-    eventTime: ev.creado ?? new Date(), customData: { value: compra.value, currency: compra.currency },
+  if (!d.ok) {
+    if (d.motivo === MOTIVO_APAGADO && compra) return ignorado(`${d.motivo}; ${await avisarCompraAMeta(compra, ev.creado, null)}`.slice(0, 300));
+    return ignorado(d.motivo);
+  }
+  const f = filaDeVentaExterna(s, quien, ev.creado ?? new Date().toISOString());
+  if (!f.ok) return ignorado(f.motivo);
+  const v = await registrarVentaExterna(ws, {
+    fila: f.fila,
+    contacto: { email: s.email, telefono: s.telefono, nombre: s.nombre },
+    item: s.item ? { nombre: s.item.nombre, montoUsdLista: s.item.monedaLista === 'USD' ? s.item.montoLista : null, tipo: s.item.recurrente ? 'suscripcion' : 'unico' } : null,
   });
-  return ignorado(r.ok ? 'venta de un Payment Link propio: Purchase enviado a Meta' : `venta de un Payment Link propio: Meta no recibió el Purchase (${r.motivo})`);
+  invalidarLecturas();
+  // La compra, DESPUÉS de asentar la plata: un fallo de Meta no deshace la venta ni hace reintentar a Stripe.
+  const meta = compra ? await avisarCompraAMeta(compra, ev.creado, v.leadId) : 'venta de prueba: no se le avisa a Meta';
+  return procesado(v.cobro.id, [v.aviso, meta].filter(Boolean).join('; ').slice(0, 300) || null);
 }
 
 /**
@@ -139,9 +179,13 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
 
   if (objeto === 'checkout') {
     const b = await cobroStripe(ws, ev, aviso.buscar, quien);
-    // Una venta de un Payment Link armado en el Stripe del negocio (27/10/2026, MAU-10): no es un cobro de MaKo, pero ES una compra, y
-    // a Meta no le llegaba. Se le manda el Purchase con el id de la sesión (el mismo que manda el navegador en la página de gracias).
-    if ('ignorar' in b && b.ignorar.cobroId == null && b.ignorar.motivo === 'no es un cobro de MaKo') return compraDeUnLinkPropio(ws, key, id, ev);
+    // Una venta de un Payment Link armado en el Stripe del negocio (MAU-10, 27/10/2026): no es un cobro de MaKo, pero es plata que
+    // entró. Sólo el aprobado: un pago diferido que falló sin fila no tiene nada que registrar.
+    // ⚠️ Y SI YA ESTÁ, TAMBIÉN (28/10/2026): un aviso que se cortó después de reclamar la venta (la base no contestó: la ruta
+    // responde 503 y Stripe reintenta) deja el cobro externo sin lead, y su reintento lo encuentra. Por el camino de MaKo decía
+    // «ya estaba pagado» y la venta quedaba sin lead, sin cuota y sin la compra a Meta para siempre. `registrarVentaExterna` sigue
+    // desde el paso que falte. NO cubre el corte pasado el tope de 8 s: ahí la ruta ya contestó 200 y Stripe no reintenta.
+    if (aviso.accion === 'aprobado' && ('ignorar' in b ? b.noEsDeMako === true : esCobroExterno(b.cobro))) return ventaExternaStripe(ws, key, id, ev, quien);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const s = await leerCheckoutStripe(key, id);
@@ -149,7 +193,19 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     if (!esDelCobro(c.token, tokenReleido(s))) return ignorado('la sesión releída es de otro cobro', c.id);
     const conf = confirmarCheckout(aviso.accion === 'fallido' ? 'fallido' : 'aprobado', s);
     if (!conf.ok) return ignorado(conf.motivo, c.id);
+    // ⚠️ LA SESIÓN TIENE QUE SER LA QUE MaKo ARMÓ PARA ESTE COBRO (28/10/2026): el token llega también por el
+    // `client_reference_id` de un Payment Link, y una venta de US$1 marcaba pagado un cobro de US$1.500 (`sesionDelCobro`).
+    const deEste = sesionDelCobro(c, s, aviso.accion === 'fallido' ? 'fallido' : 'aprobado');
+    if (!deEste.ok) {
+      if (aviso.accion !== 'fallido') await avisarSesionQueNoCuadra(ws, c, s, deEste.motivo);
+      return ignorado(deEste.motivo, c.id);
+    }
     if (aviso.accion === 'fallido') {
+      // ⚠️ EL FALLO DE UNA SESIÓN ANTERIOR NO TOCA EL COBRO (29/10/2026, la verificación de ddfa645d4): «Volver a intentar» arma
+      //    otra (B) y vuelve el cobro a `pendiente`. El segundo aviso del mismo fallo de A, o uno tardío, lo devolvía a `fallido`
+      //    con el SEPA de B en curso, y se armaba C: dos cuotas y tres suscripciones. Un PAGO de una sesión anterior sí entra (es
+      //    plata, y `urlParaPagar` la expiró si seguía abierta).
+      if (c.proveedor_ref && s.id !== c.proveedor_ref) return ignorado('el fallo es de una sesión anterior de este cobro: ya se armó otra', c.id);
       await aplicarPagoFallido(c, 'El pago diferido no se completó.');
       invalidarLecturas();
       return procesado(c.id);
@@ -169,6 +225,17 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     if (!esDelCobro(c.token, tokenReleido({ metadata: f.metadata }))) return ignorado('la factura releída es de otro cobro', c.id);
     const conf = confirmarFactura(aviso.accion === 'fallido' ? 'fallido' : 'aprobado', f);
     if (!conf.ok) return ignorado(conf.motivo, c.id);
+    // ⚠️ SÓLO LA FACTURA DE LA SUSCRIPCIÓN VIGENTE (29/10/2026, la verificación de ddfa645d4): «Volver a intentar» arma otra sesión
+    //    (otra suscripción) y cancela la de antes. Un fallo tardío de la vieja (un reintento de Stripe) devolvía el cobro a
+    //    `fallido` y se armaba una tercera; un pago tardío de la vieja entraba como «renovación»: dos suscripciones cobrando. El
+    //    pago no se asienta y queda un ticket (la plata entró: alguien la mira y la devuelve).
+    if (f.suscripcion) {
+      const vigente = await suscripcionVigente(key, c);
+      if (f.suscripcion !== vigente) {
+        if (aviso.accion !== 'fallido') await avisarFacturaDeOtraSuscripcion(ws, c, { factura: f.id, suscripcion: f.suscripcion, vigente, monto: f.montoPagado, moneda: f.moneda });
+        return ignorado(`la factura es de una suscripción anterior de este cobro (${f.suscripcion}), no de la vigente`, c.id);
+      }
+    }
     if (aviso.accion === 'fallido') {
       await aplicarPagoFallido(c, 'Stripe no pudo cobrar la factura.');
       invalidarLecturas();
@@ -189,6 +256,9 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     if (!s.ok) throw errorDelProveedor('Stripe', 'la suscripción', s);
     if (!esDelCobro(c.token, tokenReleido({ metadata: s.metadata }))) return ignorado('la suscripción releída es de otro cobro', c.id);
     if (s.estado !== 'canceled') return ignorado(`la suscripción releída no está cancelada (${s.estado ?? '—'})`, c.id);
+    // ⚠️ SÓLO LA VIGENTE (29/10/2026): la de una sesión que falló la cancela `urlParaPagar` al armar otra, y su aviso marcaba
+    //    «Suscripción cancelada» en el cobro y en el lead (el MRR la dejaba de contar) aunque la nueva estuviera cobrando.
+    if (id !== (await suscripcionVigente(key, c))) return ignorado('la suscripción cancelada es de una sesión anterior de este cobro', c.id);
     await aplicarSuscripcionCancelada(c);
     invalidarLecturas();
     return procesado(c.id);

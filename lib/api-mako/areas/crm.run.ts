@@ -61,7 +61,7 @@ import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
 import { enElTope, estadoTopeCrm, frenarAltaPorTope } from '@/lib/topes-crm';
-import { textoTope } from '@/lib/topes-plan';
+import { textoSoloPro, textoTope } from '@/lib/topes-plan';
 import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { importarPrecioDeStripe, preciosDeStripe } from '@/lib/stripe-catalogo';
@@ -75,6 +75,7 @@ import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { esEsencialDe } from '@/lib/plan-esencial';
 import { cobradoDeLaVenta, faltaDeLaVenta } from '@/lib/pagos-crm';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
@@ -177,7 +178,19 @@ async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promi
 }
 
 /** El grupo de WhatsApp que se pidió (su id o su nombre) en la línea del negocio: lo usan traer y completar nombres. */
+/**
+ * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): traer de un grupo de
+ * WhatsApp. Lo mismo que la pantalla (app/crm/grupo-wa-actions.ts): un Esencial que paga por la pasarela recibe el texto de
+ * subir de plan. Ante la duda, sin candado (lib/plan-esencial.ts).
+ */
+async function candadoDeGrupos(): Promise<string | null> {
+  const ws = await getWorkspaceActual();
+  return ws != null && (await esEsencialDe(ws)) ? textoSoloPro('scraper-whatsapp') : null;
+}
+
 async function grupoPedido(input: Record<string, unknown>) {
+  const pro = await candadoDeGrupos();
+  if (pro) return { error: pro };
   const linea = typeof input.linea === 'string' ? input.linea : null;
   const pedido = String(input.grupo ?? '').trim();
   const k = pedido.toLowerCase();
@@ -1145,6 +1158,8 @@ export const RUNNERS: Runners = {
   // Antes del bloque de cobros, que queda último antes de `armar_tab_ficha` (tests/crm-vincular-22-10).
   grupos_whatsapp: {
     leer: async (input) => {
+      const pro = await candadoDeGrupos();
+      if (pro) return fallo(pro);
       // La completa si la rápida no lo es (25/10/2026): la API contesta UNA vez, no puede mostrar lo guardado y completar después.
       const linea = typeof input.linea === 'string' ? input.linea : null;
       const rapida = await gruposDeLinea(linea);
@@ -1184,6 +1199,8 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: (payload, ctx) => seguro('traer los contactos del grupo', async () => {
+      const pro = await candadoDeGrupos();
+      if (pro) return { ok: false, resumen: pro };
       const r = await traerDelGrupo({
         linea: String(payload.linea), jid: String(payload.jid), nombreGrupo: String(payload.nombreGrupo), funnelId: Number(payload.funnelId),
         etapa: String(payload.etapa), telefonos: 'todos', autor: autorDe(ctx), hasta: Date.now() + 45_000,
@@ -1218,6 +1235,8 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: (payload, ctx) => seguro('completar los nombres del grupo', async () => {
+      const pro = await candadoDeGrupos();
+      if (pro) return { ok: false, resumen: pro };
       const r = await completarNombresDelGrupo({ linea: String(payload.linea), jid: String(payload.jid), autor: autorDe(ctx), hasta: Date.now() + 45_000 });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (r.completados) invalidar('leads');

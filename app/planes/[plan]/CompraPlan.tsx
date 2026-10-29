@@ -16,7 +16,9 @@ import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { DIAS_AVISO_FIN_DE_PRUEBA } from '@/lib/prueba-plan-reglas';
 import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 
-const NOMBRE: Record<Pasarela, string> = { stripe: 'Tarjeta (Stripe)', mercadopago: 'Mercado Pago' };
+// Las dos se ven juntas sólo cuando no se sabe el país (lib/compra-plan-reglas.ts, `pasarelasDelPais`): Mercado Pago dice que
+// es para Argentina, así nadie de afuera la elige y se encuentra con «La cuenta del vendedor es de otro país».
+const NOMBRE: Record<Pasarela, string> = { stripe: 'Tarjeta de crédito o débito', mercadopago: 'Mercado Pago (desde Argentina, en pesos)' };
 
 export function CompraPlan(p: {
   plan: string;

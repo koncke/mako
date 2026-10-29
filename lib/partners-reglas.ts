@@ -39,6 +39,23 @@ export function codigoDesdeNombre(nombre: string, sufijo = ''): string {
 /** El link que comparte un partner. */
 export const linkDePartner = (base: string, codigo: string): string => `${base.replace(/\/+$/, '')}/r/${codigo}`;
 
+// ── CAMBIAR EL CÓDIGO (27/10/2026, Leila en la llamada con Martín, Fathom 876470842-06) ─────────────────────────────────
+// Nace del nombre del negocio (`codigoDesdeNombre`) y desde ahora el partner lo puede cambiar (lib/partners-programa.ts,
+// `cambiarCodigoPartner`). Lo que escribe se limpia como el nombre (minúsculas, sin acentos, espacios a guiones) y tiene que
+// cumplir lo mismo que la base (mig 0330: `^[a-z0-9-]{3,32}$`), sin guiones en los bordes ni dobles.
+
+export const TEXTO_CODIGO_INVALIDO = 'Tu código va de 3 a 32 letras o números, con guiones si quieres, sin espacios.';
+/** Los que se confunden con MaKo o con una página suya: nadie los usa como código. */
+const CODIGOS_RESERVADOS: ReadonlySet<string> = new Set(['mako', 'hola-mako', 'admin', 'soporte', 'partners', 'planes', 'equipo']);
+
+/** El código que escribió el partner, limpio, o por qué no sirve. */
+export function codigoNuevoValido(v: unknown): { ok: true; codigo: string } | { ok: false; error: string } {
+  const s = (typeof v === 'string' ? v : '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, '-');
+  if (!/^[a-z0-9-]{3,32}$/.test(s) || /^-|-$|--/.test(s)) return { ok: false, error: TEXTO_CODIGO_INVALIDO };
+  if (CODIGOS_RESERVADOS.has(s)) return { ok: false, error: 'Ese código no se puede usar. Prueba con otro.' };
+  return { ok: true, codigo: s };
+}
+
 export type EstadoReferido = 'registrado' | 'primer-pago' | 'acreditado' | 'se-fue';
 
 /**

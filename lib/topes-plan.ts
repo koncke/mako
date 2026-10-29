@@ -42,6 +42,22 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
 // cupo (ads.recomendaciones_dia), no la tab.
 export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
 
+/**
+ * Lo que es SÓLO de Pro y no es una tab (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15): traer los contactos
+ * de un grupo de WhatsApp (el scraper, app/crm/grupo-wa-actions.ts y la API) y hacerse MaKo Partner (`hacermePartner`,
+ * lib/partners-programa.ts). Un Esencial que paga por la pasarela las ve con el candado y «Pasar a Pro» (`textoSoloPro`); la
+ * vitrina lo dice en la tabla (lib/planes-comparacion.ts). Quien YA era partner antes del 27/10 sigue siéndolo.
+ */
+export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp', 'partners'] as const;
+export type FuncionSoloPro = (typeof FUNCIONES_SOLO_PRO)[number];
+
+const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
+  'scraper-whatsapp': 'Traer los contactos de un grupo de WhatsApp',
+  partners: 'Ser MaKo Partner y ganar por cada negocio que traes',
+};
+/** El texto del candado: qué es, que es de Pro y cómo tenerlo (con el botón a `RUTA_CAMBIAR_PLAN`). */
+export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. Pasa a Pro para usarlo.`;
+
 // ── LA PRUEBA GRATIS (25/10/2026, el Cerebro) ─────────────────────────────────────────────────────────────────────
 // Martín: «hay que evaluar que funciones le damos acceso en esos 7 días, porque de pronto se vienen y generan un montón de
 // videos o cosas así y se dan de baja antes». Vale el plan elegido, con un tope en lo que alguien se puede LLEVAR y después

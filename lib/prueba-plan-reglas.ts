@@ -15,11 +15,12 @@ import { PRUEBA_DIAS } from './planes-mako';
 import type { Pasarela } from './cobros-tipos';
 
 /**
- * Las pasarelas que arman la prueba con tarjeta. Sólo Mercado Pago (la de MaKo para Argentina, docs/estrategia-financiera-mako.md):
- * Stripe no toma vendedores de Argentina, y Paddle y Creem (las del resto del mundo) no están integrados todavía
- * (docs/hallazgos-planes-y-cobro.md, «La prueba gratis de 7 días»). Con otra pasarela el plan no se ofrece en línea: se pide.
+ * Las pasarelas que arman la prueba con tarjeta: Mercado Pago (la de MaKo para Argentina, con `start_date`) y, desde el
+ * 27/10/2026, Stripe (con `trial_period_days`). Antes era sólo Mercado Pago, y por eso /planes nunca ofrecía Stripe aunque
+ * estuviera conectada: una clienta de México recibió el link de la Mercado Pago argentina y MP la rechazó («La cuenta del
+ * vendedor es de otro país»; docs/hallazgos-planes-y-cobro.md, «Fuera de Argentina se cobra con Stripe»).
  */
-export const PASARELAS_CON_PRUEBA: readonly Pasarela[] = ['mercadopago'];
+export const PASARELAS_CON_PRUEBA: readonly Pasarela[] = ['mercadopago', 'stripe'];
 
 const DIA_MS = 86_400_000;
 /** Cuántos días antes del primer cobro se le avisa por email (el Cerebro, 25/10). */
@@ -66,9 +67,17 @@ export function huellaMp(p: { pagadorId: string | null; tarjetaId: string | null
   return `mp:${cuenta ?? '-'}|card:${tarjeta ?? '-'}`;
 }
 
+/**
+ * La HUELLA en Stripe (27/10/2026): el `card.fingerprint` de la tarjeta (el mismo número de tarjeta da la misma huella en la
+ * cuenta). No hay «cuenta que paga» como en Mercado Pago. Va con el mismo formato, así la compara el mismo filtro.
+ */
+export function huellaStripe(huella: string | null | undefined): string | null {
+  return huella && /^[A-Za-z0-9]{1,64}$/.test(huella) ? `st:-|card:${huella}` : null;
+}
+
 /** Las partes de una huella (lo que se compara). */
 export function partesDeHuella(h: string | null | undefined): { cuenta: string | null; tarjeta: string | null } {
-  const m = /^mp:([^|]+)\|card:(.+)$/.exec(h ?? '');
+  const m = /^(?:mp|st):([^|]+)\|card:(.+)$/.exec(h ?? '');
   if (!m) return { cuenta: null, tarjeta: null };
   return { cuenta: m[1] === '-' ? null : m[1], tarjeta: m[2] === '-' ? null : m[2] };
 }
@@ -119,7 +128,7 @@ export function diaDelCobro(iso: string): string {
 
 export const TEXTO_PRUEBA_USADA_EMAIL = 'Ese email ya usó su prueba gratis de MaKo. Si quieres empezar igual, el plan se cobra desde hoy.';
 export const TEXTO_PRUEBA_USADA_CUENTA = 'Ese email ya tiene una cuenta de MaKo, y la prueba gratis es para negocios nuevos. Para tu plan, entra a «Tu plan» en tu cuenta.';
-export const TEXTO_PRUEBA_USADA_TARJETA = 'Esa tarjeta (o esa cuenta de Mercado Pago) ya usó su prueba gratis de MaKo, así que no empezamos otra ni te cobramos nada. Si quieres empezar igual, el plan se cobra desde hoy.';
+export const TEXTO_PRUEBA_USADA_TARJETA = 'Esa tarjeta ya usó su prueba gratis de MaKo, así que no empezamos otra ni te cobramos nada. Si quieres empezar igual, el plan se cobra desde hoy.';
 
 /** El motivo que queda en el cobro anulado por una prueba repetida (lo lee la página de vuelta del pago). */
 export const PREFIJO_PRUEBA_RECHAZADA = 'Prueba rechazada:';

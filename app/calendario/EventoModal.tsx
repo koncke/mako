@@ -27,6 +27,7 @@ import {
   type EntradaEvento, type TipoEvento, type FormatoPublicacion,
 } from '@/lib/calendario-modelo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { PublicarEnRed } from './PublicarEnRed';
 
 /** El ícono de cada tipo y de cada formato (la regla de la casa: cada opción de un desplegable lleva el suyo). */
 export const ICONO_TIPO: Record<TipoEvento, NombreIconoMenu> = { publicacion: 'enviar', bloque: 'reloj', llamada: 'telefono', otro: 'nota' };
@@ -37,7 +38,7 @@ const rotuloDuracion = (m: number) => (m === 0 ? 'Sin duración' : m < 60 ? `${m
 
 export type EventoEditable = EntradaEvento & { id?: string; hecho?: boolean };
 
-export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, onBorrar, onHecho }: {
+export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, onBorrar, onHecho, onCambioPublicacion }: {
   inicial: EventoEditable;
   guardando: boolean;
   error: string | null;
@@ -47,6 +48,8 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
   onBorrar?: () => void;
   /** Sólo al editar: tildarlo (o destildarlo) en el acto. */
   onHecho?: (hecho: boolean) => void;
+  /** Sólo al editar una Publicación: programarla o cancelarla en la red cambió algo (el Calendario se refresca). */
+  onCambioPublicacion?: () => void;
 }) {
   const [titulo, setTitulo] = useState(inicial.titulo);
   const [tipo, setTipo] = useState<TipoEvento>(inicial.tipo);
@@ -57,6 +60,9 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
   const [notas, setNotas] = useState(inicial.notas ?? '');
   const cerrar = useCerrarEstable(onCerrar, guardando);
   const editando = !!inicial.id;
+  // Mientras espera a Zernio no se borra ni se tilda: primero se cancela (28/10/2026, PublicarEnRed).
+  const [programada, setProgramada] = useState(false);
+  const sinGuardar = tipo !== inicial.tipo || fecha !== inicial.fecha || hora !== (inicial.hora ?? '') || (tipo === 'publicacion' && formato !== (inicial.formato ?? 'reel'));
   const listo = titulo.trim().length > 0 && titulo.trim().length <= TOPE_TITULO && !!fecha;
 
   const guardar = () => {
@@ -71,7 +77,7 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
     <Modal titulo={editando ? 'Evento' : 'Nuevo evento'} ancho={560} onCerrar={cerrar}
       pie={
         <>
-          {editando && onBorrar && <BotonBorrar title="Borrar este evento" texto="Borrar" disabled={guardando} onClick={onBorrar} style={{ marginRight: 'auto' }} />}
+          {editando && onBorrar && !programada && <BotonBorrar title="Borrar este evento" texto="Borrar" disabled={guardando} onClick={onBorrar} style={{ marginRight: 'auto' }} />}
           <Button variant="tertiary" disabled={guardando} onClick={cerrar}>Cancelar</Button>
           <Button variant="primary" loading={guardando} disabled={!listo} onClick={guardar}>{editando ? 'Guardar' : 'Agendar'}</Button>
         </>
@@ -114,7 +120,11 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
 
         <TextField label="Notas" multiline value={notas} maxLength={4000} onChange={(e) => setNotas(e.target.value)} />
 
-        {editando && onHecho && (
+        {editando && inicial.id && tipo === 'publicacion' && inicial.tipo === 'publicacion' && (
+          <PublicarEnRed id={inicial.id} sinGuardar={sinGuardar} onProgramada={setProgramada} onCambio={() => onCambioPublicacion?.()} />
+        )}
+
+        {editando && onHecho && !programada && (
           <Checkbox checked={!!inicial.hecho} disabled={guardando} onChange={(v) => onHecho(v)} label={tipo === 'publicacion' ? 'Ya se publicó' : 'Ya está hecho'} />
         )}
         {error && <div role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}

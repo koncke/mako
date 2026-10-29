@@ -21,6 +21,9 @@
 //   · Hasta el 23/10 la key de la PLATAFORMA (`envCred`) era el respaldo, y el aislamiento lo daba un PROFILE por
 //     workspace (`ensureProfile`, `mako_ws_<ws>`). Esa rama sigue SÓLO para el `OWNER_WS` (el ws1, que es un
 //     cliente y tiene su fila, pegada el 23/10 con la misma key que la de la plataforma): se va con su key.
+//   · 28/10/2026 (el Cerebro, la promesa a Teo: «te logueás con Instagram y Facebook y ya tiene acceso»): un negocio SIN key
+//     vuelve a poder usar la cuenta de la plataforma con su profile `mako_ws_<ws>`, PERO sólo si el negocio de la plataforma
+//     prende `zernio.cuenta_de_la_plataforma` (apagado por defecto: cada cuenta conectada la paga MaKo). La key propia gana.
 //   · ⚠️ La key puede CAMBIAR después de guardar el profile (ws11: profile acuñado con la de la
 //     plataforma el 15/08, key propia el 28/08), así que el profile guardado se valida contra la
 //     cuenta de la key de HOY (`profileIdEfectivo`, lib/zernio-profile.ts), en las dos direcciones.
@@ -33,7 +36,7 @@ import 'server-only';
 import { esperaDeRetryAfter, topeDeError, type TopeSocial } from './zernio-tope';
 import { credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
 import { getSupabaseServer } from './supabase';
-import { OWNER_WS } from './workspace';
+import { OWNER_WS, wsSuperAdmin } from './workspace';
 import { upsertRouting } from './webhook-routing';
 import { linkApp } from './app-url';
 import { webhookDeLaCuenta } from './zernio-firma';
@@ -118,7 +121,29 @@ export async function cfg(ws: number): Promise<ZernioCfg> {
   const propia = await credDelClienteEstricta('ZERNIO_API_KEY', ws, { ilegibleTira: true });
   // El OWNER_WS (el ws1) sigue en el modo de la cuenta de la plataforma hasta que se le saque la key (ver la cabecera).
   if (propia) return { apiKey: propia, byok: ws !== OWNER_WS };
+  // ⚠️ SIN KEY PROPIA, LA CUENTA DE ZERNIO DE LA PLATAFORMA, con un perfil por negocio (`ensureProfile`, `mako_ws_<ws>`), SÓLO
+  // si MaKo lo prendió (28/10/2026, el Cerebro: «conectar Instagram y Facebook sin pegar una clave de Zernio», la promesa a Teo).
+  // Apagado por defecto: cada cuenta conectada de cada cliente la paga la plataforma. Nunca para el negocio de la plataforma
+  // (su key es su fila) y la key propia gana siempre.
+  if (ws !== (await wsSuperAdmin()) && (await plataformaPrestaSuCuenta())) {
+    const deLaPlataforma = await envCred('ZERNIO_API_KEY');
+    if (deLaPlataforma) return { apiKey: deLaPlataforma, byok: false };
+  }
   throw new ZernioError('Zernio no está configurado', 0, null);
+}
+
+/** El ajuste del negocio de la PLATAFORMA que presta su cuenta de Zernio a los negocios sin key ('1'). Apagado por defecto. */
+export const AJUSTE_CUENTA_PLATAFORMA = 'zernio.cuenta_de_la_plataforma';
+
+/**
+ * ¿La plataforma presta su cuenta de Zernio a los negocios sin key? «No pude leer» TIRA (como todo `cfg`): un negocio no pasa a
+ * la cuenta de la casa, ni deja de pasar, por una base caída.
+ */
+export async function plataformaPrestaSuCuenta(): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('app_settings').select('value')
+    .eq('workspace_id', await wsSuperAdmin()).eq('key', AJUSTE_CUENTA_PLATAFORMA).maybeSingle();
+  if (error) throw new ZernioError(`app_settings (${AJUSTE_CUENTA_PLATAFORMA}): ${error.message}`, 0, null);
+  return String((data as { value?: unknown } | null)?.value ?? '').trim() === '1';
 }
 
 /**

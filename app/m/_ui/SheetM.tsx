@@ -32,6 +32,8 @@
 // (node_modules/next/dist/docs/01-app/01-getting-started/04-linking-and-
 // navigating.md). Cerrarla con un gesto equivale a «atrás»; cerrarla desde el
 // código (después de enviar, por ejemplo) saca el parámetro con `replaceState`.
+// ⚠️ Ese `replaceState` descarta una navegación en curso (Next lo toma como ACTION_RESTORE):
+// cerrar y navegar en el mismo toque va con `navegarAlCerrar` (./hoja-historial.ts, ticket #27).
 //
 // `ocupado`: mientras se envía, la hoja no se cierra por el velo, el arrastre, el
 // botón ni el «atrás» — una aprobación a medio mandar no se abandona por un roce.
@@ -50,6 +52,7 @@ import { createPortal } from 'react-dom';
 import { shadow } from '@/app/_ui/tokens';
 import { Icon } from '@/app/_components/icons';
 import { destinoDelSheet, ejeDelGesto, HISTERESIS, rubberband, velocidadDe, type Muestra, type SnapSheet } from './gestos';
+import { registrarApertura, soltarAlDesmontar, soltarPorCodigo, soltarPorGesto } from './hoja-historial';
 
 type Snap = 'medio' | 'alto';
 
@@ -74,80 +77,8 @@ export type SheetMProps = {
   rotuloCerrar?: string;
 };
 
-// ── El historial: «atrás» cierra, y nunca hay dos hojas ─────────────────────
-const PARAM = 'sheet';
-// `clave` es la INSTANCIA, no el id: dos hojas con el mismo nombre siguen siendo dos.
-type Registro = { id: string; clave: object; cerrarYa: () => void; ocupado: () => boolean };
-let activa: Registro | null = null;
-let entradaPropia = false;
-let ignorarPop = 0;
-let escuchando = false;
-
-function urlCon(id: string | null): string {
-  const u = new URL(window.location.href);
-  if (id) u.searchParams.set(PARAM, id); else u.searchParams.delete(PARAM);
-  return u.pathname + u.search + u.hash;
-}
-function hojaEnUrl(): string | null {
-  try { return new URL(window.location.href).searchParams.get(PARAM); } catch { return null; }
-}
-function escucharAtras() {
-  if (escuchando || typeof window === 'undefined') return;
-  escuchando = true;
-  window.addEventListener('popstate', () => {
-    if (ignorarPop > 0) { ignorarPop -= 1; return; }
-    if (!activa) { entradaPropia = false; return; }
-    if (hojaEnUrl() === activa.id) return;
-    entradaPropia = false;
-    if (activa.ocupado()) {
-      // Enviando: el «atrás» no la cierra. Se vuelve a poner la entrada.
-      window.history.pushState(null, '', urlCon(activa.id));
-      entradaPropia = true;
-      return;
-    }
-    const a = activa;
-    activa = null;
-    a.cerrarYa();
-  });
-}
-function registrarApertura(r: Registro) {
-  escucharAtras();
-  if (activa && activa.clave !== r.clave) {
-    // Una hoja sobre otra REEMPLAZA: la de antes se cierra y la entrada del
-    // historial pasa a ser de la nueva (un «atrás» no tiene que pasar por las dos).
-    const previa = activa;
-    activa = null;
-    previa.cerrarYa();
-    if (entradaPropia) { window.history.replaceState(null, '', urlCon(r.id)); activa = r; return; }
-  }
-  activa = r;
-  if (!entradaPropia) {
-    window.history.pushState(null, '', urlCon(r.id));
-    entradaPropia = true;
-  }
-}
-/** La persona la cerró (botón, velo, arrastre): es lo mismo que «atrás». */
-function soltarPorGesto(id: string, clave: object) {
-  if (activa?.clave === clave) activa = null;
-  if (entradaPropia && hojaEnUrl() === id) {
-    entradaPropia = false;
-    ignorarPop += 1;
-    window.history.back();
-  } else if (hojaEnUrl() === id) {
-    window.history.replaceState(null, '', urlCon(null));
-  }
-}
-/**
- * La cerró el código (el que la abrió puso `abierto=false`). Se saca el parámetro
- * con replaceState y NO con `back()`: un `back()` es asíncrono, y si la pantalla
- * navega en el mismo tick, deshace esa navegación. El costo es una entrada de más
- * en el historial con la misma URL, que es el menor de los dos.
- */
-function soltarPorCodigo(id: string, clave: object) {
-  if (activa?.clave === clave) activa = null;
-  if (hojaEnUrl() === id) window.history.replaceState(null, '', urlCon(null));
-  entradaPropia = false;
-}
+// ── El historial: «atrás» cierra, nunca hay dos hojas, y navegar al cerrar ───
+// Vive en ./hoja-historial.ts (29/10/2026, ticket #27), con el porqué de `navegarAlCerrar`.
 
 function tyActual(el: HTMLElement): number {
   const t = getComputedStyle(el).transform;
@@ -295,12 +226,9 @@ export function SheetM({
 
   // Si la pantalla se va con la hoja abierta (navegó a otro lado), sólo se suelta el
   // registro: tocar el historial acá podría deshacer la navegación en curso.
-  useEffect(() => () => {
-    if (activa?.clave !== clave.current) return;
-    activa = null;
-    entradaPropia = false;
+  useEffect(() => () => soltarAlDesmontar(clave.current),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    []);
 
   // Escape (un teclado conectado) cierra como el botón.
   useEffect(() => {

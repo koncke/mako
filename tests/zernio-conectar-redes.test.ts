@@ -362,9 +362,14 @@ test('el servidor: `conexionesViaZernio` sólo LEE (se llama cada 4 s); lo que e
   assert.match(lee, /return leerCuentasDeZernio\(r, profileId\);/);
   // Una respuesta SIN lista no es «no hay cuentas»: se dice `respuesta` y se loguean las claves (nunca los valores).
   assert.match(lee, /if \(!tieneListaDeCuentas\(r\)\) \{\n\s+console\.error\(`\[zernio-conectar\] \/accounts ws\$\{ws\}: la respuesta no trae lista \(claves: \$\{clavesDe\(r\)\}\)`\);\n\s+throw new ZernioConectarError\('respuesta'\);/);
-  // El ws1 (OWNER_WS) sigue con la key de la PLATAFORMA: su 401/402 es de la cuenta de MaKo, no suyo.
+  // La clave de la CUENTA DE MaKo (el ws1, OWNER_WS, y desde el 28/10 también un negocio con la cuenta prestada: `byok` false):
+  // su 401/402 es de la cuenta de MaKo, no del negocio, y su link de pago no es suyo (la verificación del 28/10).
   assert.match(CONECTAR, /if \(deLaCasa && \(r\.motivo === 'clave-mala' \|\| r\.motivo === 'pausada' \|\| r\.motivo === 'pago' \|\| r\.motivo === 'limite'\)\) return new ZernioConectarError\('error'\);/);
-  assert.match(CONECTAR, /const m = motivoDeError\(e, ws === OWNER_WS\);/);
+  const casa = bloque(CONECTAR, 'async function esDeLaCasa(', '\n}\n', 400);
+  assert.match(casa, /if \(ws === OWNER_WS\) return true;\n\s+if \(usada\) return !usada\.byok;/);
+  assert.match(CONECTAR, /const m = motivoDeError\(e, deLaCasa\);/);
+  assert.match(lee, /throw motivoDeError\(e, await esDeLaCasa\(ws, usada\)\);/);
+  assert.match(CONECTAR, /return fallo\(e, `conectar \$\{String\(red\)\}`, ws, await esDeLaCasa\(ws, usada\)\);/);
   assert.doesNotMatch(lee, /cuentasConectadas|asegurarWebhook|upsertRouting|method:\s*'(POST|PUT|PATCH|DELETE)'/, 'una lectura que escribe');
   const arma = bloque(CONECTAR, 'export async function recibirConexion(', '\n}\n', 2800);
   assert.match(arma, /const cuentas = await cuentasConectadas\(ws\);/);

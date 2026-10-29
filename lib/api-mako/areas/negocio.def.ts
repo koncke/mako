@@ -227,7 +227,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mi_programa_partners', area: 'negocio', tipo: 'lectura',
     titulo: 'Mi panel de MaKo Partners',
-    descripcion: 'El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO el 100% del primer mes de cada negocio nuevo que entra con el link o el código del partner (US$ 97 por cada MaKo Pro, US$ 47 por cada MaKo Esencial), cuando ese negocio paga su segundo mes; MaKo se lo transfiere a la cuenta que el partner dejó. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, y cada negocio que trajo con su estado y lo que le deja. Si todavía no lo es: `es_partner: false` y cómo hacerse (hacerme_partner).',
+    descripcion: 'El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO el 100% del primer mes de cada negocio nuevo que entra con el link o el código del partner (US$ 97 por cada MaKo Pro, US$ 47 por cada MaKo Esencial), cuando ese negocio paga su segundo mes; MaKo se lo transfiere a la cuenta que el partner dejó. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, cada negocio que trajo con su estado y lo que le deja, y los mensajes listos para recomendar MaKo con su link (`mensajes_para_recomendar`). Si todavía no lo es: `es_partner: false` y cómo hacerse (hacerme_partner). Hacerse partner es de MaKo Pro.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
@@ -252,6 +252,18 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'a dónde se le transfiere lo ganado (el alta de MaKo Partners del negocio)',
     parametros: [
       { nombre: 'cobro', tipo: 'string', obligatorio: true, max: TOPE_COBRO, descripcion: 'el alias, el CBU o el email de PayPal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    // 27/10/2026 (Leila en la llamada con Martín): el código nace del nombre del negocio y ahora se puede cambiar.
+    id: 'cambiar_codigo_partners', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    datosDeClientes: false,
+    titulo: 'Cambiar mi código de Partners',
+    descripcion: 'PROPONE cambiar el código de MaKo Partners de este negocio (el de su link hola-mako.com/r/<código> y el que se pone al pagar). Tiene que ser único: de 3 a 32 letras o números, con guiones. El link y el código de antes le SIGUEN acreditando (lo que ya mandó no se pierde). Sólo un partner (si no lo es, hacerme_partner). Queda pendiente hasta el «sí»; para deshacer, el mismo pedido con el de antes.',
+    escribe: 'el código de MaKo Partners del negocio (el de antes queda como suyo)',
+    parametros: [
+      { nombre: 'codigo', tipo: 'string', obligatorio: true, max: 32, descripcion: 'el código nuevo, por ejemplo «leila-ventas».' },
     ],
     canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { CabeceraM, ErrorM, SegmentadoM, VacioM, useToastM } from '@/app/m/_ui';
+import { CabeceraM, ErrorM, SegmentadoM, VacioM, navegarAlCerrar, useToastM } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
 import { sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import type { FallosCalendario, GoogleDelCalendario } from '@/lib/calendario';
@@ -93,9 +93,11 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
   const conAlgo = useMemo(() => diasConAlgo(aDibujar, rango, tz), [aDibujar, rango, tz]);
 
   // ── Moverse ──
+  // Con una hoja abierta (guardar un evento fuera de lo leído), el push espera a que la hoja suelte su URL: si no, el
+  // replaceState de la hoja lo descartaba y el evento recién creado no se veía (ticket #27, app/m/_ui/hoja-historial.ts).
   const navegar = useCallback((v: VistaM, f: string) => {
     setHoja(null);
-    router.push(`/m/calendario?vista=${v}&fecha=${f}`);
+    navegarAlCerrar(() => router.push(`/m/calendario?vista=${v}&fecha=${f}`));
   }, [router]);
   /** Un día: si está en lo leído, en el acto; si no, se va a leerlo. */
   const irAlDia = useCallback((d: string) => {
@@ -156,7 +158,10 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
     setHechos((x) => ({ ...x, [it.id]: hecho }));
     const volver = () => setHechos((x) => { const n = { ...x }; delete n[it.id]; return n; });
     try {
-      if (!(await marcarEventoAction(it.id.replace(/^propio:/, ''), hecho))) { volver(); toast('Ese evento ya no existe'); return; }
+      const r = await marcarEventoAction(it.id.replace(/^propio:/, ''), hecho);
+      // Uno programado en la red se tilda solo cuando sale: el motivo, no un «hecho» que no pasó (28/10/2026).
+      if (typeof r === 'object') { volver(); toast(r.error); return; }
+      if (!r) { volver(); toast('Ese evento ya no existe'); return; }
       toast(hecho ? 'Hecho' : 'Pendiente');
     } catch {
       volver();
@@ -181,6 +186,8 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
         return;
       }
       const b = await borrarEventoAction(it.id.replace(/^propio:/, ''));
+      // Uno programado en la red no se borra sin cancelar antes: vuelve a verse, con el motivo.
+      if (b && 'error' in b) { volver(); toast(b.error); return; }
       // null = ya no estaba (lo borró otro, u otro toque): no hay nada que deshacer, y un toast sin Deshacer
       // reemplazaría al del borrado que sí pasó (el toast nuevo pisa al anterior). Ya no se ve: no se dice nada.
       if (b) toast('Evento borrado', { deshacer: () => { void restaurarEventoAction(b).catch(noSePudo); } });

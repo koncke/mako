@@ -3,7 +3,7 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 28/10/2026 ~21:00, cuenta 4 (claude4)
+## ⏩ LEER PRIMERO — 29/10/2026 ~00:55, relevo final de la cuenta 4 (claude4)
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta… Continúa con todo» y con eso alcanza. No
 preguntes: hacé esto en orden.
@@ -33,23 +33,126 @@ preguntes: hacé esto en orden.
    El 28/10 había cinco chats de la nube 13 horas sin entregar (esperaban aprobaciones que nadie vio), tres ramas
    `nube/*` sin integrar y el ticket #15 de Leila sin dueño. Un chat de la nube NO le avisa al Cerebro: se lo mira.
 
-## Estado al escribir (28/10 ~21:00 ART, claude4 — la cuenta arrancó el 27/10 20:33)
+## Integración — los TRENES de claude3 (29/10 desde ~02:30 ART; lo arma el chat «Cerebro › Integración»)
 
-**Si Martín te escribe «Continua»:** la regla del 97% (28/10) dejó a cada chat con su relevo commiteado y anotó dónde en
+Integración arma y chequea cada tren en `C:/dev/wt-push-q` (rama `tren-y`, la que antes era tren-x) y lo sube; el Cerebro de
+claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 de más abajo.
+- **tren-y SUBIDO: main = `eab9c62e1` (29/10 05:46).** Trae los docs de claude4 y el P0 de Martín, la foto de Replicar
+  (`22b4b75c4`, rama `web-generator-foto-2910`). Tests del tren verdes (la tanda de 43 re-corrida de a 6: 608/608), las
+  guardas, la batería y las 3 tandas de tipos en 0. Al estar Ready: avisarles al Web Generator (`local_12107aea`) y al
+  Cerebro, que se lo dice a Martín y cierra su ticket (ws9, /web-generator/68). **READY 05:50: hola-mako.com sirve
+  `mako-mf08d4332` (dpl_46nkYU9H…); avisados el Cerebro y el Web Generator.**
+  - Fuera de tren-y: `d413ad03b` del Web Generator (las copias idénticas en el editor). Es otra pieza y necesita su VERDE.
+- **tren-z (rama `tren-z` de `C:/dev/wt-push-q`, sin subir): main `eab9c62e1` + Zernio + Planes `4b6acf1c0` (merge
+  `4e9a099d9`) + Web Generator `c3c6849bc` (las copias idénticas en el editor, merge `d45a0665f`).** Choques sólo de docs;
+  `docs/api-mako.md` regenerado. Los guiones del refutador de Planes sobre `4b6acf1c0` (salidas en
+  `C:/dev/revisiones/scratch-4b6a/`): en todos los casos de SEPA, tarjeta y segundo voucher queda UNA cuota, y sub_A se cancela
+  antes de armar B.
+  - **Más Automations `f8a13def3`** (merge `ff8ec04b6`; lo de Leandro). La primera re-verificación de `0265924c6`
+    (`C:/dev/revisiones/2910-reverificacion-automations-0265924c6.md`) halló una regresión: el primer DM de quien ya estaba en
+    una automatización de comentario quedaba sin respuesta (`tomadas` contaba cualquier inscripción pausada). La arregló
+    `b3d734055`, que pasa a `contestada`. Con el mismo arnés (`C:/dev/revisiones/scratch-f8a1/`), el primer DM se contesta, el
+    doble sigue cerrado y «Volver a probar» sale entero.
+  - **Rojos del chequeo, arreglados en el tren.** Tres tests del editor que fijaban el JSX sin la escala: los arregló el Web
+    Generator (`9e73cfb2b`). Dos de Zernio los hizo Integración (`2f9f2ab98`), porque su chat estaba ARCHIVADO: los avisos de
+    publicar con «Reportar a Soporte», y `keyDeSeguimiento` otra vez con la key PROPIA. `tests/zernio-sin-respaldo.test.ts` de
+    la rama pedía `cfg(ws)` y `tests/condiciones-instagram.test.ts` pedía la propia: se contradecían. Ganó la decisión de
+    Martín del 28/10 («NO a la cuenta de MaKo»), en `75a6ff630`.
+  - **Chequeo final: 9351 tests de 961 archivos en verde**, con la referencia de la API al día.
+- **Pagos por tramos `9fc4030dd`: NO entra.** Verificación adversarial en
+  `C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md` (guiones en `scratch-9fc4/`). Dos ALTAS de plata. A1: una
+  cuota en pesos que se cobra a medias y se deja vacío «en dólares» queda pagada entera. A2: el anticipo quitado o devuelto
+  vuelve al guardar sin tocar nada. Además tres medias y cinco bajas. No hay cruces de negocio. Devuelto al chat
+  (`local_9b34bb88`).
+- **WhatsApp `450677f90` (wa-fallas-2710): NO trae lo de Leandro.** Sus 6 fallas están en `152cfcd27`, sin VERDE, y la
+  ALTA 2 de su verificación sigue abierta: `pideAlgoAMaKo` calla los pedidos reales mientras hay una pregunta del equipo
+  viva, una REGRESIÓN contra producción. Se le preguntó al Cerebro si entra igual o espera a `152cfcd27`.
+- **aut-2510 `0265924c6`: VERDE, sin re-verificar todavía.** El árbol es `C:/dev/verif-0265924c6` y los scripts del
+  refutador de 69b49a31c, con la ruta cambiada, están en `C:/dev/revisiones/scratch-0265/`. Se corren de a uno por con-turno.
+  Le faltan además las 710 barredoras.
+- **Zernio + Planes: VERDE `4b6acf1c0`** (zernio-2510; el chat arregló las tres ALTAS de Planes). El diff lo leí yo y no
+  encontré hueco nuevo; queda una baja: un admin que invita el email de otro cliente que pagó se saca los topes de la prueba.
+  Siguen sin hacer la media del 429 de Resend (el aviso de vencimiento se repite) y las bajas del plan a mano. La 0341 ya
+  está aplicada (28/10). La 0342 NO, y el código anda sin ella (publicar desde el Calendar avisa que falta). El árbol es
+  `C:/dev/verif-4b6acf1c0`.
+- **Zernio `8d48ef4c3` + `df3f9bebf`: sus arreglos PASAN** (re-corrí el refutador de la verificación sobre `df3f9bebf`, en
+  `C:/dev/verif-df3f9bebf`; scripts y salida en `C:/dev/revisiones/scratch-df3f/`). Las dobles publicaciones de «Reintentar»
+  (R1a-d, también con el replay `{existingPost}`), los 4xx (R2), el «Deshacer» (R5) y la carrera (R6) dejan UN post o frenan;
+  la clave cambiada (R7) dice «Ya lo resolví en Zernio». R3b deja dos posts sólo si la persona aprieta «No quedó programada»
+  sabiendo que quedó: ahora tiene el botón correcto. `resolverEnZernio` escribe con `getTenantDb` y con la condición.
+- **⛔ Pero Zernio NO entra todavía:** lleva Planes hasta `d15b4ec1d`, con la MEDIA «un pago OXXO, Boleto o SEPA que falló no se
+  puede reintentar» (regresión de d15b4ec1d, `C:/dev/revisiones/2810-verificacion-a196d5a93.md:193`) y MAU-10. El arreglo
+  está en Planes `ddfa645d4`, que dio NO con TRES ALTAS (SEPA de suscripción que arma otra sin cancelar la primera, dos
+  casos; el plan a mano `ya_tenia_cuenta` sin alta). No hay chat de Planes en claude3: se le propuso al Cerebro dárselas al
+  chat Zernio (`local_4a831c28`). Los dos rojos de Zernio (puente-panel-copy y cobro-lanzamiento) los arreglan `a196d5a93` y
+  `94633ec58`, de Planes: entran solos al mezclar Planes.
+  **Decidido (Cerebro, 29/10):** el chat Zernio mezcla Planes `ddfa645d4` en zernio-2510 sobre `df3f9bebf` y arregla las
+  tres ALTAS con los scripts del refutador; su VERDE llega a Integración y entra TODO junto (Zernio + Planes).
+- **ORDEN de la fila (Cerebro, 29/10 ~03:05, por un cliente roto: MaKo le contesta mal a Leandro en su grupo):** 1) el P0 de
+  Replicar (tren-y); 2) `wa-fallas-2710` (`C:/dev/wt-conex-2510`), con el VERDE del chat «MaKo en WhatsApp: lo que le contestó mal a
+  Leandro» (`local_cf058ed5`); 3) `aut-2510` SOLO (el filtro por palabra clave, la respuesta pública y «Volver a probar»): al
+  estar Ready, el Cerebro le escribe a Leandro; 4) `crm-difusion-2910` y Zernio + Planes. Cada uno Ready → avisar al Cerebro.
+- **La difusión de Leila llega como UNA rama, `crm-difusion-2910`** (crm-lote-2810 + aut-2510 + el enganche del «⋯» de la
+  columna): se toma esa y no las dos sueltas. La 0340 ya está en la base.
+- **⚠️ Choque de número 0340:** `motion-imagen-2610` (Video/Image Editor) trae otra `0340_image_editor_propuestas.sql`. Al
+  entrar esa rama, la que se RENUMERA al siguiente libre es la del Image Editor: la del CRM es la que está en la base.
+- **Cómo se sube (cambió el 29/10, 04:20):** la pausa NO se prende para el push (con con-turno traba el lock de tipos:
+  docs/hallazgos-infra.md, «La pausa TRABA el push»). Se espera la fila de tipos vacía y RAM ≥ 5,2 GB (si falta, se cierra
+  Chrome con `taskkill` sin /F) y `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin
+  HEAD:main` en segundo plano. Lo hace solo el guion del scratchpad de Integración `subir-cuando-libre.ps1` (copia en
+  `C:/dev/revisiones/subir-cuando-libre.ps1`). La
+  rama `integracion` NO avanza main (sin Actions): el push de docs de claude4 a las 01:40 quedó ahí (`5d36f97d5`).
+
+## Estado al escribir — RELEVO FINAL de claude4 (29/10 ~00:55 ART, semana al 95 %; la cuenta arrancó el 27/10 20:33)
+
+**Si Martín te escribe «Continua»:** la regla del 97% (28/10) deja a cada chat con su relevo commiteado y anota dónde en
 `~/.claude/relevos-cuenta/claude4.tsv` (carpeta, rama, transcript). Leé eso, este estado y el relevo de cada chat.
 
-- **`main` = `23b329b5e` (tren-v), subido el 28/10 15:24.** El Video Editor de Leila (ruido y silencios), MaKo
-  inteligente (el Second Brain con las funciones de MaKo) y la copia idéntica de landings.
-- **tren-w en `C:/dev/wt-push-q` (rama `tren-w`), sin subir.** Lleva:
-  - la pausa del Cerebro por archivo (`node scripts/pausa-cerebro.mjs prender|apagar`);
-  - `cambiarSettingSi` con valores largos (CAS por `updated_at`);
-  - tsc-acotado con el lock de un tsc por PC;
-  - las cajas de chat `31fd30df2` (verificado);
-  - el corte del 97% prendido otra vez, con su test.
-  - **Se sube** cuando estén verificados el WhatsApp (urgente) y el blanco del Web Generator, con
-    `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main`.
-  - **El deploy se confirma** con `npx vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y
-    `vercel inspect hola-mako.com`.
+- **`main` = `7f36fa9c6` (28/10 23:57), EN PRODUCCIÓN y verificado.** Desde que arrancó la cuenta subieron:
+  - tren-w (`c17134274`): las horas del CRM, las cajas de chat, la pausa del Cerebro, el corte del 97 %;
+  - el editor, con los subtítulos de Leandro (`004a4ae57`, ticket cerrado y avisado);
+  - el Web Generator en blanco (`7f63046be`);
+  - MaKo inteligente: el Second Brain en el turno, sin la plata para los closers (`7f36fa9c6`).
+- **La rama `tren-x` de `C:/dev/wt-push-q` = main + sólo docs** (este relevo y hallazgos). **NO entraron a main:** el
+  pre-push no tuvo RAM para los tipos (3,0 GB con el workflow corriendo; «no es un error de tipos»). Copia en origin, en la
+  rama `relevo-cerebro-claude4`. Entran con el próximo tren: no hace falta otro push sólo para esto.
+- **TERMINÓ al cortar: `wf_2f472ad6-193`, la verificación de Zernio `254856316` y Planes `ddfa645d4`. Los DOS: NO.**
+  Informe entero, con los scripts que reproducen cada caso: `C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md`.
+  **SIN MANDAR a sus chats** (la cuenta cortó al 95 %): mandárselo es lo primero del punto 2.
+  - **Zernio:** la privacidad quedó arreglada (ninguna puerta a otro negocio) y el orgánico y los tests, bien. Sobrevive
+    una MEDIA: «Reintentar» repite el x-request-id fuera de la ventana de ~5 min y deja DOS posts públicos (los 4 min
+    se cuentan desde la última anotación, no desde el primer envío; `lib/calendario-publicar.ts`). Y tres bajas: un 4xx
+    en el reintento borra la duda, dos estados sin salida y la carrera G al revés. El refutador tiró la de «Deshacer».
+  - **Planes:** `be95f7555` sí cierra el voucher doble. Sobreviven TRES ALTAS: una suscripción con SEPA arma una
+    segunda y nunca cancela la primera (dos veces); y el plan a mano, si el negocio paga por /planes con el email de su
+    cuenta, queda `ya_tenia_cuenta` sin `alta_ws`. Además dos medias (el aviso de vencimiento le llega a quien ya paga, y
+    se repite si el mail a Martín da 429) y dos bajas. La venta externa de Stripe (MAU-10) viene en esta rama: no entra
+    hasta que Planes pase.
+  - Árboles: `C:/dev/verif-254856316` y `C:/dev/verif-ddfa645d4`; los scripts del informe corren ahí. Sacar el junction
+    de node_modules con `cmd /c rmdir` antes de borrarlos. Journal: `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl`.
+- **LO QUE SIGUE, en este orden:**
+  1. **P0, el ticket de Martín: «Replicar» no saca la foto de la página.** SIN EMPEZAR (el chat cortó al 95 %). Todo está
+     en la sección 0 de `docs/relevo/web-generator-replicar.md`, en `C:/dev/wt-replica-editable` (rama
+     `replica-editable-2810`, `f59354ec3`, sin subir). Va ANTES que la réplica editable (`a72620aa3`, a medias).
+     **La página que probó Martín es https://100ads.ai/** (lo dijo después, 29/10 ~00:55): reproducir con esa.
+  1b. **Pedido nuevo de Martín (29/10, textual):** «Los tickets de bugs asi, siempre deben traer las acciones que hizo el
+     usuario». Su ticket guardó pantalla, error y hora, pero no la URL que pegó. «Reportar a Soporte» (y el ticket que
+     MaKo abre solo) tiene que llevar los pasos: qué tocó, qué escribió o pegó, en qué orden. Dueño: el chat de soporte
+     y tickets (MaKo en WhatsApp). Regla en la memoria `ticketera-usuarios`.
+  2. **Zernio y Planes: mandarle a cada chat su parte del informe de `wf_2f472ad6-193`** (los dos NO, arriba), y
+     verificar lo que devuelvan. Planes trae la venta externa de Stripe (`5a27268bc`). Desplegada esa, escribirle a Mauricio en su grupo (el +…8122 ES él) para que conecte su Stripe. Prender
+     `cobros.ventas_externas` en ws1 pide el sí de Martín EN EL CHAT.
+  3. **La tienda de Chrome: la 0.74.3 está EN REVISIÓN** (29/10 ~01:35, subida por el Cerebro con un Chrome aparte por
+     CDP; ver docs/hallazgos-extension.md). Cuando Google apruebe: `node scripts/version-en-tienda.mjs` y mezclar
+     `tienda-cws-2710`. Volver a crear la credencial de la API para que la próxima sea un comando. Ver
+     docs/hallazgos-extension.md («La subida por API murió sin avisar»).
+  4. **La fila de verificación** (más abajo): CRM `cc47d841d`, Copywriter `7eef753da`, WhatsApp, Automations, el plan a
+     mano de Planes y las tres ramas `nube/*`.
+  5. **Los pedidos nuevos** (más abajo): pagos por tramos, Classroom, Zernio con varias claves. Y los 70 perdidos de
+     `docs/relevo/pedidos-perdidos-2810.md`.
+- **Cómo se sube un tren:** `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin
+  HEAD:main`, en segundo plano y con `node scripts/pausa-cerebro.mjs prender|apagar`. **El deploy se confirma** con `npx
+  vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y `vercel inspect hola-mako.com`.
 - **⭐ PEDIDO NUEVO DE MARTÍN, el más importante para la próxima cuenta (29/10, ~00:45, en el chat del Cerebro), textual:**
   «Y no me gusta que Leila te tenga que estar respondiendo esas cosas de plan de pagos por ahí, eso refleja lo mal
   construido que esta la tab de pagos... No tiene libertad o diversidad de tipos de cobros».
@@ -85,6 +188,27 @@ preguntes: hacé esto en orden.
   - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
     Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
     sugerido.
+  - **29/10 ~00:50 ART, P0: Martín no pudo replicar una landing** («No pude sacar la foto de la página», su ticket desde
+    /web-generator/68, ws9, 00:38). Lo encontré en el código y lo pasé al chat Web Generator, ANTES que la réplica editable.
+    Replicar.tsx:215 recibe ok sin `foto`. En lector-script.ts hay dos caminos mudos: el tope de `arrancar()` (TOPE+500, 40 s
+    con foto) que dispara `terminar(true)` antes de la instantánea, y el `catch` que deja `foto = null` y pierde el motivo.
+    Hecho = foto aunque llegue el tope y el motivo en pantalla. El ticket no trae la URL: la busca el chat. Al desplegar:
+    cerrar el ticket con el aviso a Martín.
+  - **29/10 ~00:40 ART (03:40 UTC), ronda y tres respuestas de Martín** (cierres mandados; semana al 94 %):
+    - **P2P:** el aviso del corte de Meta se lo manda Martín por su WhatsApp. El texto le quedó en el cierre. Regla en
+      la memoria `contestar-clientes-sin-preguntar`.
+    - **El 8122 ES Mauricio.** NO se le escribió todavía: la venta externa de Stripe (`5a27268bc`, MAU-10) no está en
+      main, va con Planes (verificación `wf_2f472ad6-193`, viva a las 00:36). Cuando esté desplegada: pedirle en su grupo
+      que conecte su Stripe y que su link del Sprint vuelva a la página de gracias; prender `cobros.ventas_externas` en
+      ws1 pide el sí de Martín EN EL CHAT.
+    - **La tienda de Chrome:** sigue en 0.39.1. La API murió (`deleted_client`) y el panel pide la contraseña de
+      martinkoncke@gmail.com (la cuenta dueña; `authuser=1` en el perfil de Claude). La pestaña quedó en «Verify it's
+      you». Martín no entendió la primera pregunta: se le explicó en el cierre. Cuando diga «listo»: subir el zip de
+      feedback/chrome-web-store/, la descripción, las 5 capturas y el mosaico, y mandar a revisión.
+    - **Ronda:** los tickets abiertos tienen dueño vivo (Leila en bloque → CRM `cc47d841d`; Leandro, el filtro de
+      comentarios → Automations; el video de Leila → Video Editor; Nadia → pagos por tramos) y ninguno está resuelto
+      en producción. Las tres ramas `nube/*` siguen fuera de main, en la fila. Los cinco chats de la nube «waiting»
+      ya no tienen trabajo: los archiva Martín desde la barra.
   - **23:30, las respuestas de Martín** (desde el Centro; los cierres ya se mandaron):
     - **Decisiones que valen así:**
       - Zernio: NO a la cuenta de MaKo, cada negocio con la suya.
@@ -102,6 +226,20 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **01:40, verificaciones:**
+    - **Automations `69b49a31c`: NO.** La ALTA (un DM de Instagram recibía DOS respuestas del AI Step) quedó ARREGLADA en `5e67180c7` (aut-2510; probado rompiéndolo, sin barrido nuevo). Las medias y bajas siguen, en docs/relevo/automations.md (`f8e74a9f5`), para la próxima cuenta, y sin ellas no entra. Siete medias:
+      «Volver a probar» reusa las Idempotency-Key, la mudanza rechaza «social_tope», la difusión sale dos veces sin
+      idempotencia, el goteo de Instagram pasa la ventana de 24 h, HojaDifusion no está montada, y un setter puede
+      difundir por el grupo. Más bajas. Informe en `C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md`, ya
+      mandado al chat.
+    - **Zernio `254856316` + Planes `ddfa645d4`: corriendo**, en `wf_2f472ad6-193` (task `w1bp45jj0`). Los árboles son
+      `C:/dev/verif-254856316` y `C:/dev/verif-ddfa645d4`. Su journal está en
+      `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl`.
+    - Queda en fila: el CRM `cc47d841d`, Copywriter `7eef753da`, las tres ramas de la nube y WhatsApp (cuando lleguen
+      sus arreglos).
+  - **01:25 — EN PRODUCCIÓN (verificado):** el Web Generator en blanco (`7f63046be`; deploy de `ed8c965d1` Ready a las
+    23:58). Martín tiene que probarlo entrando por el menú. **MaKo inteligente** (`7f36fa9c6`, merge de `935e3c574`),
+    subido a las 00:00, EN PRODUCCIÓN (deploy mako-nmbwa0pgu Ready, lo sirve el dominio). **main = `7f36fa9c6`.** La rama del próximo tren sale de ahí.
   - **01:10, el Web Generator en blanco (el P0 de Martín):** `11a0e8211` ACEPTADO (el Cerebro revisó que los controles de
     acceso corren antes del corte en los cuatro layouts) y mergeado en tren-x (`7f63046be`). Push en curso (task
     `bum9dxj9y`, log `push-blanco.log`). Cuando esté Ready, avisarle a Martín que lo pruebe entrando por el menú.
@@ -112,8 +250,9 @@ preguntes: hacé esto en orden.
   - **01:00: VERDE del CRM `cc47d841d`** (crm-lote-2810, sobre `23b329b5e`): las acciones en bloque del tablero, los
     tickets de Leila (eliminar → PAPELERA de 30 días, pasar a otro funnel, descalificar o perder en bloque, la columna
     entera sin el corte de 1.000) y 5 operaciones de la API.
-    - **Necesita la tabla nueva 0340 (`leads_papelera` y 5 funciones), ANTES del deploy y con el sí de Martín en el chat,
-      y un cron nuevo en vercel.json (`app/api/cron/leads-papelera`, `45 10 * * *`).**
+    - **La tabla 0340 (`leads_papelera` y 5 funciones) YA ESTÁ APLICADA (29/10, el Cerebro de claude3 con el sí de Martín en
+      su chat, desde crm-lote-2810 @ 77679ed63: leads sigue en 3017, RLS prendido, sólo service_role ejecuta las 5).** El cron
+      nuevo (`app/api/cron/leads-papelera`, `45 10 * * *`) entra con su código en vercel.json.
     - Sin verificar. Como borra y recupera datos, se mira primero que no se pierda nada.
   - **FILA DE VERIFICACIÓN al 01:00** (Automations `69b49a31c` corriendo en `wf_a92bf13a-ec9`):
     1. Zernio `854a6fda0` + Planes `ddfa645d4`, juntos;
@@ -123,7 +262,7 @@ preguntes: hacé esto en orden.
     5. MaKo inteligente, cuando lleguen sus arreglos;
     6. las tres ramas de la nube.
   - **Los sí de Martín EN EL CHAT que destraban cosas** (la base de producción): la tabla de MaKo sin conexión (0346),
-    la de publicar desde el Calendar (0342), la papelera del CRM (0340) con su cron, los dos cambios del Sprint de
+    la de publicar desde el Calendar (0342), ~~la papelera del CRM (0340)~~ (APLICADA el 29/10), los dos cambios del Sprint de
     Mauricio y lo de Brigitte. Cada uno se aplica cuando su verificación sale limpia.
   - **00:55, los límites de Zernio (pedido de Martín): DISEÑADOS, sin código** (`35df0c483`, docs/relevo/zernio-capi.md).
     La «salida gratis» (conectar otra cuenta de Zernio) NO se puede decir hoy: un negocio tiene UNA clave, y pegar otra
@@ -359,7 +498,10 @@ preguntes: hacé esto en orden.
 
 ## Trabado esperando a Martín
 
-0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar), 0346 (sin conexión) y la de la papelera del CRM; las decisiones de la revisión de Teo.
+- **Del 29/10:** archivar desde la barra los cinco chats de la nube: la herramienta
+   de archivar no los encuentra, ni por nombre ni por id. **P2P es un cliente FANTASMA** (Martín, 29/10): no se le manda
+   nada.
+0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar) y 0346 (sin conexión) (la 0340 de la papelera del CRM: APLICADA el 29/10); las decisiones de la revisión de Teo.
 1. **Su sí EN ESTE CHAT para:** leer la Ticketera de producción (el clasificador la niega); activar los avisos al grupo
    (lead de formulario y agenda) en ws15, ws18, ws20 y ws22 de Joan; subir los 21 audios de Makito a un bucket.
 2. **Decisiones de plata:** cuánto se le cobra a Joan (2 de 5 clientes pagan), el precio del Acelerador (en la llamada

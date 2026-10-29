@@ -59,7 +59,7 @@ import type { Parametro } from '@/lib/api-mako/tipos';
 import { rotuloDeParametro } from '@/lib/editor-acciones';
 import type { LineaDetalle, OpcionDecision, ResultadoMovil, TipoDecision } from '@/lib/inbox-movil-reglas';
 import {
-  ErrorM, FilaDatoM, FilaM, IconoM, InterruptorM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM,
+  ErrorM, FilaDatoM, FilaM, IconoM, InterruptorM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM, navegarAlCerrar,
   useConexion, useToastM,
 } from '../_ui';
 import {
@@ -383,7 +383,8 @@ function SheetDecision({ item, ahora, onCerrar, onResuelto, onYaNo }: {
     document.cookie = cookieVistaEscritorio(it.linkEscritorio);
     window.location.href = conWs(it.linkEscritorio, ws);
   };
-  const irAFicha = (href: string) => { onCerrar(); router.push(href); };
+  // La hoja se cierra y navega en el mismo toque: la navegación espera al replaceState de la hoja (ticket #27).
+  const irAFicha = (href: string) => { onCerrar(); navegarAlCerrar(() => router.push(href)); };
 
   // ── El cuerpo: TODO lo que se va a ejecutar, y después de dónde vino ──
   const datos: ReactNode[] = [];

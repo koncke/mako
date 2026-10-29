@@ -10,7 +10,9 @@
 // =============================================================================
 
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
+import { paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { VitrinaPlanes } from './Vitrina';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +33,8 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
   const sufijo = qs.toString() ? `?${qs.toString()}` : '';
   // SIN PASARELA (23/10/2026): un plan que no se puede pagar en línea no dice «Empezar»: lleva a su página, donde se pide
   // (desde el 24/10, sin agenda: lib/compra-plan-reglas.ts). Se decide por plan, con la misma cuenta que el checkout.
-  const ofertas = await ofertasDeLosPlanes();
+  // Y según el PAÍS (27/10/2026): Mercado Pago sólo en el suyo; desde México, «Empezar» sólo si Stripe cobra.
+  const ofertas = await ofertasDeLosPlanes(paisDelVisitante((await headers()).get('x-vercel-ip-country')));
   // El origen de la campaña y el código de partner viajan en el sufijo al plan elegido, y de ahí al pedido o al pago.
   return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} />;
 }

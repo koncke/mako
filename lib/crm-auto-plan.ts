@@ -138,6 +138,8 @@ export type AutoLead = {
   updated_at: string | null;
   /** De dónde vino: uno traído de un grupo de WhatsApp no se mueve solo (`quedaDondeLoPusieron`). */
   origen_lead?: string | null;
+  /** Lo cobrado en todos sus CRMs (lib/pagos.ts): quien ya pagó no va a «No agenda» ni a reactivación. */
+  total_cobrado_usd?: number | null;
 };
 
 /**
@@ -248,7 +250,10 @@ export function planLeadAuto(
     // frío (hace mucho, capaz ni se acuerda del servicio) → Nutrición - Reactivación
     // (re-introducir). Cubre el Instant form (stage 'lead') y también a los que YA
     // están en No Agenda hace mucho sin haber agendado nunca (los reclasifica).
-    if (seMueveSolo && (stage === 'lead' || stage === 'nutri') && !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2) {
+    // ⚠️ QUIEN YA PAGÓ NO ES UN LEAD QUE NO AGENDÓ (27/10/2026, MAU-10): el que compra por un Payment Link propio gana en el CRM del
+    // producto y su casa puede seguir en «lead»; T2 le escribía «no agendaste» a quien pagó (docs/diseno-venta-externa-stripe.md §3).
+    const yaPago = Number(l.total_cobrado_usd ?? 0) > 0;
+    if (seMueveSolo && !yaPago && (stage === 'lead' || stage === 'nutri') && !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2) {
       const d = diasEntre(hoy, l.created_at);
       // El plazo DECLARADO de la etapa es el PISO de cualquier salida: nada se mueve de
       // acá antes de que se cumpla. No pisa al umbral de frío, lo empuja — si no, declarar

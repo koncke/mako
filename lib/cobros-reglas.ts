@@ -260,6 +260,8 @@ export const idemCobro = (cobroId: number, vuelta = 0): string => (vuelta ? `mak
 export const idemReembolso = (cobroId: number, reintento?: string | null): string =>
   (reintento ? `mako-reembolso-${cobroId}-${reintento}` : `mako-reembolso-${cobroId}`);
 export const idemBaja = (cobroId: number): string => `mako-baja-${cobroId}`;
+/** Cancelar la suscripción de la sesión que falló, antes de armar otra (`urlParaPagar`): una por sesión. */
+export const idemCancelarFallida = (cobroId: number, sesion: string): string => `mako-cancelar-fallida-${cobroId}-${sesion}`.slice(0, 255);
 export const idemAnular = (cobroId: number): string => `mako-anular-${cobroId}`;
 
 export type ParametrosCobro = {
