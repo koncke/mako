@@ -209,10 +209,30 @@ export function esRastreador(bloque: string): boolean {
   return RE_RASTREADOR.test(bloque);
 }
 
-/** Saca de un pedazo de HTML los scripts y `<noscript>` de rastreadores. */
-export function sinRastreadores(html: string): string {
+/**
+ * ¿El script es DATOS de la página y no código? El árbol de una app de Next (App Router: `self.__next_f.push(…)`, en
+ * pedazos que la página junta) y los `<script type="application/json">` (el `__NEXT_DATA__` del Pages Router, el
+ * `__NUXT_DATA__` de Nuxt 3). Nombran a un rastreador cuando el layout lo carga, pero no lo corren.
+ */
+const RE_DATOS_DE_LA_PAGINA = /^<script\b[^>]*>\s*\(?\s*self\.__next_f\b/i;
+const RE_SCRIPT_JSON = /^<script\b[^>]*\btype\s*=\s*["']?application\/(?:[\w.-]+\+)?json\b/i;
+export const esDatosDeLaPagina = (bloque: string): boolean => RE_DATOS_DE_LA_PAGINA.test(bloque) || RE_SCRIPT_JSON.test(bloque);
+
+/**
+ * Saca de un pedazo de HTML los scripts y `<noscript>` de rastreadores.
+ *
+ * `guardarDatos`: deja los scripts de DATOS (`esDatosDeLaPagina`) aunque nombren a un rastreador. Pedido de Martín
+ * (29/10/2026, el ticket «No pude sacar la foto de la página» replicando https://100ads.ai/): en una app de Next, uno
+ * de esos pedazos es el árbol ENTERO de la página (113 KB, nombra a Facebook y a Clarity porque el layout los carga);
+ * sin él React no puede armarla («Connection closed», error #423), la borra, y la ventana del lector queda con el
+ * cuerpo vacío. ⚠️ SÓLO donde los rastreadores ya están apagados ANTES de la página (la ventana del lector:
+ * `JS_PRELUDIO_VENTANA`, con `fbq` mudo y los pedidos a sus dominios atajados): con los datos, la app vuelve a montar
+ * sus `<Script>` de Meta o Clarity. La copia fiel y la vista del Diagnóstico no los apagan: ahí se siguen sacando.
+ */
+export function sinRastreadores(html: string, o: { guardarDatos?: boolean } = {}): string {
+  const sacar = (b: string) => (esRastreador(b) && !(o.guardarDatos && esDatosDeLaPagina(b)) ? '' : b);
   return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, (b) => (esRastreador(b) ? '' : b))
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, sacar)
     .replace(/<script\b[^>]*\/>/gi, (b) => (esRastreador(b) ? '' : b))
     .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, (b) => (esRastreador(b) ? '' : b));
 }

@@ -165,7 +165,9 @@ export function documentoLector(
   if (!lector) return null;
   const crudo = String(html ?? '');
   const base = baseDeDocumento(crudo, urlPedida);
-  let doc = sinPixelDeMako(sinRastreadores(crudo))
+  // Los DATOS de la página se quedan (`guardarDatos`): sin el árbol de una app de Next, React la borra entera. Acá los
+  // rastreadores ya están apagados por el preludio, que corre antes que la página.
+  let doc = sinPixelDeMako(sinRastreadores(crudo, { guardarDatos: true }))
     .replace(/<!doctype[^>]*>/gi, '')
     .replace(/<base\b[^>]*>/gi, '')
     .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?(?:content-security-policy|refresh|x-frame-options)["']?[^>]*>/gi, '');
