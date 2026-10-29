@@ -79,6 +79,10 @@ tests/tope-social.test.ts, 10 roturas en rojo.
 **Sobre 56be0692d («una cuenta frenada avisa una vez por día»):** es la cuenta PUBLICITARIA (lib/alerta-critica.ts, el evento
 `meta_cuenta_frenada`): mismo molde (evento de la plataforma con freno), otro tope. No cubría los mensajes.
 
+**⚠️ La fila del ws 9 no se podía crear (verificación de 69b49a31c, 29/10):** el paso documentado tiraba «social_tope no está
+en la mudanza»: el evento se sumó a EVENTOS_MAKO y a las plantillas, pero no a `TODOS` del script. **La regla:** un evento de
+la plataforma va con su línea en la mudanza; tests/mudanza-apagados lo fija para TODOS los `plataforma: true`.
+
 **Sin hacer:** el aviso no sale hasta que exista su fila en el ws 9 (`scripts/mudanza-avisos-plataforma.mts --eventos=social_tope`:
 escribir en producción, lo pide el Cerebro); la respuesta del AI Step (`contestarSolaPorRedes`) y la de «Si responde» por redes
 son de una vez: con un tope no se reintentan; `X-RateLimit-Remaining` se lee pero todavía no frena el ritmo antes del 429; el

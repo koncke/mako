@@ -59,3 +59,18 @@ test('los mudados que nacían apagados son los seis medidos el 17/10 (los demás
   assert.deepEqual(apagados.sort(), ['flow_puente_ausente', 'landing_cambio', 'lead_de_landing', 'lead_formulario_meta', 'lead_fusionado', 'meta_cuenta_recuperada', 'oferta_lista', 'prueba_grabada', 'prueba_recibida', 'reunion_tareas_al_plan'].sort(),
     'un aviso nuevo que nacía apagado: su fila va pausada y entra en esta lista a sabiendas');
 });
+
+// ⚠️ TODO EVENTO DE LA PLATAFORMA TIENE SU LÍNEA EN LA MUDANZA (la verificación del Cerebro sobre 69b49a31c, 29/10/2026):
+// sin la fila del ws 9, `emitirPorEvento` no manda nada, y `social_tope` se entregó sin su línea: el paso documentado
+// (`--eventos=social_tope`) tiraba «no está en la mudanza» y el aviso que pidió Leandro no iba a salir.
+test('cada evento de la plataforma tiene su plantilla en la mudanza (sin la fila del ws 9, el aviso no sale)', () => {
+  const src = leer('scripts/mudanza-avisos-plataforma.mts');
+  const plantillas = leer('lib/plantillas-automatizaciones.ts');
+  const deLaPlataforma = EVENTOS_MAKO.filter((e) => e.plataforma === true);
+  assert.ok(deLaPlataforma.length >= 22);
+  for (const e of deLaPlataforma) {
+    const linea = src.match(new RegExp(`\\{ plantilla: '([a-z0-9-]+)', evento: '${e.subtipo}' \\},`));
+    assert.ok(linea, `${e.subtipo}: sin su línea en TODOS de scripts/mudanza-avisos-plataforma.mts`);
+    assert.ok(plantillas.includes(`id: '${linea[1]}'`), `${e.subtipo}: la plantilla ${linea[1]} no existe`);
+  }
+});
