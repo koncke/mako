@@ -9,6 +9,18 @@ marketing-main/05be9946-3313-4db7-ab72-196361b6fa78/scratchpad/scripts/`). Resul
 **Orden: 0 (P0 de la foto: VERDE mandado, falta que el Cerebro lo suba) → 2 (la réplica editable). El 1 y el 3 están
 cerrados.**
 
+## 000. Landing principal → High Ticket + precios completos + sin fondo azul (29/10 ~11:15-11:20, Martín por el Cerebro)
+
+- Rama `landing-high-ticket-2910` en `C:/dev/wt-landing-ht-2910` (desde origin/main 9f8216dc8), SIN commitear todavía al escribir esto.
+- DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
+  «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
+  Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
+  «Landing principal — antes del 29/10» (sin publicar) + guarda + publica. NO lo corrí: escribir en prod va con el sí de Martín en
+  el chat (memoria aprobacion-prod-en-el-chat); lo corre el Cerebro.
+- CÓDIGO (VERDE): portada-metadata, PortadaSinJs, respaldo (landing-html, landing-contenido), og-landing.jpg nueva; precios: ✗ por
+  plan (`noIncluyeDe`, lib/planes-comparacion.ts) y la tabla de /planes en la portada (`CompararPlanes`, app/planes/Vitrina.tsx).
+- Capturas y propuesta: `C:/dev/revisiones/landing-principal-2910/` (antes-*, propuesta-*, propuesta/vista-previa-portada.html).
+
 ## 00. P0 (29/10, del Cerebro) — «las páginas clonadas se desfasaron todas» — VERDE mandado (c3c6849bc), falta que suba
 
 Martín: «Lo que más me interesa es que funcione al 100% Web Generator, porque las páginas clonadas se desfasaron todas...
