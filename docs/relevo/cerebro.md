@@ -50,6 +50,20 @@ preguntes: hacé esto en orden.
     `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main`.
   - **El deploy se confirma** con `npx vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y
     `vercel inspect hola-mako.com`.
+- **⭐ PEDIDO NUEVO DE MARTÍN, el más importante para la próxima cuenta (29/10, ~00:45, en el chat del Cerebro), textual:**
+  «Y no me gusta que Leila te tenga que estar respondiendo esas cosas de plan de pagos por ahí, eso refleja lo mal
+  construido que esta la tab de pagos... No tiene libertad o diversidad de tipos de cobros».
+  - **Hoy:** el «plan libre» del 27/10 (`fechasDelPlan`, `lib/pagos-campo.ts`; `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx`)
+    hace quincena, semana, más de 6 cuotas y días del 29 al 31, pero con TODAS las cuotas del mismo monto. «6 meses de
+    12.000 y luego 10.000» (Nadia, de Leila) no entra.
+  - **Lo pedido:** el plan por TRAMOS (monto, frecuencia, cantidad o fin y moneda por tramo), el anticipo y las cuotas
+    editables una por una. Lo arma el CLIENTE solo en la ficha del lead. Se COPIA de una app que ya lo resolvió: las fases
+    de los «subscription schedules» de Stripe, o los planes de pago de ThriveCart o Kajabi. Regla en la memoria
+    `pagos-libertad-de-tipos`.
+  - **Dueño sugerido:** CRM y Chats (la ficha y los pagos), o un chat «Pagos» nuevo. El de Nadia NO se carga a mano: con
+    la herramienta nueva lo arma Leila. Hasta entonces, su respuesta a la pregunta del 29/10 queda en el buffer.
+- **Martín, 28/10: «todas mis cuentas son x20».** claude5 se suma a `CUENTAS_DEL_CREDITO` en la tanda A de WhatsApp (ya
+  avisado).
 - **⭐ PEDIDO NUEVO DE MARTÍN, para la próxima cuenta (29/10, ~00:10, escrito en el chat del Cerebro), textual:** «En
   "Classroom" unifica la tab de clients con members, es literal los botones de kanban o lista que tenemos en el crm».
   - **Hoy:** `/classroom` tiene las sub-tabs Clients · Community · Classroom · Calendar · Members · Leaderboards · About
