@@ -66,7 +66,7 @@ export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
+  | 'video' | 'copywriting' | 'ai-avatar' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
@@ -237,6 +237,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Copywriting ES el Copywriter desde el 29/10/2026 (nav.ts, la fila de Copywriting): la lista de páginas y «Nueva»
   // (app/m/copywriter). El Ads Writer del teléfono (/m/copywriting) queda sin fila.
   { id: 'copywriting', label: 'Copywriting', titulo: 'Copywriting', href: '/m/copywriter', icon: 'escribir', navKey: 'copywriter', familia: 'create' },
+  // AI Avatar (29/10/2026): para todos los planes, como Video. Hasta ese día era sólo del super admin y no tenía fila (More se
+  // la armaba desde la sidebar). Una pantalla, el estudio de Higgsfield (app/m/ai-avatar).
+  { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del

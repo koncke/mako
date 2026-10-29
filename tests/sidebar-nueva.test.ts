@@ -248,7 +248,8 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
   // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
   assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
   const create = mas.find((g) => g.id === 'create')!;
-  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
+  // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
+  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar']);
 });
 
 test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
@@ -372,7 +373,7 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
     ['Today', ['Plan', 'Chats', 'Dashboard']],
     ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
     ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
-    ['Create', ['Video', 'Image', 'Copywriting']],
+    ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [

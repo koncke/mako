@@ -69,6 +69,9 @@ import { Exportacion, datosDelProyecto, portada } from "./exportar";
 import { carpetaElegida, elegirCarpeta, puedeElegirCarpeta } from "./destino";
 import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 import { quedanMuestras } from "@/app/video-editor/_opencut/plantillas/huecos";
+import { useRouter } from "@/app/_ui/Link";
+import { llevarAlCalendario } from "@/app/calendario/publicar-desde-crear";
+import { tipoDeArchivo } from "@/lib/calendario-publicar-reglas";
 
 const CLAVE_RECUERDO = "ce-exportar-v1";
 
@@ -76,7 +79,9 @@ type Fase =
 	| { tipo: "formulario" }
 	| { tipo: "exportando"; progreso: number }
 	| { tipo: "listo"; archivos: string[] }
-	| { tipo: "error"; mensaje: string };
+	// «Publicar» (29/10/2026): el video sube al Calendario. `calendario`: si la publicación ya quedó allá (sin el archivo).
+	| { tipo: "subiendo"; progreso: number }
+	| { tipo: "error"; mensaje: string; calendario?: string };
 
 function leerRecuerdo(): Partial<OpcionesExportar> | null {
 	try {
@@ -165,9 +170,12 @@ function opcionesIniciales({
 export function DialogoExportar({
 	abierto,
 	onAbiertoChange,
+	publicar = false,
 }: {
 	abierto: boolean;
 	onAbiertoChange: (abierto: boolean) => void;
+	/** «Publicar» (29/10/2026): exporta SÓLO el video en MP4, sin guardarlo, y lo lleva al Calendario como una Publicación. */
+	publicar?: boolean;
 }) {
 	// El Portal de radix monta su contenido SÓLO con el diálogo abierto: el
 	// cuerpo nace con cada apertura y lee el proyecto en sus `useState`, sin un
@@ -175,7 +183,7 @@ export function DialogoExportar({
 	return (
 		<Dialog open={abierto} onOpenChange={onAbiertoChange}>
 			<DialogPrimitive.Portal container={portalCe()}>
-				<CuerpoExportar onCerrar={() => onAbiertoChange(false)} />
+				<CuerpoExportar onCerrar={() => onAbiertoChange(false)} publicar={publicar} />
 			</DialogPrimitive.Portal>
 		</Dialog>
 	);
@@ -197,8 +205,11 @@ function codecEfectivo(
 	return posibles[0].id;
 }
 
-function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
+function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar: boolean }) {
 	const editor = useEditor();
+	const router = useRouter();
+	// El video de la última exportación, si se puede publicar (MP4 o MOV): «Publicar en redes» lo lleva sin volver a exportar.
+	const [videoListo, setVideoListo] = useState<{ blob: Blob; nombre: string } | null>(null);
 	const exportacion = useRef<Exportacion | null>(null);
 	const [datos] = useState(() => datosDelProyecto(editor));
 	// Una plantilla con clips sin sustituir se exporta igual (no bloquea), pero se avisa.
@@ -271,26 +282,59 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 	const cambiar = (parche: (o: OpcionesExportar) => OpcionesExportar) => setOpciones((o) => parche(o));
 
 	const gifLargo = datos.segundos > GIF_MAX_SEGUNDOS;
-	const codecListo = soporte[v.codec]?.soportado ?? false;
+	// Para publicar, SÓLO el video y en MP4 (lo que aceptan todas las redes y el Calendario), con el codec que este navegador puede.
+	const codecMp4 = codecEfectivo(elegidas.video.codec, "mp4", soporte);
+	const paraPublicar: OpcionesExportar = {
+		...opciones,
+		video: { ...opciones.video, activo: true, formato: "mp4", codec: codecMp4 },
+		audio: { ...opciones.audio, activo: false },
+		subtitulos: { ...opciones.subtitulos, activo: false },
+		gif: { ...opciones.gif, activo: false },
+	};
+	const codecListo = soporte[publicar ? codecMp4 : v.codec]?.soportado ?? false;
 	const algoMarcado =
 		(opciones.video.activo && codecListo) ||
 		(opciones.audio.activo && datos.hayAudio) ||
 		(opciones.subtitulos.activo && datos.subtitulos.length > 0) ||
 		(opciones.gif.activo && !gifLargo);
-	const puedeExportar = datos.segundos > 0 && algoMarcado && fase.tipo === "formulario";
+	const puedeExportar = datos.segundos > 0 && (publicar ? codecListo : algoMarcado) && fase.tipo === "formulario";
+
+	/** Lleva el video al Calendario: la Publicación nace ahí, y ahí se eligen la red, el día y la hora. */
+	const publicarVideo = async (video: { blob: Blob; nombre: string }) => {
+		setFase({ tipo: "subiendo", progreso: 0 });
+		const r = await llevarAlCalendario({
+			origen: "video",
+			titulo: datos.proyecto.metadata.name,
+			archivo: video.blob,
+			nombre: video.nombre,
+			onProgreso: (pct) => setFase((f) => (f.tipo === "subiendo" ? { tipo: "subiendo", progreso: pct / 100 } : f)),
+		});
+		if (r.ok) {
+			onCerrar();
+			router.push(r.url);
+		} else setFase({ tipo: "error", mensaje: r.error, calendario: r.url });
+	};
 
 	const exportar = async () => {
 		if (!puedeExportar) return;
-		guardarRecuerdo(opciones);
-		const tarea = new Exportacion(editor, opciones, soporte);
+		if (!publicar) guardarRecuerdo(opciones);
+		const tarea = new Exportacion(editor, publicar ? paraPublicar : opciones, soporte, { guardar: !publicar });
 		exportacion.current = tarea;
 		setFase({ tipo: "exportando", progreso: 0 });
 		const resultado = await tarea.ejecutar((progreso) =>
 			setFase((f) => (f.tipo === "exportando" ? { tipo: "exportando", progreso } : f)),
 		);
 		exportacion.current = null;
-		if (resultado.estado === "listo") setFase({ tipo: "listo", archivos: resultado.archivos });
-		else if (resultado.estado === "error") setFase({ tipo: "error", mensaje: resultado.mensaje });
+		if (resultado.estado === "listo") {
+			const publicable = resultado.video && tipoDeArchivo(resultado.video.blob.type) === "video" ? resultado.video : null;
+			if (publicar) {
+				if (publicable) await publicarVideo(publicable);
+				else setFase({ tipo: "error", mensaje: "No salió un video en MP4 para publicar." });
+				return;
+			}
+			setVideoListo(publicable);
+			setFase({ tipo: "listo", archivos: resultado.archivos });
+		} else if (resultado.estado === "error") setFase({ tipo: "error", mensaje: resultado.mensaje });
 		else setFase({ tipo: "formulario" });
 	};
 
@@ -308,13 +352,15 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 				className="fixed top-1/2 left-1/2 z-250 flex max-h-[calc(100vh-32px)] w-[862px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[8px] bg-(--cc-panel) text-(--cc-text) shadow-2xl outline-none"
 			>
 				<DialogPrimitive.Title className="flex h-[38px] shrink-0 items-center px-5 text-[14px] font-medium">
-					Exportar
+					{publicar ? "Publicar en redes" : "Exportar"}
 				</DialogPrimitive.Title>
 
 				<div className="flex min-h-0 flex-1 gap-6 overflow-y-auto px-5 pt-2 pb-4">
 					<Portada imagen={imagen} fase={fase} conMuestras={conMuestras && fase.tipo === "formulario"} />
 					<div className="min-w-0 flex-1">
-						{fase.tipo === "formulario" ? (
+						{fase.tipo === "formulario" && publicar ? (
+							<PasoPublicar codecListo={codecListo} />
+						) : fase.tipo === "formulario" ? (
 							<Formulario
 								opciones={opciones}
 								cambiar={cambiar}
@@ -345,12 +391,35 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 								type="button"
 								onClick={() => void exportar()}
 								disabled={!puedeExportar}
-								className="h-8 w-[86px] cursor-pointer rounded-[4px] bg-primary text-[13px] font-medium text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
 							>
-								Exportar
+								{publicar ? "Exportar y publicar" : "Exportar"}
 							</button>
 						)}
-						{fase.tipo === "error" && (
+						{/* Ya exportado: el mismo video va al Calendario, sin volver a exportar (29/10/2026). */}
+						{fase.tipo === "listo" && videoListo && (
+							<button
+								type="button"
+								data-publicar-video=""
+								onClick={() => void publicarVideo(videoListo)}
+								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:brightness-110"
+							>
+								Publicar en redes
+							</button>
+						)}
+						{fase.tipo === "error" && fase.calendario && (
+							<button
+								type="button"
+								onClick={() => {
+									onCerrar();
+									router.push(fase.calendario as string);
+								}}
+								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:brightness-110"
+							>
+								Abrir el Calendario
+							</button>
+						)}
+						{fase.tipo === "error" && !fase.calendario && (
 							<button
 								type="button"
 								onClick={() => setFase({ tipo: "formulario" })}
@@ -361,6 +430,7 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 						)}
 						<button
 							type="button"
+							disabled={fase.tipo === "subiendo"}
 							onClick={() => (fase.tipo === "exportando" ? exportacion.current?.cancelar() : onCerrar())}
 							className="h-8 w-[86px] cursor-pointer rounded-[4px] bg-(--cc-btn-2) text-[13px] text-(--cc-text) hover:brightness-110"
 						>
@@ -406,7 +476,31 @@ function Portada({ imagen, fase, conMuestras }: { imagen: string | null; fase: F
 	);
 }
 
+/** «Publicar» antes de exportar: qué va a pasar, en dos líneas. */
+function PasoPublicar({ codecListo }: { codecListo: boolean }) {
+	return (
+		<div className="flex flex-col gap-3 py-6 text-[13px] leading-relaxed">
+			<p>Se exporta el video en MP4 y queda en el Calendario como una publicación para mañana a las 10:00.</p>
+			<p className="text-(--cc-text-2)">Ahí eliges la red, el día y la hora. Nada se publica hasta que lo programes.</p>
+			{!codecListo && <p className="text-destructive">Este navegador no puede codificar MP4: prueba en Chrome o en Edge.</p>}
+		</div>
+	);
+}
+
 function Estado({ fase }: { fase: Fase }) {
+	if (fase.tipo === "subiendo") {
+		return (
+			<div className="flex h-full flex-col justify-center gap-3 py-6">
+				<p className="text-[13px]">Llevándolo al Calendario…</p>
+				<div className="h-1.5 w-full overflow-hidden rounded-full bg-(--cc-raised)">
+					<div
+						className="h-full rounded-full bg-primary transition-[width] duration-200"
+						style={{ width: `${Math.round(fase.progreso * 100)}%` }}
+					/>
+				</div>
+			</div>
+		);
+	}
 	if (fase.tipo === "exportando") {
 		return (
 			<div className="flex h-full flex-col justify-center gap-3 py-6">
@@ -438,7 +532,7 @@ function Estado({ fase }: { fase: Fase }) {
 	if (fase.tipo === "error") {
 		return (
 			<div className="flex flex-col gap-2 py-6">
-				<p className="text-[14px] font-medium text-destructive">No se pudo exportar</p>
+				<p className="text-[14px] font-medium text-destructive">{fase.calendario ? "No se pudo subir el video" : "No se pudo exportar"}</p>
 				<p className="text-[12px] break-words text-(--cc-text-3)">{fase.mensaje}</p>
 			</div>
 		);

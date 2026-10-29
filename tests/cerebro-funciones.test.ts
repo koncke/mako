@@ -135,13 +135,15 @@ test('6. la función que vende una landing: la que nombra el pedido; si no, la q
   // «landing» habla de lo que se edita, no del Web Generator.
   assert.equal(menciones(funcionDeKey('landing-writer')!, 'cambia la landing'), 0);
   // Lo que sólo ve el super admin no se vende.
-  assert.equal(funcionQueVende({ pedido: 'la landing de AI Avatar como heygen' }), null);
+  assert.equal(funcionQueVende({ pedido: 'la landing de customers, los negocios de mako' }), null);
+  // AI Avatar es de Pro desde el 29/10/2026: ya se vende.
+  assert.equal(funcionQueVende({ pedido: 'la landing de AI Avatar como heygen' })?.key, 'ai-avatar');
 });
 
 test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan, y la función entera viaja del grafo unido', () => {
   const corto = catalogoCorto();
   for (const x of ['Chats (en vez de respond.io)', 'Web Generator (en vez de Gamma)', 'Video (en vez de CapCut)', 'CRM', 'Automations']) assert.ok(corto.includes(x), `falta «${x}»`);
-  assert.doesNotMatch(corto, /AI Avatar|Reels|Customers/, 'nombra una función que sólo ve el super admin');
+  assert.doesNotMatch(corto, /Reels|Customers/, 'nombra una función que sólo ve el super admin');
   assert.ok(tokensDe(corto) < 150, 'el catálogo corto dejó de ser corto');
   const negocio: Cerebro<string> = {
     negocio: 'MaKo', nodos: [{ id: 'raiz', area: 'norte', etiqueta: 'MaKo', detalle: '', fuente: '', autoria: 'usuario' }], aristas: [],

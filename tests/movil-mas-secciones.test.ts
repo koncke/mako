@@ -165,7 +165,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
     ['Sales', ['calendario', 'automations', 'cs']],
     ['Marketing', ['offer', 'landing', 'ads']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
-    ['Create', ['video', 'image', 'copywriting']],
+    // AI Avatar, de Pro desde el 29/10/2026: fila de Create, debajo de Copywriting, como en la sidebar.
+    ['Create', ['video', 'image', 'copywriting', 'ai-avatar']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la sidebar (desde el
   // 20/10/2026 el Ops Center es el lugar del medio y el Dashboard dejó la barra, así que suben sus hojas y Calendar).

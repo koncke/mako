@@ -415,8 +415,9 @@ export const FAMILIAS: NavFamilia[] = [
           // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen». Y el 29/10/2026: «replica a
           // higgsfield tal cual», con el diseño único de Create: UNA pantalla (app/ai-avatar/Estudio.tsx), SIN secciones (las
           // cuatro de HeyGen —Create video · Avatars · Voices · Templates— se fueron; sus rutas redirigen al estudio).
-          // La ve sólo el super admin hasta que la valide: `adminOnly` acá y la puerta en app/ai-avatar/acceso.ts.
-          key: 'ai-avatar', adminOnly: true, label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
+          // Para todos los planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»): sin `adminOnly`
+          // ni candado de Pro; la puerta, app/ai-avatar/acceso.ts.
+          key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
           match: starts('/ai-avatar'),
         },
       ],

@@ -196,9 +196,8 @@ export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: Alta
  * link (`codigoDe`: lo crea la primera vez y devuelve el mismo después). Hacerlo dos veces no duplica nada: se queda con la
  * fecha del primer alta y con las respuestas nuevas. La plataforma nunca es partner.
  *
- * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): un
- * Esencial que paga por la pasarela no se hace partner (ni nace su código). Quien YA era partner sigue siéndolo: volver a
- * terminar el alta no le saca nada. Ante la duda (no se pudo leer el plan), sin candado (lib/plan-esencial.ts).
+ * CUALQUIER PLAN (29/10/2026; del 27/10 al 29/10 fue sólo MaKo Pro): las landings dicen «gratis» y «cualquier plan». El
+ * cliente de una agencia, no: su cuenta la maneja su agencia (docs/hallazgos-partners.md).
  */
 export async function hacermePartner(ws: number, respuestas: unknown): Promise<ResultadoAlta> {
   try {

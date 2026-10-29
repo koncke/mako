@@ -743,6 +743,23 @@ Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase
 («updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
 rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
 
+## Rehacer una rama limpia con `git checkout <rama-vieja> -- .` revierte en silencio lo NUEVO de otro chat (29/10/2026)
+
+**Qué pasó.** AI Avatar tenía una rama con merges de main y de la rama del Web Generator. Para darle a Integración UN commit
+limpio, se armó una rama nueva desde main, se mergeó la punta del Web Generator, y se iba a copiar el árbol entero de la
+rama vieja con `git checkout <rama-vieja> -- .`. Entre una y otra el Web Generator había sumado un commit (su script de la
+landing): la rama vieja tenía la versión ANTERIOR de ese archivo, y el checkout la habría pisado sin conflicto ni aviso. El
+commit «mío» habría deshecho el trabajo de otro chat.
+
+**La regla.** Copiar un ÁRBOL trae todo lo de ese árbol, también lo viejo de los demás. Lo que se copia es el DIFF propio:
+
+```bash
+T0=$(git merge-tree --write-tree <main-de-entonces> <punta-del-otro-de-entonces>)   # la base sobre la que trabajé
+git diff --binary $T0 <rama-vieja> > mio.patch
+git apply --index mio.patch                                                         # en la rama nueva
+git diff <rama-vieja> HEAD --stat     # sólo deben aparecer los archivos que cambió el OTRO después
+```
+
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 
 Al pasar `dashboard-marketing` de la cuenta del cliente a la de Martín (`hola-mako`), **`git push` siguió
@@ -9232,3 +9249,36 @@ Tres veces seguidas «NO SE PUDO CHEQUEAR (código 134, ~1.360 bytes de salida)�
 código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esas pantallas no entra en 2.560 MB. Con
 `--heap=3584` (y la RAM libre para darlo: con-turno espera 3,8 GB) corrió y dio los 14 errores conocidos de `_opencut`.
 **Regla:** 134 con salida → subir `--heap`; 1 sin salida → esperar turno o cerrar chats.
+
+## La síntesis concluyó «AI Avatar no se investigó»: la investigación le llegó cortada a 140 mil caracteres (29/10/2026)
+
+- **Síntoma:** la primera síntesis del plan de plantillas dijo que AI Avatar y Offer «no se investigaron» e Image «a
+  medias», y armó esas partes con el código y con propuestas propias. La investigación de las cinco tabs sí estaba hecha.
+- **Causa:** el script del workflow le pasó al sintetizador los resultados del fan-out concatenados y cortados con
+  `slice(0, 140000)`. Lo de AI Avatar y Offer quedó después del corte. No hubo error ni aviso: el sintetizador razonó
+  bien sobre un insumo trunco.
+- **El diagnóstico obvio era el equivocado:** «el agente de AI Avatar falló». Los resultados de los cinco agentes
+  estaban completos en disco.
+- **Regla:** los resultados de un fan-out se le pasan al sintetizador **por archivo o por tab**, nunca cortados con
+  `slice`. Si hay que achicar, se parte en una síntesis por tab y una de unión. El sintetizador dice qué partes leyó, y
+  una parte que «no está» se verifica en el disco antes de escribir «no se investigó».
+
+**Vive en:** los scripts de Workflow del Cerebro (fuera del repo) · el plan resultante, docs/plantillas-reales/README.md
+
+## Leer una licencia sin equivocarse: las herramientas fallan en silencio (29/10/2026)
+
+- **Síntoma:** licencias que «no existían» o que «eran MIT» sin serlo, y páginas de producto que no se pudieron ver.
+- **Causa:**
+  - WebFetch falla con github.com;
+  - un repo puede decir «MIT» en el README sin tener LICENSE (fal-ai-community/skills: `main/LICENSE` y la API de
+    licencias de GitHub dieron 404);
+  - Canva y Gamma dan 403;
+  - Kapwing muestra un contador «0+» por un error de carga suyo;
+  - la URL de plantillas de Adobe Express, `notion.com/templates/offer-builder` y
+    `pandadoc.com/coaching-proposal-template/` dan 404.
+- **Regla:** la licencia se lee en `raw.githubusercontent.com/<dueño>/<repo>/main/LICENSE`. Con un 404 se prueba
+  `master`, `LICENSE.md` y `api.github.com/repos/<dueño>/<repo>/license` antes de concluir «sin licencia». Un README
+  que dice «MIT» no alcanza. Lo que da 403 se mira en el navegador o queda «sin verificar», nunca «verificado».
+
+**Vive en:** el método de investigación (docs/plantillas-reales/README.md, sección 5)
+

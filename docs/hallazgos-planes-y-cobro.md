@@ -1706,6 +1706,26 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   Video Editor tiene su propio «Avatar de IA», que Pro SÍ ve, y el tope «1 video con avatar» de la prueba (`prueba.avatares`)
   lo cuenta él también: esa pregunta frecuente es cierta y queda. Y la fila de Partners dice qué se gana: «el primer mes de
   cada negocio», no «dinero» suelto.
+- ⚠️ **Abrir una tab no es venderla (29/10, la revisión de plata de AI Avatar para todos).**
+  - Martín dijo «disponible para todos». La rama sumó además la fila `NOMBRE_AI_AVATAR` con ✓ en los tres planes, y «y tu
+    avatar con IA» en el renglón de Esencial.
+  - Las dos venden el motor del Video Generator, que `90a760e4b` había sacado de esta tabla esa misma tarde por estar a
+    medias. Nunca generó un look en producción, y la tienda de Chrome publica la extensión 0.39.1 cuando el avatar pide 0.69
+    o más.
+  - Tampoco dicen que los videos se pagan con los créditos de Google Flow del cliente (hasta 15 por toma), ni que piden Chrome
+    de computadora.
+  - **Regla:** la puerta y la promesa en la tabla son dos decisiones. La promesa espera a que el motor ande en producción,
+    salvo que Martín diga que se vende igual. Lo decide el Cerebro.
+- ⚠️ **El setting `planes.mako` corta cada renglón a 80 letras.**
+  - El corte está en `planValido` → `texto(x, 80)`, en `lib/planes-mako.ts`. `guardarPrecioLocal` escribe el setting con los
+    planes de fábrica la primera vez que se carga un precio en pesos.
+  - Desde ahí, un renglón largo sale cortado en /planes: el de Esencial con el avatar (110 letras) queda «…y tu avatar con IA
+    (t», y ya les pasaba a los dos del media buyer (95 y 92).
+  - Con el setting escrito, ningún cambio de los renglones de fábrica se ve, porque manda el setting. No se verificó si hoy
+    existe en el ws9.
+  - **Regla:** un renglón de `incluye` no pasa de 80 letras, o se sube el corte.
+- **La capa `pm` SÍ se vende** (`IDS_VENDIBLES = ['pm', 'completo', 'agencia']` en `lib/capas.ts`). El motivo para dejarla sin
+  AI Avatar («no es un plan que se vende») es falso: quien compró Project Manager queda sin AI Avatar. Lo confirma el Cerebro.
 
 ## El plan dado a mano con vencimiento (28/10/2026, lo prometido a Teo: «te doy 7 días de prueba»)
 

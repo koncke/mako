@@ -21,6 +21,7 @@
 import { requireRolWs } from '@/lib/tab-access';
 import { Pagina } from '@/app/_ui';
 import { hoyEnWorkspace } from '@/lib/timezone';
+import { eventoDeLaUrl } from '@/lib/calendario-desde-crear';
 import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
 import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
 import { esVistaCalendario, rangoDeVista, sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
@@ -32,7 +33,7 @@ import { ListaLlamadas } from './ListaLlamadas';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function CalendarioPage({ searchParams }: { searchParams: Promise<{ vista?: string; fecha?: string }> }) {
+export default async function CalendarioPage({ searchParams }: { searchParams: Promise<{ vista?: string; fecha?: string; evento?: string }> }) {
   await requireRolWs([], { nav: 'calendario' });
   const sp = await searchParams;
   const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
@@ -77,7 +78,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <CalendarioApp vista={vista} fecha={fecha} hoy={hoy} tz={tz} dias={rango.dias} items={lectura.items} fallos={lectura.fallos}
-        google={lectura.google} />
+        google={lectura.google} eventoInicial={eventoDeLaUrl(sp?.evento)} />
     </Pagina>
   );
 }

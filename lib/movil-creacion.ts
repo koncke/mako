@@ -33,10 +33,8 @@ export type IdCreacion = 'image' | 'video-generator' | 'stories' | 'admin-copywr
  * «Copywriting», que se alcanza desde la barra de secciones de arriba de su tab (app/m/_ui/SeccionesTabM.tsx). Reels y
  * Carousels se retiraron el 29/10/2026 (sus rutas redirigen: al Copywriter y a Image).
  *
- * ⚠️ AI AVATAR NO TIENE FILA ACÁ, A PROPÓSITO: es `adminOnly` (sólo el super admin) y `puedeVerKey` no mira eso. More
- * (`masCompleto`, lib/movil-rutas.ts) le arma su fila desde la sidebar con la regla de la sidebar, por su ruta
- * (`rutaMovil('/ai-avatar')`), y una fila oculta con su key se la BORRARÍA («tiene sección en el teléfono»). Su
- * cabecera la pone cada page (`<CabeceraM>`).
+ * AI Avatar tampoco: desde el 29/10/2026 es de Pro y tiene su fila VISIBLE en More (lib/movil-rutas.ts → SECCIONES_MAS, como
+ * Video), que le da la cabecera y la puerta. Hasta ese día era `adminOnly` y More se la armaba desde la sidebar.
  *
  * Las «Coming soon» (Image Generator, Thumbnails, Ideas, YouTube Writer, VSL Generator…) tampoco: tienen la pantalla
  * de «Mobile 2» (/m/pronto/<key>), que se deriva de nav.ts, y la barra de secciones las lleva ahí.

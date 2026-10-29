@@ -38,7 +38,7 @@
 //   · «CALENDARIO | LLAMADAS» arriba a la derecha (24/10/2026, f07: «se ve muy como calendario de Google»): «Llamadas» es la
 //     lista de citas de venta del CRM y las tareas del Plan con fecha (./ListaLlamadas.tsx, la de HighLevel).
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { useConfirm } from '@/app/_ui/Confirm';
@@ -84,7 +84,7 @@ type Movido = { inicio: string; fin: string | null };
 const hhmm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 const llavePreferencia = (ws: number | null) => `calendario.visibles.${ws ?? 'propio'}`;
 
-export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google }: {
+export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google, eventoInicial = null }: {
   vista: VistaCalendario;
   fecha: string;
   hoy: string;
@@ -93,6 +93,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   items: ItemCalendario[];
   fallos: FallosCalendario;
   google: GoogleDelCalendario | null;
+  /** `?evento=<id>`: lo que se acaba de mandar desde un editor de Create (lib/calendario-desde-crear.ts). Se abre una vez. */
+  eventoInicial?: string | null;
 }) {
   const router = useRouter();
   const ws = useWs();
@@ -276,6 +278,19 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
       },
     });
   };
+
+  // «Publicar» desde Create (29/10/2026): llega con `?evento=` y se abre su modal (la red, el día y la hora se eligen ahí). Una
+  // sola vez: el parámetro se saca de la URL, para que un F5 o «atrás» no lo vuelvan a abrir.
+  const abiertoDesdeLaUrl = useRef(false);
+  useEffect(() => {
+    if (!eventoInicial || abiertoDesdeLaUrl.current) return;
+    const it = items.find((x) => x.id === `propio:${eventoInicial}`);
+    if (!it) return;
+    abiertoDesdeLaUrl.current = true;
+    editar(it);
+    router.replace(`/calendario?vista=${vista}&fecha=${fecha}`, { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `editar` se arma en cada render; lo que decide es el evento y la lista
+  }, [eventoInicial, items]);
 
   const borrar = (it: ItemCalendario, avisar = true) => {
     if (it.google) {
