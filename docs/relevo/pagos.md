@@ -35,6 +35,10 @@ docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de l
   (scratchpad `medir-turno.ts`, después una fila en tests/ops-center-clasificador-app.test.ts), regenerar docs/api-mako.md, el
   snapshot y plugin/ (`node --import tsx scripts/generar-api-doc.mjs`, `node scripts/generar-plugin.mjs`), y el VERDE con
   `tickets: [13, 26]` a Integración y al Cerebro. Nada en el ws1.
+- **Hecho (29/10, mediodía):** todo lo de arriba, con `origin/main` mergeado. VERDE a Integración y al Cerebro con tsc limpio,
+  los tests dirigidos y las 18 roturas atrapadas; el tests-afectados después del merge NO se corrió (el Cerebro: lo corre
+  Integración sobre el tren). Queda: recorrerlo en el navegador del ws3 después del deploy, y que Leila (#13) y Mauricio (#26)
+  armen sus planes; los dos tickets siguen en «esperando_decision».
 
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 
