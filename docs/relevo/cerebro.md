@@ -3,7 +3,7 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 28/10/2026 ~21:00, cuenta 4 (claude4)
+## ⏩ LEER PRIMERO — 29/10/2026 ~00:55, relevo final de la cuenta 4 (claude4)
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta… Continúa con todo» y con eso alcanza. No
 preguntes: hacé esto en orden.
@@ -33,23 +33,44 @@ preguntes: hacé esto en orden.
    El 28/10 había cinco chats de la nube 13 horas sin entregar (esperaban aprobaciones que nadie vio), tres ramas
    `nube/*` sin integrar y el ticket #15 de Leila sin dueño. Un chat de la nube NO le avisa al Cerebro: se lo mira.
 
-## Estado al escribir (28/10 ~21:00 ART, claude4 — la cuenta arrancó el 27/10 20:33)
+## Estado al escribir — RELEVO FINAL de claude4 (29/10 ~00:55 ART, semana al 95 %; la cuenta arrancó el 27/10 20:33)
 
-**Si Martín te escribe «Continua»:** la regla del 97% (28/10) dejó a cada chat con su relevo commiteado y anotó dónde en
+**Si Martín te escribe «Continua»:** la regla del 97% (28/10) deja a cada chat con su relevo commiteado y anota dónde en
 `~/.claude/relevos-cuenta/claude4.tsv` (carpeta, rama, transcript). Leé eso, este estado y el relevo de cada chat.
 
-- **`main` = `23b329b5e` (tren-v), subido el 28/10 15:24.** El Video Editor de Leila (ruido y silencios), MaKo
-  inteligente (el Second Brain con las funciones de MaKo) y la copia idéntica de landings.
-- **tren-w en `C:/dev/wt-push-q` (rama `tren-w`), sin subir.** Lleva:
-  - la pausa del Cerebro por archivo (`node scripts/pausa-cerebro.mjs prender|apagar`);
-  - `cambiarSettingSi` con valores largos (CAS por `updated_at`);
-  - tsc-acotado con el lock de un tsc por PC;
-  - las cajas de chat `31fd30df2` (verificado);
-  - el corte del 97% prendido otra vez, con su test.
-  - **Se sube** cuando estén verificados el WhatsApp (urgente) y el blanco del Web Generator, con
-    `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main`.
-  - **El deploy se confirma** con `npx vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y
-    `vercel inspect hola-mako.com`.
+- **`main` = `7f36fa9c6` (28/10 23:57), EN PRODUCCIÓN y verificado.** Desde que arrancó la cuenta subieron:
+  - tren-w (`c17134274`): las horas del CRM, las cajas de chat, la pausa del Cerebro, el corte del 97 %;
+  - el editor, con los subtítulos de Leandro (`004a4ae57`, ticket cerrado y avisado);
+  - el Web Generator en blanco (`7f63046be`);
+  - MaKo inteligente: el Second Brain en el turno, sin la plata para los closers (`7f36fa9c6`).
+- **La rama `tren-x` de `C:/dev/wt-push-q` = main + sólo docs** (este relevo y hallazgos), subidos con este cierre.
+- **Corriendo al cortar: `wf_2f472ad6-193`** (task `w1bp45jj0`), la verificación de Zernio `254856316` y Planes
+  `ddfa645d4`. Su journal está en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/
+  6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl` (si murió, los `agent-*.jsonl`
+  de al lado). Árboles: `C:/dev/verif-254856316` y `C:/dev/verif-ddfa645d4`; sacar el junction de node_modules con
+  `cmd /c rmdir` antes de borrarlos. Si sale limpio: se mezclan los dos juntos en el tren y se suben.
+- **LO QUE SIGUE, en este orden:**
+  1. **P0, el ticket de Martín: «Replicar» no saca la foto de la página.** SIN EMPEZAR (el chat cortó al 95 %). Todo está
+     en la sección 0 de `docs/relevo/web-generator-replicar.md`, en `C:/dev/wt-replica-editable` (rama
+     `replica-editable-2810`, `f59354ec3`, sin subir). Va ANTES que la réplica editable (`a72620aa3`, a medias).
+     **La página que probó Martín es https://100ads.ai/** (lo dijo después, 29/10 ~00:55): reproducir con esa.
+  1b. **Pedido nuevo de Martín (29/10, textual):** «Los tickets de bugs asi, siempre deben traer las acciones que hizo el
+     usuario». Su ticket guardó pantalla, error y hora, pero no la URL que pegó. «Reportar a Soporte» (y el ticket que
+     MaKo abre solo) tiene que llevar los pasos: qué tocó, qué escribió o pegó, en qué orden. Dueño: el chat de soporte
+     y tickets (MaKo en WhatsApp). Regla en la memoria `ticketera-usuarios`.
+  2. **Zernio y Planes**, con el resultado de `wf_2f472ad6-193`. Planes trae la venta externa de Stripe (`5a27268bc`).
+     Desplegada esa, escribirle a Mauricio en su grupo (el +…8122 ES él) para que conecte su Stripe. Prender
+     `cobros.ventas_externas` en ws1 pide el sí de Martín EN EL CHAT.
+  3. **La tienda de Chrome** (sigue en 0.39.1): Martín pone su contraseña de martinkoncke@gmail.com en la pestaña del
+     panel y escribe «listo». Después se sube todo de `feedback/chrome-web-store/` y se manda a revisión. Ver
+     docs/hallazgos-extension.md («La subida por API murió sin avisar»).
+  4. **La fila de verificación** (más abajo): CRM `cc47d841d`, Copywriter `7eef753da`, WhatsApp, Automations, el plan a
+     mano de Planes y las tres ramas `nube/*`.
+  5. **Los pedidos nuevos** (más abajo): pagos por tramos, Classroom, Zernio con varias claves. Y los 70 perdidos de
+     `docs/relevo/pedidos-perdidos-2810.md`.
+- **Cómo se sube un tren:** `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin
+  HEAD:main`, en segundo plano y con `node scripts/pausa-cerebro.mjs prender|apagar`. **El deploy se confirma** con `npx
+  vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y `vercel inspect hola-mako.com`.
 - **⭐ PEDIDO NUEVO DE MARTÍN, el más importante para la próxima cuenta (29/10, ~00:45, en el chat del Cerebro), textual:**
   «Y no me gusta que Leila te tenga que estar respondiendo esas cosas de plan de pagos por ahí, eso refleja lo mal
   construido que esta la tab de pagos... No tiene libertad o diversidad de tipos de cobros».
@@ -394,6 +415,9 @@ preguntes: hacé esto en orden.
 
 ## Trabado esperando a Martín
 
+- **Del 29/10:** su contraseña de Google (martinkoncke@gmail.com) en el panel de la tienda de Chrome, para subir la
+   extensión nueva; archivar desde la barra los cinco chats de la nube sin trabajo; mandarle a P2P el aviso de Meta (el
+   texto quedó en su cierre).
 0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar), 0346 (sin conexión) y la de la papelera del CRM; las decisiones de la revisión de Teo.
 1. **Su sí EN ESTE CHAT para:** leer la Ticketera de producción (el clasificador la niega); activar los avisos al grupo
    (lead de formulario y agenda) en ws15, ws18, ws20 y ws22 de Joan; subir los 21 audios de Makito a un bucket.
