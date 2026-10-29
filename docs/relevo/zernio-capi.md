@@ -13,7 +13,7 @@ Zernio en Integraciones y publicables desde lo que ya existe, un tutorial claro 
 
 **Lo hecho:**
 - `27d7f63ce` — varias claves (la red atada a su clave, conectar en la primera con lugar, el aviso, el webhook en cada clave).
-- `<SHA_REDES>` — todas las redes (LinkedIn, X, Threads, Google Business en el paso 2 y en el Calendario; una tarjeta por red;
+- `2518c96fc` — todas las redes (LinkedIn, X, Threads, Google Business en el paso 2 y en el Calendario; una tarjeta por red;
   Pinterest y Reddit se ven sin conectarse), el «sigue» después del paso 1, el tutorial un paso por pantalla, la mig 0348 y la
   cosecha (docs/hallazgos-integraciones.md).
 
