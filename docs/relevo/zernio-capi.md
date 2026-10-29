@@ -396,3 +396,12 @@ zernio-2510 lleva Planes adentro (8d48ef4c3 trae planes-2710 hasta d15b4ec1d), y
 ALTAs. Sin chat de Planes en claude3, el Cerebro las pasó acá: merge de ddfa645d4 (eb8129418) y los arreglos encima. El detalle,
 en docs/relevo/planes-pagos-partners.md («La verificación de ddfa645d4») y docs/hallazgos-pagos.md. Zernio + Planes entran JUNTOS.
 
+
+## Ticket #28 (29/10, tarde, claude3): una sola pestaña de Zernio y ningún token de Meta a la vista
+
+Rama `zernio-token-2910` (desde origin/main 3648cedb8, en C:/dev/wt-zernio-2510). Pedido del Cerebro, con el texto de Martín.
+- Hecho en af78bb488: `?abrir=meta` y «conectar Meta» abren Zernio; Zernio en dos pasos (la clave, las redes con «Anuncios de
+  Meta», TikTok visible); ningún token a la vista (pantalla, notas, ayudas, MaKo, API); la grilla mide Meta como los otros lectores.
+- El corte sigue el 03/11 y leer con el token sigue después (lo prometió el aviso). El token guardado no se borra.
+- Lo de MaKo diciendo «ya tomé nota para barrer…» sin ticket es del chat de MaKo en WhatsApp: no se tocó.
+- Detalle y trampas: docs/hallazgos-integraciones.md («Una sola pestaña, la de Zernio…»).

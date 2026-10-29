@@ -4,9 +4,9 @@ import { t } from '../strings'
  * Los tamaños de Canva para «Redimensionar» (relevamiento §8, tabla de tipos de diseño de Canva), con las medidas
  * que muestra Canva: las de impresión en cm o in, las de pantalla en px. Todo se guarda en px CSS a 96 dpi.
  *
- * Es LA lista de tamaños del editor: `engine/presets.ts` (SIZE_PRESETS: el popover de tamaño de la página) y el
- * Inicio de MaKo (`app/image-editor/inicio/tamanos.ts`) salen de acá. Un tamaño nuevo se agrega acá y en
- * `strings.ts → dialog.resizeSizes`.
+ * Es LA lista de tamaños del editor: `engine/presets.ts` (SIZE_PRESETS: el popover de tamaño de la página) sale de acá.
+ * Un tamaño nuevo se agrega acá y en `strings.ts → dialog.resizeSizes`. Los de «Nuevo diseño» (los más pedidos, en
+ * app/image-editor/plantillas-crear.ts) son un subconjunto: tests/image-editor-plantillas-crear.test.ts los compara con éstos.
  */
 export type ResizeGroup = keyof typeof t.dialog.resizeGroups
 export type ResizeSizeId = keyof typeof t.dialog.resizeSizes

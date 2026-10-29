@@ -4706,3 +4706,40 @@ de MaKo y el píxel de Meta. Y la prueba en el ws3 con Stripe en modo prueba (un
 
 *27/10/2026, chat «Zernio y CAPI» (`claude5`).*
 
+## La portada apunta a High Ticket: lo que dice hola-mako.com no sale todo del documento (29/10/2026, claude3)
+
+**Vive en:** la #32 del ws de la plataforma (`scripts/landing-principal-high-ticket.mts`) · `app/vsl/portada-metadata.ts` ·
+`app/vsl/PortadaSinJs.tsx` · `app/vsl/landing-html.ts` + `landing-contenido.ts` (el respaldo) · `public/og-landing.jpg` ·
+`tests/portada-high-ticket.test.ts`
+
+Martín pidió que la landing principal dejara de apuntar a «VSL Funnel». El documento de Web Generator decía la frase
+12 veces, pero el HTML que sirve la portada la tenía **34**: cambiar sólo el documento dejaba el `<title>`, la tarjeta para
+compartir (og y twitter, también en los datos de React), la portada sin JavaScript (el respaldo del Suspense, lo que lee
+Meta al verificar) y la IMAGEN de la tarjeta (el texto está dibujado en el JPG) con la frase vieja. Y el respaldo sin
+documento publicado (`landing-html.ts`) la tenía 16 veces. **Regla:** un cambio de copy de la portada se busca en el HTML
+SERVIDO (`curl` a hola-mako.com y contar), no en el documento; lo del código va por un VERDE.
+
+- Con un documento publicado, la portada NO corre `aplicarContenidoLanding` (`Landing.tsx`: `if (!root || diseno) return`):
+  el título de la grilla y las tarjetas que inyecta son sólo del respaldo. Lo que se ve es el documento.
+- **Trampa de la captura:** la portada vive en un `.vsl-root` FIJO del alto de la ventana; el documento mide 900 px y una
+  captura «de página entera» sale de 900. Se suelta el `.vsl-root` (static, alto automático) antes de medir y capturar.
+- **Trampa de la comparación:** el publicador de hoy le agrega a cada sección un ancla vacía
+  (`<span class="gm-ancla-seccion">`) que la foto del 23/10 no tenía: el borrador «no es lo publicado» byte a byte
+  sin una letra cambiada. Se compara sin las anclas.
+- El título para buscadores del documento tiene un tope de 60 letras (el saneo lo recorta en silencio al publicar): va
+  sin «de punta a punta»; el `<title>` de la portada (código) lleva la frase entera.
+
+- **Los precios y el fondo azul (Martín, 29/10 ~11:20) no viven donde parece.** Las tarjetas de precios de la portada NO
+  están en el documento: son las de /planes (`TarjetasPlanes`), montadas por la portada donde estaba la agenda
+  (`montarPrecios`). El azul tampoco es del HTML de la sección (su fondo propio es #F5F7FA): lo pinta un bloque de la HOJA
+  del documento («Realce de la sección CTA»), con el texto en blanco que también tiñe el título de los precios. Lo que
+  cada plan NO trae (✗) y la tabla de la portada salen de `lib/planes-comparacion.ts` (`noIncluyeDe`, `CompararPlanes`):
+  una sola fuente, así que no se contradicen. Y la vista previa en disco tiene que ganarle con el id a
+  `.gm-libre #cal-embed { height: 700px }` como lo hace la portada, o las secciones se pisan (la del sitio no lo tiene).
+- **Gana el código:** Pro decía «Todo lo de Esencial, sin topes» y tiene tope de líneas de WhatsApp y de personas
+  (`lib/topes-plan.ts`). Ahora dice de qué no tiene tope. No hay setting `planes.mako` en la base: valen los del código.
+
+**Sin hacer:** las páginas de cada funcionalidad (`app/vsl/_detalle`, 14 «VSL Funnel», p. ej. «Ads Manager para VSL
+Funnel» en /vsl/ads, a donde lleva la tarjeta del media buyer) y las landings de cada funnel (#33–#40) siguen con la
+frase vieja. El mosaico de 12 íconos de «¿Qué es MaKo?» (decorado, sin texto) muestra funcionalidades que salieron de
+la grilla. La tarjeta de Instagram lleva a la agenda (#beta): no hay página de esa funcionalidad.

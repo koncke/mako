@@ -1176,6 +1176,12 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **Todo envío al grupo de MaKo declara su `memoria`** (`enviarAlGrupoMaKo(ws, texto, memoria)`, lib/mako-grupo.ts): 'mako' si lo
+  dice MaKo (queda en la conversación), 'equipo' si lo dice el equipo (al anillo del equipo, nunca como turno de MaKo), null si
+  quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts).
+- **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
+  `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
+  DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).
 - **El `error` de un `preparar` (o de un `proponer`) es una REGLA, y una falla NUESTRA lleva `falla: true`**: «No pude leer
   las pasarelas conectadas», un `catch` que vuelve `error` lo que reventó. Sin la marca, el «no pude» de MaKo después de esa
   falla no abre ticket; con la marca en una regla, abre uno y sale «Quedó el ticket #N» en el grupo del cliente (28/10/2026,
@@ -2549,7 +2555,7 @@ memoria, y volvió a pasar — por eso ahora vive acá, que es lo que se lee ant
 **Y la evidencia de que funciona es todo el producto.** Lo que en este repo salió bien está
 copiado, y se nombra por su fuente: el Video Editor es CapCut, el Image Editor es Canva, el
 Web Generator es Gamma, el Dashboard es Looker Studio, `/api-mako` es GitHub (con su CSS de
-Primer limitado a `.gh`), los Chats son respond.io. Lo que se dibujó «con buen criterio» —el
+Primer limitado a `.gh`), los Chats son respond.io, el Copywriter es Notion (BlockNote, 29/10/2026). Lo que se dibujó «con buen criterio» —el
 panel de seguridad, el Centro de Operaciones— se rechazó a la primera, las dos veces con la
 misma palabra: *horrible*.
 
@@ -10455,6 +10461,24 @@ Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/vid
 - **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
 Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
 
+# Lo que se puede cortar y reintentar crea con ids que salen de su ORIGEN (29/10/2026)
+
+Una mudanza, una importación o cualquier tanda que escribe muchas filas puede cortarse en el pedido menos pensado (la
+última escritura, o una respuesta que se pierde con la escritura ya hecha). **Cada cosa que crea lleva un id que sale de su
+origen** (hash del negocio + la clave de lo que copia), y el reintento **saltea lo que ya está** y adopta lo que quedó a
+medias. Una marca «ya se hizo» tomada por compare-and-set protege de dos a la vez, NO de un corte a la mitad. Y ante un
+error **ambiguo** no se compensa borrando: puede haber llegado. Lo que costó no verlo (7 → 14 páginas, 6 que abrían «No
+existe»), en docs/hallazgos-copywriter.md; el molde, `crearVarias` + `idDeMudanza` (lib/copywriter/).
+
+# Un editor ofrece SÓLO lo que su formato guarda (29/10/2026)
+
+Una librería de editor (BlockNote en el Copywriter, TipTap en el Web Generator) trae más de lo que el documento de la casa
+sabe guardar: colores, alineación, imágenes, código, niveles de encabezado. Si el esquema del editor lo deja, la persona lo
+usa y desaparece al recargar, sin un error. **El esquema del editor es EXACTAMENTE el del formato guardado**; lo que el
+formato no anida sale a continuación, nunca se tira; y la ida y vuelta (guardado → editor → guardado) tiene su test de punto
+fijo (tests/copywriter-notion.test.ts). Cambiar de librería no cambia el formato guardado: se escribe un conversor
+(lib/copywriter/notion-bloques.ts). El porqué, en docs/hallazgos-copywriter.md.
+
 # Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
 
 `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts) aplica en el acto lo que un paso propone, y toda propuesta que no conoce
@@ -10802,6 +10826,18 @@ Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pago
 escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
 docs/hallazgos-crm.md («El feedback del 27/10/2026»).
 
+# «Eliminar» un lead es mandarlo a la PAPELERA; borrar para siempre es interno (28/10/2026)
+
+Desde la mig 0340, todo «Eliminar» que ve una persona o pide MaKo (la barra en bloque, la tarjeta, la ficha, la API) va por
+`mandarLeadsAPapelera` (lib/leads-papelera.ts): la base saca la FOTO del lead y de todo lo que se lleva en cascada (las FKs se leen
+de `pg_constraint`, no de una lista) y lo borra, en una transacción por lead; durante 30 días vuelve igual, con sus mismos ids.
+**Regla para código nuevo:** un camino nuevo de «eliminar un lead» llama a la papelera, nunca a `deleteLead`; `deleteLead` queda
+para lo interno (unificar fichas, el lead que perdió la carrera de Instagram, el reset de un negocio). Sin la migración, la
+papelera NO cae al borrado de antes: lo dice y no borra. Una tabla nueva con FK al lead entra sola a la foto; una FK de VARIAS
+columnas en cascada la frena entera (no la sabe guardar). Lo fijan tests/crm-acciones-bloque.test.ts y
+scripts/probar-0340-pglite.mjs (contra un Postgres de verdad); el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la
+papelera»).
+
 # Lo que corre el chat de un editor devuelve su MOTIVO, no lo deja sólo en un store (28/10/2026)
 
 El chat del Video Editor sabe si algo salió por una sola señal: si la línea de tiempo cambió. Una operación larga que no
@@ -10811,6 +10847,37 @@ para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{
 `return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
 molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
 el porqué, en docs/hallazgos-video-editor.md.
+
+# Una tab de CREATE es UNA pantalla: `PantallaCrear`, sin pestañas arriba y sin onboarding (29/10/2026)
+
+Martín, 29/10/2026: «para todas las secciones de "create" no quiero otras tabs... el mismo diseño de la barra lateral del
+chat de MaKo SIEMPRE abierto a la izquierda... En "nueva"... TEMPLATES con la sección de ¿Qué vas a crear hoy?». Toda tab de
+la familia Create (Video, Image, Copywriting, AI Avatar y la que venga) monta `app/_crear/PantallaCrear.tsx`: el chat de
+MaKo a la izquierda que no se cierra, su «←» a la lista de proyectos, y «Nuevo …» con las plantillas. Lo que antes era una
+pestaña (Reels, Carousels, Video Generator) es una PLANTILLA de «Nuevo …» o se retira. El ítem de `nav.ts` NO lleva
+`secciones` y conserva la key de la que era su sección principal (la miran las capas, la API y el teléfono). Diseño e
+inventario: docs/diseno-create.md. Lo fija tests/crear-pantalla.test.ts.
+
+# Un dato pedido no se pierde en el respaldo, un archivo del chat viaja por su `ref`, y un número y su lista cuentan igual (29/10/2026)
+
+- **«Solucionar» un dato que la ficha no dibuja** (la plantilla «Evento» no trae «Datos fiscales»): el respaldo lleva EL
+  DATO (`onNoEsta(paso)` → `datoPedido` → `loQueSePide(faltan, avisan, pedido)`). Un respaldo que abre un asistente genérico
+  pierde lo que la persona tocó: Leila tocó «datos fiscales» y le salieron setter y closer.
+- **Una acción con tarjeta que usa un archivo del chat** lo toma en `preparar` (`ctx.adjuntos`, sólo durante el turno y
+  sólo en la app) y guarda su `ref` en la pendiente; `ejecutar` lo baja con `bajarAdjunto`. El `ref` nunca sale de lo que
+  escribe el modelo.
+- **Un número y la lista de quiénes son usan la MISMA función** (`estadoDeAsistencia`, con la misma ventana): dos cuentas
+  parecidas son dos cifras para lo mismo. Lo fijan tests/documento-fiscal-desde-el-chat.test.ts y
+  tests/reuniones-por-asistencia.test.ts; el porqué, en docs/hallazgos-crm.md y docs/hallazgos-api-mako.md.
+
+# Una COLUMNA que se manda al server va con el id del funnel, también el principal (29/10/2026)
+
+`funnelActivo` llega `null` cuando se mira el funnel principal, y el server lee `{ funnelId: null, etapa }` como esa etapa en
+TODOS los funnels (`ambitoDeFunnel(null)` → «todos», lib/nutricion.ts). La difusión de Leila a «Contacto nuevo» del principal
+le habría llegado también a los de los otros funnels. **Regla para código nuevo:** lo que manda una columna al server la manda
+con `funnelActivo ?? funnels.find((f) => f.esDefault)?.id` (en CrmBoard, `funnelDeDifusion`; el mismo que «Vincular evento»),
+y si no hay id, manda los ids que se ven (`seleccionDeDifusion`, app/crm/seleccion-difusion.ts). Lo fija
+tests/crm-difusion-columna.test.ts; el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la papelera»).
 
 # En el teléfono, cerrar una hoja y navegar en el mismo toque va con `navegarAlCerrar` (29/10/2026)
 

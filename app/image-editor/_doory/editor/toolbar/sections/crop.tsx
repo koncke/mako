@@ -15,7 +15,7 @@ const ASPECTS: { id: string; label: string; ratio: number | null }[] = [
   { id: '9:16', label: '9:16', ratio: 9 / 16 },
 ]
 
-/** Reemplaza a la barra mientras se recorta una imagen: proporciones, «Restablecer», «Cancelar» y «Listo» (violeta). */
+/** Reemplaza a la barra mientras se recorta una imagen: proporciones, «Restablecer», «Cancelar» y «Listo» (el primario azul). */
 export function CropSection() {
   const editor = useEditor()
   const [aspect, setAspect] = useState('free')

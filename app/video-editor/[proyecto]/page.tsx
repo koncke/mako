@@ -23,7 +23,7 @@ import { plantillaPorId } from '@/lib/editor-video/plantillas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { VideoEditorCliente } from '../VideoEditorCliente';
 import { Pagina } from '@/app/_ui';
-import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { requireEditorVideo } from '../acceso';
 import { resolverDesde } from '../desde/resolver';
 
@@ -47,13 +47,10 @@ export default async function VideoEditorProyectoPage({ params, searchParams }: 
   const idPropuesta = typeof propuesta === 'string' && UUID.test(propuesta) ? propuesta : null;
   const origen = typeof desde === 'string' && desde ? await resolverDesde(desde) : undefined;
   const idPlantilla = typeof plantilla === 'string' && plantilla ? (plantillaPorId(plantilla)?.id ?? null) : undefined;
-  // Mismo marco que el inicio: la barra lateral y la de secciones se quedan (pedido
-  // de Martín del 12/10), y el editor llena el alto que queda debajo de las secciones.
+  // El marco de toda tab de Create (app/_crear/reglas.ts): la barra lateral se queda (pedido de Martín del 12/10) y el
+  // editor llena lo que queda al lado de la tarjeta del chat.
   return (
-    // Menos la barra de arriba (`--barra-agencia`: la de «Estás viendo el dashboard de…» o la alerta de la voz caída): la regla
-    // global sólo corrige un alto que EMPIEZA con `height: 100vh`, y éste es un `calc(` (docs/hallazgos-ui.md, 22/10/2026).
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))', display: 'flex', flexDirection: 'column' }}>
-      <TemaOscuroScript />
+    <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
       <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} propuesta={idPropuesta} senales={senales} />
     </Pagina>
   );

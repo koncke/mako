@@ -77,7 +77,7 @@ function LiveStatus() {
 }
 
 /**
- * El estado de guardado de Canva, sobre el degradado de la barra: la nube con tilde cuando está todo guardado
+ * El estado de guardado de Canva, en la barra de arriba: la nube con tilde cuando está todo guardado
  * (el texto va en el tooltip), «Guardando…» mientras guarda, y un aviso claro si hay conflicto o error.
  * Mientras hay una sala en vivo muestra el estado de la conexión.
  */

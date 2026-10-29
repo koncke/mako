@@ -20,10 +20,10 @@
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   isolation: isolate;
-  --cv-color-brand-fill: var(--cv-ink);
-  --cv-color-brand-fill-hover: #4a3530;
-  --cv-color-brand-fill-active: #160e0b;
-  --cv-color-brand-strong: var(--cv-ink);
+  --cv-color-brand-fill: var(--cv-color-text);
+  --cv-color-brand-fill-hover: color-mix(in srgb, var(--cv-color-text) 82%, var(--cv-color-surface));
+  --cv-color-brand-fill-active: color-mix(in srgb, var(--cv-color-text) 92%, var(--cv-color-surface));
+  --cv-color-brand-strong: var(--cv-color-text);
 }
 
 .cv :where(h1, h2, h3, h4) {
@@ -108,8 +108,8 @@
 }
 
 .cv ::selection {
-  background: var(--cv-pastel-butter);
-  color: var(--cv-ink);
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-color-text);
 }
 
 .cv * {

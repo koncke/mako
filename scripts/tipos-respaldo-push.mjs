@@ -110,6 +110,12 @@ async function main() {
   const guion = existsSync(join(process.cwd(), 'scripts', 'tipos-por-tandas.mjs'))
     ? join(process.cwd(), 'scripts', 'tipos-por-tandas.mjs')
     : join(dirname(fileURLToPath(import.meta.url)), 'tipos-por-tandas.mjs');
+  // ⚠️ LA RAM DE LA PRIMERA TANDA SE ESPERA ANTES DE TOMAR EL LOCK (29/10/2026, el push de tren-y): con el lock tomado y la PC en
+  // 2-3,5 GB, el respaldo esperaba 15 min sin correr ningún tsc y la fila de tipos de TODA la PC quedaba frenada (un chat salió
+  // con 99 sin correr). Afuera del lock no frena a nadie; las tandas 2 y 3 miran la RAM de nuevo, ya con el lock.
+  const ramAntes = await esperar(() => freemem() / 1024 ** 3 >= RAM_MIN_GB, RAM_ESPERA_MAX_MS, 2000,
+    () => `  [tipos por tandas] quedan ${(freemem() / 1024 ** 3).toFixed(1)} GB y pide ${RAM_MIN_GB.toFixed(1)}; espero hasta 15 min SIN tomar el turno…\n`);
+  if (!ramAntes) { process.stderr.write(`  ✖ tanda 1/${TANDAS}: no hubo RAM en 15 min. NO es un error de tipos: no se chequeó.\n`); return SALIDA_SIN_CHEQUEAR; }
   const turno = await esperar(() => {
     if (tomarLock()) return true;
     if (!vivo(duenoDelLock())) { try { unlinkSync(LOCK); } catch { /* lo sacó otro */ } }

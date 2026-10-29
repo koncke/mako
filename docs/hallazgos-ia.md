@@ -7322,3 +7322,28 @@ Martín: hoy la regla de `mako-pc` es no tocarlo.
 gana al plan (sólo un pedido de MOVERLA: `MUEVE_AGENDA`); y el estilo de la vista («mostrar», «formato», «más grande») vale sólo en
 «Editar» (`nombraLaVistaDeLaFicha`), no en todo esPedidoDeCobro, donde «me mostró» o «la orden de compra» son datos. «Anotado, …»,
 «Anotado 👍» y «Anotado y guardado» siguen siendo un «Anotado»; con una pendiente, la queja suelta («No anda») tampoco es un «no».
+
+## El grupo de WhatsApp usaba el prompt del DASHBOARD (28/10/2026, claude4, el diagnóstico del Cerebro, F1)
+
+**El síntoma:** «Mira… no es arrancar por los flujos locos, sino por definir el disparador… armamos el experimento para
+validarlo» (Leandro), «el problema no es que falte interés, sino…» (Brigitte), «Te voy a ser directo» dos veces en 6 minutos
+(Sergio), y «¡Buen día, Martín!» a Joan, en un grupo donde nunca escribió nadie llamado Martín.
+
+**La causa:** el turno del grupo armaba su system con `buildSystemPrompt` como el chat general del dashboard: la persona
+«consultor IA de Martín Koncke» (lib/mako-persona.ts, escrita para el negocio de Martín), MAKO_NUCLEO («NUNCA termines con una
+pregunta», «CIERRA PROPONIENDO INICIAR UN EXPERIMENTO»), «CONTEXTO: chat general del dashboard», la fase de la sección y 4
+fragmentos de metodología de copy, todo ANTES de DOER_WA_VOZ, que pedía lo contrario. Fue la causa más frecuente: 15 de 49.
+⚠️ **Cambiar a Claude no lo arreglaba:** el system es el mismo para cualquier modelo. Y el «Martín» sale de la persona, no de
+que falte el autor en la memoria.
+
+**La regla (lib/nucleo-grupo.ts, lib/mako-context.ts con `canal: 'grupo'`):**
+- NUCLEO_GRUPO va primero y FIJO en código, como REGLA_NO_DESCALIFICAR: ningún override de Configuraciones lo saca (medido el
+  28/10, sólo lectura: ningún negocio tiene `mako.prompt-overrides` ni `mako.prompts`; sólo ws1 y ws4, `mako.fase.general`);
+- sin la persona, sin MAKO_NUCLEO, sin «chat general del dashboard» y sin la fase de la sección; también en la red (lean);
+- el contexto del NEGOCIO (fase, objetivos, metodología, experimentos, funnel, cara de marca, tabs sin configurar) sólo si el
+  turno piensa o consulta sus números, su copy o sus anuncios (`conElNegocio`);
+- lo que no entiende se pregunta (DOER_WA_VOZ ya no dice «¿te lo anoto como tarea?»); un link sólo si lleva a lo concreto (nada
+  de /plan ni /dashboard de relleno), y /automations entre los links; `**x**` y `##` salen como `*x*` (`aFormatoWhatsapp`).
+- La app y los gráficos siguen con la persona y el núcleo de siempre (lib/mako-turno-app.ts): no se tocó MAKO_NUCLEO.
+- ⚠️ NUCLEO_GRUPO no nombra la marca `[[ya-pedido]]`: todavía no existe, y el modelo la escribiría y le llegaría al cliente.
+  Entra con F2b (los tickets del negocio en el system).

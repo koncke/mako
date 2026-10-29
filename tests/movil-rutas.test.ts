@@ -90,6 +90,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
   // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
+  // 29/10/2026: Copywriting ES el Copywriter (una pantalla, sin secciones): se gatea con su key, `copywriter`.
   // 17/10/2026, la sidebar nueva: dos familias (Operate con Dashboard y Clients; Sales Machine con Video y Copywriting),
   // Second Brain arriba sin título, y el Mapa y Experiments OCULTOS (sus páginas siguen; no son filas).
   assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia, s.oculta ?? false]), [
@@ -98,7 +99,8 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
     ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true], ['agency', 'agency', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
-    ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
+    // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
+    ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
@@ -111,8 +113,8 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['customers', 'admin-customers', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
-    ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],
-    ['carousels', 'carousels', null, true], ['stories', 'stories', null, true],
+    // 29/10/2026: Video Generator queda oculta (una plantilla de Video); Reels y Carousels se retiraron.
+    ['video-generator', 'video-generator', null, true], ['stories', 'stories', null, true],
     ['admin-copywriting', 'admin-copywriting', null, true],
   ]);
 });

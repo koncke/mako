@@ -168,7 +168,8 @@ test('el server lee y escribe POR CRM: la casa sin los agregados, y lo nuevo de 
 test('cada acción de la tab valida el CRM contra el lead antes de escribir', () => {
   const campo = sinComentarios(leer('app/crm/[id]/pagos-campo-actions.ts'));
   assert.match(campo, /crm: await crmDelTrato\(leadId, opts\.crm\)/, 'la venta');
-  assert.match(campo, /const trato = await crmDelTrato\(leadId, crm\);\s*const cambios = await guardarCuotasPorId/, 'las cuotas');
+  // Entre los dos, desde el 29/10, sólo la lectura de lo de antes para el Deshacer del plan por tramos (`loDeAntes`, con el trato).
+  assert.match(campo, /const trato = await crmDelTrato\(leadId, crm\);\s*(?:\/\/[^\n]*\n\s*)*(?:const antes = como\?\.conDeshacer \? await loDeAntes\(leadId, trato\) : null;\s*)?const cambios = await guardarCuotasPorId/, 'las cuotas');
   assert.match(campo, /const trato = await crmDelTrato\(leadId, crm\);\s*const delCrm/, 'el plan');
   const cuotas = sinComentarios(leer('app/crm/lead-view/ficha/pagos/cuotas-actions.ts'));
   assert.equal((cuotas.match(/crmDelTrato\(leadId, crm\)/g) ?? []).length, 3, 'quitar, la baja y agregar');
@@ -184,7 +185,9 @@ test('los bloques de plata de Pagos dibujan y escriben el trato del CRM que se m
   const bloques = sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'));
   assert.match(bloques, /quitarCuotaAction\(lead\.id, q\.id, crm\)/);
   assert.match(bloques, /bajaDelClienteAction\(lead\.id, deshacer, crm\)/);
-  assert.match(bloques, /ajustarPlanAction\(l\.id, cambiado, ctx\.crm\?\.id \?\? null\)/);
+  // El plan (por tramos desde el 29/10) se guarda en el trato que se mira.
+  assert.match(bloques, /function ArmarPlan\([^\n]*\n\s+const l = ctx\.lead;\n\s+const crm = ctx\.crm\?\.id \?\? null;/);
+  assert.match(bloques, /guardarCuotasAction\(l\.id, \[\.\.\.cuotas, \.\.\.aparte\], columnas, vistos, crm, /);
   assert.match(bloques, /guardarVentaAction\(lead\.id, c, \{ tipoVisto: tipo, crm \}\)/);
   const cobrar = sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx'));
   assert.match(cobrar, /agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}, ctx\.crm\?\.id \?\? null\)/);

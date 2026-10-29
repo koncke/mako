@@ -186,7 +186,7 @@ function MotivoQuick({ value, onChange, sugerencias, placeholder }: { value: str
   );
 }
 
-export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, completarDatos = false, equipo = [], faltantes, onVerDetalle }: {
+export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, completarDatos = false, equipo = [], faltantes, datoPedido = null, onVerDetalle }: {
   lead: MoveLeadInfo;
   stages: Stage[];
   move: StageMoveTarget;
@@ -203,6 +203,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
    *  usa para saber qué pedir (incluye Deal Details / documentos / respuestas R2)
    *  en vez de re-derivarla — así resuelve TODO en una sola pasada. */
   faltantes?: Step[];
+  /** «Completar datos» de UN dato que la ficha no dibuja (el `onNoEsta` de la ficha): ése se pregunta, también el documento
+   *  fiscal y el comprobante, que al mover no se preguntan. */
+  datoPedido?: StepId | null;
   /** Paso final "¿Ver detalle o salir?" (kanban): si viene, navega a la ficha. */
   onVerDetalle?: () => void;
 }) {
@@ -482,6 +485,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     if (requeridos.has('dealServicio')) p.push('dealServicio');
     if (requeridos.has('dealPromesa')) p.push('dealPromesa');
     if (requeridos.has('dealFiscal')) p.push('dealFiscal');
+    // El documento fiscal, sólo si es EL dato que se tocó y la ficha no tiene dónde subirlo (ver el ⚠️ de abajo).
+    if (datoPedido === 'dealFiscalDoc' && requeridos.has('dealFiscalDoc')) p.push('dealFiscalDoc');
     if (requeridos.has('dealObligaciones')) p.push('dealObligaciones');
 
     // Una pregunta por slide: primero el tipo de venta, después el monto, y solo
@@ -494,6 +499,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (ventaTipo === 'suscripcion') p.push('susPlazo');
     }
     if (requeridos.has('plan') && ventaTipo !== 'suscripcion' && ventaTipo !== 'sin_cobro') p.push('plan');
+    if (datoPedido === 'comprobante' && requeridos.has('comprobante')) p.push('comprobante');
     // ⚠️ UNA SOLA PANTALLA PARA EL MOTIVO, desde el 27/09/2026. Eran DOS pasos seguidos
     // para UN dato: una con seis chips y otra con un textarea, y el propio relevamiento de
     // fricción lo dejó escrito como pendiente en la fila que dice que el motivo SE QUEDA
@@ -518,6 +524,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     // No se pierde nada: los dos siguen pidiéndose desde la ficha, que es donde se
     // resuelven de verdad —con el archivo a mano— y donde ya aparecen en «Datos
     // sin marcar».
+    // ⚠️ SALVO QUE LA FICHA NO TENGA DÓNDE (`datoPedido`, 29/10/2026): la plantilla «Evento» no trae «Datos fiscales»,
+    // y «Solucionar» el documento caía acá, que no lo preguntaba. Si es EL dato que se tocó, se pregunta (arriba).
     // El motivo de R2 externa: al final.
     if (requeridos.has('r2Respuestas')) p.push('r2Motivo');
     p.push('resumen');
@@ -545,7 +553,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (preguntas.length === 1) return preguntas;
     }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos, productos]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos, productos, datoPedido]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).

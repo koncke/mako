@@ -1,7 +1,7 @@
 /*
  * Los paneles de agregar (Elementos, Texto, Subidos, Herramientas, Apps) con las medidas y colores de Canva
  * (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4 y §3.2): textos 14/22, subtítulos de sección 14/20
- * semibold, botón primario violeta de 40 px con radio 8, baldosas sin borde que se agrisan al pasar.
+ * semibold, botón primario azul de 40 px con radio 8, baldosas sin borde que se agrisan al pasar.
  */
 
 /* ── Botón primario de ancho completo («Agregar un cuadro de texto», «Subir archivos») ── */
@@ -136,7 +136,7 @@
   background: var(--cv-color-bg-muted);
 }
 .tile:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 .tile:focus-visible {
   outline: none;
@@ -205,7 +205,7 @@
   background: var(--cv-color-bg-muted);
 }
 .textStyle:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 .textStyle:focus-visible {
   outline: none;
@@ -421,7 +421,7 @@
 .tab:hover {
   color: var(--cv-color-text);
 }
-/* Canva: la pestaña elegida lleva una raya violeta abajo */
+/* Canva: la pestaña elegida lleva una raya azul abajo */
 .tab[aria-selected='true'] {
   color: var(--cv-color-text);
 }
@@ -611,8 +611,8 @@
   width: 56px;
   height: 56px;
   border-radius: var(--cv-radius-lg);
-  background: var(--cv-pastel-lilac);
-  color: var(--cv-violet-800);
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-color-selected-text);
 }
 .appIcon svg {
   width: 26px;
@@ -627,23 +627,23 @@
   white-space: nowrap;
 }
 .lilac {
-  background: var(--cv-pastel-lilac);
+  background: var(--cv-color-brand-soft);
 }
 .sky {
-  background: var(--cv-pastel-sky);
-  color: #182c59; /* Canva: texto de aviso info */
+  background: var(--cv-color-info-soft);
+  color: var(--cv-color-info); /* Canva: texto de aviso info */
 }
 .mint {
-  background: var(--cv-pastel-mint);
-  color: #133416; /* Canva: texto de aviso éxito */
+  background: var(--cv-color-success-soft);
+  color: var(--cv-color-success); /* Canva: texto de aviso éxito */
 }
 .pink {
-  background: var(--cv-pastel-pink);
-  color: #501b21; /* Canva: texto de aviso error */
+  background: var(--cv-color-danger-soft);
+  color: var(--cv-color-danger); /* Canva: texto de aviso error */
 }
 .butter {
-  background: #ffd9ad; /* Canva: aviso de advertencia, fondo suave */
-  color: #3e2a14;
+  background: var(--cv-color-warning-soft); /* Canva: aviso de advertencia, fondo suave */
+  color: var(--cv-color-warning);
 }
 
 @keyframes spin {

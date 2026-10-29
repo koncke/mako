@@ -1,11 +1,11 @@
 /*
  * Building blocks of the editor chrome (sizes, radii, paddings and states), skinned with the --ed-* aliases defined on the editor root (EditorApp.module.css),
  * which map onto the Doory tokens.
- *
- * Tanda 2 (re-vestido de Canva): los estados y las piezas de los paneles toman los valores del sistema de diseño de
- * Canva (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4): primario violeta lleno con radio 8 y sin la
- * sombra corrida de Doory, «elegido» en violeta suave, títulos de sección 14/20 semibold (sin la letra manuscrita),
- * campos blancos con borde gris y foco violeta.
+ * Tanda 2 (re-vestido de Canva): los estados y las piezas de los paneles toman las medidas del sistema de diseño de
+ * Canva (relevamiento-canva-armazon.md §1.2–1.4), con los COLORES de MaKo desde el 29/10/2026 (styles/tokens.css): primario azul lleno con radio 8 y sin la
+ * Canva (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4): primario azul lleno con radio 8 y sin la
+ * sombra corrida de Doory, «elegido» en azul claro, títulos de sección 14/20 semibold (sin la letra manuscrita),
+ * campos blancos con borde gris y foco azul.
  */
 
 /* ── Buttons ── */
@@ -65,11 +65,11 @@
   color: var(--ed-text);
   background: var(--ed-surface-3);
 }
-/* Canva: «elegido» = fondo violeta suave y texto violeta oscuro */
+/* Canva: «elegido» = fondo azul claro y texto azul fuerte */
 .pressed,
 .pressed:hover:not(:disabled) {
-  background: rgb(163 112 252 / 0.15);
-  color: var(--cv-violet-800);
+  background: var(--cv-color-selected);
+  color: var(--cv-color-selected-text);
 }
 
 /* ── Contextual strip ── */
@@ -453,8 +453,8 @@
   cursor: default;
 }
 .menuItem[aria-checked='true'] {
-  background: rgb(163 112 252 / 0.15);
-  color: var(--cv-violet-800);
+  background: var(--cv-color-selected);
+  color: var(--cv-color-selected-text);
   font-weight: 600;
 }
 .menuItem > span {
@@ -492,7 +492,7 @@
   background: var(--cv-color-bg-muted);
 }
 .presetBtn:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 .presetBtn:focus-visible {
   outline: none;
@@ -558,9 +558,9 @@
   box-shadow: var(--cv-focus-ring);
 }
 .shapeBtn.on {
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-color-selected);
   box-shadow: inset 0 0 0 1px var(--cv-color-brand);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
 }
 .uploadZone {
   display: flex;

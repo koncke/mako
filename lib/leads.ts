@@ -488,9 +488,12 @@ async function filasDeAgregados(supabase: SupabaseClient, funnelId: number | nul
   try {
     const id = funnelId ?? (await idDelFunnelDefault());
     if (id == null) return null;
-    const { data, error } = await supabase.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', id);
-    if (error) throw new Error(error.message);
-    return { id, filas: (data ?? []) as Array<{ lead_id: number | string; etapa: string }> };
+    // ⚠️ PAGINADO (28/10/2026, ticket #21: «más de 1000 no se trunca»): con un `select` solo, PostgREST devolvía las
+    // primeras 1.000 filas y callaba; un CRM con 1.200 agregados dibujaba 1.000, y la casilla de la columna tildaba 1.000.
+    const filas = await leerTodo<{ lead_id: number | string; etapa: string }>(supabase, 'lead_funnel', 'lead_id, etapa', {
+      orden: 'id', filtros: (q) => q.eq('funnel_id', id),
+    });
+    return { id, filas };
   } catch (e) {
     console.warn('[leads] no pude leer los agregados del tablero:', e instanceof Error ? e.message : e);
     return null;

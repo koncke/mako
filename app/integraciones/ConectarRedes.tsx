@@ -12,14 +12,20 @@
 // ⚠️ UN SOLO HOOK PARA TODAS LAS FILAS: la vuelta de página entera (`?zernio=<red>`) se procesa una vez y los botones comparten el
 // estado («Conectando…» en la fila que se tocó, las demás esperan).
 // ⚠️ Sólo LEE (`conexiones`): no reclama ruteo ni registra webhooks. Eso lo hace `conectada`, una vez, al quedar conectada una cuenta.
+// ⚠️ ES EL PASO 2 DE ZERNIO, Y «ANUNCIOS DE META» VIVE ACÁ (29/10/2026, ticket #28, Martín: «en una sola pestaña, la de Zernio...
+//    pegar primero tu API y después loguearte»): la fila de los anuncios es `ConectarMetaZernio` (conectar con Facebook, y elegir
+//    la cuenta publicitaria y el píxel), que antes vivía en el modal de Meta. Ese modal ya no pide nada: abre éste.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { EstadoConexion, leerConexiones, useConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { REDES, REDES_VISIBLES, estadoDeRed, lineaDeCobro, textoGratisZernio, type ConexionZernio, type RedZernio } from '@/lib/zernio-redes';
 
 const SANS = "'Geist', sans-serif";
+// Los anuncios de Meta: conectar con Facebook, la cuenta publicitaria y el píxel (se baja sólo con este paso).
+const ConectarMetaZernio = dynamic(() => import('./ConectarMetaZernio'), { ssr: false });
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
 /** Cómo se llama lo que está conectado: el @usuario o el nombre de la cuenta (el primero que ande). */
@@ -49,7 +55,7 @@ export default function ConectarRedes() {
   return (
     <div data-conectar-redes style={{ ...caja, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Redes</span>
+        <span data-paso-zernio="2" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Paso 2 · Conecta tus redes</span>
         <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{lineaDeCobro(total)}</span>
         {/* Los límites de Zernio, al conectar (Martín, 28/10): lo que da gratis además de las 2 cuentas, y qué pasa al pasarse. */}
         <span data-gratis-zernio style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{textoGratisZernio()}</span>
@@ -60,7 +66,7 @@ export default function ConectarRedes() {
       )}
 
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {REDES_VISIBLES.map((red: RedZernio) => {
+        {REDES_VISIBLES.filter((red) => !REDES[red].anuncios).map((red: RedZernio) => {
           const e = lista ? estadoDeRed(red, lista) : null;
           const vencida = e?.estado === 'vencida' ? e.conexiones.find((c) => c.vencida) : undefined;
           // Los anuncios son UNA conexión por perfil (Zernio): «otra» no existe, se vuelve a conectar la misma (`force`).
@@ -86,6 +92,9 @@ export default function ConectarRedes() {
           );
         })}
       </ul>
+
+      {/* «Anuncios de Meta», con la cuenta publicitaria y el píxel: lo que antes era el modal de Meta. */}
+      <ConectarMetaZernio onGuardado={() => { void leer(); }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <EstadoConexion z={z} />

@@ -304,7 +304,7 @@ async function jobMetaMetrics(job: JobState, deadline: number, marcar: Marcar): 
         await sleep(30_000);
         try { insights = await fetchMetaInsights(fecha); } catch { return false; }
       } else if (e instanceof MetaTokenError) {
-        throw new Error(`Token de Meta inválido: ${e.message}`);
+        throw new Error(`La conexión anterior de Meta venció: conecta Meta en la tarjeta de Zernio (${e.message})`);
       } else {
         throw e;
       }
@@ -409,7 +409,7 @@ async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean
   // FAIL-CLOSED: si la conexión del cliente (su Zernio o su token, lib/meta-via.ts) desapareció o quedó ilegible a mitad
   // de la extracción, cortar acá — transcribeAd sin acceso caería al env del dueño (token ajeno para los ads del cliente).
   const acceso = await accesoDeMeta();
-  if (!acceso) throw new Error('Meta no está conectado en este workspace (ni por Zernio ni con el token) — reconecta Meta.');
+  if (!acceso) throw new Error('Meta no está conectado en este negocio: conéctalo en la tarjeta de Zernio («Anuncios de Meta»).');
 
   let procesados = 0;
   let exitos = 0;

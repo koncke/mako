@@ -23,7 +23,11 @@
 export const PREFIJO_CHAT_PERSONA = 'persona:';
 
 /** Quién pide: si es admin del workspace, y su persona (la de `personaDeSesion`). */
-export type QuienChatea = { admin: boolean; persona: string };
+/**
+ * Quién pide. `veCopywriter`: pasa la puerta del Copywriter (lib/copywriter/puerta.ts, hoy sólo el super admin). Sin el
+ * campo, NO: las charlas de un guion no se ven ni se escriben (falla cerrado; ser admin del negocio no alcanza).
+ */
+export type QuienChatea = { admin: boolean; persona: string; veCopywriter?: boolean };
 
 /**
  * La persona de una sesión, para la clave. Con fila en `usuarios` (sub numérico) va por su id, que no cambia si cambia
@@ -51,14 +55,27 @@ export function claveLogica(claveGuardadaDeLaSesion: string): string {
  * suya (`persona:<persona>:<clave>`). null = no le corresponde: la clave de OTRA persona.
  */
 export function claveGuardada(chartKey: string, q: QuienChatea): string | null {
+  if (!pasaLaPuertaDeSuTab(chartKey, q)) return null;
   if (chartKey.startsWith(PREFIJO_CHAT_PERSONA)) {
     return q.admin || chartKey.startsWith(prefijoDePersona(q.persona)) ? chartKey : null;
   }
   return q.admin ? chartKey : `${prefijoDePersona(q.persona)}${chartKey}`;
 }
 
-/** ¿Puede leer o escribir esta sesión? El admin, cualquiera; los demás, sólo las suyas. */
+/**
+ * ¿Es la charla de MaKo de un guion del Copywriter (`copywriter:<guion>`, lib/hilo-de-tab-reglas.ts)? La tab es sólo del
+ * super admin: su charla también (verificación del Cerebro del 28/10/2026: el admin del negocio la leía, la escribía y
+ * le salía en su Ops Center).
+ */
+export const esCharlaDelCopywriter = (clave: string): boolean => claveLogica(clave).startsWith('copywriter:');
+
+/** ¿Puede ver esta charla, por su TAB? Hoy sólo cierra la del Copywriter a quien no pasa su puerta. */
+export const pasaLaPuertaDeSuTab = (clave: string, q: QuienChatea): boolean => !esCharlaDelCopywriter(clave) || q.veCopywriter === true;
+
+/** ¿Puede leer o escribir esta sesión? El admin, cualquiera; los demás, sólo las suyas. Y la de una tab con puerta,
+ *  sólo quien la pasa. */
 export function puedeUsarSesion(claveDeLaSesion: string, q: QuienChatea): boolean {
+  if (!pasaLaPuertaDeSuTab(claveDeLaSesion, q)) return false;
   return q.admin || claveDeLaSesion.startsWith(prefijoDePersona(q.persona));
 }
 

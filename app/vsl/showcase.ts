@@ -114,19 +114,19 @@ export const SHOWCASE: ShowcaseFeature[] = [
   },
   {
     slug: 'ads',
-    name: 'Ads Manager para VSL Funnel',
+    name: 'Tu media buyer con IA',
     icon: [
       'M18 8a3 3 0 0 1 0 6',
       'M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5',
       'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8',
     ],
-    hook: 'Nunca más tres horas peleándote con el Ads Manager.',
-    intro: 'Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <em>mil botones que no necesitas</em>. MaKo te deja solo lo que un VSL Funnel usa, y <strong>crea tu campaña en 5 preguntas simples</strong>.',
+    hook: 'Te dice qué subir, pausar o prender en Meta, y por qué.',
+    intro: 'Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <em>mil botones que no necesitas</em>. MaKo mira tu cuenta cada día y te deja <strong>decisiones con su porqué</strong>, medidas contra los cierres de tu CRM.',
     points: [
-      'Sube tu creativo (o usa uno ganador), di cuánto invertir y a quién apuntar. MaKo <strong>arma la estructura y escribe los textos</strong> por ti.',
-      'Publica todo <strong>en pausa, listo para revisar</strong>. Un clic y sale. Pausar y escalar, también desde aquí.',
+      'Subir o bajar un presupuesto, pausar, prender o probar una <strong>variación del anuncio ganador</strong>: cada decisión con los números que la dispararon.',
+      'En «propone» espera tu clic; con el <strong>piloto automático</strong> (MaKo Pro) aplica solo, dentro de tus topes. Todo se deshace con un botón.',
     ],
-    nota: 'Crear campañas y subir creativos está en activación — depende de habilitar la escritura sobre tu cuenta de Meta.',
+    nota: 'Nace apagado en cada negocio: lo prendes tú.',
   },
   {
     slug: 'script',

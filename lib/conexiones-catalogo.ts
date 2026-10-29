@@ -125,11 +125,12 @@ const NO_SE_OFRECEN = new Set(['gemini', 'groq']);
 const META_POR_ZERNIO = {
   ruta: rutaDeTarjeta('zernio'),
   aclaracion: 'con tu Facebook, por Zernio',
+  // 29/10/2026 (ticket #28): la tarjeta de Zernio va en dos pasos, y «Anuncios de Meta» es el bloque del paso 2.
   pasos: [
     'Desde tu computadora, abre el link: es la tarjeta de Zernio.',
-    'Si te pide la "API key de Zernio": sácala en zernio.com → "Settings" → "API Keys" y pégala.',
-    'En "Redes", toca "Conectar" en "Anuncios de Meta" y entra con tu Facebook.',
-    'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
+    'Si te pide la "API key de Zernio" (paso 1): sácala en zernio.com → "Settings" → "API Keys" y pégala.',
+    'En "Anuncios de Meta" (paso 2), toca "Conectar con Facebook" y entra con tu Facebook.',
+    'Acepta en la ventana de Facebook y elige tu cuenta publicitaria y tu píxel, si tienes varios.',
   ],
 } as const;
 

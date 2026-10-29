@@ -1,4 +1,4 @@
-/* El área del lienzo de Canva: gris liso #F6F7F8 (sin la trama de puntos de Doory), las páginas blancas centradas. */
+/* El área del lienzo de Canva: el --bg de MaKo (sin la trama de puntos de Doory), las páginas blancas centradas. */
 .workspace {
   position: relative;
   flex: 1;
@@ -64,14 +64,14 @@
   padding: 0 var(--cv-space-4);
   border: 0;
   border-radius: var(--cv-radius-sm);
-  background: var(--cv-color-bg-muted); /* Canva: neutro sutil #404F6D0F */
+  background: var(--cv-color-bg-muted);
   color: var(--cv-color-text);
   font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
   cursor: pointer;
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
 }
 .addPage:hover {
-  background: var(--cv-color-border); /* Canva: neutro normal #39466024 */
+  background: var(--cv-color-border);
 }
 .addPage:active {
   background: var(--cv-color-border-strong);

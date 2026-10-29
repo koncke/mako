@@ -817,7 +817,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_campanas_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Campañas que ve el Media Buyer',
-    descripcion: 'Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.',
+    descripcion: 'Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o la conexión anterior), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_MEDIA_BUYER,
   },

@@ -1,96 +1,90 @@
 /*
- * Tokens del Image Editor — la paleta de CANVA, medida (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4).
+ * Tokens del Image Editor — los colores de MaKo (29/10/2026).
  *
- * Los NOMBRES son los de Doory (prefijados `--cv-` en el port, para no pisar los namespaces de Tailwind 4); los
- * VALORES son los de Canva: el violeta #8B3DFF de acción y selección, el gris #F6F7F8 del cromo de 2025–26 (riel, área
- * del lienzo, barra inferior), superficies blancas, bordes y textos del sistema de diseño de Canva, sus sombras y su
- * escala tipográfica (14/22 el texto general, 11 los rótulos del riel). Los valores se copiaron a mano: el CSS de
- * `@canva/app-ui-kit` no se copia (su licencia lo limita a apps dentro de Canva).
+ * Martín, 29/10/2026: «Quiero que en las tabs de Editor e Image, pongas los colores de MaKo, no esos colores». Hasta ese
+ * día eran los de Canva medidos (el violeta #8B3DFF, el gris #F6F7F8, el degradé celeste → violeta de la barra, Noto Sans
+ * y «un solo tema: claro»). Ahora cada `--cv-*` apunta a un token de MaKo (app/globals.css, `:root` y
+ * `[data-tema="oscuro"]`), así que el editor sigue el tema claro u oscuro que eligió la persona sin redefinir nada:
+ *   · acción y selección: --primary, el azul Meta (memoria «Nord + azul Meta»); lo «elegido» en --primary-bg;
+ *   · el cromo (riel, área del lienzo, barra de abajo): --bg; las tarjetas y la barra de arriba: --surface con --ink;
+ *   · la letra: Geist, la de MaKo (la carga app/layout.tsx para toda la app).
+ * Los NOMBRES son los de Doory (prefijados `--cv-` en el port para no pisar los namespaces de Tailwind 4); los
+ * componentes usan estas variables y nunca un color suelto. Lo que es CONTENIDO del diseño (el blanco de la página, los
+ * colores de las plantillas, la paleta que elige la persona) no pasa por acá.
  *
- * Los componentes usan estas variables y nunca un color suelto. Un solo tema: claro (el default de Canva).
+ * ⚠️ El lienzo lee algunos con `getComputedStyle` (engine/objects/theme.ts: la selección, las guías, el texto tenue;
+ * panels/AnimateThumb.tsx, panels/AudioWaveform.tsx) y se los da a un <canvas>: ESOS tienen que terminar en un color
+ * que el canvas entienda (un hex de MaKo vía `var()`), nunca en un `color-mix()`, que el canvas descarta en silencio.
  */
 .cv {
-  /* Violeta de Canva (acción, selección, foco de campo) */
-  --cv-violet-50: #f3ecff;
-  --cv-violet-100: #f1eaff;
-  --cv-violet-200: #e7dbff;
-  --cv-violet-300: #d4bfff;
-  --cv-violet-400: #a370fc;
-  --cv-violet-500: #8b3dff;
-  --cv-violet-600: #7630d7;
-  --cv-violet-700: #612dae;
-  --cv-violet-800: #4a2e7e;
-  --cv-violet-900: #352459;
-  --cv-violet-950: #1d1340;
-
-  /* Tinta y acentos (nombres de Doory; valores de Canva) */
-  --cv-ink: #0e1318;
-  --cv-paper: #ffffff;
-  --cv-pastel-lilac: #e7dbff;
-  --cv-pastel-pink: #ffd6d8;
-  --cv-pastel-blush: #ffd6d8;
-  --cv-pastel-butter: #f1eaff;
-  --cv-pastel-mint: #c3eac4;
-  --cv-pastel-sky: #cce1ff;
-
-  /* Semántica — claro */
-  --cv-color-brand: #8b3dff;
-  --cv-color-brand-hover: #7630d7;
-  --cv-color-brand-active: #612dae;
-  --cv-color-brand-soft: #f1eaff;
-  --cv-color-brand-soft-hover: #e7dbff;
-  --cv-color-on-brand: #ffffff;
-  --cv-accent-lilac: #8b3dff;
-
-  /* Botón primario de Canva: violeta lleno, sin sombra corrida */
-  --cv-color-cta: #8b3dff;
-  --cv-color-cta-hover: #7630d7;
-  --cv-color-on-cta: #ffffff;
-  --cv-color-cta-shadow: transparent;
-
-  --cv-color-bg: #f6f7f8;
-  --cv-color-bg-subtle: #f6f7f8;
-  --cv-color-bg-muted: rgb(64 79 109 / 0.06);
-  --cv-color-surface: #ffffff;
-  --cv-color-surface-raised: #ffffff;
-  --cv-color-canvas-workspace: #f6f7f8; /* el área del lienzo de Canva (2025–26: también riel y barra inferior) */
-  --cv-color-border: rgb(57 70 96 / 0.14);
-  --cv-color-border-strong: rgb(53 65 90 / 0.2);
-  --cv-color-text: #0e1318;
-  --cv-color-text-muted: rgb(16 18 25 / 0.7);
-  --cv-color-text-subtle: rgb(19 22 32 / 0.6);
-  --cv-color-overlay: rgb(36 44 61 / 0.4);
+  /* Tinta y superficies (de MaKo) */
+  --cv-color-bg: var(--bg);
+  --cv-color-bg-subtle: var(--surface-2);
+  --cv-color-bg-muted: var(--velo-hover); /* el velo de «pasar el mouse» */
+  --cv-color-surface: var(--surface);
+  --cv-color-surface-raised: var(--surface);
+  --cv-color-canvas-workspace: var(--bg); /* el área del lienzo (también riel y barra de abajo) */
+  --cv-color-border: var(--border);
+  --cv-color-border-strong: var(--border-strong);
+  --cv-color-text: var(--ink);
+  --cv-color-text-muted: var(--dim);
+  --cv-color-text-subtle: var(--faint);
+  --cv-color-overlay: color-mix(in srgb, var(--ink) 40%, transparent);
+  /* Presionado: un escalón más que el velo. Y el borde de un campo al pasar el mouse. */
+  --cv-color-press: color-mix(in srgb, var(--ink) 12%, transparent);
+  --cv-color-field-hover: var(--faint);
+  /* Un riel apagado (el interruptor): tiene que leerse en los dos temas con el tirador blanco encima. */
+  --cv-color-neutral-strong: color-mix(in srgb, var(--ink) 38%, transparent);
   /* La pantalla de presentación es negra en todo tema: es una pantalla proyectada, no cromo. */
   --cv-color-stage: #000000;
   --cv-color-on-stage: #ffffff;
 
-  --cv-color-success: #008009;
-  --cv-color-success-soft: #c3eac4;
-  --cv-color-warning: #ad5a00;
-  --cv-color-warning-soft: #ffd9ad;
-  --cv-color-danger: #db142c;
-  --cv-color-danger-soft: #ffd6d8;
-  --cv-color-info: #1a62ff;
-  --cv-color-info-soft: #cce1ff;
+  /* Acción, selección y foco: el azul de MaKo */
+  --cv-color-brand: var(--primary);
+  --cv-color-brand-hover: var(--primary-strong);
+  --cv-color-brand-active: var(--primary-strong);
+  --cv-color-brand-soft: var(--primary-bg);
+  --cv-color-brand-soft-hover: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  --cv-color-brand-halo: color-mix(in srgb, var(--primary) 28%, transparent); /* el halo del tirador al arrastrar */
+  --cv-color-on-brand: var(--on-primary);
+  /* Lo «elegido» (una pestaña, un ítem, una herramienta abierta): fondo azul claro y texto azul fuerte. */
+  --cv-color-selected: var(--primary-bg);
+  --cv-color-selected-hover: color-mix(in srgb, var(--primary) 20%, var(--surface));
+  --cv-color-selected-text: var(--primary-strong);
 
-  --cv-focus-ring: 0 0 0 2px #3d8bff;
-  --cv-selection-color: #8b3dff; /* marco de selección, tiradores y miniatura elegida */
-  --cv-guide-color: #ff4fd8; /* guías de alineación: rosa/magenta (sin medir en vivo, §13 del relevamiento) */
+  /* El botón primario: el de MaKo, azul lleno */
+  --cv-color-cta: var(--primary);
+  --cv-color-cta-hover: var(--primary-strong);
+  --cv-color-on-cta: var(--on-primary);
+  --cv-color-cta-shadow: transparent;
 
-  /* Cromo propio de Canva */
-  --cv-header-gradient: linear-gradient(90deg, #02c4cc 0%, #2db5cf 10%, #41a7d2 20%, #4e97d5 30%, #5888d9 40%, #6079db 50%, #686ade 60%, #6e5ae0 70%, #744be3 80%, #793be6 90%, #7d2ae8 100%);
-  --cv-header-text: #ffffff;
-  --cv-header-hover: rgb(255 255 255 / 0.16);
-  --cv-header-button-bg: rgb(255 255 255 / 0.92);
-  --cv-header-button-border: rgb(255 255 255 / 0.4);
-  --cv-chrome: #f6f7f8;
-  --cv-rail-active-bg: #ffffff;
+  /* Estados (los semánticos de MaKo: verde favorable, naranja aviso, rojo riesgo; el azul informa) */
+  --cv-color-success: var(--good);
+  --cv-color-success-soft: var(--good-bg);
+  --cv-color-warning: var(--warn);
+  --cv-color-warning-soft: var(--warn-bg);
+  --cv-color-danger: var(--bad);
+  --cv-color-danger-soft: var(--bad-bg);
+  --cv-color-info: var(--primary-strong);
+  --cv-color-info-soft: var(--primary-bg);
+
+  --cv-focus-ring: var(--focus-ring);
+  --cv-selection-color: var(--primary); /* el marco de la selección en el lienzo y la miniatura elegida (lo lee el canvas) */
+  --cv-guide-color: #ff4fd8; /* las guías de alineación: magenta, para no confundirse con la selección (lo lee el canvas) */
+
+  /* El cromo del editor */
+  --cv-header-bg: var(--surface);
+  --cv-header-text: var(--ink);
+  --cv-header-hover: var(--velo-hover);
+  --cv-header-button-border: var(--border-strong);
+  --cv-chrome: var(--bg);
+  --cv-rail-active-bg: var(--surface);
   --cv-panel-radius: 14px;
-  --cv-tooltip-bg: #0f1015;
-  --cv-tooltip-text: #ffffff;
+  --cv-tooltip-bg: var(--ink);
+  --cv-tooltip-text: var(--surface);
 
-  /* Tipografía: Canva Sans no se copia; Noto Sans es el respaldo de su propia pila (métricas pensadas para él) */
-  --cv-font-sans: var(--cv-font-ui, 'Noto Sans'), 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* Tipografía: la de MaKo */
+  --cv-font-sans: var(--font-body, 'Geist'), 'Geist', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --cv-font-display: var(--cv-font-sans);
   --cv-font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
   --cv-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -102,11 +96,11 @@
   --cv-text-2xl: 24px; /* título de diálogo */
   --cv-text-3xl: 32px;
   --cv-text-4xl: 36px;
-  --cv-text-5xl: 42px; /* titular del inicio */
+  --cv-text-5xl: 42px;
   --cv-leading-tight: 1.25;
   --cv-leading-normal: 1.5714; /* 22/14 */
 
-  /* Espacio (base 8 px de Canva; la escala de 4 de Doory se conserva) */
+  /* Espacio (base 8; la escala de 4 de Doory se conserva) */
   --cv-space-1: 4px;
   --cv-space-2: 8px;
   --cv-space-3: 12px;
@@ -119,17 +113,17 @@
   --cv-space-16: 64px;
   --cv-space-24: 96px;
 
-  /* Forma y profundidad (radio estándar 12, agudo 10, píldora) */
-  --cv-radius-sm: 8px;
+  /* Forma y profundidad: los radios de MaKo y sombras neutras (las de la tarjeta de Create, app/_crear/crear.css) */
+  --cv-radius-sm: var(--r-sm, 8px);
   --cv-radius-md: 10px;
   --cv-radius-lg: 12px;
   --cv-radius-xl: 16px;
   --cv-radius-full: 9999px;
-  --cv-shadow-sm: 0 0 0 0.5px rgb(64 79 109 / 0.06), 0 1px 2px rgb(21 30 130 / 0.12), 0 2px 4px rgb(21 30 130 / 0.06);
-  --cv-shadow-md: 0 0 0 0.5px rgb(64 79 109 / 0.07), 0 2px 5px rgb(21 30 130 / 0.12), 0 6px 12px rgb(21 30 130 / 0.06);
-  --cv-shadow-lg: 0 0 0 0.5px rgb(64 79 109 / 0.06), 0 8px 16px rgb(21 30 130 / 0.12), 0 24px 24px rgb(21 30 130 / 0.06);
-  --cv-shadow-artboard: 0 0 0 0.5px rgb(64 79 109 / 0.06), 0 1px 2px rgb(21 30 130 / 0.1);
-  --cv-shadow-card: 0 0 0 0.5px rgb(64 79 109 / 0.07), 0 2px 5px rgb(21 30 130 / 0.12), 0 6px 12px rgb(21 30 130 / 0.06);
+  --cv-shadow-sm: 0 0 0 1px var(--border), 0 1px 2px rgb(18 21 27 / 0.08);
+  --cv-shadow-md: 0 0 0 1px var(--border), 0 2px 5px rgb(18 21 27 / 0.1), 0 6px 12px rgb(18 21 27 / 0.06);
+  --cv-shadow-lg: 0 0 0 1px var(--border), 0 8px 16px rgb(18 21 27 / 0.12), 0 24px 24px rgb(18 21 27 / 0.06);
+  --cv-shadow-artboard: 0 0 0 1px var(--border), 0 1px 2px rgb(18 21 27 / 0.08);
+  --cv-shadow-card: 0 0 0 1px var(--border), 0 2px 5px rgb(18 21 27 / 0.1), 0 6px 12px rgb(18 21 27 / 0.06);
 
   /* Movimiento */
   --cv-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -137,7 +131,7 @@
   --cv-duration-base: 200ms;
   --cv-duration-slow: 320ms;
 
-  /* Distribución (relevamiento §1: barra 54–56, riel 72, panel ~350) */
+  /* Distribución (barra 54–56, riel 72, panel ~350) */
   --cv-editor-topbar-h: 56px;
   --cv-editor-rail-w: 72px;
   --cv-editor-panel-w: 350px;
@@ -150,6 +144,11 @@
   --cv-z-toast: 400;
 
   color-scheme: light;
+}
+
+/* El tema oscuro de la app: los tokens de MaKo ya se dieron vuelta; acá sólo los controles nativos (barras, campos). */
+[data-tema='oscuro'] .cv {
+  color-scheme: dark;
 }
 
 @media (prefers-reduced-motion: reduce) {

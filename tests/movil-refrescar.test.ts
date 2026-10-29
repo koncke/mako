@@ -29,9 +29,15 @@ const EXCEPCIONES: Record<string, string> = {
   'app/m/page.tsx': 'sólo redirige al inicio: no dibuja nada',
   'app/m/mako/page.tsx': 'sólo redirige al Second Brain (16/10/2026): no dibuja nada',
   'app/m/experimentos/page.tsx': 'Experiments se retiró (17/10/2026): sólo redirige al Dashboard, no dibuja nada',
+  // AI Avatar es UNA pantalla desde el 29/10/2026 (el estudio de Higgsfield): las tres secciones de HeyGen redirigen a ella.
+  'app/m/ai-avatar/avatares/page.tsx': 'la sección Avatars se fue (29/10/2026): sólo redirige al estudio de AI Avatar',
+  'app/m/ai-avatar/plantillas/page.tsx': 'la sección Templates se fue (29/10/2026): sólo redirige al estudio de AI Avatar',
+  'app/m/ai-avatar/voces/page.tsx': 'la sección Voices se fue (29/10/2026): sólo redirige al estudio de AI Avatar',
 };
-/** Las que montan PantallaM con `refrescable={false}`, y por qué. Hoy ninguna. */
-const APAGADO: Record<string, string> = {};
+/** Las que montan PantallaM con `refrescable={false}`, y por qué. */
+const APAGADO: Record<string, string> = {
+  'app/m/copywriter/[id]/page.tsx': 'un guion abierto (28/10/2026): adentro se escribe y se scrollea un documento, y tirar hacia abajo recargaría la página encima de lo que se está escribiendo',
+};
 
 function paginas(dir: string): string[] {
   const out: string[] = [];

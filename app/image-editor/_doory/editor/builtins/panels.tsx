@@ -38,8 +38,9 @@ const icon = { size: 18, 'aria-hidden': true } as const
 
 /**
  * Los paneles, como el riel izquierdo de Canva 2025–26 y en su orden: Diseño, Elementos, Texto, Marca, Subidos,
- * Herramientas, (Proyectos, que registra MaKo en app/image-editor/mako/registro.ts) y Apps. Todos se abren a la
- * izquierda (`placement: 'sidebar'`): en Canva no hay cajones colgando de la barra superior.
+ * Herramientas y Apps. Todos se abren a la izquierda (`placement: 'sidebar'`): en Canva no hay cajones colgando de la
+ * barra superior. «Proyectos» se fue el 29/10/2026: los diseños son la lista de la tarjeta izquierda de la pantalla de
+ * Create (app/_crear/PantallaCrear.tsx), con «Nuevo diseño».
  *
  * Qué quedó de las herramientas de Doory y dónde (ninguna se perdió):
  * - Plantillas → «Diseño». Stickers, Formas, formas extra, gráficos de datos, marcos y código QR → «Elementos».
@@ -55,7 +56,6 @@ export function registerBuiltinPanels(): void {
   registerPanel({ id: 'brand', label: t.rail.brand, icon: <Briefcase {...icon} />, order: 40, rail: true, placement: 'sidebar', component: MarcaPanel, preload: BrandPanel.preload, requires: ({ state }) => !state.readOnly && state.mode !== 'shared-edit' })
   registerPanel({ id: 'uploads', label: t.rail.uploads, icon: <CloudUpload {...icon} />, order: 50, rail: true, placement: 'sidebar', component: ImageDrawer, requires: editable })
   registerPanel({ id: 'tools', label: t.rail.tools, icon: <PencilRuler {...icon} />, order: 60, rail: true, placement: 'sidebar', component: ToolsPanel, requires: editable })
-  // order 70: «Proyectos» (mako/registro.ts)
   registerPanel({ id: 'apps', label: t.rail.apps, icon: <LayoutGrid {...icon} />, order: 80, rail: true, placement: 'sidebar', component: AppsPanel, requires: editable })
 
   // Sin pestaña en el riel: se abren desde la barra del objeto, «Apps», la línea de tiempo o los comandos.

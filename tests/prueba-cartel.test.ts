@@ -61,8 +61,8 @@ test('DÓNDE va: al pie de la barra lateral (todas las pantallas) y la franja ar
   assert.match(c, /className="cp-pastilla"/, 'con la barra plegada, una pastilla con los días');
   for (const [rel, cosas] of [
     ['app/video-generator/page.tsx', "['prueba.videos', 'prueba.tomas', 'prueba.imagenes']"],
-    ['app/ai-avatar/page.tsx', "['prueba.avatares', 'prueba.tomas']"],
-    ['app/ai-avatar/avatares/page.tsx', "['prueba.imagenes']"],
+    // AI Avatar es UNA pantalla desde el 29/10/2026 (el estudio de Higgsfield): el look (imagen) y el video, juntos.
+    ['app/ai-avatar/page.tsx', "['prueba.imagenes', 'prueba.avatares', 'prueba.tomas']"],
     ['app/web-generator/page.tsx', "['web.landings_publicadas']"],
   ] as const) {
     assert.ok(fuente(rel).includes(`<FranjaPrueba cosas={${cosas}}`), rel);

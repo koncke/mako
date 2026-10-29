@@ -1,11 +1,12 @@
 'use client';
 
 // =============================================================================
-// InicioImagenM — el inicio del Image Editor en el teléfono, como el de la app de Canva
+// InicioImagenM — «Image» en el teléfono: tus diseños y «Nuevo diseño»
 // =============================================================================
 // Ver ./page.tsx. Un diseño se toca para abrirlo; su «⋯» abre una hoja con «Abrir el diseño» y «Borrar el diseño»
-// (el tacho de escritorio pide confirmar: acá la confirmación es la hoja misma). El «+» abre «Crear un diseño»:
-// tocar un tamaño crea el diseño en blanco y abre el editor.
+// (el «Eliminar» de escritorio pide confirmar: acá la confirmación es la hoja misma). El «+» es «Nuevo diseño»: abre
+// «¿Qué vas a crear hoy?» con las MISMAS plantillas que la computadora (app/image-editor/plantillas-crear.ts); tocar una
+// crea el diseño por la MISMA acción (app/image-editor/actions.ts) y abre el editor.
 // =============================================================================
 
 import { useMemo, useState } from 'react';
@@ -13,34 +14,27 @@ import { Button } from '@/app/_ui/Button';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
-import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useConexion, useToastM } from '@/app/m/_ui';
+import { PieM, SeccionM, SheetM, VacioM, useConexion, useToastM } from '@/app/m/_ui';
 import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
+import { marcoDe } from '@/app/_crear/reglas';
+import { crearDisenoNuevoAction } from '@/app/image-editor/actions';
+import { PLANTILLAS_NUEVO_DISENO, type PlantillaNuevoDiseno } from '@/app/image-editor/plantillas-crear';
 import { ErrorLineaM } from '../_creacion/escritor';
-import { borrarDisenoMAction, crearDisenoMAction } from './actions';
-
-export type TamanoM = { id: string; nombre: string; ancho: number; alto: number };
+import { borrarDisenoMAction } from './actions';
 
 const rutaDiseno = (id: string) => `/m/image-editor/${encodeURIComponent(id)}`;
-
-/** El rectángulo del tamaño, con su proporción real, en una caja de 26 px. */
-const forma = (t: TamanoM) => {
-  const lado = 26;
-  return t.ancho >= t.alto
-    ? { width: lado, height: Math.max(6, Math.round((lado * t.alto) / t.ancho)) }
-    : { width: Math.max(6, Math.round((lado * t.ancho) / t.alto)), height: lado };
-};
 
 function hace(iso: string): string {
   try { return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); } catch { return ''; }
 }
 
-export function InicioImagenM({ disenos: iniciales, tamanos }: { disenos: ResumenDiseno[]; tamanos: TamanoM[] }) {
+export function InicioImagenM({ disenos: iniciales }: { disenos: ResumenDiseno[] }) {
   const router = useRouter();
   const toast = useToastM();
   const { enLinea } = useConexion();
   const [disenos, setDisenos] = useState(iniciales);
   const [buscar, setBuscar] = useState('');
-  const [hoja, setHoja] = useState<'crear' | 'diseno' | null>(null);
+  const [hoja, setHoja] = useState<'nuevo' | 'diseno' | null>(null);
   // El diseño de la hoja queda puesto mientras la hoja se va (LEEME.md).
   const [elegido, setElegido] = useState<ResumenDiseno | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
@@ -51,11 +45,11 @@ export function InicioImagenM({ disenos: iniciales, tamanos }: { disenos: Resume
     return aguja ? disenos.filter((d) => d.titulo.toLocaleLowerCase('es').includes(aguja)) : disenos;
   }, [disenos, buscar]);
 
-  const crear = async (t: TamanoM) => {
+  const crear = async (p: PlantillaNuevoDiseno) => {
     if (trabajando) return;
-    setTrabajando(t.id); setError('');
+    setTrabajando(p.id); setError('');
     try {
-      const r = await crearDisenoMAction(t.id);
+      const r = await crearDisenoNuevoAction(p.id);
       if (!r.ok) { setError(r.error); setTrabajando(null); return; }
       // `trabajando` queda prendido: la pantalla se va, y un segundo toque no crea otro (como escritorio).
       router.push(rutaDiseno(r.id));
@@ -121,31 +115,39 @@ export function InicioImagenM({ disenos: iniciales, tamanos }: { disenos: Resume
       )}
       <HuecoFlotanteM />
 
-      <BotonFlotanteM etiqueta="Crear un diseño" deshabilitado={!enLinea} onClick={() => { setError(''); setHoja('crear'); }} />
+      <BotonFlotanteM etiqueta="Nuevo diseño" deshabilitado={!enLinea} onClick={() => { setError(''); setHoja('nuevo'); }} />
 
+      {/* «¿Qué vas a crear hoy?» (el título de la caja de escritorio, TITULO_CAJA de app/web-generator/CajaPedido.tsx) con
+          las plantillas de la computadora: las en blanco con su marco y su medida, las que traen diseño con su miniatura. */}
       <SheetM
-        id="crear-diseno"
-        abierto={hoja === 'crear'}
+        id="nuevo-diseno"
+        abierto={hoja === 'nuevo'}
         onCerrar={() => setHoja(null)}
-        titulo="Crear un diseño"
+        titulo="¿Qué vas a crear hoy?"
         snap="alto"
         ocupado={trabajando != null}
         rotuloCerrar="Cerrar"
       >
-        <ListaM etiqueta="Tamaños">
-          {tamanos.map((t) => (
-            <FilaM
-              key={t.id}
-              leading={<span className="m-image-editor-forma" aria-hidden><i style={forma(t)} /></span>}
-              titulo={t.nombre}
-              segunda={`${t.ancho} × ${t.alto} px`}
-              enCurso={trabajando === t.id}
-              deshabilitada={!enLinea || (trabajando != null && trabajando !== t.id)}
-              onClick={() => void crear(t)}
-            />
+        <div className="m-image-editor-plantillas" role="list" aria-label="Plantillas">
+          {PLANTILLAS_NUEVO_DISENO.map((p) => (
+            <div key={p.id} role="listitem">
+              <button type="button" className="m-image-editor-plantilla" aria-label={`Usar la plantilla ${p.nombre}`}
+                aria-busy={trabajando === p.id || undefined} disabled={!enLinea || (trabajando != null && trabajando !== p.id)}
+                onClick={() => void crear(p)}>
+                <span className="m-image-editor-plantilla__mini">
+                  {p.imagen
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={p.imagen} alt="" loading="lazy" />
+                    : <span className="m-image-editor-plantilla__marco" style={marcoDe(p.formato)} />}
+                  {!p.imagen && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
+                  {trabajando === p.id ? <span className="m-image-editor-plantilla__creando">Creando…</span> : null}
+                </span>
+                <span className="m-image-editor-plantilla__nombre">{p.nombre}</span>
+              </button>
+            </div>
           ))}
-        </ListaM>
-        {error && hoja === 'crear' && <ErrorLineaM>{error}</ErrorLineaM>}
+        </div>
+        {error && hoja === 'nuevo' && <ErrorLineaM>{error}</ErrorLineaM>}
       </SheetM>
 
       <SheetM

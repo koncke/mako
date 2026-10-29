@@ -36,6 +36,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Ticketera (los tickets de los usuarios) | `Leé docs/hallazgos-ticketera.md y docs/diseno-ticketera-usuarios.md y seguimos desde ahí.` |
 | Second Brain | `Leé docs/hallazgos-second-brain.md y docs/diseno-second-brain-centro.md y seguimos desde ahí.` |
 | Sidebar | `Leé docs/diseno-sidebar.md y seguimos desde ahí.` |
+| Copywriter (mila.gg + Notion, rama copywriter-2810) | `Leé docs/relevo/copywriter.md y seguimos desde ahí.` |
 | Settings (las nueve pestañas, el molde de Linear) | `Lee docs/relevo/settings.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
@@ -52,6 +53,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Clients (ex Customer Success, el curso y la comunidad) | `Leé docs/relevo/customer-success.md y docs/diseno-clients.md y seguimos desde ahí.` |
 | Plan / Perro Guardián | `Leé docs/relevo/plan-perro-guardian.md y seguimos desde ahí.` |
 | MaKo en WhatsApp (el doer de los grupos y su vigía) | `Lee docs/relevo/mako-en-whatsapp.md y seguimos desde ahí.` |
+| MaKo en WhatsApp: conexiones, ayuda y tickets (las tandas del doer del Cerebro, desde el 27/10) | `Lee docs/relevo/mako-en-whatsapp-conexiones.md y seguimos desde ahí.` |
 | Infra (fallas en la PC, build, tests y Actions) | `Leé docs/relevo/infra-y-build.md y seguimos desde ahí.` |
 | **Planes** (los planes de MaKo, MaKo Partners y la suscripción) | `Leé docs/relevo/suscripcion.md, docs/hallazgos-partners.md y docs/hallazgos-planes-y-cobro.md y seguimos desde ahí.` |
 | Strategy / Pricing MaKo (tab Strategy, runway y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y docs/relevo/super-admin.md y seguimos desde ahí.` |

@@ -1,11 +1,11 @@
 // =============================================================================
-// «9.1K | 00:00»: el tamaño y la duración de cada tarjeta del inicio
+// «9.1K | 00:00»: el tamaño y la duración de cada proyecto en el inicio del teléfono
 // =============================================================================
 // La metadata del proyecto no guarda cuánto pesa: lo que pesa son sus archivos
 // multimedia, y cada uno dejó su `size` en la base `video-editor-media-<id>`
 // (services/storage/service.ts → saveMediaAsset). Se suman esos números sin
 // abrir un solo archivo de OPFS. Se cachea por proyecto y fecha de
-// modificación: el inicio se vuelve a dibujar seguido y la base no cambia sola.
+// modificación: la lista se vuelve a dibujar seguido y la base no cambia sola.
 
 import { useEffect, useState } from "react";
 import { formatTimecode, mediaTimeToSeconds } from "@/app/video-editor/_opencut/wasm/opencut";

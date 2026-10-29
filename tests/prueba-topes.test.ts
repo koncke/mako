@@ -106,7 +106,8 @@ test('cada PANTALLA dibuja «Empezar mi plan ya» junto a su error', () => {
   assert.match(fuente('app/_ui/EmpezarPlanYa.tsx'), /<a href=\{RUTA_EMPEZAR_PLAN\}/);
   assert.match(fuente('app/video-generator/WizardAnuncio.tsx'), /<EmpezarPlanYa texto=\{error\} \/>/);
   assert.match(fuente('app/video-generator/PasoMontaje.tsx'), /<EmpezarPlanYa texto=\{error \|\| null\} \/>/);
-  assert.equal((fuente('app/ai-avatar/AiAvatarCliente.tsx').match(/<EmpezarPlanYa texto=\{aviso \|\| null\} \/>/g) ?? []).length, 2, 'el look y el video');
+  // AI Avatar es el estudio de Higgsfield desde el 29/10/2026: la barra del look y la del video, cada una con su error.
+  assert.equal((fuente('app/ai-avatar/Estudio.tsx').match(/<EmpezarPlanYa texto=\{(error|errorVideo) \|\| null\} \/>/g) ?? []).length, 2, 'el look y el video');
   assert.match(fuente('app/crm/ExportarLeadsModal.tsx'), /<EmpezarPlanYa texto=\{err\} \/>/);
   assert.match(fuente('app/web-generator/editor/dialogos/DialogoPublicar.tsx'),
     /if \(esTopeDePrueba\(error\)\) return <> <Link href=\{RUTA_EMPEZAR_PLAN\} style=\{\{ fontWeight: 600 \}\}>Empezar mi plan ya<\/Link><\/>;/);

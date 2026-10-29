@@ -115,6 +115,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/cobro-ganado/vinculos', 'vincular_cobro_etapa'],
   ['PUT', '/crm/cobro-ganado/vinculos/{vinculoId}/cuentas', 'cuentas_cobro_etapa'],
   ['DELETE', '/crm/cobro-ganado/vinculos/{vinculoId}', 'desvincular_cobro_etapa'],
+  // EN BLOQUE (28/10/2026, tickets #21 y #22): POST porque cada uno es UNA orden sobre muchos (la columna o los ids van en
+  // el cuerpo). La papelera: GET la lista, POST manda, y recuperar es una «recuperación» nueva.
+  ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
+  ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
+  ['GET', '/crm/papelera', 'ver_papelera_crm'],
+  ['POST', '/crm/papelera', 'mandar_en_bloque_a_papelera'],
+  ['POST', '/crm/papelera/recuperaciones', 'recuperar_de_papelera_crm'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
   ['GET', '/crm/campanas', 'ver_campanas_funnels'],
   // «Invitar al curso al ganar» (23/10/2026): el CRM va por `embudoId` (opcional), como /crm/automatizaciones/estado.
@@ -608,6 +615,22 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/rendimiento-redes', 'ver_rendimiento_redes'],
   ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
   ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
+  // El Copywriter (28/10/2026): los documentos, con el juego del MCP de mila.gg. DELETE manda a la Papelera (no borra).
+  ['GET', '/contenido/documentos', 'listar_documentos_copywriter'],
+  ['POST', '/contenido/documentos', 'crear_documento_copywriter'],
+  ['GET', '/contenido/documentos/{documentoId}', 'leer_documento_copywriter'],
+  ['PATCH', '/contenido/documentos/{documentoId}', 'renombrar_documento_copywriter'],
+  ['DELETE', '/contenido/documentos/{documentoId}', 'papelera_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/bloques', 'agregar_al_documento_copywriter'],
+  ['PUT', '/contenido/documentos/{documentoId}/contenido', 'reemplazar_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/restauracion', 'restaurar_documento_copywriter'],
+  // «Nueva» con templates y MaKo escribiendo EN la página (29/10/2026, docs/diseno-copywriter.md D13).
+  ['GET', '/contenido/plantillas', 'listar_plantillas_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/edicion', 'editar_documento_copywriter'],
+  // Compartir un documento para editar (28/10/2026): sus links, crear uno y revocarlo.
+  ['GET', '/contenido/documentos/{documentoId}/enlaces', 'enlaces_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/enlaces', 'compartir_documento_copywriter'],
+  ['DELETE', '/contenido/enlaces/{enlaceId}', 'revocar_enlace_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],
@@ -756,6 +779,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
   // La baja del cliente (#871) es un estado de la VENTA, como la suscripción: PUT la pone y `deshacer` la saca.
   ['PUT', '/cobros/ventas/{leadId}/baja', 'baja_del_cliente'],
+  // El plan por tramos (29/10/2026) es el plan ENTERO de la venta: PUT lo fija.
+  ['PUT', '/cobros/ventas/{leadId}/plan', 'armar_plan_por_tramos'],
   ['PATCH', '/cobros/cuotas/{cuotaId}', 'editar_cuota'],
   ['POST', '/cobros/cuotas/{cuotaId}/links-pago', 'crear_link_cuota'],
   ['DELETE', '/cobros/cuotas/{cuotaId}/recordatorios', 'cortar_recordatorio_cuota'],

@@ -9134,6 +9134,35 @@ perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). 
   un dueño vivo y espera), espera la fila de tipos libre y 5,2 GB, empuja y suelta todo. Con eso la PC llegó a 6,3 GB y las
   tres tandas dieron 0 en ~6 min. Esperar los dos lugares tardó 40 min (una barredora de un chat).
 
+## Las filas de con-turno y el push se esperaban entre sí; un tren con dependencias nuevas no tipa con el node_modules común (29/10/2026, Cerebro e Integración)
+
+**Vive en:** `C:/dev/con-turno.mjs` (fuera del repo; respaldo `con-turno.mjs.antes-29-10`), `scripts/tipos-respaldo-push.mjs`,
+el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (el guion de subida de Integración).
+
+- **El síntoma:** de 03:11 a 05:25 el push de tren-y y las filas de los chats se trabaron tres veces. Ningún tsc corría y
+  todos salían con 99 «no hubo RAM» o «no se liberó el turno». Detalle: `C:/dev/cerebro-herramientas/tickets/por-repartir.md`,
+  «Para Integración».
+- **La causa: esperar algo CON el turno tomado.** Pasó en tres lugares. con-turno tomaba el lock y su tsc-acotado esperaba la
+  pausa adentro. `tipos-respaldo-push.mjs` tomaba el lock y esperaba hasta 15 min la RAM de la tanda 1. Y la fila de tests
+  esperaba la pausa con el lugar tomado.
+- **Lo arreglado:**
+  - **con-turno (el Cerebro, 04:40 y 05:25):** espera la pausa y la RAM AFUERA del turno. En tipos son el pico (min(heap,
+    3,2 GB)) + 1,3 GB; en tests, sólo la pausa. Si al tomar el turno ya no alcanza, lo suelta. Desde el 29/10 usa UN lugar de
+    tests por defecto.
+  - **El vigía:** corta también los workers de `node --test` y el Chrome `--headless`, con la zona roja en 1,2 GB.
+  - **`tipos-respaldo-push.mjs` (Integración, tren-aa):** espera la RAM de la tanda 1 ANTES de tomar el lock. Lo fija
+    `tests/tipos-respaldo-push.test.ts`.
+- **La regla:** nada espera RAM ni pausa con un lock tomado. Se espera afuera, se toma, y si ya no alcanza se suelta.
+- **⚠️ Un tren que suma dependencias necesita su propio node_modules.** Create sumó BlockNote 0.56 y Mantine 8.3. Los
+  worktrees de C:/dev, y entre ellos `C:/dev/wt-push-q`, tienen `node_modules` como JUNCTION al del clon principal, que no las
+  tiene. Ahí los tests y el tsc del push fallan con «Cannot find module». tren-aa se arma en `C:/dev/wt-push-aa`, con el
+  junction al `node_modules` real de `C:/dev/wt-copywriter-notion`, que sí las instaló. **Después del deploy:** `npm ci` en
+  el clon principal, con la app de Claude tranquila, así los demás worktrees las ven. Un `npm install` sobre un junction
+  común cambia el árbol de TODOS los worktrees.
+- **⚠️ Cortar procesos por nombre de test corta los de otros.** Para matar mi batería del Ops Center filtré por
+  `ops-center-bateria`, y cayó también el proceso de barredoras compartidas de otro chat, que tenía ese test en su lista.
+  Se corta por pid propio, o por la línea entera de con-turno con su cwd.
+
 ## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
 
 - **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
@@ -9172,3 +9201,13 @@ sacara la regla que vigilaba (no buscaba lo que decía), y un `(…)\b(…)<\/\1
 0x01-0x08 lo delata; el Read del editor no lo muestra. **Regla:** las cadenas con regex van CRUDAS (prefijo `r`), o se
 edita con la herramienta Edit. Y un `find` de un pedazo corto (`const m = /^`) agarra la PRIMERA aparición: así se
 reemplazó media hoja de un archivo. Se ancla con el nombre de la función, y `git diff --stat` antes de seguir.
+
+## tsc-acotado: el código 134 no siempre es el vigía de RAM, también es el heap de 2.560 MB (29/10/2026, claude3)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (`--heap`, default 2560).
+
+Tres veces seguidas «NO SE PUDO CHEQUEAR (código 134, ~1.360 bytes de salida)» sobre 14 archivos que tocaban
+`app/planes/Vitrina.tsx` y `app/vsl/PreciosLanding.tsx`. El mensaje sugiere el vigía de RAM, pero el vigía mata con
+código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esas pantallas no entra en 2.560 MB. Con
+`--heap=3584` (y la RAM libre para darlo: con-turno espera 3,8 GB) corrió y dio los 14 errores conocidos de `_opencut`.
+**Regla:** 134 con salida → subir `--heap`; 1 sin salida → esperar turno o cerrar chats.
