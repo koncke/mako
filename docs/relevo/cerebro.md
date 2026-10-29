@@ -115,6 +115,22 @@ preguntes: hacé esto en orden.
   | Automations | `local_ea2a6e6a` |
 
 - **Cuota a las 20:42 ART:** 5 h al 87% (se renueva 21:30 ART), semanal al 80% (se renueva el 3/11 17:00 ART).
+- **21:15 ART: el corte del 97% saltó en el Cerebro (ventana de 5 h), el primero real después de prenderlo.** Negó un
+  Bash y anotó la sesión en `~/.claude/relevos-cuenta/claude4.tsv`: anda. Lo que quedó a medias en ese momento:
+  - **La fila de tests de `C:/dev/con-turno.mjs` es un cuello de botella, no un cuelgue.** Siete chats hacen fila de a uno
+    para barridos de 30 a 60 min; quien espera 30 min sale con 99 y relanza (Automations, Planes). Un barrido pesa ~600 MB
+    (dos workers de 300) y `tests-afectados` ya tiene su propia guardia de RAM. Lo que iba a hacer: DOS lugares en la
+    fila de tests (`mako-tests.lock` y `mako-tests-2.lock`, con la espera en 90 min) y la de tipos de a uno. Sin tocar.
+  - **Dos mensajes SIN MANDAR** (tope de 10 por mensaje de Martín): al CRM, los defectos de las horas (arriba); y a
+    Automations, que el pid 140112 no está colgado (tomó la fila de tests a las 21:09, es cola).
+  - **Los VERDEs en camino**, todos esperando turno de tests:
+    - MaKo inteligente `b2c19c445`: 65 tests, roturas y tipos ok;
+    - Planes `1e6bd27e8`: tipos ok;
+    - Automations, la difusión: tipos ok;
+    - WhatsApp;
+    - Copywriter, con su relevo en `fe73b1ac7`;
+    - el editor, con el ticket 23.
+  - Zernio puso su relevo en `8b3af7652` (`zernio-2510`). Replicar espera su turno para medir el blanco.
 
 ## Lo que NO se vuelve a discutir
 
