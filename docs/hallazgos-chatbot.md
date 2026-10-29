@@ -267,8 +267,11 @@ primer guardado lo borraba), Publicar (`problemasDeRespuestaPublica`: sin botone
 Meta (403/422), volvía `terminal`, y en el motor terminal es `estadoDeCierrePermanente`: la INSCRIPCIÓN entera se cerraba
 y el DM del recurso, que va después, no salía. Además respondía el ÚLTIMO comentario guardado, de cualquier edad: quien
 entraba hoy por DM (con un CRON de comentario y otro de DM en la misma automatización) recibía una respuesta pública
-debajo de un comentario de hace meses. Ahora: sólo el comentario del disparo o uno posterior (`inscriptoAt`, con 15 min de
-margen porque el webhook guarda y después inscribe), y lo que no puede salir vuelve `omitir`: el motor lo anota 'omitido'
+debajo de un comentario de hace meses. Ahora: sólo el comentario del disparo (`inscriptoAt`, con 15 min de margen antes
+porque el webhook guarda y después inscribe, y 2 min después por los relojes). **⚠️ «O uno posterior» era el diagnóstico
+equivocado** (la verificación sobre 69b49a31c, 29/10): la conversación guarda el ÚLTIMO comentario, así que con la pública
+detrás de una espera, un «qué lindo ❤️» de la misma persona en una foto vieja pisaba el del disparo y la respuesta salía
+debajo de ése, en otra publicación. Y lo que no puede salir vuelve `omitir`: el motor lo anota 'omitido'
 con su motivo y AVANZA. **La regla:** en un flujo lineal, un fallo «que reintentar no arregla» de UNA tarjeta no es lo
 mismo que «esta persona no puede recibir nada más»; terminal es lo segundo. Ojo que el mismo patrón vale para cualquier
 canal faltante (sin teléfono, sin email, ventana cerrada): ver «La difusión» más abajo.

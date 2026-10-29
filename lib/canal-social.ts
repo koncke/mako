@@ -127,9 +127,13 @@ export function salidaHastaMs(c: ConversacionSocial | null): number | null {
  *   · NO GASTA la respuesta privada (Meta deja UNA por comentario): `comentarioRespondidoAt` no se mira ni se marca, así
  *     el DM de la tarjeta siguiente sale igual.
  *   · Sin un comentario guardado (la persona escribió por DM, no comentó), no sale.
- *   · ⚠️ SÓLO EL COMENTARIO DEL DISPARO, O UNO POSTERIOR (la revisión del Cerebro, 28/10/2026): con `inscriptoAt`, un
- *     comentario de antes de que entrara (más de `VENTANA_COMENTARIO_DEL_DISPARO_MS`) no se responde. Sin esto, quien entraba
- *     hoy por DM recibía una respuesta pública debajo de un comentario de hace 200 días, en otra publicación.
+ *   · ⚠️ SÓLO EL COMENTARIO DEL DISPARO (la revisión del Cerebro, 28/10/2026): con `inscriptoAt`, un comentario de antes de
+ *     que entrara (más de `VENTANA_COMENTARIO_DEL_DISPARO_MS`) no se responde. Sin esto, quien entraba hoy por DM recibía una
+ *     respuesta pública debajo de un comentario de hace 200 días, en otra publicación.
+ *     ⚠️ NI UNO POSTERIOR (la verificación sobre 69b49a31c, 29/10/2026): la conversación guarda el ÚLTIMO comentario, y con la
+ *     pública detrás de una espera, otro comentario de la misma persona en el medio («qué lindo ❤️», en una foto vieja, sin la
+ *     palabra) pisaba el del disparo y la respuesta salía debajo de ése, en otra publicación. Un comentario de más de
+ *     `MARGEN_COMENTARIO_DESPUES_MS` después de inscribirse no es el del disparo: la tarjeta se omite y sigue el DM.
  * Lo que no sale NO cierra el flujo: la tarjeta se omite y sigue la de después, el DM (`omitir`, lib/canal-zernio.ts).
  */
 export type SalidaPublica =
@@ -138,6 +142,9 @@ export type SalidaPublica =
 
 /** Cuánto ANTES de la inscripción puede ser el comentario del disparo: el webhook guarda el comentario y después inscribe. */
 export const VENTANA_COMENTARIO_DEL_DISPARO_MS = 15 * 60_000;
+/** Cuánto DESPUÉS de la inscripción puede figurar el comentario del disparo: la hora del comentario la pone Meta, la de la
+ *  inscripción, el server; el margen es el desfase de relojes, no una ventana para otros comentarios. */
+export const MARGEN_COMENTARIO_DESPUES_MS = 2 * 60_000;
 
 export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: CanalSocial = 'instagram', o: { inscriptoAt?: string | null } = {}): SalidaPublica {
   const nombre = NOMBRE_CANAL[canal];
@@ -151,6 +158,9 @@ export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: Can
   const cuando = ms(c.comentarioAt);
   if (Number.isFinite(desde) && !(Number.isFinite(cuando) && cuando >= desde - VENTANA_COMENTARIO_DEL_DISPARO_MS)) {
     return { via: null, motivo: `el comentario que hay en ${nombre} es de antes de que entrara: no se responde en público uno viejo`, terminal: true };
+  }
+  if (Number.isFinite(desde) && cuando > desde + MARGEN_COMENTARIO_DESPUES_MS) {
+    return { via: null, motivo: `el último comentario en ${nombre} no es el que la arrancó (comentó otra vez después): no se responde en público otro`, terminal: true };
   }
   return { via: 'publica', comentarioId: coment, postId: post, cuentaId: cuenta };
 }

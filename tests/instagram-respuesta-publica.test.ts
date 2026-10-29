@@ -64,7 +64,7 @@ test('la decisión: con el comentario guardado sale, sin ventana, sin los 7 día
   assert.ok(nada.via === null && nada.terminal && /Messenger/.test(nada.motivo));
 });
 
-test('⚠️ sólo el comentario del DISPARO (o uno posterior): uno de antes de que entrara no se responde en público (la revisión, 28/10)', () => {
+test('⚠️ sólo el comentario del DISPARO: ni uno de antes de que entrara (la revisión, 28/10) ni uno posterior (la verificación, 29/10)', () => {
   // Entró HOY por DM y comentó hace 10 días en otra publicación: antes salía una respuesta pública debajo de ese comentario.
   const hoy = new Date(AHORA).toISOString();
   const viejo = decidirRespuestaPublica(COMENTO, 'instagram', { inscriptoAt: hoy });
@@ -74,8 +74,12 @@ test('⚠️ sólo el comentario del DISPARO (o uno posterior): uno de antes de 
   assert.equal(decidirRespuestaPublica(delDisparo, 'instagram', { inscriptoAt: hoy }).via, 'publica');
   assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA - 14 * 60_000).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, 'publica');
   assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA - 16 * 60_000).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, null);
-  // Uno posterior (comentó otra vez mientras esperaba): de la misma persona, se responde.
-  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA + DIA).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, 'publica');
+  // ⚠️ Uno posterior NO (la verificación sobre 69b49a31c): con la pública detrás de una espera, «qué lindo ❤️» en una foto vieja
+  // pisaba el comentario del disparo y la respuesta salía debajo de ése. El margen es el desfase de relojes (Meta y el server).
+  const posterior = decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA + 5 * 60_000).toISOString() }, 'instagram', { inscriptoAt: hoy });
+  assert.ok(posterior.via === null && /no es el que la arrancó/.test(posterior.motivo), JSON.stringify(posterior));
+  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA + DIA).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, null);
+  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA + 60_000).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, 'publica', 'el reloj de Meta un minuto adelante');
   // Sin la fecha del comentario, con la de la inscripción: no se responde a ciegas.
   assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: null }, 'instagram', { inscriptoAt: hoy }).via, null);
   // Sin la inscripción (quien no la tiene, como «Si responde»), lo de siempre.
