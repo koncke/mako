@@ -39,8 +39,9 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
    Cerebro. Y la claude5: su línea en `CUENTAS_DEL_CREDITO` si es Max 20x (lo sabe Martín).
 1b. **Los pedidos perdidos** (el Cerebro, 28/10 22:30; `docs/relevo/pedidos-perdidos-2810.md` de la rama `tren-w`, «Lo
    urgente»). Van DESPUÉS de la tanda A y antes que todo lo demás; cada uno, si es código, con su test probado rompiéndolo:
-   1. Mauricio (ws1): ni un mensaje en `mako_doer_buffer` ni en `mako_doer_conv` desde el 04/10. Medir si no escribe o si la
-      entrada está rota (es el cliente más activo).
+   1. ✅ Mauricio (ws1), MEDIDO 28/10 22:45: la entrada no está rota; en su grupo nadie escribe desde el 08/10 (sus tres
+      participantes son líneas de MaKo). El detalle en docs/hallazgos-comunicacion.md («Mauricio no escribe desde el 04/10»).
+      Falta que el Cerebro decida qué hacer.
    2. Joan (ws13): nombre y apellido de las llamadas sin marcar (las cifras se contradicen: 25 contra 28 no-shows, 14 contra 10
       sin marcar; buffer 292, conv 1583-1584) y los links de las llamadas de la semana pasada (buffer 288). Armar los datos
       correctos y mandárselos al Cerebro: la respuesta la manda él.

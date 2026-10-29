@@ -11718,6 +11718,25 @@ a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplica
   sigue posible si el modelo no lo reconoce.
 - F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).
 
+## «Mauricio no escribe desde el 04/10»: la entrada no estaba rota, en su grupo no hay nadie que escriba (28/10/2026, claude4)
+
+**El síntoma (el relevamiento de pedidos perdidos):** el ws1 no tiene un mensaje en `mako_doer_buffer` desde el 04/10, y es el
+cliente más activo. ¿No escribe, o la entrada está rota?
+**Lo medido (sólo lectura, base y Evolution, 28/10 22:45):**
+- `mako_doer_conv` del grupo del ws1 (`mako.grupo_jid` 120363411646661065@g.us) tiene 41 filas desde el 20/10, y las 41 son de
+  MaKo (`assistant`): MaKo le escribe ~15 por día; de una persona, ninguna.
+- La línea de MaKo (`mako_superadmin_muylqv8r`, +…2605) está conectada, con el webhook prendido y sin `groupsIgnore`, y en otros
+  grupos SÍ ve personas (el de Leila: 12 de sus últimos 40). En el del ws1, sus 92 mensajes desde el 08/10 son todos propios.
+- ⚠️ **El diagnóstico obvio («alguien escribió hasta el 23/10 y no entró») era el equivocado.** `mako_ws9` guarda 54 mensajes
+  «de personas» en ese grupo hasta el 23/10, todos del lid …2389. Ese lid ES la línea de MaKo (+…2605): visto desde OTRA
+  instancia, lo que manda MaKo parece de una persona. Los tres participantes del grupo son números conectados como líneas:
+  +…3479 (el personal de Martín: `mako_ws9` y las viejas de SuperAdmin), +…8122 (`mako_ws1`) y +…2605 (MaKo).
+- **La trampa:** en un grupo con `addressingMode: lid`, el autor es un lid, no el número. Para saber quién es, se cruza con
+  `group/findGroupInfos` (trae `phoneNumber` por participante) y con los dueños de las instancias (`fetchInstances`).
+**Sin hacer:** decidir si +…8122 (el WhatsApp conectado del ws1) es el teléfono de Mauricio o si él no está en su grupo; y si
+MaKo debe seguir mandando ~15 por día a un grupo donde nadie lee. Los scripts de la medición: el scratchpad de claude4
+(`medir-ws1*.mjs`, sólo GET).
+
 ## La respuesta al EQUIPO no es para MaKo (28/10/2026, claude4, Leila, ws11)
 
 **El síntoma:** el equipo le preguntó a Leila en su grupo, firmado, cuántas quincenas eran y en qué moneda. Leila contestó
