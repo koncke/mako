@@ -48,7 +48,10 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
    3. Un link con dominio inventado a Código Inmobiliario («hola-malo.com/crm/2761», conv 1502): el saneo de la salida al grupo.
    4. Leila (ws11): el panel de Vida Poderosa dice que Ana Gómez no tiene datos de Fathom (buffer 293), y el Closing tiene
       168-193 análisis en error por el crédito de Claude (buffer 301).
-   5. Los tres audios de Leandro sin transcribir (buffer 316, 318 y 327): transcribirlos con Groq y decirle al Cerebro qué piden.
+   5. ✅ Los tres audios de Leandro (buffer 316, 318 y 327), transcritos con Groq el 28/10 22:55 y mandados al Cerebro: 316 y
+      318 son el ticket #18 (responder comentarios de Instagram); 327 pide avisos ANTES de que se acaben los límites de Instagram y
+      Zernio (respuestas y DMs), cuánto pagar u otra cuenta de Zernio, y que la automatización nunca se pare en silencio (de
+      Automations y Zernio: lo reparte el Cerebro). Script: el scratchpad de claude4, `audios-leandro.mjs`.
 2. **F4** completo. **G3:** lo que llega durante un turno queda huérfano hasta el cron. **F5** y **F6**.
 3. **La cola de Teo:** video, imagen o PDF dentro de un lote; .doc/.xls/.ppt/.zip; audio fuera del grupo; `generarVariantes`;
    el aviso WhatsApp oficial vs QR.
