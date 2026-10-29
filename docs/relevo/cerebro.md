@@ -62,6 +62,14 @@ preguntes: hacé esto en orden.
   - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
     Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
     sugerido.
+  - **22:50, el corte de Meta del 03/11:**
+    - Zernio armó los cinco avisos, que están en `C:/dev/revisiones/2810-avisos-token-0311.md`.
+    - **Joan: ENVIADO** a su grupo (3EB08A864B795B4A50C001).
+    - **Pablo (ws18), Sergio (ws20) y Patricia (ws22) esperan** la respuesta de Martín a «¿prendo la cuenta de Zernio de
+      MaKo?»: si la prende, no se les pide una clave propia.
+    - A Sergio hay que sacarle «no tienes anuncios activos» o medirlo.
+    - **P2P (ws14) no tiene grupo:** le pregunté a Martín por dónde le llega.
+    - Florencia (ws21) nunca conectó Meta: por eso Joan no ve sus campañas.
   - **Tres aprobaciones más a Martín** (`cartero preguntar`): los dos cambios del Sprint de Mauricio, la espera y el
     recordatorio de Brigitte, y borrar nombre y email en ~670 visitas de Código Inmobiliario y P2P.
 - **Dos workflows corrían al escribir esto.** Otra cuenta no los reanuda, pero puede leer lo que devolvieron en
