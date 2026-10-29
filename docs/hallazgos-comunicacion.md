@@ -382,9 +382,38 @@ a «Tal cual como lo hace manychat», y a un audio de 31 s le puso 👍 y nada m
   · la que no se escucha lo dice, pide que la escriban y deja ticket, con UNA función para el suelto y los dos lotes
     (`avisarAudioSinEscuchar`), y si falló el Groq de la plataforma, la causa es nuestra, no «conecta tu IA»;
   · un pedido de FUNCIONALIDAD («como lo hace manychat», `pideUnaFuncionalidad`) trae sus tickets (`mis_tickets`) y una nota:
-    no se contesta con un consejo; si ya hay ticket, se dice en qué anda; si no existe, va la marca `[[no-existe]]`.
+    no se contesta con un consejo; si ya hay ticket, se dice en qué anda; si no existe, va la marca `[[no-existe]]`;
+  · el TEXTO del turno del grupo sale con Claude, y Gemini no entra (ni la charla barata, que lo probaba primero, ni los
+    candidatos): su Claude primero y, SÓLO si no tiene, el crédito de los planes 200 repartido entre las cuentas con clave
+    (`cuentasDelCreditoDeLosGrupos`, lib/credito-negocio.ts; Martín: «habilites las API que tenemos disponibles con todas las
+    cuentas de planes 200»). Con Haiku, por la puerta 2 y sólo para `mako-doer-in`; ni el Ops Center ni el Plan.
+
+**El crédito de los grupos: lo que el obvio «pasarle la cuenta a la puerta 2» no veía (28/10/2026).**
+- **El Uso se lo anotaba a la cuenta 1.** La marca «(su clave es el crédito)» no trae número, y `creditoQuePago`
+  (lib/credito-api.ts) lo resuelve por el negocio; un negocio sin crédito asignado caía en la cuenta 1. La cuenta del grupo va
+  en el permiso (`cuentaDelCredito`) y el gasto lleva «(cuenta N)», como `conCreditoDeLaPlataforma`.
+- **Su fallo se leía como «tu clave de Claude».** El throw de `chatClaudeTools` decía «tu clave de Claude: credit balance…», y
+  lib/errores-app-reglas.ts y lib/mako-turno-app-reglas.ts leen eso como SU clave sin crédito; además quedaba en la tarjeta de
+  «Tus cuentas de IA» del negocio. Ahora dice «el crédito de Claude de MaKo, cuenta N» y no va a la tarjeta. En el doer, el
+  error de una cuenta nuestra va a `erroresPlataforma`: no elige el cartel.
+- **Con SU Claude, no se pasa al crédito.** La puerta 2 le da su clave propia aunque se le pida una cuenta (su clave gana): el
+  segundo intento era su misma clave, y un «credit balance» de SU saldo marcaba sin crédito una cuenta NUESTRA por 6 h.
+- **El interruptor lo mira también la puerta** (`claveDeLaCuentaDeLosGrupos`), no sólo quien elige la cuenta: apagado
+  (`ia.credito_grupos` en el workspace de la plataforma), una cuenta pasada a mano igual pagaba.
+- **Medido en producción (28/10, sólo lectura):** en la plataforma (ws9) sólo hay clave para las cuentas 1 y 2. La 3 y la 4
+  esperan que Martín pegue la suya en SuperAdmin › Uso › API (`ANTHROPIC_CREDITO_CUENTA3`/`4`); la claude5 no tiene lugar en
+  `CUENTAS_DEL_CREDITO` (lib/credito-api.ts). La cuenta 1 es la org de Mauricio y la 2 la de Leandro (medido el 22/10, ver
+  `CUENTAS_DEL_CREDITO`): ahora también pagan los grupos de los demás negocios.
+- **Para N cuentas (28/10, la tanda A): eran DOS listas.** Los grupos tenían su copia de cuatro nombres en lib/veto-claude.ts, y
+  el Uso la suya (`CUENTAS_DEL_CREDITO`): una quinta en el Uso no pagaba turnos, y una quinta en la copia los pagaba sin verse.
+  Ahora `CLAVES_CREDITO_DE_LOS_GRUPOS` sale de `CUENTAS_DEL_CREDITO` (lib/credito-api.ts): una cuenta nueva es UNA línea ahí y
+  su clave, y el reparto, la puerta 2 y el Uso la toman solos. Una clave con el mismo prefijo que el Uso no conoce no paga.
 
 **Sin hacer:**
+- **El crédito de los grupos:** la claude5 necesita su línea en `CUENTAS_DEL_CREDITO` (lib/credito-api.ts; ya alcanza con eso,
+  si es un Max 20x: lo sabe Martín), y su clave. No hay interruptor en la pantalla de SuperAdmin para
+  `ia.credito_grupos`: sin fila está prendido, y apagarlo hoy es escribir la fila. En el grupo, los documentos y las fotos
+  (`archivoATexto`, lib/mako-doer-in.ts) todavía pasan por Gemini.
 - **En la línea del DUEÑO, el anillo es la única defensa del eco, y un error al leerlo lo vacía**: `idsEnviados` lee con
   `getSetting`, que convierte un error en null (anillo vacío), así que el eco de MaKo entra como el dueño escribiendo y se
   contesta. En la línea de MaKo no pasa (`esEcoDeMaKo`). Lo cerraría leerlo estricto y, si falla, saltear el `fromMe` en vez de
@@ -11763,6 +11792,36 @@ a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplica
 - `conTicketsDeMaKo` no compara un [[no-existe]] con los títulos abiertos si el modelo no marca [[ya-pedido]]: el duplicado
   sigue posible si el modelo no lo reconoce.
 - F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).
+
+## El dominio que el modelo inventa: «hola-malo.com/crm/2761» a Código Inmobiliario (28/10/2026, claude4)
+
+**El síntoma (conv 1502, ws13):** MaKo le pasó al cliente un link a «hola-malo.com/crm/2761». El modelo reescribe el link que le
+dio una herramienta y le cambia una letra al dominio: el link lleva a otro sitio.
+**Por qué pasaba el saneo:** `linksConWs` (lib/links-con-ws.ts) reconoce SÓLO el host exacto de MaKo para pegarle el `?ws=`; un
+host parecido no es «de MaKo» para él, así que salía tal cual. Y el historial lo guardaba, y el modelo lo repetía.
+**La regla:** `conElDominioDeMaKo` corrige al de MaKo un host a una o dos letras de él (`hola-malo.com`, `holamako.com`,
+`hola-mako.co`), y no toca uno distinto de verdad (google.com, el sitio del negocio, `mako.com`) ni los propios
+(`DOMINIOS_MAKO`). Corre sobre `partes` en el doer: lo que sale al grupo Y la memoria. Lo fija tests/links-con-ws.test.ts 4 y 5
+(el turno real, tests/_link-inventado-hijo.ts).
+
+## «Mauricio no escribe desde el 04/10»: la entrada no estaba rota, en su grupo no hay nadie que escriba (28/10/2026, claude4)
+
+**El síntoma (el relevamiento de pedidos perdidos):** el ws1 no tiene un mensaje en `mako_doer_buffer` desde el 04/10, y es el
+cliente más activo. ¿No escribe, o la entrada está rota?
+**Lo medido (sólo lectura, base y Evolution, 28/10 22:45):**
+- `mako_doer_conv` del grupo del ws1 (`mako.grupo_jid` 120363411646661065@g.us) tiene 41 filas desde el 20/10, y las 41 son de
+  MaKo (`assistant`): MaKo le escribe ~15 por día; de una persona, ninguna.
+- La línea de MaKo (`mako_superadmin_muylqv8r`, +…2605) está conectada, con el webhook prendido y sin `groupsIgnore`, y en otros
+  grupos SÍ ve personas (el de Leila: 12 de sus últimos 40). En el del ws1, sus 92 mensajes desde el 08/10 son todos propios.
+- ⚠️ **El diagnóstico obvio («alguien escribió hasta el 23/10 y no entró») era el equivocado.** `mako_ws9` guarda 54 mensajes
+  «de personas» en ese grupo hasta el 23/10, todos del lid …2389. Ese lid ES la línea de MaKo (+…2605): visto desde OTRA
+  instancia, lo que manda MaKo parece de una persona. Los tres participantes del grupo son números conectados como líneas:
+  +…3479 (el personal de Martín: `mako_ws9` y las viejas de SuperAdmin), +…8122 (`mako_ws1`) y +…2605 (MaKo).
+- **La trampa:** en un grupo con `addressingMode: lid`, el autor es un lid, no el número. Para saber quién es, se cruza con
+  `group/findGroupInfos` (trae `phoneNumber` por participante) y con los dueños de las instancias (`fetchInstances`).
+**Sin hacer:** decidir si +…8122 (el WhatsApp conectado del ws1) es el teléfono de Mauricio o si él no está en su grupo; y si
+MaKo debe seguir mandando ~15 por día a un grupo donde nadie lee. Los scripts de la medición: el scratchpad de claude4
+(`medir-ws1*.mjs`, sólo GET).
 
 ## La respuesta al EQUIPO no es para MaKo (28/10/2026, claude4, Leila, ws11)
 

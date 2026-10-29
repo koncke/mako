@@ -50,6 +50,7 @@ import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
+import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -62,7 +63,8 @@ import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
-import { linksConWs } from '@/lib/links-con-ws';
+import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
+import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { aFormatoWhatsapp, conMarcaDeTicket, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
@@ -2121,7 +2123,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
              */
             // IA16: sin Groq (sólo escucha audio); un pin a Groq de /modelos-ia lo saltea `chatCheapTools`. Con su IA, su Gemini
             // y su OpenAI (`PROVS_SU_IA`): desde el 22/10/2026 su Gemini es su IA, y con sólo `['openai']` no se probaba.
-            const cands = suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai'].filter((p, i, a) => p !== 'groq' && a.indexOf(p) === i);
+            // ⛔ Y sin Gemini (Martín, 28/10/2026, «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a Gemini.
+            const cands = (suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai']).filter((p, i, a) => p !== 'groq' && p !== 'gemini' && a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -2148,6 +2151,43 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // Lo pone el reintento de arriba: alguna IA escribió un link de borrador, o
             // sea que ENTENDIÓ que este turno cargaba tareas aunque el router no.
             let quisoBorrador = false;
+            // ── CLAUDE PRIMERO (Martín, 28/10/2026: «el texto del turno sale con Claude» en los grupos) ─────────────────────────
+            // Su Claude (por clave) o el crédito asignado (la puerta 2), y SÓLO si no tiene, el crédito de los planes 200
+            // repartido entre las cuentas con clave (`cuentasDelCreditoDeLosGrupos`), saltando la que se quedó sin crédito. Sólo
+            // mientras el turno no ejecutó nada: otro intento después de una escritura la duplicaría.
+            let claudeProbado = false;
+            /** Una vuelta de Claude: con su Claude (`cuenta` vacía) o con una cuenta del crédito de los grupos. */
+            const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {
+              try {
+                const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+                  feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500,
+                  motivo: `Claude del grupo${cuenta ? ` (${cuenta})` : ''} · ${ruta.motivo} «${recorte}»`,
+                });
+                claudeProbado = true;
+                if (!cuenta) { probadasCliente++; contestaronCliente++; }
+                if (text?.trim() && !text.startsWith('(')) respuesta = text.trim();
+                return 'listo';
+              } catch (e) {
+                const m = e instanceof Error ? e.message : String(e);
+                // Sin su Claude (y sin crédito asignado) no es un error: se prueba el crédito de los grupos.
+                if (!cuenta && /no tiene su clave de Claude/.test(m)) return 'sin_su_claude';
+                claudeProbado = true;
+                ultErr = e;
+                console.warn(`[mako-doer-in] ws=${wsData} Claude del grupo${cuenta ? ` (${cuenta})` : ''} no pudo: ${m}`);
+                // ⚠️ CON SU CLAUDE, EL QUE FALLÓ ES EL SUYO, y la puerta 2 le daría el suyo otra vez (su clave gana): no se pasa
+                // al crédito, que además marcaría «sin crédito» una cuenta nuestra por el saldo de SU clave.
+                if (!cuenta) { probadasCliente++; erroresIA.push(`anthropic/ANTHROPIC_API_KEY: ${m}`); return 'listo'; }
+                // El crédito de los grupos es NUESTRO: su error no elige el veredicto (ver `erroresPlataforma`).
+                if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
+                erroresPlataforma.push(`plataforma/anthropic (${cuenta}): ${m}`);
+                return 'otra_cuenta';
+              }
+            };
+            if (!respuesta && !linkBorrador && (await claudeDelGrupo()) === 'sin_su_claude') {
+              for (const cuenta of await cuentasDelCreditoDeLosGrupos()) {
+                if (respuesta || corridasDelTurno > 0 || (await claudeDelGrupo(cuenta)) === 'listo') break;
+              }
+            }
             // ⚠️ EL LOOP RECORRE CUENTAS, NO SÓLO PROVEEDORES. Acá se iteraba `orden` —la
             // lista de proveedores— y se llamaba a `chatCheapTools` sin `clave`, así que
             // resolvía siempre la key BASE de cada uno. Un cliente con dos cuentas de
@@ -2340,7 +2380,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // (las del grupo y las de la API del negocio); si no se pueden leer, cuentan.
             // ── WA1: CON SU IA, DESPUÉS DE SU OPENAI, SU CLAUDE (por clave, la puerta 2 del veto). Sólo si el turno no ejecutó
             // nada todavía: otro modelo después de una escritura la duplicaría (la misma regla de la cascada).
-            if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0) {
+            if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0 && !claudeProbado) {
               probadasCliente++;
               try {
                 const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
@@ -2816,7 +2856,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
       // cada parte como un mensaje aparte con una pausa chica (se lee como conversación,
       // no un chorizo). Registramos cada id enviado para el anti-eco.
-      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => p.trim()).filter(Boolean);
+      // El dominio que el modelo inventa («hola-malo.com/crm/2761», 28/10/2026, lib/links-con-ws.ts) se corrige al de MaKo, en lo que
+      // sale y en la memoria: si quedaba en el historial, el modelo lo repetía.
+      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO)).filter(Boolean);
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.

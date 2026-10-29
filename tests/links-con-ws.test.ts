@@ -13,7 +13,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linksConWs } from '../lib/links-con-ws';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { conElDominioDeMaKo, linksConWs } from '../lib/links-con-ws';
 
 const BASE = 'https://hola-mako.com';
 
@@ -39,3 +41,30 @@ test('el doer de WhatsApp pasa TODO lo que manda al grupo por linksConWs', () =>
   const src = readFileSync('lib/mako-doer-in.ts', 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /const enviar = \[\.\.\.partes, \.\.\.paraLaPersona\]\.map\(\(t\) => linksConWs\(t, wsData, APP_URL\)\);/);
 });
+
+// ── El dominio que el modelo inventa (28/10/2026, «hola-malo.com/crm/2761» a Código Inmobiliario, conv 1502) ─────────────
+test('un dominio a una o dos letras del de MaKo se corrige; uno distinto de verdad o propio, no', () => {
+  const B = 'https://hola-mako.com';
+  assert.equal(conElDominioDeMaKo('la ficha: hola-malo.com/crm/2761.', B), 'la ficha: hola-mako.com/crm/2761.');
+  assert.equal(conElDominioDeMaKo('https://www.holamako.com/integraciones', B), 'https://www.hola-mako.com/integraciones');
+  assert.equal(conElDominioDeMaKo('entra a hola-mako.co/plan', B), 'entra a hola-mako.com/plan');
+  for (const t of ['google.com/maps', 'https://codigoinmobiliario.com.ar/x', 'mako.com/y', 'hola-mako.com/crm/1', 'makodigital.app/z']) {
+    assert.equal(conElDominioDeMaKo(t, B, ['makodigital.app']), t, `«${t}» se tocó`);
+  }
+  assert.equal(conElDominioDeMaKo('', B), '');
+});
+
+test('el turno real: lo que sale al grupo y lo que queda en la memoria llevan el dominio de MaKo', () => {
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_link-inventado-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 280_000 });
+  const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@LINK@@'));
+  assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
+  const o = JSON.parse(linea.slice('@@LINK@@'.length));
+  assert.equal(o.error, undefined, String(o.error));
+  assert.deepEqual(o.salio, ['Aquí está la ficha: hola-mako.com/crm/2761?ws=13. Conecta Meta en https://www.hola-mako.com/integraciones?ws=13 y mira el local en google.com/maps.']);
+  assert.deepEqual(o.memoria, ['Aquí está la ficha: hola-mako.com/crm/2761. Conecta Meta en https://www.hola-mako.com/integraciones y mira el local en google.com/maps.'], 'el dominio inventado quedó en el historial');
+});
+
+// ── Probado rompiéndolo (28/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
+//   D1 `conElDominioDeMaKo` sin la distancia (no corrige nada)                          → fallan el 4 y el 5
+//   D2 la distancia sin tope (corrige mako.com y google.com)                             → fallan el 4 y el 5
+//   D3 el doer sin `conElDominioDeMaKo` en `partes`                                      → falla el 5
