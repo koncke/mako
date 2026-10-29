@@ -32,8 +32,11 @@ la derecha». Y después (el Cerebro, por lo que Martín le prometió a Teo): «
 - **tsc acotado**: hecho en 6 tandas con `con-turno` el 28/10: 0 errores propios (sólo los 14 de `_opencut`; los 2 de
   `app/conocimientos/Compartir.tsx` en una tanda son el `<style jsx>` que el acotado no carga: la otra tanda lo compila
   limpio). Después sólo cambiaron textos y números de tests (ba1a749db). Falta mandarle el VERDE al Cerebro.
-- **Capturas de las tandas 3 y 4** (escritorio y teléfono) con la maqueta: side-session-notes/…/copywriter-maqueta/ y el
-  scratchpad (plan-t3.json, plan-t4.json; la maqueta ya tiene la vista del link y el modal). Sin hacer.
+- ✔ **Capturas de las tandas 2, 3 y 4** (escritorio y teléfono, 29/10): C:/dev/revisiones/copywriter-2810/ (t2-*, t3-*,
+  t4-*). Lo que midió cada una: el Reel con sus 4 secciones y sólo las estructuras de Reel; YouTube «Todavía no hay de
+  YouTube»; el menú ⋯ con «Compartir para editar»; el modal con su link; la vista del link sin MaKo ni selectores, que
+  guarda y marca «Leila con el link». La maqueta y sus planes: side-session-notes/…/copywriter-maqueta/.
+- Lo que sigue es del Cerebro: la verificación de 7eef753da con refutador (primero la puerta pública que escribe).
 
 ## Lo que espera a Martín
 
