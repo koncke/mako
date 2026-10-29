@@ -11,8 +11,8 @@
 // escribió esto (otra versión, otro texto), el script lo dice y no escribe nada.
 //   · Todo «VSL Funnel» pasa a la venta High Ticket: el titular, la línea debajo de los botones, la historia de Mauricio,
 //     «¿Qué es MaKo?», el título de la grilla, «¿Para quién es esto?» y el título SEO. Al final no queda ninguno.
-//   · La grilla deja SÓLO 6 tarjetas, lo que vende un negocio high ticket y anda HOY en producción (se vende como un
-//     EQUIPO: el setter, el CRM, Instagram, el media buyer, las landings y el análisis de las llamadas), a 3 columnas.
+//   · La grilla deja SÓLO lo que vende un negocio high ticket y anda HOY en producción, a 3 columnas: primero 6 tarjetas;
+//     después de que Martín las viera, las 9 del taller del Cerebro (`TARJETAS`), y se corre otra vez sobre la publicada.
 //   · Y ~11:20: «no me gusta que esté con el fondo azul»: la sección de la Beta y los precios pasa al fondo claro (la hoja).
 //     Los precios completos (✓ y ✗) y la tabla comparativa son del CÓDIGO (app/vsl/PreciosLanding.tsx, app/planes/).
 //
@@ -29,6 +29,7 @@ import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
 const CLAVE_PRINCIPAL = 'web-generator.landing-principal';
+/** El nombre del respaldo (`--respaldo`): el de la primera pasada es #73 «Landing principal — antes del 29/10». */
 const TITULO_RESPALDO = 'Landing principal — antes del 29/10';
 /** El título para buscadores tiene un tope de 60 letras (el saneo de la configuración recorta): sin «de punta a punta». */
 const SEO_TITULO = 'MaKo — El mejor SaaS para ventas High Ticket';
@@ -81,24 +82,42 @@ const CSS_HOJA: [string, string][] = [
 const ICONO_INSTAGRAM = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 8a4 4 0 0 1 4 -4h8a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-8a4 4 0 0 1 -4 -4z"></path><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path><path d="M16.5 7.5v.01"></path>';
 const ICONO_LANDING = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 5a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1z"></path><path d="M4 8h16"></path><path d="M8 4v4"></path><path d="M9 13h6"></path><path d="M9 16h4"></path>';
 
+const ICONO_TIJERA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 7a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M3 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M8.6 8.6l10.4 10.4"></path><path d="M8.6 15.4l10.4 -10.4"></path>';
+const ICONO_GRUPO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1"></path><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M17 10h2a2 2 0 0 1 2 2v1"></path><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M3 13v-1a2 2 0 0 1 2 -2h2"></path>';
+const ICONO_OJO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path>';
+
 /**
- * Las 6 tarjetas, en orden. `de` = la tarjeta de hoy que se reusa (su caja, su ícono, su color). Las que no existían
- * (Instagram, las landings) salen de otra con su ícono y su enlace propios.
+ * Las 9 tarjetas, 3 x 3 y en este orden, con el texto exacto del taller del Cerebro (29/10, después de que Martín viera las 6:
+ * «Esas no son las funcionalidades más hot... ¿Y el scraper? ¿Y el Avatar con IA? ¿Y la edición?»): el inventario de lo que
+ * anda HOY en producción, lo que vende en el rubro y tres jurados (docs/hallazgos-editor-landing.md, «Lo que la landing puede
+ * vender»). El Avatar con IA NO entra todavía (sólo lo abre el super admin). `de` = la tarjeta de hoy que se reusa (su caja, su
+ * ícono, su color); las que no existían salen de otra con su ícono, su color y su enlace.
  */
 const TARJETAS: { de: string; titulo: string; bajada: string; nueva?: { feature: string; href: string; icono: string; fondo?: [string, string] } }[] = [
-  { de: 'whatsapp', titulo: 'Tu setter en WhatsApp', bajada: 'Le contesta a cada lead, le hace el seguimiento y le pasa tu calendario.' },
-  { de: 'crm', titulo: 'Tu CRM, que se llena solo', bajada: 'Crea la ficha, mueve el lead de etapa y engancha la grabación de la llamada.' },
-  { de: 'crm', titulo: 'Comentario → DM en Instagram', bajada: 'Alguien comenta tu palabra clave y le llega tu DM, con la respuesta en su comentario.',
-    nueva: { feature: 'instagram', href: '#beta', icono: ICONO_INSTAGRAM, fondo: ['background:#FCE8F1', 'color:#D62976'] } },
-  { de: 'ads', titulo: 'Tu media buyer', bajada: 'Te propone qué escalar, qué pausar y qué creativo probar, con su porqué y su deshacer.' },
-  { de: 'crm', titulo: 'Tus landings, en minutos', bajada: 'Copia una que ya vende o créala con IA, edítala como un documento y publícala.',
+  { de: 'whatsapp', titulo: 'Tu setter en WhatsApp', bajada: 'Contesta a cada lead a cualquier hora, también audios, y le manda tu link para agendar.' },
+  { de: 'crm', titulo: 'Tu editor de video', bajada: 'Pídele a MaKo que quite silencios y ruido, ponga subtítulos y haga los cortes.',
+    nueva: { feature: 'video-editor', href: 'https://hola-mako.com/video-editor', icono: ICONO_TIJERA, fondo: ['background:#F1EDFE', 'color:#7C5CF5'] } },
+  { de: 'crm', titulo: 'De tus grupos al CRM', bajada: 'Toca «Extraer»: los contactos de tus grupos de WhatsApp caen al CRM con nombre y perfil.',
+    nueva: { feature: 'grupos', href: '#beta', icono: ICONO_GRUPO, fondo: ['background:#E3F6F3', 'color:#0F9B8E'] } },
+  { de: 'crm', titulo: 'Tu diseñador de landings', bajada: 'Crea tu landing con IA o replica una que ya vende, y publícala en tu dominio.',
     nueva: { feature: 'landings', href: 'https://hola-mako.com/vsl/crear-landings', icono: ICONO_LANDING } },
-  { de: 'closing', titulo: 'Closing Analyst', bajada: 'Cada llamada, puntuada y convertida en tu próxima lección.' },
+  { de: 'crm', titulo: 'Comentan «QUIERO», reciben el DM', bajada: 'Si comentan tu palabra clave, MaKo responde en público, manda el DM y sigue la charla.',
+    nueva: { feature: 'instagram', href: '#beta', icono: ICONO_INSTAGRAM, fondo: ['background:#FCE8F1', 'color:#D62976'] } },
+  { de: 'closing', titulo: 'Tu analista de llamadas', bajada: 'Puntúa cada llamada de venta grabada, marca las objeciones y te deja las tareas.' },
+  { de: 'ads', titulo: 'Tu media buyer con IA', bajada: 'Revisa tus anuncios de Meta cada día y te propone qué subir, pausar o prender, y por qué.' },
+  { de: 'crm', titulo: 'Tu CRM se mueve solo', bajada: 'Los leads de Meta y tu agenda entran solos, cambian de etapa y su llamada queda guardada.' },
+  { de: 'crm', titulo: 'Su visita, grabada', bajada: 'Mira en el CRM qué hizo ese lead en tu landing antes de llamarlo, y el mapa de calor.',
+    nueva: { feature: 'visita', href: '#beta', icono: ICONO_OJO, fondo: ['background:#FDECEC', 'color:#E5484D'] } },
 ];
 
 const cuenta = (s: string, buscar: string) => s.split(buscar).length - 1;
+/**
+ * Un reemplazo que tiene que aparecer UNA vez. Si ya no está y lo nuevo SÍ (la #32 ya publicada con este script, la v11), ya
+ * se aplicó y se sigue; si no está ninguno de los dos, la landing cambió y no se toca nada.
+ */
 function reemplazarUnaVez(s: string, buscar: string, poner: string, donde: string): string {
   const n = cuenta(s, buscar);
+  if (n === 0 && (poner === '' || cuenta(s, poner) >= 1)) return s;
   if (n !== 1) throw new Error(`${donde}: «${buscar.slice(0, 70)}» aparece ${n} veces (se esperaba 1): la landing cambió, no se toca nada`);
   return s.replace(buscar, () => poner);
 }
@@ -161,7 +180,8 @@ export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>): { cont
 
   for (const [id, buscar, nuevo] of REEMPLAZOS) poner(id, reemplazarUnaVez(html(id), buscar, nuevo, id));
   const top = html('t02top');
-  if (cuenta(top, DEBAJO_DEL_BOTON[0]) !== 2) throw new Error(`t02top: la línea debajo del botón aparece ${cuenta(top, DEBAJO_DEL_BOTON[0])} veces (se esperaban 2)`);
+  const yaEsta = cuenta(top, DEBAJO_DEL_BOTON[0]) === 0 && cuenta(top, DEBAJO_DEL_BOTON[1]) === 2;
+  if (!yaEsta && cuenta(top, DEBAJO_DEL_BOTON[0]) !== 2) throw new Error(`t02top: la línea debajo del botón aparece ${cuenta(top, DEBAJO_DEL_BOTON[0])} veces (se esperaban 2)`);
   poner('t02top', top.split(DEBAJO_DEL_BOTON[0]).join(DEBAJO_DEL_BOTON[1]));
 
   const h5 = html('t05comofunciona');
@@ -212,7 +232,7 @@ async function main() {
   // publicador de hoy le agrega a cada sección su ancla vacía (`gm-ancla-seccion`), que la foto del 23/10 no tenía.
   const fotoHoy = armarFoto({ ...f } as never, [], null, urlBase, null);
   const sinAnclas = (h: string) => h.replace(/<span id="t-[^"]*" class="gm-ancla-seccion" aria-hidden="true"><\/span>/g, '');
-  const borradorEsLoPublicado = sinAnclas(fotoHoy.paginas[0]?.html ?? '') === (f.publicado?.paginas[0]?.html ?? '-');
+  const borradorEsLoPublicado = sinAnclas(fotoHoy.paginas[0]?.html ?? '') === sinAnclas(f.publicado?.paginas[0]?.html ?? '-');
 
   const nueva = landingHighTicket(f);
   const foto = armarFoto({ ...f, ...nueva, version: f.version + 1 } as never, [], new Date().toISOString(), urlBase, null);
@@ -229,9 +249,10 @@ async function main() {
   if (!borradorEsLoPublicado) throw new Error('el borrador de hoy NO es lo publicado: publicarlo sacaría a la luz lo que no se ve. No escribo.');
 
   // 1) El respaldo: la de hoy, como un documento aparte y sin publicar (como «Duplicar»).
-  const { data: copia, error: e1 } = await db.from('landing_docs').insert({ workspace_id: ws, titulo: TITULO_RESPALDO, contenido: f.contenido, config: f.config ?? {}, carpeta: f.carpeta, creado_por_nombre: 'MaKo' }).select('id').single();
+  const titulo = arg('--respaldo') ?? TITULO_RESPALDO;
+  const { data: copia, error: e1 } = await db.from('landing_docs').insert({ workspace_id: ws, titulo, contenido: f.contenido, config: f.config ?? {}, carpeta: f.carpeta, creado_por_nombre: 'MaKo' }).select('id').single();
   if (e1 || !copia) throw new Error(`no pude guardar el respaldo: ${e1?.message}`);
-  console.log(`respaldo: #${(copia as { id: number }).id} «${TITULO_RESPALDO}» (sin publicar)`);
+  console.log(`respaldo: #${(copia as { id: number }).id} «${titulo}» (sin publicar)`);
   // 2) La nueva en la #32 (con la versión de hoy como guarda: si alguien la editó recién, no pisa).
   const version = f.version + 1;
   const { data: g1, error: e2 } = await db.from('landing_docs').update({ contenido: nueva.contenido, config: nueva.config, version }).eq('workspace_id', ws).eq('id', docId).eq('version', f.version).select('id');
