@@ -52,6 +52,8 @@ export type AdjuntosQueSeLeen = {
   mandar: () => void;
   /** Leyendo los archivos: la caja gira y no se escribe encima. */
   leyendo: boolean;
+  /** Lo leído ya está en el campo y sale en el dibujo siguiente: todavía no le llegó a la pantalla. */
+  entregando: boolean;
   /** Por qué no salió (un archivo que no se pudo leer o no se toma). */
   error: string | null;
   /** Lo que salió recortado por el tope de la pantalla (`tope`): se dice, no se corta callado. */
@@ -59,6 +61,12 @@ export type AdjuntosQueSeLeen = {
 };
 
 const SIN_ITEMS: AdjuntoCaja[] = [];
+/**
+ * Lo que la caja lee de las pantallas que dicen su `conversacion`, GUARDADO FUERA de la caja (28/10/2026, la verificación de
+ * 1d586a686): la caja se desmonta (el Ops Center no la dibuja en un chat sin caja, como el Runner o uno de la nube; el teléfono
+ * cierra la hoja) y lo adjuntado en esa conversación tiene que estar al volver. Sin `conversacion` (una sola), vive en la caja.
+ */
+const GUARDADO = new Map<string, AdjuntoCaja[]>();
 
 export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError, tope, conversacion = '' }: {
   activo: boolean;
@@ -71,9 +79,14 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   /** De qué conversación es lo que se adjunta, en una pantalla con varias y una caja (Soporte). Sin esto, una sola. */
   conversacion?: string;
 }): AdjuntosQueSeLeen {
-  const [porConversacion, setPorConversacion] = useState<Record<string, AdjuntoCaja[]>>({});
-  const items = porConversacion[conversacion] ?? SIN_ITEMS;
-  const ponerItems = (c: string, f: (ya: AdjuntoCaja[]) => AdjuntoCaja[]) => setPorConversacion((m) => ({ ...m, [c]: f(m[c] ?? []) }));
+  const [locales, setLocales] = useState<AdjuntoCaja[]>([]);
+  const [, redibujar] = useState(0);
+  const items = conversacion ? GUARDADO.get(conversacion) ?? SIN_ITEMS : locales;
+  const ponerItems = (c: string, f: (ya: AdjuntoCaja[]) => AdjuntoCaja[]) => {
+    if (!c) { setLocales(f); return; }
+    GUARDADO.set(c, f(GUARDADO.get(c) ?? []));
+    redibujar((n) => n + 1);
+  };
   /** Las conversaciones cuyo mensaje se está leyendo: cada una el suyo (la verificación de d2f690673: con una por vez, Enter en el
    *  ticket 9 mientras se leía el 7 no hacía nada y no decía nada). */
   const [leyendoEn, setLeyendoEn] = useState<readonly string[]>([]);
@@ -90,10 +103,16 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   const mandarPantalla = useRef(onMandar);
   useEffect(() => { mandarPantalla.current = onMandar; });
   const decir = (m: string) => { setError(m); onError?.(m); };
-  // Las miniaturas de las imágenes son `blob:` locales: se sueltan al irse (las de todas las conversaciones).
-  const todos = useRef(porConversacion);
-  todos.current = porConversacion;
-  useEffect(() => () => { for (const xs of Object.values(todos.current)) for (const x of xs) if (x.url) URL.revokeObjectURL(x.url); }, []);
+  // Las miniaturas de las imágenes son `blob:` locales: las de la caja se sueltan al irse (lo guardado por conversación se queda,
+  // para volver). Y una lectura que termina con la caja desmontada no escribe ni manda nada (`vivo`).
+  const vivo = useRef(true);
+  const propios = useRef(locales);
+  propios.current = locales;
+  // `vivo` vuelve a true al montar: el modo estricto de React monta, desmonta y vuelve a montar.
+  useEffect(() => {
+    vivo.current = true;
+    return () => { vivo.current = false; for (const x of propios.current) if (x.url) URL.revokeObjectURL(x.url); };
+  }, []);
 
   // Lo leído ya está en la caja: se manda por el camino de siempre de la pantalla.
   useEffect(() => {
@@ -138,16 +157,24 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
           marcar(it.id, undefined);
         } catch (e) {
           marcar(it.id, 'error');
-          if (actual.current === de) decir(e instanceof Error ? e.message : `No pude leer «${it.file.name}».`);
+          if (vivo.current && actual.current === de) decir(e instanceof Error ? e.message : `No pude leer «${it.file.name}».`);
           dejarDeLeer(de);
           return;
         }
       }
-      // Se cambió de conversación mientras se leía: no sale en la otra (iría al ticket equivocado). Queda en la suya, leído de
-      // nuevo al mandarlo desde ahí.
-      if (actual.current !== de) { dejarDeLeer(de); return; }
       // Con el tope del motor de la pantalla, lo leído entra hasta ahí con su marca de cierre, y se DICE (la revisión del 27/10).
       const { mensaje: nuevo, afuera } = tope ? conPegadosHasta(texto, leidos, tope) : { mensaje: conPegados(texto, leidos), afuera: 0 };
+      // Se cambió de conversación mientras se leía: no sale en la otra (iría al ticket equivocado). Queda en la suya, leído de
+      // nuevo al mandarlo desde ahí.
+      if (vivo.current && actual.current !== de) { dejarDeLeer(de); return; }
+      // La caja se fue mientras leía: no se manda nada. Con `conversacion`, lo adjuntado sigue guardado para volver. SIN ella vivía
+      // en la caja y se iba con ella (la verificación de 5ddf1672a, el Ops Center del cliente al abrir Tickets): lo leído queda en
+      // el campo de la pantalla, que vive afuera, y sale con el próximo Enter.
+      if (!vivo.current) {
+        dejarDeLeer(de);
+        if (!de) onTexto(nuevo);
+        return;
+      }
       if (afuera) setAviso(`Este chat lee hasta ${tope!.toLocaleString('es')} caracteres: lo adjuntado no entró entero (quedaron afuera ${afuera.toLocaleString('es')}).`);
       for (const x of lista) if (x.url) URL.revokeObjectURL(x.url);
       ponerItems(de, (ya) => ya.filter((x) => !lista.some((y) => y.id === x.id)));
@@ -164,6 +191,8 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
     } : undefined,
     mandar: activo ? mandar : onMandar,
     leyendo,
+    // Leído y todavía sin entregar a la pantalla (sale en el dibujo siguiente): para quien espera ESE mensaje (Soporte).
+    entregando: pendiente != null,
     error,
     aviso,
   };

@@ -161,5 +161,23 @@ decía mal, y un hueco que venía de antes:
 - **Sin hacer:**
   - En Soporte, lo ESCRITO sigue siendo uno para todas las conversaciones (lo que se escribe en el ticket 7 se ve en el 9).
     Es así desde antes.
-  - Revisar las otras cajas que atienden varias conversaciones sin remontarse y todavía no pasan `conversacion`: MakoChat
-    (sus sesiones, app/_components/MakoChat.tsx) y la tab Chats (Composer.tsx, una conversación por lead). No las medí.
+  - (La tab Chats NO cruza: el Composer se remonta por lead y va con `sinAdjuntos`. MakoChat, hecho abajo.) Quedan, con el
+    mismo dibujo y a MaKo: el asesor de WhatsApp (por contacto, sin key), el Ops Center del cliente (PiezasCliente, al elegir
+    otro chat) y Editar con MaKo (otra hoja con el panel abierto). La tabla, en C:/dev/revisiones/2810-verificacion-1d586a686.md.
+- **Y la verificación de 1d586a686:**
+  - **Lo guardado por conversación vive FUERA de la caja** (`GUARDADO`, adjuntos-que-se-leen.ts). En el Ops Center la caja se
+    desmonta en un chat sin caja (el Runner, uno de la nube) y al cerrar la hoja en el teléfono: un audio adjuntado se perdía
+    sin aviso. Sin `conversacion` (una caja, una conversación) sigue viviendo en la caja. Las claves se nombran con su pantalla
+    (`soporte:`, `mako-chat:<endpoint>:<gráfico>:`): lo guardado es de todas las cajas.
+  - **Una lectura que termina con la caja desmontada no escribe ni manda nada** (`vivo`). Ojo con el modo estricto de React:
+    el efecto vuelve a poner `vivo` en true al montar, porque en desarrollo se monta, se desmonta y se vuelve a montar.
+  - **Lo que la caja lee también lo espera lo que sale POR FUERA de la caja** (`onLeyendo`): en Soporte el ticket se levantaba
+    sin el mensaje que la caja estaba leyendo. La tarjeta dice «Leyendo lo que adjuntaste…».
+  - **Lo juntado por la PANTALLA también va por conversación** cuando la pantalla cambia de conversación sin remontarse
+    (`useAdjuntosDelChat` → `conversacion`): en MakoChat la foto de la sesión 1 salía con el «hola» de la 2.
+- **Y la verificación de 5ddf1672a:**
+  - **«Dejé de leer» no es «ya lo entregué».** Lo leído sale por el `onMandar` de la pantalla en el dibujo SIGUIENTE
+    (`pendiente`): avisar al terminar de leer dejaba una ventana. `onLeyendo` sigue en true mientras `entregando`.
+  - **Con la caja desmontada, el camino SIN `conversacion` no puede cortar callado.** Ahí lo adjuntado vivía en la caja y se fue
+    con ella; lo leído vuelve al campo de la pantalla (`onTexto`), que vive afuera, y no se manda. Con `conversacion`, queda
+    guardado para volver.

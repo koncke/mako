@@ -84,6 +84,7 @@ import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pis
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
+import { paqueteParaElTurno } from '@/lib/cerebro-para-chat';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, pedidoConLecturas, placeholderDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
@@ -668,8 +669,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const tools = herramientasDelModo(turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]), desde, escribe);
     const permitidas = new Set(tools.map((t) => t.name));
 
-    // El system se arma DESPUÉS de las tools: depende de ellas.
+    // El system se arma DESPUÉS de las tools: depende de ellas. Lo que el Second Brain sabe de la pregunta lo trae el servidor ANTES
+    // del modelo y sin IA (lib/cerebro-para-chat.ts, 28/10/2026), en paralelo y con la plata según el rol: no depende de que el
+    // modelo pida una herramienta. `paqueteParaElTurno` nunca tira.
+    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin' });
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
+    const segundoCerebro = await segundoCerebroP;
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
     const ctxPend = vigentes.length
       ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma o las cancela tocando su tarjeta; tú no puedes hacer ninguna de las dos. Si te dice que no la quiere, dile que toque «Cancelar» en la tarjeta.`
@@ -685,7 +690,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);

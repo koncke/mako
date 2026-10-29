@@ -89,7 +89,8 @@ export function MakoChat({
   }, [pensando]);
   const items = useMemo(() => itemsDe(messages), [messages]);
   // Fotos y PDF con la pregunta (28/10/2026, las cajas unificadas): la ruta los lee y su lectura va con el pedido.
-  const adj = useAdjuntosDelChat({ puede: !pensando && !!sessionId, onError: setErr });
+  // Lo juntado es de SU sesión, como lo que lee la caja (`conversacion` abajo): la misma caja atiende todas (28/10/2026).
+  const adj = useAdjuntosDelChat({ puede: !pensando && !!sessionId, onError: setErr, conversacion: sessionId ? String(sessionId) : '' });
   const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
   // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
@@ -233,7 +234,9 @@ export function MakoChat({
         <div className="co-caja">
           <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando || nota.pendientes} apagado={!sessionId || cambiando}
             placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-            adjuntos={adj.caja} />
+            adjuntos={adj.caja}
+            // La misma caja atiende todas las sesiones: lo que lee (un audio, un .pptx) es de SU sesión (28/10/2026).
+            conversacion={sessionId ? `mako-chat:${endpoint}:${chartKey}:${sessionId}` : undefined} />
         </div>
       </>}
       estado="">

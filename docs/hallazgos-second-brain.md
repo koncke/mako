@@ -2924,3 +2924,46 @@ chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `
 (no una acción de MaKo) se ve en el chat al vencer la caché, y en Vercel cada instancia tiene la suya; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
 MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
 lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.
+
+## El turno de MaKo trae del Second Brain lo que nombra la pregunta (28/10/2026, claude4, la tanda 3 del relevamiento)
+
+- **Lo que quedó:** el turno de la app (Ops Center, Second Brain, MaKo de cada tab, teléfono, CRM, el Analyst del lead) arma,
+  en paralelo con su system y sin IA, la vista local de la pregunta (`paqueteParaElTurno`, presupuesto 1.200) y la pone justo
+  después del system. No depende de que el selector deje pasar `indice` o `recuperar` (casi nunca lo hacía).
+- **La plata:** el grafo en caché es del NEGOCIO, no de la persona. Para un closer o un setter (`sinPlata`, el mismo corte que
+  `sinNumerosDelNegocio`) se sacan antes de recuperar los objetivos, los KPIs y los clientes ganados, con sus aristas.
+- **Sin frenar el primer mensaje:** el grafo son 21 lecturas. El turno lo espera hasta 2,5 s; si no llegó, sigue sin el
+  paquete y el armado queda en la caché para el turno siguiente.
+- **Si la pregunta no nombra nada del grafo, no suma nada:** el índice NO viaja en cada turno (serían ~300 tokens por paso).
+- **En la plataforma, las funciones de MaKo SE CRUZAN con las palabras del negocio.** Medido en el ws 9: «¿Cuál es mi meta
+  del trimestre?» traía Ads Manager («meta» es también Facebook), y «cliente», «plan», «anuncios» o «avatar» también son
+  nombres o alias de funciones. Sacar palabras sueltas no alcanza (cada una que se saca aparece otra): la capa entra **sólo si
+  la pregunta es de producto** (`esPreguntaDeProducto`, lib/cerebro-funciones.ts): una palabra de producto («función»,
+  «pestaña», «reemplaza», «qué no hace», «cómo funciona»), el nombre de una función (menos «Plan», que es palabra común), lo que
+  reemplaza, o un nombre propio del producto («bandeja», «inbox», «ManyChat»). Si no, `sinFunciones` la saca con sus aristas.
+  Después: «meta» no trae nada y el promedio del turno bajó de 588 a 359 tokens; «¿qué no hace la bandeja?» sigue trayendo
+  sólo Chats.
+- **La trampa del test:** los primeros casos «de producto» nombraban todos una función, así que se podía borrar la regla de las
+  palabras de producto y el test seguía verde. Cada rama de un `||` necesita un caso que pase SÓLO por ella («¿qué pestañas
+  hay?»).
+- **La plata de un closer se filtra EN POSITIVO** (la verificación de b2c19c445). `sinLaPlata` era la lista de lo que se
+  sacaba (okr, kpi, cliente) y el nodo `objetivo` se coló: lo arman los settings del onboarding (`objetivo_cierres`,
+  `objetivo_cash_usd`, guardados como strings) y un closer recibía «12 cierres en 90 días — Y USD 30.000 de facturación» en cinco
+  de seis preguntas, hasta en «¿cómo manejo una objeción en el cierre?» (entra como vecino de la etapa). Antes de esta entrega un
+  closer no veía nada del grafo (las herramientas del Second Brain son `rolMinimo: 'admin'`): era exposición nueva. Ahora
+  `VE_SIN_PLATA` (lib/cerebro-union.ts) dice lo que SÍ ve, y un tipo de nodo nuevo queda afuera hasta que alguien lo sume.
+  Quedan afuera, a propósito: el Norte entero (la fase dice cuánto invertir), los documentos (pueden ser un balance), las
+  reuniones y cualquier plano del panorama que no sea de los cinco canónicos.
+- **El CPU de `recuperar` no lo tapa la espera de 2,5 s.** El `Promise.race` acota la ESPERA al grafo; `recuperar` corre
+  después, sincrónico, y recibía el mensaje entero (hasta 32.000 letras con lo pegado): de 2 a 6 s con el proceso bloqueado.
+  El costo era normalizar el texto de cada nodo por CADA palabra (`coincide` en cada par). Ahora `semillasDe` normaliza cada
+  texto una vez y arma cada búsqueda una vez (`buscador`, lib/buscar-tareas.ts), y el turno busca con las primeras 600 letras
+  (`preguntaDelTurno`). Medido (28/10, PC cargada): 220 nodos y 32.000 letras, de 4.358 ms a 9 ms.
+- **Un test que pasa el valor de una constante no la fija:** el tope de 1.200 y la espera de 2,5 s se podían cambiar con todo
+  verde. El tope se prueba con un grafo que lo pasa de sobra (el bloque ≤ 1.300 tokens) y la espera, con su valor en el fuente.
+
+**Sin hacer:** achicar el system fijo por etapas (perfil, funnel y fase cuando el paquete ya los trae; `hechosMako` como nodos
+de la capa de funciones); `indice` y `recuperar` entre las herramientas de siempre; el doer de WhatsApp (lib/mako-doer-in.ts)
+y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen. Los sinónimos del negocio:
+«¿Qué anuncios puedo hacer y para qué avatar?» no trae nada, porque ningún nodo del negocio se llama «avatar» (es el cliente
+ideal) ni «anuncios».

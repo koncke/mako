@@ -11,11 +11,24 @@
 import 'server-only';
 import { headers } from 'next/headers';
 import { HEADER_QUERY, HEADER_RUTA } from './api-tab';
-import { queryComoSearchParams, type QueryDelPedido } from './pedido-actual-reglas';
+import { esNavegacionDelClienteDe, queryComoSearchParams, type QueryDelPedido } from './pedido-actual-reglas';
 import { pedidoInterno } from './movil-desvio';
 
 export { queryComoSearchParams, type QueryDelPedido };
 
+
+/**
+ * ⚠️ LA REGLA (28/10/2026, el blanco del Web Generator): un LAYOUT que redirige a una ruta DEBAJO de sí mismo lo hace sólo
+ * en la CARGA del documento; navegando, redirige la PÁGINA. Navegando, el `redirect()` de un layout no es un 307: viaja
+ * adentro del RSC, en el nodo del layout, y el router GUARDA ese nodo. Al llegar al destino reusa el mismo layout (es el
+ * mismo segmento), el redirect se vuelve a tirar, y el router renavega a la misma URL para siempre: la pantalla queda en
+ * blanco y sólo un refresh (que sí es una carga con su 307) la arregla. La de la página no: su segmento se reemplaza.
+ * Lo fija tests/redirige-navegando.test.ts. Ver `esNavegacionDelClienteDe` (lib/pedido-actual-reglas.ts).
+ */
+export async function esNavegacionDelCliente(): Promise<boolean> {
+  const h = await headers();
+  return esNavegacionDelClienteDe(h.get('next-url'), h.get('sec-fetch-dest'));
+}
 
 /** La ruta pedida (`null` si el pedido no pasó por el proxy) y su query. */
 export async function pedidoActual(): Promise<{ ruta: string | null; query: QueryDelPedido }> {
