@@ -697,6 +697,62 @@ export const RUNNERS: Runners = {
     },
   },
 
+  armar_plan_por_tramos: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const tipo = ventaTipoDe(lead.venta_tipo);
+      if (tipo === 'suscripcion') return { error: `${lead.nombre} es una suscripción: pásala a pago único con editar_venta_lead (tipo unico) y después arma el plan.` };
+      if (tipo === 'sin_cobro') return { error: `${lead.nombre} está como becado (sin cobro): si ahora paga, sácalo con editar_venta_lead (tipo unico) y después arma el plan.` };
+      const desde = s(input.primeraCuota);
+      if (!desde || !esDia(desde)) return { error: 'La primera cuota va como AAAA-MM-DD.', faltan: ['primeraCuota'] };
+      const crudos = (Array.isArray(input.tramos) ? input.tramos : []) as Array<Record<string, unknown>>;
+      if (crudos.some((t) => t.hasta !== undefined && !esDia(s(t.hasta)))) return { error: '«hasta» va como AAAA-MM-DD.' };
+      const tramos = crudos.map(tramoDeInput);
+      if (input.anticipo !== undefined && input.sinAnticipo === true) return { error: 'Pasa el anticipo o sinAnticipo, no los dos.' };
+      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
+      // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
+      const protMapa = await proteccionesDeCuotas(lead.id, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id)).catch(() => null);
+      if (!protMapa) return { error: 'No pude revisar si las cuotas tienen un link o un recordatorio. Prueba de nuevo en un rato.', falla: true };
+      const hoy = await hoyEnWorkspace();
+      const planConInicial = (Number(lead.cobro_inicial_usd) || 0) > 0;
+      // El anticipo: el que se pide, ninguno, o el que ya tiene sin cobrar (como la ficha al abrir: sale de una fila #0 VIVA,
+      // nunca de la columna, revisión de 9fc4030dd).
+      let anticipo: AnticipoPlan | null = null;
+      if (input.anticipo !== undefined) {
+        const p = plataDeCuota({ monto: input.anticipo, moneda: input.anticipoMoneda, montoUsd: input.anticipoUsd });
+        if (!p.ok) return { error: `Anticipo: ${p.error}` };
+        const fecha = s(input.anticipoFecha) ?? hoy;
+        if (!esDia(fecha)) return { error: 'La fecha del anticipo va como AAAA-MM-DD.' };
+        anticipo = { monto_usd: p.monto_usd, moneda: p.moneda, monto_original: p.monto_original, fecha };
+      } else if (input.sinAnticipo !== true && planConInicial) {
+        const cero = pagos.find((q) => q.numero === 0 && !q.pagado && !noEsDeuda(q));
+        if (cero) { const a = armadaDe(cero); anticipo = { monto_usd: a.monto_usd, moneda: a.moneda, monto_original: a.monto_original, fecha: cero.fecha_esperada ?? hoy }; }
+      }
+      const plan = planPorTramosDelServer({
+        pagos, protegidas: new Set([...protMapa].filter(([, x]) => x.length > 0).map(([id]) => id)),
+        planConInicial, cobroInicialUsd: lead.cobro_inicial_usd ?? null, desde, tramos, anticipo,
+      });
+      if (!plan.ok) return { error: plan.error };
+      return {
+        payload: { leadId: lead.id, primeraCuota: desde, tramos, anticipo },
+        resumen: resumenDelPlan(lead, plan, anticipo),
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('armar el plan', async () => {
+      const r = await guardarPlanPorTramos(Number(payload.leadId), {
+        desde: String(payload.primeraCuota), tramos: (payload.tramos as TramoPlan[]) ?? [], anticipo: (payload.anticipo as AnticipoPlan | null) ?? null,
+      }, autorDe(ctx));
+      invalidarPagos();
+      return {
+        ok: true,
+        resumen: r.sinTocar ? `Guardé el plan de ${r.cuotas} cuota(s) menos lo que no se puede cambiar (${r.sinTocar}).` : `Listo: plan de ${r.cuotas} cuota(s) guardado.`,
+        datos: { cuotas: r.cuotas, actualizadas: r.cambios.actualizar.length, nuevas: r.cambios.insertar.length, quitadas: r.cambios.borrar.length, sinTocar: r.sinTocar },
+      };
+    }),
+  },
+
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
   // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
   //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
@@ -768,62 +824,6 @@ export const RUNNERS: Runners = {
           : `Listo: link de pago del plan por ${formatoMonto(r.monto, r.moneda)} (cobro #${r.cobroId}). Queda en Cobros, con «Copiar link», para pasárselo a la persona.`,
         paraLaPersona: `Link de pago: ${r.link}`,
         datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
-      };
-    }),
-  },
-
-  armar_plan_por_tramos: {
-    preparar: async (input) => {
-      const lead = await getLead(Number(input.leadId)).catch(() => null);
-      if (!lead) return { error: noExisteLead(input.leadId) };
-      const tipo = ventaTipoDe(lead.venta_tipo);
-      if (tipo === 'suscripcion') return { error: `${lead.nombre} es una suscripción: pásala a pago único con editar_venta_lead (tipo unico) y después arma el plan.` };
-      if (tipo === 'sin_cobro') return { error: `${lead.nombre} está como becado (sin cobro): si ahora paga, sácalo con editar_venta_lead (tipo unico) y después arma el plan.` };
-      const desde = s(input.primeraCuota);
-      if (!desde || !esDia(desde)) return { error: 'La primera cuota va como AAAA-MM-DD.', faltan: ['primeraCuota'] };
-      const crudos = (Array.isArray(input.tramos) ? input.tramos : []) as Array<Record<string, unknown>>;
-      if (crudos.some((t) => t.hasta !== undefined && !esDia(s(t.hasta)))) return { error: '«hasta» va como AAAA-MM-DD.' };
-      const tramos = crudos.map(tramoDeInput);
-      if (input.anticipo !== undefined && input.sinAnticipo === true) return { error: 'Pasa el anticipo o sinAnticipo, no los dos.' };
-      const pagos = await getPagosByLead(lead.id).catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
-      // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
-      const protMapa = await proteccionesDeCuotas(lead.id, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id)).catch(() => null);
-      if (!protMapa) return { error: 'No pude revisar si las cuotas tienen un link o un recordatorio. Prueba de nuevo en un rato.', falla: true };
-      const hoy = await hoyEnWorkspace();
-      const planConInicial = (Number(lead.cobro_inicial_usd) || 0) > 0;
-      // El anticipo: el que se pide, ninguno, o el que ya tiene sin cobrar (como la ficha al abrir: sale de una fila #0 VIVA,
-      // nunca de la columna, revisión de 9fc4030dd).
-      let anticipo: AnticipoPlan | null = null;
-      if (input.anticipo !== undefined) {
-        const p = plataDeCuota({ monto: input.anticipo, moneda: input.anticipoMoneda, montoUsd: input.anticipoUsd });
-        if (!p.ok) return { error: `Anticipo: ${p.error}` };
-        const fecha = s(input.anticipoFecha) ?? hoy;
-        if (!esDia(fecha)) return { error: 'La fecha del anticipo va como AAAA-MM-DD.' };
-        anticipo = { monto_usd: p.monto_usd, moneda: p.moneda, monto_original: p.monto_original, fecha };
-      } else if (input.sinAnticipo !== true && planConInicial) {
-        const cero = pagos.find((q) => q.numero === 0 && !q.pagado && !noEsDeuda(q));
-        if (cero) { const a = armadaDe(cero); anticipo = { monto_usd: a.monto_usd, moneda: a.moneda, monto_original: a.monto_original, fecha: cero.fecha_esperada ?? hoy }; }
-      }
-      const plan = planPorTramosDelServer({
-        pagos, protegidas: new Set([...protMapa].filter(([, x]) => x.length > 0).map(([id]) => id)),
-        planConInicial, cobroInicialUsd: lead.cobro_inicial_usd ?? null, desde, tramos, anticipo,
-      });
-      if (!plan.ok) return { error: plan.error };
-      return {
-        payload: { leadId: lead.id, primeraCuota: desde, tramos, anticipo },
-        resumen: resumenDelPlan(lead, plan, anticipo),
-      };
-    },
-    ejecutar: (payload, ctx) => seguro('armar el plan', async () => {
-      const r = await guardarPlanPorTramos(Number(payload.leadId), {
-        desde: String(payload.primeraCuota), tramos: (payload.tramos as TramoPlan[]) ?? [], anticipo: (payload.anticipo as AnticipoPlan | null) ?? null,
-      }, autorDe(ctx));
-      invalidarPagos();
-      return {
-        ok: true,
-        resumen: r.sinTocar ? `Guardé el plan de ${r.cuotas} cuota(s) menos lo que no se puede cambiar (${r.sinTocar}).` : `Listo: plan de ${r.cuotas} cuota(s) guardado.`,
-        datos: { cuotas: r.cuotas, actualizadas: r.cambios.actualizar.length, nuevas: r.cambios.insertar.length, quitadas: r.cambios.borrar.length, sinTocar: r.sinTocar },
       };
     }),
   },

@@ -201,7 +201,7 @@ test('las protegidas primero las decide el server con sus protecciones, aunque l
   assert.deepEqual(sinServer.conservar.map((c) => c.id), [16]);
   // La ficha lo pide, y la acción lo pasa al server.
   assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /vistos, crm, \{ protegidasPrimero: true, conDeshacer: true, sobreLoVisto: true \}\);/);
-  assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /\{ vistos, crm: trato, protegidasPrimero: como\?\.protegidasPrimero === true \}/);
+  assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /\{ vistos, crm: trato, protegidasPrimero: como\?\.protegidasPrimero === true, sobreLoVisto: como\?\.sobreLoVisto === true \}/);
 });
 
 test('el link que se anuló al cambiar el monto se dice, y el Deshacer avisa que no vuelve (baja)', () => {

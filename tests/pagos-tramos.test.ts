@@ -25,6 +25,13 @@
 //   · el recordatorio en dólares:                                            1 fallo
 //   · la suscripción no pasa a «Pago único» antes de las cuotas:             1 fallo
 //   · mandar la lista entera, sin «tal cual» para lo que no se tocó:         1 fallo
+// Y la revisión adversarial de 9fc4030dd (Integración, 29/10/2026), sobre los 24 tests, una rotura por vez:
+//   · A1: la tasa da los dólares de la cuota entera / «Marcar pagada» sin la tasa / `cobrarCuota` sin la tasa:   1 fallo cada una
+//   · A2: el anticipo del editor sale de la columna `cobro_inicial_usd`:                                         1 fallo
+//   · M1: la protegida reasignada se lleva el «tal cual»:                                                         1 fallo
+//   · M2: los cambios a mano sin la moneda:                                                                       1 fallo
+//   · M3: `planCambiadoAfuera` no ve la otra pestaña / el server avisa y escribe igual:                           1 fallo cada una
+//   · B4: el tope de 60 sin el anticipo / B5: el total en dos monedas que se lee doble:                           1 fallo cada una
 // =============================================================================
 
 import { test } from 'node:test';

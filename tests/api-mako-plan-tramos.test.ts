@@ -12,6 +12,16 @@
 //   4. el caso REAL del ticket corrido de punta a punta (preparar y el «sí») contra una base de mentira, en el negocio de prueba
 //      (tests/_plan-tramos-api-hijo.ts): las tres cuotas, su repetición sin cambios, lo que rechaza, dos tramos en pesos con
 //      anticipo, la cuota con un link, y el cobro a medias en pesos sin dólares (A1 de la revisión de 9fc4030dd, en el server).
+// PROBADO ROMPIÉNDOLO (29/10/2026), una rotura por vez, restaurando el archivo (fallos / pases sobre los 8 de acá):
+//   · el tramo sin su cantidad                                     → 3 / 5
+//   · una suscripción se arma igual (sin la guarda de preparar)     → 1 / 7
+//   · `guardarPlanPorTramos` sin `protegidasPrimero` ni `sobreLoVisto` → 2 / 6
+//   · sin escribir las columnas del plan                            → 2 / 6
+//   · el resumen sin cada cuota                                     → 2 / 6
+//   · la propuesta de `marcar_pago_cobrado` sin la tasa de la cuota  → 1 / 7
+//   · `cobranza_lead` le dice «cobrada_en» a una cuota sin cobrar    → 1 / 7
+//   · sin la familia `plan-dictado` (lib/mako-intencion-app.ts): falla «cobros: las 26 frases» de
+//     tests/ops-center-clasificador-app.test.ts (1 / 47).
 // Correr: node --import tsx --test tests/api-mako-plan-tramos.test.ts
 // =============================================================================
 
@@ -78,7 +88,9 @@ test('2. su URL REST: PUT /cobros/ventas/{leadId}/plan', () => {
 
 test('3. una implementación: la regla de la ficha y la escritura de lib/pagos.ts, sin un `.from(` propio', () => {
   const run = leer('lib/api-mako/areas/cobros.run.ts');
-  const cuerpo = run.slice(run.indexOf('  armar_plan_por_tramos: {'), run.indexOf('// ── el plan por tramos'));
+  const ini = run.indexOf('  armar_plan_por_tramos: {');
+  // Hasta lo que sigue en el objeto: otro runner, el comentario del siguiente o el cierre.
+  const cuerpo = run.slice(ini, ini + 1 + run.slice(ini + 1).search(/\n {2}(?:\/\/|[a-z][a-z0-9_]*: \{)|\n\};/));
   assert.ok(cuerpo.length > 200, 'no encontré el runner');
   assert.doesNotMatch(cuerpo, /\.from\(/, 'el runner escribe la base por su cuenta');
   assert.match(cuerpo, /const plan = planPorTramosDelServer\(\{/);
