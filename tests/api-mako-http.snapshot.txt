@@ -34,6 +34,7 @@ anular_link_pago
 apagar_kpi
 archivar_etiqueta
 archivar_secuencia
+armar_plan_por_tramos
 armar_tab_ficha
 asegurar_plantilla_reporte
 asignar_campana_funnels

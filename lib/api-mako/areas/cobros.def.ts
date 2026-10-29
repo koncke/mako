@@ -309,4 +309,37 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
+  // ── El plan por TRAMOS (29/10/2026; ticket #26 de Mauricio: «7500 dólares en 3 pagos… cada uno de 2,500», y MaKo contestó que
+  // sus herramientas no creaban el plan). Lo que arma «Armar el plan» de la ficha, por la MISMA regla (lib/pagos-campo.ts,
+  // `planPorTramosDelServer`) y la misma escritura (lib/pagos.ts, `guardarPlanPorTramos`). Por chat: es UN lead y el resumen dice
+  // cada cuota con su fecha y su monto antes del «sí».
+  {
+    id: 'armar_plan_por_tramos', plata: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Armar el plan de cuotas por tramos',
+    descripcion: 'PROPONE el plan de cuotas de una venta de pago único, como lo arma la ficha: uno o varios tramos seguidos, cada uno con lo que vale cada cuota, su moneda, cada cuánto vence (mes, quincena o semana, y en qué días) y cuántas cuotas o hasta qué fecha; el siguiente tramo arranca donde termina el anterior. Sirve para «7500 dólares en 3 pagos de 2500, el 28 de octubre, noviembre y diciembre» (un tramo: 2500, mes, día 28, 3 cuotas, primera el 28/10), «300 dólares cada quincena, los días 1 y 15» o «6 meses de 12.000 pesos y después 6 de 10.000». Con un anticipo opcional. Se guarda encima de lo que hay: cada cuota sin cobrar se rehace por su id, las cobradas quedan y cubren su lugar, y la que tiene un link sin pagar o un recordatorio corriendo no se toca (se avisa). En otra moneda, los dólares de cada cuota los dice la persona: no se inventa la tasa. Una suscripción se pasa antes a pago único con editar_venta_lead. No cambia el monto de la venta (eso también es editar_venta_lead) ni gana el lead.',
+    escribe: 'rehace por su id las cuotas sin cobrar del plan del lead (inserta las que faltan y quita las que sobran si no tienen link ni recordatorio), escribe las columnas del plan del lead y deja el antes y el después en el historial',
+    parametros: [
+      leadId('id del lead (de buscar_leads).'),
+      { ...fechaIso('primeraCuota', 'Primera cuota', 'AAAA-MM-DD de la primera cuota del plan (la del primer tramo).'), obligatorio: true },
+      {
+        nombre: 'tramos', rotulo: 'Tramos', tipo: 'object[]', obligatorio: true, max: 10, descripcion: 'los tramos, en orden (hasta 10). Un plan parejo es UN tramo.',
+        campos: [
+          { nombre: 'monto', rotulo: 'Monto de cada cuota', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'lo que vale CADA cuota del tramo, en su moneda.' },
+          { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'código de 3 letras (USD, MXN, ARS…). Sin ella, USD.' },
+          { nombre: 'montoUsd', rotulo: 'Cada cuota en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'sólo si la moneda no es USD, y entonces obligatorio: cuánto es cada cuota en dólares (es lo que suma a los reportes).' },
+          { nombre: 'cada', rotulo: 'Cada', tipo: 'string', enum: ['mes', 'quincena', 'semana'], descripcion: 'cada cuánto vence una cuota. Sin valor, mes.' },
+          { nombre: 'dia', rotulo: 'Día de pago', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'mes: el día del mes (sin valor, el de la primera cuota del tramo; 29 a 31 caen el último día de un mes más corto). Quincena: el primero de los dos días (sin valor, 1).' },
+          { nombre: 'dia2', rotulo: 'Segundo día', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'sólo quincena: el segundo día del mes (sin valor, 15).' },
+          { nombre: 'cuotas', rotulo: 'Cuántas cuotas', tipo: 'number', entero: true, minimo: 1, maximo: 60, descripcion: 'cuántas cuotas tiene el tramo. Va esto o «hasta».' },
+          fechaIso('hasta', 'Hasta', 'AAAA-MM-DD: el tramo cobra hasta esa fecha, incluida (en vez de «cuotas»).'),
+        ],
+      },
+      { nombre: 'anticipo', rotulo: 'Anticipo', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'un cobro inicial aparte de las cuotas, en su moneda. Sin él, el anticipo sin cobrar que ya tenga queda como está.' },
+      { nombre: 'anticipoMoneda', rotulo: 'Moneda del anticipo', tipo: 'string', max: 3, descripcion: 'código de 3 letras. Sin ella, USD.' },
+      { nombre: 'anticipoUsd', rotulo: 'Anticipo en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'sólo si el anticipo no es en USD: cuánto es en dólares.' },
+      fechaIso('anticipoFecha', 'Fecha del anticipo', 'AAAA-MM-DD en que se cobra el anticipo. Sin ella, hoy.'),
+      { nombre: 'sinAnticipo', rotulo: 'Sin anticipo', tipo: 'boolean', descripcion: 'true: quita el anticipo sin cobrar que ya tiene (uno cobrado no se toca).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
 ];

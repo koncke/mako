@@ -5,6 +5,41 @@
 [hallazgos-planes-y-cobro.md](../hallazgos-planes-y-cobro.md) → «La pasarela» (Stripe, Mercado Pago, el plan de MaKo y
 el cliente de agencia). La historia de cada cambio está en `git log`.
 
+## 29/10/2026 · el plan por TRAMOS (chat «Pagos», cuenta `claude3`, ticket #13 de Leila)
+
+Rama `pagos-tramos-2910`, worktree `C:/dev/wt-pagos-tramos` (desde origin/main 7f36fa9c6). Lo aprendido:
+docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de las fases de Stripe y del plan de pagos de Kajabi.
+
+- **Hecho:** «Armar el plan» de la ficha es por tramos (hasta 10: monto, moneda, cada mes/quincena/semana, cuántas o hasta
+  cuándo), con anticipo y cada cuota editable antes de guardar; abre con el plan que ya hay; en una suscripción también (la
+  pasa a «Pago único»); Deshacer. Una cuota en pesos se recuerda, se marca pagada y se cobra por link en pesos.
+- **Probado:** tests/pagos-tramos.test.ts (18, con las cuotas reales de Nadia; 13 roturas atrapadas) y el editor dibujado con
+  su ficha (tests/_plan-tramos-hijo.ts). **No recorrido en el navegador** (sin build por la RAM): va en el ws3 después del deploy.
+- **Para retomar:** si el VERDE no salió, falta el tsc acotado (`node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …`
+  sobre los archivos de `git diff --name-only origin/main`) y `tests-afectados --rapido` por con-turno; después, el sha al
+  Cerebro y a Integración.
+- **No hecho a propósito:** el plan de Nadia (lead 2605) lo arma Leila; nadie le escribió. El ticket #13 está en
+  «esperando_decision»: el cron no lo cierra con el hito hasta que alguien lo apruebe.
+- **La revisión de Integración sobre 9fc4030dd (29/10): NO ENTRABA.** Dos altas de plata (A1: cobrar a medias una cuota en
+  pesos con los dólares vacíos la tomaba entera; A2: el anticipo quitado o devuelto volvía al abrir y guardar) y tres medias
+  (M1 «tal cual» en la protegida reasignada, M2 la moneda en los cambios a mano, M3 dos pestañas duplicaban). Arregladas las
+  cinco, más B4 (tope con el anticipo) y B5 (el total en dos monedas). Informe: C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md;
+  lo aprendido, en hallazgos-pagos.md → «La revisión adversarial de 9fc4030dd». B1, B2 y B3 quedan anotadas como «sin hacer».
+  **Para retomar:** si el VERDE nuevo no salió, falta correr tests/pagos-tramos.test.ts, el tsc acotado y tests-afectados por
+  con-turno, commitear y mandar el sha a Integración (que re-verifica con sus guiones de C:/dev/revisiones/scratch-9fc4/).
+- **Ticket #26 (Mauricio, ws1, pedido del Cerebro el 29/10):** MaKo no podía armar un plan desde el Ops Center («7500 dolares
+  en 3 pagos, primer pago 28 de octubre…»). Se sumó `armar_plan_por_tramos` (área cobros, por chat, `plata`) con su ruta
+  `PUT /cobros/ventas/{leadId}/plan`: la misma regla que la ficha (`planPorTramosDelServer`, lib/pagos-campo.ts) y la misma
+  escritura (`guardarPlanPorTramos`, lib/pagos.ts). Probado de punta a punta en tests/api-mako-plan-tramos.test.ts con el caso
+  del ticket en el ws de prueba. **Para retomar:** medir que la frase del ticket le traiga la herramienta al Ops Center
+  (scratchpad `medir-turno.ts`, después una fila en tests/ops-center-clasificador-app.test.ts), regenerar docs/api-mako.md, el
+  snapshot y plugin/ (`node --import tsx scripts/generar-api-doc.mjs`, `node scripts/generar-plugin.mjs`), y el VERDE con
+  `tickets: [13, 26]` a Integración y al Cerebro. Nada en el ws1.
+- **Hecho (29/10, mediodía):** todo lo de arriba, con `origin/main` mergeado. VERDE a Integración y al Cerebro con tsc limpio,
+  los tests dirigidos y las 18 roturas atrapadas; el tests-afectados después del merge NO se corrió (el Cerebro: lo corre
+  Integración sobre el tren). Queda: recorrerlo en el navegador del ws3 después del deploy, y que Leila (#13) y Mauricio (#26)
+  armen sus planes; los dos tickets siguen en «esperando_decision».
+
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 
 Rama `cobros-lanzamiento-2310` (worktree `C:/Users/marti/wtp-lanz`), pasada al Cerebro para el tren. Lo aprendido:

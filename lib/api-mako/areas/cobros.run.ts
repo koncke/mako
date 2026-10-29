@@ -54,11 +54,12 @@ import { esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
 import { cuotasParaBaja, darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
 import {
   anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
-  escribirVenta, getPagosByLead, guardarMonedaDelNegocio, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
+  escribirVenta, getPagosByLead, guardarMonedaDelNegocio, guardarPlanPorTramos, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  aplicarObligacion, esCampoLeadDeal, esParteObligacion, esSeccionDeal, lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta,
-  rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type CambioObligacion, type CambioVenta, type FilaVenta,
+  aplicarObligacion, armadaDe, esCampoLeadDeal, esParteObligacion, esSeccionDeal, lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta,
+  planPorTramosDelServer, plataDeCuota, rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type AnticipoPlan,
+  type CambioObligacion, type CambioVenta, type FilaVenta, type TramoPlan,
 } from '@/lib/pagos-campo';
 import { bajarAdjunto } from '@/lib/chat-mako-adjuntos';
 import { guardarDocumentoFiscal } from '@/lib/deal-fiscal-doc';
@@ -728,6 +729,62 @@ export const RUNNERS: Runners = {
     },
   },
 
+  armar_plan_por_tramos: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const tipo = ventaTipoDe(lead.venta_tipo);
+      if (tipo === 'suscripcion') return { error: `${lead.nombre} es una suscripción: pásala a pago único con editar_venta_lead (tipo unico) y después arma el plan.` };
+      if (tipo === 'sin_cobro') return { error: `${lead.nombre} está como becado (sin cobro): si ahora paga, sácalo con editar_venta_lead (tipo unico) y después arma el plan.` };
+      const desde = s(input.primeraCuota);
+      if (!desde || !esDia(desde)) return { error: 'La primera cuota va como AAAA-MM-DD.', faltan: ['primeraCuota'] };
+      const crudos = (Array.isArray(input.tramos) ? input.tramos : []) as Array<Record<string, unknown>>;
+      if (crudos.some((t) => t.hasta !== undefined && !esDia(s(t.hasta)))) return { error: '«hasta» va como AAAA-MM-DD.' };
+      const tramos = crudos.map(tramoDeInput);
+      if (input.anticipo !== undefined && input.sinAnticipo === true) return { error: 'Pasa el anticipo o sinAnticipo, no los dos.' };
+      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
+      // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
+      const protMapa = await proteccionesDeCuotas(lead.id, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id)).catch(() => null);
+      if (!protMapa) return { error: 'No pude revisar si las cuotas tienen un link o un recordatorio. Prueba de nuevo en un rato.', falla: true };
+      const hoy = await hoyEnWorkspace();
+      const planConInicial = (Number(lead.cobro_inicial_usd) || 0) > 0;
+      // El anticipo: el que se pide, ninguno, o el que ya tiene sin cobrar (como la ficha al abrir: sale de una fila #0 VIVA,
+      // nunca de la columna, revisión de 9fc4030dd).
+      let anticipo: AnticipoPlan | null = null;
+      if (input.anticipo !== undefined) {
+        const p = plataDeCuota({ monto: input.anticipo, moneda: input.anticipoMoneda, montoUsd: input.anticipoUsd });
+        if (!p.ok) return { error: `Anticipo: ${p.error}` };
+        const fecha = s(input.anticipoFecha) ?? hoy;
+        if (!esDia(fecha)) return { error: 'La fecha del anticipo va como AAAA-MM-DD.' };
+        anticipo = { monto_usd: p.monto_usd, moneda: p.moneda, monto_original: p.monto_original, fecha };
+      } else if (input.sinAnticipo !== true && planConInicial) {
+        const cero = pagos.find((q) => q.numero === 0 && !q.pagado && !noEsDeuda(q));
+        if (cero) { const a = armadaDe(cero); anticipo = { monto_usd: a.monto_usd, moneda: a.moneda, monto_original: a.monto_original, fecha: cero.fecha_esperada ?? hoy }; }
+      }
+      const plan = planPorTramosDelServer({
+        pagos, protegidas: new Set([...protMapa].filter(([, x]) => x.length > 0).map(([id]) => id)),
+        planConInicial, cobroInicialUsd: lead.cobro_inicial_usd ?? null, desde, tramos, anticipo,
+      });
+      if (!plan.ok) return { error: plan.error };
+      return {
+        payload: { leadId: lead.id, primeraCuota: desde, tramos, anticipo },
+        resumen: resumenDelPlan(lead, plan, anticipo),
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('armar el plan', async () => {
+      const r = await guardarPlanPorTramos(Number(payload.leadId), {
+        desde: String(payload.primeraCuota), tramos: (payload.tramos as TramoPlan[]) ?? [], anticipo: (payload.anticipo as AnticipoPlan | null) ?? null,
+      }, autorDe(ctx));
+      invalidarPagos();
+      return {
+        ok: true,
+        resumen: r.sinTocar ? `Guardé el plan de ${r.cuotas} cuota(s) menos lo que no se puede cambiar (${r.sinTocar}).` : `Listo: plan de ${r.cuotas} cuota(s) guardado.`,
+        datos: { cuotas: r.cuotas, actualizadas: r.cambios.actualizar.length, nuevas: r.cambios.insertar.length, quitadas: r.cambios.borrar.length, sinTocar: r.sinTocar },
+      };
+    }),
+  },
+
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
   // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
   //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
@@ -803,3 +860,42 @@ export const RUNNERS: Runners = {
     }),
   },
 };
+
+// ── el plan por tramos ────────────────────────────────────────────────────────
+
+const esDia = (f: string | null): f is string => !!f && /^\d{4}-\d{2}-\d{2}$/.test(f);
+const dmy = (f: string): string => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)}`;
+const plataDe = (c: { monto_usd: number; moneda: string | null; monto_original: number | null }): string =>
+  (c.moneda && c.monto_original != null ? `${formatoMonto(c.monto_original, c.moneda)} (${formatoMonto(c.monto_usd, 'USD')})` : formatoMonto(c.monto_usd, 'USD'));
+
+/** Un tramo como lo pide la API, en la forma de la ficha (`tramoDeForm`): sin días, el mes vence el día de su primera cuota y la
+ *  quincena, el 1 y el 15. */
+function tramoDeInput(t: Record<string, unknown>): TramoPlan {
+  const cada: TramoPlan['cada'] = t.cada === 'quincena' ? 'quincena' : t.cada === 'semana' ? 'semana' : 'mes';
+  const d1 = n(t.dia);
+  return {
+    monto: n(t.monto) ?? 0, moneda: s(t.moneda) ?? 'USD', montoUsd: n(t.montoUsd), cada,
+    ...(cada === 'quincena' ? { dias: [d1 ?? 1, n(t.dia2) ?? 15] } : cada === 'mes' && d1 != null ? { dias: [d1] } : {}),
+    cantidad: n(t.cuotas), hasta: s(t.hasta),
+  };
+}
+
+/**
+ * Lo que la persona confirma: CADA cuota con su fecha y su monto (lo que ya está cobrado, dicho), el total, y la venta si no dice
+ * lo mismo. Con más de 24, las 12 primeras y las 2 últimas.
+ */
+type LeadDelResumen = { nombre: string; monto_cierre_usd?: number | null };
+type PlanDelResumen = { lista: ReadonlyArray<{ monto_usd: number; fecha: string | null; moneda: string | null; monto_original: number | null }>; cubiertas: number };
+function resumenDelPlan(lead: LeadDelResumen, plan: PlanDelResumen, anticipo: AnticipoPlan | null): string {
+  const filas = plan.lista.map((c) => `${c.fecha ? dmy(c.fecha) : 'sin fecha'} ${plataDe(c)}`);
+  const vistas = filas.length > 24 ? [...filas.slice(0, 12), `… ${filas.length - 14} más …`, ...filas.slice(-2)] : filas;
+  const total = Math.round((plan.lista.reduce((t, c) => t + c.monto_usd, 0) + (anticipo?.monto_usd ?? 0)) * 100) / 100;
+  const venta = Number(lead.monto_cierre_usd) || 0;
+  return [
+    `Plan de ${lead.nombre}: ${plan.lista.length} cuota(s)${anticipo ? ` y un anticipo de ${plataDe(anticipo)} el ${dmy(anticipo.fecha)}` : ''}.`,
+    `Cuotas: ${vistas.join(' · ')}.`,
+    `Total: ${formatoMonto(total, 'USD')}.${plan.cubiertas ? ` ${plan.cubiertas} ya ${plan.cubiertas === 1 ? 'está cobrada y cubre su lugar' : 'están cobradas y cubren su lugar'}.` : ''}`,
+    'Reemplaza las cuotas sin cobrar del plan.',
+    Math.abs(venta - total) >= 0.01 ? `La venta dice ${venta ? formatoMonto(venta, 'USD') : 'que no tiene monto'}: el plan no la cambia (eso es editar_venta_lead).` : '',
+  ].filter(Boolean).join(' ');
+}

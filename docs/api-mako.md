@@ -48,7 +48,7 @@
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual`
+- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion`
 
 ## General — `general`
@@ -1765,7 +1765,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}/plan-de-pagos` — Plan de pagos de un lead
 
-El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado. El bloque `cobrado` dice lo cobrado con la misma cuenta que la ficha (texto, estado y semáforo —verde, ámbar, rojo o gris—, cobrado, total, pendiente y vencido en USD, la próxima cuota, cuántas hay cobradas, vencidas y por vencer, la suscripción con su estado y la renovación rechazada si la hay, lo cobrado en otras monedas y si las cuentas cuadran): úsalo para «¿cómo va X con sus pagos?» en vez de sumar a mano. Cada cuota trae cobrada_en. Para cambiar el vencimiento o el monto de una cuota, mandarle su link o cortar su recordatorio están editar_cuota, crear_link_cuota y cortar_recordatorio_cuota (área cobros), con ese mismo id.
+El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado. El bloque `cobrado` dice lo cobrado con la misma cuenta que la ficha (texto, estado y semáforo —verde, ámbar, rojo o gris—, cobrado, total, pendiente y vencido en USD, la próxima cuota, cuántas hay cobradas, vencidas y por vencer, la suscripción con su estado y la renovación rechazada si la hay, lo cobrado en otras monedas y si las cuentas cuadran): úsalo para «¿cómo va X con sus pagos?» en vez de sumar a mano. Una cuota en otra moneda trae cobrada_en (cobrada) o pactada_en (sin cobrar: lo que se le pide, en esa moneda; sus dólares son monto_usd). Para cambiar el vencimiento o el monto de una cuota, mandarle su link o cortar su recordatorio están editar_cuota, crear_link_cuota y cortar_recordatorio_cuota (área cobros), con ese mismo id.
 
 - **Ruta por operación:** `GET /api/v1/crm/cobranza_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -3180,7 +3180,7 @@ curl -L \
 
 ### `PUT /api/v1/crm/leads/{leadId}/plan-de-pagos` — Guardar plan de pagos uniforme
 
-PROPONE el plan de cobranza de un lead: cobro inicial, monto por cuota, cantidad de cuotas (1 a 6) y día de pago, todo en USD; deja un link donde una persona revisa los montos y confirma. Regenera las cuotas NO pagadas anclándolas en la fecha de cierre (las cobradas no se tocan). No marca el lead como ganado. Para cuotas de montos o fechas distintas usa guardar_cuotas.
+PROPONE el plan de cobranza de un lead: cobro inicial, monto por cuota, cantidad de cuotas (1 a 6) y día de pago, todo en USD; deja un link donde una persona revisa los montos y confirma. Regenera las cuotas NO pagadas anclándolas en la fecha de cierre (las cobradas no se tocan). No marca el lead como ganado. Para una primera cuota en una fecha dada, quincenas, semanas, otra moneda o tramos de montos distintos usa armar_plan_por_tramos; para cuotas sueltas de montos o fechas distintas, guardar_cuotas.
 
 - **Ruta por operación:** `POST /api/v1/crm/guardar_plan_pagos`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -19084,7 +19084,7 @@ curl -L \
 
 ## Cobros (Stripe y Mercado Pago) — `cobros`
 
-Tab **CRM** (`/crm`). 3 lecturas · 13 acciones.
+Tab **CRM** (`/crm`). 3 lecturas · 14 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
 
@@ -19546,6 +19546,50 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion" \
   -d '{"estado":"cancelada"}'
+```
+
+### `PUT /api/v1/cobros/ventas/{leadId}/plan` — Armar el plan de cuotas por tramos
+
+PROPONE el plan de cuotas de una venta de pago único, como lo arma la ficha: uno o varios tramos seguidos, cada uno con lo que vale cada cuota, su moneda, cada cuánto vence (mes, quincena o semana, y en qué días) y cuántas cuotas o hasta qué fecha; el siguiente tramo arranca donde termina el anterior. Sirve para «7500 dólares en 3 pagos de 2500, el 28 de octubre, noviembre y diciembre» (un tramo: 2500, mes, día 28, 3 cuotas, primera el 28/10), «300 dólares cada quincena, los días 1 y 15» o «6 meses de 12.000 pesos y después 6 de 10.000». Con un anticipo opcional. Se guarda encima de lo que hay: cada cuota sin cobrar se rehace por su id, las cobradas quedan y cubren su lugar, y la que tiene un link sin pagar o un recordatorio corriendo no se toca (se avisa). En otra moneda, los dólares de cada cuota los dice la persona: no se inventa la tasa. Una suscripción se pasa antes a pago único con editar_venta_lead. No cambia el monto de la venta (eso también es editar_venta_lead) ni gana el lead.
+
+- **Ruta por operación:** `POST /api/v1/cobros/armar_plan_por_tramos`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** rehace por su id las cuotas sin cobrar del plan del lead (inserta las que faltan y quita las que sobran si no tienen link ni recordatorio), escribe las columnas del plan del lead y deja el antes y el después en el historial
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `primeraCuota` | string | sí | AAAA-MM-DD de la primera cuota del plan (la del primer tramo). |
+| `tramos` | object[] | sí | los tramos, en orden (hasta 10). Un plan parejo es UN tramo. |
+| `tramos.monto` | number | sí | lo que vale CADA cuota del tramo, en su moneda. |
+| `tramos.moneda` | string | no | código de 3 letras (USD, MXN, ARS…). Sin ella, USD. |
+| `tramos.montoUsd` | number | no | sólo si la moneda no es USD, y entonces obligatorio: cuánto es cada cuota en dólares (es lo que suma a los reportes). |
+| `tramos.cada` | string (mes \\| quincena \\| semana) | no | cada cuánto vence una cuota. Sin valor, mes. |
+| `tramos.dia` | number | no | mes: el día del mes (sin valor, el de la primera cuota del tramo; 29 a 31 caen el último día de un mes más corto). Quincena: el primero de los dos días (sin valor, 1). |
+| `tramos.dia2` | number | no | sólo quincena: el segundo día del mes (sin valor, 15). |
+| `tramos.cuotas` | number | no | cuántas cuotas tiene el tramo. Va esto o «hasta». |
+| `tramos.hasta` | string | no | AAAA-MM-DD: el tramo cobra hasta esa fecha, incluida (en vez de «cuotas»). |
+| `anticipo` | number | no | un cobro inicial aparte de las cuotas, en su moneda. Sin él, el anticipo sin cobrar que ya tenga queda como está. |
+| `anticipoMoneda` | string | no | código de 3 letras. Sin ella, USD. |
+| `anticipoUsd` | number | no | sólo si el anticipo no es en USD: cuánto es en dólares. |
+| `anticipoFecha` | string | no | AAAA-MM-DD en que se cobra el anticipo. Sin ella, hoy. |
+| `sinAnticipo` | boolean | no | true: quita el anticipo sin cobrar que ya tiene (uno cobrado no se toca). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/plan" \
+  -d '{"primeraCuota":"PRIMERA_CUOTA","tramos":[]}'
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`

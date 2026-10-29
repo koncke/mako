@@ -78,7 +78,7 @@ import {
   vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
 } from '@/lib/cobro-etapa-server';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
-import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
+import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { esEsencialDe } from '@/lib/plan-esencial';
@@ -810,8 +810,9 @@ export const RUNNERS: Runners = {
         } : {};
       const cuotas = plan.pagos.map((p) => ({
         pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path,
-        // La moneda en que se cobró (mig 0255 y 0292): sólo donde no fue en dólares, para no llenar de ruido.
-        ...(p.moneda && p.moneda !== 'USD' && p.monto_original != null ? { cobrada_en: { moneda: p.moneda, monto: Number(p.monto_original) } } : {}),
+        // La moneda en que se cobró (mig 0255 y 0292): sólo donde no fue en dólares, para no llenar de ruido. Una SIN cobrar en otra
+        // moneda es un tramo en pesos (29/10/2026): lo que se le pide, no algo que entró («cobrada_en» le hacía decir a MaKo que pagó).
+        ...(p.moneda && p.moneda !== 'USD' && p.monto_original != null ? { [p.pagado ? 'cobrada_en' : 'pactada_en']: { moneda: p.moneda, monto: Number(p.monto_original) } } : {}),
       }));
       const suma = (xs: typeof cuotas) => Math.round(xs.reduce((a, c) => a + c.monto_usd, 0) * 100) / 100;
       const sus = lead.venta_tipo === 'suscripcion';
@@ -2436,7 +2437,10 @@ export const RUNNERS: Runners = {
       // Cómo se cobró (moneda, monto original, concepto, método): la regla de la ficha, en lib/pagos-campo.ts. Sólo al cobrar.
       const dijoComo = [input.moneda, input.montoOriginal, input.concepto, input.metodo].some((v) => v != null && v !== '');
       if (dijoComo && !pagado) return { error: 'La moneda, el monto original, el concepto y el método van sólo al marcar la cuota como cobrada.' };
-      const cobro = cobroManualDeEntrada(input, { montoUsdPorDefecto: Number(pago.monto_usd) });
+      // Pesos sin los dólares, en la moneda de la cuota: a SU tasa, como `cobrarCuota` (revisión de 9fc4030dd, alta). Con «los de la
+      // cuota» el resumen decía «USD 600» de una cuota de MXN 12.000 cobrada por 6.000, y el «sí» dejaba 300 pendientes que nadie leyó.
+      const aLaTasa = dolaresALaTasaDeLaCuota(pago, { moneda: s(input.moneda), montoOriginal: typeof input.montoOriginal === 'number' ? input.montoOriginal : null });
+      const cobro = cobroManualDeEntrada(input, { montoUsdPorDefecto: aLaTasa ?? Number(pago.monto_usd) });
       if (!cobro.ok) return { error: cobro.error, ...(cobro.faltan ? { faltan: cobro.faltan } : {}) };
       const fechaPago = pagado ? (s(input.fechaPago) ?? (await hoyDelWorkspace(ctx.ws)).hoy) : null;
       const cuota = pago.numero === 0 ? 'el cobro inicial' : `la cuota ${pago.numero}`;
