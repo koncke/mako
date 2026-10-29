@@ -1,14 +1,29 @@
-# Relevo: «Web Generator: replicar landings» (claude4) — CIERRE al 95 % semanal, 29/10/2026 ~00:45
+# Relevo: «Web Generator: replicar landings» (claude3, desde el 29/10 ~01:50) — antes claude4, cierre al 95 %
 
 Pegar en un chat nuevo: `Leé docs/relevo/web-generator-replicar.md y seguimos desde ahí.` Las órdenes llegan del Cerebro
-(`local_797d5445-2365-464d-ae3d-1d71aa7baa8c`). Nada de esto está pusheado (sube el Cerebro). Notas largas en la carpeta
+(con claude3: `local_428051c1-0369-4df2-ae6b-bcb42f63b64b`; el de claude4 era `local_797d5445-…`). Nada de esto está pusheado (sube el Cerebro). Notas largas en la carpeta
 compartida (`…/side-session-notes/local_797d5445-…/desktop-offline-2810.md`, `replicar-landings-2810.md`). Scripts en el
 scratchpad de la sesión 05be9946 (`C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-
 marketing-main/05be9946-3313-4db7-ab72-196361b6fa78/scratchpad/scripts/`). Resultados en `C:/dev/revisiones/`.
 
-**Orden: 0 (P0 nuevo, SIN EMPEZAR) → 2 (la réplica editable). El 1 y el 3 están cerrados.**
+**Orden: 0 (P0 de la foto: VERDE mandado, falta que el Cerebro lo suba) → 2 (la réplica editable). El 1 y el 3 están
+cerrados.**
 
-## 0. P0 NUEVO (29/10 00:40, del Cerebro) — «No pude sacar la foto de la página. Vuelve a intentar.» — SIN EMPEZAR
+## 0. P0 (29/10 00:40) — «No pude sacar la foto de la página. Vuelve a intentar.» — ARREGLADO (claude3, 29/10 ~03:00)
+
+**Rama `web-generator-foto-2910` (desde origin/main 7f36fa9c6), worktree `C:/dev/wt-foto-2910`: 601e6777d (arreglo + test)
+· a24437bb3 (cosecha: hallazgos-editor-landing, hallazgos-infra, índice).** Sin pushear (sube el Cerebro).
+- La URL: https://100ads.ai/ (log de función de Vercel, 03:38:21 UTC). NO era el tope: la ventana falló en < 5 s.
+- Causa: en la ventana AISLADA, `sinRastreadores` sacaba dos pedazos `self.__next_f.push` del árbol de la app de Next
+  (nombran a Facebook/Clarity) → React la borraba (#423) → foto con cuerpo vacío → el saneo la tiraba en silencio.
+  Arreglo: la ventana deja los scripts de DATOS (`guardarDatos`). Y con foto, la ventana ya no se cierra sola a los 300 ms
+  (perdía el mensaje 2 de 18): respaldo a los 10 s. El lector manda el motivo (`sinFoto`), saca la foto igual en el tope o
+  en una caída, y la pantalla dice un texto por motivo.
+- Medido con la ventana de verdad (`C:/dev/revisiones/web-generator-foto/ventana-repro.mts`): antes 0 palabras y foto
+  vacía; ahora 684 palabras y la foto de 115 KB, 12 de 12. tests/web-generator-foto.test.ts 8/8, romper 18/18; los 3
+  tests vecinos 56/56. tsc-acotado y tests-afectados: ver `C:/dev/revisiones/web-generator-foto/{tipos,tests-afectados}.log`.
+- SIN HACER: el Diagnóstico y la copia fiel siguen sacando los datos (una app de Next ahí probablemente en blanco, sin medir).
+- Lo de abajo es el pedido original, de historia.
 
 Llegó con la cuenta al 95 %: por la regla de cierre no se arrancó. Va ANTES que la réplica editable. Lo que mandó el
 Cerebro (los números de línea son de origin/main, sin verificar acá):
@@ -34,7 +49,10 @@ Cerebro (los números de línea son de origin/main, sin verificar acá):
 
 VERDE mandado con 11a0e8211; el Cerebro lo aceptó y lo subió en tren-x (merge 7f63046be). tests-afectados VERDE (2597),
 tsc-acotado 0 propios (sólo los 14 conocidos de _opencut). Las copias #68–#72 van a la papelera cuando cierre la MATRIZ
-de la réplica editable (acordado con el Cerebro). Falta sólo medirlo en producción después del deploy (menú → Web Generator).
+de la réplica editable (acordado con el Cerebro). Producción (29/10, claude3): el deploy `dpl_6EEd…RkuqVR` (7f36fa9c6) lleva el arreglo; en sus logs Martín
+navegó #72 → #69 → #70 → #68 y cada una cargó la suya (antes terminaban en #72), sin la ráfaga de `/72`. La ENTRADA POR EL
+MENÚ no se vio (los `GET /web-generator` de a pares son el prefetch) y Chrome no estaba conectado con claude3: falta mirarla
+con el Chrome de Martín.
 Lo de abajo queda de historia.
 
 Martín: «Cada vez que entro a web generator, hay un bug que aparece todo en blanco, le tengo que dar a refresh para que me
