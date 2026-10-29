@@ -103,7 +103,7 @@ preguntes: hacé esto en orden.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
   - **01:40, verificaciones:**
-    - **Automations `69b49a31c`: NO.** Una ALTA: un DM de Instagram recibe DOS respuestas del AI Step. Siete medias:
+    - **Automations `69b49a31c`: NO.** La ALTA (un DM de Instagram recibía DOS respuestas del AI Step) quedó ARREGLADA en `5e67180c7` (aut-2510; probado rompiéndolo, sin barrido nuevo). Las medias y bajas siguen, en docs/relevo/automations.md (`f8e74a9f5`), para la próxima cuenta, y sin ellas no entra. Siete medias:
       «Volver a probar» reusa las Idempotency-Key, la mudanza rechaza «social_tope», la difusión sale dos veces sin
       idempotencia, el goteo de Instagram pasa la ventana de 24 h, HojaDifusion no está montada, y un setter puede
       difundir por el grupo. Más bajas. Informe en `C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md`, ya
