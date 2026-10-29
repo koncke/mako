@@ -218,7 +218,10 @@ test('la misma difusión, una vez: la clave del pedido, la marca y retomar la qu
   assert.match(retomar, /const r = await inscribirEnDifusion\(fila\.id, vista\.alcance\.ids\);/);
   // ⚠️ La pausada (la terminó la corrida de la hora, o la pausó alguien) se vuelve a prender por la puerta de siempre, ANTES de
   // sumar a los que faltan: decir «préndela ahí» no los sumaba (la reverificación de Integración, 29/10/2026).
-  assert.match(retomar, /if \(!fila\.activa\) \{\s*try \{\s*const \{ setSecuenciaActiva \} = await import\('\.\/nutricion'\);\s*await setSecuenciaActiva\(fila\.id, true, \{ aunqueDuplique: true, ws \}\);/);
+  assert.match(retomar, /if \(!fila\.activa\) \{\s*const \{ setSecuenciaActiva, DuplicadaError \} = await import\('\.\/nutricion'\);\s*try \{\s*await setSecuenciaActiva\(fila\.id, true, \{ ws \}\);/);
+  // Sin `aunqueDuplique`: la pausada la pudieron editar; prenderla pregunta lo mismo que «Activar», y la duplicada se dice.
+  assert.doesNotMatch(retomar, /aunqueDuplique/);
+  assert.match(retomar, /if \(e instanceof DuplicadaError\) return \{ ok: false, error: `[^`]*\$\{e\.message\}/);
   assert.ok(retomar.indexOf('await setSecuenciaActiva(fila.id, true') < retomar.indexOf('await inscribirEnDifusion(fila.id'), 'la prende antes de inscribir');
   assert.doesNotMatch(retomar, /préndela ahí/);
 });

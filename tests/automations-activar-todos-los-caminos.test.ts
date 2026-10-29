@@ -61,6 +61,8 @@ const SCRIPTS_DE_EVENTOS = ['scripts/mudanza-avisos-plataforma.mts', 'scripts/mu
  * LA DIFUSIÓN (28/10/2026, lib/difusion.ts): crea una automatización A MANO (sin cohorte) y la prende para inscribirle ELLA
  * los leads elegidos. No le escribe a nadie más, y `duplicadaDeLaActivacion` de una A mano no tiene con quién chocar: no hay
  * «… igual» que preguntar. Si un día prende otra cosa, que la maneje como `PRENDEN`.
+ * ⚠️ El mismo pedido otra vez vuelve a prender la que se pausó (`retomarDifusion`, la reverificación de Integración del
+ * 29/10/2026): ésa la pudieron editar mientras estaba pausada, así que pasa por la pregunta SIN `aunqueDuplique`.
  */
 const CREAN_A_MANO = ['lib/difusion.ts'];
 /**
@@ -103,7 +105,13 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
   for (const f of CREAN_A_MANO) {
     const src = FUENTE.get(f)!;
     const crea = src.indexOf('const fila = await crearSecuenciaVacia(');
-    assert.ok(crea >= 0 && crea < src.indexOf('await setSecuenciaActiva(fila.id, true'), `${f} prende una que no creó A mano`);
+    // Sin preguntar por la duplicada, sólo la que acaba de crear A mano.
+    const sinPreguntar = [...src.matchAll(/setSecuenciaActiva\([^)]*aunqueDuplique[^)]*\)/g)].map((m) => m.index!);
+    assert.ok(sinPreguntar.length > 0 && crea >= 0 && sinPreguntar.every((i) => i > crea), `${f} prende una que no creó A mano`);
+    // La que retoma pregunta como «Activar» y dice la duplicada.
+    const retomar = cuerpo(src, 'async function retomarDifusion(');
+    assert.match(retomar, /await setSecuenciaActiva\(fila\.id, true, \{ ws \}\);/, `${f} vuelve a prender sin preguntar`);
+    assert.match(retomar, /instanceof DuplicadaError/, `${f} no dice la duplicada al retomar`);
   }
   for (const f of SCRIPTS_DE_EVENTOS) {
     const src = FUENTE.get(f)!;

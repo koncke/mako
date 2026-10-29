@@ -74,6 +74,10 @@ tests/difusion.test.ts.
   este cambio tienen la clave `automatizacion-…`: ésas siguen apagándose a mano. **⚠️ Y las dos reglas se pisaban** (la
   reverificación de Integración, 29/10): pausada la que terminó, el mismo pedido dentro de las 24 h contestaba «préndela ahí»
   y prenderla no sumaba a los que faltaban. Ahora `retomarDifusion` la vuelve a prender por `setSecuenciaActiva` y suma.
+  **La trampa del arreglo:** la primera versión la prendía con `aunqueDuplique: true`, copiado de `crearDifusion`. Ese
+  permiso vale para la fila RECIÉN creada A mano, no para una que estuvo pausada y que pudieron editar en Automations
+  (otro disparador, otros pasos). Lo agarró la red de caminos (tests/automations-activar-todos-los-caminos.test.ts), no
+  el test de la difusión. Regla: **lo que se retoma pregunta por la duplicada como «Activar»**; el permiso no se copia.
 
 **Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);
 no se probó mandando de verdad (sería escribirle a leads reales). Un lead que tiene Instagram Y otro canal y no alcanza

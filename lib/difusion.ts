@@ -148,7 +148,9 @@ async function inscribirEnDifusion(secuenciaId: number, ids: readonly number[]):
  * llegaron a la columna después). null = esa automatización ya no está (la borraron o la archivaron): el pedido va como nuevo.
  * ⚠️ Y SI ESTÁ PAUSADA, LA PRENDE (la reverificación de Integración, 29/10/2026): la corrida de la hora pausa la que terminó
  * (`pausarDifusionesTerminadas`), y el mismo pedido decía «préndela ahí», pero prenderla no sumaba a los que faltaban. Pedirla
- * de nuevo ES pedir que salga: se prende por la puerta de siempre (`setSecuenciaActiva`: el tope del plan, el medio conectado).
+ * de nuevo ES pedir que salga: se prende por la puerta de siempre (`setSecuenciaActiva`: el tope del plan, el medio conectado)
+ * y SIN `aunqueDuplique`: mientras estuvo pausada la pudieron editar en Automations, así que pasa por la misma pregunta de la
+ * duplicada que «Activar» (una difusión sin tocar no choca con nadie y se prende igual).
  */
 async function retomarDifusion(ws: number, secuenciaId: number, vista: VistaDifusion, autor: string): Promise<ResultadoDifusion | null> {
   const db = await getTenantDb();
@@ -157,10 +159,11 @@ async function retomarDifusion(ws: number, secuenciaId: number, vista: VistaDifu
   const fila = sec as { id: number; nombre: string; activa: boolean | null; archivada_at: string | null } | null;
   if (!fila || fila.archivada_at) return null;
   if (!fila.activa) {
+    const { setSecuenciaActiva, DuplicadaError } = await import('./nutricion');
     try {
-      const { setSecuenciaActiva } = await import('./nutricion');
-      await setSecuenciaActiva(fila.id, true, { aunqueDuplique: true, ws });
+      await setSecuenciaActiva(fila.id, true, { ws });
     } catch (e) {
+      if (e instanceof DuplicadaError) return { ok: false, error: `Esta misma difusión ya está creada, «${fila.nombre}», y está pausada. ${e.message} Si igual quieres que salga, préndela en Automations y vuelve a mandarla.` };
       return { ok: false, error: `Esta misma difusión ya está creada, «${fila.nombre}», y no la pude volver a prender: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
