@@ -17,6 +17,8 @@ import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { requireCopywriter } from './acceso';
 import { Copywriter } from './Copywriter';
+import { Pagina } from '@/app/_ui';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,14 +39,18 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
   const ultima = r.ok && !enNueva ? masReciente(r.paginas) : null;
   if (ultima) redirect(await rutaConWs(`/copywriter/${ultima.id}`));
   const [catalogos, ws] = await Promise.all([catalogosDelCopywriter(), getWorkspaceActual().catch(() => null)]);
+  // El shell único de Create (app/_crear/PantallaCrear.tsx) mide el alto de la <Pagina>, como Video y Offer.
   return (
-    <Copywriter
-      ws={ws}
-      paginas={r.ok ? r.paginas : []}
-      guion={null}
-      error={r.ok ? null : `No se pudo leer la lista de guiones: ${r.error}`}
-      catalogos={catalogos}
-      tipoInicial={tipoInicial}
-    />
+    <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
+      <Copywriter
+        ws={ws}
+        paginas={r.ok ? r.paginas : []}
+        guion={null}
+        error={r.ok ? null : `No se pudo leer la lista de páginas: ${r.error}`}
+        catalogos={catalogos}
+        tipoInicial={tipoInicial}
+        nuevaInicial={enNueva}
+      />
+    </Pagina>
   );
 }

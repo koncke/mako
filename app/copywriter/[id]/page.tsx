@@ -16,6 +16,8 @@ import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { esIdPagina } from '@/lib/copywriter/tipos';
 import { requireCopywriter } from '../acceso';
 import { Copywriter } from '../Copywriter';
+import { Pagina } from '@/app/_ui';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -27,13 +29,16 @@ export default async function GuionPage({ params }: { params: Promise<{ id: stri
   if (!esIdPagina(id)) notFound();
   const [rAbrir, rListar, catalogos, ws] = await Promise.all([abrir(id), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null)]);
   if (!rAbrir.ok && rAbrir.status === 404) notFound();
+  // El shell único de Create (app/_crear/PantallaCrear.tsx) mide el alto de la <Pagina>, como Video y Offer.
   return (
-    <Copywriter
-      ws={ws}
-      paginas={rListar.ok ? rListar.paginas : []}
-      guion={rAbrir.ok ? { pagina: rAbrir.pagina, doc: rAbrir.doc } : null}
-      error={rAbrir.ok ? null : rAbrir.error}
-      catalogos={catalogos}
-    />
+    <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
+      <Copywriter
+        ws={ws}
+        paginas={rListar.ok ? rListar.paginas : []}
+        guion={rAbrir.ok ? { pagina: rAbrir.pagina, doc: rAbrir.doc } : null}
+        error={rAbrir.ok ? null : rAbrir.error}
+        catalogos={catalogos}
+      />
+    </Pagina>
   );
 }

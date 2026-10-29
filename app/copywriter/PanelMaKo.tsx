@@ -23,7 +23,7 @@
 //     el documento apenas se lo pidió.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode, type RefObject } from 'react';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -89,7 +89,7 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
@@ -109,6 +109,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * el selector pasa a «Editar» («mejora este párrafo» habla de ESO). Sin selección, sólo lleva el cursor a la caja.
    */
   citarRef?: MutableRefObject<((seleccion?: string) => void) | null>;
+  /** La «←» del shell de Create (app/_crear/PantallaCrear.tsx): da vuelta la tarjeta a la lista de páginas. */
+  volver?: ReactNode;
 }) {
   const id = guion?.pagina.id ?? null;
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
@@ -431,7 +433,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     <section role="complementary" className="nt-mako" aria-label="MaKo">
       <PanelAgenteChat hilo={hiloRef} adjuntos={adj.caja}
         cabecera={{
-          clave: `copywriter:${id ?? 'nada'}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: corriendo ? 'trabajando' : 'despierto',
+          clave: `copywriter:${id ?? 'nada'}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: corriendo ? 'trabajando' : 'despierto', antes: volver,
           acciones: <span className="nt-mako-estado">{corriendo ? 'escribiendo…' : 'en línea'}</span>,
         }}
         caja={(
@@ -454,7 +456,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         {mensajes.length === 0 && (
           <>
             <div className="nt-mako-bienvenida">
-              {!id ? 'Elige una página, o crea una nueva con «Nueva».'
+              {!id ? 'Elige una página, o crea una con «Nueva página».'
                 : intencion === 'discutir' ? 'Pregúntame lo que quieras de esta página: te digo qué cambiaría, sin tocar nada.'
                   : 'Pídeme que escriba o edite esta página: lo escribo aquí al lado y tú decides si queda.'}
               {id && ' Con @ citas otra página, la oferta o un archivo.'}

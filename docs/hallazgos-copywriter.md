@@ -143,14 +143,21 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - `lib/razones.ts` es `server-only`: lo puro que necesita leer un guion de la matriz (la mudanza, con su test) copia la
   normalización mínima en vez de importarla.
 
+## Dos ramas que tocan nav.ts: la que crea la ruta hace la fila (29/10/2026)
+
+- El chat de Create y éste editaban el MISMO bloque de nav.ts (la familia Create). Lo que destrabó fue repartir por
+  dependencia, no por archivo: la fila de Copywriting apunta a `/copywriter`, que existe sólo en esta rama, así que la hizo
+  esta rama ENCIMA del merge de la otra. Si la hubiera hecho la rama del shell, sus clientes iban a una ruta que todavía no
+  estaba en main. Por lo mismo, las dos ramas suben juntas (o la del Copywriter primero).
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
 - La estructura de YouTube (falta la fuente): docs/diseno-copywriter.md, D6. (Stories y YouTube Writer ya dejaron la barra el
   29/10, D13.)
-- Montar el Copywriter en el shell único de Create (`app/_crear/PantallaCrear.tsx`) cuando el chat «Create: un solo diseño»
-  lo commitee: docs/diseno-copywriter.md, «Qué queda».
+- El arrastre del árbol de Notion (reordenar y anidar páginas) se perdió al entrar al shell único de Create (su lista es
+  plana): docs/diseno-copywriter.md, D15. Retirar `/m/stories` e `/ideas` (sin fila, todavía vivos).
 - Borrar StoriesApp/OnboardingStories (sin entrada desde el 29/10) y decidir qué pasa con la matriz y «Analizar guion» del
   Ads Writer (siguen por su ruta).
 - `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.

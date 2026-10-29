@@ -3,7 +3,7 @@
 // =============================================================================
 // ListaGuionesM — las páginas del Copywriter en el teléfono (el árbol de escritorio en una lista) y «Nueva»
 // =============================================================================
-// El árbol de escritorio (app/copywriter/Arbol.tsx) en el orden en que se dibuja allá: cada página y, debajo, las suyas
+// La lista de escritorio (la de app/_crear/PantallaCrear.tsx) en el orden del árbol: cada página y, debajo, las suyas
 // (la segunda línea dice de cuál cuelgan). «Nueva» abre la hoja «¿Qué vas a crear hoy?» con los MISMOS templates de
 // escritorio (lib/copywriter/plantillas.ts) y crea la página con el cuerpo del template.
 // =============================================================================

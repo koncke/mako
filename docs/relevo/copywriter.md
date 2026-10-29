@@ -30,10 +30,11 @@ tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING».
 
 ## Lo que falta verificar / lo que espera
 
-- **El shell único de Create** (`app/_crear/PantallaCrear.tsx` del chat «Create: un solo diseño») estaba SIN commitear: el
-  Copywriter todavía usa su armazón (MaKo · páginas · página). Le pedí a ese chat el sha para montarlo; también que no
-  toque la fila de Copywriting en nav.ts (ya está acá): **conflicto esperable** en el bloque de Create de nav.ts al juntar
-  las dos ramas (se resuelve a mano: las dos filas nuevas).
+- **El shell único de Create:** mergeado (create-shell-2910 en 2b62724ea, merge 61bc5a3c1) y el Copywriter montado en
+  `PantallaCrear` (D15). **Esta rama trae la de Create adentro:** sube una vez, con las dos (la de Create redirige /reels a
+  `/copywriter?nuevo=reel`, que vive acá). nav.ts y movil-rutas.ts los resolví acá, encima del commit de Create.
+- `/m/stories` (StoriesM) e `/ideas` (el «pronto») siguen vivos sin fila: retirarlos arrastra los tests del teléfono
+  (m-creacion, movil-rutas); va en otra tanda.
 - La mudanza ESCRIBE en producción la primera vez que cada negocio abre la tab (copias, no toca lo original).
 - `/ads-writer` sigue andando por link (la matriz, «Analizar guion»), sin fila. Qué hacer con eso: Martín.
 

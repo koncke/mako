@@ -269,11 +269,23 @@ de BlockNote, exportar a .docx/.pdf) son GPL y NO se instalan: la IA es la de Ma
 - Las páginas se crean con `crearVarias` (lib/copywriter/server.ts): cada documento con su compare-and-set, de a 6, y el
   índice en UNA escritura.
 
+## D15 · El shell único de Create (29/10/2026)
+
+El chat «Create: un solo diseño» armó UNA pantalla para todas las tabs de Create (`app/_crear/PantallaCrear.tsx`, rama
+create-shell-2910, mergeada acá en 2b62724ea): la tarjeta izquierda de la casa (la del Web Generator), siempre abierta.
+El Copywriter la usa así (app/copywriter/Copywriter.tsx), y reemplaza al armazón de D2 (MaKo · árbol · página):
+- `chat` = PanelMaKo, el chat que edita la página abierta, con la «←» del shell en su cabecera (`volver`).
+- La «←» da vuelta la tarjeta a la LISTA de páginas: «Nueva página» primero, las páginas en el orden del árbol (las
+  subpáginas debajo de la suya, con «↳»), su ⋯ (Agregar una página adentro · Mover a la Papelera) y la Papelera al pie.
+- «Nueva página» (o `?nueva`, o `?nuevo=<tipo>`) muestra «¿Qué vas a crear hoy?» con la caja de la casa y los templates de
+  D12 (sin la grilla agrupada de antes: la tarjeta del shell, con el marco del formato de cada tipo). Lo escrito en la caja
+  crea una página en blanco que MaKo escribe (`onPedido`).
+- La página va a la derecha (`children`), dentro de `<Pagina style={ESTILO_PAGINA_CREAR}>` como Video y Offer.
+- ⚠️ **Lo que se perdió del árbol de Notion:** arrastrar para reordenar y anidar (la lista del shell es plana). Las migas de
+  la página siguen navegando el árbol, y una subpágina se crea desde el ⋯.
+
 ## Qué queda para después
 
-- **Mudar el Copywriter al shell único de Create** (`app/_crear/PantallaCrear.tsx`, del chat «Create: un solo diseño»,
-  todavía sin commitear el 29/10): `chat` = PanelMaKo (edita lo abierto), proyectos = las páginas, plantillas = las de
-  D12, `onPedido` = página nueva que MaKo escribe. Hasta entonces el armazón es el de D2 (MaKo · páginas · página).
 - Borrar lo que quedó sin entrada: StoriesApp/OnboardingStories (D13) y el Ads Writer del teléfono cuando Martín decida
   qué hacer con la matriz y «Analizar guion».
 

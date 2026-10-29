@@ -53,34 +53,9 @@
 .nt-mako-error { padding: 10px 14px; border-radius: 14px; background: var(--nt-gris); color: var(--nt-texto); font-size: 13.5px; }
 .nt-mako-estado { font-size: 12px; color: var(--nt-suave); }
 
-/* ── El árbol (la barra de Notion) ─────────────────────────────────────────── */
-.nt-arbol { display: flex; flex-direction: column; width: 240px; flex: none; min-height: 0; background: var(--nt-gris); border-right: 1px solid var(--nt-linea); user-select: none; }
-.nt-arbol[data-plegado] { width: 0; border-right: 0; overflow: hidden; }
-.nt-arbol-cab { display: flex; align-items: center; gap: 4px; height: 45px; padding: 0 8px 0 14px; flex: none; }
-.nt-arbol-titulo { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--nt-texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nt-arbol-lista { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 4px 12px; }
-.nt-arbol-seccion { padding: 10px 10px 4px; font-size: 12px; font-weight: 500; color: var(--nt-suave); }
-.nt-fila { position: relative; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px; border-radius: 6px; color: var(--nt-tenue); font-size: 14px; cursor: pointer; }
-.nt-fila:hover { background: var(--nt-hover); }
-.nt-fila[data-abierta] { background: var(--nt-hover); color: var(--nt-texto); font-weight: 500; }
-.nt-fila[data-soltar="dentro"] { box-shadow: inset 0 0 0 2px var(--nt-azul); background: var(--nt-azul-fondo); }
-.nt-fila[data-soltar="antes"]::before, .nt-fila[data-soltar="despues"]::after { content: ''; position: absolute; left: 6px; right: 6px; height: 2px; border-radius: 1px; background: var(--nt-azul); }
-.nt-fila[data-soltar="antes"]::before { top: -1px; }
-.nt-fila[data-soltar="despues"]::after { bottom: -1px; }
-.nt-fila-flecha { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; border: 0; border-radius: 4px; background: transparent; color: var(--nt-suave); font-size: 10px; cursor: pointer; transition: transform .12s ease; }
-.nt-fila-flecha:hover { background: var(--nt-hover); }
-.nt-fila-flecha[data-abierta] { transform: rotate(90deg); }
-.nt-fila-flecha[data-vacia] { visibility: hidden; }
-.nt-fila-emoji { width: 22px; flex: none; text-align: center; font-size: 15px; line-height: 1; }
-.nt-fila-nombre { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nt-fila-acciones { display: none; align-items: center; gap: 2px; flex: none; }
-.nt-fila:hover .nt-fila-acciones, .nt-fila:focus-within .nt-fila-acciones, .nt-fila[data-menu] .nt-fila-acciones { display: inline-flex; }
+/* ── Los botones de ícono de la barra de la página ─────────────────────────── */
 .nt-boton-ico { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: none; border: 0; border-radius: 5px; background: transparent; color: var(--nt-suave); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
 .nt-boton-ico:hover, .nt-boton-ico[aria-expanded="true"] { background: var(--nt-hover); color: var(--nt-texto); }
-.nt-arbol-pie { flex: none; padding: 6px 4px 10px; border-top: 1px solid var(--nt-linea); }
-.nt-arbol-nuevo { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--nt-tenue); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
-.nt-arbol-nuevo:hover { background: var(--nt-hover); color: var(--nt-texto); }
-.nt-renombrar { flex: 1; min-width: 0; height: 24px; padding: 0 6px; border: 1px solid var(--nt-azul); border-radius: 4px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; font-size: 14px; outline: none; }
 
 /* ── El documento ──────────────────────────────────────────────────────────── */
 .nt-doc { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
@@ -192,17 +167,8 @@
 .nt-ref-chip button { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--nt-tenue); font-size: 14px; line-height: 1; cursor: pointer; }
 .nt-ref-chip button:hover { background: var(--nt-hover); }
 
-/* El vacío: la caja grande del inicio de mila. */
+/* El aviso cuando no se pudo leer la lista (adentro del shell de Create). */
 .nt-inicio { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.nt-inicio-caja { width: min(640px, 100%); display: grid; gap: 18px; text-align: center; }
-.nt-inicio-titulo { margin: 0; font-size: 34px; font-weight: 700; line-height: 1.2; color: var(--nt-texto); }
-.nt-inicio-campo { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 20px; border-radius: 16px; background: var(--nt-fondo); box-shadow: 0 0 0 1px var(--nt-linea), 0 8px 24px rgba(15, 15, 15, .08); }
-.nt-inicio-campo input { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; color: var(--nt-texto); font: inherit; font-size: 17px; }
-.nt-inicio-ir { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--nt-azul); color: var(--on-primary); font-size: 18px; cursor: pointer; }
-.nt-inicio-ir:disabled { opacity: .45; cursor: default; }
-.nt-tipos { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.nt-tipo { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--nt-linea); border-radius: 999px; background: var(--nt-fondo); color: var(--nt-tenue); font: inherit; font-size: 14px; cursor: pointer; }
-.nt-tipo[aria-pressed="true"] { border-color: var(--nt-azul); background: var(--nt-azul-fondo); color: var(--nt-texto); }
 .nt-aviso { margin: 0 auto; max-width: 708px; padding: 10px 14px; border-radius: 8px; background: var(--nt-gris); font-size: 14px; }
 
 /* El teléfono: un paso por pantalla. Sin asa (no hay cursor), con la página a lo ancho. */
@@ -239,21 +205,12 @@
   .nt *, .nt *::before, .nt *::after { transition: none !important; animation: none !important; }
 }
 
-/* ── «Nueva»: «¿Qué vas a crear hoy?» y los templates (./Inicio.tsx). La galería de Notion: tarjetas con el ícono, el
-   nombre y una línea gris; una grilla que se acomoda al ancho (en el teléfono, una columna). ─────────────────────── */
-.nt-arbol-acciones { flex: none; padding: 0 4px 6px; }
-.nt-arbol-nuevo[data-principal] { color: var(--nt-texto); font-weight: 500; }
-.nt-galeria { width: min(880px, 100%); margin: 0 auto; padding: 56px clamp(16px, 5%, 48px) 30vh; box-sizing: border-box; display: grid; gap: 22px; }
-.nt-galeria .nt-inicio-titulo { text-align: left; }
-.nt-galeria-grupo { display: grid; gap: 10px; }
-.nt-galeria-titulo { margin: 0; font-size: 14px; font-weight: 600; color: var(--nt-tenue); }
-.nt-galeria-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-.nt-plantilla { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px; align-items: center; padding: 12px 14px; border: 1px solid var(--nt-linea); border-radius: 10px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; text-align: left; cursor: pointer; transition: background .12s, border-color .12s; }
-.nt-plantilla:hover:not(:disabled) { background: var(--nt-hover); border-color: var(--nt-linea-fuerte); }
-.nt-plantilla:disabled { opacity: .6; cursor: default; }
-.nt-plantilla-emoji { grid-row: 1 / span 2; font-size: 26px; line-height: 1; }
-.nt-plantilla-nombre { font-size: 14px; font-weight: 600; }
-.nt-plantilla-desc { font-size: 12.5px; line-height: 1.4; color: var(--nt-suave); }
-.nt[data-movil] .nt-galeria { padding: 20px 16px 40vh; gap: 16px; }
-.nt[data-movil] .nt-galeria-grilla { grid-template-columns: 1fr; }
-.nt[data-movil] .nt-inicio-campo input { font-size: 16px; }
+/* ── Adentro del shell único de Create (app/_crear/PantallaCrear.tsx, 29/10/2026): la tarjeta izquierda es el chat de MaKo
+   y el centro, la página. `.nt` deja de medir la ventana: llena lo que el shell le da. ─────────────────────────────── */
+.nt[data-en-tarjeta], .nt[data-en-crear] { flex: 1; height: auto; min-height: 0; }
+.nt[data-en-tarjeta] { background: transparent; }
+.nt[data-en-tarjeta] .nt-mako { width: 100%; border-right: 0; background: transparent; }
+.nt[data-en-crear] .nt-doc { min-width: 0; }
+.nt-papelera { display: grid; gap: 2px; }
+.nt-papelera-lista { display: grid; gap: 2px; max-height: 220px; overflow-y: auto; padding: 0 4px 4px; }
+.nt-papelera-fila { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 6px; font-size: 13.5px; }

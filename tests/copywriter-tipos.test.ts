@@ -8,8 +8,9 @@
 //     del super admin leen `getEstructurasTodas`); y un override guardado antes de que existieran las recibe igual;
 //   · cada tipo arma sus secciones (Reel: Gancho → Historia → Moraleja → CTA); YouTube no tiene estructura propia (no hay
 //     fuente) y el selector no queda vacío;
-//   · la mudanza: /youtube-writer lleva al Copywriter a quien ya lo ve; Stories y el Ads Writer ofrecen «Abrir en
-//     Copywriter» sólo a quien ya lo ve; `/copywriter?nuevo=<tipo>` elige el tipo y NO crea nada por abrir un link.
+//   · la mudanza: /youtube-writer lleva al Copywriter a quien ya lo ve; /stories lleva SIEMPRE a los templates de Story
+//     (29/10, deprecada); el Ads Writer ofrece «Abrir en Copywriter» sólo a quien ya lo ve; `/copywriter?nuevo=<tipo>`
+//     abre «Nueva» con ese tipo y NO crea nada por abrir un link.
 // =============================================================================
 
 import test from 'node:test';
@@ -58,11 +59,12 @@ test('cada tipo con sus estructuras; YouTube sin la suya (no hay fuente) y el se
   assert.deepEqual(bloquesDelDoc(reel).filter((b) => b.tipo === 'seccion').map((b) => b.texto), ['Gancho', 'Historia', 'Moraleja', 'CTA']);
 });
 
-test('la mudanza: YouTube Writer lleva al Copywriter, y «Abrir en Copywriter» sólo para quien ya lo ve', () => {
+test('la mudanza: YouTube Writer y Stories llevan al Copywriter, y «Abrir en Copywriter» sólo para quien ya lo ve', () => {
   const yt = leer('app/youtube-writer/page.tsx');
   assert.match(yt, /if \(await veCopywriter\(\)\) redirect\(await rutaConWs\('\/copywriter\?nuevo=youtube'\)\);/);
-  assert.match(leer('app/stories/page.tsx'), /<StoriesApp conCopywriter=\{await veCopywriter\(\)\} \/>/);
-  assert.match(leer('app/stories/StoriesApp.tsx'), /\{conCopywriter && \(/);
+  const stories = leer('app/stories/page.tsx');
+  assert.match(stories, /redirect\(await rutaConWs\('\/copywriter\?nuevo=story'\)\);/, 'Stories se deprecó: va a los templates de Story');
+  assert.ok(!/StoriesApp|Onboarding/.test(stories.replace(/^\/\/.*$/gm, '')), 'sin la tab vieja ni su onboarding');
   const ads = leer('app/ads-writer/page.tsx');
   assert.match(ads, /const conCopywriter = await veCopywriter\(\);/);
   assert.equal((ads.match(/conCopywriter=\{conCopywriter\}/g) ?? []).length, 3, 'las tres formas en que abre la tab');
@@ -71,9 +73,10 @@ test('la mudanza: YouTube Writer lleva al Copywriter, y «Abrir en Copywriter» 
   assert.match(global, /onAbrirEnCopywriter=\{conCopywriter \?/);
 });
 
-test('/copywriter?nuevo=<tipo> elige el tipo y NO crea nada por abrir un link', () => {
+test('/copywriter?nuevo=<tipo> abre «Nueva» con el tipo y NO crea nada por abrir un link', () => {
   const page = leer('app/copywriter/page.tsx');
   assert.match(page, /const tipoInicial = esTipoGuion\(nuevo\) \? nuevo : null;/);
-  assert.match(page, /r\.ok && !tipoInicial \? masReciente/);
+  assert.match(page, /const enNueva = sp\.nueva !== undefined \|\| !!tipoInicial;/);
+  assert.match(page, /r\.ok && !enNueva \? masReciente/, 'con un tipo o con «Nueva», no salta a la última página');
   assert.ok(!/\bcrear\(|pedirCrear/.test(page), 'la página no crea guiones');
 });
