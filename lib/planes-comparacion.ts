@@ -40,7 +40,9 @@ const soloPrograma = (grupo: string, que: string): FilaComparacion => ({ grupo, 
 /** Las tabs que son sólo de Pro, con lo que consigue quien no conoce MaKo (nunca el nombre de la tab). */
 export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], string>> = {
   'closing-analyst': 'Qué mejorar en cada llamada de venta, con IA',
-  'image-editor': 'Crear y retocar imágenes con IA',
+  // 29/10/2026 (el Cerebro, con el inventario del taller): el editor tipo Canva existe y su chat edita el diseño, pero generar
+  // imágenes con IA NO (lib/image-editor/chat/catalogo.ts, `NO_SE_PUEDE_CHAT_IMAGEN`; Image Generator es «pronto»).
+  'image-editor': 'Diseñar tus imágenes sin salir de MaKo',
   'video-editor': 'Editar tus videos sin salir de MaKo',
   'ai-avatar': 'Videos con una persona hecha con IA que habla por ti',
 };
@@ -75,7 +77,8 @@ export function filasDeComparacion(): FilaComparacion[] {
     filaDeTope(vender, 'Cuentas para cobrar con Mercado Pago o Stripe', 'cobros.cuentas'),
     soloPro(vender, NOMBRE_TAB_PRO['closing-analyst']),
     filaDeTope(atender, 'Números de WhatsApp conectados, más tu Instagram', 'chats.lineas_whatsapp'),
-    enTodos(anuncios, 'Videos para tus anuncios, armados con IA'),
+    // 29/10/2026: «Videos para tus anuncios, armados con IA» (el Video Generator) salió de la tabla: está a medias (depende de
+    // la extensión y de los créditos de Flow del cliente, y al motor nunca se lo midió en vivo). Vuelve cuando un cliente lo use.
     // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas ideas, del tope del plan.
     filaDeTope(anuncios, 'Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'),
     soloPro(anuncios, 'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto'),
