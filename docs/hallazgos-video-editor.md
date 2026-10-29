@@ -1879,3 +1879,30 @@ WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configura
 **Vive en:** `subtitles/resultado.ts` (puro, lo carga el test) · `subtitles/generar.ts` · `chat/aplicar.ts` (`correrLarga`) ·
 `transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
 *28/10/2026, chat «Video Editor: el ruido y los silencios de Leila».*
+
+## Los colores de MaKo en `.ce`: un ciclo de variables CSS no tira error, deja todo transparente (29/10/2026, claude3)
+
+Martín, 29/10: «en las tabs de Editor e Image, pongas los colores de MaKo, no esos colores». La paleta `--cc-*` pasó a apuntar
+a los tokens de la app (claro y oscuro: `--cc-accent: var(--primary)`, `--cc-panel: var(--surface)`…) y el oscuro dejó de
+forzarse (sin `TemaOscuro`, sin `color-scheme: dark`, `dark:` sigue a `[data-tema="oscuro"]`). Lo que costó:
+
+- **El ciclo.** Lo obvio, `.ce { --cc-accent: var(--primary); --primary: var(--cc-accent) }`, deja las DOS inválidas y todo
+  transparente, sin un error. El reemplazo automático en el `CSS_CHAT` viejo produjo exactamente `--primary:var(--primary)`.
+  **Regla:** `.ce` no redefine NINGÚN token de MaKo (`--primary`, `--border`, `--bg`, `--surface`, `--ink`…); sólo los nombres
+  de shadcn y `--accent` (que en MaKo es el ocre de la marca). Lo fija tests/video-editor-tema.test.ts.
+- **El lienzo lee tokens RESUELTOS.** `guides/reglas.tsx` y `leerToken` leen `--cc-sunken`, `--cc-panel`, `--cc-line-2`,
+  `--cc-ruler`, `--cc-text-3`, `--cc-clip-audio-wave`: tienen que ser `var()` de un color plano, nunca `color-mix()`. Sin
+  verificar: si el tema cambia con el editor abierto, la regla no se redibuja hasta otro motivo.
+- **Blanco clavado sobre `bg-primary`.** En oscuro `--primary` es celeste (#7FA6F8) y el blanco encima no se lee: va
+  `text-primary-foreground`. El blanco y el negro ENCIMA de imagen, video o clips (tiradores, insignias, guías de recorte) se
+  quedan. Los colores de los clips también (son de dato, oscuros y legibles en los dos temas).
+
+**Quedó sin hacer:** verlo en un navegador (no hubo capturas: la guardia de RAM y la pausa del Cerebro); `ArmarPlantilla`
+hace `router.replace('/video-editor/<id>')` también en el teléfono (cae en la ruta de escritorio; ya era así,
+`plantilla/ArmarPlantilla.tsx`); `lib/movil-creacion.ts` no lleva `propuesta` en `querySub` de `/video-editor/*`; el menú
+de CapCut del editor sigue con «Nuevo proyecto» y «Volver a la página de inicio» (lleva a «¿Qué vas a crear hoy?»);
+`docs/diseno-editor-video.md` §9 y la tabla de la paleta de este documento («El tema vive en `.ce`») describen todavía la
+home y la paleta de CapCut.
+
+**Vive en:** app/video-editor/capcut-theme.css · app/video-editor/plantillas-crear.ts · app/video-editor/proyectos.ts ·
+app/video-editor/VideoEditorCliente.tsx (PantallaCrear) · tests/video-editor-tema.test.ts · tests/video-editor-nuevo-video.test.ts
