@@ -102,6 +102,11 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **00:55, los límites de Zernio (pedido de Martín): DISEÑADOS, sin código** (`35df0c483`, docs/relevo/zernio-capi.md).
+    La «salida gratis» (conectar otra cuenta de Zernio) NO se puede decir hoy: un negocio tiene UNA clave, y pegar otra
+    reemplaza la anterior y pierde las redes de la vieja. Va después de las varias claves (punto 3), y antes se revisan
+    los términos de Zernio. Para el punto 1 queda el texto propuesto, sin Analytics hasta volver a medirlo. Del punto 4
+    (el aviso antes de los 10.000 mensajes), falta medir de dónde sale el conteo de mensajes enviados del mes.
   - **00:50: VERDE de Zernio `854a6fda0`** (zernio-2510), con los arreglos de su verificación: la cuenta validada contra
     las del negocio, las publicaciones «dudosas» en vez de «fallo», la huella de la clave, las escrituras condicionadas, la
     REST en verde y el orgánico en la zona del negocio. ⚠️ **Lleva adentro diez commits de planes-2710** (hasta
