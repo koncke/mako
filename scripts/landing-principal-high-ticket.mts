@@ -96,8 +96,11 @@ const ICONO_CARA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><pa
  *
  * El Avatar con IA (29/10 a la tarde, Martín: «haz que AI-Avatar esté disponible para todos», los tres planes): entra
  * SEGUNDO, como en el ranking del rubro del taller (el más llamativo, detrás del setter), en el lugar de «Su visita, grabada»,
- * que el ranking ni puntuaba. Se publica recién cuando la rama que lo abre (ai-avatar-para-todos-2910) esté DESPLEGADA: antes
- * de eso sólo lo abre el super admin y la tarjeta vendería algo que el cliente no puede usar.
+ * que el ranking ni puntuaba. Se publica con DOS condiciones: la rama que lo abre (ai-avatar-todos-2910) DESPLEGADA (antes sólo
+ * lo abre el super admin), y al menos un look generado en producción. Medido el 29/10 (docs/hallazgos-ai-avatar.md, rama
+ * ai-avatar-todos-2910): el motor NUNCA generó uno (`ai-avatar.looks` vacío en todos los workspaces) y ninguna extensión
+ * estaba lista. Sin eso, la tarjeta vende lo que el taller dijo que no se pauta: «recién el día que un cliente la abra y le
+ * salga el video».
  */
 const TARJETAS: { de: string; titulo: string; bajada: string; nueva?: { feature: string; href: string; icono: string; fondo?: [string, string] } }[] = [
   { de: 'whatsapp', titulo: 'Tu setter en WhatsApp', bajada: 'Contesta a cada lead a cualquier hora, también audios, y le manda tu link para agendar.' },
