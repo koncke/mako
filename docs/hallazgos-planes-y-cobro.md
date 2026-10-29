@@ -1577,3 +1577,18 @@ capturas: docs/media-buyer/referencias/madgicx/prueba-limitada/ (rama mediabuyer
 (`estadoDePrueba`). Lo que se cobra después se parte en dos renglones («US$ / 97/mes») en una barra angosta. **Vive en:**
 app/_components/CartelPrueba.tsx · app/_ui/FranjaPrueba.tsx · app/_ui/usePrueba.ts · app/api/plan/prueba · app/m/_prueba/PruebaM.tsx ·
 lib/prueba-uso.ts (`resumenDePrueba`) · lib/api-mako/areas/negocio.* · tests/prueba-cartel.test.ts.
+
+## Un segundo intento de cobro no se arma si el primero puede seguir vivo, y eso vale también para las SUSCRIPCIONES (29/10/2026)
+
+**Vive en:** el alta de cobros de /planes (`be95f7555`, rama `planes-2710`) y el plan a mano con vencimiento (`55542d446`).
+Medido por la verificación de `ddfa645d4` (informe con los scripts: C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md).
+
+- **`be95f7555` cerró el voucher doble** (OXXO o SEPA en curso: queda UNA cuota). **Pero no el de la suscripción:** una
+  suscripción con SEPA cuya primera factura falla arma una SEGUNDA (B), y MaKo nunca cancela la primera. Si Stripe
+  reintenta la de A, o llega tarde su aviso de fallo, el negocio paga dos veces. La regla: antes de armar otro intento,
+  cancelar (o esperar el final de) el anterior en Stripe, sea un pago suelto o una suscripción.
+- **El plan a mano y la pasarela se pisan:** si el negocio paga por /planes con el email de su propia cuenta, el cobro
+  queda `ya_tenia_cuenta` sin `alta_ws`. Y al vencer el plan a mano, el aviso «Terminó tu prueba» le llega a quien YA paga.
+- **Sin hacer** (chat Planes; ALTAS las dos primeras): lo de arriba. Que el aviso se marque aunque el mail a Martín dé 429
+  (hoy se repite al día siguiente). La carrera del cron contra «más días». Y el cartel de un plan vencido sin resolver,
+  que dice «termina hoy» todos los días.
