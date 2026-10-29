@@ -9120,3 +9120,10 @@ perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). 
 - **La pausa del Cerebro sólo frena a `tests-afectados` y `tsc-acotado`.** Con la pausa prendida a las 02:46, un chat
   lanzó `node --import tsx --test …` directo a las 03:06 y sumó nueve procesos de ~300 MB. **Sin hacer:** que la pausa
   también la mire `C:/dev/con-turno.mjs`, por donde los chats deberían pasar lo pesado.
+- **⚠️ La pausa TRABA el push si los chats pasan el tsc por con-turno (el diagnóstico obvio, «falta RAM», era el
+  equivocado).** `con-turno.mjs` toma `mako-typecheck.lock` ANTES de lanzar `tsc-acotado`, y recién adentro `tsc-acotado`
+  espera la pausa (hasta 60 min, `esperarSinPausa`). Con la pausa prendida, el chat queda con el turno de tipos en la mano y
+  sin correr nada. El hook del push espera ese mismo lock: `typecheck-lock` 10 min y `tipos-respaldo-push` otros 10, y
+  después sale con 99 «no hubo RAM». Así cayó el primer push de tren-y (04:17), con cuatro tsc de chats en la fila.
+  **Regla:** para subir, la pausa NO se prende antes del push. Se apaga, se espera la fila de tipos vacía y se empuja; el
+  push toma el lock y los chats esperan detrás. **Sin hacer:** que `con-turno` espere la pausa ANTES de tomar el lock.
