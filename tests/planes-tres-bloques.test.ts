@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FUNCIONES_SOLO_PRO, TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
-import { GRUPOS_COMPARACION, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
+import { GRUPOS_COMPARACION, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
 import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
@@ -50,9 +50,21 @@ test('la comparación dice EXACTAMENTE los topes del código, en Esencial (compl
   }
 });
 
+// Lo que Martín le prometió a Teo (C:/dev/revisiones/2810-promesas-teo.md): la tabla le prometía a Pro «videos con una persona
+// hecha con IA», y la tab AI Avatar la abre sólo el super admin (app/ai-avatar/acceso.ts). Una tab cerrada no se vende.
+test('una tab que todavía no se abrió (AI Avatar, sólo el super admin) no se promete; el día que se abra, vuelve', () => {
+  const filas = filasDeComparacion();
+  assert.deepEqual([...TABS_TODAVIA_CERRADAS], ['ai-avatar']);
+  for (const t of TABS_TODAVIA_CERRADAS) assert.ok(!filas.some((x) => x.que === NOMBRE_TAB_PRO[t]), `${t} está cerrada y la tabla la promete`);
+  // Y Partners dice QUÉ se gana: el primer mes de cada negocio (no «el 100%» suelto, que sonaba a para siempre).
+  assert.match(NOMBRE_FUNCION_PRO.partners, /primer mes/);
+  // Atado a la puerta de verdad: si acceso.ts deja de ser «sólo el super admin», este test pide sacarla de la lista.
+  assert.ok(fuente('app/ai-avatar/acceso.ts').includes('return !!(await getSesionAdmin());'), 'AI Avatar se abrió: sacala de TABS_TODAVIA_CERRADAS y vuelve a la tabla');
+});
+
 test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y en el Acelerador', () => {
   const filas = filasDeComparacion();
-  for (const t of TABS_SOLO_PRO) {
+  for (const t of TABS_SOLO_PRO.filter((x) => !(TABS_TODAVIA_CERRADAS as readonly string[]).includes(x))) {
     const f = filas.find((x) => x.que === NOMBRE_TAB_PRO[t]);
     assert.ok(f, `falta ${t}`);
     assert.deepEqual([f!.esencial, f!.pro, f!.acelerador], [false, true, true], t);

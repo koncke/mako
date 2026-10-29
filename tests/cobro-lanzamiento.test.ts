@@ -79,8 +79,9 @@ test('⚠️ una pasarela en modo prueba no se ofrece en /planes, salvo al super
   assert.match(monedas, /prueba: c\.modo === 'prueba'/);
   assert.match(bloque(COMPRA, 'export async function iniciarCompraDePlan('), /const oferta = await ofertaDelPlan\(p\.plan, opts\);/);
   // Las dos puertas le pasan quién es: la ruta del checkout y la página del plan.
-  // (Desde el 27/10/2026, junto con el país de quien compra: tests/planes-stripe-afuera.test.ts.)
-  assert.match(fuente('app/api/planes/comprar/route.ts'), /iniciarCompraDePlan\(\{ \.\.\.pedido, ref \}, \{\s*conPrueba: \(await getSesionAdmin\(\)\.catch\(\(\) => null\)\) != null,/);
+  // (Desde el 27/10/2026, junto con el país de quien compra: tests/planes-stripe-afuera.test.ts. Y desde el 28/10, con el código
+  // de partner que cuenta: tests/partners-codigo-editable.test.ts.)
+  assert.match(fuente('app/api/planes/comprar/route.ts'), /iniciarCompraDePlan\(\{ \.\.\.pedido, ref: refQueCuenta \}, \{\s*conPrueba: \(await getSesionAdmin\(\)\.catch\(\(\) => null\)\) != null,/);
   assert.match(fuente('app/planes/[plan]/page.tsx'), /ofertaDelPlan\(id, \{\s*conPrueba: \(await getSesionAdmin\(\)\.catch\(\(\) => null\)\) != null,/);
 });
 

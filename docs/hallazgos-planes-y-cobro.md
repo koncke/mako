@@ -1635,6 +1635,14 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   activar de los últimos 2, con un seguro de 500 que, si se alcanza, lo dice. **La regla:** una lista con tope que alimenta
   una reparación corta en silencio lo que más importa; lo que no puede perderse se lee aparte. Probado de punta a punta con
   el código real (C:/dev/revisiones/scratch-3ca2/A-refuta/r1-cron-tope.ts, i50 / i50_mes2 / j50).
+- **Y la lectura aparte tenía tres agujeros (la verificación de a196d5a93).** (1) Sólo leía las pruebas `pendiente`: la que
+  quedó `fallido` porque la tarjeta se rechazó el día 8 y el reintento de Stripe la cobró después (con el aviso perdido)
+  volvía a la lista general de 50 y no se acreditaba: es el caso común de una tarjeta al terminar la prueba. (2) Las leía de
+  la más NUEVA a la más vieja: con más de 500, el seguro dejaba afuera justo las del día 8 (las viejas), y el aviso decía «las
+  más viejas esperan» cuando no se iban a leer nunca. (3) La vuelta no tenía reloj: cientos de pruebas son dos lecturas a Stripe
+  por cada una, en serie, y se pasaba del `maxDuration` del cron. Ahora: las activadas `pendiente` o `fallido`, de la más vieja
+  a la más nueva, y `reconciliarCobros(ws, { hasta })` corta a tiempo (el cron le deja 120 s a lo que sigue). r2-cron-pruebas.ts:
+  «fallido» con 50 y 80 más nuevas, antes 0, ahora 1 con una cuota; b600, antes las 100 viejas nunca, ahora en la primera vuelta.
 - **Rehacer el link dejaba la sesión vieja ABIERTA (la verificación, 28/10).** `urlParaPagar` rehace la sesión a 5 minutos de
   vencer y no cerraba la anterior: pagada en la pestaña vieja, la prueba no se activaba (se leía la nueva) y se cobraba el día
   8 sin prueba; pagadas las dos, quedaban DOS suscripciones cobrando todos los meses. Ahora, en todo cobro de Stripe (no sólo
@@ -1671,6 +1679,33 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   (computadora y teléfono) muestra la landing con «Pasar a Pro», y `hacerme_partner` por la API no propone lo que va a frenar.
 - **Como todo candado de Pro, sólo a quien paga Esencial por la pasarela** (`esEsencialDe`): un alta a mano recibe más, nunca
   menos.
+- **Una tab CERRADA no se vende (28/10, lo prometido a Teo).** La tabla le prometía a Pro «videos con una persona hecha con IA»,
+  y AI Avatar la abre sólo el super admin (app/ai-avatar/acceso.ts). Va en `TABS_TODAVIA_CERRADAS` y no sale; el test lee esa
+  puerta, así que el día que se abra pide volver a sumarla. **El diagnóstico obvio («no prometer avatares») era de más:** el
+  Video Editor tiene su propio «Avatar de IA», que Pro SÍ ve, y el tope «1 video con avatar» de la prueba (`prueba.avatares`)
+  lo cuenta él también: esa pregunta frecuente es cierta y queda. Y la fila de Partners dice qué se gana: «el primer mes de
+  cada negocio», no «dinero» suelto.
+
+## El plan dado a mano con vencimiento (28/10/2026, lo prometido a Teo: «te doy 7 días de prueba»)
+
+- **Lo que hace:** en Customers, el diálogo del plan suma «Prueba a mano: 7, 14 o 30 días / sin vencimiento». Se guarda como un
+  setting del negocio (`plan.a_mano`, sin migración). Mientras lo tiene, vigente o vencido sin resolver, `estadoDePrueba` lo da
+  «en prueba» con el plan que le dieron, y valen los topes de la prueba. El cron diario de las pruebas
+  (app/api/cron/aviso-fin-de-prueba) avisa al vencer, una sola vez, a la persona y a Martín.
+- **La decisión (el Cerebro, de una de Martín): al vencer NO se pausa.** El corte de acceso general está apagado
+  (`CORTE_DE_ACCESO_PRENDIDO = false`); el día que se prenda, este plan cae en el corte como cualquier otro, sin una regla aparte.
+  El aviso a la persona no le dice que se corta (porque no se corta), y el de Martín dice que no se pausó nada.
+- **La trampa que encontró un test viejo (prueba-topes):** mirar el plan a mano siempre que no hubiera una prueba por la
+  pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
+  suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
+- Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+
+**Sin hacer:** Customers no muestra en la tarjeta del negocio hasta cuándo va su prueba a mano (se ve en el aviso al guardar).
+El envío de los mails y la lectura de la base no se corrieron de punta a punta (el test mira el fuente); el primer vencimiento
+real hay que mirarlo en el log del cron.
+**Vive en:** lib/plan-a-mano-reglas.ts · lib/plan-a-mano.ts · lib/prueba-uso.ts (`deUnPlanAMano`) ·
+app/api/admin/workspaces/route.ts (`plan_a_mano`) · app/admin/AdminView.tsx (`PermisosDialog`) ·
+app/api/cron/aviso-fin-de-prueba/route.ts · tests/plan-a-mano.test.ts · tests/prueba-topes.test.ts.
 
 **Sin hacer:** «Datos de empresa» sobre leads tildados (app/crm/AccionesLoteLeads.tsx, `enriquecer-actions.ts`) usa el mismo
 núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo cuenta como scraper, va con `candadoDePro`.

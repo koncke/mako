@@ -358,6 +358,20 @@ partner es de MaKo Pro (docs/hallazgos-planes-y-cobro.md, «La tabla de /planes 
 La mig 0341 quedó APLICADA en producción el 28/10 (el Cerebro, con el sí de Martín: era 0340 y chocó con la del editor de
 imágenes, de otra rama). **Sin hacer:** el teléfono muestra el código sin «Cambiar» (como dónde cobra: se cambia en la
 computadora). Un ref que ya quedó guardado de antes no se limpia (cuando se midió, más arriba, había 0 cobros con `ref_codigo`).
+
+- **Un código que quedó LIBRE lo tomaba otro partner y heredaba al referido (la verificación de a196d5a93, p-partners.ts H2).**
+  `acreditarReferidos` resuelve el código en CADA vuelta, no usa el referidor que ya ató. Al borrar el negocio de Ana se van sus
+  códigos (cascade) y `referido_por_ws` vuelve a null; Beto elegía `ana-partner`, la vuelta siguiente le ataba el cliente (las
+  dos bienvenidas a nombre de Beto) y el 2º mes le pagaba los US$97. **El diagnóstico obvio era el equivocado («si ya está
+  atado, acreditar a ése»): la FK lo deja en null al borrar.** Ahora no se puede ELEGIR un código que ya trajo compras
+  (`cobros.ref_codigo`) y no es tuyo, ni heredarlo por el nombre (`codigoDe` prueba con sufijo); volver a uno tuyo siempre se
+  puede (`esCodigoPropio`). En TS, sin migración: la 0341 ya está aplicada.
+- **Con la base caída, el `?ref=` crudo se guardaba «por las dudas» (H3).** `codigoQueCuenta` daba por bueno lo que no podía
+  leer. Ahora, sin poder leer, vale la cookie (la dejó /r/<código>, que ya la validó) y el `?ref=` de la URL se descarta.
+
+**Sin hacer:** `cambiar_codigo_partner` (la RPC de la 0341) no mira `cobros.ref_codigo`: el chequeo vive en TS, antes de
+llamarla, así que una carrera exacta entre las dos lecturas podría pasar (hace falta un partner borrado en ese segundo). Una
+cookie de un código muerto en /r todavía tapa el link del partner vigente (preexistente, CAE en la verificación).
 **Vive en:** lib/partners-recursos.ts · app/partners/RecursosPartner.tsx · app/partners/PanelPartner.tsx ·
 app/m/partners/ReferidosM.tsx · lib/partners-reglas.ts (`codigoNuevoValido`) · lib/partners-programa.ts
 (`cambiarCodigoPartner`, `codigoVigente`) · app/r/[codigo]/route.ts · supabase/migrations/0341_partner_codigo_editable.sql ·

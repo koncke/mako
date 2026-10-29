@@ -95,7 +95,9 @@ test('el CÓDIGO en el carrito: escrito gana; si no, el primer link (cookie) y d
   const ruta = fuente('app/api/planes/comprar/route.ts');
   assert.match(ruta, /if \(pedido\.codigoEscritoMal\) return Response\.json\(\{ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' \}, \{ status: 400 \}\);/);
   assert.match(ruta, /if \(pedido\.codigoEscrito && !\(await esCodigoDePartner\(pedido\.codigoEscrito\)\.catch\(\(\) => true\)\)\)/, 'no pude leer: la compra sigue');
-  assert.match(ruta, /const ref = codigoDeLaCompra\(\{ escrito: pedido\.codigoEscrito, cookie: codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\), url: pedido\.ref \}\);/);
+  // Desde el 28/10/2026 la ruta guarda sólo el código de un partner (`codigoQueCuenta`, con el mismo orden: el escrito, la cookie
+  // y después el `?ref=`; tests/partners-codigo-editable.test.ts).
+  assert.match(ruta, /const refQueCuenta = await codigoQueCuenta\(\{ escrito: pedido\.codigoEscrito, cookie: codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\), url: pedido\.ref \}, esCodigoDePartner\);/);
   assert.match(TEXTO_CODIGO_NO_EXISTE, /no existe/);
   const compra = fuente('app/planes/[plan]/CompraPlan.tsx');
   assert.ok(compra.indexOf('<CodigoReferido') > 0 && compra.indexOf('<CodigoReferido') < compra.indexOf('<button className="planes-btn" type="submit"'), 'arriba del botón de pagar');

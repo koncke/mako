@@ -136,9 +136,28 @@ test('la prueba sale del COBRO: también la sesión que se rehace al vencer la t
 test('un link de una prueba de Stripe ya empezada NO abre una segunda suscripción', () => {
   const f = cuerpo('lib/cobros.ts', 'urlParaPagar');
   const guardia = f.indexOf("if (esPruebaDePlan(c) && c.suscripcion_estado) return { error: 'ya_pagado' };");
-  const completa = f.indexOf("if (s.ok && s.estado === 'complete') return { error: 'ya_pagado' };");
+  const completa = f.indexOf("if (s.ok && s.estado === 'complete' && !(c.estado === 'fallido' && s.pagoEstado === 'unpaid')) return { error: 'ya_pagado' };");
   const rehace = f.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
   assert.ok(guardia > 0 && completa > guardia && rehace > completa, 'las dos guardias, antes de rehacer la sesión');
+});
+
+// La verificación de a196d5a93 (C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r1-pagar-tras-fallo.ts): un pago diferido que
+// FALLÓ (OXXO, Boleto, SEPA) deja la sesión `complete` sin pagar y el cobro `fallido`. /pagar contestaba «ya pagado» y /listo
+// ofrecía «Volver a intentar», que volvía a /pagar: un bucle para siempre. Con el script: R1a/R1b/R1c arman cs_live_B; R1d (el
+// voucher EN CURSO, el cobro pendiente) sigue sin armar otra; R4 (Stripe no contesta la lectura) devuelve la sesión que había.
+test('después de un pago diferido que FALLÓ se arma otra sesión; con el voucher en curso, no; sin poder leer la anterior, tampoco', () => {
+  const f = cuerpo('lib/cobros.ts', 'urlParaPagar');
+  const resto = f.slice(f.indexOf('if (c.proveedor_ref) {'));
+  // La excepción es EXACTA: el cobro `fallido` Y la sesión sin pagar (`unpaid`). Una prueba (`no_payment_required`) o una
+  // pagada siguen en «ya pagado»: armar otra abría una segunda suscripción.
+  assert.ok(resto.includes("if (s.ok && s.estado === 'complete' && !(c.estado === 'fallido' && s.pagoEstado === 'unpaid')) return { error: 'ya_pagado' };"));
+  const noLee = resto.indexOf('if (!s.ok && s.status !== 404) {');
+  assert.ok(noLee > 0 && noLee < resto.indexOf('const r = await crearCheckout('), 'sin poder leerla, no se arma otra');
+  assert.match(resto, /return viva \? \{ url: c\.url_proveedor! \} : \{ error: 'pasarela', detalle: s\.error \};/, 'la que había si sigue viva; si no, un error');
+  // Y la sesión nueva vuelve el cobro a PENDIENTE (la verificación de e6fd6d88d, scratch-e6fd/cobros-v/v1-segunda-sesion.ts): si
+  // seguía `fallido`, un segundo voucher en curso en ella se leía como «falló», se armaba otra, y pagadas las dos quedaban dos
+  // cuotas. Con el script: V1 (OXXO) y V2 (SEPA), antes dos cuotas; ahora una, y no se arma C.
+  assert.match(resto, /url_vence_at: r\.venceAt, estado: 'pendiente', motivo: null \}, \{ estado: \['pendiente', 'fallido'\] \}\);/);
 });
 
 // La verificación de 3ca2d8328 (C:/dev/revisiones/scratch-3ca2/A-refuta/r2r3-prueba-stripe.ts, casos k): el link se rehace a 5
@@ -211,3 +230,5 @@ test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel
 //   · sin expandir la tarjeta (sin huella)                                     → 9 / 1
 // Y lo de la verificación de 3ca2d8328 (28/10/2026, base 11 / 0): sin expirar la sesión anterior → 10 / 1; la guarda sólo para
 // las pruebas, como antes → 10 / 1; la prueba con cualquier medio de pago (sin `payment_method_types`) → 10 / 1.
+// Y los de a196d5a93 (base 12 / 0): sin la excepción del diferido que falló → 10 / 2; armar otra sin poder leer la anterior →
+// 11 / 1. De punta a punta: r1-pagar-tras-fallo.ts, antes R1a/R1b/R1c daban 302 a /listo; ahora arman cs_live_B (R1d igual).

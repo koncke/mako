@@ -308,13 +308,22 @@ async function main() {
   fallarCuota = 1;
   const enLaCuota = await conRespuesta(evento('cs_live_O', 30));
   const trasLaCuota = foto();
+  // El cron que cae dentro de los 10 minutos (28/10/2026, la verificación de a196d5a93): el aviso puede estar mandando la compra
+  // en ese momento, así que repara la cuota y la compra la deja para la vuelta siguiente.
   const cron = await reconciliarCobros(WS);
   const trasElCron = foto();
+  // Pasan 11 minutos.
+  const envejecer = () => { for (const c of db.cobros) { c.created_at = new Date(Date.now() - 11 * 60_000).toISOString(); c.updated_at = c.created_at; } };
+  envejecer();
   const cron2 = await reconciliarCobros(WS);
+  const trasElCron2 = foto();
+  envejecer();
+  const cron3 = await reconciliarCobros(WS);
   out.o = {
-    corte: enLaCuota, cron, cron2,
+    corte: enLaCuota, cron, cron2, cron3,
     trasLaCuota: { cobros: trasLaCuota.cobros.length, leads: trasLaCuota.leads.length, cuotas: trasLaCuota.cuotas.length, meta: trasLaCuota.meta.length },
     trasElCron: { cuotas: trasElCron.cuotas.length, meta: trasElCron.meta.map((m) => m.event_id) },
+    trasElCron2: { cuotas: trasElCron2.cuotas.length, meta: trasElCron2.meta.map((m) => m.event_id) },
     ...foto(),
   };
 
@@ -323,9 +332,11 @@ async function main() {
   sesiones.cs_live_P = sesion('cs_live_P');
   fallarCuota = 1;
   await conRespuesta(evento('cs_live_P', 31));
-  await reconciliarCobros(WS);
-  await reconciliarCobros(WS);
-  await reconciliarCobros(WS);
+  for (let i = 0; i < 3; i++) {
+    // Cada pasada, 11 minutos después (dentro de los 10, el cron no la intenta: ver (o)).
+    for (const c of db.cobros) { c.created_at = new Date(Date.now() - 11 * 60_000).toISOString(); c.updated_at = c.created_at; }
+    await reconciliarCobros(WS);
+  }
   out.p = foto();
 
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`);

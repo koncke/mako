@@ -36,6 +36,7 @@ import { getSettingEstricto } from './settings';
 import { wsSuperAdmin } from './workspace';
 import { avisarCompraAMeta } from './cobros-externos-meta';
 import type { Cobro } from './cobros-tipos';
+import { avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
 import {
@@ -45,7 +46,6 @@ import {
 } from './cobros-eventos';
 import {
   facturaDePagoStripe, leerCargoStripe, leerCheckoutExternoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
-  type SesionStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -75,31 +75,6 @@ function errorDelProveedor(quien: string, que: string, r: { status: number; erro
 function invalidarLecturas(): void {
   for (const t of [TAG.pagos, TAG.leads, TAG.pipeline]) {
     try { revalidateTag(t, { expire: 0 }); } catch { /* vence por TTL */ }
-  }
-}
-
-/**
- * Una sesión PAGADA que trae el token de un cobro de MaKo y no es la suya, o cobró menos (`sesionDelCobro`, 28/10/2026): el cobro
- * no se asienta y queda un ticket para que una persona lo mire (la plata entró en Stripe, pero no por ese cobro). El `ref` es el
- * de la sesión: los reintentos de Stripe no abren otro. Nunca tira: el aviso se contesta igual.
- */
-async function avisarSesionQueNoCuadra(ws: number, c: Cobro, s: SesionStripe, motivo: string): Promise<void> {
-  try {
-    const [{ crearTicket }, { identidadDelSistema }] = await Promise.all([import('./tickets-db'), import('./errores-app')]);
-    const r = await crearTicket({
-      identidad: await identidadDelSistema(), tipo: 'bug', declaradoPor: 'sistema', sistema: true, canal: 'sistema',
-      titulo: `Un pago de Stripe trae el código del cobro ${c.id} y no es suyo: no se asentó`.slice(0, 140),
-      descripcion: [
-        `Llegó un pago de Stripe (sesión ${s.id}) con el código del cobro ${c.id} del negocio ${ws} (${c.concepto}, ${c.monto} ${c.moneda}).`,
-        `No se marcó pagado: ${motivo}.`,
-        'Puede ser un link de pago con el código pegado en la URL (?client_reference_id=). Mirá en Stripe quién pagó y cuánto.',
-      ].join('\n'),
-      contexto: { ws, cobroId: c.id, sesion: s.id, paymentLink: s.paymentLink ?? null, monto: s.monto, moneda: s.moneda, motivo },
-      ref: `cobro-ajeno:${s.id}`,
-    });
-    if (!r.ok) console.error(`[cobros-webhook] no pude abrir el ticket del cobro ${c.id} (sesión ${s.id}): ${r.error}`);
-  } catch (e) {
-    console.error(`[cobros-webhook] no pude abrir el ticket del cobro ${c.id} (sesión ${s.id}):`, e instanceof Error ? e.message : String(e));
   }
 }
 
