@@ -30,7 +30,7 @@ import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_c
 import { aPapelera, cambiarPagina, dePapelera, enOrdenDeArbol, escondida, restaurar as restaurarEnArbol } from '@/lib/copywriter/arbol';
 import { INFO_TIPO, propsNuevas, SIN_TITULO, type GuionAbierto, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
 import { type CatalogosCopy } from '@/lib/copywriter/catalogos';
-import { plantillasDe, type Plantilla } from '@/lib/copywriter/plantillas';
+import { plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
 import type { DocVivo } from './editor/propuesta';
 import { pedirCrear, pedirPapelera, pedirRenombrar, pedirRestaurar, rutaGuion } from './cliente';
 import { guardarPedido } from './pedido-guardado';
@@ -76,6 +76,8 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const [editor, setEditor] = useState<DocVivo | null>(null);
   // «Preguntar a MaKo» de la página: lo seleccionado entra como cita en la caja del chat (lo llena PanelMaKo).
   const citar = useRef<((seleccion?: string) => void) | null>(null);
+  // «Adaptar con MaKo» de la franja de la página: lo pide el chat (PanelMaKo), como el botón de su primer mensaje.
+  const adaptarRef = useRef<(() => void) | null>(null);
   const [pausa, setPausa] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const cajaMako = useRef<HTMLTextAreaElement | null>(null);
@@ -118,7 +120,10 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     creando.current = true;
     const { tipo } = plantilla;
     const titulo = pedido ? pedido.replace(/\s+/g, ' ').slice(0, 80) : '';
-    const r = await pedirCrear({ tipo, padre, titulo, props: propsNuevas(tipo, plantilla.estructura), contenido: plantilla.contenido() });
+    // Con un ejemplo, la página recuerda de qué plantilla nació: MaKo ofrece adaptarlo (PanelMaKo) y la página avisa lo
+    // que queda del negocio ficticio (EditorGuion).
+    const props = propsNuevas(tipo, plantilla.estructura, { plantilla: plantilla.ejemplo ? plantilla.id : null, duracion: plantilla.duracion });
+    const r = await pedirCrear({ tipo, padre, titulo, props, contenido: plantilla.contenido() });
     creando.current = false;
     if (!r.ok) return `No se pudo crear la página: ${r.error}`;
     setPaginas(r.paginas);
@@ -159,8 +164,9 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const todas = useMemo(() => plantillasDe(catalogos), [catalogos]);
   const enBlanco = useMemo(() => todas.find((x) => x.id === 'blanco') ?? todas[todas.length - 1], [todas]);
   const plantillas = useMemo((): PlantillaCrear[] => {
-    const orden = tipoInicial ? [...todas.filter((x) => x.tipo === tipoInicial), ...todas.filter((x) => x.tipo !== tipoInicial)] : todas;
-    return orden.map((x) => ({ id: x.id, nombre: x.nombre, formato: FORMATO[x.tipo], rotulo: `${x.emoji} ${INFO_TIPO[x.tipo].label}` }));
+    const visibles = plantillasVisibles(todas);
+    const orden = tipoInicial ? [...visibles.filter((x) => x.tipo === tipoInicial), ...visibles.filter((x) => x.tipo !== tipoInicial)] : visibles;
+    return orden.map((x) => ({ id: x.id, nombre: x.nombre, formato: FORMATO[x.tipo], rotulo: x.insignia ?? `${x.emoji} ${INFO_TIPO[x.tipo].label}` }));
   }, [todas, tipoInicial]);
 
   // La lista de páginas en el orden del árbol: las subpáginas debajo de la suya, con «↳».
@@ -190,7 +196,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const chat = (volver: ReactNode) => (
     <div className="nt" data-en-tarjeta="">
       <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos}
-        campo={cajaMako} onPausa={setPausa} avisar={avisar} citarRef={citar} volver={volver} />
+        campo={cajaMako} onPausa={setPausa} avisar={avisar} citarRef={citar} adaptarRef={adaptarRef} volver={volver} />
     </div>
   );
 
@@ -203,7 +209,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
           <div className="nt" data-en-crear="">
             <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
               onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
-              onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} pausa={pausa}
+              onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} onAdaptar={() => adaptarRef.current?.()} pausa={pausa}
               avisar={avisar} onVivo={ponerVivo} onApi={ponerApi} onCompartir={() => setCompartiendo(true)} />
           </div>
         ) : error ? (

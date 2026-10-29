@@ -101,7 +101,7 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   [hallazgos-ads.md](hallazgos-ads.md) («La biblioteca de estructuras era de anuncios sin decirlo»).
 
 
-**29/10/2026, plantillas reales: YouTube ya tiene fuente: `youtube-retencion` cierra la D6.** (docs/plantillas-reales/)
+**29/10/2026, plantillas reales: YouTube ya tiene fuente: `youtube-retencion` cierra la D6** (implementada el mismo día).
 - **Hallazgo:** claude-youtube (MIT, «Copyright (c) 2025 Daniel Agrici», LICENSE leído) trae la estructura de
   retención: el gancho de 30 s en 3 tiempos, los bloques con interrupción, el CTA al 25 % y el regancho al 60 %. Sus
   metas numéricas (el 70 % de retención a los 30 s) no citan fuente y no entran.
@@ -244,7 +244,7 @@ C:/dev/revisiones/scratch-cw/). Arreglado en ac588e955 y fijado en tests/copywri
   por `renderPrompt` como si fuera un slot.
 - **Links:** el ejemplo usa `example.com` (RFC 2606); un dominio inventado puede existir.
 
-**Vive en:** lib/copywriter/plantillas-ejemplos.ts (del plan) · lib/template-vars.ts
+**Vive en:** lib/copywriter/plantillas-ejemplos.ts · lib/template-vars.ts
 
 ## Los ejemplos tampoco pueden tener las muletillas que el prompt prohíbe, ni durar otra cosa que su estructura (29/10/2026)
 
@@ -260,7 +260,31 @@ C:/dev/revisiones/scratch-cw/). Arreglado en ac588e955 y fijado en tests/copywri
   etiquetas de cada ejemplo **y cuenta los contrastes** («no es… es», «no… sino»): como mucho uno por pieza, y solo en
   el gancho. Una lista revisada a ojo no alcanza.
 
-**Vive en:** lib/copywriter/plantillas-ejemplos.ts · tests/copywriter-plantillas.test.ts (del plan)
+**Vive en:** lib/copywriter/plantillas-ejemplos.ts · tests/copywriter-plantillas.test.ts (el contraste cuenta también
+«no son X: son Y» y «no fue X, fue Y», las dos formas que el borrador tuvo que reescribir)
+
+## Implementar las plantillas reales: lo que no estaba en el plan (29/10/2026)
+
+- **Lo que queda del ejemplo no es todo lo que se parece al ejemplo.** El ✂️ del caption y «Una sola idea en todo el
+  día» están en el ejemplo Y en el esqueleto: son la forma. Contados como «restos», una página que dejó solo la
+  estructura seguía diciendo «quedan bloques del ejemplo». `restosDelEjemplo` descuenta lo que también está en el
+  esqueleto, y el test exige 0 sobre cada esqueleto.
+- **«Solo la estructura» vive en la página, no en el chat.** Lo que pone el chat en el editor (`DocVivo.poner`) no pasa
+  por `alCambiar` (CuerpoNotion lo saltea a propósito), así que no se guardaba. Va donde vive `marcar` (EditorGuion), y el
+  chat lo pide por `ApiPagina.soloLaEstructura`.
+- **La respuesta de la persona a la pregunta de «adaptar» viaja en la charla.** `copywriter.adaptar.user` no tiene un slot
+  para la instrucción y no se le agrega uno (la misma regla de los overrides): `charla` lleva lo último, con «LA PERSONA,
+  AHORA: …» al final.
+- **`bloquesDeTexto` y `docDeEjemplo` son la misma lectura con un interruptor** (`leer(texto, ejemplo)`): copiar la
+  función habría dejado dos lecturas de «MAYÚSCULA abre sección» que se desfasan; el test fija que la de la API no lee
+  destacados, tablas ni negritas.
+- **`PropsGuion.plantilla` es opcional en el tipo** (el saneo y `propsNuevas` la devuelven siempre): obligatoria, cada
+  objeto de propiedades armado a mano en el código y en los tests dejaba de compilar sin aportar nada.
+- **Los avisos de licencia son el texto literal** de cada LICENSE (leído de raw.githubusercontent.com), en
+  `lib/avisos/`. Create arma la misma carpeta en su tanda 0: los dos con el mismo archivo byte a byte, o uno solo.
+
+**Vive en:** lib/copywriter/plantillas.ts · app/copywriter/editor/EditorGuion.tsx · lib/copywriter/ia.ts ·
+lib/copywriter/texto.ts · lib/copywriter/tipos.ts · lib/avisos/
 
 ## Hay dos `contextoDelNegocio` (29/10/2026)
 
@@ -290,8 +314,13 @@ C:/dev/revisiones/scratch-cw/). Arreglado en ac588e955 y fijado en tests/copywri
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
-- La estructura de YouTube: ya tiene fuente (claude-youtube, MIT) y está escrita como `youtube-retencion` en docs/plantillas-reales/copywriter.md; falta implementarla (D6). (Stories y YouTube Writer ya dejaron la barra el
-  29/10, D13.)
+- La tarjeta con contenido real (el extracto, los chips, la insignia y el «cuándo usarla» como `title`): `extractoDe`,
+  `chipsDe` e `insignia` ya están (lib/copywriter/plantillas.ts); falta pasarlos a `PlantillaCrear` cuando la tanda 0 de
+  Create sume esos campos (app/_crear/reglas.ts), en app/copywriter/Copywriter.tsx. Hoy la insignia va en el `rotulo`.
+- Los `evals` del experto (un pedido, la salida esperada y sus verificaciones): la calidad de «adaptar» no tiene prueba
+  automática. Y los ejemplos de las VSL ocultas (`vsl-anti-solucion`, `vsl-diagnostico`, `vsl-historia-fundador`).
+- Las cifras de los ejemplos contra la tabla del elenco (docs/plantillas-reales/README.md, 2.2) se revisaron a ojo: no
+  hay test.
 - El arrastre del árbol de Notion (reordenar y anidar páginas) se perdió al entrar al shell único de Create (su lista es
   plana): docs/diseno-copywriter.md, D15. Retirar `/m/stories`, `/ideas` y el «pronto» de YouTube Writer del teléfono (sin
   fila, todavía vivos; lib/movil-rutas.ts, lib/movil-creacion.ts y sus tests).

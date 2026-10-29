@@ -29,8 +29,9 @@
 //      dueño la ve resaltada.
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { plantillaPorId, restosDelEjemplo } from '@/lib/copywriter/plantillas';
 import { INFO_TIPO, SIN_TITULO, TIPOS_GUION, tieneMetodo, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion } from '@/lib/copywriter/tipos';
 import { docDeEstructura, sinTexto, textoDelDoc } from '@/lib/copywriter/doc';
 import { rutaDe } from '@/lib/copywriter/arbol';
@@ -84,8 +85,10 @@ export type PropsEditorGuion = {
   /** La barra de la izquierda, plegada: las migas ofrecen volver a abrirla. */
   arbolPlegado?: boolean;
   onDesplegarArbol?: () => void;
-  /** Avisar algo corto (el toast del armazón). */
-  avisar: (texto: string) => void;
+  /** Avisar algo corto (el toast del armazón), con «Deshacer» si se pasa. */
+  avisar: (texto: string, deshacer?: () => void) => void;
+  /** «Adaptar con MaKo» de la franja de lo que queda del ejemplo (el chat de MaKo lo pide). Sin esto, no se ofrece. */
+  onAdaptar?: () => void;
   /** El título y las propiedades de ahora, para el chat (que los manda con cada pedido aunque no se hayan guardado). */
   onVivo?: (v: { titulo: string; props: PropsGuion }) => void;
   /** Lo que el chat puede cambiar de la página al ACEPTAR una propuesta de MaKo (el título y las propiedades). */
@@ -96,8 +99,11 @@ export type PropsEditorGuion = {
   compartido?: { guardar: GuardarGuion };
 };
 
-/** Lo que el chat cambia de la página (no del cuerpo: el cuerpo lo escribe en el editor). */
-export type ApiPagina = { cambiarTitulo: (t: string) => void; cambiarProps: (c: Partial<PropsGuion>) => void };
+/**
+ * Lo que el chat cambia de la página (no del cuerpo: el cuerpo lo escribe en el editor). `soloLaEstructura` es el
+ * segundo botón del primer mensaje de MaKo en una página que nació de una plantilla (deja las secciones vacías).
+ */
+export type ApiPagina = { cambiarTitulo: (t: string) => void; cambiarProps: (c: Partial<PropsGuion>) => void; soloLaEstructura: () => void };
 
 export function EditorGuion(p: PropsEditorGuion) {
   const { guion, catalogos, movil = false, pausa = false } = p;
@@ -159,11 +165,23 @@ export function EditorGuion(p: PropsEditorGuion) {
     timer.current = window.setTimeout(() => { void guardarAhora(); }, RESPIRO_MS);
   }, [guardarAhora]);
 
+  // Lo que queda del ejemplo de la plantilla de la que nació la página (29/10/2026, docs/plantillas-reales/copywriter.md,
+  // 3.5): bloques iguales a los del negocio ficticio y «[DATO:» por completar. Se cuenta con lo que escribe la persona y
+  // al soltar una propuesta de MaKo.
+  const plantilla = useMemo(() => { const pl = plantillaPorId(catalogos, props.plantilla); return pl?.ejemplo ? pl : null; }, [catalogos, props.plantilla]);
+  const [restos, setRestos] = useState(() => (plantilla ? restosDelEjemplo(guion.doc.contenido, plantilla) : { bloques: 0, datos: 0 }));
+  const contarRestos = useCallback((d: JsonNodo) => {
+    if (!plantilla) return;
+    const r = restosDelEjemplo(d, plantilla);
+    setRestos((x) => (x.bloques === r.bloques && x.datos === r.datos ? x : r));
+  }, [plantilla]);
+
   // Lo que escribe la persona (lo que pone MaKo no pasa por acá: ./CuerpoNotion.tsx). En pausa no se marca para guardar.
   const alCambiar = useCallback((d: JsonNodo) => {
     if (pausaRef.current) return;
     marcar({ contenido: d });
-  }, [marcar]);
+    contarRestos(d);
+  }, [marcar, contarRestos]);
 
   // El documento vivo, para el chat.
   const alDoc = useCallback((d: DocVivo | null) => { setDoc(d); vivo.current.onEditor?.(d); }, []);
@@ -177,9 +195,9 @@ export function EditorGuion(p: PropsEditorGuion) {
     const foto = fotoPausa.current;
     fotoPausa.current = null;
     const ahora = doc.leer();
-    if (foto != null && JSON.stringify(ahora) !== foto) { marcar({ contenido: ahora }); return; }
+    if (foto != null && JSON.stringify(ahora) !== foto) { marcar({ contenido: ahora }); contarRestos(ahora); return; }
     if (pendiente.current) timer.current = window.setTimeout(() => { void guardarAhora(); }, RESPIRO_MS);
-  }, [pausa, doc, guardarAhora, marcar]);
+  }, [pausa, doc, guardarAhora, marcar, contarRestos]);
 
   // 1. Al ocultar la pestaña, al irse y al cerrar el guion: lo pendiente sale.
   useEffect(() => {
@@ -222,8 +240,23 @@ export function EditorGuion(p: PropsEditorGuion) {
   cambiarPropsRef.current = cambiarProps;
   const cambiarTituloRef = useRef(cambiarTitulo);
   cambiarTituloRef.current = cambiarTitulo;
+
+  /**
+   * «Solo la estructura»: las secciones vacías de la plantilla (su esqueleto) en lugar del ejemplo, en UN paso de deshacer
+   * (Ctrl+Z, o «Deshacer» en el aviso). No llama a la IA.
+   */
+  const soloLaEstructura = () => {
+    if (!doc || !plantilla || pausaRef.current) return;
+    const antes = doc.leer();
+    if (!doc.poner(plantilla.esqueleto(), { historial: true })) { p.avisar('No se pudo cambiar la página'); return; }
+    marcar({ contenido: doc.leer() });
+    contarRestos(doc.leer());
+    p.avisar('Quedó solo la estructura', () => { if (doc.poner(antes, { historial: true })) { marcar({ contenido: doc.leer() }); contarRestos(doc.leer()); } });
+  };
+  const soloLaEstructuraRef = useRef(soloLaEstructura);
+  soloLaEstructuraRef.current = soloLaEstructura;
   useEffect(() => {
-    vivo.current.onApi?.({ cambiarTitulo: (t) => cambiarTituloRef.current(t), cambiarProps: (c) => cambiarPropsRef.current(c) });
+    vivo.current.onApi?.({ cambiarTitulo: (t) => cambiarTituloRef.current(t), cambiarProps: (c) => cambiarPropsRef.current(c), soloLaEstructura: () => soloLaEstructuraRef.current() });
     return () => { vivo.current.onApi?.(null); };
   }, []);
 
@@ -244,7 +277,10 @@ export function EditorGuion(p: PropsEditorGuion) {
     setMenuPagina(false);
     if (!doc) return;
     const t = [titulo.trim(), textoDelDoc(doc.leer())].filter(Boolean).join('\n\n');
-    try { await navigator.clipboard.writeText(t); p.avisar('Texto copiado'); } catch { p.avisar('No se pudo copiar'); }
+    // Lo copiado sale de la app: si todavía tiene datos del negocio ficticio o algo por completar, se dice.
+    const queda = plantilla ? restosDelEjemplo(doc.leer(), plantilla) : { bloques: 0, datos: 0 };
+    const ojo = queda.bloques ? ` Todavía tiene ${queda.bloques === 1 ? '1 bloque' : `${queda.bloques} bloques`} del ejemplo.` : queda.datos ? ` Faltan ${queda.datos === 1 ? '1 dato' : `${queda.datos} datos`}.` : '';
+    try { await navigator.clipboard.writeText(t); p.avisar(`Texto copiado.${ojo}`); } catch { p.avisar('No se pudo copiar'); }
   };
 
   const ruta = rutaDe(p.paginas, id);
@@ -301,6 +337,16 @@ export function EditorGuion(p: PropsEditorGuion) {
             {estado === 'error' && <>No se pudo guardar lo último. <button type="button" className="nt-miga" onClick={() => void guardarAhora()}>Reintentar</button></>}
             {estado === 'roto' && <>Este guion no se pudo abrir: queda como estaba, sin cambios.</>}
             <ReportarASoporte />
+          </div>
+        )}
+        {!compartido && plantilla && (restos.bloques > 0 || restos.datos > 0) && (
+          // La franja de lo que queda del ejemplo (texto corto: una línea y dos botones).
+          <div className="nt-aviso nt-restos" role="status">
+            <span>
+              {[restos.bloques ? `Quedan ${restos.bloques === 1 ? '1 bloque' : `${restos.bloques} bloques`} del ejemplo` : '', restos.datos ? `${restos.datos === 1 ? '1 dato' : `${restos.datos} datos`} por completar` : ''].filter(Boolean).join(' · ')}
+            </span>
+            {p.onAdaptar && <button type="button" className="nt-miga" disabled={pausa} onClick={p.onAdaptar}>Adaptar con MaKo</button>}
+            {restos.bloques > 0 && <button type="button" className="nt-miga" disabled={pausa} onClick={soloLaEstructura}>Solo la estructura</button>}
           </div>
         )}
         <div className="nt-pagina" style={{ position: 'relative' }}>

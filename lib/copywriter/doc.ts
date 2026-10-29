@@ -74,6 +74,8 @@ const CON_TILDE: Readonly<Record<string, string>> = {
   EXPLICACION: 'Explicación', DEMOSTRACION: 'Demostración', OBJECION: 'Objeción',
   // Las de los templates de «Nueva» (plantillas.ts) y de los VSL (lib/vsl-estructuras.ts).
   TITULO: 'Título', BOTON: 'Botón', DESCRIPCION: 'Descripción', 'QUIEN SOY': 'Quién soy', TRANSICION: 'Transición',
+  // La de `youtube-retencion` (lib/guion-estructuras.ts): sin esto se leería «Cta medio».
+  'CTA MEDIO': 'CTA medio',
 };
 
 /** «AGITACION» → «Agitación»; «CTA» queda «CTA»; «GANCHO» → «Gancho». */

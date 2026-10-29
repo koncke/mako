@@ -12,6 +12,9 @@
 //   · los errores van por `errorDeCascada` (lib/ai-cheap.ts): «no hay IA» y «hay IA y falló» son dos frases;
 //   · lo que no existe en MaKo se dice y sale a la Ticketera (REGLA_NO_EXISTE + `conPedidoDeNoExisteDeLaSesion`).
 //   · el negocio entra por el Second Brain, sólo lo que hace falta (./contexto.ts, con su punto de enganche).
+//   · EL MÉTODO DEL COPYWRITER (29/10/2026, ./experto.ts: `copywriter.experto`) va en los dos system, antes de
+//     REGLA_NO_EXISTE, sin ser un slot de ellos (un override guardado no lo tendría); «Adaptar a mi negocio» es `editar`
+//     con el user `copywriter.adaptar.user` (docs/plantillas-reales/copywriter.md, 3.3).
 // =============================================================================
 
 import 'server-only';
@@ -44,6 +47,11 @@ import { sanearOperaciones, aplicarTodo, type Descartada, type OperacionIA } fro
 import { leerReferencias } from './referencias';
 import type { Referencia } from './referencias-reglas';
 import { textoDeNodo } from './doc';
+import { PROMPTS_EXPERTO, pideParaIA } from './experto';
+import { plantillaPorId } from './plantillas';
+
+/** El método del Copywriter (editable en /configuraciones): va en los dos system, antes de la regla de lo que no existe. */
+const metodo = () => renderPrompt(PROMPTS_EXPERTO.experto.key, PROMPTS_EXPERTO.experto.tpl, {});
 
 /** La feature de la IA del Copywriter (lib/model-catalogo.ts). */
 export const FEATURE_COPY = 'copywriter-ia';
@@ -129,7 +137,7 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
   const g = guionDe(p.guion);
   try {
     const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(p.referencias ?? [])]);
-    const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(acento) })}\n\n${REGLA_NO_EXISTE}`);
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(acento) })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     const user = await renderPrompt(PROMPTS_COPY.discutirUser.key, PROMPTS_COPY.discutirUser.tpl, {
       pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
@@ -192,8 +200,13 @@ export type ResultadoEditar = {
  * «Editar»: MaKo escribe EN el guion con sus herramientas (lib/copywriter/operaciones.ts). Devuelve las operaciones ya
  * validadas contra el guion que mandó la pantalla; la pantalla las vuelve a validar contra lo de AHORA, las construye a
  * la vista y la persona acepta, descarta o reintenta (docs/diseno-copywriter.md, D5). Nada se guarda acá.
+ *
+ * `adaptar` (29/10/2026, «Adaptar a mi negocio»): la página nació de una plantilla con un ejemplo ficticio
+ * (`props.plantilla`) y el pedido va con `copywriter.adaptar.user`: MaKo pregunta lo que falta (operaciones vacías) o
+ * reescribe la pieza entera, con [DATO: …] donde el negocio no tiene el dato. La instrucción (el botón o la respuesta de
+ * la persona a su pregunta) viaja en la charla: el prompt de adaptar no tiene un slot para ella.
  */
-export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; charla?: unknown; lecturas?: readonly { nombre: string; texto: string }[]; referencias?: readonly Referencia[] }): Promise<ResultadoIA<ResultadoEditar>> {
+export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; charla?: unknown; lecturas?: readonly { nombre: string; texto: string }[]; referencias?: readonly Referencia[]; adaptar?: boolean }): Promise<ResultadoIA<ResultadoEditar>> {
   const t0 = Date.now();
   const instruccion = typeof p.instruccion === 'string' ? p.instruccion.trim().slice(0, TOPES_IA.pregunta) : '';
   if (!instruccion) return invalido('Escribe qué quieres que escriba o cambie.');
@@ -212,9 +225,18 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const sugerida = idSugerida ? estructuras.find((e) => e.id === idSugerida) ?? null : null;
     const metodologia = g.props.tipo === 'reel' || g.props.tipo === 'story' ? metodologiaDe(g.props.tipo) : '';
     const n = { angulo: angulo?.nombre ?? null, estructura: estructura?.nombre ?? null };
-    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null), formato: FORMATO_EDITAR })}\n\n${REGLA_NO_EXISTE}`);
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
-    const user = await renderPrompt(PROMPTS_EDITAR.editarUser.key, PROMPTS_EDITAR.editarUser.tpl, {
+    const pl = p.adaptar ? plantillaPorId(lite, g.props.plantilla) : null;
+    const user = pl?.ejemplo ? await renderPrompt(PROMPTS_EXPERTO.adaptarUser.key, PROMPTS_EXPERTO.adaptarUser.tpl, {
+      plantilla: pl.nombre,
+      ejemplo: `${pl.ejemplo.negocio}, ${pl.ejemplo.rubro}`,
+      pide: pideParaIA(pl.pide ?? []),
+      guion: contenidoNoConfiable(guionParaIA(g.doc), 'guion'),
+      estructura: estructuraParaIA(estructura ?? sugerida, !estructura),
+      negocio: bloqueNegocio(negocio),
+      charla: `\n\nLA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable([charla, `LA PERSONA, AHORA: ${instruccion}`].filter(Boolean).join('\n'), 'charla')}`,
+    }) : await renderPrompt(PROMPTS_EDITAR.editarUser.key, PROMPTS_EDITAR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       titulo: g.titulo.replace(/[«»]/g, ''),
       props: propsParaIA(g.props, n),
@@ -230,7 +252,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     });
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_COPY,
-      motivo: 'Escribir en un guion (Copywriter)',
+      motivo: pl?.ejemplo ? 'Adaptar una plantilla al negocio (Copywriter)' : 'Escribir en un guion (Copywriter)',
       maxTokens: 6_000,
       thinking: false,
       hastaMs: t0 + PLAZOS.editar,
