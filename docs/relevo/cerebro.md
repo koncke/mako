@@ -102,6 +102,22 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **01:00: VERDE del CRM `cc47d841d`** (crm-lote-2810, sobre `23b329b5e`): las acciones en bloque del tablero, los
+    tickets de Leila (eliminar → PAPELERA de 30 días, pasar a otro funnel, descalificar o perder en bloque, la columna
+    entera sin el corte de 1.000) y 5 operaciones de la API.
+    - **Necesita la tabla nueva 0340 (`leads_papelera` y 5 funciones), ANTES del deploy y con el sí de Martín en el chat,
+      y un cron nuevo en vercel.json (`app/api/cron/leads-papelera`, `45 10 * * *`).**
+    - Sin verificar. Como borra y recupera datos, se mira primero que no se pierda nada.
+  - **FILA DE VERIFICACIÓN al 01:00** (Automations `69b49a31c` corriendo en `wf_a92bf13a-ec9`):
+    1. Zernio `854a6fda0` + Planes `ddfa645d4`, juntos;
+    2. CRM `cc47d841d`;
+    3. Copywriter `7eef753da`;
+    4. WhatsApp: c358 + tanda A, cuando lleguen los arreglos que faltan;
+    5. MaKo inteligente, cuando lleguen sus arreglos;
+    6. las tres ramas de la nube.
+  - **Los sí de Martín EN EL CHAT que destraban cosas** (la base de producción): la tabla de MaKo sin conexión (0346),
+    la de publicar desde el Calendar (0342), la papelera del CRM (0340) con su cron, los dos cambios del Sprint de
+    Mauricio y lo de Brigitte. Cada uno se aplica cuando su verificación sale limpia.
   - **00:55, los límites de Zernio (pedido de Martín): DISEÑADOS, sin código** (`35df0c483`, docs/relevo/zernio-capi.md).
     La «salida gratis» (conectar otra cuenta de Zernio) NO se puede decir hoy: un negocio tiene UNA clave, y pegar otra
     reemplaza la anterior y pierde las redes de la vieja. Va después de las varias claves (punto 3), y antes se revisan
