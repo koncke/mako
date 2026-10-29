@@ -332,3 +332,23 @@ notas del Cerebro). P2P (ws14) no tiene grupo de WhatsApp: por eso nunca le lleg
   que es de Planes: a5f61f0c8 entró con el merge 042e10323, NO está en origin/main y Planes lo corrigió en su rama; no se
   toca) y zernio-conectar-redes, que fijaba `motivoDeError(e, ws === OWNER_WS)`: ahora fija `esDeLaCasa` y da 24/0.
   tsc acotado: 0 propios (sólo los 14 de _opencut). Commiteado en el commit «verificación del 28/10» de esta rama.
+
+### Los límites de Zernio: diseñado para la próxima cuenta (claude4 cortó al 92%, 28/10 ~23:50)
+- ⚠️ **El punto 2 depende del 3.** Hoy MaKo usa UNA clave de Zernio por negocio (`cfg(ws)`, la fila `ZERNIO_API_KEY`):
+  «Conecta otra cuenta de Zernio (de otro email) y sigue sin pagar» sería falso en producción; pegar otra clave reemplaza a
+  la anterior y las redes conectadas en la cuenta vieja dejan de verse. La salida gratis se escribe CUANDO existan varias
+  claves (punto 3). Avisado al Cerebro.
+- Punto 1, dónde va: la nota del campo de la clave (lib/metodo-catalogo.ts:277, hoy «Zernio te cobra a ti. Cada red cuenta
+  aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.») y un bloque «Lo que Zernio da gratis» en el modal
+  (app/_components/ConectarViaZernio.tsx, junto al aviso `cobro`, línea ~213). Copy propuesto (tú, corto, de zernio.com/pricing
+  del 28/10 23:40): «Gratis en Zernio: 2 cuentas (página, Instagram y anuncios cuentan una cada una), 10.000 mensajes enviados
+  por mes (los recibidos no cuentan), comentarios y reseñas sin límite y 500 anuncios. Desde la 3.ª cuenta, US$6 por mes cada
+  una. Sin tarjeta, al llegar a los 10.000 se frenan los envíos hasta el mes siguiente.» Los números en constantes junto a
+  `CUENTAS_GRATIS_ZERNIO` (lib/zernio-redes.ts:115), con su test en tests/zernio-aviso-cobro.test.ts. NADA sobre Analytics hasta
+  medirlo de nuevo (la página dice «incluido»; medimos un 402 que pedía el complemento).
+- Punto 4 (aviso al 80% de los 10.000 enviados, una vez por mes, en el grupo): coordinar ANTES con Automations (tope social,
+  c6f78deb4 y 0c121ab4b), que no queden dos avisos. Falta saber de dónde se lee el conteo de enviados del mes (¿Zernio lo da
+  por API, o se cuenta en MaKo?): medirlo primero.
+- Punto 3 (varias claves): el diseño de 4 pasos está en la sección «Varias claves de Zernio en un negocio» de este relevo
+  (en main). Antes de arrancarlo: los términos de Zernio (zernio.com/terms dio 404) — si prohíben varias cuentas gratis para
+  lo mismo, avisar al Cerebro.
