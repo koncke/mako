@@ -137,6 +137,14 @@ preguntes: hacé esto en orden.
     - Sus tres ramas siguen fuera de main: `nube/clic-derecho-2710` (`419d11e90`, el clic derecho en siete listas),
       `nube/media-buyer-2710` (`54e13e9cc`) y `nube/video-generator-2710` (`9012f6070`, el estudio copiado de Arcads).
       Están sobre un main viejo: se verifican DESPUÉS de WhatsApp y MaKo inteligente, para el tren siguiente.
+  - **21:52: cinco aprobaciones a Martín por el bloque de preguntas** (`cartero preguntar`; los archivos están en el
+    scratchpad, en `aprobaciones/`). Las respuestas llegan como mensajes a este chat:
+    1. la migración 0346 de MaKo sin conexión, cuando su revisión salga limpia;
+    2. la migración 0342 de publicar desde el Calendar, cuando Zernio pase su revisión;
+    3. prender la cuenta de Zernio de MaKo (la recomendada es NO: cada negocio con la suya);
+    4. las ventas externas de Stripe en la cuenta de Mauricio (la clave la pega él);
+    5. archivar los cuatro chats de la nube (Planes, Automations, Landings y Motion). Su trabajo pasó a la PC el 28/10:
+       NO necesitan su aprobación, y en la ronda de las 21:46 se le dijo mal que sí.
   - **El workflow de pedidos perdidos llegó al 100% con 12 de sus 21 agentes cortados** («session limit»). Se reanudó a
     las 21:32 en esta sesión (task `wz8f0619h`, mismo runId `wf_fbaed0b3-099`): los 9 que terminaron vienen de la caché.
     Su resultado parcial (lo juntado por fuente y lo que no se pudo leer) está en
