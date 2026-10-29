@@ -92,7 +92,10 @@ test('3. la tarjeta: el logo, la categoría, el nombre, UNA línea y, en las con
 
 test('4. un link `?abrir=` llega a su tarjeta: sin filtros, desplegada, y el scroll detrás del render', () => {
   const b = tablero();
-  const efecto = b.slice(b.indexOf("const abrir = searchParams.get('abrir');"), b.indexOf('const googleConToken'));
+  // (29/10/2026, ticket #28: `?abrir=` pasa primero por integracionQueConfigura, `?abrir=meta` abre Zernio: el crudo es `abrirCrudo`.)
+  const desde = b.indexOf("const abrirCrudo = searchParams.get('abrir');");
+  assert.ok(desde > 0, 'no encuentro dónde se lee ?abrir=');
+  const efecto = b.slice(desde, b.indexOf('const googleConToken'));
   assert.match(efecto, /setQ\(''\); setCatF\(TODAS\); setEstadoF\(TODAS\);\n\s*setPedida\(\(p\) => \(\{ key: abrir, vez: \(p\?\.vez \?\? 0\) \+ 1 \}\)\);/);
   assert.match(efecto, /q\.delete\('abrir'\);/, 'el parámetro se limpia: un F5 no reabre lo cerrado');
   assert.match(b, /const pedidaOculta = pedida != null && sinConectarVis\.slice\(TOPE_CATALOGO\)\.some\(\(i\) => i\.key === pedida\.key\);/);
