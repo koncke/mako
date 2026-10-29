@@ -2,7 +2,24 @@
 
 **Cuenta:** claude3 (desde el 29/10 03:00; antes claude4). **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los
 merges de main son merge commits, nunca rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le
-devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 12:20 (AR) este archivo está al día.
+devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 14:30 (AR) este archivo está al día.
+
+## ⚡ LO QUE ESTÁ EN CURSO (29/10, desde las 13:30): rehacer cómo responde MaKo en WhatsApp
+
+Martín, por el Cerebro: «Es una verdadera desgracia cómo está respondiendo MaKo… elimina toooodo lo presetado… Que sepa cuándo es
+un ticket, cuándo es una pregunta, o una acción dentro de MaKo». El pedido entero (las 4 partes: clasificador explícito PREGUNTA /
+ACCIÓN / TICKET / DEBUG-sólo-ws9 / CHARLA; sin presets ni relleno; Claude del crédito Max, links e imágenes; banco real con ≥ 95%
+y tabla antes/después con el modelo) está en el mensaje del Cerebro de las 13:30. **El Cerebro investiga repos y apps para copiar el
+patrón: NO escribir el clasificador hasta que llegue su respuesta** (y la de con qué clave correr el banco con el modelo).
+- Hecho y commiteado: 953f9610e (merge de `wa-credito-grupos-2810`: el grupo con Claude y el crédito Max), 687bc14d0 (`sinMuletillas`
+  y el lector de links, sin cablear), 61ae98de2 (`diagnosticar_negocio`, sin cablear). En el árbol: la marca de lo REENVIADO
+  (`lib/doer-reenvio.ts`, ya cableada en el suelto y los dos lotes) con su test y la escena `reenvio` del hijo de Leandro.
+- **El banco** (scratchpad de la sesión, `banco/`): `banco.json` = 76 reales + 8 derivados (DEBUG), armado por `armar.cjs` con
+  `etiquetas.json` (a mano) desde `conv7d.json`/`conv30d-ws9.json` (lecturas de sólo lectura con `db/banco7d.mjs`). «Antes» con
+  reglas (`antes-reglas.ts`): 49/76 (64 %), TICKET 0/11. Falta: pasarlo a `tests/fixtures/` y el eval con el modelo.
+- Diseño mandado al Cerebro (10 líneas): capa 0 por código (eco, equipo/otro, acuse, sí+pendiente, reenvío), capa 1 = UNA llamada
+  a Claude con JSON {clase, deQuien, negocio, resumen, porque}, decisión en `recordUsage('clase-doer')`; TICKET sin turno generativo
+  («Abrí el ticket #N: …»); DEBUG con `diagnosticar_negocio`; prompt nuevo corto; red de salida; imágenes del lote como bloques.
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
 

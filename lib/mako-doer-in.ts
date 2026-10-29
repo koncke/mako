@@ -60,6 +60,7 @@ import { conElNegocio } from '@/lib/nucleo-grupo';
 import { bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esGraciasOSaludo, esPreguntaDelEquipo, esSoloUnPedidoAMaKo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
 import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
 import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
+import { conElReenvio, esReenviado } from '@/lib/doer-reenvio';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
@@ -195,7 +196,12 @@ type MsgIn = {
   key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean;
   /** Un lote: para quién era cada mensaje, ya decidido (lib/doer-para-quien.ts, `paraQuienDelLote`). */
   paraQuien?: ParaQuienDelLote;
+  /** Un lote: las imágenes y los PDF que traía, ya bajados (`adjuntoDelLote`). Van como bloques al turno. */
+  adjuntosDelLote?: AdjuntoDelLote[];
 };
+type AdjuntoDelLote = { tipo: 'image' | 'document'; mime: string; base64: string };
+/** Cuántas imágenes o PDF de un lote van al turno: más, se nombran y no se mandan (cada una es contexto del modelo). */
+const ADJUNTOS_POR_LOTE = 3;
 
 function textoDe(m: MsgIn): string {
   const msg = m.message ?? {};
@@ -680,6 +686,27 @@ function conLaMarcaDelAdjunto(p: MsgIn, t: string): string {
   return `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pídemela suelta si la necesitas)`;
 }
 
+/**
+ * La imagen o el PDF que vino DENTRO de un lote, como uno suelto (29/10/2026, Martín reenvió al grupo de SuperAdmin un audio y la
+ * captura del cliente juntos, y MaKo no miró la captura: «llegó junto a otros mensajes y no la pudiste mirar»). Se baja y se lee
+ * con el MISMO lector que el suelto (`archivoATexto`: lo que dice viaja como texto, para la IA que no ve imágenes) y va como bloque
+ * al turno (`adjuntosDelLote`). Si no se pudo bajar, null: queda la marca de siempre (`conLaMarcaDelAdjunto`).
+ */
+async function adjuntoDelLote(instance: string, jid: string, p: MsgIn, t: string): Promise<{ texto: string; adjunto: AdjuntoDelLote } | null> {
+  const a = adjuntoDe(p);
+  if (!a || a.tipo === 'texto' || !a.soportado) return null;
+  let b64 = a.base64;
+  if (!b64 && p.key?.id) b64 = (await fetchMediaBase64EnInstancia(instance, jid, p.key.id, !!p.key.fromMe).catch(() => null))?.base64 ?? null;
+  if (!b64) return null;
+  const leida = await archivoATexto(
+    new File([Buffer.from(b64, 'base64')], a.nombre || (a.tipo === 'image' ? 'imagen.jpg' : 'archivo.pdf'), { type: a.mime }),
+    { feature: 'MaKo en WhatsApp · adjunto' },
+  ).catch(() => null);
+  const dice = textoDelAdjunto(leida?.texto, a.tipo);
+  const que = a.tipo === 'image' ? 'una imagen' : 'un PDF';
+  return { texto: `${t ? `${t}\n` : ''}(en este mensaje mandé ${que}${a.caption ? `: «${a.caption}»` : ''}; la tienes abajo. ${dice})`, adjunto: { tipo: a.tipo, mime: a.mime, base64: b64 } };
+}
+
 /** Para quién es UN mensaje del lote (lib/doer-para-quien.ts, `paraQuienDelLote`): el sintético es texto plano, así que la
  *  decisión se toma acá, mensaje por mensaje, con sus menciones y su texto. Un audio o un adjunto son deliberados: para MaKo. */
 async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, pideUnSi: () => Promise<boolean>): Promise<ParaQuien> {
@@ -1053,6 +1080,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn; marca?: true }> = [];
     const pideUnSi = pideUnSiEn(wsData, jid);
     let avisoDelAudio: string | null = null;
+    const adjuntosDelLote: AdjuntoDelLote[] = [];
     for (const m of cola) {
       const p = (m.payload as MsgIn) ?? {};
       let t = m.texto.trim();
@@ -1072,7 +1100,9 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       // perdería el archivo — que es justo lo que pasaba.
       const arch = await textoDeArchivo(instance, p);
       if (arch) t = arch.texto || arch.error || t;
-      t = conLaMarcaDelAdjunto(p, t);
+      const delLote = adjuntosDelLote.length < ADJUNTOS_POR_LOTE ? await adjuntoDelLote(instance, jid, p, t) : null;
+      if (delLote) { t = delLote.texto; adjuntosDelLote.push(delLote.adjunto); } else t = conLaMarcaDelAdjunto(p, t);
+      if (t && esReenviado(p)) t = conElReenvio(t);
       if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instance, p, t), payload: p });
     }
     // Sólo marcas de audios que no se escucharon: el aviso ya lo dijo, no hay turno.
@@ -1095,6 +1125,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
       paraQuien: { ...lote.decision, leHabla: !!lote.quedan[lote.quedan.length - 1]?.leHabla },
       ...(autores.size !== 1 || autores.has('') ? { loteDeVarios: true } : {}),
+      ...(adjuntosDelLote.length ? { adjuntosDelLote } : {}),
     };
     console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
     const r = await procesarDoer(wsData, instance, sintetico, { acuse });
@@ -1344,6 +1375,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       await avisarElAudioDelLote(wsData, jid, data, citado, true);
       texto = conLaCitaSinEscuchar(texto, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar');
     }
+    // Lo REENVIADO es de otra persona (29/10/2026, lib/doer-reenvio.ts): la consulta del cliente que Martín le pasó a MaKo.
+    if (texto && esReenviado(data)) texto = conElReenvio(texto);
 
     // ── LA RESPUESTA A «¿QUIERES QUE TE AYUDE?» / «¿LEVANTO UN TICKET?» (25/10/2026, lib/doer-ayuda.ts) ──────────────
     // La atiende el CÓDIGO y va ANTES de rutear a la IA: a quien le falta su IA no le contesta ningún modelo, y es justo a
@@ -1411,6 +1444,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         leidoDelAdjunto = loQueDice ? loQueDice.slice(0, 600) : '';
       }
     }
+    // Las imágenes y los PDF que vinieron DENTRO de un lote (`adjuntoDelLote`): ya bajados y leídos, van como bloques con el lote entero.
+    if (!mediaBlocks && data.adjuntosDelLote?.length) mediaBlocks = bloquesDeAdjuntos(data.adjuntosDelLote, texto);
 
     // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).
     // 12 turnos (antes 24): la memoria útil rara vez pasa de ahí y el historial es INPUT
@@ -2911,6 +2946,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn; marca?: true }> = [];
           const pideUnSi = pideUnSiEn(ws, jid);
           let avisoDelAudio: string | null = null;
+          const adjuntosDelLote: AdjuntoDelLote[] = [];
           for (const m of cola) {
             const p = (m.payload as MsgIn) ?? {};
             let t = m.texto.trim();
@@ -2924,7 +2960,9 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
             if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
             else if (citado && 'texto' in citado) t = conLaCitaSinEscuchar(t, 'vacia');
             else if (citado) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, citado, true); t = conLaCitaSinEscuchar(t, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar'); }
-            t = conLaMarcaDelAdjunto(p, t);
+            const delLote = adjuntosDelLote.length < ADJUNTOS_POR_LOTE ? await adjuntoDelLote(instancia, jid, p, t) : null;
+            if (delLote) { t = delLote.texto; adjuntosDelLote.push(delLote.adjunto); } else t = conLaMarcaDelAdjunto(p, t);
+            if (t && esReenviado(p)) t = conElReenvio(t);
             if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instancia, p, t), payload: p });
           }
           const lote = paraQuienDelLote(textos);
@@ -2935,6 +2973,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
               pushName: ultimo.pushName,
               message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
               paraQuien: { ...lote.decision, leHabla: !!lote.quedan[lote.quedan.length - 1]?.leHabla },
+              ...(adjuntosDelLote.length ? { adjuntosDelLote } : {}),
             };
             console.log(`[mako-doer-in] cron: destrabando ${cola.length} mensaje(s) de ${jid}`);
             await procesarDoer(ws, instancia, sintetico);
