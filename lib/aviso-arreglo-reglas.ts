@@ -14,6 +14,11 @@ import { promesasDe, groseriasDe } from './doer-salida';
 
 /** La firma que va arriba de todo aviso. Lo que la distingue de MaKo: no es la IA la que habla, es el equipo. */
 export const FIRMA_DESARROLLADOR = '👨‍💻 *Desarrollador de MaKo*';
+/** ¿El texto lleva la firma del equipo AL PRINCIPIO (así firma el equipo)? Con o sin los asteriscos (un copiado los saca). Una
+ *  cita de la firma en el medio (el aviso de «respuesta al equipo» al grupo de SuperAdmin) no es un mensaje del equipo. */
+export const esFirmaDelEquipo = (texto: string | null | undefined): boolean => /^\s*👨‍💻\s*\*?\s*Desarrollador de MaKo\b/u.test(texto ?? '');
+/** El texto sin la firma del equipo (para citarlo en otro lado sin que su eco pase por un mensaje del equipo). */
+export const sinFirmaDelEquipo = (texto: string): string => texto.replace(/👨‍💻\s*\*?\s*Desarrollador de MaKo\s*\*?\s*/gu, '').trim();
 
 /** Cuántos avisos de arreglo por negocio en 24 horas. Un cliente al que le llegan cinco «ya quedó arreglado» en un día
  *  lee cinco cosas rotas: más que eso se junta en uno. */

@@ -292,7 +292,8 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     const env = canal.wa
       ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
         : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}) })
-          : await enviarAlGrupoMaKo(ws, texto))
+          // La memoria la guarda este mismo aviso, abajo (con las partes que salieron): `null`.
+          : await enviarAlGrupoMaKo(ws, texto, null))
       : { ok: false as const, id: undefined, error: undefined };
     // ⚠️ SIN GRUPO DE MAKO (17/10/2026): lo dice el MARCADOR del envío (`sinGrupo`, leído con `getSettingEstricto`), nunca
     // el texto del error ni un «no pude leer». La tarjeta eligió qué hacer (`SinGrupo`, lib/mako-tarjeta.ts): quedar en la

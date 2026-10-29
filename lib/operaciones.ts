@@ -46,8 +46,8 @@ import { cadenasDeSesiones } from './centro-chats';
 import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
-import { acusarTicket, ticketsParaElCartero, ticketsSinEntregar, type TicketParaEntregar } from './tickets-runner';
-import { VERSION_CARTERO_TICKETS, esElCerebro, versionAlMenos } from './tickets-aviso';
+import { acusarTicket, acusarTicketNuevo, ticketsNuevosParaElCartero, ticketsNuevosSinEntregar, ticketsParaElCartero, ticketsSinEntregar, type TicketNuevoParaEntregar, type TicketParaEntregar } from './tickets-runner';
+import { VERSION_CARTERO_TICKETS, VERSION_CARTERO_TICKETS_NUEVOS, esElCerebro, versionAlMenos } from './tickets-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -231,6 +231,11 @@ export type SalidaCiclo = {
    *  Un cartero de antes no los recibe (`VERSION_CARTERO_TICKETS`). */
   tickets: TicketParaEntregar[];
   ticketsError: string | null;
+  /** Los tickets que esperan la decisión de Martín, con OTRO texto fijo y su propia marca (cartero 1.23.0, 29/10/2026,
+   *  lib/tickets-runner.ts). Aparte de `tickets`: un cartero de antes los mandaría con el texto de un bug del triage. */
+  ticketsNuevos: TicketNuevoParaEntregar[];
+  /** Si no se pudieron calcular (p. ej., falta la migración de `cerebro_*`): lo demás sale igual. */
+  ticketsNuevosError: string | null;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -323,6 +328,10 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
     n += count ?? 0;
   }
   if (conCerebro) n += await ticketsSinEntregar();
+  // Los tickets nuevos (cartero 1.23.0), con la misma condición y su versión. Sin la migración no cuentan: `vigilar` no se cae.
+  const conCerebroNuevos = (filas ?? []).some((f) => versionAlMenos(f.version as string | null, VERSION_CARTERO_TICKETS_NUEVOS)
+    && sanearChats(f.chats).some((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube && esElCerebro(c.titulo)));
+  if (conCerebroNuevos) n += await ticketsNuevosSinEntregar().catch(() => 0);
   return n;
 }
 
@@ -425,6 +434,8 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     // Un bug del triage que el Runner le entregó al Cerebro (cartero 1.15.0): el mismo formato de id. Si falta la mig 0311,
     // no puede existir un acuse así, y el error se ignora.
     acuses += await acusarTicket(a, ahoraIso).catch(() => 0);
+    // Un ticket nuevo (cartero 1.23.0): su propia marca. Sin la migración de `cerebro_*` no puede existir un acuse así.
+    acuses += await acusarTicketNuevo(a, ahoraIso).catch(() => 0);
   }
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
@@ -499,5 +510,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     ticketsError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, tickets, ticketsError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
+  // Los tickets que esperan a Martín (cartero 1.23.0), aparte de los del triage: si fallan, lo demás sale igual.
+  let ticketsNuevos: TicketNuevoParaEntregar[] = [];
+  let ticketsNuevosError: string | null = null;
+  try {
+    if (vivos.length) ticketsNuevos = await ticketsNuevosParaElCartero(version, chats, new Set(vivos), ahoraIso);
+  } catch (err) {
+    ticketsNuevosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, tickets, ticketsError, ticketsNuevos, ticketsNuevosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

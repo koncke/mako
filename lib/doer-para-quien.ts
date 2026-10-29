@@ -14,10 +14,19 @@
 import { confirmacionPura, confirmaAOtro } from './confirmacion-pura';
 
 /** Lo que sólo acusa recibo o agradece: el mensaje entero, sin nada más. */
-const ACUSE_PURO = /^(?:ok(?:ey|is)?|oka|dale|listo|genial|perfecto|gracias|muchas gracias|mil gracias|buen[ií]simo|b[aá]rbaro|joya|de una|(?:ja)+j?|(?:je)+j?|👍|🙏|👌|🙌|❤️|💪)(?:[\s,.!¡]+(?:ok|dale|listo|genial|perfecto|gracias|mako|crack|(?:ja)+|👍|🙏|👌))*[\s.!¡]*$/iu;
+// Los acuses y los saludos (28/10/2026, el diagnóstico del Cerebro, F5): «Bien», «Excelente», «Buen día! Geniall»,
+// «Buendiaa», «Okk perfe» y «Vamos que arranca la semana!» no eran acuse, y MaKo los contestaba (contestar «Excelente» costó
+// 15.630 tokens de entrada). Con la letra del final estirada como se escribe en WhatsApp.
+const PALABRA_ACUSE = String.raw`(?:ok(?:ey|is)?|oka|dale|listo|genial|perfecto|perfe|excelente|(?:muy\s+)?bien|gracias|muchas gracias|mil gracias|buen[ií]simo|b[aá]rbaro|joya|de una|(?:ja)+j?|(?:je)+j?|👍|🙏|👌|🙌|❤️|💪)`;
+const SALUDO = String.raw`(?:hola|buen\s?d[ií]a|buenos\s+d[ií]as|buenas(?:\s+(?:tardes|noches))?|vamos(?:\s+que\s+(?:arranca|empieza)\s+(?:la\s+semana|el\s+d[ií]a))?)`;
+const ACUSE_PURO = new RegExp(String.raw`^(?:${PALABRA_ACUSE}|${SALUDO})(?:[\s,.!¡]+(?:${PALABRA_ACUSE}|${SALUDO}|mako|crack))*[\s.!¡]*$`, 'iu');
+/** El acuse sin las anclas, para pegarle un nombre detrás («Gracias Martín»). */
+const ACUSE_SIN_FIN = String.raw`(?:${PALABRA_ACUSE}|${SALUDO})(?:[\s,.!¡]+(?:${PALABRA_ACUSE}|${SALUDO}))*`;
+/** «Buendiaa», «Geniall», «Okk»: la letra repetida AL FINAL de una palabra (en el medio, «arranca», es la palabra). */
+const sinEstirar = (s: string): string => s.replace(/(\p{L})\1+(?=[^\p{L}]|$)/gu, '$1');
 
 export function esAcusePuro(texto: string): boolean {
-  return ACUSE_PURO.test((texto || '').trim());
+  return ACUSE_PURO.test(sinEstirar((texto || '').trim()));
 }
 
 /** Las @menciones del mensaje de WhatsApp (los jid de `contextInfo.mentionedJid`). */
@@ -149,9 +158,55 @@ export function paraQuienDelLote<T extends ConAutor>(entrada: readonly T[]): { q
   };
 }
 
+// ── EL MENSAJE PARA ALGUIEN DEL EQUIPO DE MaKo (29/10/2026, Leandro, ws10) ─────────────────────────────────────────────────
+// «Hola Martin, probamos la automatización sec=680…», «Hola Martin, gracias por avisar lo del filtro…»: Leandro le escribe al
+// EQUIPO por el grupo, y MaKo contestaba como si fuera Martín («Te entiendo perfecto y tienes toda la razón…») con lo que no
+// sabía. Lo que hace ahora (el doer, lib/mako-doer-in.ts):
+//   · un saludo o un «gracias» a esa persona, solo, no es para MaKo (sin turno, como un acuse);
+//   · lo demás corre el turno con `bloqueParaElEquipo`: MaKo dice que es MaKo, contesta SÓLO lo que sus herramientas, los
+//     pedidos abiertos o CÓMO FUNCIONA MAKO le dicen, y lo demás queda para el equipo;
+//   · y el ticket queda SIEMPRE: si el modelo no dejó ninguna marca, el doer agrega `[[no-pude: …]]` (o lo suma al pedido abierto
+//     que nombró, `[[ya-pedido: #N]]`). El mensaje era para el equipo: tiene que llegarle.
+
+/** Los nombres del equipo de MaKo a los que un negocio le escribe en su grupo. `MAKO_EQUIPO_NOMBRES` (por comas) los cambia. */
+export function nombresDelEquipo(): string[] {
+  const env = process.env.MAKO_EQUIPO_NOMBRES?.trim();
+  return (env ? env.split(',') : ['Martín']).map((s) => s.trim()).filter(Boolean);
+}
+
+/** El nombre con sus vocales con o sin tilde («Martin» y «Martín» son el mismo). */
+const conOSinTildes = (nombre: string): string => nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  .replace(/a/gi, '[aá]').replace(/e/gi, '[eé]').replace(/i/gi, '[ií]').replace(/o/gi, '[oó]').replace(/u/gi, '[uúü]');
+const SALUDO_A_ALGUIEN = String.raw`(?:(?:hola|buen\s?d[ií]a|buenos\s+d[ií]as|buenas(?:\s+(?:tardes|noches))?|che|ey|querido|querida)[\s,!¡.]+)?`;
+
+/**
+ * ¿El mensaje le habla a alguien del equipo? Arranca (él o una de sus líneas, un lote trae «(2) …») con su nombre, con o sin saludo
+ * delante: «Hola Martin, …», «Martín: …», «Buen día Martín!». Su nombre como lo escribe el equipo y lo que dice después; o null.
+ */
+export function paraAlguienDelEquipo(texto: string, nombres: readonly string[] = nombresDelEquipo()): { nombre: string; resto: string } | null {
+  const lineas = (texto || '').split('\n');
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i].replace(/^\(\d+\)\s*/, '');
+    for (const nombre of nombres) {
+      const m = new RegExp(String.raw`^[\s¡!]*${SALUDO_A_ALGUIEN}@?${conOSinTildes(nombre)}(?![\p{L}\d])[\s,:;.!¡]*`, 'iu').exec(l);
+      if (m) return { nombre, resto: [l.slice(m[0].length), ...lineas.slice(i + 1)].join('\n').trim() };
+    }
+  }
+  return null;
+}
+
+/** Lo que el system del turno le dice a MaKo cuando el mensaje es para alguien del equipo. */
+export function bloqueParaElEquipo(nombre: string): string {
+  return `ESTE MENSAJE ES PARA ${nombre.toUpperCase()}, DEL EQUIPO DE MaKo, NO PARA TI. Tú eres MaKo, no ${nombre}: no contestes en su nombre ni como si fueras ${nombre} (nada de «gracias a ti», «te aviso» o «lo reviso»). Arranca en una línea: que eres MaKo y que esto lo ve ${nombre}. Después contesta SÓLO lo que te dicen tus herramientas de este turno, PEDIDOS ABIERTOS DE ESTE NEGOCIO o CÓMO FUNCIONA MAKO, con el dato; lo que no ves ahí no lo contestes ni lo adivines (ni cómo está el producto, ni qué tiene el equipo, ni pasos que no viste). Lo demás queda para ${nombre}: el sistema le deja el ticket solo.`;
+}
+
 /** Por qué el mensaje NO es para MaKo, o null si lo es. */
 export function noEsParaMaKo(p: { texto: string; menciones: readonly string[]; nombraAMaKo: boolean; makoPregunto: boolean; hayPendientes: boolean }): 'acuse' | 'a-otro' | null {
   if (p.nombraAMaKo) return null;
+  // Un saludo o un «gracias» a alguien del equipo («Hola Martín!», «Gracias Martín»: el nombre al final también), solo: es para él.
+  const alEquipo = paraAlguienDelEquipo(p.texto);
+  if (alEquipo && (!alEquipo.resto || esAcusePuro(alEquipo.resto))) return 'a-otro';
+  if (nombresDelEquipo().some((n) => new RegExp(String.raw`^[\s¡!]*${ACUSE_SIN_FIN}[\s,]+${conOSinTildes(n)}[\s.!¡]*$`, 'iu').test(sinEstirar((p.texto || '').trim())))) return 'a-otro';
   // Una @mención a otra persona no es para MaKo AUNQUE haya algo pendiente (la verificación de bb41ede4a): «@Pedro sí,
   // confirmalo vos» no es el «sí» de la pendiente. Lo pendiente o la pregunta de MaKo convierten en «sí» sólo un acuse.
   // Salvo el «sí» a MaKo que nombra a otro como parte del pedido (la verificación de 8cb034a18): «sí, y avísale a @Pedro», con

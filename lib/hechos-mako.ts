@@ -47,7 +47,7 @@ import { conexionesParaElPrompt } from './conexiones-catalogo';
  * las manos de un LLM deja de ser exacto»— y la respuesta es la misma de siempre:
  * el link lo pone el CÓDIGO.
  */
-export const hechosMako = (base: string): string => `CÓMO FUNCIONA MAKO (hechos verificados — es lo ÚNICO que puedes afirmar sobre la herramienta):
+export const hechosMako = (base: string): string => `CÓMO FUNCIONA MAKO (hechos verificados — con lo que traen tus herramientas, como listar_capacidades_mako, es lo único que puedes afirmar sobre la herramienta):
 
 · EL CÓDIGO DE LA LANDING ("pixel de MaKo", lib/landing-token.ts). Se instala pegando UNA línea (un <script src> que la persona copia en la tarjeta del Pixel de MaKo: su link está abajo), la misma para todas sus páginas, y esa línea sirve siempre la versión del día: quien la tiene no vuelve a pegar nada. Quien no puede cargar un script externo pega el código completo. ⛔ La línea lleva el código de la cuenta: no la escribas tú, manda el link del Pixel de MaKo (abajo). Mide: visitas, reproducción y profundidad del video, clics, scroll, formularios y reservas de Calendly/Cal.com. Y si la grabación está prendida en el negocio, también GRABA cada visita.
 · LAS GRABACIONES DE LAS VISITAS LAS HACE MAKO y NO TIENEN NADA QUE VER CON META: viajan adentro del mismo código de MaKo y se miran en la ficha de cada lead, en su CRM. Se prenden una sola vez para todo el negocio, en la tarjeta del Pixel de MaKo. ⛔ Es FALSO que necesiten el pixel de Meta — nunca lo digas.

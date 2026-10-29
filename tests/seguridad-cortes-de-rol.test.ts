@@ -303,7 +303,7 @@ test('/api/mako-doer POST: send/rename/pin/archive/delete por id pasan por puede
 
 test('el system prompt de un closer o setter va SIN los números del trimestre (escritorio y teléfono)', () => {
   const ctx = fuente('lib/mako-context.ts');
-  assert.match(ctx, /const objetivosTxt = opts\.sinNumerosDelNegocio \? '' : await objetivosContextoTexto\(\)\.catch\(\(\) => ''\);/);
+  assert.match(ctx, /const objetivosTxt = opts\.sinNumerosDelNegocio(?: \|\| !negocio)? \? '' : await objetivosContextoTexto\(\)\.catch\(\(\) => ''\);/);
   assert.equal(ctx.split('objetivosContextoTexto(').length - 1, 1, 'hay otra lectura del avance del trimestre fuera de la opción');
   const doer = fuente(DOER);
   assert.match(cuerpo(doer, 'async function buildDoerSystem(', 'buildDoerSystem'), /sinNumerosDelNegocio: !opts\.admin/);

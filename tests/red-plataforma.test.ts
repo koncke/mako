@@ -112,7 +112,11 @@ test('El aviso de error no puede apoyarse en una clasificación DUDOSA', () => {
   const doer = leer('../lib/mako-doer-in.ts');
   // Lo que se afirma es la REGLA, no una línea literal: «era de plan» tiene que
   // exigir que la clasificación NO sea dudosa, esté escrito donde esté.
-  assert.match(doer, /const eraDePlan = esCargaDePlan\(texto\) \|\| \(esRutaPlan\(ruta\.motivo\) && !intencion\.dudosa\)/,
+  // Desde el 29/10/2026 la regla vive en `eraCargaDePlan`, que además exige que la intención sea `capturar` (Leandro, ws10:
+  // seis preguntas con una lista salían guardadas como borrador con la IA caída; tests/grupo-leandro-2910.test.ts).
+  assert.match(doer, /return v\.intencion === 'capturar' && \(esCargaDePlan\(texto\) \|\| \(esRutaPlan\(motivoRuta\) && !v\.dudosa\)\);/,
     'el texto del error volvió a decidirse con la adivinanza del clasificador');
+  assert.equal((doer.match(/const eraDePlan = eraCargaDePlan\(texto, ruta\.motivo, intencion\);/g) ?? []).length, 2,
+    'una salida de «la IA no contestó» decide el borrador sin la regla');
   assert.match(doer, /avisoNoPude\(eraDePlan\)/, 'se desconectó `eraDePlan` del aviso');
 });

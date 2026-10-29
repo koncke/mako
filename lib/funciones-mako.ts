@@ -150,8 +150,11 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Secuencias de nutrición que MaKo escribe en la voz del negocio',
       'Simular la conversación como si fueras el lead, ver sus métricas y pasar a un humano',
       'Las plantillas de WhatsApp',
+      'Arrancar con Instagram o Messenger: un comentario en la publicación, el Reel o el En vivo, la respuesta a una historia o un mensaje directo',
+      'Mandar el mensaje directo con botones debajo del texto',
     ],
-    alias: ['automations', 'automatizaciones', 'chatbot', 'bot', 'setter', 'flujos', 'secuencias', 'nutricion', 'plantillas'],
+    // «como lo hace manychat» (Leandro, 28/10/2026): la gente lo pide por la app que conoce.
+    alias: ['automations', 'automatizaciones', 'chatbot', 'bot', 'setter', 'flujos', 'secuencias', 'nutricion', 'plantillas', 'manychat', 'comentarios de instagram', 'disparador'],
     conecta: [{ a: 'chats', motivo: 'Contesta por los mismos canales que ves en Chats' }, { a: 'crm', motivo: 'Mueve a los leads de etapa' }],
     estado: 'lista', slugDev: 'chatbot', fuentes: [AREAS, 'docs/diseno-automations-galeria-v2.md'],
   },
