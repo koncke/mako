@@ -2910,7 +2910,20 @@ lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó vi
 - **Sin frenar el primer mensaje:** el grafo son 21 lecturas. El turno lo espera hasta 2,5 s; si no llegó, sigue sin el
   paquete y el armado queda en la caché para el turno siguiente.
 - **Si la pregunta no nombra nada del grafo, no suma nada:** el índice NO viaja en cada turno (serían ~300 tokens por paso).
+- **En la plataforma, las funciones de MaKo SE CRUZAN con las palabras del negocio.** Medido en el ws 9: «¿Cuál es mi meta
+  del trimestre?» traía Ads Manager («meta» es también Facebook), y «cliente», «plan», «anuncios» o «avatar» también son
+  nombres o alias de funciones. Sacar palabras sueltas no alcanza (cada una que se saca aparece otra): la capa entra **sólo si
+  la pregunta es de producto** (`esPreguntaDeProducto`, lib/cerebro-funciones.ts): una palabra de producto («función»,
+  «pestaña», «reemplaza», «qué no hace», «cómo funciona»), el nombre de una función (menos «Plan», que es palabra común), lo que
+  reemplaza, o un nombre propio del producto («bandeja», «inbox», «ManyChat»). Si no, `sinFunciones` la saca con sus aristas.
+  Después: «meta» no trae nada y el promedio del turno bajó de 588 a 359 tokens; «¿qué no hace la bandeja?» sigue trayendo
+  sólo Chats.
+- **La trampa del test:** los primeros casos «de producto» nombraban todos una función, así que se podía borrar la regla de las
+  palabras de producto y el test seguía verde. Cada rama de un `||` necesita un caso que pase SÓLO por ella («¿qué pestañas
+  hay?»).
 
 **Sin hacer:** achicar el system fijo por etapas (perfil, funnel y fase cuando el paquete ya los trae; `hechosMako` como nodos
 de la capa de funciones); `indice` y `recuperar` entre las herramientas de siempre; el doer de WhatsApp (lib/mako-doer-in.ts)
-y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen.
+y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen. Los sinónimos del negocio:
+«¿Qué anuncios puedo hacer y para qué avatar?» no trae nada, porque ningún nodo del negocio se llama «avatar» (es el cliente
+ideal) ni «anuncios».

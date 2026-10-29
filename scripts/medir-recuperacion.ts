@@ -74,7 +74,7 @@ async function main() {
   // ── EL TURNO ──
   const { wsSuperAdmin } = await import('../lib/workspace');
   const { conCapa, sinLaPlata, bloqueDelSecondBrain, PRESUPUESTO_TURNO } = await import('../lib/cerebro-union');
-  const { CAPA_FUNCIONES, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES } = await import('../lib/cerebro-funciones');
+  const { CAPA_FUNCIONES, esPreguntaDeProducto, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES, sinFunciones } = await import('../lib/cerebro-funciones');
   const plataforma = (await wsSuperAdmin().catch(() => -1)) === ws;
   const negocio = await runWithWorkspace(ws, () => construirCerebro({ sinLayout: true }));
   const grafo = plataforma ? conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES }) : negocio;
@@ -83,11 +83,13 @@ async function main() {
   let sumaTurno = 0;
   let conPaquete = 0;
   for (const q of preguntas) {
-    const dueno = bloqueDelSecondBrain(recuperar(grafo, { pregunta: q, presupuesto: PRESUPUESTO_TURNO }));
-    const closer = bloqueDelSecondBrain(recuperar(sinLaPlata(grafo), { pregunta: q, presupuesto: PRESUPUESTO_TURNO }));
+    // Lo mismo que `paqueteParaElTurno`: las funciones sólo en una pregunta de producto.
+    const g = esPreguntaDeProducto(q) ? grafo : sinFunciones(grafo);
+    const dueno = bloqueDelSecondBrain(recuperar(g, { pregunta: q, presupuesto: PRESUPUESTO_TURNO }));
+    const closer = bloqueDelSecondBrain(recuperar(sinLaPlata(g), { pregunta: q, presupuesto: PRESUPUESTO_TURNO }));
     sumaTurno += tokensDe(dueno);
     if (dueno) conPaquete++;
-    const semillas = recuperar(grafo, { pregunta: q, presupuesto: PRESUPUESTO_TURNO }).semillas.slice(0, 3).join(', ');
+    const semillas = recuperar(g, { pregunta: q, presupuesto: PRESUPUESTO_TURNO }).semillas.slice(0, 3).join(', ');
     console.log(`«${q}» → dueño ${tokensDe(dueno)} tokens · closer ${tokensDe(closer)} · semillas: ${semillas || '(ninguna: no suma nada)'}`);
   }
   console.log(`PROMEDIO que suma el turno: ${Math.round(sumaTurno / preguntas.length)} tokens (${conPaquete} de ${preguntas.length} preguntas traen algo), contra ${tokensDe(enLineas)} del grafo entero en líneas.`);

@@ -19,7 +19,8 @@
 import 'server-only';
 import { construirCerebro } from './cerebro-grafo';
 import {
-  CAPA_FUNCIONES, catalogoCorto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES,
+  CAPA_FUNCIONES, catalogoCorto, esPreguntaDeProducto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES,
+  sinFunciones,
 } from './cerebro-funciones';
 import { bloqueDelSecondBrain, conCapa, PRESUPUESTO_TURNO, sinLaPlata } from './cerebro-union';
 import { recuperar } from './cerebro-recuperar';
@@ -69,7 +70,11 @@ export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolea
       new Promise<null>((r) => setTimeout(() => r(null), ESPERA_GRAFO_TURNO_MS)),
     ]);
     if (!grafo) return '';
-    return bloqueDelSecondBrain(recuperar(o.sinPlata ? sinLaPlata(grafo) : grafo, { pregunta, presupuesto: o.presupuesto ?? PRESUPUESTO_TURNO }));
+    // La capa de las funciones (sólo existe en la plataforma) entra sólo si la pregunta es de producto: «¿cuál es mi meta?» no
+    // habla del Ads Manager de Meta.
+    const delRol = o.sinPlata ? sinLaPlata(grafo) : grafo;
+    const g = esPreguntaDeProducto(pregunta) ? delRol : sinFunciones(delRol);
+    return bloqueDelSecondBrain(recuperar(g, { pregunta, presupuesto: o.presupuesto ?? PRESUPUESTO_TURNO }));
   } catch {
     return '';
   }

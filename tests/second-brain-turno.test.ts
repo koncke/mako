@@ -6,6 +6,8 @@
 //   1. un closer o un setter no recibe la plata del negocio (objetivos, KPIs, clientes ganados): se saca del grafo antes de
 //      recuperar, con sus aristas, porque el grafo en caché es del negocio y no de la persona;
 //   2. el bloque del system va sólo con una vista local: si la pregunta no nombra nada, no suma nada (ni el índice);
+//   4. en la plataforma, la capa de las funciones entra sólo en una pregunta de producto: «¿cuál es mi meta del trimestre?»
+//      traía Ads Manager («meta» es también Facebook) y «¿quién es mi cliente ideal?», el CRM (medido en el ws 9, 28/10/2026);
 //   3. el turno lo trae en paralelo con el system (arranca antes de armarlo), lo pone hacia el final del system (antes de
 //      `ctxDesde` y del contexto atado, que van juntos y al final: tests/ops-center-estrella-desde y mako-analyst-lead), con
 //      la plata filtrada por el rol, y no espera al grafo más que un rato ni se cae si el grafo falla.
@@ -16,7 +18,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDelSecondBrain, PRESUPUESTO_TURNO, sinLaPlata } from '../lib/cerebro-union';
+import { bloqueDelSecondBrain, conCapa, PRESUPUESTO_TURNO, sinLaPlata } from '../lib/cerebro-union';
+import { CAPA_FUNCIONES, esPreguntaDeProducto, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES, sinFunciones } from '../lib/cerebro-funciones';
 import { recuperar } from '../lib/cerebro-recuperar';
 import type { Cerebro } from '../lib/cerebro-modelo';
 
@@ -72,8 +75,31 @@ test('3. el turno lo trae en paralelo, al final del system, con la plata según 
   const c = fuente('lib/cerebro-para-chat.ts');
   const p = c.slice(c.indexOf('export async function paqueteParaElTurno('), c.indexOf('async function armar('));
   assert.match(p, /Promise\.race\(\[\s*grafoParaChat\(\),\s*new Promise<null>\(\(r\) => setTimeout\(\(\) => r\(null\), ESPERA_GRAFO_TURNO_MS\)\),/, 'el turno espera al grafo sin tope');
-  assert.match(p, /recuperar\(o\.sinPlata \? sinLaPlata\(grafo\) : grafo, /, 'la plata no se filtra por el rol');
+  assert.match(p, /const delRol = o\.sinPlata \? sinLaPlata\(grafo\) : grafo;/, 'la plata no se filtra por el rol');
+  assert.match(p, /const g = esPreguntaDeProducto\(pregunta\) \? delRol : sinFunciones\(delRol\);\s*return bloqueDelSecondBrain\(recuperar\(g, /, 'las funciones entran en cualquier pregunta');
   assert.match(p, /\} catch \{\s*return '';\s*\}/, 'un grafo que falla tumba el turno');
+});
+
+test('4. en la plataforma, las funciones entran sólo en una pregunta de producto', () => {
+  for (const q of ['¿qué reemplaza a respond.io?', '¿qué no hace la bandeja?', 'hacé de esta copia la landing de los Chats', 'el editor tipo CapCut',
+    '¿cómo funciona el Web Generator?', '¿para qué sirve la pestaña de Calendar?', '¿MaKo tiene algo como ManyChat?',
+    // Sólo con la palabra, sin nombrar una función:
+    '¿qué funciones tiene la app?', '¿qué pestañas hay?']) {
+    assert.ok(esPreguntaDeProducto(q), `«${q}» no se tomó como de producto`);
+  }
+  for (const q of ['¿Cuál es mi meta del trimestre?', '¿Quién es mi cliente ideal y qué le duele?', 'corregí el plan de pagos de Ana', '¿Qué anuncios puedo hacer y para qué avatar?',
+    '¿Cómo vienen mis leads?', 'hola', '']) {
+    assert.equal(esPreguntaDeProducto(q), false, `«${q}» se tomó como de producto`);
+  }
+  // El grafo de la plataforma sin la capa: ni un nodo ni una arista de las funciones; con una pregunta del negocio, ninguna.
+  const plataforma = conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES });
+  const sin = sinFunciones(plataforma);
+  assert.ok(!sin.nodos.some((n) => n.id.startsWith('fn:') || n.id === ID_RAIZ_FUNCIONES) && sin.aristas.every((a) => !a.de.startsWith('fn:') && !a.a.startsWith('fn:') && a.a !== ID_RAIZ_FUNCIONES));
+  assert.equal(sin.nodos.length, negocio.nodos.length, 'se fue un nodo del negocio');
+  const meta = '¿Cuál es mi meta del trimestre?';
+  assert.doesNotMatch(bloqueDelSecondBrain(recuperar(esPreguntaDeProducto(meta) ? plataforma : sin, { pregunta: meta, presupuesto: PRESUPUESTO_TURNO })), /fn:/, '«meta» trajo una función');
+  const bandeja = '¿qué no hace la bandeja?';
+  assert.match(bloqueDelSecondBrain(recuperar(esPreguntaDeProducto(bandeja) ? plataforma : sin, { pregunta: bandeja, presupuesto: PRESUPUESTO_TURNO })), /\[fn:chats\]/);
 });
 
 // ── Probado rompiéndolo (28/10/2026) ─────────────────────────────────────────────────────────────────────────────────
