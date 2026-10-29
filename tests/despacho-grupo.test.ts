@@ -52,8 +52,8 @@ test('2. se delega sin proponer ni hacer nada y sin preguntar un dato; el númer
   assert.ok(delegaLaAccion({ propuso: false, escribio: false, respuesta: 'Listo, ya quedó creada la automatización.', leyo: true, afirmaHecho: true }));
   assert.ok(preguntaUnDato('¿A qué hora la agendo?'));
   assert.ok(!preguntaUnDato('Ya quedó. ¿Algo más? Listo.'));
-  assert.equal(respuestaDeLaDelegacion(41, 'Crear la automatización de bienvenida. '), 'Lo pasé al equipo de MaKo (pedido #41): Crear la automatización de bienvenida. Te aviso por acá cuando esté.');
-  assert.equal(respuestaDeLaDelegacion(41, ''), 'Lo pasé al equipo de MaKo (pedido #41). Te aviso por acá cuando esté.');
+  assert.equal(respuestaDeLaDelegacion(41, 'Crear la automatización de bienvenida. '), 'Lo pasé al equipo de MaKo (pedido #41): Crear la automatización de bienvenida. Te aviso por aquí cuando esté.');
+  assert.equal(respuestaDeLaDelegacion(41, ''), 'Lo pasé al equipo de MaKo (pedido #41). Te aviso por aquí cuando esté.');
 });
 
 const LEIDO = {

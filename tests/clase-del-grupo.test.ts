@@ -5,7 +5,7 @@
 // El clasificador es Claude con el crédito de los grupos (lib/mako-intencion-ia.ts) y el turno el GPT del negocio, los dos de mentira
 // con lo que pone cada escena. Lo que fija este archivo:
 //   1. TICKET: lo abre el código con los pasos y la clase en su contexto, la respuesta es FIJA («Abrí el ticket #N: … Lo toma el
-//      equipo y te aviso por acá cuando esté») y el modelo del turno no corre; lo que sigue a un ticket recién nombrado se SUMA;
+//      equipo y te aviso por aquí cuando esté») y el modelo del turno no corre; lo que sigue a un ticket recién nombrado se SUMA;
 //   2. CHARLA y NO_REPLY: ni una palabra (la charla, el 👍; lo que no es para MaKo, nada), y el turno no corre;
 //   3. PREGUNTA: el turno corre SÓLO con lecturas y con su bloque, y la muletilla no sale; si además reporta algo, se contesta y el
 //      ticket se abre igual; una respuesta que era todo relleno no sale;
@@ -36,7 +36,7 @@ function escena(k: string): Escena {
   return cache![k];
 }
 const ESCRIBEN = /^(crear|mover|cambiar|editar|borrar|eliminar|agendar|pausar|activar|confirmar|cancelar|levantar|proponer|enviar|mandar|cargar|agregar|guardar|actualizar|marcar)_/;
-const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por acá cuando esté\.$/;
+const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por aquí cuando esté\.$/;
 
 test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que sigue se suma', () => {
   const e = escena('ticket');
@@ -52,7 +52,7 @@ test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que si
   assert.equal(String(FIJA.exec(e.salio[0])?.[1]), String(t.id), 'el número lo escribe el código, el del ticket de verdad');
   const s = escena('sumado');
   assert.equal(s.turno.length, 0);
-  assert.equal(s.salio[0], `Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale. Lo toma el equipo y te aviso por acá cuando esté.`);
+  assert.equal(s.salio[0], `Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale. Lo toma el equipo y te aviso por aquí cuando esté.`);
   assert.equal(s.tickets.length, 1, 'abrió otro en vez de sumarlo');
 });
 
@@ -77,7 +77,7 @@ test('3. PREGUNTA: sólo lecturas, con su bloque y sin la muletilla; con un repo
   const t = escena('preguntaYTicket');
   assert.equal(t.turno.length, 1);
   assert.match(t.turno[0].system, /el ticket lo abre el código después de tu respuesta/);
-  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #\d+: El botón de pagar no anda\. Lo toma el equipo y te aviso por acá cuando esté\.$/);
+  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #\d+: El botón de pagar no anda\. Lo toma el equipo y te aviso por aquí cuando esté\.$/);
   assert.equal(t.tickets.length, 1);
   const r = escena('relleno');
   assert.deepEqual([r.salio, r.r.skip], [[], 'era todo relleno: la reacción alcanza']);
@@ -117,7 +117,7 @@ test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo 
   assert.equal(d.turno.length, 1);
   assert.equal(d.tickets.length, 1, 'no quedó el pedido delegado');
   const t = d.tickets[0];
-  assert.deepEqual(d.salio, [`Lo pasé al equipo de MaKo (pedido #${t.id}): Crear una automatización de bienvenida para los leads nuevos. Te aviso por acá cuando esté.`]);
+  assert.deepEqual(d.salio, [`Lo pasé al equipo de MaKo (pedido #${t.id}): Crear una automatización de bienvenida para los leads nuevos. Te aviso por aquí cuando esté.`]);
   assert.equal(t.tipo, 'pedido');
   assert.equal((t.contexto as { delegado?: unknown }).delegado, true, 'sin la marca de delegado: el Runner no lo lleva como «Pedido delegado #N»');
   assert.equal(t.contexto.clasificacion?.clase, 'ACCION');

@@ -2045,8 +2045,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
         // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
-        anotarLaUltima(name, previo.out);
         anotarSalida(previo.out);
+        anotarLaUltima(name, previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
       const correr = async () => (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
@@ -2062,12 +2062,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
       else if (!escribeDeVerdad(name)) leyoDelTurno = true;
-      anotarSalida(out);
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       anotarLaUltima(name, out);
       if (esFallaTragadaDeHerramienta(out)) tragadasDelTurno++;
+      anotarSalida(out);
       // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
       if (name !== LEVANTAR_TICKET) {
         const errTicket = errorParaTicket(name, out);

@@ -16,7 +16,7 @@
 // =============================================================================
 
 /**
- * Las escrituras SIMPLES: una sola fila o un solo evento, reversibles, con su confirmación de siempre. Lo que no está acá se delega.
+ * Las escrituras SIMPLES: una sola fila o un solo evento, reversibles, con su confirmación de siempre. Lo que no está aquí se delega.
  * Afuera a propósito: lo que mueve plata (links de pago, reembolsos, bajas, suscripciones), lo que cancela, lo de las campañas y las
  * automatizaciones, y lo que cambia varias cosas a la vez.
  */
@@ -66,14 +66,14 @@ export function ticketQueAcabaDeNombrar(ultimoDeMaKo: string | null): number | n
 export function respuestaDelTicket(t: TicketAbierto, resumen: string): string {
   const que = resumen.trim().replace(/[.\s]+$/u, '');
   return t.sumado
-    ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por acá cuando esté.`
-    : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por acá cuando esté.`;
+    ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.`
+    : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.`;
 }
 
 /** Lo que dice MaKo al delegar. El número lo escribe el código. */
 export function respuestaDeLaDelegacion(id: number, resumen: string): string {
   const que = resumen.trim().replace(/[.\s]+$/u, '');
-  return `Lo pasé al equipo de MaKo (pedido #${id})${que ? `: ${que}` : ''}. Te aviso por acá cuando esté.`;
+  return `Lo pasé al equipo de MaKo (pedido #${id})${que ? `: ${que}` : ''}. Te aviso por aquí cuando esté.`;
 }
 
 // ── EL DEBUG (sólo el grupo de SuperAdmin): lo mira el código con `diagnosticar_negocio` y lo delega al Cerebro con la evidencia ──

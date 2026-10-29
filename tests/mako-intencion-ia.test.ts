@@ -81,9 +81,9 @@ test('3. las reglas son el piso, y un «sí» a una pendiente no se reclasifica'
 });
 
 test('4. el ticket del grupo: la respuesta la escribe el código, y lo que sigue a uno recién nombrado se suma', () => {
-  assert.equal(respuestaDelTicket({ id: 31, sumado: false }, 'No deja editar el monto del lead.'), 'Abrí el ticket #31: No deja editar el monto del lead. Lo toma el equipo y te aviso por acá cuando esté.');
-  assert.equal(respuestaDelTicket({ id: 31, sumado: true }, 'el DM de rechazo'), 'Lo sumé al ticket #31: el DM de rechazo. Lo toma el equipo y te aviso por acá cuando esté.');
-  assert.equal(respuestaDelTicket({ id: 7, sumado: false }, ''), 'Abrí el ticket #7. Lo toma el equipo y te aviso por acá cuando esté.');
+  assert.equal(respuestaDelTicket({ id: 31, sumado: false }, 'No deja editar el monto del lead.'), 'Abrí el ticket #31: No deja editar el monto del lead. Lo toma el equipo y te aviso por aquí cuando esté.');
+  assert.equal(respuestaDelTicket({ id: 31, sumado: true }, 'el DM de rechazo'), 'Lo sumé al ticket #31: el DM de rechazo. Lo toma el equipo y te aviso por aquí cuando esté.');
+  assert.equal(respuestaDelTicket({ id: 7, sumado: false }, ''), 'Abrí el ticket #7. Lo toma el equipo y te aviso por aquí cuando esté.');
   assert.equal(ticketQueAcabaDeNombrar('Abrí el ticket #31: no deja editar. Lo toma el equipo…'), 31);
   assert.equal(ticketQueAcabaDeNombrar('Quedó el ticket #28 para el equipo de MaKo.'), 28);
   assert.equal(ticketQueAcabaDeNombrar('Tienes 3 leads hoy.'), null);
