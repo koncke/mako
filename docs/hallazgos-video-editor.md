@@ -897,6 +897,11 @@ Medido el 11/10, con 16 GB y 6-7 sesiones abiertas.
   chequea con `--heap=3000`/`3500` y la PC con turno (`node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …`, desde el
   28/10: la app se cayó con tres tsc a la vez). «Código 1 y cero salida» es el vigía matándolo, no un archivo roto: un
   archivo solo da la pista en segundos.
+- ⚠️ **Partir en tandas chicas NO achica el chequeo: lo que pesa es el grafo, no la lista.** El 29/10 una tanda de DOS tests
+  (`tests/editores-por-prompt.test.ts` y uno de 55 líneas sin imports del repo) llegó a 2,7 GB, igual que la de ocho archivos
+  del Image Editor (3 GB): editores-por-prompt importa los dos editores enteros. Con la PC de noche (1,5 a 4,7 GB libres y
+  otros chats en la fila) el vigía mató los cuatro intentos. Si no hay ~4,5 GB libres sostenidos, la punta va «sin tipos» y
+  se dice, en vez de relanzar.
 
 - **`next dev` se cae en silencio** —exit 1, sin una línea— al compilar el motor (~100 mil líneas) con
   menos de ~2 GB libres. Y tras una caída la caché queda corrupta: rutas que existen dan 404. Se borra la

@@ -50,10 +50,11 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
     una 1/1). Cosechado en docs/hallazgos-editor-imagen.md, regla en AGENTS.md.
   - Tests dirigidos en verde: editores-por-prompt 16/0, image-editor-estudio 10/0, image-editor-integracion 7/0,
     image-editor-chat 26/0, video-editor-chat 53/0.
-  Commits: merge `d22770e72` y arreglo `d1c9ee86a` (rama `motion-imagen-2610`, sin subir). Falta: el tsc acotado de lo
-  tocado (en dos tandas, por `con-turno`; la guardia mató tres intentos de 3 GB y después esperó la pausa del tren-y) y
-  tests-afectados por `con-turno`. Recién con eso va el VERDE de Motion con las 6 shas (821748730, e1fd45e25,
-  b71e3d5e5, 5f94bc3e3, d22770e72, d1c9ee86a).
+  Commits: merge `d22770e72` y arreglo `d1c9ee86a` (rama `motion-imagen-2610`, sin subir). Punta mandada al Cerebro
+  «sin tipos» el 29/10 de madrugada: el vigía mató los cuatro intentos de tsc acotado (2,7 a 3 GB; noche con 1,5 a 4,7 GB
+  libres) y tests-afectados (219 tests y las barredoras) no se lanzó por las reglas de la noche (RAM). Las dos cosas
+  faltan, por `con-turno`, cuando la PC tenga ~4,5 GB libres sostenidos. Shas de Motion: 821748730, e1fd45e25,
+  b71e3d5e5, 5f94bc3e3, d22770e72, d1c9ee86a.
   Notas para el VERDE: marcar_calificado ya no llega al turno de la app (proponer_cambio_etapa sí); nada se miró en
   el navegador. Falta avisar que `RUTAS_QUE_PLIEGAN` (app/_components/Sidebar.tsx:123, del chat Sidebar) no tiene
   /video-editor ni /image-editor.
