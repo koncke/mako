@@ -7,57 +7,23 @@
    solos (Nord + el azul de acción). El verde lima de su «Generate» es acá el azul de acción (`--primary`).
    Todo bajo `.hf`: no pisa nada de afuera. */
 
+/* El centro de PantallaCrear (app/_crear/crear.css, `.cr-pieza`): scrollea adentro, y la barra queda pegada abajo. */
 .hf {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  min-height: calc(100vh - var(--barra-agencia, 0px) - var(--alto-secciones, 0px));
-  /* El chat de MaKo fijo a la izquierda (MakoEnLaTab `fijo`) publica su lugar en esta variable. */
-  margin-left: var(--ancho-panel-mako, 0px);
-  transition: margin-left var(--dur-sheet, .28s) var(--ease-out, ease);
+  flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  display: flex; flex-direction: column;
   background: var(--bg);
   color: var(--text);
 }
 .hf button { font-family: inherit; }
 .hf :focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-/* ── La columna de proyectos ─────────────────────────────────────────────── */
-.hf-proyectos {
-  position: sticky; top: 0; align-self: start; height: calc(100vh - var(--barra-agencia, 0px));
-  display: flex; flex-direction: column; gap: 2px; padding: 14px 10px 10px; box-sizing: border-box;
-  background: var(--surface); border-right: 1px solid var(--border);
-}
-.hf:has(.hf-proyectos--plegada) { grid-template-columns: 64px minmax(0, 1fr); }
-.hf-proyectos--plegada { align-items: center; padding-inline: 8px; }
-.hf-proyectos-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 0 2px 6px 6px; }
-.hf-proyectos-titulo { font-size: var(--fs-md); font-weight: 650; }
-.hf-flecha { display: inline-flex; transform: rotate(90deg); transition: transform var(--dur-pop, .18s) var(--ease-out, ease); }
+/* «Ver todos en grilla», al pie de la lista de proyectos de la tarjeta (el «History» de Higgsfield). */
+.hf-pie-todos { border: 0; background: none; padding: 0; color: var(--dim); font: inherit; font-size: 13px; cursor: pointer; }
+.hf-pie-todos:hover { color: var(--ink); text-decoration: underline; }
+/* La flecha de las pastillas (el chevron de la casa apunta abajo: se gira). */
+.hf-flecha { display: inline-flex; transform: rotate(90deg); }
 .hf-flecha--der { transform: rotate(-90deg); }
-.hf-nueva {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 8px; margin-bottom: 6px;
-  border: 1px dashed var(--border-strong); border-radius: var(--r-md); background: none; color: var(--text);
-  font-size: var(--fs-sm); font-weight: 600; cursor: pointer; text-align: left;
-}
-.hf-nueva:hover, .hf-nueva[aria-current="page"] { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
-.hf-nueva-mas { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--primary); color: var(--on-primary); flex: none; }
-.hf-lista { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 2px; }
-.hf-fila {
-  display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 0; border-radius: var(--r-md);
-  background: none; color: var(--text); cursor: pointer; text-align: left;
-}
-.hf-fila:hover { background: var(--velo-hover); }
-.hf-fila[aria-current="page"] { background: var(--primary-bg); }
-.hf-mini { width: 32px; height: 44px; border-radius: 6px; object-fit: cover; flex: none; background: var(--surface-2); display: block; }
-.hf-fila-texto { display: flex; flex-direction: column; min-width: 0; }
-.hf-fila-nombre { font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hf-fila-meta { font-size: var(--fs-meta); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hf-todos {
-  display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding: 8px 10px; border: 0; border-radius: var(--r-md);
-  background: none; color: var(--text-dim); font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
-}
-.hf-todos:hover, .hf-todos[aria-current="page"] { background: var(--velo-hover); color: var(--text); }
 
-/* ── El área principal: el contenido scrollea y la barra queda abajo ─────── */
-.hf-main { position: relative; display: flex; flex-direction: column; min-width: 0; }
+/* ── El contenido del centro ─────────────────────────────────────────────── */
 .hf-nueva-vista { flex: 1; padding: 28px 32px 24px; }
 .hf-titulo { margin: 0; font-size: var(--fs-page); font-weight: 700; letter-spacing: -.01em; }
 .hf-subtitulo { margin: 0 0 10px; font-size: var(--fs-md); font-weight: 650; }
@@ -260,14 +226,12 @@
 .hf-toma--filmando, .hf-toma--a_ciegas { color: var(--primary); }
 .hf-toma--error { color: var(--bad); }
 
-/* ── Más angosto: la columna de proyectos arriba y el proyecto en una columna ── */
+/* ── Más angosto: el proyecto en una columna, y la barra apilada ── */
 @media (max-width: 1100px) {
   .hf-proyecto-cuerpo { grid-template-columns: minmax(0, 1fr); }
   .hf-lienzo { max-width: 360px; }
 }
 @media (max-width: 760px) {
-  .hf, .hf:has(.hf-proyectos--plegada) { grid-template-columns: minmax(0, 1fr); }
-  .hf-proyectos { position: static; height: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--border); }
   .hf-nueva-vista, .hf-proyecto-cab, .hf-proyecto-cuerpo { padding-inline: 16px; }
   .hf-barra { flex-direction: column; }
   .hf-barra-der { justify-content: space-between; }

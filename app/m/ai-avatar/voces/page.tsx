@@ -13,7 +13,7 @@ import { requireAiAvatarM } from '../puerta';
 export const dynamic = 'force-dynamic';
 
 export default async function VocesPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireMovil({ navKey: 'ai-avatar-voces' });
+  await requireMovil({ navKey: 'ai-avatar' });
   await requireAiAvatarM();
   await searchParams;
   redirect(await rutaConWs('/m/ai-avatar'));

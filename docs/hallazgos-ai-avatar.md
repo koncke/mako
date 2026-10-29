@@ -33,6 +33,11 @@ Las secciones de HeyGen se deprecaron; lo de abajo de HeyGen queda por las licen
 
 ## Trampas del estudio (29/10/2026)
 
+- **Sacar las secciones de una tab de nav.ts cierra la puerta del teléfono SIN error si la page sigue pidiendo la key
+  vieja**: `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS` y, sin el ítem, no deja pasar a nadie. Al dejar
+  AI Avatar como UN ítem ('ai-avatar'), las cuatro pages de `app/m/ai-avatar` pasaron a `navKey: 'ai-avatar'` en el MISMO
+  commit, junto con `lib/funciones-mako.ts`, `lib/plan-esencial-reglas.ts` (las tabs de Pro) y sus tests.
+
 - **El prompt validado de un formato GANA ENTERO sobre la escena del preset.** `promptFinal` (lib/flow-imagen.ts)
   devuelve `PROMPT_IMAGEN[puestaId]` sin mirar la escena: un preset con `puestaId: 'selfie-movimiento'` sale SIEMPRE en
   el auto, diga lo que diga su prompt. Sólo «Charla en el auto» puede usarlo (lo fija tests/ai-avatar.test.ts). Al
@@ -47,8 +52,11 @@ Las secciones de HeyGen se deprecaron; lo de abajo de HeyGen queda por las licen
 - **Los videos de un proyecto no viven en el look**: están en el historial del Video Generator y se cruzan por el
   `mediaId` de la imagen (`imagenes['1'].elegidaId`, que escribe `conAvatar`). El tope de 10 del historial sigue
   mordiendo: un proyecto puede «perder» un video viejo sin que nadie lo borre.
-- **El chat de MaKo «fijo» (MakoEnLaTab `fijo`) sólo lo es en pantallas de más de 760 px**: por debajo el panel tapa la
-  tab entera (app/_chat/chat.css), y fijo no dejaría usarla. Ahí vuelve a ser la estrella.
+- **El marco es el de Create (app/_crear/PantallaCrear.tsx), y su «Nuevo …» tapaba lo que la plantilla abría.** Usar una
+  plantilla (o escribir en su caja, si la tab lo toma) no cerraba «Nuevo …»: el centro seguía en «¿Qué vas a crear hoy?»
+  con la pieza nueva escondida detrás. Se arregló en la pantalla compartida (`alPlantilla`, 29/10): una plantilla que se
+  usó sin error cierra «Nuevo …», para todas las tabs. En AI Avatar usar un preset ahí NO genera: lo pone en la barra
+  (como «Use preset» de Higgsfield), porque falta la foto y generar es con el botón.
 - **Para VER la pantalla sin `next dev` ni sesión de super admin**: renderizar el componente real con
   `renderToStaticMarkup` en Node, con `module.registerHooks` (síncrono: cubre `require` y `import`; el `register`
   asíncrono no ve lo que tsx compila a CommonJS) desviando a stubs sólo lo que habla con el servidor (`./actions`,
@@ -136,15 +144,9 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
 - **Verla andando en producción con un look real.** El 29/10 se vio renderizada (vista estática de los componentes
   reales, escritorio y teléfono), pero el único Chrome conectado tenía la sesión de Leandro (ws 10, no super admin):
   `/ai-avatar` lo manda al Ops Center. La prueba con Flow de verdad es de Martín, desde el Centro («revisar»).
-- **Las secciones viejas siguen en nav.ts** (`ai-avatar-crear`, `-avatares`, `-voces`, `-plantillas`): la barra de
-  secciones de arriba (SeccionesTab) las dibuja hasta que el chat que edita nav.ts las saque. ⚠️ Al sacarlas, la page
-  del teléfono (`app/m/ai-avatar/page.tsx`, `requireMovil({ navKey: 'ai-avatar-crear' })`) tiene que pasar a la key
-  que quede en nav.ts EN EL MISMO COMMIT: sin el ítem en `TODOS_LOS_ITEMS`, la puerta del teléfono se cierra para
-  todos y sin error (AGENTS.md). **Vive en:** `app/_components/nav.ts`, `lib/funciones-mako.ts`, `lib/plan-esencial-reglas.ts`.
 - **Crear y borrar un look por la API de MaKo.** `ver_avatares` lee (desde el 29/10 también el ajuste escrito y los
   presets nuevos), pero crear encola en Flow y el área de video es «sólo lecturas» por el veredicto §8
   (docs/api-mako-diseno.md); borrar es una escritura sin gasto que hoy vive en una action con sesión. Es un hueco de
   la regla «todo MaKo por la API». **Vive en:** `lib/api-mako/areas/video.def.ts`.
-- **El chat de MaKo no sabe hacer nada de AI Avatar todavía.** Va fijo a la izquierda y ve la pantalla (`pantalla`),
-  pero no tiene herramientas para elegir un preset ni generar: lo que se le pide lo reparte el Cerebro como
-  cualquier mensaje. **Vive en:** `app/_chat/MakoEnLaTab.tsx` y el registro de la API.
+- **El chat de MaKo no sabe hacer nada de AI Avatar todavía.** Va fijo a la izquierda (la tarjeta de PantallaCrear), pero no tiene herramientas para elegir un preset ni generar, y la
+  pantalla compartida no le pasa lo que se ve (`pantalla`): lo que se le pide lo reparte el Cerebro como cualquier mensaje. **Vive en:** `app/_chat/MakoEnLaTab.tsx` y el registro de la API.

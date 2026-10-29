@@ -67,7 +67,6 @@ test('«hace cuánto»', () => {
 /** Los ítems de Create que TODAVÍA tienen pestañas arriba, con el chat que las saca. Sólo se achica. */
 const FALTAN_SIN_SECCIONES: Readonly<Record<string, string>> = {
   copywriting: 'chat «Copywriter = Notion»',
-  'ai-avatar': 'chat «AI Avatar = Higgsfield»',
 };
 
 const create = FAMILIAS.find((f) => f.key === 'create');
@@ -103,7 +102,8 @@ test('Create: Video e Image llevan la key que miran las capas y la API', () => {
 const PAGINAS_CREATE: Readonly<Record<string, string | null>> = {
   'app/video-editor/VideoEditorCliente.tsx': 'chat «Create: un solo diseño» (create-shell-2910)',
   'app/image-editor/ImageEditorCliente.tsx': 'chat «Create: un solo diseño» (create-shell-2910)',
-  'app/ai-avatar/AiAvatarCliente.tsx': 'chat «AI Avatar = Higgsfield»',
+  // AI Avatar (29/10/2026, el estudio de Higgsfield): AiAvatarCliente.tsx se fue y la pantalla es Estudio.tsx.
+  'app/ai-avatar/Estudio.tsx': null,
 };
 
 test('Create: cada página monta PantallaCrear (salvo las anotadas con su chat)', () => {

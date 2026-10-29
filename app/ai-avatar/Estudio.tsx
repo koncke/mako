@@ -9,6 +9,11 @@
 // onboarding (memoria «create-un-solo-diseno»). Reemplaza a las cuatro secciones copiadas de HeyGen el 17/10 (Create
 // video · Avatars · Voices · Templates): sus rutas redirigen acá.
 //
+// EL MARCO ES EL DE TODAS LAS TABS DE CREATE (app/_crear/PantallaCrear.tsx, del chat «Create: un solo diseño»): la tarjeta
+// izquierda es el chat de MaKo y, con su «←», la lista de proyectos (los looks, con su «⋯»: Recrear, Descargar, Eliminar) y
+// «Nuevo avatar», que muestra los presets como plantillas. Usar un preset ahí, o escribir en su caja, lo lleva a la BARRA
+// del estudio (no genera solo: faltan la foto y el botón). El centro es esto: la galería con la barra, o un proyecto.
+//
 // LO QUE SE COPIA DE HIGGSFIELD (relevado en higgsfield.ai el 29/10/2026, docs/hallazgos-ai-avatar.md):
 //   · la pantalla de crear vacía: el título al centro con las fotos en abanico, y la BARRA DE PROMPT abajo, flotando:
 //     «+», el texto («Describe the scene you imagine»), Modelo, Formato, Cantidad «1/4», la ranura CHARACTER, la
@@ -30,7 +35,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
 import { ButtonLink } from '@/app/_ui';
 import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 import { rutaEditarEnEditor } from '@/app/video-editor/desde/desde';
@@ -40,7 +45,7 @@ import { filmarTomas, SONDEO_MS, type TomaAvatar } from './filmar';
 import { CATEGORIAS, PLANTILLAS_AVATAR, filtrarPresets, plantillaPorId, type Categoria, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
-import { MODELO, SIN_MOTOR, TONO_CATEGORIA, pantallaDelEstudio, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -59,8 +64,16 @@ function escribirQuery(v: Vista, presetId: string | null) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// El estudio
+// El estudio, adentro de la pantalla única de Create
 // ═════════════════════════════════════════════════════════════════════════════
+
+/** Lo que se escribe solo en «¿Qué vas a crear hoy?» de la tarjeta: escenas, porque lo escrito va a la barra del estudio. */
+const EJEMPLOS = [
+  'Con camisa blanca, de noche, en la ciudad',
+  'Con mi producto en la mano, en la cocina',
+  'Sentado en un café, trabajando con la computadora',
+  'En la playa al atardecer, con ropa de verano',
+] as const;
 
 export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }: {
   inicio: Inicio;
@@ -77,7 +90,6 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
   const [presetId, setPresetId] = useState<string | null>(plantillaPorId(plantillaInicial ?? '')?.id ?? null);
   const [fotoId, setFotoId] = useState<string>(inicio.fotos[0]?.id ?? '');
   const [detalle, setDetalle] = useState('');
-  const [plegada, setPlegada] = useState(false);
   const [selector, setSelector] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
@@ -127,22 +139,38 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
     setVista((v) => (v.tipo === 'proyecto' && v.id === id ? { tipo: 'nueva' } : v));
   }, []);
 
-  const pantalla = pantallaDelEstudio({
-    vista: vista.tipo,
-    preset: preset?.nombre ?? null,
-    proyecto: proyecto ? { nombre: proyecto.nombre, estado: proyecto.estado, videos: proyecto.videos.length } : null,
-    proyectos: looks.length,
-  });
+  // La lista de la tarjeta izquierda (la «←» del chat): un renglón por look, con su «⋯» (el «History» de Higgsfield).
+  const proyectos = useMemo<ProyectoCrear[]>(() => looks.map((l) => ({
+    id: l.id,
+    nombre: nombreDeProyecto(l),
+    cuando: Date.parse(l.creadoEn) || null,
+    menu: [
+      { rotulo: 'Recrear', hacer: () => generar({ plantillaId: l.plantillaId, fotoId: l.fotoId, detalle: l.detalle }) },
+      ...(l.url ? [{ rotulo: 'Descargar', hacer: () => { window.open(l.url, '_blank', 'noopener,noreferrer'); } }] : []),
+      { rotulo: 'Eliminar', peligro: true, confirmar: `¿Eliminar «${l.nombre}»? La imagen sigue en tu Google Flow.`, hacer: () => eliminar(l.id) },
+    ],
+  })), [looks, generar, eliminar]);
+
+  // «Nuevo avatar» de la tarjeta: los presets como plantillas. Usar uno lo pone en la barra del estudio (como «Use preset»
+  // de Higgsfield): todavía no genera nada, falta la foto y lo que se quiera escribir.
+  const plantillas = useMemo<PlantillaCrear[]>(() => PLANTILLAS_AVATAR.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    formato: '9 / 16',
+    imagen: looks.find((l) => l.plantillaId === p.id && l.url)?.url || p.ejemplo?.poster || null,
+    rotulo: p.categoria,
+  })), [looks]);
 
   return (
-    <div className="hf">
-      <MakoEnLaTab tab="AI Avatar" fijo pantalla={pantalla} />
-
-      <Proyectos looks={looks} vista={vista} plegada={plegada} reloj={reloj}
-        onPlegar={() => setPlegada((x) => !x)} onNueva={() => { setVista({ tipo: 'nueva' }); setError(''); }}
-        onAbrir={(id) => { setVista({ tipo: 'proyecto', id }); setError(''); }} onTodos={() => setVista({ tipo: 'todos' })} />
-
-      <section className="hf-main" aria-label="AI Avatar">
+    <PantallaCrear tab="AI Avatar" nuevo="Nuevo avatar" proyectos={proyectos} actual={proyecto?.id ?? null}
+      onAbrir={(x) => { setVista({ tipo: 'proyecto', id: x.id }); setError(''); }}
+      pieLista={looks.length > 0 ? <button type="button" className="hf-pie-todos" onClick={() => setVista({ tipo: 'todos' })}>Ver todos en grilla</button> : null}
+      plantillas={plantillas} tituloPlantillas="Presets"
+      onPlantilla={(pl) => { setPresetId(pl.id); setVista({ tipo: 'nueva' }); setError(''); return null; }}
+      ejemplos={EJEMPLOS}
+      // Lo que se escribe en «¿Qué vas a crear hoy?» es la escena: va a la barra del estudio (el prompt de Higgsfield).
+      onPedido={(texto) => { setDetalle(texto.slice(0, MAX_DETALLE)); setVista({ tipo: 'nueva' }); }}>
+      <div className="hf">
         {vista.tipo === 'nueva' && (
           <Nueva looks={looks} presetId={presetId} onPreset={(id) => setPresetId(id)} />
         )}
@@ -152,6 +180,7 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
         {proyecto && (
           <Proyecto key={proyecto.id} p={proyecto} inicio={inicio} reloj={reloj}
             onRecrear={() => void generar({ plantillaId: proyecto.plantillaId, fotoId: proyecto.fotoId, detalle: proyecto.detalle })}
+            onNueva={() => { setPresetId(proyecto.plantillaId); setDetalle(proyecto.detalle); setVista({ tipo: 'nueva' }); }}
             onEliminar={() => void eliminar(proyecto.id)} enviando={enviando} error={error} />
         )}
 
@@ -162,70 +191,21 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
             onDetalle={setDetalle} onCambiarPreset={() => setSelector(true)}
             onGenerar={() => preset && void generar({ plantillaId: preset.id, fotoId, detalle })} />
         )}
-      </section>
 
-      {selector && (
-        <SelectorPresets looks={looks} actual={presetId}
-          onCerrar={() => setSelector(false)}
-          onUsar={(id) => { setPresetId(id); setSelector(false); setVista({ tipo: 'nueva' }); }} />
-      )}
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// La columna de proyectos: «Nueva» arriba, los proyectos, y la flecha
-// ═════════════════════════════════════════════════════════════════════════════
-
-function Proyectos({ looks, vista, plegada, reloj, onPlegar, onNueva, onAbrir, onTodos }: {
-  looks: LookCard[]; vista: Vista; plegada: boolean; reloj: number;
-  onPlegar: () => void; onNueva: () => void; onAbrir: (id: string) => void; onTodos: () => void;
-}) {
-  return (
-    <aside className={plegada ? 'hf-proyectos hf-proyectos--plegada' : 'hf-proyectos'} aria-label="Tus proyectos">
-      <div className="hf-proyectos-cab">
-        {!plegada && <span className="hf-proyectos-titulo">AI Avatar</span>}
-        <button type="button" className="hf-icono" onClick={onPlegar} aria-label={plegada ? 'Mostrar los proyectos' : 'Plegar los proyectos'}
-          title={plegada ? 'Mostrar los proyectos' : 'Plegar los proyectos'}>
-          <span className={plegada ? 'hf-flecha hf-flecha--der' : 'hf-flecha'}><Icon name="chevron" size={16} /></span>
-        </button>
+        {selector && (
+          <SelectorPresets looks={looks} actual={presetId}
+            onCerrar={() => setSelector(false)}
+            onUsar={(id) => { setPresetId(id); setSelector(false); setVista({ tipo: 'nueva' }); }} />
+        )}
       </div>
-      <button type="button" className="hf-nueva" aria-current={vista.tipo === 'nueva' ? 'page' : undefined} onClick={onNueva} title="Nueva">
-        <span className="hf-nueva-mas"><Icon name="plus" size={14} /></span>
-        {!plegada && <span>Nueva</span>}
-      </button>
-      <ul className="hf-lista">
-        {looks.map((l) => (
-          <li key={l.id}>
-            <button type="button" className="hf-fila" aria-current={vista.tipo === 'proyecto' && vista.id === l.id ? 'page' : undefined}
-              onClick={() => onAbrir(l.id)} title={l.nombre}>
-              <Miniatura l={l} />
-              {!plegada && (
-                <span className="hf-fila-texto">
-                  <span className="hf-fila-nombre">{l.nombre}</span>
-                  <span className="hf-fila-meta">
-                    {l.estado === 'generando' ? 'Generando…' : l.estado === 'error' ? 'No salió' : haceCuanto(l.creadoEn, reloj)}
-                    {l.videos.length > 0 && ` · ${l.videos.length} video${l.videos.length === 1 ? '' : 's'}`}
-                  </span>
-                </span>
-              )}
-            </button>
-          </li>
-        ))}
-      </ul>
-      {!plegada && looks.length > 0 && (
-        <button type="button" className="hf-todos" aria-current={vista.tipo === 'todos' ? 'page' : undefined} onClick={onTodos}>
-          Ver todos <span className="hf-flecha hf-flecha--der"><Icon name="chevron" size={14} /></span>
-        </button>
-      )}
-    </aside>
+    </PantallaCrear>
   );
 }
 
-function Miniatura({ l }: { l: LookCard }) {
-  const p = plantillaPorId(l.plantillaId);
-  if (l.url) return <img className="hf-mini" src={l.url} alt="" loading="lazy" />;
-  return <span className={l.estado === 'generando' ? 'hf-mini hf-brillo' : 'hf-mini'} style={p ? fondoDe(p) : undefined} aria-hidden="true" />;
+/** El nombre del renglón: el preset y, si lo hubo, lo escrito (dos looks del mismo preset no se llaman igual). */
+function nombreDeProyecto(l: LookCard): string {
+  const base = l.estado === 'generando' ? `${l.nombre} (generando)` : l.estado === 'error' ? `${l.nombre} (no salió)` : l.nombre;
+  return l.detalle ? `${base} · ${l.detalle}` : base;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -551,8 +531,8 @@ function Todos({ looks, reloj, onAbrir }: { looks: LookCard[]; reloj: number; on
 // Un proyecto: el look, sus videos y la barra para animarlo
 // ═════════════════════════════════════════════════════════════════════════════
 
-function Proyecto({ p, inicio, reloj, onRecrear, onEliminar, enviando, error }: {
-  p: LookCard; inicio: Inicio; reloj: number; onRecrear: () => void; onEliminar: () => void; enviando: boolean; error: string;
+function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, error }: {
+  p: LookCard; inicio: Inicio; reloj: number; onRecrear: () => void; onNueva: () => void; onEliminar: () => void; enviando: boolean; error: string;
 }) {
   const preset = plantillaPorId(p.plantillaId);
   const [guion, setGuion] = useState('');
@@ -591,6 +571,9 @@ function Proyecto({ p, inicio, reloj, onRecrear, onEliminar, enviando, error }: 
           <p className="hf-proyecto-meta">{p.lugar}{p.detalle ? ` · «${p.detalle}»` : ''} · {haceCuanto(p.creadoEn, reloj)}</p>
         </div>
         <div className="hf-proyecto-acciones">
+          <button type="button" className="hf-boton" onClick={onNueva} title="Volver a la barra con este preset, para cambiar la foto o la escena">
+            <Icon name="pen" size={14} /> Editar escena
+          </button>
           <button type="button" className="hf-boton" onClick={onRecrear} disabled={enviando || !inicio.puente.puede} title={inicio.puente.puede ? 'Otra versión con el mismo preset y la misma foto' : inicio.puente.motivo}>
             <Icon name="regenerar" size={14} /> Recrear
           </button>

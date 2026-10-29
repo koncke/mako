@@ -36,20 +36,3 @@ export const TONO_CATEGORIA: Readonly<Record<Categoria, readonly [string, string
   Producto: ['#A3BE8C', '#EBCB8B'],
   'Clima y luz': ['#D08770', '#EBCB8B'],
 });
-
-/**
- * Lo que la tab tiene dibujado, en texto, para el chat de MaKo (`pantalla` de MakoEnLaTab: viaja con cada mensaje y el
- * turno lo lee como datos). Corto: qué está mirando y qué eligió.
- */
-export function pantallaDelEstudio(p: {
-  vista: 'nueva' | 'proyecto' | 'todos';
-  preset?: string | null;
-  proyecto?: { nombre: string; estado: string; videos: number } | null;
-  proyectos: number;
-}): string {
-  if (p.vista === 'proyecto' && p.proyecto) {
-    return `AI Avatar: mirando el proyecto «${p.proyecto.nombre}» (${p.proyecto.estado}, ${p.proyecto.videos} video${p.proyecto.videos === 1 ? '' : 's'}).`;
-  }
-  if (p.vista === 'todos') return `AI Avatar: mirando todos sus proyectos (${p.proyectos}).`;
-  return `AI Avatar: en «Nueva», eligiendo un preset${p.preset ? ` (elegido: «${p.preset}»)` : ''}. Tiene ${p.proyectos} proyecto${p.proyectos === 1 ? '' : 's'}.`;
-}

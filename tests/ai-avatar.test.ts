@@ -28,7 +28,7 @@ import { RUTA_SUBIDA, rutaDeSubida } from '../lib/flow-interfaz';
 import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
 import { promptDelLook, limpiarDetalle, MAX_DETALLE } from '../lib/ai-avatar/prompt-look';
 import { videosDelLook, haceCuanto, segundosDeGuion, mezclarPorId } from '../lib/ai-avatar/proyectos';
-import { SIN_MOTOR, TONO_CATEGORIA, pantallaDelEstudio } from '../lib/ai-avatar/estudio';
+import { SIN_MOTOR, TONO_CATEGORIA } from '../lib/ai-avatar/estudio';
 import { filtrarPresets, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
@@ -104,7 +104,8 @@ test('los looks no van al historial del Video Generator', () => {
 //   · `videosDelLook` comparando `item.id` → «los videos de un look».
 //   · `normal()` sin sacar las tildes → «el filtro de presets».
 //   · la pastilla de Formato sin `sinMotor('formato')` → «toda pieza… SE VE».
-//   · `<MakoEnLaTab tab="AI Avatar" />` sin `fijo` → «el diseño de Create».
+//   · (tras montarlo en PantallaCrear) el import de otra pantalla → «el diseño de Create» y crear-pantalla (24/2); usar un
+//     preset que llama a `generar(` → «el diseño de Create» (25/1); la page sin ESTILO_PAGINA_CREAR → ídem (25/1).
 //   · `quitarLook` sin chequear que el id estaba → «borrar… en POSITIVO».
 //   · `mezclarPorId` devolviendo sólo lo del server → «refrescar no se traga…».
 //   · `borrarLookAction` sin `puerta()` → «toda action… pasa por la puerta».
@@ -193,19 +194,21 @@ test('toda pieza de Higgsfield sin motor SE VE y dice en una línea que no está
   }
 });
 
-test('el diseño de Create: el chat de MaKo fijo a la izquierda, sin secciones y sin onboarding', () => {
+test('el diseño de Create: monta la pantalla única (chat de MaKo fijo y proyectos), sin secciones y sin onboarding', () => {
   const escritorio = fuenteDe('app/ai-avatar/Estudio.tsx');
-  assert.match(escritorio, /<MakoEnLaTab tab="AI Avatar" fijo /, 'el chat de MaKo no va fijo');
-  assert.ok(escritorio.includes('¿Qué vas a crear hoy?'), '«Nueva» sin su título');
-  const chat = fuenteDe('app/_chat/MakoEnLaTab.tsx');
-  assert.match(chat, /useEffect\(\(\) => \{ if \(fijoAhora\) setAbierto\(true\); \}, \[fijoAhora\]\);/, 'fijo no abre el panel');
-  assert.match(chat, /\{!fijo && <button type="button" className="ch-tab-panel__cerrar"/, 'fijo con «×»');
-  assert.match(chat, /useEffect\(\(\) => \{\s*\/\/ Fijo[^\n]*\n\s*if \(fijo\) return;/, 'fijo se cierra con Escape');
+  // El marco es el de todas las tabs de Create (app/_crear/PantallaCrear.tsx): no uno propio, ni la estrella que se cierra.
+  assert.match(escritorio, /import \{ PantallaCrear, type PlantillaCrear, type ProyectoCrear \} from '@\/app\/_crear\/PantallaCrear';/);
+  assert.match(escritorio, /<PantallaCrear tab="AI Avatar" nuevo="Nuevo avatar" proyectos=\{proyectos\}/, 'sin la pantalla de Create');
+  assert.doesNotMatch(escritorio, /MakoEnLaTab/, 'un chat propio en vez de la tarjeta de Create');
+  assert.ok(escritorio.includes('¿Qué vas a crear hoy?'), 'el estudio sin su título');
+  // Usar un preset de «Nuevo avatar» lo pone en la barra: NO genera solo (falta la foto, y generar es con el botón).
+  const usar = escritorio.slice(escritorio.indexOf('onPlantilla={'), escritorio.indexOf('ejemplos={EJEMPLOS}'));
+  assert.doesNotMatch(usar, /generar\(|crearLookAction/, 'usar un preset genera sin que nadie apriete Generar');
+  assert.match(fuenteDe('app/ai-avatar/page.tsx'), /style=\{ESTILO_PAGINA_CREAR\}/, 'la página sin el alto de Create');
   assert.ok(!fuenteDe('app/m/ai-avatar/page.tsx').includes('SeccionesTabM'), 'el teléfono con la barra de secciones');
   for (const sub of ['avatares', 'voces', 'plantillas']) {
     assert.match(fuenteDe(`app/ai-avatar/${sub}/page.tsx`), /redirect\(await rutaConWs\(/, `/ai-avatar/${sub} no redirige`);
   }
-  assert.match(pantallaDelEstudio({ vista: 'nueva', preset: 'Día de lluvia', proyectos: 2 }), /Día de lluvia/);
 });
 
 test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo si estaba', () => {

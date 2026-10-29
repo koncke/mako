@@ -112,8 +112,10 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y A
   // AI Avatar: escritorio la cierra con `requireAiAvatar` (sólo el super admin), y el teléfono con la misma pregunta.
   assert.ok(leer('app/m/ai-avatar/puerta.ts').includes('veAiAvatar()'));
   const avatar: Record<string, string> = {
-    'app/m/ai-avatar/page.tsx': 'ai-avatar-crear', 'app/m/ai-avatar/avatares/page.tsx': 'ai-avatar-avatares',
-    'app/m/ai-avatar/voces/page.tsx': 'ai-avatar-voces', 'app/m/ai-avatar/plantillas/page.tsx': 'ai-avatar-plantillas',
+    // Una sola key desde el 29/10/2026 (AI Avatar sin secciones): las de las secciones ya no están en nav.ts, y una puerta con
+    // una key que no existe se cierra para todos sin error.
+    'app/m/ai-avatar/page.tsx': 'ai-avatar', 'app/m/ai-avatar/avatares/page.tsx': 'ai-avatar',
+    'app/m/ai-avatar/voces/page.tsx': 'ai-avatar', 'app/m/ai-avatar/plantillas/page.tsx': 'ai-avatar',
   };
   for (const [p, key] of Object.entries(avatar)) {
     const src = leer(p);
@@ -148,7 +150,8 @@ test('la barra de secciones de cada tab: las de escritorio, con la regla del Sid
   assert.deepEqual(keys(seccionesDeTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
   assert.equal(seccionesDeTabM('copywriting', SUPER).find((s) => s.id === 'admin-copywriting')?.href, '/m/admin/copywriting');
   assert.deepEqual(keys(seccionesDeTabM('copywriting', CLIENTE)), ['ads-writer']);
-  assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas']);
+  // AI Avatar, UNA pantalla desde el 29/10/2026: sin barra de secciones ni para el super admin.
+  assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), []);
   assert.deepEqual(keys(seccionesDeTabM('ai-avatar', CLIENTE)), []);
   // Un closer no ve ninguna (son del admin).
   assert.deepEqual(keys(seccionesDeTabM('copywriting', { adminShell: false, rolWs: 'closer', capa: 'completo' })), []);

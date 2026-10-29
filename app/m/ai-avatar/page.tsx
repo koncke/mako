@@ -23,7 +23,7 @@ type Sp = Record<string, string | string[] | undefined>;
 const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v.slice(0, 120) : undefined);
 
 export default async function AiAvatarPagina({ searchParams }: { searchParams: Promise<Sp> }) {
-  await requireMovil({ navKey: 'ai-avatar-crear' });
+  await requireMovil({ navKey: 'ai-avatar' });
   await requireAiAvatarM();
   const sp = await searchParams;
   const inicio = await inicioAvatarAction();

@@ -99,14 +99,22 @@ export function PantallaCrear(p: PropsPantallaCrear) {
   // Volver al chat es volver a la pieza abierta: «Nuevo …» se cierra (el mismo gesto que el Web Generator).
   const alChat = useCallback(() => { setCara('chat'); if (hayPieza) setCreando(false); }, [hayPieza]);
   const alNuevo = useCallback(() => { setCreando(true); setMovil('pieza'); }, []);
-  const { onPedido } = p;
+  const { onPedido, onPlantilla } = p;
   const alPedido = useCallback((texto: string) => {
-    if (onPedido) { onPedido(texto); return; }
+    // La tab lo toma (AI Avatar lo pone en su barra): el centro vuelve a la pieza, que ya lo tiene.
+    if (onPedido) { onPedido(texto); setCreando(false); return; }
     // Sin prefijo: el Cerebro ya sabe desde qué tab se le escribe (`desde`, el chip del mensaje).
     setPedido({ texto, vez: Date.now() });
     setCara('chat');
     setMovil('mako');
   }, [onPedido]);
+  // Una plantilla que se usó sin error ya abrió lo suyo (un proyecto nuevo, o el preset en la barra de AI Avatar): «Nuevo …»
+  // se cierra. Sin esto, el centro seguía en «¿Qué vas a crear hoy?» con la pieza nueva escondida detrás (29/10/2026).
+  const alPlantilla = useCallback(async (pl: PlantillaCrear) => {
+    const r = await onPlantilla(pl);
+    if (!(typeof r === 'string' && r)) setCreando(false);
+    return r;
+  }, [onPlantilla]);
 
   const volver = (
     <button type="button" className="cr-volver" onClick={() => setCara('lista')} title={`Ver tus proyectos de ${tab}`} aria-label={`Ver tus proyectos de ${tab}`}>←</button>
@@ -135,7 +143,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
       <div className="cr-centro">
         {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
         {centro === 'nueva' && (
-          <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} ejemplos={p.ejemplos} onPedido={alPedido} />
+          <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={alPlantilla} titulo={p.tituloPlantillas} ejemplos={p.ejemplos} onPedido={alPedido} />
         )}
       </div>
     </div>

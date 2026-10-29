@@ -56,9 +56,9 @@ test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   assert.equal(funcionDeKey('whatsapp')?.key, 'chats', 'WhatsApp se configura desde Chats');
   assert.equal(funcionDeKey('landing-writer')?.nombre, 'Web Generator');
   assert.equal(funcionDeKey('chats')?.familia, 'Today');
-  assert.equal(funcionDeKey('ai-avatar-voces')?.soloSuperAdmin, true);
-  // Una tab con secciones se llama como la tab, no como su primera sección («Create video»).
-  assert.deepEqual([funcionDeKey('ai-avatar-crear')?.nombre, funcionDeKey('ai-avatar-crear')?.ruta], ['AI Avatar', '/ai-avatar']);
+  assert.equal(funcionDeKey('ai-avatar')?.soloSuperAdmin, true);
+  // AI Avatar sin secciones desde el 29/10/2026 (el estudio de Higgsfield): la función se llama como la tab.
+  assert.deepEqual([funcionDeKey('ai-avatar')?.nombre, funcionDeKey('ai-avatar')?.ruta], ['AI Avatar', '/ai-avatar']);
   // Video sin secciones desde el 29/10/2026 (tests/crear-pantalla.test.ts): la función se llama como la tab.
   assert.equal(funcionDeKey('video-editor')?.nombre, 'Video', 'una tab sin secciones se llama como la tab');
   assert.equal(funcionDeKey('partners')?.noEnPlataforma, true);

@@ -13,7 +13,7 @@ import { requireAiAvatarM } from '../puerta';
 export const dynamic = 'force-dynamic';
 
 export default async function AvataresPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireMovil({ navKey: 'ai-avatar-avatares' });
+  await requireMovil({ navKey: 'ai-avatar' });
   await requireAiAvatarM();
   const sp = await searchParams;
   const plantilla = typeof sp.plantilla === 'string' ? sp.plantilla.slice(0, 120) : '';

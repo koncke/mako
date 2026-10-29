@@ -260,11 +260,13 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     estado: 'lista', slugDev: 'ads-writer', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
   },
   {
-    keys: ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas'],
-    que: 'Videos con tu avatar, como en HeyGen: una foto tuya en una escena, una voz de la galería o de tu ElevenLabs, y el avatar dice tu guion.',
-    hace: ['Crear un look con tu foto en una escena', 'Elegir una voz de la galería o de tu cuenta de ElevenLabs', 'Generar el video del avatar diciendo un guion', 'Plantillas'],
-    reemplaza: 'HeyGen',
-    alias: ['ai avatar', 'avatar', 'heygen', 'voces', 'clon'],
+    // 29/10/2026: el estudio de Higgsfield (una pantalla, sin secciones). La voz propia sobre el video todavía no está.
+    keys: ['ai-avatar'],
+    que: 'Tu avatar con tu cara, como en Higgsfield: eliges un preset (una escena), pones tu foto y MaKo lo genera; después lo animas diciendo tu guion.',
+    hace: ['Crear tu avatar en una escena de 28 presets', 'Ajustar la escena escribiendo lo que quieres', 'Generar el video del avatar diciendo un guion', 'Volver a cada avatar y sus videos'],
+    noHace: ['Todavía no: tu voz clonada en el video, copiar el movimiento de otro video, ni diseñar un personaje sin foto'],
+    reemplaza: 'Higgsfield y HeyGen',
+    alias: ['ai avatar', 'avatar', 'higgsfield', 'heygen', 'influencer', 'preset'],
     conecta: [{ a: 'video-generator', motivo: 'Genera por el mismo puente a Google Flow' }],
     estado: 'parcial', slugDev: 'ai-avatar', fuentes: [AREAS],
   },
