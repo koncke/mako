@@ -9,6 +9,19 @@ marketing-main/05be9946-3313-4db7-ab72-196361b6fa78/scratchpad/scripts/`). Resul
 **Orden: 0 (P0 de la foto: VERDE mandado, falta que el Cerebro lo suba) → 2 (la réplica editable). El 1 y el 3 están
 cerrados.**
 
+## 00. P0 (29/10, del Cerebro) — «las páginas clonadas se desfasaron todas» — ARREGLO GENERAL hecho, falta lo fijo y el ancho
+
+Martín: «Lo que más me interesa es que funcione al 100% Web Generator, porque las páginas clonadas se desfasaron todas...
+Y la última prueba que intenté hacer con 100ads no funcionó». **Rama `web-generator-foto-2910`: d413ad03b (arreglo +
+test) · 4bfbf85db (cosecha).** Medido DOM contra DOM (`C:/dev/revisiones/clonadas-2910/`, arnés en
+`…/8011bc28-…/scratchpad/scripts/medir-clonadas.mts` + `copia-nueva.mts`): la PUBLICADA era fiel en las 5; el EDITOR no.
+- Hecho: el corte no parte columnas (la foto marca `data-gm-junto` con la geometría), lo vacío no es sección, la caja del
+  body no estira cada sección en el editor. holo en el editor 912 → 177 px de corrimiento; 100ads nueva = la original.
+- **Lo próximo (en HtmlEditableVista.tsx, con el editor REAL para verificarlo):** (1) lo fijo/pegajoso (menú de
+  respond y de holo) como en la original, encima de lo que sigue (hoy corre la página 40–280 px); (2) dibujar la copia al
+  ancho de la original y escalarla al lienzo (~980 px hoy elige el diseño de tableta); (3) replicar de nuevo #68–#72.
+- tsc-acotado: esperaba la pausa del Cerebro (tren-y); ver `C:/dev/revisiones/clonadas-2910/tipos.log`.
+
 ## 0. P0 (29/10 00:40) — «No pude sacar la foto de la página. Vuelve a intentar.» — ARREGLADO (claude3, 29/10 ~03:00)
 
 **Rama `web-generator-foto-2910` (desde origin/main 7f36fa9c6), worktree `C:/dev/wt-foto-2910`, punta 22b4b75c4:
