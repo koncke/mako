@@ -6829,6 +6829,13 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
 - **Con clave, el registro es estricto** (sin base, no se crea nada: sin fila no hay cómo
   deduplicar), **y se abre DESPUÉS de los chequeos que pueden cortar**: una fila en 'creando'
   dejada por un 409 hace esperar al reintento legítimo.
+- **Si la fila se REUSA para otra corrida, la clave lleva la corrida** (29/10/2026, la verificación
+  sobre 69b49a31c): Zernio guarda la respuesta de cada clave 24 h, y `nutri:<inscripción>:<nodo>`
+  servía mientras una inscripción era UNA corrida. «Volver a probar» la reusa: la segunda prueba
+  mandaba con la clave de la primera, la pública daba 422 y el DM volvía con el 200 viejo sin
+  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). Y lo que se CREA
+  a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
+  otro: `crearDifusion` (lib/difusion.ts).
 
 # Un ticket de un cliente: el contexto lo junta el código, lo del cliente es DATO, y se cierra con el deploy
 
