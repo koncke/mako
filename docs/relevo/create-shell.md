@@ -26,8 +26,8 @@ Copywriter). Y después: Offer con el mismo sistema, la oferta armándose al cos
 - **tsc-acotado: VERDE** en tres tandas por con-turno (`--heap=3000`): 46 archivos (shell, Offer, nav, tests), 42 (Video) y
   43 (Image), sin errores. Listas en el scratchpad (`t1.txt`…`t3.txt`). Una lista que toque `_opencut` lleva sus cuatro
   `.d.ts` (docs/hallazgos-video-editor.md, 29/10).
-- **tests-afectados --base origin/main --rapido**: 3513 tests de 349 archivos, 5 rojos, arreglados en a15f8ed63 (72/72
-  solos, y probados rompiéndolos). Falta repetirla entera por con-turno después de los tipos.
+- **tests-afectados --base origin/main --rapido: VERDE** sobre 4e75f2067: 3525 tests de 350 archivos, 11 min 24 s. (La
+  corrida anterior dio 5 rojos que fijaban la barra vieja: arreglados en a15f8ed63 y probados rompiéndolos.)
 - **Capturas**: las del banco (sin dev server) de Image están en `C:/dev/revisiones/create-shell-2910/` (antes de los
   últimos arreglos de cabecera). Las de producción, antes y después, faltan: Claude in Chrome desconectado; el navegador
   integrado cae en el login. Video y Offer no se vieron en un navegador.
