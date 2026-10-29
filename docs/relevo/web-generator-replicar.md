@@ -17,6 +17,14 @@ cerrados.**
 - **29/10 ~13:30 ART:** f387e11ce (Acelerador en grafito) · cd841f433 (mosaico de 9) · 066231cf0 (/vsl/_detalle a High Ticket) ·
   18cf6a960 (`--doc` para #33–#40), todo a Integración para tren-ab. Al Cerebro: la línea del mosaico (`--version 12`) y el bucle de
   las #33–#40 (versiones 2, salvo #36=10). Abierto: /vsl/ads vende «crea tu campaña», que ya no existe; la #40 vende el Avatar.
+- **29/10 ~14:00 ART:** el Cerebro publicó #32 v13 (respaldo #75: 9 tarjetas + mosaico de 9) y las #33–#40 (respaldos #76–#83).
+  213952a92: /vsl/ads vende el media buyer de hoy (decide cada día con su porqué; «propone» o piloto automático en Pro; topes y
+  deshacer). Ninguna otra página de app/vsl promete Avatar, Image con IA, Leads Scraper ni LinkedIn.
+- **29/10 14:29 ART: EN PRODUCCIÓN** (main 1cf06eba9, mako-obai8j5oz). Medido en hola-mako.com a 1440 y 390: 0 «VSL Funnel» en el
+  HTML, título y og nuevos, las 9 tarjetas, ✗ en Esencial y Pro, la tabla (30 filas, 352 px a 390, sin desborde), Acelerador
+  grafito, #beta #F5F7FA. Capturas: `C:/dev/revisiones/landing-principal-2910/produccion/`. **Quedan:** la tarjeta «Ads Manager
+  para High Ticket» del respaldo sin documento (landing-html.ts); las páginas de funcionalidad se comparten con el og genérico del
+  layout («MaKo — Marketing, CRM y ventas…»: `featureMetadata` no arma `openGraph`); la #40 y el Avatar, lo decide Martín.
 - DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
   «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
   Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
