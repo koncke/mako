@@ -84,6 +84,8 @@ async function main() {
   await paso('audioCitado', () => de(LEILA, 'Leila', 'LE-6', 'No me respondiste lo de este audio', { stanzaId: 'AUD-1', quotedMessage: { audioMessage: { seconds: 94 } } }));
   // 10. Un «gracias» con la pregunta todavía abierta: es un acuse (👍, sin turno), no una respuesta al equipo.
   await paso('gracias', () => de(LEILA, 'Leila', 'LE-7', 'gracias'));
+  // 10a. Un «dale» con la pregunta todavía abierta: ES la respuesta al equipo, no un acuse (la verificación de c358fd0c4).
+  await paso('dale', () => de(LEILA, 'Leila', 'LE-7b', 'dale'));
   // 10b. El aviso de ARREGLO cita el título del ticket, que es una pregunta (la verificación de c358fd0c4): no abre la ventana.
   //      Con la pregunta a Leila (EQ-4) todavía viva, lo que escribe OTRA persona es para MaKo.
   await equipo('EQ-5', 'Listo: lo de «¿Se pueden responder comentarios como ManyChat?» ya quedó. Pruébalo y me cuentas.');

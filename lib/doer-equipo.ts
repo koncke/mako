@@ -53,6 +53,16 @@ export function conLaRespondida(guardado: string | null | undefined, id: string)
   return leer(guardado).map((d) => (d.id === id ? { ...d, respondida: true as const } : d));
 }
 
+/**
+ * ¿Es sólo un «gracias» o un saludo? (la verificación de c358fd0c4). Es lo único que, sin cita, no cuenta como respuesta al
+ * equipo: un «dale», «ok», «listo» o «perfecto» después de una pregunta del equipo ES la respuesta.
+ */
+export function esGraciasOSaludo(texto: string): boolean {
+  const t = norm(texto).replace(/[\p{Extended_Pictographic}‍️]/gu, ' ').replace(/[!¡.,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(?:(?:muchas|mil)\s+)?gracias(?:\s+(?:a\s+todos|chicos|equipo|genios?|crack))?$|^(?:hola|buenas|buen\s+dia|buenos\s+dias|buenas\s+(?:tardes|noches))(?:\s+(?:a\s+todos|chicos|equipo))?$/.test(t)
+    || (!t && /\p{Extended_Pictographic}/u.test(texto));
+}
+
 const SALUDOS = new Set(['hola', 'buenas', 'buen', 'buenos', 'gracias', 'listo', 'perfecto', 'chicos', 'equipo', 'todos', 'gente', 'ok']);
 const norm = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 

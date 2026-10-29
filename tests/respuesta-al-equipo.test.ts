@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { citaDelMensaje, conElNuevo, conLaAvisada, conLaRespondida, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, textoCitado, VENTANA_RESPUESTA_AL_EQUIPO_MS, type DelEquipo } from '../lib/doer-equipo';
+import { citaDelMensaje, conElNuevo, conLaAvisada, conLaRespondida, esGraciasOSaludo, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, textoCitado, VENTANA_RESPUESTA_AL_EQUIPO_MS, type DelEquipo } from '../lib/doer-equipo';
 import { esFirmaDelEquipo, FIRMA_DESARROLLADOR, sinFirmaDelEquipo } from '../lib/aviso-arreglo-reglas';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -43,7 +43,7 @@ const alEquipo = { engaged: false, skip: 'respuesta al equipo' };
 test('1. por la entrada real (forma v2): al equipo sólo lo de quien fue preguntado; MaKo no calla de más; nada se repite', () => {
   const r = correr();
   // Al equipo: sin 👍, sin cola, con su aviso.
-  for (const k of ['respuesta', 'citada']) {
+  for (const k of ['respuesta', 'citada', 'dale']) {
     assert.deepEqual(r[k].r, alEquipo, `${k}: ${JSON.stringify(r[k])}`);
     assert.deepEqual([r[k].entro, r[k].reacciones, r[k].superAdmin], [false, 0, 1], `${k}: ${JSON.stringify(r[k])}`);
   }
@@ -60,7 +60,7 @@ test('1. por la entrada real (forma v2): al equipo sólo lo de quien fue pregunt
   assert.deepEqual(r.reentrega.r, { engaged: false, skip: 'respuesta al equipo (re-entrega)' });
   assert.deepEqual([r.reentrega.entro, r.reentrega.superAdmin], [false, 0]);
   // El anillo: las preguntas contestadas, cerradas; a quién le hablaba cada una.
-  assert.deepEqual(r.anillo.map((d: { id: string; respondida: boolean }) => [d.id, d.respondida]), [['EQ-1', true], ['EQ-2', true], ['EQ-3', false], ['EQ-4', false], ['EQ-5', false]]);
+  assert.deepEqual(r.anillo.map((d: { id: string; respondida: boolean }) => [d.id, d.respondida]), [['EQ-1', true], ['EQ-2', true], ['EQ-3', false], ['EQ-4', true], ['EQ-5', false]]);
   assert.deepEqual(r.anillo[0].para, { nombre: 'leila' });
   assert.equal(r.anillo[2].para, null);
 });
@@ -123,7 +123,9 @@ test('4. el cableado: antes del 👍 y de la cola; la re-entrega; el cierre; lo 
   const iPulgar = doer.indexOf('reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO)');
   assert.ok(iEco > 0 && iRe > iEco && iEquipo > iRe && iCola > iEquipo && iPulgar > iEquipo, 'la respuesta al equipo se mira después del 👍 o de la cola');
   assert.match(doer, /const cita = citaDelMensaje\(data as never\);/, 'la cita se lee sólo adentro del mensaje');
-  assert.match(doer, /if \(esTexto && esAcusePuro\(texto\)\) return null;/);
+  assert.match(doer, /const citado = cita \? \{ id: cita\.id, texto: cita\.texto \} : null;\n(?:\s*\/\/.*\n)*\s*if \(!citado && esTexto && esGraciasOSaludo\(texto\)\) return null;/, 'el acuse se mira antes de la cita, o es cualquier acuse');
+  for (const t of ['gracias', 'Muchas gracias!', 'hola', 'Buen día', '🙏']) assert.equal(esGraciasOSaludo(t), true, `«${t}»`);
+  for (const t of ['dale', 'ok', 'listo', 'perfecto', 'gracias, son 6 quincenas']) assert.equal(esGraciasOSaludo(t), false, `«${t}» se tomó por acuse`);
   assert.match(doer, /if \(alEquipo\.ventana && alEquipo\.delEquipo\.id\) \{\n\s*const \{ cerrarLaPreguntaDelEquipo \} = await import\('@\/lib\/mako-grupo'\);/, 'la ventana no se cierra con la primera respuesta');
   assert.match(doer, /if \(!texto \|\| !pideAlgoAMaKo\(texto\)\) return \{ engaged: false, skip: 'respuesta al equipo' \};/, 'lo que además pide algo no llega a MaKo');
   assert.match(doer, /await anotarLoDelEquipo\(wsData, texto, msgId, undefined, paraDelEquipo\(texto, mencionesDelMensaje\(data\)\)\)/);
@@ -152,3 +154,5 @@ test('4. el cableado: antes del 👍 y de la cola; la re-entrega; el cierre; lo 
 //   V8 `anotarLoDelEquipo` lee sin estricto (una lectura que falla pisa el anillo)        → falla el 4
 //   V9 la pregunta sin a quién le habla                                                  → falla el 1 y el 3
 //   X1 el «?» citado entre «…» cuenta (el aviso de arreglo abre la ventana)              → falla el 1 y el 3
+//   X3 cualquier acuse («dale», «ok») antes de la cita                                    → falla el 1 y el 4
+//   X4 `esGraciasOSaludo` toma «dale» por saludo                                         → falla el 1 y el 4
