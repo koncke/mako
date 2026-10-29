@@ -86,6 +86,12 @@ son de una vez: con un tope no se reintentan; `X-RateLimit-Remaining` se lee per
 
 ## El primer DM de Instagram no lo contestaba nadie: el AI Step esperaba el SEGUNDO (28/10/2026, la (a) del Cerebro)
 
+**⚠️ Y contestaba DOS veces (la verificación del Cerebro sobre 69b49a31c, 29/10):** un lead con una charla abierta (la 680)
+y otra automatización «envía un mensaje» con el AI Step primero: el webhook marca pausar Y disparar para el mismo DM, y
+contestaban `pausarRespuestaSocial` (la charla abierta) y `contestarDisparoSocial` (la nueva). Ahora la nueva contesta sólo si
+ninguna charla tomó el mensaje (`tomadas === 0`, app/api/webhooks/zernio/route.ts). **La regla:** dos caminos que contestan el
+mismo evento se excluyen en el lugar donde se juntan, no cada uno por su lado.
+
 **El síntoma** (Teo, la llamada del 28/10): «la primera DM no la contesta el AI Step». Una automatización cuyo CRON es «envía
 un mensaje» y cuya primera tarjeta es el AI Step no tiene SALIDA (`raizSalida` null: la flecha CRON → AI Step es implícita,
 `suelta` ausente). El DM la inscribía y la inscripción quedaba esperando que la persona escribiera de nuevo: el motor sólo

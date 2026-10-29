@@ -54,7 +54,12 @@ test('el webhook: DESPUÉS de inscribir, y sólo si inscribió a alguien', () =>
   const iDisparo = ruta.indexOf('dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto)');
   const iContesta = ruta.indexOf('contestarDisparoSocial(leadId, canal, subtipo, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId, fecha: ev.evento.fecha })');
   assert.ok(iDisparo > 0 && iContesta > iDisparo, 'contestar antes de inscribir no encuentra la inscripción');
-  assert.match(ruta.slice(iDisparo, iContesta), /if \(n > 0\) \{/);
+  // ⚠️ Y sólo si ninguna charla abierta del lead tomó ESE mensaje (la revisión del Cerebro, 29/10/2026): con la pausa contestando
+  // y la automatización nueva también, el mismo DM recibía DOS respuestas del AI Step.
+  assert.match(ruta.slice(iDisparo, iContesta), /if \(n > 0 && tomadas === 0\) \{/);
+  const iPausa = ruta.indexOf('pausarRespuestaSocial(leadId, canal,');
+  assert.ok(iPausa > 0 && iPausa < iDisparo, 'la pausa va antes del disparo');
+  assert.match(ruta.slice(iPausa, iDisparo), /tomadas = n;/);
 });
 
 test('sólo un mensaje privado que la persona escribió: un comentario no (es público, su respuesta es la privada)', () => {
