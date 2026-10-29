@@ -46,7 +46,7 @@ export function TextView() {
 				<DraggableItem
 					name={TEXTO_PREDETERMINADO}
 					preview={
-						<div className="flex size-full items-center justify-center bg-[var(--cc-sunken)] p-2">
+						<div className="flex size-full items-center justify-center bg-(--sidebar) p-2">
 							<span className="text-center text-[13px] leading-tight font-semibold text-white select-none">
 								{TEXTO_PREDETERMINADO}
 							</span>

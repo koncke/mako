@@ -2790,3 +2790,16 @@ Son decenas de lecturas en todas las áreas, y las nuevas nacerían con el mismo
 
 **Vive en:** lib/api-mako/horas-del-negocio.ts · lib/api-mako/ejecutar.ts (`runnerDelRegistro`) · lib/metricas-modelo.ts ·
 tests/horas-del-negocio.test.ts
+
+## La API importaba de la carpeta de una RUTA: borrar la pantalla de Reels la tiraba abajo (29/10/2026, claude3)
+
+- **Síntoma:** al retirar /reels (su guion es una plantilla del Copywriter) se borraron sus módulos y
+  `tests/funciones-mako.test.ts` («listar_capacidades_mako por negocio y por rol») cayó con
+  `Cannot find module '@/app/reels/reels-datos'`. La pantalla no tenía nada que ver con esa prueba.
+- **Causa:** `lib/api-mako/areas/contenido.run.ts` importaba `estadoContextoReels` de `app/reels/reels-datos.ts`, el
+  módulo de datos de la TAB. Nadie lo ve leyendo la pantalla: el enlace va de lib hacia app, al revés de lo habitual.
+- **Regla:** lo que sobrevive a una pantalla no vive en su carpeta (se mudó a `lib/contexto-ig.ts`). Antes de retirar una
+  ruta, `grep -rn "@/app/<ruta>/" lib worker app/api` además de buscar sus links: los imports de la API también son
+  «quien la enlaza».
+
+**Vive en:** lib/contexto-ig.ts · lib/api-mako/areas/contenido.run.ts

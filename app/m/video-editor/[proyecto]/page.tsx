@@ -2,7 +2,8 @@
 // /m/video-editor/<id> — el editor de UN proyecto en el teléfono (el editor de CapCut del celular)
 // =============================================================================
 // El MISMO proyecto del motor que abre escritorio (app/video-editor/[proyecto]/page.tsx), con la pantalla del
-// teléfono (../EditorVideoM.tsx) a pantalla completa (../../_creacion/PantallaCompletaM.tsx), oscura como CapCut.
+// teléfono (../EditorVideoM.tsx) a pantalla completa (../../_creacion/PantallaCompletaM.tsx), con los colores de MaKo (sin `oscura`: desde el
+// 29/10/2026 el editor sigue el tema claro u oscuro de la persona, como en la computadora).
 //
 // Lo que la page de escritorio resuelve en el server, acá igual y por las MISMAS funciones:
 //   · `?desde=<ref>` («Editar en el editor» de Video Generator y de AI Avatar): la ref se resuelve en el workspace de
@@ -32,7 +33,7 @@ export default async function ProyectoPagina({ params, searchParams }: {
   return (
     <PantallaM>
       <CabeceraM titulo="Video Editor" trabajo />
-      <PantallaCompletaM etiqueta="Video Editor" oscura>
+      <PantallaCompletaM etiqueta="Video Editor">
         <EditorVideoEditorM ws={ctx.ws} proyectoId={proyecto} desde={origen} plantilla={idPlantilla} />
       </PantallaCompletaM>
     </PantallaM>

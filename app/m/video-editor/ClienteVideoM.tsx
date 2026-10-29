@@ -17,6 +17,7 @@ import dynamic from 'next/dynamic';
 import { useRef } from 'react';
 import { fijarEspacio } from '@/app/video-editor/espacio';
 import type { DesdeEditor } from '@/app/video-editor/desde/desde';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { SkeletonFilas } from '@/app/m/_ui';
 
 const InicioVideoM = dynamic(() => import('./InicioVideoM').then((m) => m.InicioVideoM), {
@@ -35,9 +36,9 @@ function useEspacio(ws: number | null) {
   }
 }
 
-export function InicioVideoEditorM({ ws }: { ws: number | null }) {
+export function InicioVideoEditorM({ ws, senales = null }: { ws: number | null; senales?: SenalesNegocio | null }) {
   useEspacio(ws);
-  return <InicioVideoM key={ws ?? 0} />;
+  return <InicioVideoM key={ws ?? 0} senales={senales} />;
 }
 
 export function EditorVideoEditorM({ ws, proyectoId, desde, plantilla }: {

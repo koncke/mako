@@ -153,7 +153,7 @@ function Interruptor({
 						onClick();
 					}}
 					className={cn(
-						"flex size-5 cursor-pointer items-center justify-center rounded-[3px] hover:bg-white/8",
+						"flex size-5 cursor-pointer items-center justify-center rounded-[3px] hover:bg-(--velo-hover)",
 						encendido ? "text-(--cc-text)" : "text-(--cc-track-icon) hover:text-(--cc-icon)",
 					)}
 				>

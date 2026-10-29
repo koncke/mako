@@ -232,7 +232,7 @@ export function BotonBarra({
 							onClick?.();
 						}}
 						className={cn(
-							"flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-white/8 disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent",
+							"flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--velo-hover) disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent",
 							activa && "text-(--cc-accent)",
 							className,
 						)}

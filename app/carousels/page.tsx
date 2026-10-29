@@ -1,32 +1,11 @@
-// =============================================================================
-// /carousels — server wrapper: guard + onboarding de la tab + monta la app
-// =============================================================================
-// La page aplica el guard (requireRolWs con la key EXACTA del nav) y decide si la
-// tab abre en su onboarding o en la vista normal.
-// El trabajo pesado vive en CarouselsApp.tsx ('use client'); el motor de
-// escritura es lib/ig-writer.ts vía las server actions propias (./actions.ts).
+// /carousels — RETIRADA el 29/10/2026 (Martín: «para todas las secciones de "create" no quiero otras tabs… prefiero deprecar
+// antes que conservar»). Un carrusel es un DISEÑO de varias páginas: «Carrusel de Instagram» es una plantilla de «Nuevo
+// diseño» en Image (app/image-editor/plantillas-crear.ts), y su texto se le pide a MaKo en el mismo chat. Se redirige y no se
+// borra (AGENTS.md, «Retirar una RUTA…»): la tab la veían los clientes. El motor que escribía (lib/ig-writer.ts) sigue, lo usa
+// la API.
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 
-import { requireRolWs } from '@/lib/tab-access';
-import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
-import { perfilNegocioTexto } from '@/lib/onboarding';
-import { OnboardingCarousels } from './OnboardingCarousels';
-import { CarouselsApp } from './CarouselsApp';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export default async function CarouselsPage() {
-  await requireRolWs([], { nav: 'carousels' });
-
-  // ¿El brief del negocio tiene algo cargado? Decide qué dice el paso Contexto
-  // (y el aviso de la app): con el perfil vacío las piezas salen genéricas.
-  let perfilCargado = false;
-  try { perfilCargado = (await perfilNegocioTexto()).trim().length > 0; } catch { /* sin perfil legible */ }
-
-  // La tab abre en su onboarding mientras no esté hecho, pero NO lo reemplaza
-  // para siempre: el wizard tiene su salida («Lo configuro después»).
-  if (await onboardingTabPendiente('carousels')) {
-    return <OnboardingCarousels perfilCargado={perfilCargado} />;
-  }
-  return <CarouselsApp perfilCargado={perfilCargado} />;
+export default async function RedirectPage() {
+  redirect(await rutaConWs('/image-editor'));
 }

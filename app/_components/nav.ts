@@ -368,23 +368,24 @@ export const FAMILIAS: NavFamilia[] = [
     color: '--sec-marketing',
     bloques: [
       [
-        {
-          key: 'oferta', label: 'Offer', href: '/offer', icon: 'tag',
-          match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p),
-          secciones: [
-            { key: 'offer', label: 'Offer', seccion: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
-            HERRAMIENTAS.estrategia,
-            HERRAMIENTAS.offerPlaybook,
-          ],
-        },
+        // Offer SIN pestañas desde el 29/10/2026 (Martín: «También en offer pon el mismo sistema de la sidebar... Y sin otras
+        // tabs, incluso en SuperAdmin»): la pantalla de Create (app/_crear/PantallaCrear.tsx). Lleva la key de la que era su
+        // sección, 'offer' (la miran las capas, la API y el teléfono). Strategy y Offer Playbook, del super admin, van al pie de
+        // la lista de ofertas (app/offer/OfferApp.tsx) y siguen en ADMIN_NAV por su key; la barra las marca en Offer.
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
       ],
     ],
   },
   {
-    // CREATE: las piezas (lo que se produce, separado de lo que se ejecuta). Video, Image y Copywriting son tabs
-    // UNIFICADAS (`secciones`); AI Avatar, sólo el super admin.
+    // CREATE: las piezas (lo que se produce, separado de lo que se ejecuta). AI Avatar, sólo el super admin.
+    // ⚠️ SIN `secciones` (29/10/2026, Martín: «para todas las secciones de "create" no quiero otras tabs… prefiero deprecar antes
+    //    que conservar»): cada tab es UNA pantalla, la de app/_crear/PantallaCrear.tsx (el chat de MaKo a la izquierda con sus
+    //    proyectos y «Nuevo …» con las plantillas). Cada ítem lleva la key de la que era su sección principal ('video-editor',
+    //    'image-editor'): con esa key la miran las capas (lib/capas.ts), la API (`gating.tab`) y el acceso de la página.
+    //    Se fueron: Reels (sus guiones son una plantilla del Copywriter), Carousels (el texto es del Copywriter y el diseño, un
+    //    tamaño de Image), Image Generator y Thumbnails (nunca pasaron de «pronto»).
     key: 'create',
     label: 'Create',
     pregunta: '¿Qué pieza necesito hacer?',
@@ -392,31 +393,12 @@ export const FAMILIAS: NavFamilia[] = [
     color: '--sec-create',
     bloques: [
       [
-        {
-          key: 'video', label: 'Video', href: '/video-editor', icon: 'videogen',
-          match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) || starts('/reels')(p),
-          secciones: [
-            // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide
-            // app/video-editor/acceso.ts (la misma pregunta que toda tab: rol y capa).
-            { key: 'video-editor', label: 'Video Editor', seccion: 'Editor', href: '/video-editor', icon: 'tijera', match: starts('/video-editor') },
-            { key: 'video-generator', label: 'Video Generator', seccion: 'Create with AI', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
-            { key: 'reels', adminOnly: true, label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
-          ],
-        },
-        {
-          key: 'image', label: 'Image', href: '/image-editor', icon: 'imagegen',
-          match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
-          secciones: [
-            // La copia de Canva (14/10/2026): Doory portado y re-vestido como Canva. Abierta a todos
-            // los workspaces el 15/10/2026 («Que Image aparezca en todos los workspace»), como el Video Editor el
-            // 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
-            // Image Generator y Thumbnails siguen `comingSoon`: se ven, con su «pronto», y abren «Próximamente».
-            { key: 'image-editor', label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
-            { key: 'image-generator', label: 'Image Generator', seccion: 'Create with AI', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
-            { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
-            { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
-          ],
-        },
+        // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide app/video-editor/acceso.ts (la misma
+        // pregunta que toda tab: rol y capa). El Video Generator (Flow) es una plantilla de «Nuevo video», no una pestaña.
+        { key: 'video-editor', label: 'Video', href: '/video-editor', icon: 'videogen', match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) },
+        // La copia de Canva (14/10/2026): Doory portado y re-vestido. Abierta a todos los workspaces el 15/10/2026, como el Video
+        // Editor el 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
+        { key: 'image-editor', label: 'Image', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
         // Copywriting ES el Copywriter desde el 29/10/2026 (Martín: «quiero que sea una réplica de Notion… con la barra lateral
         // de MaKo… y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING»): UNA pantalla, sin
         // `secciones`, con la key de su pantalla ('copywriter': la piden la página, el teléfono y la API). Ads Writer, Stories y
@@ -642,8 +624,9 @@ export const USER_NAV: NavItem[] = [
  *   · el título de la pestaña (lib/titulo-tab.ts) y las capacidades de la API de MaKo (lib/api-mako/areas/mako.run.ts)
  *     buscan el PRIMER ítem cuyo `match` acepta la ruta: por eso van ANTES que el resto, con el `match` de siempre, y
  *     /whatsapp sigue diciendo «WhatsApp» aunque la barra marque Chats.
- * Las cuatro: el Mapa del Second Brain (key `second-brain`, sólo el admin; antes la fila de Analyze), Experiments (se va
- * al chat de MaKo, lo lleva el jefe «Dashboard»), WhatsApp y Email (se configuran desde Chats).
+ * Las de siempre: el Mapa del Second Brain (key `second-brain`, sólo el admin; antes la fila de Analyze), Experiments (se va
+ * al chat de MaKo, lo lleva el jefe «Dashboard»), WhatsApp y Email (se configuran desde Chats); y desde el 29/10/2026 el Video Generator
+ * (una plantilla de «Nuevo video»).
  */
 export const SIN_FILA: NavItem[] = [
   // «Home» (/general) desde el 17/10/2026 noche: redirige al Dashboard, a su hoja fija «Focus». La key `general` queda
@@ -662,6 +645,10 @@ export const SIN_FILA: NavItem[] = [
   { key: 'cs-comunidad', label: 'Community', href: '/classroom/community', icon: 'comunidad', match: (p) => starts('/classroom/community')(p) || starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
   { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
+  // El Video Generator (Flow) desde el 29/10/2026: ya no es una pestaña de Video («no quiero otras tabs»), es la plantilla
+  // «Generar con IA» de «Nuevo video». La pantalla sigue viva y su key es la puerta de la API (`gating.tab`), de las
+  // creaciones (`formato_video`) y del teléfono (/m/video).
+  { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
   // Las que eran secciones de Copywriting hasta el 29/10/2026 (ver la fila de Copywriting en FAMILIAS): sin fila, con su key
   // viva. El Ads Writer sigue andando por su ruta (la matriz, «Analizar guion» y los links de MaKo); Stories y YouTube
   // Writer redirigen al Copywriter. La API (`gating.tab: 'ads-writer'`) y las capas las siguen pidiendo.

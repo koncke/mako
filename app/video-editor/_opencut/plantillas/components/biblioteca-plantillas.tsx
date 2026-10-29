@@ -90,7 +90,7 @@ function TarjetaPlantilla({
 						type="button"
 						onClick={onUsar}
 						disabled={ocupada}
-						className="min-h-7 w-full cursor-pointer rounded-[4px] bg-primary px-1 py-1 text-[11px] leading-tight font-medium text-balance text-white hover:brightness-110 disabled:cursor-default disabled:opacity-60"
+						className="min-h-7 w-full cursor-pointer rounded-[4px] bg-primary px-1 py-1 text-[11px] leading-tight font-medium text-balance text-primary-foreground hover:brightness-110 disabled:cursor-default disabled:opacity-60"
 					>
 						Utilizar plantilla
 					</button>
