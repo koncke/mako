@@ -527,6 +527,7 @@ export function Inicio(props: PropsInicio) {
         copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
         onCerrar={cerrarDiagnostico}
         onAnalizada={sumarAnalizada}
+        onReplicarPorPartes={(u) => abrirDerechaEnElClic({ tipo: 'replicar', url: u, auto: true })}
       />
     );
   } else if (derecha.tipo === 'ia') {
@@ -543,7 +544,7 @@ export function Inicio(props: PropsInicio) {
       />
     );
   } else if (derecha.tipo === 'replicar') {
-    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} />;
+    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} propios={props.propios} />;
   } else if (derecha.tipo === 'plantillas') {
     contenido = (
       <>

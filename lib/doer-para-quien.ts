@@ -14,10 +14,17 @@
 import { confirmacionPura, confirmaAOtro } from './confirmacion-pura';
 
 /** Lo que sólo acusa recibo o agradece: el mensaje entero, sin nada más. */
-const ACUSE_PURO = /^(?:ok(?:ey|is)?|oka|dale|listo|genial|perfecto|gracias|muchas gracias|mil gracias|buen[ií]simo|b[aá]rbaro|joya|de una|(?:ja)+j?|(?:je)+j?|👍|🙏|👌|🙌|❤️|💪)(?:[\s,.!¡]+(?:ok|dale|listo|genial|perfecto|gracias|mako|crack|(?:ja)+|👍|🙏|👌))*[\s.!¡]*$/iu;
+// Los acuses y los saludos (28/10/2026, el diagnóstico del Cerebro, F5): «Bien», «Excelente», «Buen día! Geniall»,
+// «Buendiaa», «Okk perfe» y «Vamos que arranca la semana!» no eran acuse, y MaKo los contestaba (contestar «Excelente» costó
+// 15.630 tokens de entrada). Con la letra del final estirada como se escribe en WhatsApp.
+const PALABRA_ACUSE = String.raw`(?:ok(?:ey|is)?|oka|dale|listo|genial|perfecto|perfe|excelente|(?:muy\s+)?bien|gracias|muchas gracias|mil gracias|buen[ií]simo|b[aá]rbaro|joya|de una|(?:ja)+j?|(?:je)+j?|👍|🙏|👌|🙌|❤️|💪)`;
+const SALUDO = String.raw`(?:hola|buen\s?d[ií]a|buenos\s+d[ií]as|buenas(?:\s+(?:tardes|noches))?|vamos(?:\s+que\s+(?:arranca|empieza)\s+(?:la\s+semana|el\s+d[ií]a))?)`;
+const ACUSE_PURO = new RegExp(String.raw`^(?:${PALABRA_ACUSE}|${SALUDO})(?:[\s,.!¡]+(?:${PALABRA_ACUSE}|${SALUDO}|mako|crack))*[\s.!¡]*$`, 'iu');
+/** «Buendiaa», «Geniall», «Okk»: la letra repetida AL FINAL de una palabra (en el medio, «arranca», es la palabra). */
+const sinEstirar = (s: string): string => s.replace(/(\p{L})\1+(?=[^\p{L}]|$)/gu, '$1');
 
 export function esAcusePuro(texto: string): boolean {
-  return ACUSE_PURO.test((texto || '').trim());
+  return ACUSE_PURO.test(sinEstirar((texto || '').trim()));
 }
 
 /** Las @menciones del mensaje de WhatsApp (los jid de `contextInfo.mentionedJid`). */

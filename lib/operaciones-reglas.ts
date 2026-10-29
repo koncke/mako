@@ -374,6 +374,10 @@ export function sanearAbre(x: unknown): string[] {
 /** El cartero que abre chats (`abrir`): con uno de antes, el trabajo quedaría escrito para siempre. */
 export const VERSION_ABRIR = '1.11.1';
 export const aceptaAbrir = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ABRIR);
+/** El cartero que baja los adjuntos de un chat NUEVO y los nombra en su primer mensaje (28/10/2026). Uno de antes rechaza el
+ *  trabajo («un chat nuevo no lleva adjuntos»): la caja del chat nuevo los ofrece sólo con éste. */
+export const VERSION_ADJUNTOS_EN_NUEVO = '1.22.0';
+export const aceptaAdjuntosEnNuevo = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS_EN_NUEVO);
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -437,10 +441,10 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
-  // Un chat nuevo dice en qué cuenta y con qué nombre, y no lleva adjuntos (todavía no hay a quién dárselos).
+  // Un chat nuevo dice en qué cuenta y con qué nombre. Desde el cartero 1.22.0 (28/10/2026) también lleva adjuntos: los baja
+  // la PC antes de abrirlo (VERSION_ADJUNTOS_EN_NUEVO).
   if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
   if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
-  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };

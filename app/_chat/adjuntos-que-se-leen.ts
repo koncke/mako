@@ -12,6 +12,10 @@
 // ⚠️ SE MANDA CON EL `onMandar` DE LA PANTALLA, en el render siguiente (el molde de ./nota-que-se-manda.ts): primero se le
 //    pone el texto con lo leído (`onTexto`) y recién cuando la caja lo recibe de vuelta se manda.
 // ⚠️ SI UNO NO SE PUEDE LEER, NO SALE NADA: queda marcado en rojo con el porqué, y lo escrito sigue en el campo.
+// ⚠️ POR CONVERSACIÓN (28/10/2026, la verificación de 05d7c3187): una pantalla con varias conversaciones y UNA caja (Soporte: un
+//    ticket, otro, la conversación nueva) pasa `conversacion`. Lo adjuntado es de la conversación donde se adjuntó (con una lista,
+//    el .pptx del ticket 7 aparecía en el 8 cerrado y salía con el próximo mensaje del 9), y lo que se estaba leyendo cuando se
+//    cambió de conversación NO sale en la otra: queda en la suya, para mandarlo al volver (salía como respuesta al ticket 9).
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -54,7 +58,9 @@ export type AdjuntosQueSeLeen = {
   aviso: string | null;
 };
 
-export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError, tope }: {
+const SIN_ITEMS: AdjuntoCaja[] = [];
+
+export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError, tope, conversacion = '' }: {
   activo: boolean;
   /** Cuántos caracteres lee el motor de la pantalla (el Video y el Image Editor, 2.000): lo leído entra hasta ahí, con aviso. */
   tope?: number;
@@ -62,17 +68,32 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   onTexto: (t: string) => void;
   onMandar: () => void;
   onError?: (m: string) => void;
+  /** De qué conversación es lo que se adjunta, en una pantalla con varias y una caja (Soporte). Sin esto, una sola. */
+  conversacion?: string;
 }): AdjuntosQueSeLeen {
-  const [items, setItems] = useState<AdjuntoCaja[]>([]);
-  const [leyendo, setLeyendo] = useState(false);
+  const [porConversacion, setPorConversacion] = useState<Record<string, AdjuntoCaja[]>>({});
+  const items = porConversacion[conversacion] ?? SIN_ITEMS;
+  const ponerItems = (c: string, f: (ya: AdjuntoCaja[]) => AdjuntoCaja[]) => setPorConversacion((m) => ({ ...m, [c]: f(m[c] ?? []) }));
+  /** Las conversaciones cuyo mensaje se está leyendo: cada una el suyo (la verificación de d2f690673: con una por vez, Enter en el
+   *  ticket 9 mientras se leía el 7 no hacía nada y no decía nada). */
+  const [leyendoEn, setLeyendoEn] = useState<readonly string[]>([]);
+  const leyendo = leyendoEn.includes(conversacion);
+  const dejarDeLeer = (c: string) => setLeyendoEn((xs) => xs.filter((x) => x !== c));
+  const actual = useRef(conversacion);
+  actual.current = conversacion;
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Lo que se dijo de otra conversación no queda debajo de ésta.
+  const [vista, setVista] = useState(conversacion);
+  if (vista !== conversacion) { setVista(conversacion); setError(null); setAviso(null); }
   const [pendiente, setPendiente] = useState<string | null>(null);
   const mandarPantalla = useRef(onMandar);
   useEffect(() => { mandarPantalla.current = onMandar; });
   const decir = (m: string) => { setError(m); onError?.(m); };
-  // Las miniaturas de las imágenes son `blob:` locales: se sueltan al irse.
-  useEffect(() => () => { for (const x of items) if (x.url) URL.revokeObjectURL(x.url); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Las miniaturas de las imágenes son `blob:` locales: se sueltan al irse (las de todas las conversaciones).
+  const todos = useRef(porConversacion);
+  todos.current = porConversacion;
+  useEffect(() => () => { for (const xs of Object.values(todos.current)) for (const x of xs) if (x.url) URL.revokeObjectURL(x.url); }, []);
 
   // Lo leído ya está en la caja: se manda por el camino de siempre de la pantalla.
   useEffect(() => {
@@ -92,7 +113,7 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
       nuevos.push({ id: `${f.name}-${f.size}-${Math.random().toString(36).slice(2, 8)}`, file: f, tipo: imagen ? 'image' : 'document', url: imagen ? URL.createObjectURL(f) : '' });
     }
     if (!nuevos.length) return;
-    setItems((ya) => {
+    ponerItems(conversacion, (ya) => {
       const todos = [...ya, ...nuevos];
       if (todos.length > MAX_ADJUNTOS_LEIDOS) decir(`Van hasta ${MAX_ADJUNTOS_LEIDOS} archivos por mensaje.`);
       return todos.slice(0, MAX_ADJUNTOS_LEIDOS);
@@ -102,29 +123,35 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   const mandar = () => {
     if (!items.length) { onMandar(); return; }
     if (leyendo) return;
+    const de = conversacion;
+    const lista = items;
+    const marcar = (id: string, estado: AdjuntoCaja['estado']) => ponerItems(de, (ya) => ya.map((x) => (x.id === id ? { ...x, estado } : x)));
     setError(null);
     setAviso(null);
-    setLeyendo(true);
+    setLeyendoEn((xs) => [...xs, de]);
     void (async () => {
       const leidos: string[] = [];
-      for (const it of items) {
-        setItems((ya) => ya.map((x) => (x.id === it.id ? { ...x, estado: 'leyendo' } : x)));
+      for (const it of lista) {
+        marcar(it.id, 'leyendo');
         try {
           leidos.push(textoDelArchivo(it.file.name, await leerUno(it.file)));
-          setItems((ya) => ya.map((x) => (x.id === it.id ? { ...x, estado: undefined } : x)));
+          marcar(it.id, undefined);
         } catch (e) {
-          setItems((ya) => ya.map((x) => (x.id === it.id ? { ...x, estado: 'error' } : x)));
-          decir(e instanceof Error ? e.message : `No pude leer «${it.file.name}».`);
-          setLeyendo(false);
+          marcar(it.id, 'error');
+          if (actual.current === de) decir(e instanceof Error ? e.message : `No pude leer «${it.file.name}».`);
+          dejarDeLeer(de);
           return;
         }
       }
+      // Se cambió de conversación mientras se leía: no sale en la otra (iría al ticket equivocado). Queda en la suya, leído de
+      // nuevo al mandarlo desde ahí.
+      if (actual.current !== de) { dejarDeLeer(de); return; }
       // Con el tope del motor de la pantalla, lo leído entra hasta ahí con su marca de cierre, y se DICE (la revisión del 27/10).
       const { mensaje: nuevo, afuera } = tope ? conPegadosHasta(texto, leidos, tope) : { mensaje: conPegados(texto, leidos), afuera: 0 };
       if (afuera) setAviso(`Este chat lee hasta ${tope!.toLocaleString('es')} caracteres: lo adjuntado no entró entero (quedaron afuera ${afuera.toLocaleString('es')}).`);
-      for (const x of items) if (x.url) URL.revokeObjectURL(x.url);
-      setItems([]);
-      setLeyendo(false);
+      for (const x of lista) if (x.url) URL.revokeObjectURL(x.url);
+      ponerItems(de, (ya) => ya.filter((x) => !lista.some((y) => y.id === x.id)));
+      dejarDeLeer(de);
       setPendiente(nuevo);
       onTexto(nuevo);
     })();
@@ -133,7 +160,7 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   return {
     adjuntos: activo ? {
       items, puede: !leyendo, accept: ACCEPT_CHAT, onSumar: sumar,
-      onQuitar: (id) => setItems((ya) => ya.filter((x) => { if (x.id === id && x.url) URL.revokeObjectURL(x.url); return x.id !== id; })),
+      onQuitar: (id) => ponerItems(conversacion, (ya) => ya.filter((x) => { if (x.id === id && x.url) URL.revokeObjectURL(x.url); return x.id !== id; })),
     } : undefined,
     mandar: activo ? mandar : onMandar,
     leyendo,

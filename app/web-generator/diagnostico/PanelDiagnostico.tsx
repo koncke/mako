@@ -131,6 +131,12 @@ type Props = {
    * «Aplicar» la usa en vez de replicar otra vez.
    */
   copia?: number | null;
+  /**
+   * «Elegir qué replicar…» (28/10/2026, Martín: «es muy importante que al momento de replicar una landing se defina qué se
+   * quiere replicar»): el Panel abre «Replicar landing» con esta página, que la lee y pregunta las partes. Es un CLIC: el
+   * Panel reserva la ventana de lectura ahí (`abrirDerechaEnElClic`).
+   */
+  onReplicarPorPartes?: (url: string) => void;
 };
 
 /** El análisis piensa y una página de afuera además se baja: el plazo de la ruta (300 s) y un margen. */
@@ -185,7 +191,7 @@ export default function PanelDiagnostico(props: Props) {
   return <PanelInterno key={clave} {...props} />;
 }
 
-function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props) {
+function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes }: Props) {
   const deNuestra = docId != null;
   const objetivo = useMemo(() => (deNuestra ? { docId } : { url: url ?? '' }), [deNuestra, docId, url]);
   // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
@@ -691,6 +697,9 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
       ) : null}
       {menuReplicar && (
         <MenuFlotante ancla={menuReplicar} onCerrar={() => setMenuReplicar(null)} ancho={220} alinear="derecha">
+          {onReplicarPorPartes && urlPegada && (
+            <ItemMenu icono="paginas" texto="Elegir qué replicar…" onClick={() => { setMenuReplicar(null); onReplicarPorPartes(urlPegada); }} />
+          )}
           {FORMATOS_REPLICAR.map((f) => (
             <ItemMenu key={f} icono={ICONO_FORMATO[f]} texto={NOMBRE_FORMATO_REPLICAR[f]} onClick={() => replicar(f)} />
           ))}

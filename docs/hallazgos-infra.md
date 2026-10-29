@@ -58,6 +58,10 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   65.4.0, que no estaba en la caché, y `--no-install` la rechaza con un error por stderr y nada útil por stdout. El
   diagnóstico obvio («Vercel no responde» o «el deploy no está») era el equivocado.
 - **Regla:** todo llamado al CLI de Vercel desde un script va con la versión FIJA (`vercel@65.3.1`) y `--yes` de npx.
+- **Y `--scope` siempre (28/10/2026, Cerebro):** desde la 65.5.0, `npx vercel ls` o `inspect` sin `--scope` contesta
+  un JSON `{"status":"action_required","reason":"missing_scope"}` y nada más: ya no toma un equipo por defecto. La espera
+  del deploy de tren-u (un bucle que grepea «Ready») siguió callada 12 minutos con el deploy ya Ready. El script del aviso
+  ya pasaba `--scope`; el que faltaba era el comando a mano del tren. Va `--scope mbustos-4239s-projects` en TODO llamado.
 - **Y el tope:** el envío al ws1 tarda ~134 s en frío (el chequeo de Vercel recorre los commits de main); con 180 s por
   negocio, el primero de la vuelta se cortaba sin decir nada (`rc=null`). Un tope por negocio de 300 s.
 
@@ -8908,3 +8912,17 @@ tabnews.com.br (el dato de 80 MB por instancia).
   `tipos-por-tandas` sobre `C:/dev/wt-crm-chats-2710`. El chat de CRM no lo había lanzado (lo dijo y no quedó rastro
   de quién fue). Antes de culpar a un chat, mirá el padre del proceso (`Win32_Process.ParentProcessId`). El método es
   «VERDE sin tipos»: los tipos los chequea el hook, una vez, para todos.
+
+## Dos trampas del chequeo del tren en la madrugada del 28/10 (Cerebro)
+
+- **`tests-afectados --concurrencia 1 --compartir` muere con `spawn ENAMETOOLONG`:** con un solo proceso, las ~1.000
+  barredoras que sólo leen van en UNA línea de comando y Windows corta a 32 K. Las tandas pasan y el grupo compartido ni
+  arranca (`tests=2`). Con `--concurrencia 2` se parten en dos grupos y entra. Para bajar la RAM, se baja la tanda, no la
+  concurrencia del grupo compartido.
+- **Un `declare module 'opencut-wasm/…'` para que el tsc acotado no dé rojo NO va en una punta:** el clon no trae los
+  tipos generados de opencut-wasm, y el tsc acotado da 14 rojos en `app/video-editor/_opencut/**` que no son de nadie
+  (fps/utils.ts idéntico a main da los mismos). El chequeo completo del hook pasa sin la declaración. Una declaración
+  global de módulo los puede tapar también ahí. Se usa como archivo temporal, fuera del commit.
+- **Un test que lee el fuente tiene que normalizar CRLF:** con `core.autocrlf` en Windows, el worktree del Cerebro tiene
+  CRLF y `indexOf('\n}\n')` no encuentra el cierre de una función (tests/crm-ticket-14 daba «no está fathomDeFila»). En
+  el worktree del chat, con LF, pasaba. `readFileSync(…).replace(/\r\n/g, '\n')`.

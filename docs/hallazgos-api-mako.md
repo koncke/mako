@@ -2712,3 +2712,42 @@ en la barra pone en rojo cada texto que la nombra con el nombre de antes.
 
 **Ojo:** «Configuraciones» también es el panel de la tuerca de Automations, y ahí los tests prueban que MaKo NO lo nombre (lo
 muestra con el ícono). Esos textos de los tests no se tocan.
+
+## El error de un preparar ES una guarda; la falla se marca (28/10/2026, claude4, la verificación de 692368a60)
+
+**El síntoma:** «MaKo reembolsale a Juan el cobro 7» con el cobro sin pagar → MaKo explica la regla, marca `[[no-pude]]` y en
+el grupo del CLIENTE sale «Quedó el ticket #12 para el equipo de MaKo.». Lo mismo con un «sí» tardío («No hay ninguna acción
+pendiente vigente») y con «dale» sin lista en la app.
+
+**La causa:** la marca explícita de guarda (574107963) la ponía `ejecutar.ts` sólo si el preparar traía `guarda`, `faltan`,
+`yaEstaba` o `falta`, y ninguna área ponía `guarda` (grep: 0). De 1.200 `return { error }` en preparar/proponer, 890 quedaron sin
+marca, y unas 734 son reglas («Sólo se reembolsa un cobro pagado», «es un pago único», «No encuentro la tarea»). Los controles
+(`confirmar_accion`, `cancelar_accion`) devuelven su error como TEXTO de un control que «salió bien»: nunca pasaban por la marca.
+⚠️ **El obvio, «marcar las reglas», era el equivocado:** son cientos, y la próxima regla nace sin marca. Al revés son pocas.
+
+**La regla (lib/api-mako/ejecutar.ts):**
+- el `error` de un preparar o de un proponer de pantalla ES una guarda, salvo `falla: true` (`Preparado`, `Propuesto`);
+- lleva `falla: true` toda falla NUESTRA con forma de error: «No pude leer las pasarelas conectadas», y los envoltorios que
+  vuelven `error` lo que reventó (`revisando` de comunidad, cs y curso; `seguro` de negocio). Son 48;
+  tests/guarda-por-defecto.test.ts pide la marca en todo `return { error: 'No pude…' }` de un preparar;
+- lo que REVIENTA sigue siendo falla (el catch); la pendiente que no entró, también (`noCorrio`);
+- una lectura con `falta` (lo que falta conectar) es guarda, como en un preparar;
+- un helper que el preparar devuelve ENTERO lleva su `falla` (cobros.run.ts: `conPasarelaConectada`, y `cobroDe`, que con la
+  base caída decía «No existe el cobro» y MaKo le mentía al dueño);
+- `confirmar_accion` y `cancelar_accion` (mako.run.ts) marcan lo que no se confirma. La confirmada que falla también: ya dejó
+  SU ticket (`ticket`), o es una negativa del runner; el «no pude» que la sigue abría un SEGUNDO ticket. Sin ticket y con la
+  falla tragada (`esFallaTragada`: no se pudo abrir el suyo), no.
+
+**Medido con los runners reales** (C:/dev/revisiones/scratch-6923/A-refuta/caso.cts del Cerebro): T1, T2, T3 y T5 ya no abren
+ticket; T4 deja uno solo (el #12 de la ejecución). Los 36 casos de tren-t dan lo mismo.
+
+**Sin hacer:**
+- Los helpers que devuelven «No pude…» y su preparar PROPAGA con `{ error: x.error }` pierden la falla y quedan como guarda
+  (igual que en producción, donde todo `ok:false` era guarda): `arbolMeta`, `vocabularioParaEscribir` y `estadoVivoMeta`
+  (ads.helpers.ts), `fichaDelCrm`, `crmDeEtapas` y `vinculoDeCobro` (crm.run.ts), `servicioPedido` (cs.run.ts), `funnelPedido`
+  (general.run.ts), `conexionLista` (integraciones.run.ts), `copiarImagenes` (landing-editor.run.ts), `eventoValido`
+  (comunidad.run.ts). Se cierra pasando el objeto entero (o `falla`) en cada preparar que los usa.
+- Una lib que TIRA un mensaje legible va como 400 sin marca (ejecutar.ts, el catch): es falla aunque la lib describa un pedido
+  mal hecho. Ninguna regla se lo come.
+- `getLead(...).catch(() => null)` del runner viejo (mako-doer-acciones.ts, `proponer_agendar_reunion` y `proponer_cambio_etapa`)
+  vuelve «No existe el lead» con `guarda: true` cuando la base se cae (como en producción).

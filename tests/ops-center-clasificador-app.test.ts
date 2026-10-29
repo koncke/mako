@@ -366,6 +366,13 @@ const VIDEO: Caso[] = [
   ["pon un fundido de salida al audio", ["poner_fundido_video"]],
   ["reducí el ruido del audio del video", ["reducir_ruido_video"]],
   ["reduce el ruido de fondo del audio", ["reducir_ruido_video"]],
+  // Leila (27/10/2026) se lo pidió así a MaKo en el editor; «borrar silencios» no estaba en el chat.
+  ["eliminá el ruido del video", ["reducir_ruido_video"]],
+  ["elimina el ruido del video", ["reducir_ruido_video"]],
+  ["borrá los silencios de mi último video", ["borrar_silencios_video"]],
+  ["borra los silencios de mi último video", ["borrar_silencios_video"]],
+  ["sacale los silencios al video Promo", ["borrar_silencios_video"]],
+  ["quítale los silencios al video Promo", ["borrar_silencios_video"]],
   ["normalizá el audio del video", ["normalizar_audio_video"]],
   ["sacale el audio al clip y dejame solo el sonido", ["separar_audio_video"]],
   ["poné una transición entre el clip 1 y el 2", ["poner_transicion_video"]],

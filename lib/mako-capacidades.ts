@@ -15,14 +15,21 @@
 // se agrega acá — y si algo todavía NO se puede hacer en MaKo, simplemente no está.
 // =============================================================================
 
+// LA FUENTE ES lib/funciones-mako.ts (28/10/2026): cada capacidad cae en una FUNCIÓN por su ruta, y el nombre de la tab sale
+// de ahí, no se escribe a mano (había «WhatsApp», «Content Machine», «General», «Integraciones» y «Configuraciones»,
+// nombres que la barra ya no tiene). Acá van sólo los «cómo se hace»; qué hace cada función, el catálogo.
+
 // El hub de /onboarding se retiró el 15/10/2026: sus secciones se editan donde diga lib/secciones-negocio.ts.
 import { rutaSeccion } from './secciones-negocio';
+import { funcionDeRuta } from './funciones-mako';
 
 export type Capacidad = {
   /** id corto y estable: es lo que devuelve el modelo. */
   id: string;
-  /** Cómo se llama la tab, tal cual la ve el usuario en el sidebar. */
+  /** Cómo se llama la tab, tal cual la ve el usuario en la barra: el nombre de su función (lib/funciones-mako.ts). */
   tab: string;
+  /** La key de su función en lib/funciones-mako.ts (la principal). */
+  funcion: string | null;
   ruta: string;
   /** Qué se puede hacer ahí, en la voz del producto. Es lo que lee el modelo. */
   que: string;
@@ -30,32 +37,32 @@ export type Capacidad = {
   como: string[];
 };
 
-export const CAPACIDADES: Capacidad[] = [
+const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
   {
-    id: 'ads-publicar', tab: 'Ads Manager', ruta: '/ads-manager',
+    id: 'ads-publicar', ruta: '/ads-manager',
     que: 'Crear una campaña de Meta, subirle creativos, prenderla o pausarla, cambiarle el presupuesto y renombrarla — sin salir a Meta.',
     como: ['Entra a Ads Manager', 'Toca "Nueva campaña" y cuéntale a MaKo qué quieres promocionar', 'Elige los creativos y revisa la estructura que arma', 'Se publica en PAUSA: la prendes tú cuando la miraste'],
   },
   {
     // Empieza por Avatares, que es el primer paso del «como»; el resto son áreas vecinas de la misma pantalla.
-    id: 'creativos', tab: 'Second Brain', ruta: rutaSeccion('avatares'),
+    id: 'creativos', ruta: rutaSeccion('avatares'),
     que: 'Sacar los avatares, las razones de compra, el lead magnet y la persona de marca — el material del que salen los anuncios.',
-    como: ['Abre Second Brain', 'En «Avatares», define tus avatares', 'En «Razones», deja que MaKo saque las razones de compra de cada uno', 'En «Lead Magnet», carga el tuyo'],
+    como: ['En Ops Center, abre Second Brain', 'En «Avatares», define tus avatares', 'En «Razones», deja que MaKo saque las razones de compra de cada uno', 'En «Lead Magnet», carga el tuyo'],
   },
   {
     // La tab se llama Content Machine pero la RUTA sigue siendo /ads-writer (ver
     // el comentario de nav.ts): /content-machine todavía no existe y mandar acá
     // a un cliente le daba un 404.
-    id: 'copy-ads', tab: 'Content Machine', ruta: '/ads-writer',
+    id: 'copy-ads', ruta: '/ads-writer',
     que: 'Escribir los guiones de los anuncios de video, y seguirlos de borrador a publicado.',
-    como: ['Entra a Content Machine', 'En Anuncios, abre el que quieres atacar (avatar × razón)', 'Pídele el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtras y los vas marcando grabado y publicado'],
+    como: ['Entra a Ads Writer', 'En Anuncios, abre el que quieres atacar (avatar × razón)', 'Pídele el guion: MaKo elige el ángulo y la estructura solo', 'En Guiones los ves todos, los filtras y los vas marcando grabado y publicado'],
   },
   {
     // Desde el 11/10/2026 la oferta tiene SU tab: Offer Analyst y Offer Generator juntos en
     // /offer. Va antes que las de landing porque es anterior a todo lo que la vende: una
     // tarea de «mejorar la oferta» o «armar el documento de la oferta» se hace acá, y sin
     // esta entrada el Perro la dejaba como deber suelto teniendo la pantalla al lado.
-    id: 'oferta-revisar', tab: 'Offer', ruta: '/offer',
+    id: 'oferta-revisar', ruta: '/offer',
     que: 'Revisar y mejorar la oferta conversando con MaKo; entrega un diagnóstico y una oferta nueva en PDF.',
     como: ['Entra a Offer', 'Cuéntale a MaKo qué vendes, a quién y a qué precio', 'Lee el diagnóstico y la oferta nueva que arma', 'Descarga el PDF; lo que quieras probar, llévalo a Experiments'],
   },
@@ -63,7 +70,7 @@ export const CAPACIDADES: Capacidad[] = [
     // Desde el 11/10/2026 Landing Analyst no es una tab: analizar una página es parte de Web
     // Generator (ex Landing Generator desde el 15/10/2026; /web-generator/analizar) y los números de la landing son la hoja «Landing» del
     // Dashboard. El id no cambia: lo devuelve el modelo y queda escrito en las tareas del plan.
-    id: 'landing-diagnosticar', tab: 'Web Generator', ruta: '/web-generator/analizar',
+    id: 'landing-diagnosticar', ruta: '/web-generator/analizar',
     que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
     // Tanda 7 (15/10/2026): la primera pantalla es UN cuadro con modos (Generar · Importar · Analizar landing ·
     // Replicar landing) y se manda con la flecha; «Diagnóstico» y «Analizar» ya no son botones.
@@ -77,7 +84,7 @@ export const CAPACIDADES: Capacidad[] = [
     // y se manda con la flecha (tests/mako-capacidades-botones.test.ts busca cada rótulo entre comillas en
     // la pantalla). Lo que NO se puede (y por eso no está): «Generar imagen con IA» todavía, ni editar a la
     // vez con otra persona. El dominio propio (tanda 4) y el HTML personalizado (tanda 2) SÍ se pueden.
-    id: 'landing-escribir', tab: 'Web Generator', ruta: '/web-generator',
+    id: 'landing-escribir', ruta: '/web-generator',
     que: 'Crear tu landing con MaKo y publicarla: arma el esquema y las secciones desde tu oferta (o desde una página ya analizada, resolviendo sus hallazgos), la editas por bloques con el tema que elijas y queda en hola-mako.site/<tu-dirección> o en tu propio dominio, con el Pixel de MaKo midiendo las visitas.',
     como: [
       'Entra a Web Generator: en "¿Qué vas a crear hoy?" escribe qué página necesitas (o pega tu texto, o arrastra un archivo)',
@@ -88,14 +95,14 @@ export const CAPACIDADES: Capacidad[] = [
     ],
   },
   {
-    id: 'crm-lead', tab: 'CRM', ruta: '/crm',
+    id: 'crm-lead', ruta: '/crm',
     que: 'Ver y mover leads, completar su ficha, agendar, registrar el cierre y el cobro, y dejar el seguimiento anotado.',
     como: ['Abre el CRM', 'Busca el lead por nombre o teléfono', 'Actualiza su etapa y lo que falte de la ficha'],
   },
   {
-    id: 'wa-conversar', tab: 'WhatsApp', ruta: '/whatsapp',
+    id: 'wa-conversar', ruta: '/chats',
     que: 'Leer y contestar las conversaciones de WhatsApp del negocio, con MaKo sugiriendo la respuesta.',
-    como: ['Entra a WhatsApp', 'Abre la conversación', 'Pídele a MaKo que te sugiera la respuesta y ajústala'],
+    como: ['Entra a Chats', 'Abre la conversación', 'Pídele a MaKo que te sugiera la respuesta y ajústala'],
   },
   {
     // ⚠️ Decía `tab: 'Chatbot', ruta: '/chat-agent'` y las DOS cosas eran
@@ -105,19 +112,19 @@ export const CAPACIDADES: Capacidad[] = [
     // fuente de los links: se arregla una vez acá, o se propaga a cada lugar que
     // lo copie. Desde el 09/10/2026 la tab es **Automations** y su ruta
     // /automations (ex /chatbot, que redirige): las dos cosas cambiaron juntas.
-    id: 'nutricion', tab: 'Automations', ruta: '/automations',
+    id: 'nutricion', ruta: '/automations',
     que: 'Armar las secuencias de seguimiento y nutrición: qué se manda, cuándo, y a quién.',
     como: ['Entra a Automations', 'Elige la secuencia o crea una nueva', 'MaKo escribe los mensajes en tu voz y tú los apruebas'],
   },
   {
-    id: 'email', tab: 'Email', ruta: '/email',
+    id: 'email', ruta: '/email',
     que: 'Mandar campañas y secuencias por email.',
-    como: ['Entra a Email', 'Elige a quién le va', 'Revisa el texto que escribe MaKo y envíalo'],
+    como: ['Abre Email (se configura desde Chats)', 'Elige a quién le va', 'Revisa el texto que escribe MaKo y envíalo'],
   },
   {
     // Desde el 11/10/2026 `/dashboard` ES la pantalla (el editor de informes); /marketing y
     // /comercial son redirects a sus hojas.
-    id: 'metricas', tab: 'Dashboard', ruta: '/dashboard',
+    id: 'metricas', ruta: '/dashboard',
     que: 'Ver los números de marketing y comercial: gasto, costo por lead, agendas, show rate, cierres y facturación.',
     como: ['Abre el Dashboard', 'Elige el período', 'Pregúntale a MaKo qué cambió y por qué'],
   },
@@ -125,44 +132,44 @@ export const CAPACIDADES: Capacidad[] = [
     // Closing Analyst se retiró el 11/10/2026: las llamadas, su ficha y sus tareas son la hoja
     // «Closing» del Dashboard. ⚠️ La ruta lleva `?hoja=`: quien la cruce con el nav tiene que mirar
     // sólo el camino (lib/api-mako/areas/mako.run.ts, `disponible`).
-    id: 'llamadas', tab: 'Dashboard', ruta: '/dashboard?hoja=closing',
+    id: 'llamadas', ruta: '/dashboard?hoja=closing',
     que: 'Analizar una llamada de venta: qué objeciones salieron, qué se hizo bien y qué corregir.',
     como: ['Abre la hoja Closing del Dashboard', 'Elige la llamada en «Las llamadas»', 'Lee el análisis y lo que propone para la próxima'],
   },
   {
     // Ads Analyst también se retiró: el análisis de los guiones es la hoja «Ads Analyst» del Dashboard,
     // y valorar un guion nuevo es la capacidad de abajo (`guion-valorar`, en Ads Writer).
-    id: 'guiones-ads', tab: 'Dashboard', ruta: '/dashboard?hoja=ads-analyst',
+    id: 'guiones-ads', ruta: '/dashboard?hoja=ads-analyst',
     que: 'Ver qué guion y qué gancho retienen mejor, por cuartiles, cruzado con lo que después cerró.',
     como: ['Abre la hoja Ads Analyst del Dashboard', 'Mira los patrones y el cuadrante de retención', 'En «Guiones», compara hook rate, retención y agendas de cada uno'],
   },
   {
-    id: 'guion-valorar', tab: 'Ads Writer', ruta: '/ads-writer?tab=analizar',
+    id: 'guion-valorar', ruta: '/ads-writer?tab=analizar',
     que: 'Valorar un guion antes de grabarlo: MaKo lo compara contra lo que ya funcionó en tus anuncios y dice qué esperar.',
     como: ['Entra a Ads Writer, en Analizar guion', 'Pega el guion completo', 'Lee la valoración y qué esperar; los intentos quedan guardados'],
   },
   {
     // 17/10/2026: Experiments se retiró y vive en el Dashboard, en «Editar con MaKo» (lib/experimentos-catalogo.ts).
-    id: 'experimento', tab: 'Dashboard', ruta: '/dashboard',
+    id: 'experimento', ruta: '/dashboard',
     que: 'Probar una idea contra el dato real: MaKo la convierte en un experimento, lo mide y al terminar dice si se cumplió.',
     como: ['Entra al Dashboard y abre «Editar con MaKo»', 'Pide «Probemos …» con tu idea', 'Arráncalo en la hoja y vuelve cuando termine para concluirlo'],
   },
   {
     // /contexto era de la plataforma (sólo el super admin) y se fue el 25/10/2026: lo del negocio se carga en Second Brain
     // (lib/secciones-negocio.ts). El id se queda: es el contrato de `listar_capacidades_mako`.
-    id: 'contexto', tab: 'Second Brain', ruta: '/second-brain',
+    id: 'contexto', ruta: '/second-brain',
     que: 'Cargar lo que MaKo tiene que saber del negocio: documentos, glosario, oferta, precios.',
-    como: ['Entra a Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
+    como: ['En Ops Center, abre Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
   },
   {
     // 25/10/2026: decía que WhatsApp se conecta en Integraciones (el QR vive en Chats) y no nombraba la IA ni la computadora.
     // El link de CADA conexión lo da el catálogo único (lib/conexiones-catalogo.ts, `como_conectar`).
-    id: 'conectar', tab: 'Integraciones', ruta: '/integraciones',
+    id: 'conectar', ruta: '/integraciones',
     que: 'Conectar tus cuentas desde la computadora: tu GPT, Fathom, tus redes con Zernio, tu agenda, el email y el resto, y ver cuáles están sanas.',
-    como: ['Desde la computadora, entra a Integraciones', 'Abre la tarjeta de lo que quieres conectar y sigue su paso a paso', 'Tu Claude en tu computadora va en «Tus cuentas de IA»; tu número de WhatsApp, en Chats'],
+    como: ['Desde la computadora, entra a Settings → Integrations', 'Abre la tarjeta de lo que quieres conectar y sigue su paso a paso', 'Tu Claude en tu computadora va en «Tus cuentas de IA»; tu número de WhatsApp, en Chats'],
   },
   {
-    id: 'funnel', tab: 'CRM', ruta: '/crm',
+    id: 'funnel', ruta: '/crm',
     que: 'Definir el embudo: las etapas por las que pasa un lead y qué las hace avanzar.',
     como: ['Entra al CRM', 'Abre «Editar las etapas» en el menú de arriba', 'Eso alimenta al tablero y a la nutrición'],
   },
@@ -171,16 +178,21 @@ export const CAPACIDADES: Capacidad[] = [
     // fija a qué se comprometió el negocio este trimestre. Sin la entrada acá, el
     // Perro no tiene a dónde mandar una tarea de «definir la meta del Q» y la deja
     // como deber suelto teniendo la pantalla en la tab de al lado.
-    id: 'objetivo', tab: 'General', ruta: '/general',
+    id: 'objetivo', ruta: '/general',
     que: 'Fijar el objetivo del trimestre, elegir los KPIs que lo mueven y marcar cuánto puedes entregar. Es lo que decide qué aparece como prioridad del día.',
-    como: ['Entra a General', 'Toca el objetivo y ponle su meta y su período', 'Elige los KPIs que propone MaKo o escribe los tuyos', 'Los que registras a mano se cargan desde la misma lista'],
+    como: ['Entra al Dashboard, en la hoja Focus', 'Toca el objetivo y ponle su meta y su período', 'Elige los KPIs que propone MaKo o escribe los tuyos', 'Los que registras a mano se cargan desde la misma lista'],
   },
   {
-    id: 'equipo', tab: 'Configuraciones', ruta: '/equipo',
+    id: 'equipo', ruta: '/equipo',
     que: 'Sumar gente al equipo y darle el rol que corresponde (setter, closer, admin).',
-    como: ['Entra a Configuraciones → Equipo', 'Invita a la persona', 'Elige su rol: ve solo lo suyo'],
+    como: ['Entra a Settings → Equipo', 'Invita a la persona', 'Elige su rol: ve solo lo suyo'],
   },
 ];
+
+export const CAPACIDADES: Capacidad[] = BASE.map((c) => {
+  const f = funcionDeRuta(c.ruta);
+  return { ...c, funcion: f?.key ?? null, tab: f?.nombre ?? '' };
+});
 
 const PORID = new Map(CAPACIDADES.map((c) => [c.id, c]));
 export const capacidad = (id: string): Capacidad | undefined => PORID.get(id);

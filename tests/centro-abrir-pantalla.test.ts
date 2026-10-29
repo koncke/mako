@@ -77,9 +77,12 @@ test('el motor firma la apertura por mandar.ts, sólo para una terminal con el c
 // vacío (ChatNuevo.tsx) y la cuenta la elige MaKo. Lo que se fijaba acá sigue valiendo, en su lugar nuevo.
 test('«Nuevo chat» abre sólo en una cuenta cuyo Runner abre, dice cómo va, y copiar el comando queda de último recurso', () => {
   const motor = sinComentarios(leer('app/admin/operaciones/ChatNuevo.tsx'));
-  assert.match(motor, /cuentaParaChatNuevo\(CUENTAS_TERMINAL\.filter\(\(c\) => k\.puedeAbrirEn\(c\)\)/, '«Abrir» sólo en una cuenta que abre');
+  assert.match(motor, /const abren = CUENTAS_TERMINAL\.filter\(\(c\) => k\.puedeAbrirEn\(c\)\);/, '«Abrir» sólo en una cuenta que abre');
+  // Con archivos (28/10/2026), de ésas, las que los llevan a un chat nuevo: siempre un subconjunto de las que abren.
+  assert.match(motor, /const conArchivos = fs\.length \? abren\.filter\(\(c\) => k\.adjuntaEnNuevo\(c\)\) : abren;/);
+  assert.match(motor, /cuentaParaChatNuevo\(conArchivos\.length \? conArchivos : abren,/);
   assert.match(motor, /if \(!cuenta\) \{ setFase\('sin_forma'\); return; \}/, 'y si ninguna abre, lo dice');
-  assert.match(motor, /k\.abrirChat\(\{ nombre: d\.nombre, cuenta, texto: enviado \}\)/);
+  assert.match(motor, /k\.abrirChat\(\{ nombre: d\.nombre, cuenta, texto: enviado, archivos: fs \}\)/);
   const piezas = sinComentarios(leer('app/admin/operaciones/ChatNuevoPiezas.tsx'));
   assert.match(piezas, /Copiar comando/, 'el comando sigue, sólo cuando ninguna cuenta abre');
   assert.match(piezas, /n\.apertura \?\? 'Abriéndolo en la PC…'/, 'dice cómo va el último que se pidió');

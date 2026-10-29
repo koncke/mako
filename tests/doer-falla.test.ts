@@ -140,7 +140,7 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [], sinEstas: [] });
   assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [], sinEstas: [] });
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const intencion = correccion\.veredicto;/);
+  assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n(?:\s*\/\/[^\n]*\n)*\s*const intencion = enElGrupoSinSenal\(correccion\.veredicto, texto, pedidoDelHilo\(historial\)\?\.areas \?\? \[\]\);/);
   assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools\.filter\(\(t\) => !correccion\.sinEstas\.includes\(t\.name\)\), \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 
@@ -282,13 +282,14 @@ test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con l
   // con forma de guarda («No pude registrar la acción pendiente», «No pude leer las pasarelas conectadas») no abría ticket.
   const ej = leer('lib/api-mako/ejecutar.ts');
   assert.match(ej, /if \('error' in v\) return \{ ok: false, status: 400, error: v\.error, faltan: v\.faltan, guarda: true \};/, 'la validación es una guarda');
-  assert.match(ej, /const guarda = prep\.guarda \|\| prep\.faltan\?\.length \|\| prep\.yaEstaba \|\| prep\.falta \? \{ guarda: true as const \} : \{\};/);
+  // Desde el 28/10/2026 el error de un preparar ES guarda salvo `falla` (la verificación de 692368a60: tests/guarda-por-defecto).
+  assert.match(ej, /const guarda = prep\.falla \? \{\} : \{ guarda: true as const \};/);
   assert.match(ej, /const esGuarda = guarda === true \|\| \(Array\.isArray\(faltan\) && faltan\.length > 0\);/, 'el legado marca sólo lo suyo');
   assert.match(ej, /if \(r\.guarda\) cuerpo\.guarda = true;/, 'la marca no viaja al modelo ni al turno');
-  // Lo que NO es guarda: la pendiente que no entró, un throw (va como falla), el error suelto de un preparar.
+  // Lo que NO es guarda: la pendiente que no entró, un throw (va como falla), la falla que el preparar marca (`falla`).
   assert.match(ej, /if \('error' in c\) return \{ ok: false, status: 500, error: c\.error, \.\.\.\(c\.motivo \? \{ motivo: c\.motivo \} : \{\}\), noCorrio: true \};/);
   assert.match(ej, /if \(!esNuestro\(msg\)\) return \{ ok: false, status: 400, error: msg \};/);
-  assert.match(leer('lib/api-mako/areas/cobros.run.ts'), /if \(!conectadas\) return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.' \};/);
+  assert.match(leer('lib/api-mako/areas/cobros.run.ts'), /if \(!conectadas\) return \{ error: 'No pude leer las pasarelas conectadas\. Prueba de nuevo en un rato\.', falla: true \};/);
   // El runner viejo del doer: sus guardas llevan la marca; la pendiente que no entró y lo que reventó, no.
   const viejo = leer('lib/mako-doer-acciones.ts');
   assert.match(viejo, /if \('error' in c\) return JSON\.stringify\(\{ ok: false, error: 'No pude registrar la acción pendiente\.', noCorrio: true \}\);/);
@@ -338,7 +339,9 @@ test('15. la nota de voz de un grupo: Groq de la plataforma primero, Gemini nunc
   assert.ok(iCero > 0 && iCero < iNegocio, 'el Groq de la plataforma no va primero');
   assert.match(ai, /if \(o\.notaDeVozDelGrupo\) throw new SttSinEscucha\(errores, erroresPlataforma\);/, 'la red (con Gemini) corre para el grupo');
   const doer = leer('lib/mako-doer-in.ts');
-  assert.equal((doer.match(/feature: 'MaKo · nota de voz', [^}]*pii: true, notaDeVozDelGrupo: true \}/g) ?? []).length, 2, 'una de las dos transcripciones del doer no es «del grupo»');
+  // Tres desde el 28/10/2026: el suelto, el del lote y la nota de voz CITADA (`escucharElAudioCitado`, Leandro).
+  assert.equal((doer.match(/feature: 'MaKo · nota de voz', [^}]*pii: true, notaDeVozDelGrupo: true \}/g) ?? []).length, 3, 'una de las transcripciones del doer no es «del grupo»');
+  assert.equal((doer.match(/feature: 'MaKo · nota de voz'/g) ?? []).length, 3, 'una transcripción nueva del doer sin «del grupo»');
   // La que no se escucha: UNA función para el suelto y los dos lotes; en el lote, el audio ya no desaparece.
   assert.match(doer, /return \{ engaged: true, reply: await avisarAudioSinEscuchar\(wsData, jid, dondeDelGrupo\('\(nota de voz\)'\), e\) \};/);
   assert.equal((doer.match(/if \(!\('texto' in oido\)\) \{ avisoDelAudio \?\?= await avisarElAudioDelLote\(/g) ?? []).length, 2, 'un lote todavía tira el audio sin avisar');

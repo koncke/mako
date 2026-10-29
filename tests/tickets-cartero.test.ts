@@ -107,5 +107,5 @@ test('por WhatsApp: quién lo pidió es su teléfono, y se le atribuye a la pers
   // Las DOS operaciones (levantar_ticket y mis_tickets) resuelven quién es por `identidadDelActor`.
   assert.equal(run.split('const quien = await identidadDelActor(ctx.ws, ctx.actor);').length - 1, 2);
   assert.doesNotMatch(run, /includes\('@'\)/, 'el runner ya no exige un email');
-  assert.match(sinComentarios(leer('lib/tickets-cierre.ts')), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto\)/);
+  assert.match(sinComentarios(leer('lib/tickets-cierre.ts')), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto, \{ de: 'equipo', ticket: Number\(f\.id\) \}\)/);
 });

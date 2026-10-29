@@ -80,8 +80,18 @@ export async function nombreDelNegocioActual(): Promise<string | null> {
   return (await getWorkspace(ws).catch(() => null))?.nombre ?? null;
 }
 
-export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string; lean?: boolean; sinNumerosDelNegocio?: boolean }): Promise<string> {
+/**
+ * `canal: 'grupo'` (28/10/2026, el diagnóstico del Cerebro, F1): el turno del grupo de WhatsApp de un negocio. Va primero
+ * NUCLEO_GRUPO (lib/nucleo-grupo.ts), fijo, en lugar de la persona de consultor, del núcleo del dashboard y de «chat general
+ * del dashboard»; sin la fase de la sección; y el contexto del NEGOCIO (su fase, objetivos, metodología, experimentos, funnel,
+ * cara de marca y tabs sin configurar) sólo con `conElNegocio`. La app y los gráficos siguen iguales.
+ */
+export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string; lean?: boolean; sinNumerosDelNegocio?: boolean; canal?: 'grupo'; conElNegocio?: boolean }): Promise<string> {
   const { chartKey, titulo, contexto, query } = opts;
+  const grupo = opts.canal === 'grupo';
+  /** ¿Va el contexto del negocio? Siempre fuera del grupo; en el grupo, sólo si el turno lo usa. */
+  const negocio = !grupo || !!opts.conElNegocio;
+  const { NUCLEO_GRUPO, funcionesParaElGrupo } = await import('./nucleo-grupo');
 
   // MODO LEAN (feedback jul-19, costo): para turnos que NO razonan (cargar tareas,
   // leer un dato con una tool, confirmar un "sí", charla) NO hace falta mandar TODO el
@@ -89,6 +99,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // CADA mensaje — las TOOLS ya traen el dato. Mandamos solo la voz de MaKo (persona +
   // núcleo). Recorta ~3-4k tokens de INPUT por turno (el grueso del gasto del doer).
   if (opts.lean) {
+    if (grupo) return `${NUCLEO_GRUPO}\n\n${REGLA_NO_DESCALIFICAR}`;
     const [persona, nucleo] = await Promise.all([
       getActivePersona().catch(() => ''),
       getPromptText('mako.nucleo', MAKO_NUCLEO),
@@ -97,16 +108,17 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   }
 
   const [persona, perfil, faseNegocio, fase, knowledge, nombreNegocio] = await Promise.all([
-    getActivePersona().catch(() => ''),
+    grupo ? '' : getActivePersona().catch(() => ''),
     perfilNegocioTexto().catch(() => ''),
-    faseNegocioTexto().catch(() => ''),
-    getFaseInstruccion(chartKey).catch(() => ''),
-    searchKnowledge(query, 4).catch(() => [] as Array<{ titulo: string; cuerpo: string }>),
+    negocio ? faseNegocioTexto().catch(() => '') : '',
+    // La fase de la SECCIÓN es del dashboard («QUÉ TIENES QUE MIRAR Y HACER EN ESTA SECCIÓN»): en el grupo, nunca.
+    grupo ? '' : getFaseInstruccion(chartKey).catch(() => ''),
+    negocio ? searchKnowledge(query, 4).catch(() => [] as Array<{ titulo: string; cuerpo: string }>) : [],
     nombreDelNegocioActual().catch(() => null),
   ]);
 
-  // Núcleo de formato/tono: editable desde Configuraciones (default en código).
-  const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
+  // Núcleo de formato/tono: editable desde Configuraciones (default en código). En el grupo, el suyo, fijo y primero.
+  const nucleo = grupo ? NUCLEO_GRUPO : await getPromptText('mako.nucleo', MAKO_NUCLEO);
   // Lo que pide la persona nunca se descalifica (crítica de Leila, 27/10/2026): fijo, después de lo editable.
   let base = `${persona}\n\n${nucleo}\n\n${REGLA_NO_DESCALIFICAR}`.trim();
   if (perfil) base += `\n\n${rotuloDelNegocio(nombreNegocio)}:\n${perfil}`;
@@ -120,7 +132,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // correcto en general y no lo correcto AHORA.
   // ⚠️ `sinNumerosDelNegocio` (auditoría del 14/10/2026): el avance del trimestre trae plata (USD vendidos,
   // cobrados, invertidos) y un closer o setter no la ve en ninguna pantalla. Sin esto, se la contaba MaKo.
-  const objetivosTxt = opts.sinNumerosDelNegocio ? '' : await objetivosContextoTexto().catch(() => '');
+  const objetivosTxt = opts.sinNumerosDelNegocio || !negocio ? '' : await objetivosContextoTexto().catch(() => '');
   if (objetivosTxt) base += `\n\nA QUÉ SE COMPROMETIÓ ESTE TRIMESTRE (úsalo para decidir qué es urgente):\n${objetivosTxt}`;
   if (fase) base += `\n\nQUÉ TIENES QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);
@@ -128,13 +140,13 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
 
   // Experimentos: las verdades validadas (que MaKo SÍ puede afirmar) y lo que
   // sigue en prueba. Para todo lo no probado, MaKo sugiere abrir un experimento.
-  const exps = await resumenExperimentos().catch(() => '');
+  const exps = negocio ? await resumenExperimentos().catch(() => '') : '';
   if (exps) base += `\n\nESTADO DE EXPERIMENTOS DEL NEGOCIO:\n${exps}`;
 
   // El funnel/proceso comercial real (tabla `funnels`, editable en /funnel): que MaKo
   // razone con las etapas del workspace y no con un embudo genérico. Aditivo — con
   // el funnel default el prompt describe el embudo base de siempre.
-  const funnelTxt = await resumenFunnel().catch(() => '');
+  const funnelTxt = negocio ? await resumenFunnel().catch(() => '') : '';
   if (funnelTxt) base += `\n\nEL FUNNEL / PROCESO COMERCIAL DEL NEGOCIO (fuente de verdad, editable en /funnel):\n${funnelTxt}`;
 
   // LA CARA DE MARCA: las fotos y la descripción física que el cliente cargó en
@@ -143,7 +155,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // de los creativos aunque el cliente hubiera cargado cinco fotos y MaKo mismo
   // hubiera escrito la descripción. Ver el comentario de `resumenCaraDeMarca`.
   const { resumenCaraDeMarca } = await import('./persona');
-  const caraTxt = await resumenCaraDeMarca().catch(() => '');
+  const caraTxt = negocio ? await resumenCaraDeMarca().catch(() => '') : '';
   if (caraTxt) base += `\n\n${caraTxt}`;
 
   // LOS HECHOS DE MAKO SOBRE SÍ MISMA. Van en TODAS las superficies y no solo en
@@ -157,12 +169,14 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const { hechosMako } = await import('./hechos-mako');
   const { APP_BASE_URL } = await import('./app-url');
   base += `\n\n${hechosMako(APP_BASE_URL)}`;
+  // En el grupo, también qué hace cada función de MaKo (el catálogo de MaKo inteligente, compacto: F2c).
+  if (grupo) base += `\n\n${funcionesParaElGrupo()}`;
 
   // Tabs cuyo onboarding no está terminado (regla: toda tab tiene onboarding —
   // ver .claude/skills/tab-onboarding). Sin esta señal MaKo propone optimizar lo
   // que el cliente nunca configuró.
   const { resumenOnboardingTabs } = await import('./tab-onboarding-state');
-  const tabsPendientes = await resumenOnboardingTabs().catch(() => '');
+  const tabsPendientes = negocio ? await resumenOnboardingTabs().catch(() => '') : '';
   if (tabsPendientes) base += `\n\n${tabsPendientes}`;
 
   // Chat de secuencias de WhatsApp: sos consultor de deliverability. Cargás las
@@ -175,6 +189,8 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
     if (resumen) base += `\n\nESTADO ACTUAL DE LAS SECUENCIAS Y PLANTILLAS DEL NEGOCIO:\n${resumen}`;
   }
 
+  // El grupo no es el «chat general del dashboard»: su contexto (DOER_WA_VOZ y la memoria) lo pone lib/mako-doer-in.ts.
+  if (grupo) return base;
   if (!contexto.trim()) {
     const general = await getPromptText('mako.context.general_fallback', MAKO_CTX_GENERAL_DEFAULT);
     return `${base}\n\n${general}`;

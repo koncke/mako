@@ -789,7 +789,7 @@ export const RUNNERS: Runners = {
         // La zona DECIDE el instante: estricta. Un negocio sin zona guardada usa la de por defecto,
         // que es lo que ya ve en todas sus pantallas.
         const tz = await zonaDelNegocioEstricta(n.ws).catch(() => null);
-        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.` };
+        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.`, falla: true };
         asignaciones.push({ ws: n.ws, desde: instanteDelPlazo(tz, fecha, hora)!.toISOString() });
       }
       const cambian = asignaciones.filter((a) => {
@@ -843,7 +843,7 @@ export const RUNNERS: Runners = {
     preparar: async (): Promise<Preparado> => {
       const e = await estadoPlantillaReporte();
       if (e.estado === 'approved' || e.estado === 'pending') return { error: `La plantilla «reporte_mako» ya está ${e.estado === 'approved' ? 'aprobada' : 'en revisión'}: no hace falta mandarla.` };
-      if (e.estado === 'error') return { error: `No se pudo consultar Meta (${e.motivo ?? 'sin WhatsApp oficial conectado'}).` };
+      if (e.estado === 'error') return { error: `No se pudo consultar Meta (${e.motivo ?? 'sin WhatsApp oficial conectado'}).`, falla: true };
       // enviarBorradorAMeta solo manda un borrador en `borrador` o `rejected`, y
       // upsertDraft no le resetea el status: si Meta ya no la tiene (o el rechazo no
       // se reconcilió) y acá quedó `pending`/`approved`, el envío falla siempre.

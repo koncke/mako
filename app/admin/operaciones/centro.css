@@ -1283,6 +1283,9 @@ summary.co-uso__api-cab:focus-visible { outline: 2px solid var(--primary); outli
 }
 .co-miniatura:hover .co-miniatura__quitar, .co-miniatura__quitar:focus-visible { opacity: 1; }
 @media (hover: none) { .co-miniatura__quitar { opacity: 1; } }
+/* Con la caja quieta (saliendo, apagada) la ✕ no quita: no se ofrece, ni al pasar el mouse ni en el teléfono (28/10/2026; se veía
+   igual que la activa y parecía rota). */
+.co-miniatura__quitar:disabled, .co-miniatura:hover .co-miniatura__quitar:disabled { opacity: 0; pointer-events: none; }
 /* El adjunto ampliado antes de mandar: la foto entera o el PDF, sobre todo lo demás. */
 .co-ver { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(10, 12, 16, .72); }
 .co-ver__marco { position: relative; display: flex; max-width: min(960px, 100%); max-height: 100%; }

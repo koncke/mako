@@ -48,28 +48,35 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
 import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
-import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
+import { conElNegocio } from '@/lib/nucleo-grupo';
+import { bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
+import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
+import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
+import { audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar } from '@/lib/audio-citado';
+import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
+import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
-import { sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
+import { aFormatoWhatsapp, sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia, numeroDeInstancia } from '@/lib/evolution';
-import { getSetting, setSetting } from '@/lib/settings';
-import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
+import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
+import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno, getWorkspace } from '@/lib/workspace';
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
-import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones, hizoAlgo } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
@@ -105,11 +112,13 @@ const TICKET_TOOLS = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToo
 /** La agenda del día (crm): viaja cuando el mensaje pide VER la agenda y el turno no la trajo (lib/doer-falla.ts, 27/10/2026). */
 const AGENDA_DEL_DIA = 'agenda_del_dia';
 const AGENDA_TOOLS = (() => { const d = porId(AGENDA_DEL_DIA); return d ? [aToolDef(d)] : []; })();
-/** ⛔ En los grupos de WhatsApp, Gemini afuera (Martín, 28/10/2026): ni la charla barata (que lo prueba primero) ni los candidatos. */
-const SIN_GEMINI_EN_EL_GRUPO: boolean = true;
 /** Los tickets de la persona (lib/api-mako/areas/tickets.def.ts): viajan con un pedido de funcionalidad, para decir si ya hay uno. */
 const MIS_TICKETS = 'mis_tickets';
 const MIS_TICKETS_TOOLS = (() => { const d = porId(MIS_TICKETS); return d ? [aToolDef(d)] : []; })();
+/** Lo que hace MaKo (28/10/2026, el diagnóstico del Cerebro, F2c): va con las de siempre, así viaja en todo turno del grupo que
+ *  consulta, actúa o piensa (en capturar y en charla, no: `herramientasDelTurno` lo filtra por el contrato). Viajaba sólo si
+ *  el mensaje nombraba el área de MaKo, y el modelo contestaba «no existe» lo que ya existe. Es lectura y sin datos de clientes. */
+const CAPACIDADES_TOOLS = (() => { const d = porId('listar_capacidades_mako'); return d ? [aToolDef(d)] : []; })();
 /** Las de una corrección de monto (lib/doer-falla.ts, `HERRAMIENTAS_CORRECCION`): viajan aunque el presupuesto las deje afuera. */
 const CORRECCION_TOOLS = HERRAMIENTAS_CORRECCION.flatMap((id) => { const d = porId(id); return d ? [aToolDef(d)] : []; });
 
@@ -313,7 +322,7 @@ function hoyLegible(tz: string): string {
 
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
-SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
+SI NO SABES A QUÉ SE REFIERE O QUÉ TE PIDE: pregúntalo, en una línea. ⛔ No lo conviertas en una tarea del plan ni crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió. Si pide algo que MaKo no hace, vas por PEDIDO DE FUNCIÓN O PROBLEMA, no al plan.
 
 ⛔ NO PROMETAS LO QUE NO HACES EN ESTE MISMO MENSAJE: nada de "déjame ver", "ya te lo cargo", "dame un segundo", "en breves te digo". Si algo lleva tiempo, el aviso de espera ya salió antes de tu respuesta: no lo repitas. Tu respuesta es el FINAL del turno: no hay un después en el que vuelvas con el dato. Si hay que mirar o hacer algo, hazlo AHORA y contesta con lo que pasó; si no puedes, dilo en una línea y di cómo se hace. Para ofrecer, PREGUNTA ("¿te lo cargo al plan?").
 
@@ -353,7 +362,8 @@ SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, 
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
 // ⚠️ La conversación va a /chats?lead= desde el 14/10/2026 (lib/chats-links.ts): /whatsapp?lead= ya no
 // abría ese chat sino el primero de la lista, el de OTRA persona.
-const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
+const DEEP_LINKS = `LINKS A LA APP: un link sólo si lleva a lo concreto de lo que se habla (el lead, la llamada, la automatización): nunca /plan ni /dashboard de relleno (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
+- Automations (flujos, disparadores de Instagram y WhatsApp, botones en DM): ${APP_URL}/automations
 - Ficha 360 de un lead: ${APP_URL}/crm/{id}
 - Análisis de una llamada de ventas: ${APP_URL}/dashboard?hoja=closing&llamada={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/dashboard?hoja=closing.
 - Los chats con un lead (WhatsApp, Instagram y Messenger en un solo hilo): ${APP_URL}${RUTA_CHATS}?${PARAM_CHATS.lead}={id}
@@ -752,9 +762,15 @@ async function contestaAOtroEnLaCola(wsData: number, instance: string, jid: stri
   return conLasRespuestas(textos)[i].para === 'a-otro';
 }
 
+/** Las @menciones del mensaje, adentro y en el nivel de arriba (Evolution v2 las manda arriba: la verificación de 5b7a1917d). */
+function mencionesDelMensaje(data: MsgIn): string[] {
+  const arriba = (data as { contextInfo?: unknown }).contextInfo;
+  return [...new Set([...mencionesDe(data.message as Record<string, unknown> | undefined), ...(arriba ? mencionesDe({ contextInfo: arriba }) : [])])];
+}
+
 /** A quién mencionan en el mensaje (lib/doer-para-quien.ts). Sin menciones, la línea no se lee. */
 async function mencionadosEn(instance: string, data: MsgIn): Promise<Mencionados> {
-  const menciones = mencionesDe(data.message as Record<string, unknown> | undefined);
+  const menciones = mencionesDelMensaje(data);
   return menciones.length ? quienesMencionados(menciones, await numeroDeLaLinea(instance)) : { aMaKo: false, aOtros: [] };
 }
 
@@ -784,6 +800,48 @@ async function enganchaElTexto(wsData: number, jid: string, texto: string, quien
   const engancha = (await modoDoer(OWNER_WS, jid)) === 'libre' || nombraAMaKo(texto) || quien.aMaKo
     || (await ventanaVigente(OWNER_WS, jid)) || (await pendientes());
   return engancha && !(await noEsParaMaKoAhora(wsData, jid, texto, quien, pendientes));
+}
+
+/**
+ * ¿El mensaje le contesta al EQUIPO? (lib/doer-equipo.ts, `respuestaAlEquipo`). Lo barato primero: nombrar a MaKo gana; sin
+ * cita y sin una pregunta del equipo en el anillo no se lee nada más. Sin poder leer cuándo habló MaKo, es para MaKo (como hoy).
+ */
+async function contestaAlEquipo(wsData: number, instance: string, jid: string, data: MsgIn, texto: string, esTexto: boolean): Promise<{ delEquipo: DelEquipo; ventana: boolean } | null> {
+  if (nombraAMaKo(texto) || (await mencionadosEn(instance, data)).aMaKo) return null;
+  // Un acuse («gracias», «ok») va por su camino: el 👍 y sin turno (la verificación de 5b7a1917d).
+  if (esTexto && esAcusePuro(texto)) return null;
+  // La cita donde venga: adentro del mensaje o en el nivel de arriba (Evolution v2, la forma real).
+  const cita = citaDelMensaje(data as never);
+  const citado = cita ? { id: cita.id, texto: cita.texto } : null;
+  if (!citado && !esTexto) return null;
+  const anillo = delEquipo(await runWithWorkspace(wsData, () => getSetting(CLAVE_EQUIPO_EN_EL_GRUPO)).catch(() => null));
+  if (!citado && !anillo.some((d) => esPreguntaDelEquipo(d) && !d.respondida)) return null;
+  let ultima: string | null = null;
+  if (!citado) {
+    try { ultima = await ultimaDeMaKo(wsData, jid); } catch { return null; }
+  }
+  return respuestaAlEquipo({
+    citado, autor: { jid: data.key?.participant ?? null, nombre: data.pushName ?? null },
+    anillo, ultimaDeMaKo: ultima, ahora: new Date(), nombraAMaKo: false, esTexto,
+  });
+}
+
+/** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
+async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: string, a: DelEquipo): Promise<void> {
+  const quien = data.pushName?.trim() || 'Alguien del negocio';
+  // Una re-entrega del mismo mensaje (Evolution reintenta, otra línea lo entrega) no repite el aviso ni el comentario.
+  const id = data.key?.id ?? '';
+  if (id) {
+    const avisadas = await runWithWorkspace(wsData, () => getSettingEstricto(CLAVE_RESPUESTAS_AVISADAS));
+    const r = conLaAvisada(avisadas, id);
+    if (r.yaEstaba) return;
+    await runWithWorkspace(wsData, () => setSetting(CLAVE_RESPUESTAS_AVISADAS, JSON.stringify(r.ids)));
+  }
+  if (a.ticket && (await sumarAlPedidoDelNegocio(wsData, a.ticket, `${quien}: ${texto}`).catch(() => false))) return;
+  const negocio = (await getWorkspace(wsData).catch(() => null))?.nombre ?? `ws${wsData}`;
+  const { enviarAlGrupoSuperAdmin } = await import('@/lib/mako-grupo');
+  const r = await enviarAlGrupoSuperAdmin(`👨‍💻 Respuesta al equipo — ${negocio} (ws${wsData}), ${quien}:\n«${texto.slice(0, 600)}»\n\nContesta a: «${sinFirmaDelEquipo(a.texto).replace(/\s+/g, ' ').slice(0, 200)}»`);
+  if (!r.ok) throw new Error(r.error ?? 'no salió');
 }
 
 /** Lo que dejó el acuse del que ganó el candado: si ya dijo la frase de espera (el 👍 falló y el pedido se sabía largo). */
@@ -856,7 +914,35 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola). Va ANTES del 👍: MaKo no se
   // reacciona a sí misma (medido el 24/10/2026 en el store de Evolution: 1 de 120 reacciones fue a un mensaje suyo).
   if (await esEcoDeMaKoAhora(instance, jid, data.key)) {
+    // Lo que el EQUIPO escribió por la línea de MaKo (el panel, el teléfono): a su anillo, aunque no haya salido por
+    // `enviarAlGrupoMaKo`. Sin esto, la respuesta al equipo (abajo) no sabe que el equipo preguntó.
+    if (esFirmaDelEquipo(texto)) {
+      const { anotarLoDelEquipo } = await import('@/lib/mako-grupo');
+      await anotarLoDelEquipo(wsData, texto, msgId, undefined, paraDelEquipo(texto, mencionesDelMensaje(data))).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude anotar lo del equipo: ${e instanceof Error ? e.message : String(e)}`));
+    }
     return { engaged: false, skip: 'eco de mi propia respuesta' };
+  }
+
+  // ── LA RESPUESTA AL EQUIPO NO ES PARA MaKo (28/10/2026, Leila, ws11; lib/doer-equipo.ts) ────────────────────────────
+  // Martín: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa». Sin 👍 (dice «MaKo lo tomó»), sin turno,
+  // y queda para el equipo: en su ticket si lo tenía, o un aviso al grupo de SuperAdmin. Va antes de la cola: no entra a ningún
+  // lote ni al cron.
+  // La re-entrega de una respuesta al equipo ya avisada no entra: con la ventana ya cerrada, iría a MaKo (nunca pasó por la cola,
+  // que es lo que deduplica las demás).
+  if (msgId && conLaAvisada(await runWithWorkspace(wsData, () => getSetting(CLAVE_RESPUESTAS_AVISADAS)).catch(() => null), msgId).yaEstaba) {
+    return { engaged: false, skip: 'respuesta al equipo (re-entrega)' };
+  }
+  const alEquipo = await contestaAlEquipo(wsData, instance, jid, data, texto, !audio && !adjunto);
+  if (alEquipo) {
+    await registrarRespuestaAlEquipo(wsData, data, texto || '(una nota de voz o un archivo)', alEquipo.delEquipo)
+      .catch((e) => console.error(`[mako-doer-in] ws=${wsData} la respuesta al equipo no quedó registrada: ${e instanceof Error ? e.message : String(e)}`));
+    // La ventana se cierra con la PRIMERA respuesta: lo que sigue ya es para MaKo (la verificación de 5b7a1917d).
+    if (alEquipo.ventana && alEquipo.delEquipo.id) {
+      const { cerrarLaPreguntaDelEquipo } = await import('@/lib/mako-grupo');
+      await cerrarLaPreguntaDelEquipo(wsData, alEquipo.delEquipo.id).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude cerrar la pregunta del equipo: ${e instanceof Error ? e.message : String(e)}`));
+    }
+    // Si además le pide algo a MaKo, va a los dos: el equipo ya lo tiene, y MaKo contesta el pedido.
+    if (!texto || !pideAlgoAMaKo(texto)) return { engaged: false, skip: 'respuesta al equipo' };
   }
 
   // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola. Y el aviso, sólo si la clave estaba en lo
@@ -948,6 +1034,11 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
         if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido); continue; }
         t = oido.texto;
       }
+      // La nota de voz que CITA (Leandro, 28/10/2026): con lo que dice; si no se pudo, como un audio que no se escuchó.
+      const citado = await escucharElAudioCitado(instance, jid, p);
+      if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
+      else if (citado && 'texto' in citado) t = conLaCitaSinEscuchar(t, 'vacia');
+      else if (citado) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, citado, true); t = conLaCitaSinEscuchar(t, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar'); }
       // El ARCHIVO gana sobre el texto suelto del mensaje: `textoDeArchivo` ya mete
       // adentro el pedido («mako, cargá esto») junto al contenido, así que usar `t` acá
       // perdería el archivo — que es justo lo que pasaba.
@@ -1067,11 +1158,34 @@ async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<{ texto
   } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return { fallo: e }; }
 }
 
+/**
+ * La nota de voz que el mensaje CITA (Leandro, 28/10/2026, lib/audio-citado.ts): se baja por el id de la cita, de la misma línea
+ * (no se sabe si la mandó la línea: se prueba como de otro y como propia), y se transcribe por la vía de la nota de voz del
+ * grupo. null si no cita ninguna; `fallo`/`sinAudio` como `transcribirDeMensaje`.
+ */
+export async function escucharElAudioCitado(instance: string, jid: string, m: MsgIn): Promise<{ texto: string; segundos: number | null } | { fallo: unknown } | { sinAudio: true } | null> {
+  const c = audioCitadoDe(m as never);
+  if (!c) return null;
+  let b64 = c.base64;
+  let mime = c.mime;
+  for (const fromMe of [false, true]) {
+    if (b64) break;
+    const media = await fetchMediaBase64EnInstancia(instance, jid, c.id, fromMe).catch(() => null);
+    if (media) { b64 = media.base64; mime = media.mimetype?.startsWith('audio/') ? media.mimetype : mime; }
+  }
+  if (!b64) return { sinAudio: true };
+  try {
+    return { texto: (await transcribirAudio(b64, mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir la nota de voz citada', pii: true, notaDeVozDelGrupo: true })).trim(), segundos: c.segundos };
+  } catch (e) { console.error('[mako-doer-in] STT citado:', e instanceof Error ? e.message : String(e)); return { fallo: e }; }
+}
+
 /** El audio de un lote que no se escuchó: el aviso (una vez por lote) y su ticket (`avisarAudioSinEscuchar`), o el «no me deja
  *  bajarlo» si WhatsApp no lo entregó. Devuelve el aviso para que el lote no termine en 👍 y silencio. */
-async function avisarElAudioDelLote(wsData: number, jid: string, p: MsgIn, oido: { fallo: unknown } | { sinAudio: true }): Promise<string> {
+async function avisarElAudioDelLote(wsData: number, jid: string, p: MsgIn, oido: { fallo: unknown } | { sinAudio: true }, citado = false): Promise<string> {
   if ('sinAudio' in oido) {
-    const aviso = 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenvías o me lo escribes?';
+    // De la CITADA no se dice «tu audio»: puede ser de otra persona o de MaKo.
+    const aviso = citado ? 'La nota de voz que citaste no la puedo bajar de WhatsApp. ¿Me la reenvías o me la escribes?'
+      : 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenvías o me lo escribes?';
     const env = await enviarAGrupoJid(jid, aviso, 0);
     if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
     return aviso;
@@ -1187,6 +1301,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };
       }
+    }
+
+    // ── LA NOTA DE VOZ CITADA (Leandro, 28/10/2026, lib/audio-citado.ts) ─────────────────────────────────────────────────
+    // «No me respondiste lo de este audio», citando su audio: se escucha y entra al turno con lo que dice. Si de verdad no se
+    // pudo, lo dice MaKo con su ticket (`avisarAudioSinEscuchar`): nunca «no puedo escuchar audios».
+    const citado = await escucharElAudioCitado(instance, jid, data);
+    if (citado && 'texto' in citado && citado.texto) texto = conElAudioCitado(texto, citado.texto, citado.segundos);
+    else if (citado && 'texto' in citado) texto = conLaCitaSinEscuchar(texto, 'vacia');
+    else if (citado) {
+      // El aviso honesto (no bajó: «WhatsApp no me deja bajarla»; no se escuchó: con su ticket), y el RESTO del mensaje sigue
+      // al turno. Antes: un cartel que culpaba a la IA del negocio, y el pedido se tiraba (la verificación de 5b7a1917d).
+      await avisarElAudioDelLote(wsData, jid, data, citado, true);
+      texto = conLaCitaSinEscuchar(texto, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar');
     }
 
     // ── LA RESPUESTA A «¿QUIERES QUE TE AYUDE?» / «¿LEVANTO UN TICKET?» (25/10/2026, lib/doer-ayuda.ts) ──────────────
@@ -1319,7 +1446,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Con lo último de la charla: el seguimiento de Leila sin foto («son 423, no 4235») no nombra la plata; la foto de antes, sí.
     const loDeAntes = historial.slice(-2).map((r) => (typeof r.content === 'string' ? r.content : '')).join('\n');
     const correccion = laCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto), loDeAntes);
-    const intencion = correccion.veredicto;
+    // Lo que nadie reconoció NO se captura en el grupo (G1, lib/doer-hilo.ts): un acuse es charla; lo demás, una consulta con
+    // las áreas del hilo, MaKo y el CRM. Nunca el Plan por default.
+    const intencion = enElGrupoSinSenal(correccion.veredicto, texto, pedidoDelHilo(historial)?.areas ?? []);
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
@@ -1343,8 +1472,24 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // router (tareas→Sonnet, no Opus), el subset de tools y el historial de 12. El lean
     // queda disponible en buildSystemPrompt para cuando revisemos ese flujo.
     // La consulta al conocimiento (el Second Brain): con el pedido del hilo, si lo sigue. «y eso?» solo no encuentra nada.
-    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno(texto, conHilo.hilo) }));
+    // ⚠️ EL SYSTEM DEL GRUPO NO ES EL DEL DASHBOARD (28/10/2026, F1, lib/nucleo-grupo.ts): sin la persona de consultor ni el
+    // núcleo de los gráficos, y el contexto del negocio sólo si el turno piensa o consulta sus números, su copy o sus anuncios.
+    const negocio = conElNegocio(intencion, [...areasDelMensaje(sinPrefijoDeLote(texto)), ...(intencion.areas ?? [])]);
+    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno(texto, conHilo.hilo), canal: 'grupo', conElNegocio: negocio }));
     // LO QUE YA SE HABLÓ (y lo que MaKo propuso o hizo) de antes de la ventana: hechos con fecha, al final del system.
+    // LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO (F2a, lib/doer-equipo.ts): un bloque aparte, nunca un turno de MaKo. Sin
+    // poder leerlo, sin el bloque (el turno sigue: es contexto, no una regla).
+    const tzGrupo = await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT);
+    const ctxEquipo = bloqueDelEquipo(
+      await runWithWorkspace(wsData, () => getSetting(CLAVE_EQUIPO_EN_EL_GRUPO)).catch(() => null), new Date(), tzGrupo,
+    );
+    // LO QUE EL NEGOCIO YA PIDIÓ (F2b, lib/pedidos-del-negocio.ts): sus tickets abiertos y los resueltos de hace poco, de
+    // cualquier persona del negocio. Sin poder leerlos, sin el bloque.
+    const leidos = await ticketsDelNegocio(wsData).catch(() => null);
+    const pedidosDelNegocio: PedidoDelNegocio[] = leidos?.ok
+      ? leidos.datos.map((t) => ({ id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at }))
+      : [];
+    const ctxPedidos = bloqueDePedidos(pedidosDelNegocio, new Date(), tzGrupo);
     const ctxYaSeHablo = bloqueYaSeHablo(
       memoria.antes,
       await accionesDelGrupo(wsData, jid, DIAS_DE_HECHOS).catch(() => []),
@@ -1437,7 +1582,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     };
     // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
     // Viaja donde viajan las acciones (en una pregunta MaKo ofrece, en `capturar` no), lo decide `herramientasDelTurno`.
-    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS];
+    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS, ...CAPACIDADES_TOOLS];
     // Las herramientas del turno salen de UNA función pura (lib/doer-herramientas.ts), la
     // misma que usa tests/agenda-whatsapp.test.ts: el test armaba el turno a mano, sin el
     // clasificador, y daba verde mientras el turno real llegaba sin la herramienta.
@@ -1530,7 +1675,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const armarSystem = (tools: typeof turno.tools, aviso = '', baseDelSystem = base): string => {
       const permitidasDelTurno = new Set(tools.map((t) => t.name));
       const bloqueTools = tools.length
-        ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+        ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y ninguna otra en este turno: son una selección para este pedido, no todo lo que MaKo hace): ${tools.map((t) => t.name).join(', ')}.`
         : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea: que desde este mensaje no lo puedes mirar y que te lo pida directo («¿qué tareas tengo hoy?»). ⛔ No prometas mirarlo después: no hay un después.';
       const ctxHoy = tools.length && tzHoy
         ? `\n\nHOY ES ${hoyLegible(tzHoy)} (zona ${tzHoy}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.`
@@ -1542,7 +1687,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
       // Quién escribe (su nombre de WhatsApp: a la persona de un negocio la llamó «Martín», 27/10/2026), también sólo en el system
       // del turno: la red de la plataforma corre sin datos de clientes.
-      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
+      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxEquipo, ctxPedidos, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
       // Lo que no existe y lo que no pudo llevan su marca, y el ticket lo abre el código (lib/no-existe.ts, lib/no-pude.ts). Sólo
       // con herramientas: la regla las nombra, y un turno sin tools no puede oír hablar de ellas (DOER_WA_VOZ).
       const reglaDeLasMarcas = tools.length ? `\n\n${REGLA_NO_EXISTE}` : '';
@@ -1812,27 +1957,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      */
     let avisoDeSistema = false;
 
-    /**
-     * ⚠️ EL CAMINO BARATO NO VA SIN HERRAMIENTAS CUANDO EL CLASIFICADOR PIDIÓ HERRAMIENTAS.
-     *
-     * El router (`rutearDoer`) contesta CUÁNTO gastar y lee «sí», «ok», «dale» como charla. El 13/10/2026 (ws13) «Si 18 de
-     * noviembre» —la fecha que MaKo le había pedido para agendar un cumpleaños— salió por acá, sin una sola herramienta,
-     * y MaKo contestó «te lo agendo de una». Con el clasificador diciendo qué HACER (agendar, leer, cargar), lo barato
-     * sólo va si es charla de verdad o si la clasificación fue una duda.
-     */
-    const pideHerramientas = intencion.intencion !== 'charlar' && !intencion.dudosa;
-    // ⛔ En el grupo, Gemini AFUERA (Martín, 28/10/2026): la charla barata (`chatCheap`) prueba Gemini primero, así que ya no corre.
-    // La charla la contesta la cascada de abajo, que arranca por Claude.
-    if (SIN_GEMINI_EN_EL_GRUPO === false && ruta.tier === 'cheap' && !mediaBlocks && !pideHerramientas) {
-      // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
-      // falla la IA barata, caemos al doer normal (nunca dejamos al dueño sin respuesta).
-      try {
-        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Responde CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, pide que te lo pregunten directo (no prometas mirarlo: este mensaje es todo lo que haces). Sin groserías ni lunfardo.`;
-        respuesta = (await chatCheap({ system: cheapSys, user: texto, maxTokens: 350, feature: 'mako-doer-in', motivo: `${ruta.motivo} «${recorte}»` })).trim();
-      } catch (e) {
-        console.warn('[mako-doer-in] cheap falló, uso doer:', e instanceof Error ? e.message : String(e));
-      }
-    }
+    // ⛔ SIN CAMINO BARATO EN EL GRUPO (28/10/2026, la crítica del diagnóstico del Cerebro, G2). La charla trivial iba a
+    // `chatCheap` con la base y una línea: sin historial, sin DOER_WA_VOZ, sin la memoria ni quién escribe, y por la cascada
+    // propia de `chatCheap` (Gemini primero), no por la de este turno. «Si» a la alerta del nuevo propietario (Brigitte, 22/10)
+    // salió «Hola. ¿En qué te puedo ayudar hoy?». Un acuse o un saludo ya llevan el 👍 sin turno (`esAcusePuro`); lo que llega
+    // acá como charla lo contesta la cascada de abajo, con todo.
 
     // ── EL GRUPO DEL DUEÑO, A SU COMPUTADORA (25/10/2026, docs/conexiones-y-ayuda.md, decisión 2) ──────────────────────
     // Martín: «todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Igual que el chat de la app:
@@ -2252,7 +2381,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
               // ⛔ El system de la red va LEAN (la voz de MaKo y su núcleo, `buildSystemPrompt({ lean })`): el completo
               // trae «TU METODOLOGÍA», que sale de `searchKnowledge` sobre el conocimiento propio, y el glosario (fuente
               // «reunión») son nombres y apellidos de la gente de las llamadas (revisión del Cerebro, 17/10/2026).
-              const baseRed = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true }));
+              const baseRed = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true, canal: 'grupo' }));
               const systemRed = armarSystem(toolsRed, turnoRed.sacadas.length ? `\n\n${SIN_DATOS_DE_CLIENTES}` : '', baseRed);
               if (turnoRed.sacadas.length) console.warn(`[mako-doer-in] ws=${wsData} red de plataforma SIN ${turnoRed.sacadas.length} herramientas con datos de clientes (${turnoRed.sacadas.join(', ').slice(0, 300)})`);
               // ⚠️ CON PRESUPUESTO DE TIEMPO. La agencia tiene 11 keys gratis
@@ -2537,6 +2666,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         respuesta = saneo.texto;
       }
     }
+    // WhatsApp no es Markdown (F1): `**x**` llegaba con los asteriscos a la vista (6 respuestas del 21 al 28/10) y los `##`, igual.
+    if (respuesta) respuesta = aFormatoWhatsapp(respuesta);
 
     // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
     // Martín (17/10/2026): «Y todo lo solucionás automáticamente». Ya no se le pregunta a la persona «¿se lo aviso al
@@ -2559,6 +2690,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Después del saneo y sólo sobre el texto del MODELO (los carteles son nuestros y llevan su línea arriba): las dos marcas
     // nunca le llegan al grupo, el ticket sale con su causa y la línea que lo dice la escribe el código. Repetido en la misma
     // conversación, nada. Los errores de las herramientas ya fueron por la huella global (arriba).
+    // [[ya-pedido: #N]] (F2b): lo de ahora es un pedido que ya está abierto. Se suma a ESE ticket y no se abre otro. La marca se
+    // saca SIEMPRE (también con un número que no es de un pedido abierto de este negocio): nunca le llega al cliente.
+    if (respuesta) {
+      const yaPedido = sacarYaPedido(respuesta, pedidosDelNegocio.filter((p) => p.estado !== 'resuelto').map((p) => p.id));
+      respuesta = yaPedido.texto;
+      for (const id of yaPedido.ids) await sumarAlPedidoDelNegocio(wsData, id, sinPrefijoDeLote(texto)).catch(() => false);
+    }
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
       // Si un error de herramienta ya dejó su ticket (registrarError, arriba), sólo se sacan las marcas: un ticket, una línea.
       // Si la última herramienta devolvió una GUARDA y nada falló de verdad (ni un error ni una falla tragada), el «no pude» es esa
@@ -2726,6 +2864,10 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
               if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido); continue; }
               t = oido.texto;
             }
+            const citado = await escucharElAudioCitado(instancia, jid, p);
+            if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
+            else if (citado && 'texto' in citado) t = conLaCitaSinEscuchar(t, 'vacia');
+            else if (citado) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, citado, true); t = conLaCitaSinEscuchar(t, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar'); }
             t = conLaMarcaDelAdjunto(p, t);
             if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instancia, p, t), payload: p });
           }

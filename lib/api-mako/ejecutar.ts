@@ -83,7 +83,8 @@ export async function ejecutarOperacion(
         // Lo que le falta conectar, por el mismo canal del código (`Falta`): salga bien o mal la lectura.
         if (typeof cruda !== 'string' && cruda.falta) ctx.aFalta?.(cruda.falta);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
-        if (cruda.isError) return { ok: false, status: 400, error: cruda.content, ...(cruda.falta ? { falta: cruda.falta } : {}) };
+        // Lo que falta CONECTAR es una guarda, como en un preparar (la verificación de 692368a60).
+        if (cruda.isError) return { ok: false, status: 400, error: cruda.content, ...(cruda.falta ? { falta: cruda.falta, guarda: true as const } : {}) };
         // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
         // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta. `siSeDibuja` va sólo si se dibujó: un saneo
         // que lo descarta o el tope de bloques del turno (`aDibujar` da `false`) no se lo dicen al modelo.
@@ -114,7 +115,8 @@ export async function ejecutarOperacion(
 
       if (def.confirmacion === 'pantalla' && run.proponer) {
         const p = await run.proponer(v.input, ctx);
-        if ('error' in p) return { ok: false, status: 400, error: p.error };
+        // Como el de un preparar: es GUARDA salvo que el runner diga que es una falla nuestra (`falla`).
+        if ('error' in p) return { ok: false, status: 400, error: p.error, ...(p.falla ? {} : { guarda: true as const }) };
         // Lo que la propuesta DIBUJA (`extra.bloque`: el antes y el después del Video Editor) va por el mismo canal que el
         // de una lectura; al modelo (y a la API) le llega `extra` sin él.
         const { bloque: crudo, ...extra } = p.extra ?? {};
@@ -127,10 +129,12 @@ export async function ejecutarOperacion(
       const prep = await run.preparar(v.input, ctx);
       if ('error' in prep && prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
       if ('error' in prep && prep.falta) ctx.aFalta?.(prep.falta);
-      // Es GUARDA lo que el runner marcó, o lo que trae qué falta (un dato, una conexión) o que ya estaba: el error suelto de un
-      // preparar es una falla («No pude leer las pasarelas conectadas», la verificación de 2cb1cf67e).
+      // ⚠️ EL ERROR DE UN PREPARAR ES UNA GUARDA, salvo que el runner diga que es una FALLA nuestra (`falla`: «No pude leer las
+      // pasarelas conectadas»). Al revés —guarda sólo con la marca— ninguna área la ponía, y unas 734 reglas («Sólo se
+      // reembolsa un cobro pagado») abrían ticket y le pegaban «Quedó el ticket #N» al grupo del cliente (la verificación de
+      // 692368a60). Lo que revienta sigue siendo una falla: va por el catch de abajo.
       if ('error' in prep) {
-        const guarda = prep.guarda || prep.faltan?.length || prep.yaEstaba || prep.falta ? { guarda: true as const } : {};
+        const guarda = prep.falla ? {} : { guarda: true as const };
         return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}), ...(prep.falta ? { falta: prep.falta } : {}), ...guarda };
       }
 

@@ -131,7 +131,7 @@ test('el panel: entiende el pedido ANTES de editar, y a la edición va sólo lo 
   const i = p.indexOf("await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });");
   assert.ok(i > 0 && i < p.indexOf("fetch('/api/graficos/editar'"), 'la ruta de los pedidos va antes de la edición');
   assert.doesNotMatch(p, /TAB_DEL_INFORME\[informe\]/, 'con el informe de una automatización, `tab` sería undefined');
-  assert.match(p, /body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \}\)/);
+  assert.match(p, /const datos = \{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \};[\s\S]*?body: JSON\.stringify\(datos\)/);
   assert.ok(p.indexOf("decir({ k: 'pedido'") > p.indexOf("fetch('/api/graficos/editar'"), 'las burbujas, después de lo de esta hoja');
   assert.match(p, /fetch\('\/api\/graficos\/ia', \{[\s\S]*?body: JSON\.stringify\(\{ pedido: efecto\.pedido\.slice\(0, TOPE_PEDIDO_IA\), informe \}\)/);
   assert.match(p, /if \(creada\) onCrearHoja\(creada\);/);

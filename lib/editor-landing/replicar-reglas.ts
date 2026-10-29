@@ -33,6 +33,8 @@ import { pideContrasena } from './html-libre';
 import type { ConfigLanding, ParamsGeneracion } from './api-tipos';
 import type { Lectura, SeLeeEnNavegador } from './lectura-tipos';
 import type { IdEstilo } from './animaciones';
+import type { ParteReplica } from './replicar-partes';
+import type { Angulos } from './replicar-angulos';
 
 /**
  * Los dos modos de la tanda 2. Desde la tanda 6 los elige `formato` (abajo); se siguen aceptando en el
@@ -146,7 +148,13 @@ export function configDeReplica(formato: FormatoReplicar, url: string, op: { ada
  * persona. Cualquiera de los dos reemplaza la bajada, y sólo valen para Presentación y Landing (la
  * copia idéntica necesita el HTML). `modo` es el pedido viejo (tanda 2), aceptado durante el deploy.
  */
-export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string; adaptar?: boolean } | { url: string; modo: ModoReplicar };
+export type PedidoReplicar =
+  | {
+    url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string; adaptar?: boolean;
+    /** 28/10/2026 (replicar-partes.ts): qué se replica, el tema de la persona sin el diseño, y los ángulos de la lectura. */
+    partes?: ParteReplica[]; tema?: string; angulos?: Angulos;
+  }
+  | { url: string; modo: ModoReplicar };
 /**
  * Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). En la falla, `probar` es el
  * formato que sí puede andar cuando el error lo propone («Prueba el formato «Landing».»): la pantalla lo
@@ -160,6 +168,8 @@ export type RespuestaReplicar =
   | {
     ok: true; id: number; titulo: string; secciones: number; formato: FormatoReplicar; aviso?: string;
     animaciones?: { estilo: IdEstilo | null; propias: number }; avisoScroll?: true;
+    /** Lo que se replicó (28/10/2026). La copia idéntica no lo lleva: es todo. */
+    partes?: ParteReplica[];
   }
   | ({ ok: false; error: string; probar?: FormatoReplicar } & Partial<SeLeeEnNavegador>);
 
@@ -476,7 +486,7 @@ const textoVisible = (html: string): string =>
   decodificar(html.replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 const RE_MEDIO = /<(img|picture|video|iframe|svg|canvas|form|input|button|select|textarea)\b/i;
 /** Una parte que sola no se ve (un espaciador, un ancla vacía): viaja pegada a la que sigue. */
-const esChica = (html: string): boolean => textoVisible(html).length < 15 && !RE_MEDIO.test(html);
+export const esChica = (html: string): boolean => textoVisible(html).length < 15 && !RE_MEDIO.test(html);
 
 /**
  * Baja por los envoltorios de UN solo hijo (`body > div#app > main`) hasta el primer nivel con varias

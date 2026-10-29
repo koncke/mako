@@ -74,7 +74,7 @@ const RECETA_LANDING = (conProducto: boolean): string => [
 const RECETA_CONFIRMAR = `CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hazlo", "adelante", "confirmo") y hay una acción pendiente: llama 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usa 'listar_pendientes' y pregunta.`;
 
 const RECETA_PLAN = `CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anota esto", "agrega al plan", varias cosas juntas):
-- Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, ve al grano.
+- El 👍 ya salió: no acuses ni saludes, ve al grano.
 - MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Nada de un chorizo largo.
 00. LAS TAREAS SALEN DEL ÚLTIMO MENSAJE, no del historial. Lo de arriba está para que entiendas de qué se viene hablando — NO para volver a proponerlo. Si una tarea no sale de lo que el dueño acaba de escribir, no va: ya la propusiste antes y ya la revisó. (Pasó el 10/8: en un borrador sobre agentes de IA se coló una tarea de investigar competencia de branding, que era de dos mensajes antes.)
 0. EL DETALLE DE CADA TAREA ES LO MÁS IMPORTANTE. El título dice QUÉ; el detalle es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a leer el WhatsApp — y es lo ÚNICO con lo que el Perro decide a qué proyecto va. Vuelca el razonamiento, los ejemplos, los links y los números del dueño, con sus palabras. NUNCA lo resumas a una línea.
@@ -93,7 +93,7 @@ const RECETA_PLAN = `CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque ven
 // Cada una viaja con su herramienta: la del editor sólo con sus ESCRITURAS (en una pregunta, que
 // trae lecturas, no pesa), la del Generator con sus lecturas (el saldo y el puente son de ahí).
 
-/** Las 34 escrituras del Video Editor (lib/editor-video/chat-api.ts): todas dejan una PROPUESTA. */
+/** Las 35 escrituras del Video Editor (lib/editor-video/chat-api.ts): todas dejan una PROPUESTA. */
 export const ESCRITURAS_EDITOR_VIDEO: ReadonlySet<string> = new Set(OPERACIONES_API.map((o) => o.id));
 
 /** Lo del Video Generator y el puente a Flow. Un test exige que toda operación de video del registro esté en uno de estos grupos. */
@@ -111,7 +111,7 @@ SI FALTA UN DATO QUE CAMBIA EL RESULTADO, PREGUNTA UNA SOLA COSA con 2 o 3 opcio
 - Qué proyecto, si hay más de uno o te dicen «el video» sin nombre: ofrece los 3 más recientes.
 - Cuánto cortar y dónde, si no te lo dicen («corta el principio»): ofrece cortes concretos con los clips y sus tiempos.
 - Un texto que es un hecho (fecha, precio, dirección, hora): pídelo, nunca lo rellenes.
-Todo cambio queda PROPUESTO hasta que una persona lo acepta en el editor: ⛔ nunca digas «listo», «aplicado» ni «ya está». El link lo pone el sistema: no lo escribas. ⛔ No borres un proyecto: no hay papelera. Lo que el editor no puede por chat (quitar el fondo, borrar silencios, exportar, música de biblioteca) se DICE así, no se simula.`;
+Todo cambio queda PROPUESTO hasta que una persona lo acepta en el editor: ⛔ nunca digas «listo», «aplicado» ni «ya está». El link lo pone el sistema: no lo escribas. ⛔ No borres un proyecto: no hay papelera. Lo que el editor no puede por chat (quitar el fondo, exportar, música de biblioteca) se DICE así, no se simula.`;
 
 const RECETA_VIDEO_GENERADOR = `EL VIDEO GENERATOR: antes de prometer algo que genere, mira 'estado_onboarding_video', 'ver_contexto_video' y 'ver_puente_flow'. Antes de filmar, 'ver_saldo_flow' y 'calcular_alcance_anuncio': créditos null quiere decir que NUNCA se leyó, no que tenga cero; di la fecha de la lectura. El guion sale de Ads Writer ('listar_guiones_para_video') y va LITERAL: aquí no se escriben guiones. Qué guion, qué formato y qué lugar se preguntan con 2 o 3 opciones. ⛔ Filmar gasta créditos de Flow del cliente: una toma por vez, con el costo dicho («N créditos, te quedan M, leído el …»), nunca en lote, y una toma que falló no se reintenta sola. ⛔ Nunca muestres un prompt.`;
 

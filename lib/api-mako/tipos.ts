@@ -452,10 +452,14 @@ export type Preparado =
        *  otro; para un paso de un flujo (lib/api-mako/flujo.ts) es un éxito sin nada que hacer,
        *  y no le manda una alarma al dueño cada vez que el evento se repite. */
       yaEstaba?: boolean;
-      /** Es una GUARDA (un dato que falta, un pedido que MaKo no deja hacer), no una falla: el «no pude» que la sigue es una regla
-       *  y no abre ticket (lib/no-pude.ts, `esGuardaDeHerramienta`). Sin la marca, un `error` es una falla (la verificación de
-       *  2cb1cf67e: «No pude leer las pasarelas conectadas» tenía la misma forma). `faltan`, `yaEstaba` y `falta` la ponen solos. */
+      /** Es una GUARDA (un dato que falta, un pedido que MaKo no deja hacer). Desde el 28/10/2026 lo es TODO `error` de un
+       *  preparar sin `falla` (lib/api-mako/ejecutar.ts): son validaciones por construcción, y son cientos (la verificación de
+       *  692368a60: 734 reglas sin marca abrían ticket). Queda para quien la quiera explícita. */
       guarda?: true;
+      /** Es una FALLA nuestra (una lectura que no anduvo: «No pude leer las pasarelas conectadas»), no una regla: el «no pude»
+       *  que la sigue abre ticket (lib/no-pude.ts, `esGuardaDeHerramienta`). La pone quien la produce; tests/guarda-por-defecto
+       *  pide que todo `return { error: 'No pude…' }` de un preparar la lleve. */
+      falla?: true;
     };
 
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
@@ -468,7 +472,8 @@ export type Preparado =
 export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown> & { bloque?: Bloque }; paraLaPersona?: string };
 
 /** `extra.bloque`: lo que la propuesta DIBUJA (va por `ctx.aDibujar`; el modelo recibe `extra` sin él). */
-export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string };
+/** `falla`: como en `Preparado`, el error de un proponer es una GUARDA salvo que sea una falla nuestra. */
+export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string; falla?: true };
 
 export type LecturaRun = {
   leer: (input: Record<string, unknown>, ctx: Ctx) => Promise<SalidaLectura>;

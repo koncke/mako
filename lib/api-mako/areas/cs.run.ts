@@ -91,7 +91,7 @@ const autorDe = (ctx: Ctx): string => ctx.actor?.trim() || POR_MAKO;
 /** preparar() no lanza: «no pude leer» se dice como lo que es, y no se escribe nada. */
 const revisando = (fn: (input: In, ctx: Ctx) => Promise<Preparado>) =>
   async (input: In, ctx: Ctx): Promise<Preparado> => {
-    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisarlo (${msgDe(e)}). Reintenta en un momento.` }; }
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisarlo (${msgDe(e)}). Reintenta en un momento.`, falla: true }; }
   };
 /** ejecutar() no lanza (tipos.ts): si algo falla, ok:false con el motivo. */
 const sinLanzar = (que: string, fn: (payload: In, ctx: Ctx) => Promise<Ejecutado>) =>

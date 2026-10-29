@@ -18,11 +18,15 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { puerta } from '@/lib/image-editor/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { editarImagen } from '@/lib/image-editor/chat/ia';
+import { cuerpoYArchivos, leerLosArchivos } from '@/lib/adjuntos-del-chat';
+import { lecturaDeArchivos } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-// La IA tiene 90 s (lib/image-editor/chat/ia.ts) y una reparación del JSON con aire.
-export const maxDuration = 120;
+// La IA tiene 90 s y una reparación del JSON con aire; con fotos o PDF, primero se leen (una foto con la visión tardó 52 s).
+export const maxDuration = 300;
+/** Lo que entra de la lectura de los archivos al pedido (el diseño o la línea de tiempo ya son largos). */
+const TOPE_LECTURA_EDITOR = 8_000;
 
 const fallo = (error: string, status: number) =>
   Response.json({ ok: false, error }, { status, headers: { 'cache-control': 'no-store' } });
@@ -32,12 +36,19 @@ export async function POST(req: NextRequest) {
   if (p instanceof Response) return p;
   if (!rateLimit(`image-editor:ia:${p.ws}`, 30, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
 
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return fallo('Pedido inválido.', 400); }
-  if (!body || typeof body !== 'object') return fallo('Pedido inválido.', 400);
+  // Con fotos o PDF (28/10/2026, las cajas unificadas): vienen en multipart (lib/adjuntos-del-chat.ts).
+  const c = await cuerpoYArchivos(req);
+  if (!c.ok) return fallo(c.error, c.status);
+  const body = c.body;
 
   return runWithWorkspace(p.ws, async () => {
-    const r = await editarImagen({ instruccion: body.instruccion, diseno: body.diseno, alcance: body.alcance });
+    // Se leen con la IA del negocio (por eso adentro de su workspace), y su lectura va aparte de la instrucción, como dato.
+    const { lecturas, noLeidos } = await leerLosArchivos(c.adjuntos, 'image-editor-chat');
+    const escrita = String(body.instruccion ?? '').trim();
+    if (c.adjuntos.length && !lecturas.length && !escrita) return fallo(`No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`, 422);
+    const instruccion = c.adjuntos.length && !escrita ? 'Usa lo que traen estos archivos en el diseño.' : body.instruccion;
+    const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDITOR) : undefined;
+    const r = await editarImagen({ instruccion, diseno: body.diseno, alcance: body.alcance, archivos });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });

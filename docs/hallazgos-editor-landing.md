@@ -3306,3 +3306,392 @@ ya lo avisa `AVISO_SCROLL`. **Sin medir:** sendipro.com, la página del ticket, 
 sin www, medido el 27/10), y una búsqueda tampoco la encuentra. Falta la dirección exacta para ver qué no se copió.
 
 Tests: tests/web-generator-replicar-adaptar.test.ts y tests/editor-landing-replicar.test.ts. Probados rompiéndolos.
+
+## Replicar por partes: diseño, estructura, ángulos y texto, y la estructura que perdía secciones (28/10/2026, claude4)
+
+Martín: «una cosa es replicar el branding, otra cosa es replicar la estructura, otra cosa es replicar los ángulos de
+comunicación, los copies». «Replicar landing» lee primero la página y muestra su estructura, sus ángulos y su diseño.
+Después pregunta QUÉ replicar con cuatro partes combinables: Diseño · Estructura · Ángulos · Texto literal. El default es
+el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para SU oferta. Vive en
+`lib/editor-landing/replicar-partes.ts` (las reglas), `replicar-estructura.ts`, `replicar-angulos.ts`,
+`replicar-lectura.ts` (POST `/api/landing-generator/replicar/leer`) y `app/web-generator/crear/Replicar.tsx`.
+
+- **El diagnóstico obvio era el equivocado: «la réplica tiene las mismas secciones» no era cierto en una landing larga.**
+  «Conservar» (`esquemaConservado`, el de «Pegar texto») cortaba en CADA `#`, `##` y `###` y se quedaba con las primeras
+  20 (`MAX_SECCIONES`), sin avisar. Medido el 28/10 con el HTML real y el respaldo sin IA: 100ads.ai llegaba con 965 de
+  2.148 palabras (45%), 3 de 8 botones y SIN la garantía, las preguntas ni el cierre; gohighlevel 79%, kommo 68%,
+  hotmart 83%, leadsales 90%. Y cada tarjeta de una grilla (un `###` adentro de un `##`) salía como sección suelta.
+  **Regla:** una página LEÍDA se corta en su NIVEL DE SECCIÓN (el título más alto que aparece dos veces; un h1 solo es
+  el hero), lo de adentro queda como subtítulo `### …`, y si sobran secciones se JUNTAN las vecinas más chicas: nunca se
+  tira texto (`esquemaDeReplica`). Ahora: 100% de las palabras y de los botones en las cinco. Lo usa también «Importar»
+  con «Conservar» (ia.ts); lo pegado por la persona sigue como antes.
+- **El respaldo sin IA escribía el `###` como texto.** `tarjetaDesdeEsquema` ahora lo dibuja como subtítulo
+  (`RE_SUBTITULO_LEIDO`, ia-reglas.ts).
+- **El ws3 no tiene NINGUNA IA** (0 filas en `credenciales`), y el crédito de Claude para `landing-editor` está
+  habilitado sólo en el espacio de MaKo (`CREDITO_HABILITADO_PARA`, `soloLaPlataforma`). La cascada barata de la
+  plataforma no contestó. En el ws3 sólo se puede medir lo que no usa IA: la lectura de la estructura y del diseño, y la
+  réplica «texto literal» con el respaldo. Los ángulos y la reescritura necesitan otro negocio con IA.
+- **Medir desde un script, sin levantar la app:** `runWithWorkspace(3, …)` (lib/workspace.ts) fija el negocio. `crear` llama
+  a `cookies()` para el autor: fuera de un pedido tira «`cookies` was called outside a request scope». En el script se
+  reemplaza `next/headers` con un `Module._load` que devuelve un almacén vacío (el autor queda null). Se corre con
+  `node --env-file=<.env.local> --conditions=react-server --require <stub> --import tsx`.
+- **La instrucción de la réplica va con las REGLAS primero y los datos al final** (el molde de cada sección y los
+  ángulos), y con el tope de `instrucciones` (5.000): si algo no entra, se recorta un dato, nunca «no copies frases».
+- **Los ángulos son una lectura aparte del Landing Analyst**: el Analyst diagnostica una página PROPIA contra su tráfico
+  (veredicto, puntajes, hallazgos) y guarda una fila en `landing_analyses`; para replicar hace falta CÓMO vende una página
+  AJENA (promesa, dolores, forma de venta, objeciones, tipo de prueba y el ángulo de cada sección). No se guarda: viaja en
+  la pantalla y vuelve con el pedido de la réplica (no se paga dos veces). Su prompt es editable
+  (`landing_editor.angulos.*` en lib/prompt-registry.ts).
+- **100ads.ai cambia su h1 entre una bajada y otra** («100 anuncios en lo que dura un café» / «en lo que tardás en hacer
+  uno» / «Lo que te lleva horas, listo en 10 minutos»): prueba A/B de su portada. Medir dos veces la misma página puede
+  dar dos títulos; la estructura no cambia.
+- **El presupuesto del turno de la app:** `replicar_landing` sumó `partes` y quedó MÁS CHICA (2.464 → 2.437 caracteres,
+  `scripts/presupuesto-turno-app.mts`), recortando la descripción.
+- **`quitarPruebaInventada` deja pasar justo lo de la competencia** en una réplica reescrita: sus testimonios y sus
+  cifras «están en el material» (el material ES la página de otro). La red en código es `quitarPruebaDeLaOriginal`
+  (ia-reglas.ts): una cita TEXTUAL de la original o una cifra con sus mismos números se vacían, y las frases iguales a
+  la original se cuentan en el log y en el aviso. Los números se comparan ENTEROS (ver la revisión, más abajo).
+- **Mirar la pantalla sin build:** con ~10 chats, el vigía mató el `next build --debug-build-paths` de `/web-generator`
+  dos veces (2,3 y 3,4 GB privados, con 0,7 GB libres). Lo que anduvo: renderizar los componentes REALES con
+  `renderToStaticMarkup` (tsx, `NODE_PATH` al `node_modules` del worktree y `import React`), con las hojas del Panel
+  (`CSS_GP`, `CSS_PANEL`, `CSS_TIPO`, `CSS_REPLICAR`) y los datos medidos, servirlo con `python -m http.server` en
+  127.0.0.1 (un `file://` el panel del navegador lo muestra como foto y no deja medir) y medirlo a 375 px y en
+  escritorio. Encontró dos cosas: la grilla de temas compartida pide 180 px por columna y en un teléfono son seis
+  tarjetas altas antes de «Replicar» (en Replicar va de a dos), y un chip con `--gp-azul-50` no cambia en el modo
+  oscuro (va con los tokens `activo`).
+
+- **Un test que lee el fuente como TEXTO da verde sobre un archivo que no compila.** Un script de edición convirtió el
+  `'
+'` de un `.join` en un salto de línea real dentro del string, y el test de replicar (que hace `readFileSync` +
+  regex) siguió en 10/10. Lo cazó `tests-afectados --rapido`, por los tests que IMPORTAN replicar.ts. **Regla:** después
+  de editar con un script, transpilar cada archivo tocado (`esbuild.transformSync`); el test de replicar lo hace ahora
+  (test 0). Y escribir el reemplazo con el editor, no con escapes anidados (bash → python → TS).
+- **«Cómo está acomodado» con lo que ya se lee:** el estilo trae las imágenes de cada parte de la página
+  (`ImagenOriginal.seccion`, `fondo`); con los subtítulos del molde alcanza para decir «una imagen junto al texto»,
+  «imagen de fondo», «6 imágenes (galería o logos)» o «3 tarjetas con su subtítulo» (`acomodoDeSeccion`). Va al final
+  de cada línea del molde. Sin el diseño, el estilo se lee igual, pero SÓLO para eso: nada de él pasa a la copia
+  (`const estilo = partes.diseno ? estiloLeido : null`), y la IA deja el hueco de la imagen donde la otra tenía una.
+- **El molde no entraba en la instrucción.** La instrucción es UNA para todas las tandas, con tope de 5.000 caracteres.
+  Medido con ángulos de largo real: con 16 a 20 secciones (gohighlevel, leadsales, kommo) se cortaban las últimas líneas
+  del molde y del ángulo de cada sección. **Regla:** lo que es de UNA sección viaja CON la sección. `SeccionEsquema.nota`
+  (opcional, ≤ 400) lleva su ángulo, su forma y su acomodo, y `pedidoDeTanda` la escribe junto a su título. Así cada
+  tanda manda sólo las suyas. Sin nota, el pedido es el de siempre (todos los demás usos del editor).
+- **Otro tope que corta callado:** `esquemaDelPedido` deja 60 renglones por sección (`slice(0, 60)`), y la tanda pasa
+  por ahí. Ninguna sección de las cinco medidas pasa de 46. Pero `juntarHasta` puede armar una más larga al juntar
+  vecinas en una página de muchas secciones: ahí la IA no vería el final de esa sección (el respaldo sí).
+- **El Diagnóstico de una de afuera copiaba todo directo** (el menú «Replicar» con los tres formatos). Ahora el menú
+  arranca con «Elegir qué replicar…», que abre «Replicar landing» con esa página: la lee y pregunta las partes. Los
+  formatos directos quedan como «copia completa».
+
+### Las 5 landings de Martín (28/10/2026, noche): Reportei, Holo, MasterAds, Closermood y respond.io
+
+- **El diagnóstico obvio era el equivocado otra vez: no era el prompt, era la OFERTA.** Con IA (ws9, el espacio de MaKo)
+  la réplica «adaptada» seguía hablando de la competencia: Reportei quedó nombrada 11 veces en su copia, respond.io 22,
+  y 15 a 28 frases quedaban iguales a la original. El perfil del negocio del ws9 está VACÍO
+  (`buildLandingBrief` → «PERFIL DEL NEGOCIO» sin nada): la IA no tenía de qué hablar y volvía sobre lo único que tenía.
+  **Regla:** reescribir «para tu oferta» exige la oferta. La lectura dice si el negocio la tiene (`tieneOferta`), el
+  panel pide «Tu oferta» (y avisa si el perfil está vacío), la instrucción la pone PRIMERO como la que manda y nombra la
+  marca de la referencia para que no aparezca (`marcaDeUrl`), y las menciones que queden se cuentan y se dicen
+  (`mencionesDe`).
+- **Un `<header>` fijo es la barra del sitio, aunque no tenga `<nav>`.** respond.io tiene su megamenú y el selector de
+  idiomas en `<header class="fixed …">`: entraban ~80 renglones a la primera sección. El extractor lo trata como un
+  `<nav>` (sus botones pasan). En las otras 11 páginas medidas no cambió nada.
+- **Letras dobles de una animación:** tryholo.ai escribe cada letra dos veces («a a d d s s»); `sinLetrasDobles` las junta
+  (dos pares o más de letras sueltas iguales).
+- **Un testimonio entero en un `h3`** (reportei): el respaldo cortaba el subtítulo en 120 caracteres (el tope de un título
+  de sección) y se perdían 124 palabras. Va con el tope de un texto.
+- **El destino de un botón no es texto:** el lector del navegador escribe «[BOTÓN] Crear mi cuenta → envía el formulario»;
+  `palabrasDe` lo contaba como palabras de la original.
+- **Leer una página con el lector de la app SIN la app:** `scriptLector(id, 'pixel', origen)` corre en la página real si
+  `window.opener` es la propia ventana (el saludo y el «dale» van y vienen ahí). El navegador del panel no deja que una
+  página pública le pida algo a 127.0.0.1, así que se corre en un Chrome sin ventana por CDP (Node 24 trae WebSocket;
+  `--headless=new --mute-audio`). Script: notas del Cerebro, `replicar-landings-scripts/leer-cdp.mts`.
+- **Server o navegador:** en reportei y respond.io el lector del navegador anota cada link y cada pestaña como botón (167 y
+  71); el server da una estructura más limpia. El orden de la app (server primero, navegador si no puede) es el correcto.
+  MasterAds (una app que se arma en el navegador) sólo se lee en el navegador: 7 secciones, 431 palabras.
+- **Réplica «texto literal» con su tema, en el ws3 (#49 a #53):** Reportei 16/16 secciones · 39/39 títulos · 68/68 textos ·
+  8/8 botones; Holo 12/12 · 20/20 · 223/224 · 3/3; MasterAds 7/7 · 19/19 · 72/72 · 11/11; Closermood 8/8 · 21/21 · 79/79 ·
+  6/6; respond.io 8/8 · 26/26 · 82/82 · 3/3. El 100% de las palabras en las cinco (con los dos arreglos de arriba).
+- **Con «Tu oferta» (la de MaKo, en las palabras de su landing principal), en el ws9, #60 a #64**, antes → ahora:
+  menciones de la otra marca Reportei 11→3, respond.io 22→1, Closermood 4→0, Holo 2→0, MasterAds 2→0; frases iguales
+  a la original Reportei 27→9, Closermood 28→0, MasterAds 15→1. Las secciones, todas y en su orden (16, 12, 7, 8, 8).
+  El largo se respeta peor donde la página tiene decenas de renglones cortos (carruseles, sugerencias de un chat): Holo
+  53% y respond.io 65% de las palabras; MasterAds 140%. La forma de cada sección viaja en su nota; la IA (Gemini Flash
+  Lite) la sigue mejor en secciones de texto que en listas largas.
+- **Mirar una réplica sin la app:** `htmlDePagina` (render.ts) + `documentoExportable` (exportar-html.ts) son puros: con el
+  documento y el tema de la base dan la página como la publicaría MaKo. Servida en 127.0.0.1, se mide a 375 px y en
+  escritorio en el navegador del panel.
+- **En la app (build parcial + `next start`, sesión del ws3 firmada con `crearToken`):** el link de la caja abre la lectura
+  sola, «Qué replicar» arranca en el caso de Martín, y al replicar se ve armarse: las fases con su tilde, un punto por
+  sección y la lista que crece de a una (con el ws3 sin IA, las 8 secciones llegaron juntas a los 25 s y se mostraron en
+  1,6 s), y después se abre la copia. **Un bug que sólo se vio ahí:** arrancaba con las cuatro partes prendidas, porque
+  `partesDePedido(null)` es «todas» (el pedido viejo de la API) y el `?? PARTES_INICIALES` nunca entraba.
+- **Trampas del build parcial:** en `--debug-build-paths`, `[id]` es un patrón de caracteres (no matchea la carpeta
+  `[id]`) y la ruta no entra; con `app/web-generator/**` entra (pide ~4 GB: el vigía lo mató a los 3,1 con la máquina
+  llena, y anduvo en 97 s con la RAM reservada por el Cerebro). **Y aun compilada, una ruta DINÁMICA da 404:** el
+  `routes-manifest.json` de un build parcial sale sin `dynamicRoutes`. Para mirarla en local se agrega a mano
+  (`{ page: '/web-generator/[id]', regex, routeKeys: { nxtPid }, namedRegex }`) y se reinicia `next start`. Con eso la copia
+  replicada abrió en el editor: 8 secciones, 8 títulos, `contenteditable` y con foco.
+  La cookie de la sesión se pone desde una página de 127.0.0.1 en OTRO puerto (las cookies no miran el puerto), sin pasar
+  el token por ninguna herramienta.
+- **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
+  llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
+
+### La revisión adversarial de 45a8e5234 (Cerebro, 28/10/2026): siete defectos, todos arreglados
+
+Informe: `C:/dev/revisiones/2810-replicar-45a8e5234.md`. Cada uno con su test (10a a 10d) y su rotura (R16 a R27).
+
+- **El tope en el lugar equivocado colapsaba la página entera.** `nivelDeSeccion` bajaba de h1 a h2 «mientras no pase
+  del tope de 20». Una página con un h1 en el hero y otro en el cierre (Webflow, Framer) y 19 h2 o más quedaba en DOS
+  secciones, la primera con todo adentro; con 1 h1 y los mismos 20 h2 daba 20. **Regla:** el nivel de corte no mira el
+  tope. Lo que sobra lo junta `juntarHasta`, que ya estaba para eso. Un tope que decide QUÉ nivel usar en vez de cuánto
+  juntar convierte «una sección de más» en «18 secciones de menos».
+- **Comparar números como texto vacía cifras propias.** `quitarPruebaDeLaOriginal` buscaba cada número con `includes`
+  sobre la página ajena: «100%» del negocio se vaciaba porque «100» está dentro de «2.100», y «24/7» porque «24» y «7»
+  están en cualquier página. Y el aviso le echaba la culpa a la original. **Regla:** los números van como tokens enteros
+  («2.100» es 2100, con límites a los dos lados). Una cifra es de la otra si TODOS sus números están entre los de la
+  otra, y al menos uno tiene 3 cifras o más y no es redondo (100, 1000).
+- **Los botones de la copia mandaban a la competencia.** Venía de antes de esta rama: «Replicar y adaptar» ya lo hacía.
+  Ahora es el camino por defecto, y el destino no se ve en el texto del editor. La IA veía «[BOTÓN] Probar → https://
+  app.competidor.com/signup» en su tanda, y el respaldo sin IA armaba el botón con ese href. **Regla:** con el texto
+  escrito de nuevo, la tanda no ve los destinos (`sinDestinoDeBoton`). Todo enlace al dominio de la original, con
+  cualquier subdominio (`dominioBase`), pasa a «#» en todas las tarjetas, también las de respaldo
+  (`sinEnlacesALaOriginal`). Se cuenta en el aviso. Sólo se lee el destino cuando la página la lee el NAVEGADOR: el
+  server escribe «[BOTÓN] texto» sin destino.
+  **El dominio no alcanzaba (segunda pasada, 28/10):** su Calendly y su «wa.me/549…» no son de «competidor.com», y el
+  respaldo los armaba igual. La IA, además, los ve en un renglón que no es botón: «[CALENDARIO] Calendly (https://…)».
+  **Regla:** un enlace de la copia que APARECE en el texto de la original es de la competencia (`enlacesDeLaOriginal`:
+  host sin www y camino, sin consulta; uno dentro del otro también cuenta, porque la IA acorta). Un host pelado
+  («calendly.com») no alcanza, y lo que no estaba en la original (el Calendly del negocio) se queda. Corre sólo con las
+  mismas secciones, que es cuando el esquema ES el texto de la original.
+- **«Replicar y adaptar» por la API pagaba una IA más, ANTES del esquema.** Sin `partes`, el pedido viejo de adaptar
+  pasa a tener ángulos. La API no trae la lectura, así que se bajaba la página y se llamaba a la IA por los ángulos (hasta
+  60 s). Ese tiempo salía del plazo de las tandas: con la IA lenta, entraban menos tandas y quedaban más secciones con el
+  texto de la competencia. **El diagnóstico obvio («correrlos en paralelo») no hacía falta:** con la estructura, el
+  esquema no los usa, y el texto de la original ya trae los ángulos sección por sección. Ahora se leen ahí sólo SIN la
+  estructura, que es cuando el esquema los necesita.
+- **En una Presentación, la «original» del chequeo era el esquema que ya había escrito la IA.** Se vaciaban cifras
+  propias, se contaban frases «iguales» contra texto propio, y el aviso decía «quedó con el texto de la original». Ahora
+  `adaptar` (el chequeo y ese aviso) va sólo con las MISMAS secciones (Landing con estructura).
+- **La lectura y la réplica cortaban distinto un texto pegado con títulos.** La lectura usaba `esquemaDeReplica` y la
+  réplica el `esquemaConservado` de «Pegar». Se perdía el final, y el ángulo de la «sección 3» caía en otra sección.
+  Ahora el pedido de esquema lleva `corte: 'pagina'` (ia.ts). El «Pegar texto» del editor no cambia.
+- **La «Página web» de la caja pagaba ángulos al abrir y se pasaba sola a «Landing».** Ahora arranca con las cuatro
+  partes, y su lectura va sin ángulos (`angulos: false` en /leer, `conAngulos` en `leerParaReplicar`). La copia
+  idéntica no los usa.
+- **El tsc acotado de estos archivos trae 14 errores que no son de ellos:** `app/video-editor/_opencut` no resuelve
+  `opencut-wasm/opencut_wasm_bg.js` (TS7016) y de ahí salen los TS2305. Antes de creerle a un rojo del acotado, mirar si
+  el archivo es tuyo.
+
+Lo que quedó SIN hacer:
+- Leer una SPA en la ventana del clic DENTRO de la app (el camino del lector con la ventana aislada): se midió el mismo
+  lector por CDP (MasterAds), no el ida y vuelta de la ventana. Y la réplica con IA en vivo dentro de la app (en el ws3
+  no hay IA: las secciones llegaron todas juntas al final).
+- Un tope de 60 renglones por sección en `esquemaDelPedido` (la tanda): ninguna sección medida pasa de 46.
+- La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda
+  qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
+  cajas.
+- De la revisión (los restos, de severidad baja): «Leer de nuevo» en Replicar.tsx vuelve a pagar los ángulos (no hay
+  caché por URL, y uno guardado no reintentaría la lectura que falló). Y sin la estructura, si la lectura volvió sin
+  ángulos, replicar.ts se los pide a la IA ANTES del esquema y ese tiempo sale del plazo de las tandas: ahí el esquema
+  sí los necesita, y correr t0 pasaría el maxDuration de 300 s.
+- Que Martín abra una copia del ws9 en PRODUCCIÓN con su sesión: el recorrido entero se vio con el build real (la #66
+  abre en el editor con sus 8 secciones), pero no en hola-mako.com, donde ningún navegador de esta máquina tiene su
+  sesión.
+
+Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 31 roturas, cada una caza), y los de Replicar
+que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).
+
+## La copia fiel deja ciego al chat del editor, y pasarla a «Diseño editable» le saca el diseño (28/10/2026, Cerebro)
+
+**Vive en:** `lib/editor-landing/doc.ts:333-407` · `html-editable-seguro.ts:11-13` · `ia.ts:676` · `ia-reglas.ts:692-724`
+
+- **El síntoma:** Martín revisó la réplica de respond.io en producción: «esta horriblemente mal, no solo el diseño no se
+  parece en nada, sino que tampoco los copy». Quiere primero una copia IDÉNTICA y después pedirle cambios por prompt.
+- **Lo que hay que saber antes de tocarlo:**
+  - la copia fiel (`htmlLibre`) es invisible para Editar y Discutir: `textoDe` devuelve '' y Discutir recibe «Sección N:
+    (sin texto)». Ningún pedido por prompt puede leerla;
+  - pasarla a `htmlEditable` para que se pueda editar pierde el diseño: el saneo saca `style`, `link` y `meta`, y el
+    bloque se publica sin iframe. El CSS de la original tiene que ir a `config.diseno.css` (tope 200k, contra 400k de
+    `htmlLibre`);
+  - `quitarPruebaInventada` y `quitarPruebaDeLaOriginal` no miran el HTML de un diseño editable.
+- **La regla:** la fidelidad se mide con capturas lado a lado (1440 y 390) y el diff del texto visible, ANTES de elegir el
+  formato del bloque.
+
+## El chat del Web Generator no sabía qué función de MaKo vende la landing (28/10/2026, claude4)
+
+**Síntoma:** Martín: «hacé de esta copia la landing de los Chats». El brief de Editar y Discutir (`buildLandingBrief`,
+lib/landing-writer.ts) era funnel + perfil del onboarding + 4 del RAG: «MaKo en general» (y en el ws 9 el perfil está vacío),
+nada de Chats. «Discutir» además lleva la regla de lo que no existe sin ningún catálogo: podía negar una función real.
+- **Lo que quedó:** en la PLATAFORMA, antes del perfil, todas las funciones en una línea (`catalogoCorto`) y la que vende ESTA
+  landing entera, por id con profundidad 0 y sus vecinos aparte (`funcionEntera`), con la regla de no prometer lo que figura
+  en «No hace»; el perfil pasa a ser «la marca que la vende». En un cliente el brief queda como siempre.
+- **Cómo se elige la función** (`funcionQueVende`, lib/cerebro-funciones.ts): la que nombra el PEDIDO (nombre 2, alias 1,
+  sin empate); si no nombra ninguna («cambia el hero»), la que la PÁGINA nombra al menos dos veces y el doble que la siguiente;
+  si no, ninguna. «Landing», «página», «web» nombran lo que se edita, no el Web Generator: no cuentan.
+- **Trampa:** «Tu oferta» de Replicar por partes NO se guarda en la landing (queda en el navegador). Lo que sí queda es la
+  original (`config.origen.basadoEnUrl`), pero Editar no la recibe. La copia idéntica ya viaja como «Diseño editable» y su
+  texto se lee (`textoDe`), así que la página de una copia de respond.io alcanza para elegir Chats.
+
+**Sin hacer:** guardar la función en la landing (MaKo pregunta con opciones del catálogo y Martín confirma, en el mismo flujo
+que el producto: `productoDelPedido`); usar la original como pista; los generadores de marketing con el mismo brief (Ads
+Manager, los writers de Instagram, Email) siguen sin la función.
+
+## La copia idéntica de una página: la foto del navegador, editable por sección (28/10/2026, claude4)
+
+Martín (28/10, ~09:40), sobre la réplica reescrita de respond.io: «esta horriblemente mal, no solo el diseño no se parece
+en nada, sino que tampoco los copy... Enfocate primero en replicar tal cual, tanto en diseño como copy y luego vemos de
+personalizarlo». Replicar arranca ahora en la copia IDÉNTICA: el lector, en el navegador de la persona, saca la FOTO de la
+página ya armada (copia-identica-script.ts) y el server la arma en secciones «Diseño editable» (copia-identica.ts), con
+el texto palabra por palabra y en su idioma (nada pasa por una IA). Personalizar es otro paso, que todavía no existe.
+
+**Cómo lo resuelven los que clonan, y qué se tomó.** SingleFile guarda el DOM ya armado, sin scripts, con sus hojas, y
+saca las reglas que no usa nada: eso es esta copia. html.to.design y html-to-figma leen el estilo CALCULADO de cada
+elemento a UN ancho: pierden las media queries (importan el teléfono aparte), las animaciones y los ::before. Por eso acá
+viajan las hojas con sus media queries, y la MISMA copia se ve a 1440 y a 390.
+
+Medido con las 5 de Martín, en un Chrome sin ventana, con la foto sacada por el lector de la app (el mismo protocolo que la
+ventana), armada por las funciones del server y dibujada con el render de la página publicada (con su política). Las
+capturas lado a lado y el diff del texto: `C:/dev/revisiones/replica-tal-cual/`.
+
+| Landing | Texto a 1440 (renglones · palabras) | Texto a 390 | Alto 1440 original → copia | Alto 390 | Imágenes rotas |
+|---|---|---|---|---|---|
+| respond.io | 98,9 % · 93,8 % (a) | 100 % · 100 % | 7.237 → 7.237 | 10.555 → 10.555 | 0 |
+| reportei.com/es | 100 % · 100 % | 100 % · 100 % | 14.039 → 11.160 (b) | 16.000+ → 14.607 | 1 → 1 (la misma) |
+| tryholo.ai | 99,2 % · 99,1 % | 98,9 % · 98,3 % | 16.000+ → 16.000+ | 16.000+ → 16.000+ | 0 |
+| masterads.ai/mkt/register | 81,7 % · 93,9 % (c) | 81,6 % · 93,9 % (c) | 4.849 → 4.849 | 6.790 → 6.790 | 0 |
+| closermood.com | 93,9 % · 95,8 % (a) | 98,5 % · 97,8 % | 6.093 → 6.093 | 9.561 → 9.561 | 0 |
+
+(a) un componente que rota solo (el «Capture / Convert» de respond.io, la demo de closermood) salió en otro estado en la
+captura que en la foto. (b) la original tiene un hueco blanco de contenido que no había cargado. (c) las 23 opciones de
+su `<select>` (el innerText las trae todas) y los placeholders de los campos.
+
+Las trampas, en el orden en que aparecieron (cada una con su test en tests/web-generator-copia-identica.test.ts):
+
+- **La comilla escapada de Tailwind se comía la hoja.** El lector de CSS tomaba el `\'` de `.content-\[\'\'\]` por el
+  comienzo de un string y lo que seguía quedaba adentro: de la hoja de respond.io se leían 623 de unas 1.250 reglas, y la
+  copia salía sin estilos. **Regla:** afuera de un string, una barra escapa lo que sigue.
+- **Lo ESCAPADO es parte de la clase.** La poda tomaba el `\[` de `.\[\&\>\*\]\:p-2` por un atributo, el `\(` de
+  `.max-w-\(--page-max-width\)` por un argumento, el `\#` de `.bg-\[\#0A0B14\]` por un id y el `\.` de
+  `.p-\[0\.060rem\]` por otra clase, y tiraba reglas vivas: en tryholo.ai el contenedor de 1.080 px quedaba en 1.377 y
+  se perdían TODOS los fondos oscuros. Y un `>` adentro de `class="[&>*]:p-2"` cortaba la etiqueta al leer las clases.
+- **Un tope de cantidad que corta en silencio.** La foto de respond.io traía 120 de sus 208 hojas y la mitad de abajo
+  salía desarmada (los bloques de Builder.io sin su `display:flex`, los íconos 3D volando al hero). **El diagnóstico obvio
+  era el equivocado:** «el lector baja demasiado rápido y las islas no llegan a hidratarse con su `<style>`». Se le dio al
+  lector una bajada lenta con la foto (250 ms por paso, 40 s de tope) y siguió en 120. Al terminar el lector la página YA
+  tenía las 208: el que cortaba era `TOPES_COPIA.hojas` (120) en `sanearInstantanea`, sin avisar (Builder.io mete un
+  `<style>` por bloque). Ahora el tope es 1.000 y el tamaño lo cuida `hojasTotal`. La bajada lenta quedó (sin medir que
+  haga falta: a 60 ms por paso, una isla puede no alcanzar a hidratarse). **Regla:** antes de culpar a la página, contar
+  lo que hay en la página y lo que llegó, en el mismo momento.
+- **sanitize-html borra lo vacío que esconde.** Por defecto sólo deja vacío `alt`: un `hidden=""` y un `popover=""` se iban
+  y aparecía lo escondido (el menú de idiomas de respond.io, abierto). `allowedEmptyAttributes` ahora los nombra.
+- **«Nunca una ruta /api/» no era de cualquier dominio.** respond.io sirve sus imágenes desde
+  `assets1-proxy.respond.io/api/v1/image/…` y `medioPermitido` las rechazaba todas. La guarda cuida que una imagen del
+  editor no salga con la cookie de MaKo: sólo importa en NUESTROS dominios (`esDominioPropio`).
+- **La política de la publicada sólo deja imágenes del bucket y fuentes de Google.** Una copia con las imágenes de la
+  original se veía bien en el editor y ROTA publicada (125 imágenes en respond.io). Los orígenes de la copia entran en
+  img-src, font-src y media-src (`origenesDeMedios`, pagina-publica.ts). Copiarlas al bucket no se pudo: el bucket
+  `landing-imagenes` sólo acepta png, jpeg, webp, gif, mp4 y webm (mig 0246), ni fuentes ni SVG ni avif.
+- **Un elemento propio de la página no pasa el saneo.** respond.io envuelve sus secciones en `<astro-island>` con 477 KB de
+  props en UN atributo: el envoltorio no pasaba y la sección quedaba suelta. **Regla:** sin caja (`display: contents`) se
+  suelta; con caja pasa a `<div>`; un atributo de más de 2.000 caracteres que no dibuja nada se va.
+- **El corte del primer nivel no alcanza.** El `<main>` de respond.io (648 KB) iba en UNA sección, pasaba el tope (200 KB) y
+  se vaciaba. Abrir todo lo grande, en cambio, daba en reportei.com (Elementor) 116 secciones de 1-3 KB y 15 niveles de
+  envoltorio (los topes son 60 secciones y 14 envoltorios). **Regla:** lo grande se abre en sus hijos y lo chico vecino se
+  junta (`juntarVecinas`, 16 KB), con tope de profundidad.
+- **Los envoltorios repetidos en cada sección cambian la página.** Un `min-height:100vh` del envoltorio se repetiría por
+  sección, y el `gap` del `<main>` y el `main > section` dejarían de valer. **Regla:** la página publicada los abre UNA vez
+  alrededor de las secciones que los comparten, sin la caja `.gm-libre-seccion` en el medio; el editor los pone adentro del
+  iframe y edita sólo lo de adentro (`data-gm-raiz`).
+- **La base de Tailwind del «Diseño editable» pisa la original.** El preflight le sacaba los márgenes y los tamaños del
+  navegador en los que la página se apoyaba. La copia va con `config.diseno.sinBase`.
+- **La foto se traía la cara de «ya bajé» de lo fijo.** Al bajar, el header de reportei.com (Astra) pasa a
+  `ast-header-sticked` y la barra de respond.io se corre: la foto, que sale después de bajar y volver, se lo traía, y en
+  la copia el menú quedaba debajo del título. **Regla:** el lector anota la cara de cada elemento ANTES de bajar
+  (`JS_ANTES_DE_BAJAR`); lo fijo o pegajoso, y lo que tiene adentro, vuelve a esa cara. Lo demás queda como quedó al bajar.
+- **Una aparición que se DESHACE al salir de pantalla.** tryholo.ai esconde de nuevo lo que ya no se ve, y la foto (que
+  sale arriba de todo) traía media página invisible: el texto estaba, la opacidad en 0. **Regla:** en cada paso de la
+  bajada el lector anota la cara VISIBLE de lo que está en pantalla (`JS_MIRAR_VISIBLES`); lo que se vio y quedó
+  escondido vuelve a esa cara (con `!important`: si la esconde una animación, una regla común no le gana). Lo que nunca se
+  vio (un menú cerrado, un tooltip) queda como está.
+- **`o.src` de un `<img src="">` es la dirección de la PÁGINA.** Seis imágenes rotas en la copia de respond.io: el src
+  se lee del atributo, no de la propiedad.
+- **Un `vh` en el iframe del editor es el alto del iframe**, y el editor lo ajusta al contenido: una sección de `110vh`
+  agrandaba el iframe, el `vh` crecía con él, y así sin fin (closermood.com en la vista del editor: 16.000 px). En el
+  iframe de una copia el `vh` se mide contra una ventana fija de 900 px (`conVhFijo`); la publicada usa el real.
+- **Un `<canvas>` en PNG no entra.** El fondo animado de closermood.com medía ~700 KB y sacaba su sección del tope: va en
+  WebP, y si pasa de 150 KB queda vacío.
+- **La hoja de una copia pasa el tope de la de un diseño.** La de reportei.com, ya podada, mide ~380 KB y con 200 KB se
+  quitaba entera: el tope de `TOPES.cssDiseno` es 600 KB.
+- **El diff del texto ve diferencias que no se ven.** El `innerText` de un `<select>` trae TODAS sus opciones (masterads: 23
+  países que en pantalla no están), un placeholder no cuenta en la original y sí en la copia (va como texto), y la
+  publicada suma «Hecho con MaKo». Y un componente que rota solo (el «Capture / Convert» de respond.io) sale en otro estado
+  en la captura que en la foto. Leer el diff con eso en la cabeza.
+
+### La verificación de 5004dba08 (Cerebro): el HTML AJENO en el MISMO origen
+
+Informe: `C:/dev/revisiones/2810-verificacion-5004dba08.md`, con sus cargas en `C:/dev/revisiones/scratch-5004/`. El
+rojo-verde de esas cargas da 1 de 23 seguras antes y 23 de 23 después (`rojo-antes.txt`, `verde-despues.txt`). Su batería
+`ataques.ts` daba 4 casos con hallazgos de 37 y ahora da 0.
+
+- **El filtro de url() era ciego a cómo lee CSS el navegador.** El iframe del editor es del MISMO origen que la app
+  (`allow-same-origin`, para poder editar), y lo que pide sale con la sesión de quien edita. La CSP de la app no tiene
+  img-src. `medioPermitido` miraba el literal `url(`, pero el navegador lee `\75 rl(` y `u\rl(` como `url(` y
+  `@\69mport` como `@import`. Y `image-set`, `cross-fade` y `src()` piden un STRING como dirección. Pasaban un GET a
+  `/api/ads-manager/ad-aprobacion`, que manda un WhatsApp, y `mask`, `fill` y `clip-path` de un SVG. **Regla:** el CSS se
+  mira sin escapes ni comentarios, declaración por declaración (`cssSinCargasAjenas`), y la que pide algo no permitido se
+  va entera. También se va la que arma la dirección con `var()`, `attr()` o `env()`, porque no se puede saber a dónde va.
+  Vale para la hoja, los `style`, los envoltorios y los atributos de SVG. **La segunda capa:** el iframe de una COPIA
+  lleva su propia política (`politicaDelEditor`), con sus orígenes y NUNCA los nuestros, antes de cualquier cosa que
+  cargue. Aunque algo se escape del filtro, el navegador no lo pide.
+- **El filtro viejo, de paso, rompía lo legítimo.** Un `url(#grad)` de un SVG, que no pide nada, quedaba en `url()`. Los
+  íconos en `data:image/svg+xml,%3Csvg…` y las fuentes de íconos en `data:application/font-woff;base64` también se
+  perdían: respond.io, reportei.com y closermood.com las usan. Un SVG o una fuente como recurso de CSS no corre código ni
+  carga nada. Medido sobre las hojas de las 5 copias, el filtro nuevo no saca ni una declaración legítima.
+- **`target="_BLANK"` con `rel="opener"` se colaba.** El guardia comparaba `=== '_blank'`, pero el navegador no distingue
+  mayúsculas, y un nombre (`target="pwn"`) también abre otra pestaña. **Regla:** con CUALQUIER target va
+  `rel="noopener noreferrer"`.
+- **La copia le avisaba al sitio original de cada visita.** Sus imágenes y fuentes se piden a SU sitio (la política de la
+  publicada deja pasar sus orígenes) con el Referer del dominio del cliente. Ahora la publicada de una copia y el iframe
+  del editor van con `referrer: no-referrer`. El IP del visitante igual le llega, así que lo que falta es el bucket o un
+  proxy (sin hacer).
+- **Una agenda de la página copiada con `position:fixed` y 12.000 px** se dibujaba en la app encima de TODO el lienzo, y
+  los clics iban a la agenda: `vivosDe` medía la caja entera. Ahora la capa se recorta a la caja del iframe.
+- **Un origen con `;` partía la política.** El parser de URL acepta `;` en el host (`https://a;script-src.example`). Ahora
+  un origen entra sólo con un host de letras, dígitos, punto y guion.
+- **La copia idéntica mandaba los leads a la otra.** Su Calendly o su HubSpot embebidos, y sus enlaces al registro o al
+  WhatsApp. **Regla:** en una copia idéntica todo enlace que no sea un ancla de la misma página pasa a «#». La agenda
+  embebida se reemplaza por una caja vacía del mismo tamaño, marcada (`data-gm-agenda-original`), y un `data-calendly`
+  se va. El aviso lo dice.
+- **Un `data-gm-raiz` que venga en el HTML** cambiaba qué guardaba el editor. El saneo lo saca, y el editor también.
+
+Lo que quedó SIN hacer:
+- Copiar las imágenes y las fuentes al bucket: hoy quedan en el sitio de la original (si la otra las cambia o bloquea el
+  enlace, la copia lo sufre). Pide sumar fuentes, SVG y avif a `landing-imagenes` (una migración) o un bucket aparte.
+  Mientras tanto la original ve el IP de cada visitante y cada `:hover` que pide una imagen. Con el bucket o un proxy de
+  MaKo, eso se termina.
+- La política propia del iframe va sólo en las COPIAS. Un diseño de MaKo usa imágenes de la app (`/vsl-assets`), y
+  queda cubierto sólo por el filtro.
+- Lo que hace el JavaScript de la original: un carrusel queda en su primera diapositiva, un menú del teléfono no abre, un
+  acordeón queda como estaba. Los formularios se ven pero no envían (copiados tal cual en nuestro dominio serían phishing).
+- El Pixel no mide por sección en una copia: sus secciones van sin `.gm-libre-seccion` (alcance-secciones.ts y el Pixel
+  v26 las buscan por esa caja).
+- La API de MaKo (`replicar_landing`, «Página web») no tiene navegador: sin foto sigue saliendo la copia vieja en iframes.
+- Personalizar sobre la copia (el texto para el negocio, su marca, sus ángulos) como paso aparte.
+- El editor con una copia abierta NO se vio en un navegador: se midió el documento que arma (`documentoEditable` con los
+  envoltorios) y la página publicada, no la pantalla con sus clics. Tampoco el pedido entero por la ruta (la foto por la
+  ventana del lector de la app y el POST): se midió con las mismas funciones, llamadas desde un script.
+- Los popups que la original abre sola («You've got a surprise!» de tryholo.ai) no se copian: son JavaScript.
+
+Para lo que viene (Martín, ~09:50: personalizar después, POR PROMPTS y por FUNCIÓN: respond.io → la landing de los Chats
+de MaKo): por qué la copia es «Diseño editable» y no la «Página web» vieja en iframes (`htmlLibre`). El chat del editor
+está ciego sobre `htmlLibre` (`textoDe` da '' y Discutir recibe «(sin texto)»); sobre un diseño editable LEE los textos
+(`textoDe`, `textosDeHtmlEditable`), la sección se llama por su primer título (`rotuloDeSeccion`) y `conTextos` cambia un
+texto sin rehacer la sección. Medido con la copia real de respond.io: 12 textos en el hero, el título es el 3.º, y al
+cambiarlo cambió sólo ese texto (el resto, igual byte por byte). La API de MaKo edita un diseño con `{ ...attrs, html }`:
+los envoltorios sobreviven. Toda réplica guarda `config.origen.basadoEnUrl` (la URL de la original): de ahí se puede saber
+qué función de MaKo reemplaza a quién. «Tu oferta» de Replicar por partes NO se guarda en la landing.
+
+Tests: tests/web-generator-copia-identica.test.ts (14; los 13 primeros, probados rompiéndolo: 21 roturas, cada una caza). El arnés
+de medición y la comparación quedan en el scratchpad de la sesión (`medir-identica.mts`, `comparar-identica.mts`,
+`sondear.mts`): sacan la foto por el lector de la app, la arman y la dibujan como la publicada.

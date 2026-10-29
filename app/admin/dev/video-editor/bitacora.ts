@@ -282,4 +282,38 @@ export const BITACORA: Hito[] = [
     revisar: '/video-editor',
     tickets: [15],
   },
+  {
+    fecha: '28 oct', hora: '11:40', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_c698e704-db3d-44cd-b032-a6e23e88b79b', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Reducir el ruido» como CapCut (RNNoise), «Borrar silencios» desde el chat, y el video cortado (ticket #15)',
+    puntos: [
+      '**Reducir el ruido** ahora usa la misma red que CapCut (RNNoise), servida desde MaKo. Medido con una voz y ruido 15 dB por debajo: las pausas bajan unos 40 dB (antes 16 a 19, y casi nada con un ruido que cambia); la voz queda igual; un estéreo con el ruido en un solo lado ya se limpia (antes 7 dB); una voz sin ruido sale intacta.',
+      '**Borrar silencios desde el chat**: Leila se lo pidió a MaKo y le dijo que no podía, porque esa función nunca había entrado al chat ni a la API. Ahora se pide con palabras y, al aceptar, se ve cada silencio que encuentra, de a uno, antes de cortar.',
+      '**El ticket #15** («No se pudo importar»): un video bajado o copiado a medias se leía como un archivo sin imagen y decía «impórtalo como audio». Ahora dice que parece incompleto y qué hacer. Es una causa probable del de Leila; la de su archivo se sabe si lo vuelve a importar (el aviso de ahora lleva el detalle técnico).',
+      'Con ruido de fondo fuerte, «Borrar silencios» no encontraba las pausas (también desde el botón): lo arregla el hito siguiente.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/dsp/ruido.ts y rnnoise.ts — la red decide la ganancia por banda; se aplica sobre el audio original',
+      'public/ve/wasm/rnnoise-0.2-jitsi-0.2.1.wasm — RNNoise 0.2 (de @jitsi/rnnoise-wasm@0.2.1), con su licencia',
+      'app/video-editor/_opencut/chat/ (linea, comandos, aplicar, armado, PanelChat) y lib/editor-video/chat-catalogo.ts — la operación borrar_silencios',
+      'app/video-editor/_opencut/media/importar-motivo.ts — el porqué del video cortado',
+      'tests/video-editor-ruido.test.ts, video-editor-chat.test.ts (51), video-editor-importar-motivo.test.ts (5)',
+    ],
+    revisar: '/video-editor',
+    tickets: [15],
+  },
+  {
+    fecha: '28 oct', hora: '13:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_c698e704-db3d-44cd-b032-a6e23e88b79b', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Borrar silencios» encuentra las pausas aunque el video tenga ruido de fondo',
+    puntos: [
+      'Con ruido de fondo (un ventilador, el aire, el soplido del micrófono), «Borrar silencios» no encontraba ninguna pausa: ni desde el botón ni desde el chat. Ahora escucha el audio sin el ruido para decidir dónde cortar, y corta el video original.',
+      'Medido con una voz y ruido 10 a 20 dB por debajo: antes 0 pausas; ahora las mismas que con el audio limpio, con los bordes a menos de una vigésima de segundo. Con una voz sin ruido, queda igual que antes. No corta voz.',
+      'Tarda lo mismo que «Reducir el ruido» (unos segundos por minuto de video).',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/dsp/silencios-sin-ruido.ts — junta el audio del clip, le saca el ruido y busca las pausas',
+      'app/video-editor/_opencut/audio/borrar-silencios.ts — el botón y el chat usan eso',
+      'tests/video-editor-silencios.test.ts (con ruido, voz limpia, el juntador y el cableado) y tests/_voz-y-ruido.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

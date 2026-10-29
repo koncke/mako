@@ -433,6 +433,16 @@ export type RespaldoDeHecho = {
  * UNA nota como máximo: primero `NOTA_SIN_RESPALDO` (dice hecho algo que el código no respalda), si no `NOTA_SIN_HACER`
  * (promete algo inmediato sin haber corrido nada). Las groserías sí se sacan: no dicen nada de lo hecho.
  */
+/**
+ * Markdown al formato de WhatsApp (28/10/2026, el diagnóstico del Cerebro, F1): `**x**` → `*x*` y un título (`## Algo`) → `*Algo*`.
+ * WhatsApp no conoce `**` ni `#`: llegaban tal cual («**Eugenia** - **Contacto:**», Código Inmobiliario, 22/10).
+ */
+export function aFormatoWhatsapp(t: string): string {
+  return t
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/gm, (_m, x: string) => `*${x.replace(/\*+/g, '').trim()}*`)
+    .replace(/\*\*(?=\S)([^*\n]+?)(?<=\S)\*\*/g, '*$1*');
+}
+
 export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, bloquesDebajo = false, finDeTurno = false, enElGrupo }: {
   corrioHerramientas: boolean;
   /** También lo que dice HECHO sin respaldo («Listo, ya lo armé»): el chat de la app (1.5). */

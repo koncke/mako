@@ -62,6 +62,7 @@ borrar_plantilla_meta
 borrar_post_comunidad
 borrar_producto
 borrar_retro
+borrar_silencios_video
 borrar_tema_landing
 buscar_conocimiento
 buscar_en_comunidad

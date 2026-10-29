@@ -692,4 +692,23 @@ export const BITACORA: Hito[] = [
     revisar: '/second-brain',
     tickets: [16],
   },
+  {
+    fecha: '28 oct', hora: '11:30', chat: 'MaKo inteligente: recomendaciones reales y Second Brain', sesion: 'local_4f7b9970-b8ae-47b8-973e-8de7c91ec28d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo sabe qué hace cada una de sus funciones, y lo saca del Second Brain sin gastar de más',
+    pedido: 'Te pido que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades, para que yo le pueda escribir y no haga cualquier cosa... (Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal... y que sea eficiente justamente, por eso tenemos tipo grafo, sin gastar tantos tokens...)',
+    puntos: [
+      'Un catálogo de las 20 funciones de MaKo: qué hace cada una, qué no hace todavía, qué app reemplaza (Chats a respond.io, Video Editor a CapCut, Image Editor a Canva, Web Generator a Gamma) y cómo le dice la gente.',
+      'En tu Second Brain es una capa nueva, «Lo que hace MaKo». Un chat trae sólo la función que nombra la pregunta: «qué no hace la bandeja» trae Chats y nada más.',
+      'Las herramientas del Second Brain ya no rearman el mapa entero en cada pregunta: lo leen sin dibujarlo y lo guardan unos minutos.',
+      'Lo que sigue: que el Web Generator y el chat de MaKo lo traigan solos antes de contestar.',
+    ],
+    archivos: [
+      'lib/funciones-mako.ts — el catálogo (una tab nueva suma su entrada en el mismo commit)',
+      'lib/cerebro-funciones.ts — la capa del grafo',
+      'lib/cerebro-para-chat.ts — el único grafo que lee un chat',
+      'tests/funciones-mako.test.ts · tests/cerebro-funciones.test.ts — 11 roturas, cada una cae',
+    ],
+    revisar: '/second-brain',
+  },
 ];

@@ -85,7 +85,7 @@ import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
 import { puedeVerKey } from '@/lib/movil-rutas';
-import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
+import { bloquesDeAdjuntos, pedidoConLecturas, placeholderDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
@@ -100,9 +100,6 @@ const FEATURE = 'mako-doer';
 /** Cuánto texto ESCRITO de la persona entra por mensaje (lo pegado tiene el suyo, lib/chat-pegado.ts). Eran 8.000 y Martín
  *  (18/10): «tiene que dejar mensajes mucho más largos». Lo que pasa de acá se dice y queda entero en El Archivero. */
 const TOPE_MENSAJE = 20_000;
-/** Cuánto de lo leído de los archivos entra al turno. El loop re-manda la conversación en
- *  cada paso: 40.000 caracteres son ~10 páginas, y lo que se corta SE DICE. */
-const TOPE_LECTURA = 40_000;
 
 // ── Quién habla ──────────────────────────────────────────────────────────────
 
@@ -589,10 +586,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Con archivos y nada legible ni escrito, no hay pedido: no se gasta el modelo.
     if (adjuntos.length && !lecturas.length && !textoPersona) return vacio(avisos.join(' ') || AVISO_NO_PUDE);
 
-    let lectura = lecturas.map((l) => `[Lo que dice «${l.nombre}», leído por el sistema:]\n${l.texto}`).join('\n\n');
-    if (lectura.length > TOPE_LECTURA) lectura = `${lectura.slice(0, TOPE_LECTURA)}\n[…el archivo sigue; se cortó aquí por largo]`;
-    const pedido = textoPersona || (adjuntos.length ? promptDeAdjunto(adjuntos[0].tipo) : '');
-    const textoModelo = lectura ? `${pedido}\n\n${lectura}` : pedido;
+    // Lo leído, encerrado como dato con su regla (lib/mako-adjuntos.ts → lecturaDeArchivos, la revisión de chats-unificados, 28/10/2026).
+    const textoModelo = pedidoConLecturas(textoPersona, lecturas, adjuntos[0]?.tipo);
     const userContent: RichMsg['content'] = adjuntos.length
       ? bloquesDeAdjuntos(adjuntos.map((a) => ({ tipo: a.tipo, mime: a.mime, base64: Buffer.from(a.bytes).toString('base64') })), textoModelo)
       : textoModelo;

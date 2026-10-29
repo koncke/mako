@@ -17,6 +17,7 @@ import { chatClaude } from '../../anthropic';
 import { chatCheapCascade, errorDeCascada } from '../../ai-cheap';
 import { renderPrompt } from '../../prompt-render';
 import { contenidoNoConfiable } from '../../prompt-render-pure';
+import { conLaLecturaAparte } from '../../mako-adjuntos';
 import { brandSystem } from '../../landing-writer';
 import { parseJsonObject } from '../../json-del-modelo';
 import { reglaNoExisteEn } from '../../no-existe';
@@ -30,7 +31,7 @@ export const FEATURE_CHAT_IMAGEN = 'image-editor-ia';
 /** El chat espera hasta aquí a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown };
+export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string };
 
 export type ResultadoChatImagen =
   | { ok: true; resumen: string; operaciones: OperacionImagen[]; descartes: string[] }
@@ -94,7 +95,7 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
       formato: FORMATO_CHAT_IMAGEN,
     }))}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
-    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
       feature: FEATURE_CHAT_IMAGEN,
       motivo: 'Editar el diseño con el chat',
       maxTokens: 4_000,

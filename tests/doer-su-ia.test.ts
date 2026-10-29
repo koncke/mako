@@ -83,7 +83,7 @@ test('4. el grupo contesta con CLAUDE PRIMERO: su Claude, o el crédito de los p
   assert.match(bloque, /if \(\/credit balance is too low\/i\.test\(m\)\) marcarCuentaDeLosGruposSinCredito\(cuenta\);\n\s*erroresPlataforma\.push\(`plataforma\/anthropic \(\$\{cuenta\}\): \$\{m\}`\);\n\s*return 'otra_cuenta';/);
   assert.match(bloque, /if \(!cuenta\) \{ probadasCliente\+\+; contestaronCliente\+\+; \}/, 'lo que contestó nuestro crédito contó como del cliente');
   // La charla barata (que prueba Gemini primero) no corre en el grupo.
-  assert.match(DOER, /if \(SIN_GEMINI_EN_EL_GRUPO === false && ruta\.tier === 'cheap'/);
+  assert.doesNotMatch(DOER, /await chatCheap\(/, 'volvió la charla barata (Gemini primero) al grupo');
   // La puerta 2 (lo de verdad, en tests/credito-grupos.test.ts): la cuenta del grupo pasa por ahí.
   const ant = sinComentarios(readFileSync(join(RAIZ, 'lib/anthropic.ts'), 'utf8')).replace(/\r\n/g, '\n');
   assert.match(ant, /permisoDeLaClaveDelNegocio\(opts\.feature, \{ modelo: opts\.modeloSuClaude, cuentaDeLosGrupos: opts\.cuentaDeLosGrupos \}\)/);

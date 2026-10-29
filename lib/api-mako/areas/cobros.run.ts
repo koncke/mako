@@ -91,10 +91,15 @@ async function seguro(que: string, fn: () => Promise<Ejecutado>): Promise<Ejecut
   }
 }
 
-/** El cobro por id, en ESTE workspace, o null. No lanza (lo llama un preparar de pantalla). */
-async function cobroDe(ws: number, id: unknown): Promise<Cobro | null> {
+/**
+ * El cobro por id, en ESTE workspace: null si no existe, y su `error` con `falla` si la base no contestó. No lanza (lo llama un
+ * preparar de pantalla). Con el `.catch(() => null)` de antes, la base caída salía «No existe el cobro»: MaKo le decía al dueño
+ * que el cobro no estaba, y era una regla sin ticket (la verificación de 692368a60, R7).
+ */
+async function cobroDe(ws: number, id: unknown): Promise<Cobro | null | { error: string; falla: true }> {
   const x = n(id);
-  return x ? getCobro(ws, x).catch(() => null) : null;
+  if (!x) return null;
+  try { return await getCobro(ws, x); } catch { return { error: 'No pude leer el cobro. Prueba de nuevo en un rato.', falla: true }; }
 }
 
 /**
@@ -145,11 +150,11 @@ function vistaDe(c: Cobro) {
   };
 }
 
-/** El cobro, si su pasarela sigue conectada; si no, el error que lo dice. */
-async function conPasarelaConectada(ws: number, c: Cobro): Promise<string | null> {
+/** null si la pasarela del cobro sigue conectada; si no, el error que lo dice (con `falla` si no se pudieron leer: no es una regla). */
+async function conPasarelaConectada(ws: number, c: Cobro): Promise<{ error: string; falla?: true } | null> {
   const conectadas = await pasarelasConectadas(ws).catch(() => null);
-  if (!conectadas) return 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.';
-  return conectadas.includes(c.proveedor) ? null : `${NOMBRE_PASARELA[c.proveedor]} ya no está conectado en Integraciones: reconéctalo para seguir.`;
+  if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
+  return conectadas.includes(c.proveedor) ? null : { error: `${NOMBRE_PASARELA[c.proveedor]} ya no está conectado en Integraciones: reconéctalo para seguir.` };
 }
 
 // ── los runners ───────────────────────────────────────────────────────────────
@@ -173,6 +178,7 @@ export const RUNNERS: Runners = {
   ver_cobro: {
     leer: async (input, ctx): Promise<SalidaLectura> => {
       const c = await cobroDe(ctx.ws, input.cobroId);
+      if (c && 'falla' in c) return fallo(c.error);
       return c ? json(vistaDe(c)) : fallo(noExisteCobro(input.cobroId));
     },
   },
@@ -182,14 +188,14 @@ export const RUNNERS: Runners = {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: `No existe el lead #${String(input.leadId)} en este negocio. Búscalo con buscar_leads.` };
       const activos = await listProductos(true).catch(() => null);
-      if (!activos) return { error: 'No pude leer el catálogo de ofertas. Prueba de nuevo en un rato.' };
+      if (!activos) return { error: 'No pude leer el catálogo de ofertas. Prueba de nuevo en un rato.', falla: true };
       const disponibles = activos.filter((p) => n(p.monto_usd)).map((p) => ({ productoId: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd }));
       const prod = activos.find((p) => p.id === Number(input.productoId));
       if (!prod) return { error: `El producto #${String(input.productoId)} no está activo en el catálogo de ofertas. Pide listar_productos.`, disponibles };
       if (!n(prod.monto_usd)) return { error: `«${prod.nombre}» no tiene precio en el catálogo: cárgalo en el catálogo de ofertas, o crea el link desde la ficha del lead con el monto.`, faltan: ['monto'] };
 
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
-      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' };
+      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
       if (!conectadas.length) return { error: 'Conecta Stripe o Mercado Pago en Integraciones para cobrar.', faltan: ['pasarela'] };
       const pedida = esPasarela(input.pasarela) ? input.pasarela : null;
       // Con las dos conectadas y sin elegir, Stripe: el precio del catálogo está en dólares y es la
@@ -259,6 +265,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.estado === 'anulado') return { error: `El link del cobro #${c.id} ya estaba anulado.`, yaEstaba: true };
       if (c.estado !== 'pendiente' && c.estado !== 'fallido') {
         return { error: `Sólo se anula un link que todavía no se pagó: el cobro #${c.id} está ${rotuloEstado(c.estado).toLowerCase()}.${c.estado === 'pagado' ? ' Para devolverlo, reembolsar_cobro.' : ''}` };
@@ -276,12 +283,13 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.estado === 'reembolsado') return { error: `El cobro #${c.id} ya estaba reembolsado.`, yaEstaba: true };
       if (c.estado !== 'pagado' || !c.proveedor_pago_id) {
         return { error: `Sólo se reembolsa un cobro pagado: el cobro #${c.id} está ${rotuloEstado(c.estado).toLowerCase()}.${c.estado === 'pendiente' || c.estado === 'fallido' ? ' Para que no se pague, anular_link_pago.' : ''}` };
       }
       const sinPasarela = await conPasarelaConectada(ctx.ws, c);
-      if (sinPasarela) return { error: sinPasarela };
+      if (sinPasarela) return sinPasarela;
       const motivo = s(input.motivo);
       return {
         payload: { cobroId: c.id, ...(motivo ? { motivo } : {}) },
@@ -298,11 +306,12 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.tipo !== 'suscripcion') return { error: `El cobro #${c.id} es un pago único, no una suscripción.` };
       if (c.suscripcion_estado === 'cancelada') return { error: `La suscripción del cobro #${c.id} ya estaba cancelada.`, yaEstaba: true };
       if (!c.proveedor_suscripcion_id) return { error: `La suscripción del cobro #${c.id} todavía no arrancó (nadie pagó el link). Para que no se pague, anular_link_pago.` };
       const sinPasarela = await conPasarelaConectada(ctx.ws, c);
-      if (sinPasarela) return { error: sinPasarela };
+      if (sinPasarela) return sinPasarela;
       return {
         payload: { cobroId: c.id },
         resumen: `Cancelar la suscripción de ${quien(c)}: ${c.concepto}, ${plata(c)} por ${NOMBRE_PASARELA[c.proveedor]}. Deja de cobrarse en el acto y no se puede deshacer.`,
@@ -479,7 +488,7 @@ export const RUNNERS: Runners = {
       if (!lead) return { error: noExisteLead(input.leadId) };
       // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
       const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ cuotaId: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
       if (q.pagado) return { error: `${nombreCuota(q.numero)} ya está cobrada: para corregirla, desmárcala con marcar_pago_cobrado.` };
@@ -489,7 +498,7 @@ export const RUNNERS: Runners = {
       if (vence && !/^\d{4}-\d{2}-\d{2}$/.test(vence)) return { error: 'El vencimiento tiene que ser AAAA-MM-DD.' };
       // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
       const protMapa = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
-      if (!protMapa) return { error: 'No pude revisar si la cuota tiene un link o un recordatorio. Prueba de nuevo en un rato.' };
+      if (!protMapa) return { error: 'No pude revisar si la cuota tiene un link o un recordatorio. Prueba de nuevo en un rato.', falla: true };
       const prot = protMapa.get(q.id) ?? [];
       if (prot.includes('recordatorio')) return { error: `${nombreCuota(q.numero)} tiene un recordatorio de cobro en curso: córtalo con cortar_recordatorio_cuota para editarla.` };
       if (prot.includes('link') && monto != null && monto !== Number(q.monto_usd)) return { error: `${nombreCuota(q.numero)} tiene un link de pago sin pagar: anúlalo con anular_link_pago para cambiar el monto.` };
@@ -520,14 +529,14 @@ export const RUNNERS: Runners = {
       if (!lead) return { error: noExisteLead(input.leadId) };
       // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
       const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
       if (q.pagado) return { error: `${nombreCuota(q.numero)} ya está cobrada.`, yaEstaba: true };
       const pasarela: Pasarela = esPasarela(input.pasarela) ? input.pasarela : 'stripe';
       if (pasarela === 'mercadopago') return { error: 'Mercado Pago cobra en la moneda de tu cuenta y la cuota está en dólares: ese link se crea desde la ficha del lead, con el monto en tu moneda.', faltan: ['monto'] };
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
-      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' };
+      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
       if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en este negocio.`, faltan: ['pasarela'], falta: { servicio: pasarela } };
       const vivos = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []);
       const ya = vivos.find((c) => c.pago_id === q.id && (c.estado === 'pendiente' || c.estado === 'fallido'));
@@ -564,7 +573,7 @@ export const RUNNERS: Runners = {
       const q = (await getPagosByLead(lead.id, 'todos').catch(() => [])).find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
       const prot = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
-      if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.' };
+      if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.', falla: true };
       if (!prot.get(q.id)?.includes('recordatorio')) return { error: `${nombreCuota(q.numero)} de ${lead.nombre} no tiene un recordatorio de cobro en curso.`, yaEstaba: true };
       return { payload: { leadId: lead.id, cuotaId: q.id }, resumen: `Cortar el recordatorio de cobro de ${nombreCuota(q.numero).toLowerCase()} de ${lead.nombre}: MaKo deja de recordársela. No se deshace.` };
     },
@@ -582,7 +591,7 @@ export const RUNNERS: Runners = {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
       const pagos = await getPagosByLead(lead.id).catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
       const usdDe = (qs: ReadonlyArray<{ monto_usd: number }>) => Math.round(qs.reduce((t, q) => t + Number(q.monto_usd), 0) * 100) / 100;
       if (input.deshacer === true) {
         const deBaja = pagos.filter(esCuotaDeBaja);
@@ -611,7 +620,7 @@ export const RUNNERS: Runners = {
       const estado = (['cancelada', 'activa'] as const).find((e) => e === input.estado);
       if (!estado) return { error: 'El estado va: cancelada o activa.', faltan: ['estado'] };
       const cobros = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => null);
-      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.' };
+      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.', falla: true };
       if (laCobraLaPasarela(cobros)) {
         return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cancela con cancelar_suscripcion (pide el cobroId con listar_cobros).` };
       }
@@ -709,7 +718,7 @@ export const RUNNERS: Runners = {
       if (!val.ok) return { error: val.error };
       const v = val.venta;
       let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
-      try { comprador = await compradorEnLaPlataforma(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.' }; }
+      try { comprador = await compradorEnLaPlataforma(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.', falla: true }; }
       if (comprador && 'ambiguo' in comprador) return { error: 'Hay más de un lead con ese email en el CRM de la plataforma: no elijo uno a ciegas. Unifícalos en el CRM y vuelve a pedirlo.' };
       // Lo que va a cobrar el link, con las reglas de crearCobro: la pasarela, la moneda (la de su cuenta, con Mercado Pago)
       // y el valor en dólares.
@@ -717,7 +726,7 @@ export const RUNNERS: Runners = {
       if (!p.ok) return { error: p.error, faltan: p.faltan };
       if (comprador) {
         let abierto: Awaited<ReturnType<typeof cobroAbiertoDelPlan>>;
-        try { abierto = await cobroAbiertoDelPlan(plataforma, comprador.id, v.capa); } catch { return { error: 'No pude revisar los cobros de esa persona. Intenta de nuevo.' }; }
+        try { abierto = await cobroAbiertoDelPlan(plataforma, comprador.id, v.capa); } catch { return { error: 'No pude revisar los cobros de esa persona. Intenta de nuevo.', falla: true }; }
         if (abierto && 'pendiente' in abierto) {
           const c = abierto.pendiente;
           return {
@@ -729,7 +738,7 @@ export const RUNNERS: Runners = {
         if (abierto) return { error: `Ya pagó ese plan (cobro #${abierto.pagado.id}) y su cuenta todavía no quedó dada de alta: se revisa en Cobros.` };
       }
       let cuenta: Awaited<ReturnType<typeof cuentaDelComprador>>;
-      try { cuenta = await cuentaDelComprador(v.email); } catch { return { error: 'No pude revisar si ese email ya tiene cuenta de MaKo. Intenta de nuevo.' }; }
+      try { cuenta = await cuentaDelComprador(v.email); } catch { return { error: 'No pude revisar si ese email ya tiene cuenta de MaKo. Intenta de nuevo.', falla: true }; }
       if (cuenta === 'plataforma') return { error: 'Ese email es del equipo de MaKo: no se le vende un plan.' };
       if (cuenta === 'equipo') return { error: 'Ese email es del equipo de otro negocio, no su dueño: a esa cuenta no se le vende un plan.' };
       const plan = capaDef(v.capa).nombre;
