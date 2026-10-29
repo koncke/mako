@@ -115,6 +115,23 @@ archivo que falta; Turbopack sí, y la página da 500.
 - Regla: un módulo que se importa por su efecto se importa con un nombre (`import { registrarProyectos } from …`)
   y se usa; así tsc lo ve. Hoy la pantalla llama `registrarProyectos(ws)` con el workspace del server.
 
+## `Estudio.tsx` y `estudio.ts` en la misma carpeta: en Windows el import cargaba el estado y no la pantalla
+
+**Vive en:** `app/image-editor/editor/Estudio.tsx` (la pantalla) · `app/image-editor/editor/estudio-estado.ts` (su estado)
+
+El tsc acotado de la fase 2 (28/10) dio TS1149/TS1261 sólo en Windows: «differs from already included file name only
+in casing». Se anotó como «tsc los confunde, en Linux anda», y el diagnóstico obvio —un falso positivo de tsc— era el
+equivocado. `ImageEditorCliente.tsx` hace `import('./editor/Estudio')`; el resolvedor prueba `.ts` antes que `.tsx`, y en
+un disco que no distingue mayúsculas `Estudio.ts` EXISTE: es `estudio.ts`. En Windows se cargaba el estado, `m.Estudio`
+(un tipo) daba `undefined` y el editor quedaba en blanco. Vercel construye en Linux y ahí se veía bien, así que lo
+habría descubierto el primer build local en Windows (el build parcial del relevo, MaKo Desktop).
+
+- Regla: dos archivos de la misma carpeta no pueden diferir sólo en mayúsculas, ni siquiera con otra extensión. El estado
+  pasó a `estudio-estado.ts` (como `estudio-reglas.ts`). Lo frena `tests/nombres-que-chocan-en-windows.test.ts`, que mira
+  todo `git ls-files`.
+
+*29/10/2026, chat «Video Editor: el ruido y los silencios de Leila» (claude3).*
+
 ## «Proyectos» con el `?ws=` de la URL abría la base del workspace 0
 
 **Vive en:** `app/image-editor/mako/ProyectosPanel.tsx` · `mako/registro.ts`

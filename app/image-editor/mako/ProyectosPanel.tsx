@@ -17,7 +17,7 @@ import { useEditor, type EditorEngine } from '../_doory/editor/extensions';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
 import { listarDisenos } from './nube';
 import { rutaDiseno } from '../ruta';
-import { useEstudio } from '../editor/estudio';
+import { useEstudio } from '../editor/estudio-estado';
 import styles from './proyectos.module.css';
 
 type Pestana = 'disenos' | 'carpetas';

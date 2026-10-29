@@ -22,7 +22,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
-import { useEstudio } from '../editor/estudio';
+import { useEstudio } from '../editor/estudio-estado';
 import { disenosDeLaLista } from '../editor/estudio-reglas';
 import { listarDisenos } from './nube';
 import styles from './lista.module.css';

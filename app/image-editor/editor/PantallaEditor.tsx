@@ -32,7 +32,7 @@ import { crearDiseno, leerDiseno } from '../mako/nube';
 // Los paneles del lado de MaKo (Proyectos…): se registran al cargar el módulo; la pantalla le pasa el workspace.
 import { registrarProyectos } from '../mako/registro';
 import { RUTA_INICIO, rutaDiseno } from '../ruta';
-import { useEstudio } from './estudio';
+import { useEstudio } from './estudio-estado';
 import { Marco } from './Marco';
 import { TarjetaLateral } from './TarjetaLateral';
 import styles from './pantalla.module.css';

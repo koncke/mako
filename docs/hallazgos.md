@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Image Editor (copia de Canva) | [hallazgos-editor-imagen.md](hallazgos-editor-imagen.md) | **`Estudio.tsx` y `estudio.ts`: en Windows el import cargaba el estado (29/10)**: el TS1149 parecía un falso positivo de tsc y era real; `.ts` se prueba antes que `.tsx` y el disco no distingue mayúsculas, así que el editor quedaba en blanco en Windows y en Vercel no. Dos archivos de una carpeta no difieren sólo en mayúsculas (`tests/nombres-que-chocan-en-windows.test.ts`) |
 | Video Editor (copia de CapCut) | [hallazgos-video-editor.md](hallazgos-video-editor.md) | **El panel único: «Discutir» se veía y no llegaba (28/10)**: `pedirEdicion` recibía la intención y no se la pasaba a la ruta; los tests fijaban sólo el lado que recibe. Y al juntar el WIP con main, el hilo fuera del conflicto se quedaba sin la nota de voz ni los adjuntos de main, sin avisar |
 | Image Editor (copia de Canva) | [hallazgos-editor-imagen.md](hallazgos-editor-imagen.md) | **La API proponía en un diseño que la pantalla nunca mostraba (28/10)**: `iniciarPropuestasImagen` no la montaba nadie, y «Descartar» no cerraba en la base. «Discutir» lleva la regla de lo que no existe |
 | Centro de Operaciones | [hallazgos-operaciones.md](hallazgos-operaciones.md) | **La batería cuenta por ÁREA (28/10)**: una operación que deja de llegar (`marcar_calificado`) la tapan las que suben; una fixture regenerada se compara par por par contra la de main |

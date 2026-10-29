@@ -35,7 +35,7 @@ import { mudarLocales } from '../mako/mudanza';
 import { listarDisenos } from '../mako/nube';
 import { marcarEnUrl } from '../ruta';
 import { CreditoDoory } from './CreditoDoory';
-import { EstudioContexto, type AmbitoCrear, type Estudio as EstadoEstudio, type VistaTarjeta } from './estudio';
+import { EstudioContexto, type AmbitoCrear, type Estudio as EstadoEstudio, type VistaTarjeta } from './estudio-estado';
 import { disenoAlEntrar } from './estudio-reglas';
 import { Marco } from './Marco';
 import { PantallaEditor } from './PantallaEditor';

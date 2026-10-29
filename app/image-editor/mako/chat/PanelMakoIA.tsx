@@ -39,7 +39,7 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
-import { useEstudio } from '../../editor/estudio';
+import { useEstudio } from '../../editor/estudio-estado';
 import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
 import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/aplicar';
 import { cambiarHilo, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';

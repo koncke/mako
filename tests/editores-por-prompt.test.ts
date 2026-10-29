@@ -380,7 +380,7 @@ test('E4 imagen · cada operación de la API llega al catálogo del chat y se ap
     const o = operacionApiImagenPorId(id)!;
     const op = operacionDesdeInputImagen(o, api(id, { disenoId: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f', ...campos }));
     assert.ok(op.ok, `${id}: ${!op.ok ? op.motivo : ''}`);
-    const r = aplicarOperaciones({ doc: DOC, operaciones: [(op as { op: never }).op], vista: vg.refs, nuevoId: () => 'nuevo', activePageId: vg.paginaId });
+    const r = aplicarOperaciones({ doc: DOC, operaciones: [op.op], vista: vg.refs, nuevoId: () => 'nuevo', activePageId: vg.paginaId });
     assert.equal(r.aplicadas, 1, `${id} no cambió nada: ${r.descartes.join(' · ')}`);
     assert.ok(r.cambios.length >= 1, `${id} sin su fila «Original | Modificado»`);
   }

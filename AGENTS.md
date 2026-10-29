@@ -360,6 +360,11 @@ se deriva de ahí— o `join(tmpdir(), …)`. Lo frena en el push `scripts/rutas
 error, salvo que el archivo esté en su lista `PERMITIDOS` con el motivo — un nombre de archivo que
 manda el navegador o un texto que se redacta son datos, no rutas.
 
+⚠️ **Y AL REVÉS: lo que en Linux son dos archivos, en Windows puede ser UNO.** Dos archivos de la misma carpeta no
+difieren sólo en mayúsculas, ni con otra extensión: con `Estudio.tsx` y `estudio.ts`, `import('./Estudio')` prueba `.ts`
+primero y en Windows carga el otro (el Image Editor en blanco, 29/10/2026; tsc avisa con TS1149 y Vercel no). Lo frena
+`tests/nombres-que-chocan-en-windows.test.ts`.
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
 `node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y
