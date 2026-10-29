@@ -21,7 +21,7 @@
 // medición (scripts/medir-recuperacion.ts). Lo prueba tests/second-brain-recuperar.test.ts.
 // =============================================================================
 
-import { coincide, paraBuscar } from './buscar-tareas';
+import { buscador, paraBuscar } from './buscar-tareas';
 import { TAXONOMIA_NEGOCIO, type Cerebro, type NodoCerebro } from './cerebro-modelo';
 import { esEstructura, gradosDe, tipoDeNodo } from './cerebro-areas';
 
@@ -87,10 +87,14 @@ export function semillasDe(c: Grafo, pregunta: string, tope = 8): Nodo[] {
   const puntos = new Map<string, number>();
   const sumar = (id: string, p: number) => puntos.set(id, (puntos.get(id) ?? 0) + p);
   const datos = c.nodos.filter((n) => !esEstructura(n));
+  // Cada texto se normaliza UNA vez y cada palabra arma su búsqueda una vez: con `coincide` en cada par, un mensaje largo
+  // normalizaba el texto entero de cada nodo por cada palabra (la verificación de b2c19c445).
+  const textos = datos.map((n) => ({ n, etiqueta: paraBuscar(n.etiqueta), todo: paraBuscar(textoDe(n)) }));
   for (const w of palabras) {
-    for (const n of datos) {
-      if (coincide(n.etiqueta, `${w} `)) sumar(n.id, 3);
-      else if (coincide(textoDe(n), `${w} `)) sumar(n.id, 1);
+    const esta = buscador(`${w} `);
+    for (const { n, etiqueta, todo } of textos) {
+      if (esta(etiqueta)) sumar(n.id, 3);
+      else if (esta(todo)) sumar(n.id, 1);
     }
     for (const area of SINONIMOS[w] ?? []) {
       const deArea = datos.filter((n) => n.area === area && n.autoria !== 'pendiente').sort((a, b) => (grados[b.id] ?? 0) - (grados[a.id] ?? 0));
