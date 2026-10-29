@@ -1,4 +1,4 @@
-# Relevo — «Video Editor: el ruido y los silencios de Leila» (cuenta claude4)
+# Relevo — «Video Editor: el ruido y los silencios de Leila» (cuentas claude4 y claude3)
 
 *Se reescribe después de cada entrega. Lo abrió el Cerebro; todo lo de este chat va al Cerebro por mensaje, y él sube a main.*
 
@@ -33,19 +33,33 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
   tests/video-editor-chat.test.ts, cosecha (docs/hallazgos-video-editor.md, docs/hallazgos.md) y regla en AGENTS.md.
   **Commit d867f8bbc** (rama `editor-leila-2810`, sin subir: sube el Cerebro). Tests 53/0, 5 roturas del test 52 (cada
   una 52/1), tsc acotado sin errores en los 6 archivos (quedan los 5 del entorno: soundtouchjs, EyeDropper, gpu-renderer).
-  VERDE mandado al Cerebro el 28/10; él cierra el ticket con el aviso a Leandro cuando esté desplegado.
+  VERDE mandado al Cerebro el 28/10. **En producción** con tren-x (`004a4ae57`, 28/10 23:33); el Cerebro cerró el
+  ticket y le avisó a Leandro en su grupo.
+- Motion, cuenta claude3 (29/10): merge de origin/main `7f36fa9c6` en `d22770e72` (un conflicto: el índice
+  docs/hallazgos.md, quedan los dos lados) y los dos rojos del typecheck arreglados en un commit aparte (ver abajo).
 
 ## Lo que quedó a medias
 
 - **Ticket 23:** nada a medias. ⚠️ Para la próxima: el árbol está en CRLF; un script que rompe por texto tiene que usar
   el fin de línea del archivo, o «no encuentra» y no rompe nada (el `grep` de Git Bash no ve el CR).
-- **Motion (frenado por cuota hasta que el Cerebro diga):** el typecheck dio dos cosas del WIP, no de main:
-  - tests/editores-por-prompt.test.ts:383, TS2352: `(op as { op: never }).op` después de `assert.ok(op.ok)` → usar `op.op`.
-  - app/image-editor/editor/Estudio.tsx y estudio.ts conviven: en Windows tsc los confunde (TS1149/TS1261). En Linux
-    anda; revisar si conviene renombrar uno.
-  - El resto son los de siempre del entorno (wasm/opencut sin generar).
-  Después: tests-afectados por con-turno y el VERDE de Motion con las 4 shas. Notas para el VERDE: marcar_calificado ya
-  no llega al turno de la app (proponer_cambio_etapa sí); nada se miró en el navegador.
+- **Motion:** los dos rojos del typecheck, arreglados el 29/10 (claude3):
+  - tests/editores-por-prompt.test.ts:383 (TS2352) → `op.op`, que `assert.ok(op.ok)` ya angosta.
+  - `Estudio.tsx` y `estudio.ts` NO era tsc confundido: en Windows `import('./editor/Estudio')` cargaba el estado
+    (`.ts` antes que `.tsx`, disco sin mayúsculas) y el editor quedaba en blanco. El estado pasó a
+    `editor/estudio-estado.ts`; guarda nueva `tests/nombres-que-chocan-en-windows.test.ts` (2/0, tres roturas, cada
+    una 1/1). Cosechado en docs/hallazgos-editor-imagen.md, regla en AGENTS.md.
+  - Tests dirigidos en verde: editores-por-prompt 16/0, image-editor-estudio 10/0, image-editor-integracion 7/0,
+    image-editor-chat 26/0, video-editor-chat 53/0.
+  Commits: merge `d22770e72` y arreglo `d1c9ee86a` (rama `motion-imagen-2610`, sin subir). Falta: el tsc acotado de lo
+  tocado (en dos tandas, por `con-turno`; la guardia mató tres intentos de 3 GB y después esperó la pausa del tren-y) y
+  tests-afectados por `con-turno`. Recién con eso va el VERDE de Motion con las 6 shas (821748730, e1fd45e25,
+  b71e3d5e5, 5f94bc3e3, d22770e72, d1c9ee86a).
+  Notas para el VERDE: marcar_calificado ya no llega al turno de la app (proponer_cambio_etapa sí); nada se miró en
+  el navegador. Falta avisar que `RUTAS_QUE_PLIEGAN` (app/_components/Sidebar.tsx:123, del chat Sidebar) no tiene
+  /video-editor ni /image-editor.
+- **Lo que sigue de Motion después del VERDE** (docs/relevo/motion-nube-2710.md, «Pendientes»): los huecos de la API de
+  los dos inventarios, el bug de la plantilla cifra (paso 1 redondea 4,5), el modelo de imágenes antes de subir, y en cola
+  exportar → MP4 a Storage, «Mandar al grupo de MaKo» y «Programar publicación» (con el chat de Zernio).
 
 ## Lo que falta verificar
 
