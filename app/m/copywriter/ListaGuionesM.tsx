@@ -5,7 +5,8 @@
 // =============================================================================
 // La lista de escritorio (la de app/_crear/PantallaCrear.tsx) en el orden del árbol: cada página y, debajo, las suyas
 // (la segunda línea dice de cuál cuelgan). «Nueva» abre la hoja «¿Qué vas a crear hoy?» con los MISMOS templates de
-// escritorio (lib/copywriter/plantillas.ts) y crea la página con el cuerpo del template.
+// escritorio (lib/copywriter/plantillas.ts) y crea la página con el cuerpo del template. `?nuevo=<tipo>` (los links
+// viejos: /reels, /stories, «Abrir en Copywriter») abre la hoja con los de ese tipo primero, como en escritorio.
 // =============================================================================
 
 import { useState } from 'react';
@@ -13,19 +14,20 @@ import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { FilaM, ListaM, PieFijoM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { enOrdenDeArbol } from '@/lib/copywriter/arbol';
-import { INFO_TIPO, propsNuevas, type PaginaCopy } from '@/lib/copywriter/tipos';
+import { INFO_TIPO, propsNuevas, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { plantillasDe, type Plantilla } from '@/lib/copywriter/plantillas';
 import { pedirCrear } from '@/app/copywriter/cliente';
 
-export function ListaGuionesM({ paginas, catalogos }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy }) {
+export function ListaGuionesM({ paginas, catalogos, tipoInicial = null }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy; tipoInicial?: TipoGuion | null }) {
   const router = useRouter();
   const toast = useToastM();
-  const [hoja, setHoja] = useState(false);
+  const [hoja, setHoja] = useState(!!tipoInicial);
   const [creando, setCreando] = useState(false);
   const filas = enOrdenDeArbol(paginas);
 
-  const plantillas = plantillasDe(catalogos);
+  const todas = plantillasDe(catalogos);
+  const plantillas = tipoInicial ? [...todas.filter((x) => x.tipo === tipoInicial), ...todas.filter((x) => x.tipo !== tipoInicial)] : todas;
   const crear = async (pl: Plantilla) => {
     if (creando) return;
     setCreando(true);

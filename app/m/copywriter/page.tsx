@@ -13,14 +13,19 @@ import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { listar } from '@/lib/copywriter/server';
 import { mudarLoDeAntes } from '@/lib/copywriter/mudanza';
 import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
+import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { requireCopywriterM } from './puerta';
 import { ListaGuionesM } from './ListaGuionesM';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CopywriterMovil() {
+export default async function CopywriterMovil({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireMovil({ navKey: 'copywriter' });
   await requireCopywriterM();
+  // `?nuevo=<tipo>` (lo trae lib/movil-creacion.ts desde /copywriter): la hoja de templates abierta, con los de ese tipo
+  // primero. Nada se crea por abrir un link.
+  const nuevo = (await searchParams).nuevo;
+  const tipoInicial = esTipoGuion(nuevo) ? nuevo : null;
   // La primera vez, lo que el negocio ya tenía (Ads Writer, Reels) pasa a páginas (lib/copywriter/mudanza.ts).
   await mudarLoDeAntes();
   const [r, catalogos] = await Promise.all([listar(), catalogosDelCopywriter()]);
@@ -28,7 +33,7 @@ export default async function CopywriterMovil() {
     <PantallaM>
       <CabeceraM titulo="Copywriting" />
       {r.ok
-        ? <ListaGuionesM paginas={r.paginas} catalogos={catalogos} />
+        ? <ListaGuionesM paginas={r.paginas} catalogos={catalogos} tipoInicial={tipoInicial} />
         : <ErrorM frase={`No se pudo leer la lista de páginas: ${r.error}`} />}
     </PantallaM>
   );

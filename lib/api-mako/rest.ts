@@ -614,6 +614,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/contenido/documentos/{documentoId}/bloques', 'agregar_al_documento_copywriter'],
   ['PUT', '/contenido/documentos/{documentoId}/contenido', 'reemplazar_documento_copywriter'],
   ['POST', '/contenido/documentos/{documentoId}/restauracion', 'restaurar_documento_copywriter'],
+  // «Nueva» con templates y MaKo escribiendo EN la página (29/10/2026, docs/diseno-copywriter.md D13).
+  ['GET', '/contenido/plantillas', 'listar_plantillas_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/edicion', 'editar_documento_copywriter'],
   // Compartir un documento para editar (28/10/2026): sus links, crear uno y revocarlo.
   ['GET', '/contenido/documentos/{documentoId}/enlaces', 'enlaces_documento_copywriter'],
   ['POST', '/contenido/documentos/{documentoId}/enlaces', 'compartir_documento_copywriter'],

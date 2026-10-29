@@ -150,6 +150,20 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   esta rama ENCIMA del merge de la otra. Si la hubiera hecho la rama del shell, sus clientes iban a una ruta que todavía no
   estaba en main. Por lo mismo, las dos ramas suben juntas (o la del Copywriter primero).
 
+## Los tests del Copywriter daban verde y la barra estaba rota (29/10/2026)
+
+- Correr «los tests del Copywriter» (los 12 que nombran copywriter, crear, m-creacion…) dio verde; `tests-afectados` dio
+  10 rojos en 8 archivos que NO se llaman copywriter: la barra (`barra-sin-dev`: «lo que se editaba sólo ahí tiene casa»),
+  la API REST (`api-mako-rest`: cada operación HTTP necesita su fila en `RUTAS_REST`, y generar-api-doc NO lo avisa), el
+  catálogo de MaKo (`funciones-mako`: una key del nav que deja de ser `comingSoon` pasa a necesitar una función) y el
+  teléfono (`movil-mas-secciones`: una query de `QUERY_DE_SECCION` tiene que volver por `RUTAS_CREACION`).
+- **Regla:** sacar pestañas o abrir una key toca lo que la barra prometía. Antes del VERDE va `tests-afectados`, no la
+  lista de tests con el nombre de la tab.
+- `tsc-acotado` con BlockNote se queda sin heap con 30 archivos y el heap por defecto (código 134, que NO es el vigía):
+  van tandas de ~15 con `--heap=3000`. Y una tanda que arrastra `app/video-editor/_opencut` o `<style jsx>` da rojos que no
+  son de nadie: se suman `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts` y `node_modules/styled-jsx/global.d.ts`
+  a la lista (declaran módulos para todo el repo y el acotado no los ve solo).
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
@@ -157,7 +171,8 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - La estructura de YouTube (falta la fuente): docs/diseno-copywriter.md, D6. (Stories y YouTube Writer ya dejaron la barra el
   29/10, D13.)
 - El arrastre del árbol de Notion (reordenar y anidar páginas) se perdió al entrar al shell único de Create (su lista es
-  plana): docs/diseno-copywriter.md, D15. Retirar `/m/stories` e `/ideas` (sin fila, todavía vivos).
+  plana): docs/diseno-copywriter.md, D15. Retirar `/m/stories`, `/ideas` y el «pronto» de YouTube Writer del teléfono (sin
+  fila, todavía vivos; lib/movil-rutas.ts, lib/movil-creacion.ts y sus tests).
 - Borrar StoriesApp/OnboardingStories (sin entrada desde el 29/10) y decidir qué pasa con la matriz y «Analizar guion» del
   Ads Writer (siguen por su ruta).
 - `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.

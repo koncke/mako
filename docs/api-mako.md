@@ -14399,10 +14399,11 @@ curl -L \
   "https://hola-mako.com/api/v1/contenido/enlaces/ENLACE_ID"
 ```
 
-### `GET /api/v1/contenido/listar_plantillas_copywriter` — Templates del Copywriter
+### `GET /api/v1/contenido/plantillas` — Templates del Copywriter
 
 Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio en video, copy para Meta, Reel, stories, carrusel, email, VSL, YouTube y página en blanco, con su id, tipo y qué secciones arma. El id va en plantillaId de crear_documento_copywriter.
 
+- **Ruta por operación:** `GET /api/v1/contenido/listar_plantillas_copywriter`
 - **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -14413,13 +14414,18 @@ Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio
 _Sin parámetros._
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/plantillas"
 ```
 
-### `POST /api/v1/contenido/editar_documento_copywriter` — MaKo escribe en un documento del Copywriter
+### `POST /api/v1/contenido/documentos/{documentoId}/edicion` — MaKo escribe en un documento del Copywriter
 
 MaKo escribe o edita EN un documento del Copywriter lo que se le pide («mejora el gancho», «agrega una sección de preguntas frecuentes», «acórtalo»), como «Editar» en el chat de la página: lee el documento, escribe con la voz y el método del negocio, y la propuesta se ve en el resumen. Al confirmar se aplica sobre lo de AHORA (lo que se borró en el medio se descarta). Para pegar un texto ya escrito, agregar_al_documento_copywriter o reemplazar_documento_copywriter. Queda pendiente hasta que la persona confirme.
 
+- **Ruta por operación:** `POST /api/v1/contenido/editar_documento_copywriter`
 - **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -14436,7 +14442,14 @@ MaKo escribe o edita EN un documento del Copywriter lo que se le pide («mejora 
 | `instruccion` | string | sí | Qué escribir o cambiar, en las palabras de la persona. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/edicion" \
+  -d '{"instruccion":"Mejora el gancho y agrega una sección de preguntas frecuentes."}'
 ```
 
 ## Video Generator — `video`

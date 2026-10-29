@@ -654,7 +654,11 @@ export const SIN_FILA: NavItem[] = [
   // Writer redirigen al Copywriter. La API (`gating.tab: 'ads-writer'`) y las capas las siguen pidiendo.
   { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
   { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
-  { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', match: starts('/youtube-writer') },
+  // YouTube Writer e Ideas siguen «pronto» como keys: sus páginas las piden (`requireRolWs`) y el teléfono abre
+  // /m/pronto/<key>. En la computadora /youtube-writer ya lleva al template de YouTube del Copywriter; /ideas sigue siendo
+  // el «Coming soon» del super admin. Retirarlas del teléfono va con /m/stories (docs/relevo/copywriter.md).
+  { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+  { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
 ];
 
 // ⚠️ Sin las herramientas del super admin aunque cuelguen como secciones de una tab: son de ADMIN_NAV, como antes del

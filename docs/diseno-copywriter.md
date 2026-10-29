@@ -283,6 +283,12 @@ El Copywriter la usa así (app/copywriter/Copywriter.tsx), y reemplaza al armaz�
 - La página va a la derecha (`children`), dentro de `<Pagina style={ESTILO_PAGINA_CREAR}>` como Video y Offer.
 - ⚠️ **Lo que se perdió del árbol de Notion:** arrastrar para reordenar y anidar (la lista del shell es plana). Las migas de
   la página siguen navegando el árbol, y una subpágina se crea desde el ⋯.
+- **Las herramientas del super admin** («Copy Method», /admin/copywriting, y «Angles & Structures», /admin/guiones) eran
+  pestañas de Copywriting sólo para él. Sin pestañas, van al pie de la lista, debajo de la Papelera, sólo si
+  `deLaPlataforma` (las páginas lo leen de `getSesionAdmin`). La barra sigue marcando Copywriting en esas rutas.
+- **El teléfono:** `?nuevo=<tipo>` viaja a /m/copywriter (lib/movil-creacion.ts) y abre la hoja de templates con los de
+  ese tipo primero, como en la computadora. YouTube Writer sigue «pronto» en el teléfono (key con `comingSoon`), como
+  /ideas: retirarlos va con /m/stories.
 
 ## Qué queda para después
 

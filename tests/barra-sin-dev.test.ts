@@ -8,7 +8,8 @@
 //   1. el menú de la foto del super admin ya no los tiene, y sus pantallas no existen;
 //   2. los links viejos caen en su lugar nuevo (next.config.ts), no en un 404;
 //   3. lo que se editaba SÓLO ahí no se perdió: el Conocimiento en Classroom › Methodology (sólo la plataforma), los prompts
-//      en Settings › Prompts (la regla de Método), y las bibliotecas de Ads Writer en Copywriting;
+//      en Settings › Prompts (la regla de Método), y las bibliotecas de Ads Writer en Copywriting (desde el 29/10/2026, al
+//      pie de la lista de páginas del Copywriter, para el super admin: Copywriting ya no tiene pestañas);
 //   4. nada enlaza a una pantalla que se fue: el grafo del Second Brain y lo que MaKo dice que sabe hacer.
 //
 // PROBADO ROMPIÉNDOLO (base 4/0): MaKo Context de vuelta en el menú → 1 rojo (1); sin el redirect de /contexto → 1 rojo (2);
@@ -68,9 +69,18 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   const prompts = sinComentarios(leer('app/configuraciones/prompts/page.tsx'));
   assert.match(prompts, /if \(!\(await getSesionAdmin\(\)\)\) redirect\(/);
   assert.match(prompts, /<PromptsMaKo \/>\s*<Configuraciones embedded \/>/, 'la persona y los prompts de cada pantalla, los dos');
-  // Las bibliotecas de Ads Writer: una sección de Copywriting, y la página las dibuja (ya no redirige a Dev).
-  const copy = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'copywriting');
-  assert.ok(copy?.secciones?.some((s) => s.href === '/admin/guiones'), 'las bibliotecas no son una sección de Copywriting');
+  // Las bibliotecas de Ads Writer: en Copywriting, y la página las dibuja (ya no redirige a Dev). Desde el 29/10/2026
+  // Copywriting es UNA pantalla, el Copywriter (Martín: «NO quiero otras tabs internas»): las bibliotecas y el método de
+  // redacción van al pie de su lista de páginas, sólo para el super admin (docs/diseno-copywriter.md, D15).
+  const copy = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.label === 'Copywriting');
+  assert.ok(copy && !copy.secciones?.length, 'Copywriting volvió a tener pestañas');
+  const copywriter = sinComentarios(leer('app/copywriter/Copywriter.tsx'));
+  assert.match(copywriter, /href: '\/admin\/guiones'/, 'las bibliotecas no tienen casa en Copywriting');
+  assert.match(copywriter, /href: '\/admin\/copywriting'/, 'el método de redacción no tiene casa en Copywriting');
+  assert.match(copywriter, /\{deLaPlataforma && HERRAMIENTAS_COPY\.map\(/, 'las herramientas del super admin, para todos');
+  for (const p of ['app/copywriter/page.tsx', 'app/copywriter/[id]/page.tsx']) {
+    assert.match(leer(p), /deLaPlataforma=\{!!admin\}/, `${p} no le dice al Copywriter quién es el super admin`);
+  }
   assert.equal(copy?.match('/admin/guiones'), true, 'en las bibliotecas, la barra no marca Copywriting');
   const guiones = sinComentarios(leer('app/admin/guiones/page.tsx'));
   assert.match(guiones, /return <GuionesAdminView \/>;/);

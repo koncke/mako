@@ -1,14 +1,15 @@
 // =============================================================================
-// /copywriter/<id> — un guion abierto: MaKo, el árbol y el documento (docs/diseno-copywriter.md)
+// /copywriter/<id> — una página abierta: MaKo a la izquierda y la página al lado (docs/diseno-copywriter.md, D15)
 // =============================================================================
 // LA PUERTA son dos (las de app/ai-avatar): `requireRolWs([], { nav: 'copywriter' })` (el admin del negocio, la tab en su
-// capa, el onboarding) y `requireCopywriter()` (hoy, sólo el super admin: ./acceso.ts).
+// capa) y `requireCopywriter()` (desde el 29/10/2026, toda persona con sesión: ./acceso.ts).
 // EL GUION se lee con `abrir` (lib/copywriter/server.ts), que mira el negocio de la pestaña: uno de OTRO negocio contesta
 // «No existe» y acá es un 404 de verdad. Un fallo de lectura (la base) NO es un 404: la pantalla lo dice.
-// Sin `Pagina` y sin loading.tsx: el editor ocupa todo el alto (como /web-generator/<id>).
+// Sin loading.tsx: el shell de Create mide el alto de la <Pagina>.
 // =============================================================================
 
 import { notFound } from 'next/navigation';
+import { getSesionAdmin } from '@/lib/auth';
 import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { abrir, listar } from '@/lib/copywriter/server';
@@ -27,7 +28,9 @@ export default async function GuionPage({ params }: { params: Promise<{ id: stri
   await requireCopywriter();
   const { id } = await params;
   if (!esIdPagina(id)) notFound();
-  const [rAbrir, rListar, catalogos, ws] = await Promise.all([abrir(id), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null)]);
+  const [rAbrir, rListar, catalogos, ws, admin] = await Promise.all([
+    abrir(id), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), getSesionAdmin().catch(() => null),
+  ]);
   if (!rAbrir.ok && rAbrir.status === 404) notFound();
   // El shell único de Create (app/_crear/PantallaCrear.tsx) mide el alto de la <Pagina>, como Video y Offer.
   return (
@@ -38,6 +41,7 @@ export default async function GuionPage({ params }: { params: Promise<{ id: stri
         guion={rAbrir.ok ? { pagina: rAbrir.pagina, doc: rAbrir.doc } : null}
         error={rAbrir.ok ? null : rAbrir.error}
         catalogos={catalogos}
+        deLaPlataforma={!!admin}
       />
     </Pagina>
   );

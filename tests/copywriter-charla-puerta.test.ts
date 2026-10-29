@@ -59,7 +59,9 @@ test('los cuatro caminos preguntan la puerta: el hilo de la tab, el Ops Center (
 });
 
 test('la regla de la puerta vive en UN lugar (lib), y la pantalla la re-exporta', () => {
-  assert.match(leer('lib/copywriter/puerta.ts'), /return !!\(await getSesionAdmin\(\)\);/);
+  // Desde el 29/10/2026 la puerta es toda persona con sesión (Copywriting ES el Copywriter, D13): el rol y la capa los mira
+  // la tab. Las cuatro rutas de arriba siguen preguntando, así que volver a cerrarla es cambiar ESTA línea.
+  assert.match(leer('lib/copywriter/puerta.ts'), /return !!\(await getUsuarioActual\(\)\.catch\(\(\) => null\)\);/);
   const acceso = sinComentarios(leer('app/copywriter/acceso.ts'));
   assert.match(acceso, /import \{ veCopywriter \} from '@\/lib\/copywriter\/puerta';/);
   assert.doesNotMatch(acceso, /getSesionAdmin/, 'una sola copia de la regla');
