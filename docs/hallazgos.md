@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **Esperar con el turno tomado traba a todos (29/10)**: con-turno y el respaldo de tipos del push esperan pausa y RAM AFUERA del lock; un tren con dependencias nuevas (BlockNote) no tipa con el node_modules común de los worktrees |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **El chequeo del tren con la PC llena (29/10)**: `node --test` con la lista VACÍA corre todo `tests/` sin fallar (`[ -s lista ] \|\| exit 1`); una tanda «colgada» con RAM mínima 0,0 GB pagina, no está rota; la pausa del Cerebro no frena a quien llama a `node --test` directo |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **Editar desde Python (29/10)**: `\b` y `\1` en una cadena normal son caracteres de control, y el test pasaba sin la regla que vigilaba. Regex en cadenas crudas o con Edit; un `find` corto agarra la primera aparición |
 | Editor de landing | [hallazgos-editor-landing.md](hallazgos-editor-landing.md) | **«Las páginas clonadas se desfasaron todas» (29/10)**: la PUBLICADA era fiel, el EDITOR no. El corte partía columnas de una fila (el hero de holo) y el editor dibuja cada sección sola: la foto marca con la geometría las cajas con hijos juntos y el corte no las abre. La caja del body estiraba cada sección a una pantalla. Sin hacer: lo fijo, el ancho del lienzo |

@@ -35,8 +35,25 @@ preguntes: hacé esto en orden.
 
 ## Integración — los TRENES de claude3 (29/10 desde ~02:30 ART; lo arma el chat «Cerebro › Integración»)
 
-Integración arma y chequea cada tren en `C:/dev/wt-push-q` (rama `tren-y`, la que antes era tren-x) y lo sube; el Cerebro de
-claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 de más abajo.
+Integración arma y chequea cada tren en `C:/dev/wt-push-q`, salvo tren-aa, que va en `C:/dev/wt-push-aa` por el
+node_modules. Después lo sube. El Cerebro de claude3 es `local_428051c1`. Esto vale por encima del estado de claude4 de más
+abajo.
+- **AHORA (29/10 ~10:45): main = `9f8216dc8`, tren-z EN PRODUCCIÓN** (`mako-fkchtlw76`, Ready 10:27; avisado el Cerebro).
+  Tablas APLICADAS el 29/10 por el Cerebro con el sí de Martín: 0340 (la papelera del CRM), 0342 (publicar desde el
+  Calendar: publicar ya no dice «falta la migración») y 0343 (las columnas `cerebro_*` de tickets; su código entra con el
+  VERDE de MaKo en WhatsApp). Esperan: 0344 (el Image Editor, que renumera su 0340) y 0346 (MaKo sin conexión).
+- **tren-aa (Create), en `C:/dev/wt-push-aa`, rama `tren-aa`, sobre tren-z.**
+  - **Mezclados:** Copywriter en Notion `544991179` (trae el shell de Create, `b57b67268`) y AI Avatar `3020bfbbc`.
+  - **Faltan:** CRM fiscal `b39a42ba7` y la difusión de Leila `crm-difusion-2910` @ `d462f9c6c` (trae aut-2510 y crm-lote).
+  - **⚠️ El node_modules es un JUNCTION a `C:/dev/wt-copywriter-notion/node_modules`,** porque el común no tiene BlockNote
+    ni Mantine (docs/hallazgos-infra.md, «Esperar con el turno tomado»). El push sale desde `C:/dev/wt-push-aa`. Después del
+    deploy, `npm ci` en el clon principal.
+  - **Revisión dura pendiente (el Cerebro): la mudanza del Copywriter,** que escribe en producción la primera vez que cada
+    negocio abre la tab. Tiene que COPIAR sin borrar, ser idempotente con dos pestañas a la vez y no romper ws1. También la
+    puerta pública que escribe (`/api/compartido/guion`).
+  - **Sube también un arreglo de Integración:** `tipos-respaldo-push.mjs` espera la RAM ANTES del lock.
+- **WhatsApp:** entra con el VERDE de `f8d2901ce`, con la ALTA 2 arreglada (decidió el Cerebro). **Pagos por tramos:** devuelto
+  con dos ALTAS.
 - **tren-y SUBIDO: main = `eab9c62e1` (29/10 05:46).** Trae los docs de claude4 y el P0 de Martín, la foto de Replicar
   (`22b4b75c4`, rama `web-generator-foto-2910`). Tests del tren verdes (la tanda de 43 re-corrida de a 6: 608/608), las
   guardas, la batería y las 3 tandas de tipos en 0. Al estar Ready: avisarles al Web Generator (`local_12107aea`) y al
