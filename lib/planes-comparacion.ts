@@ -91,3 +91,19 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPrograma(acompanamiento, 'Un grupo de WhatsApp con respuestas de Martín'),
   ];
 }
+
+/**
+ * La celda de un plan por su CAPA y no por su id: los números salen de los topes de la capa, así que un plan del setting
+ * `planes.mako` con otro id dice lo que su capa le da. Una capa sin columna (pm), null: no se inventa.
+ */
+export function celdaDeCapa(f: FilaComparacion, capa: string): Celda | null {
+  return capa === 'completo' ? f.esencial : capa === 'agencia' ? f.pro : null;
+}
+
+/**
+ * Lo que un plan NO trae, de la misma tabla (29/10/2026, Martín: el pricing «no aclara todo lo que incluye o lo que no»):
+ * cada tarjeta lo dice con ✗, y no puede contradecir a la comparación porque sale de ella.
+ */
+export function noIncluyeDe(capa: string): string[] {
+  return filasDeComparacion().filter((f) => celdaDeCapa(f, capa) === false).map((f) => f.que);
+}

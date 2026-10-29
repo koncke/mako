@@ -107,8 +107,9 @@ test('/planes: tres bloques, el programa se pide, la comparación, y el link a M
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
   assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
   // La columna de cada plan sale de su CAPA (los topes son de la capa): un plan del setting con otro id no queda vacío.
-  assert.match(p, /<CeldaPlan v=\{celdaDe\(f, p\.capa\)\} \/>/);
-  assert.match(p, /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
+  // (29/10/2026: la celda por capa pasó a lib/planes-comparacion.ts, `celdaDeCapa`: la usan también los ✗ de cada tarjeta.)
+  assert.match(p, /<CeldaPlan v=\{celdaDeCapa\(f, p\.capa\)\} \/>/);
+  assert.match(fuente('lib/planes-comparacion.ts'), /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
   assert.match(p, /<Link href="\/mako-partners">MaKo Partners<\/Link>/, 'desde /planes se llega a MaKo Partners');
   // Los planes cobrables siguen saliendo de la regla de siempre (tests/planes-sin-pasarela.test.ts).
   assert.match(t, /botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\)/);
@@ -151,7 +152,7 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
-  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd, preciosLocales: x.preciosLocales, cobrable: true }));
+  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, capa: x.capa, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd, preciosLocales: x.preciosLocales, cobrable: true }));
   assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))), INTERNO, 'la landing de venta');
   for (const x of [...PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR]) {
     for (const r of [x.resumen, ...x.incluye]) assert.doesNotMatch(r, INTERNO, `${x.nombre}: «${r}»`);

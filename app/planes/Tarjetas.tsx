@@ -28,9 +28,10 @@
 import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba, type PlanMako } from '@/lib/planes-mako';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
+import { noIncluyeDe } from '@/lib/planes-comparacion';
 
-/** Un plan como lo dibujan las tarjetas, con si se cobra en línea. */
-export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
+/** Un plan como lo dibujan las tarjetas, con si se cobra en línea. La capa dice lo que NO trae (la comparación). */
+export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
 
 export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
 /** La línea de abajo de las tarjetas: cómo es la prueba (también la lee el test contra /reembolsos). */
@@ -66,6 +67,10 @@ export const CSS_TARJETAS = `
 .mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-cuotas, .mkpl-programa .mkpl-precio small { color: #C9D3EE; }
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
 .mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
+/* Lo que el plan NO trae (29/10/2026), con ✗ y en gris, debajo de lo que sí. */
+.mkpl-lista.mkpl-no { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #E3E7EE; }
+.mkpl-lista.mkpl-no li { color: #6B7280; }
+.mkpl-lista.mkpl-no li::before { content: "✗"; color: #9AA1AD; background: #F1F3F6; }
 .mkpl-promesa { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; background: rgba(245,196,81,.12); border: 1px solid rgba(245,196,81,.45);
   font-size: 14.5px; line-height: 1.45; }
 .mkpl-promesa b { color: #F5C451; }
@@ -142,6 +147,9 @@ export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarj
               </div>
             )}
             {p.incluye.length > 0 && <ul className="mkpl-lista">{p.incluye.map((x) => <li key={x}>{x}</li>)}</ul>}
+            {noIncluyeDe(p.capa).length > 0 && (
+              <ul className="mkpl-lista mkpl-no" aria-label="No incluye">{noIncluyeDe(p.capa).map((x) => <li key={x}>{x}</li>)}</ul>
+            )}
           </section>
         );
       })}
