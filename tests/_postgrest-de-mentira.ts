@@ -40,12 +40,59 @@ export function crearPostgrest(o: {
   /** El `or=(hasta.is.null,hasta.lt.…)` del candado del grupo (`reclamar`, lib/mako-doer-buffer.ts). Sin esto, `reclamar` pierde
    *  siempre (la entrada encola y se va): de eso dependen los hijos que no quieren correr el turno. */
   candado?: boolean;
+  /** El `or=(…)` entero (29/10/2026, la entrega de los tickets al Cerebro): `ticketsSinEntregar` pide
+   *  `aviso_estado.is.null,aviso_estado.in.(…),and(aviso_estado.eq.tomado,aviso_at.lt.…)`. Con esto, cada parte puede ser
+   *  `eq`/`neq`/`is.null`/`in.(…)`/`lt`/`lte`/`gt`/`gte`/`like`, o un `and(…)`/`or(…)` anidado. Aparte de `candado` a propósito:
+   *  sin él, el `or` del candado sigue tirando, y de eso dependen los hijos que no quieren correr el turno. */
+  orCompleto?: boolean;
 }) {
   const db: Record<string, Fila[]> = Object.fromEntries(o.tablas.map((t) => [t, [] as Fila[]]));
   const sinMock = new Set<string>();
   const defaults = o.defaults ?? ((_t: string, f: Fila) => ({ ...f }));
 
   type Filtro = (f: Fila) => boolean;
+  /** Parte en las comas de AFUERA de los paréntesis (`a.in.(x,y),and(b.eq.1,c.lt.2)` → dos partes). */
+  const trozos = (s: string): string[] => {
+    const r: string[] = [];
+    let hondo = 0, desde = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') hondo++;
+      else if (s[i] === ')') hondo--;
+      else if (s[i] === ',' && hondo === 0) { r.push(s.slice(desde, i)); desde = i + 1; }
+    }
+    r.push(s.slice(desde));
+    return r;
+  };
+  /** Una condición del `or` completo (`orCompleto`). Como Postgres, una comparación con null no es verdad. */
+  const condicion = (p: string): Filtro => {
+    for (const [pre, todas] of [['and(', true], ['or(', false]] as const) {
+      if (p.startsWith(pre) && p.endsWith(')')) {
+        const xs = trozos(p.slice(pre.length, -1)).map(condicion);
+        return todas ? (f) => xs.every((x) => x(f)) : (f) => xs.some((x) => x(f));
+      }
+    }
+    const [col, op, ...r] = p.split('.');
+    const x = r.join('.');
+    if (op === 'eq') return (f) => f[col] != null && String(f[col]) === x;
+    if (op === 'neq') return (f) => f[col] != null && String(f[col]) !== x;
+    if (op === 'is' && x === 'null') return (f) => f[col] == null;
+    if (op === 'in' && /^\(.*\)$/.test(x)) {
+      const xs = x.slice(1, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
+      return (f) => f[col] != null && xs.includes(String(f[col]));
+    }
+    if (op === 'lt' || op === 'lte' || op === 'gt' || op === 'gte') {
+      return (f) => {
+        if (f[col] == null) return false;
+        const c = comparar(f[col], x);
+        return op === 'gte' ? c >= 0 : op === 'lte' ? c <= 0 : op === 'gt' ? c > 0 : c < 0;
+      };
+    }
+    if (op === 'like') {
+      const re = new RegExp(`^${x.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`);
+      return (f) => f[col] != null && re.test(String(f[col]));
+    }
+    throw new Error(`filtro sin mock: or ${p}`);
+  };
   const filtros = (u: URL): Filtro[] => {
     const out: Filtro[] = [];
     for (const [k, v] of u.searchParams) {
@@ -79,6 +126,10 @@ export function crearPostgrest(o: {
         const patron = v.slice(no ? 9 : 5);
         const re = new RegExp(`^${patron.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`);
         out.push((f) => (val(f) != null && re.test(String(val(f)))) !== no);
+      }
+      else if (k === 'or' && /^\(.+\)$/.test(v) && o.orCompleto) {
+        const xs = trozos(v.slice(1, -1)).map(condicion);
+        out.push((f) => xs.some((x) => x(f)));
       }
       // `.or('clave.like.STRIPE_SECRET_KEY*,…')` (22/10/2026, las cuentas de una pasarela): `*` es el `%` de PostgREST.
       else if (k === 'or' && /^\(.+\)$/.test(v)) {

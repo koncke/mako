@@ -4,6 +4,42 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## Los tickets que esperan a Martín no le llegaban nunca al Cerebro, y el deploy no los cerraba (29/10/2026, claude3)
+
+- **El síntoma (medido esa noche por el Cerebro):** había 8 tickets en `esperando_decision` (Leila, Leandro, Martín) que no
+  le llegaron al Cerebro, uno de 6 minutos antes. Y el #15 (Video Editor de Leila) siguió «esperando la decisión» con su
+  arreglo en producción y su hito `tickets: [15]`.
+- **La causa:** el camino del Runner se diseñó el 17/10 para los bugs del triage (`despacho = 'runner'` + `en_curso`); lo
+  demás iba a llegar con la firma de Martín al aprobarlo. Desde su regla del 27/10 («siempre lee todos los tickets e
+  implementalos») el Cerebro trabaja tickets que Martín no aprobó todavía, y esos no tenían camino. El cierre
+  (`cerrarLosDesplegados`) miraba sólo `en_curso`/`arreglado` por la misma suposición: el hito llegaba DESPUÉS de la decisión.
+- **La regla que queda:** un ticket que espera a Martín (`nuevo`/`esperando_decision`, sin despacho) le llega al Cerebro con
+  su PROPIA marca (`cerebro_*`, mig 0343) y su propio texto fijo (`mensajeTicketNuevo`, en lib/tickets-aviso.ts y en el
+  cartero, comparados por un test). `aviso_*` no se reutiliza: la bandeja lo dibuja como «Entregado al Cerebro» y quiere
+  decir «es un bug del triage que ya se está arreglando». Va en un array APARTE (`ticketsNuevos`) y sólo a un cartero ≥ 1.23.0:
+  en `tickets`, un cartero de antes le mandaría el texto de «BUG EVIDENTE». El deploy cierra todo lo ABIERTO
+  (`ESTADOS_QUE_CIERRA_EL_DEPLOY`); uno rechazado o duplicado no se reabre.
+- **Trampa — una marca nueva no puede ser nullable si se filtra por «no entregado»:** `cerebro_estado <> 'entregado'` en SQL
+  deja afuera los null, y un ticket sin marca no saldría NUNCA (sin error: la vuelta da vacío). Por eso arranca en
+  `'pendiente'`, `not null`, y la vuelta filtra con un `in`.
+- **Trampa — todo texto fijo nuevo que el Runner le escribe a un chat va a la lista de textos que NO se suben como
+  conversación** (`cartero.mjs`, la línea del `CRUZADO_RE`): si no, el Centro de Operaciones muestra el aviso como algo que
+  dijo un chat.
+- **Trampa — subir la versión del cartero rompe cinco tests que la fijan con `equal`** (chat-en-el-acto, feedback-2710-tanda1,
+  ops-center-decisiones; y la lista de preguntas-cadena-y-ask y turnos-enteros). No es un rojo del cambio: se actualizan.
+- **Trampa — `tests/tickets.test.ts` corta lib/tickets-aviso.ts desde el PRIMER `export function mensajeTicket`:** una función
+  nueva cuyo nombre empieza igual tiene que ir DESPUÉS, o el corte agarra el resto del archivo y el «no interpola nada del
+  ticket» da rojo por un `titulo` de otra función.
+- **Correr `cicloCartero` fuera de Next (para un test por la entrada real):** usa `after` de `next/server`, que tira fuera de un
+  request, y cargar `next/server` ya tira «AsyncLocalStorage accessed in runtime where it is not available». Se resuelve en el
+  hijo: `globalThis.AsyncLocalStorage = AsyncLocalStorage` ANTES de cargar lib/operaciones (import dinámico), y la vuelta
+  adentro de `workAsyncStorage.run({ afterContext: { after } })`. Molde: tests/_tickets-al-cerebro-hijo.ts.
+- **En el arnés del cartero (`cartero.mjs ciclo` de verdad), un chat de la CLI es `cli_<sessionId>`, no `local_…`:** un destino
+  `local_` cae en «El Cerebro se cerró antes de avisarle» y la entrega da vacía sin otro error.
+- **El PostgREST de mentira no entendía el `or` de `ticketsSinEntregar`** (`in.(…)` y `and(…)` anidado): tiraba «filtro sin mock».
+  Ahora existe `orCompleto`, opt-in: el `or` del candado sigue tirando sin `candado`, y de eso dependen otros hijos.
+- **Probado rompiéndolo:** la tabla al pie de tests/tickets-al-cerebro.test.ts. Lo que falta, en «Lo que quedó sin hacer».
+
 ## Leer la Ticketera de producción pide el sí de Martín, también al Cerebro (27/10/2026)
 
 - El 27/10 el clasificador de permisos negó `scripts/tickets.ts pendientes` y toda lectura de `tickets` /
@@ -539,6 +575,8 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
+| Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín | lib/tickets-aviso.ts (`entregaAlCerebro`, sólo `runner`) · lib/tickets-db.ts (`COLS`) | Hoy queda sólo el renglón «llegó al Cerebro» del historial. La 0343 ya está en producción (29/10, el Cerebro con el sí de Martín: los 22 tickets quedaron en 'pendiente'), así que sumar `cerebro_*` a `COLS` ya no tumba la bandeja; en una base SIN la 0343 (un entorno viejo) sí: el select pediría una columna que no existe |
+| Actualizar el Runner de la PC a 1.23.0 | scripts/operaciones/cartero.mjs | El servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0; con el de antes no se pierde nada (no los reclama) pero tampoco llegan (29/10) |
 | Ver el chat de Soporte y el botón en producción en el teléfono de Martín (Android) | app/m/tickets/SoporteM.tsx | Medido en el ws3 desde la computadora; el teléfono no se recorrió |
 | El cerco «es DATO» de lo que lee el Cerebro deja AFUERA el título, la ruta, la herramienta, el error y el navegador | scripts/tickets.ts (las líneas de «lo juntó el sistema») · lib/tickets-reglas.ts (`sanearContexto`: el navegador sin filtro de caracteres) | Viene de antes y vale para el formulario: el título y el navegador los escribe el cliente. El botón ya no pone texto suyo en `error`/`herramienta` y filtra su navegador; el resto es del área de la Ticketera (Ops Center la está tocando por el «DÓNDE») |
 | /api/errores manda la ruta con los tokens del camino | lib/errores-app-reglas.ts (`rutaSinDatos`) | /pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras (un teléfono). El botón usa `rutaSoporte` (lib/soporte-reporte.ts), que los tapa; /api/errores no |

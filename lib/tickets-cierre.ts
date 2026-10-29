@@ -32,15 +32,22 @@ export function ticketsDesplegados(): Map<number, HitoDeTicket> {
 }
 
 /**
- * Cierra los tickets en curso cuyo arreglo ya está en el código que corre, y sus duplicados. Compare-and-set sobre el
+ * Lo que cierra el deploy: todo ticket ABIERTO, espere a quien espere. Hasta el 29/10/2026 eran sólo `en_curso` y `arreglado`,
+ * y el #15 (Video Editor de Leila) siguió «esperando la decisión» con su arreglo en producción: Martín pidió que todo ticket se
+ * lea y se implemente sin esperarlo (27/10), así que el hito puede llegar antes que la decisión. Uno cerrado no se reabre.
+ */
+export const ESTADOS_QUE_CIERRA_EL_DEPLOY = ['nuevo', 'esperando_decision', 'esperando_cliente', 'en_curso', 'arreglado'] as const;
+
+/**
+ * Cierra los tickets abiertos cuyo arreglo ya está en el código que corre, y sus duplicados. Compare-and-set sobre el
  * estado: dos crons a la vez no cierran dos veces. Devuelve los ids cerrados.
  */
 export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): Promise<number[]> {
   if (!desplegados.size) return [];
   const db = getSupabaseServer();
   const ids = [...desplegados.keys()];
-  const { data, error } = await db.from(T).select('id, respuesta').in('id', ids).in('estado', ['en_curso', 'arreglado']);
-  if (error) throw new Error(`no pude leer los tickets en curso: ${error.message}`);
+  const { data, error } = await db.from(T).select('id, respuesta').in('id', ids).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]);
+  if (error) throw new Error(`no pude leer los tickets abiertos: ${error.message}`);
   const cerrados: number[] = [];
   const ahora = new Date().toISOString();
   for (const f of data ?? []) {
@@ -48,7 +55,7 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
     const hito = desplegados.get(id)!;
     const respuesta = (f.respuesta as string | null) || `Ya está arreglado: ${hito.titulo}.`;
     const { data: ok } = await db.from(T).update({ estado: 'resuelto', resuelto_at: ahora, respuesta: respuesta.slice(0, 2000), avisado_at: null, updated_at: ahora })
-      .eq('id', id).in('estado', ['en_curso', 'arreglado']).select('id');
+      .eq('id', id).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]).select('id');
     if (!ok?.length) continue;
     cerrados.push(id);
     await anotarDelCerebro(id, `En producción: ${hito.titulo}`, 'sistema');
