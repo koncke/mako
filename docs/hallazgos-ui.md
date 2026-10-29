@@ -4963,16 +4963,64 @@ como un salto de línea de verdad): el script va a un archivo con la herramienta
   tabs y la que no los pasa se dibuja como hoy. Ninguna tab inventa otro nombre para lo mismo: cada parte del plan
   había propuesto el suyo (la «insignia» era a veces el tipo y a veces «Ejemplo»).
 
-**Vive en:** app/_crear/reglas.ts · app/_crear/PantallaCrear.tsx · tests/crear-pantalla.test.ts
+- **Hecho (tanda 0, 29/10/2026):** la tarjeta es `TarjetaPlantilla`. Elige, de lo más propio a lo más pobre: la
+  `miniatura` de la tab, el `video` con el mouse encima, la hoja con el `extracto`, la imagen a su proporción y el marco
+  de siempre. El rótulo y el primer mensaje del ejemplo salen de app/_crear/ejemplo.ts, iguales en las cinco tabs. Una
+  tarjeta sin los campos nuevos se dibuja igual que antes, y el test lo prueba dibujándola.
+
+**Vive en:** app/_crear/reglas.ts · app/_crear/TarjetaPlantilla.tsx · app/_crear/ejemplo.ts · tests/crear-pantalla.test.ts
 
 ## La tarjeta recorta todo lo que no es 4:3 (29/10/2026)
 
 - **Síntoma:** con una miniatura real, a una historia 9:16 solo se le vería el tercio del medio.
 - **Causa:** `.cr-plantilla__mini img` usa `object-fit: cover` (app/_crear/crear.css:106) dentro de la caja 4:3.
 - **Regla:** la miniatura se dibuja a su proporción dentro de la caja (`cajaDeMiniatura(formato)`, `contain`). El
-  recorte solo vale para piezas que ya son 4:3.
+  recorte solo vale para piezas que ya son 4:3. Sin `formato`, la imagen llena la caja como antes.
+- **La segunda trampa, al implementarlo:** con `height: 90%` y `aspect-ratio`, la historia salió como una FRANJA
+  recortada, igual que antes.
+  - **El diagnóstico obvio era el equivocado:** no era `object-fit`, que ya estaba en `contain`.
+  - **Medido en el banco:** la `<img>` medía 648 px de alto en una caja de 155. La caja es una grilla con la fila `auto`,
+    y esa fila crece hasta el alto NATURAL de la imagen (720 px). El 90 % se calculaba contra eso.
+  - **Por qué el marco vacío no lo sufría:** no tiene tamaño propio, así que la fila se estiraba a la caja.
+- **Regla:** una grilla que dimensiona a sus hijos con `%` necesita la fila del alto de la caja:
+  `grid-template: minmax(0, 1fr) / minmax(0, 1fr)`.
 
-**Vive en:** app/_crear/crear.css · app/_crear/reglas.ts
+**Vive en:** app/_crear/crear.css (`.cr-plantilla__mini`) · app/_crear/reglas.ts · tests/crear-pantalla.test.ts
+
+## La hoja del ejemplo cede con SU tarjeta, no con la ventana (29/10/2026)
+
+- **Síntoma (banco, a los cuatro anchos):**
+  - a 1366, la insignia junto a «Ejemplo» quedaba «📣 Anuncio · 45…»;
+  - en el teléfono, el último renglón del cuerpo quedaba partido por la mitad debajo de los chips.
+- **Causa:** la grilla decide el ancho de la tarjeta. A 1366, con la tarjeta de MaKo, cada miniatura mide 188 px; en el
+  teléfono, 155. Un `-webkit-line-clamp` fijo no sabe cuánto alto le queda.
+- **Regla:**
+  - la miniatura es `container-type: inline-size` y los renglones ceden con `@container`;
+  - primero ceden renglones del cuerpo, y menos de 195 px esconde la insignia de la hoja (el nombre de abajo ya dice el
+    formato);
+  - el título, los chips y la cinta «Ejemplo» quedan siempre;
+  - un chip que no entra se va entero (`flex-wrap` con el alto de una fila), nunca medio chip;
+  - los renglones van en el CSS y no en un `style` del componente: el `style` le gana al `@container` sin avisar.
+- **Para las tabs:** una insignia larga («Programa · alto ticket») igual se corta con «…» a 1440 (tiene su `title`).
+  Conviene que no pase de 18 caracteres.
+
+**Vive en:** app/_crear/crear.css · app/_crear/TarjetaPlantilla.tsx · capturas en C:/dev/revisiones/plantillas-tanda0/
+
+## Lo que el experto de cada tab lee del negocio vive en un solo lugar (29/10/2026)
+
+- **Síntoma:** el Copywriter leía el negocio con `construirCerebro()` entero, con la física del mapa, en cada pedido.
+  Video e Image no lo leían.
+- **Causa:** `contextoDelNegocio` vivía en lib/copywriter/contexto.ts, y su cabecera decía que `grafoParaChat` no había
+  llegado. Llegó a main el 28/10 (`c272b97dd`).
+- **Regla:**
+  - el negocio y la voz de una pieza de Create se leen de lib/negocio-para-crear.ts: el grafo de los chats, en caché y
+    sin física;
+  - lib/copywriter/contexto.ts quedó como re-exportación, para los imports de siempre;
+  - `vozDelNegocio` se re-exporta y no se muda: sus dos fuentes viven en lib/nutricion-generator.ts y mudarla armaba un
+    ciclo;
+  - ⚠️ `contextoDelNegocio` de lib/plan-senales.ts es OTRA función con el mismo nombre.
+
+**Vive en:** lib/negocio-para-crear.ts · lib/copywriter/contexto.ts · tests/copywriter.test.ts
 
 ## Los nombres obvios para las funciones de la tarjeta ya existen (29/10/2026)
 

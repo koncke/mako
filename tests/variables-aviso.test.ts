@@ -30,25 +30,13 @@ import { valoresDelLead, plata, fecha, textoConDatos } from '../lib/variables-de
 import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import type { Lead } from '../lib/leads';
+// Gente y negocios REALES de este producto: la lista vive en tests/_reales.ts (29/10/2026) porque la miran el catálogo de
+// variables, los placeholders de los formularios y los ejemplos de las plantillas de Create.
+import { REALES, sinAcentos } from './_reales';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** ⚠️ Sin comentarios: un guard que busca el nombre de lo que NO tiene que estar se
  *  acusa a sí mismo por el párrafo que explica por qué no está. */
-/** Gente y negocios REALES de este producto. Vive acá arriba y no adentro de un test
- *  porque la miran DOS: el catálogo de variables y los placeholders de los formularios.
- *  Son nombres que YA están en el repo (bitácoras, hallazgos, catálogos), así que el guard
- *  no agrega información que no esté — caza LOS CONOCIDOS, que es lo automatizable. */
-const REALES = [
-  'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
-  'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
-  // Un lead de un cliente: el ejemplo de `reunion-recordatorio` lo nombraba, y un agendado
-  // se lo mandó al grupo de otro (06/10/2026).
-  'Francisco Ramos', 'Dental Ramos',
-  // Clientes de Mauricio que nombraban los ejemplos del catálogo de mensajes (revisión del ws9, 10/10/2026).
-  'Sergio Esquer', 'BG Trucking', 'Aspro',
-];
-const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-
 const sinComentarios = (src: string): string =>
   src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
