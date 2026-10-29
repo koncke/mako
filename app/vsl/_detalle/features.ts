@@ -349,7 +349,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Ingeniería que no rompe a mitad de camino",
         bullets: [
-          "Fail-closed por diseño: si tu token de Meta desaparece a mitad de la extracción, MaKo corta — nunca cae al token de la agencia para seguir con datos que no son tuyos.",
+          "Fail-closed por diseño: si tu conexión de Meta desaparece a mitad de la extracción, MaKo corta — nunca cae a la conexión de la agencia para seguir con datos que no son tuyos.",
           "Rate limit de Meta manejado con criterio: si Meta te frena, pausa 30s y reintenta ese job; solo un error genuino se marca como error y queda reintentable.",
           "Lease anti-doble-runner: si abres dos pestañas, no duplican la extracción — una toma el mando y la otra no toca nada. Escrituras idempotentes como red de seguridad.",
           "Cada job se saltea con motivo si falta la integración (Fathom sin conectar → 0 llamadas; sin YouTube/Panda → sin métricas de VSL). MaKo no te promete extraer lo que no conectaste.",

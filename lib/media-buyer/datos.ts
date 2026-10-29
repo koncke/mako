@@ -131,7 +131,7 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
     } catch (e) {
       avisos.push(`Zernio no dio el estado en vivo (${(e instanceof Error ? e.message : String(e)).slice(0, 120)}): se usó la entrega.`);
     }
-    if (errMeta) avisos.push(`El token de Meta no dejó leer la cuenta (${errMeta.slice(0, 160)}): se leyó por Zernio.`);
+    if (errMeta) avisos.push(`La conexión anterior de Meta no dejó leer la cuenta (${errMeta.slice(0, 160)}): se leyó por Zernio.`);
   } else if (errMeta) {
     throw new SinCuentaParaOperar(`Meta no dejó leer la cuenta: ${errMeta}`);
   }

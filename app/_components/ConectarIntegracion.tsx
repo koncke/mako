@@ -35,6 +35,7 @@ import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { servicioDeLink } from '@/lib/integracion-en-tab';
+import { integracionQueConfigura } from '@/lib/integraciones-catalogo';
 import { useCapaModal } from './pila-modales';
 
 const ServicioSuelto = dynamic(() => import('@/app/integraciones/ServicioSuelto'), { ssr: false, loading: () => null });
@@ -48,7 +49,8 @@ export function useConectarIntegracion(opts?: {
 }): { abrir: (servicio: string, motivoGoogle?: string | null) => void; cerrar: () => void; abierto: string | null; modal: ReactNode } {
   const [abierto, setAbierto] = useState<Abierto | null>(null);
   const onConectado = opts?.onConectado;
-  const abrir = useCallback((servicio: string, motivoGoogle: string | null = null) => setAbierto({ servicio, motivoGoogle }), []);
+  // Se abre DONDE SE CONFIGURA (29/10/2026, ticket #28): «conectar Meta» desde una tab abre Zernio, que es donde se conecta.
+  const abrir = useCallback((servicio: string, motivoGoogle: string | null = null) => setAbierto({ servicio: integracionQueConfigura(servicio), motivoGoogle }), []);
   const cerrar = useCallback(() => setAbierto(null), []);
   const modal = abierto ? (
     <CapaIntegracion onCerrar={cerrar}>

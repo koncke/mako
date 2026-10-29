@@ -12,6 +12,7 @@ import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from './
 import type { ProvName } from './ai-cheap';
 import { emailConectado } from './resend';
 import { POR_QUE_SIN_EMAIL } from './email-remitente';
+import { metaConectadaConCampos } from './zernio-meta-cuerpo';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
@@ -55,7 +56,7 @@ export type Integracion = {
 
 // El catálogo y la regla de visibilidad viven aparte, sin `server-only`, para poder
 // testearlos. Se re-exportan para no romper a quien los importaba desde acá.
-import { DEFS, defsVisibles, type Def } from './integraciones-catalogo';
+import { DEFS, defsVisibles, META_SE_CONECTA_EN_ZERNIO, type Def } from './integraciones-catalogo';
 import { servicioMetodo } from './metodo-catalogo';
 export { DEFS_TEST, defsVisibles } from './integraciones-catalogo';
 export type { Def } from './integraciones-catalogo';
@@ -227,6 +228,20 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
   for (const k of d.envs) {
     const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
     if (!ok) faltan.push(k);
+  }
+  // ⚠️ META SE CONECTA POR ZERNIO (29/10/2026, ticket #28): la tarjeta la medía con sus `envs` (el token y la cuenta), así que un
+  // negocio conectado SÓLO por Zernio quedaba «Sin conectar» y lo que faltaba era el token. La misma regla que los otros tres
+  // lectores (`metaConectadaConCampos`), y lo que falta se dice en palabras: se conecta en Zernio, nunca «el token».
+  if (d.key === 'meta' && faltan.length) {
+    const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, Boolean(await credWs(e))] as const)));
+    const conectada = metaConectadaConCampos((e) => tiene.get(e) === true);
+    return {
+      key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+      estado: (conectada ? 'conectada' : 'falta') as EstadoIntegracion,
+      detalle: conectada ? 'Conectada y operativa.' : META_SE_CONECTA_EN_ZERNIO,
+      tieneDetalle: d.tieneDetalle,
+      ...delMetodo(d.key),
+    };
   }
   // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE PROPIO NO ESTÁ CONECTADO, aunque la key sea lo único que pide
   // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). La tarjeta
