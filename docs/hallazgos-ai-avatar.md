@@ -43,7 +43,19 @@ Las secciones de HeyGen se deprecaron; lo de abajo de HeyGen queda por las licen
   teléfono necesita su fila de More (lib/movil-rutas.ts, como Video), o `movil-mas-secciones` falla «está en la sidebar y no
   en el teléfono»; la capa de la plataforma tiene keys EXPLÍCITAS (lib/capas.ts) y sin 'ai-avatar' el super admin la pierde
   en su propio workspace; y /planes la vuelve a ofrecer sólo si sale de `TABS_TODAVIA_CERRADAS` (el test de planes ata las
-  dos cosas). Todo eso está en la rama `ai-avatar-abrir-pro-2910`.
+  dos cosas). Desde el 29/10 es para los TRES planes (Martín: «haz que AI-Avatar esté disponible para todos»): además sale de
+  `TABS_SOLO_PRO` y de `NAV_SOLO_PRO`, y la puerta es la de toda tab (`requireRolWs([], { nav })`). La capa `pm` (la del
+  project manager, que no es un plan que se vende) queda SIN AI Avatar a propósito. Rama: `ai-avatar-todos-2910`; las
+  `ai-avatar-abrir-pro-2910` y `ai-avatar-para-todos-2910` quedaron viejas.
+- **Sumar un renglón a la tarjeta de Esencial rompe un test que no habla de AI Avatar.** «El acompañamiento se ve DISTINTO y
+  con más» (tests/planes-tres-bloques.test.ts) pide que el programa (el Acelerador) tenga MÁS renglones que el plan: con el
+  renglón nuevo, Esencial llegó a 7, igual que el Acelerador. El avatar se dijo dentro del renglón de la oferta
+  (lib/planes-mako.ts). Antes de sumar un renglón a Esencial, contar los del Acelerador.
+- **«Antes de generar» se arma con lo que ve el SERVIDOR y lo que ve ESTE Chrome, y no son lo mismo.** El servidor sabe del
+  puente (`flow_puentes`: estado, si late, versión); sólo la página sabe si la extensión está en este navegador
+  (`data-mako-puente`). Una extensión conectada desde OTRO Chrome cuenta como instalada (genera ESE); en el teléfono no se sabe
+  nada del navegador (`instalada: null`) y los pasos dicen «en tu computadora». El `detalle` del puente no se muestra: es texto
+  libre del navegador. Vive en `lib/ai-avatar/requisitos.ts`, puro, para la computadora y el teléfono.
 
 - **Sacar las secciones de una tab de nav.ts cierra la puerta del teléfono SIN error si la page sigue pidiendo la key
   vieja**: `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS` y, sin el ítem, no deja pasar a nadie. Al dejar
@@ -153,14 +165,16 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   la oficina» tienen imagen real; los otros 26 muestran el degradado de su categoría y el lugar escrito (y, en
   cuanto la persona genera uno, SU look pasa a ser la baldosa). Se generan gratis en Flow con el motor por
   interfaz cuando haya un navegador de super admin conectado. **Vive en:** `lib/ai-avatar/plantillas.ts` (`ejemplo`).
-- **Probarla de punta a punta con un look real, y recién ahí abrirla a Pro y venderla.** Medido el 29/10/2026 (base, sólo
+- **Probarla de punta a punta con un look real.** Martín la abrió a los tres planes el 29/10 SIN esa prueba («haz que
+  AI-Avatar esté disponible para todos» le ganó a «no se vende hasta que ande»): el paso a paso de «Antes de generar» evita
+  que falle callado, pero que el motor ande con la cuenta de Flow de un cliente sigue sin medirse. Medido el 29/10/2026 (base, sólo
   lectura): el motor de AI Avatar **nunca generó un look en producción** (`ai-avatar.looks` vacío en todos los workspaces),
   el ws3 (el de prueba) **nunca vinculó la extensión** (sin fila en `flow_puentes`) y ninguna extensión estaba lista: las de
   los ws 9, 1, 10 y 11 en «sin_sesion» (Google Flow sin una cuenta abierta). Lo que pide, y es de la persona: Chrome con la
   extensión de MaKo, sesión de Google Flow con SU cuenta (paga sus créditos: el look 0, cada toma del video ~15), «Conectar»
-  desde el popup con el workspace abierto en MaKo, y una foto de su cara. La apertura ya está escrita y probada en la rama
-  `ai-avatar-abrir-pro-2910` (la puerta de Pro del Video Editor, /planes y la fila de More): se sube DESPUÉS de la prueba.
-  **Vive en:** `app/ai-avatar/acceso.ts`, `lib/planes-comparacion.ts` (`TABS_TODAVIA_CERRADAS`).
+  desde el popup con el workspace abierto en MaKo, y una foto de su cara. Lo hace Martín: entrar al ws3, «Conectar», abrir
+  Flow con una cuenta de Google, subir una foto y generar un look. **Vive en:** `app/ai-avatar/actions.ts` (`crearLookAction`)
+  y el motor del Video Generator.
 - **Crear y borrar un look por la API de MaKo.** `ver_avatares` lee (desde el 29/10 también el ajuste escrito y los
   presets nuevos), pero crear encola en Flow y el área de video es «sólo lecturas» por el veredicto §8
   (docs/api-mako-diseno.md); borrar es una escritura sin gasto que hoy vive en una action con sesión. Es un hueco de

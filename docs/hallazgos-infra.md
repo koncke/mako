@@ -743,6 +743,23 @@ Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase
 («updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
 rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
 
+## Rehacer una rama limpia con `git checkout <rama-vieja> -- .` revierte en silencio lo NUEVO de otro chat (29/10/2026)
+
+**Qué pasó.** AI Avatar tenía una rama con merges de main y de la rama del Web Generator. Para darle a Integración UN commit
+limpio, se armó una rama nueva desde main, se mergeó la punta del Web Generator, y se iba a copiar el árbol entero de la
+rama vieja con `git checkout <rama-vieja> -- .`. Entre una y otra el Web Generator había sumado un commit (su script de la
+landing): la rama vieja tenía la versión ANTERIOR de ese archivo, y el checkout la habría pisado sin conflicto ni aviso. El
+commit «mío» habría deshecho el trabajo de otro chat.
+
+**La regla.** Copiar un ÁRBOL trae todo lo de ese árbol, también lo viejo de los demás. Lo que se copia es el DIFF propio:
+
+```bash
+T0=$(git merge-tree --write-tree <main-de-entonces> <punta-del-otro-de-entonces>)   # la base sobre la que trabajé
+git diff --binary $T0 <rama-vieja> > mio.patch
+git apply --index mio.patch                                                         # en la rama nueva
+git diff <rama-vieja> HEAD --stat     # sólo deben aparecer los archivos que cambió el OTRO después
+```
+
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 
 Al pasar `dashboard-marketing` de la cuenta del cliente a la de Martín (`hola-mako`), **`git push` siguió
