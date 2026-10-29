@@ -1357,7 +1357,7 @@ export function cuotasDelPlanPorTramos(p: {
     cuotas.push({ id: q?.id ?? null, numero: null, ...pedida(c) });
   });
   if (!nuevas && !conAnticipo) {
-    return { ok: false, cubiertas, inicialCobrado, error: cubiertas ? `Las ${cubiertas === 1 ? 'cuota' : `${cubiertas} cuotas`} del plan ya ${cubiertas === 1 ? 'está cobrada' : 'están cobradas'}: agrega cuotas para cobrar más.` : 'El plan no tiene cuotas.' };
+    return { ok: false, cubiertas, inicialCobrado, error: cubiertas ? `${cubiertas === 1 ? 'La cuota del plan ya está cobrada' : `Las ${cubiertas} cuotas del plan ya están cobradas`}: agrega cuotas para cobrar más.` : 'El plan no tiene cuotas.' };
   }
   // El anticipo impago que el plan nuevo no pide: sin proteger se quita; protegido (un link, un recordatorio) no se puede, así que
   // toma el lugar de la ÚLTIMA cuota de la lista que es nueva o no está protegida (ésa es la que no se crea, o la que se quita).
@@ -1430,4 +1430,61 @@ export function planPorTramosDelServer(p: {
     ok: true, lista: armado.cuotas, deseadas, vistos: encima.vistos, cubiertas: encima.cubiertas, nuevas: encima.nuevas, inicialCobrado: encima.inicialCobrado,
     columnas: columnasDelPlan({ tramos: p.tramos, cuotas: armado.cuotas.length, anticipoUsd }),
   };
+}
+
+/** Una cuota de la ficha como la lee `reconciliarCuotas`, con lo que la protege (`proteccionesDeCuotas`). Una sola forma para el
+ *  server (`cuotasParaReconciliar`) y para la propuesta de MaKo, que simula la reconciliación antes del «sí». */
+export function cuotaExistenteDe(q: CuotaDelLead, protegida: readonly Proteccion[] = []): CuotaExistente {
+  return {
+    id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada ?? null, pagado: q.pagado,
+    // La de un cliente dado de baja (#871) queda fuera del plan como la devuelta: ni se casa, ni se reescribe, ni se borra.
+    devuelta: noEsDeuda(q), nacio_cobrada: !!q.nacio_cobrada, resto_de: q.resto_de ?? null, protegida,
+    moneda: q.moneda ?? null, monto_original: q.monto_original == null || q.monto_original === '' ? null : Number(q.monto_original),
+  };
+}
+
+/** Una cuota como QUEDA después de una reconciliación. `motivo`: la que se quiso cambiar o quitar y no se tocó. */
+export type CuotaQueQueda = {
+  id: number | null; numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean;
+  moneda: string | null; monto_original: number | null; delPlan: boolean; motivo?: MotivoConservada;
+};
+
+/**
+ * ⚠️ LO QUE SE CONFIRMA ES LO QUE QUEDA, NO LO PEDIDO (revisión de 805afb460, N2). La propuesta de MaKo sumaba la lista pedida: con
+ * la #1 cobrada por US$500 y la #3 con un link sin pagar, decía «Total: US$ 2.100» de un plan de 3 × US$700 y quedaban US$1.700, y
+ * el aviso del link salía DESPUÉS del «sí». Esto aplica, sin escribir, lo que decidió `reconciliarCuotas` sobre lo leído. Pura.
+ */
+export function cuotasQueQuedan(existentes: readonly CuotaExistente[], plan: PlanDeCuotas): CuotaQueQueda[] {
+  const borrar = new Set(plan.borrar.map((b) => b.id));
+  const cambio = new Map(plan.actualizar.map((u) => [u.id, u]));
+  const motivo = new Map(plan.conservar.map((c) => [c.id, c.motivo]));
+  const out: CuotaQueQueda[] = existentes.filter((q) => !q.devuelta && !borrar.has(q.id)).map((q) => {
+    const u = cambio.get(q.id);
+    const m = u && u.moneda !== undefined ? { moneda: u.moneda, monto_original: u.monto_original ?? null } : { moneda: q.moneda ?? null, monto_original: q.monto_original ?? null };
+    return {
+      id: q.id, numero: q.numero, monto_usd: u ? u.monto_usd : Number(q.monto_usd), fecha_esperada: u ? u.fecha_esperada : q.fecha_esperada ?? null,
+      pagado: q.pagado, ...m, delPlan: esCuotaDelPlan(q), ...(motivo.has(q.id) ? { motivo: motivo.get(q.id) } : {}),
+    };
+  });
+  for (const i of plan.insertar) {
+    out.push({ id: null, numero: i.numero, monto_usd: i.monto_usd, fecha_esperada: i.fecha_esperada, pagado: false, moneda: i.moneda ?? null, monto_original: i.monto_original ?? null, delPlan: true });
+  }
+  return out.sort((a, b) => a.numero - b.numero);
+}
+
+/**
+ * ⚠️ EL «SÍ» VALE SOBRE LO QUE SE VIO AL PROPONER (revisión de 805afb460, N1). Una propuesta de MaKo vive 2 h; armada sobre un
+ * lead sin cuotas, su «sí» pisaba el plan de 6 cuotas que alguien armó en la ficha mientras tanto (3 se reescribían y 3 se borraban),
+ * y contestaba «Listo». Las impagas que se leyeron al proponer (`vistas`) viajan en la propuesta: si una ya no está sin cobrar, o
+ * apareció una del plan que no estaba, el plan cambió y no se escribe nada. Devuelve qué decir, o null. Pura.
+ */
+export function planCambioDesde(pagos: readonly CuotaDelLead[], vistas: ReadonlySet<number>): string | null {
+  const impagas = pagos.filter((q) => !q.pagado && !noEsDeuda(q));
+  const siguen = new Set(impagas.map((q) => q.id));
+  const ida = [...vistas].find((id) => !siguen.has(id));
+  const nueva = impagas.find((q) => esCuotaDelPlan(q) && !vistas.has(q.id));
+  if (ida == null && !nueva) return null;
+  const q = ida != null ? pagos.find((x) => x.id === ida) : null;
+  const que = ida != null ? (q?.pagado ? `se cobró «${nombreCuota(q.numero)}»` : q ? `«${nombreCuota(q.numero)}» ya no es una cuota por cobrar` : 'se quitó una cuota') : `apareció «${nombreCuota((nueva as CuotaDelLead).numero)}»`;
+  return `El plan de cuotas cambió desde que lo propuse (${que}): no guardé nada. Pídemelo de nuevo y lo armo sobre lo que hay ahora.`;
 }

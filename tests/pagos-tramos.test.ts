@@ -470,3 +470,11 @@ test('B4 · 60 cuotas y un anticipo: lo frena la pantalla, no el server con «So
   assert.ok(!con.ok && /Son más de 60 cuotas contando el anticipo/.test(con.error), 'la pantalla dejó pasar 61 cuotas');
   assert.ok(cuotasDelPlanPorTramos({ pagos: [], protegidas: new Set(), anticipo: null, lista: a.cuotas, planConInicial: false }).ok, 'sin anticipo, 60 entran');
 });
+
+test('B7 · con la única cuota del plan cobrada, el aviso está bien escrito', () => {
+  const pagos: Fila[] = [{ id: 1, numero: 1, monto_usd: 500, fecha_esperada: '2026-11-10', pagado: true }];
+  const a = cuotasDeTramos({ desde: '2026-11-10', tramos: [{ monto: 500, moneda: 'USD', cada: 'mes', cantidad: 1 }] });
+  assert.ok(a.ok);
+  const r = cuotasDelPlanPorTramos({ pagos, protegidas: new Set(), anticipo: null, lista: a.cuotas, planConInicial: false });
+  assert.ok(!r.ok && r.error === 'La cuota del plan ya está cobrada: agrega cuotas para cobrar más.', r.ok ? 'armó' : r.error);
+});

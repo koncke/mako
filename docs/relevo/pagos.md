@@ -39,6 +39,12 @@ docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de l
   los tests dirigidos y las 18 roturas atrapadas; el tests-afectados después del merge NO se corrió (el Cerebro: lo corre
   Integración sobre el tren). Queda: recorrerlo en el navegador del ws3 después del deploy, y que Leila (#13) y Mauricio (#26)
   armen sus planes; los dos tickets siguen en «esperando_decision».
+- **29/10, tarde:** 805afb460 entró al tren. Su chequeo dio un rojo mío (tests/mako-no-puedo-falsos.test.ts, caso 2): la
+  definición larga de `armar_plan_por_tramos` le sacaba el lugar a `editar_cuota`. El arreglo va en la rama aparte
+  `pagos-tramos-fix-2910` (d9ad67553, worktree C:/dev/wt-pagos-fix), mergeada acá. Encima, la re-verificación (N1 a N4, B6 y B7)
+  y la **migración 0347, APLICADA en producción el 29/10** (el Cerebro, con el sí de Martín: «Sí, cambialo»): la diferencia de un
+  cobro a medias queda en la moneda de la cuota. VERDE de la punta 1e491702e mandado; va al tren siguiente, después de que
+  Integración la re-verifique con sus guiones de C:/dev/revisiones/scratch-805a/.
 
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 

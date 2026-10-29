@@ -456,6 +456,18 @@ cazadas). Lo que costó:
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.
 
+
+**29/10/2026, plantillas reales: Lo que el editor no hace cambia cómo se diseña una plantilla.** (docs/plantillas-reales/)
+- **Quitar fondo apagado:** la miniatura de manual, con la persona recortada y un contorno blanco, no se puede diseñar
+  ni repetir con la foto del usuario. Las plantillas ponen la foto en un marco con máscara.
+- **El chat no pone ni cambia fotos** (`NO_SE_PUEDE_CHAT_IMAGEN`): el experto pide la foto, no la cambia. Para que
+  tocarla ofrezca reemplazarla, tiene que ser un marcador (`isPlaceholder` + `slot`); una `image` común no lo ofrece.
+- **Claude no genera imágenes:** las skills copiables están atadas a Gemini o a Nano Banana. El experto entrega
+  operaciones sobre las capas, y los «4 conceptos en grilla» quedan como 2 versiones dentro de la misma plantilla.
+
+**Vive en:** lib/image-editor/chat/catalogo.ts · app/image-editor/_doory/editor/engine/objects/dory.ts:39-41
+(`isPlaceholder?`, `slot?`) · app/image-editor/_doory/types/document.ts:138 (`SlotSpec`) · app/image-editor/mako/plantillas/
+
 ## «0 filas en `image_editor_chats`» no era que el chat no guardaba: nadie lo había usado (22/10/2026, TB2)
 
 El relevamiento del 22/10 vio la tabla con 0 filas y sospechó que el chat no guardaba. **El diagnóstico obvio era el
@@ -527,3 +539,86 @@ cede estaba en `@media (max-width: 640px)`: la ventana de 1366 no sabe cuánto l
 de Diseño. Ahora `container-type: inline-size` en la barra y `@container (max-width: 600px)` (ceden los rótulos de
 Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjeta (`plegable`), el centro pasa de 950 a
 1238 px y la barra entra entera. Vive en: _doory/editor/workspace/BottomBar.module.css.
+
+## No faltaban plantillas: faltaban el ejemplo lleno y la foto (29/10/2026)
+
+- **Síntoma:** «Nuevo diseño» se ve vacío.
+- **Causa:** las 10 de Doory son de bodas, conciertos y currículums, con rectángulos grises
+  (`rgba(140,128,132,0.18)`) en lugar de fotos.
+- **Ojo con el comentario de cabecera:** app/image-editor/mako/plantillas.ts (líneas 12 y 13) todavía dice que el texto
+  del lienzo «sigue en inglés». No: `b9a7dae2f` (14/10) lo pasó al español y redibujó las miniaturas
+  (bold-sale-announcement.json dice «FIN DE TEMPORADA»). El plan lo repitió hasta la revisión.
+- **Regla:** salen de «Nuevo diseño». Entran 12 de negocio high ticket, con foto y texto reales. El crédito de Doory se
+  queda, porque es del código, y el comentario se corrige (image.md 5.1).
+
+**Vive en:** app/image-editor/mako/plantillas/ · app/image-editor/plantillas-crear.ts · public/cv/plantillas/
+
+## Una cara de stock junto a una promesa es prueba falsa (29/10/2026)
+
+- **Causa:** la licencia de Pexels (leída) prohíbe «imply endorsement» y mostrar a alguien «in a bad light». El
+  «personaje base» ficticio que daba por hecho el primer borrador no existe en el repo.
+- **Lo que se pasó por alto:** la guarda de descarga cuida el diseño, pero la tarjeta de la galería
+  (`public/cv/plantillas/<slug>.webp`) es pública. La primera versión ponía una cara de Pexels junto a «Pago recibido
+  · USD 1,500» en la tarjeta de la miniatura 1, y rotulaba a otra como «Nutrióloga desde 2016 · 140 alumnas».
+- **Regla:**
+  - ninguna cara de stock va en un fracaso, en un «antes», en un testimonio ni junto a un pago, una cifra del negocio o
+    una credencial; ahí va una silueta propia (`persona-silueta.webp`) hasta que existan los retratos hechos en Flow;
+  - ninguna tarjeta de la galería muestra una cara de stock;
+  - las fotos de muestra `persona-` y `lugar-` no se descargan sin reemplazarlas;
+  - Unsplash no se usa: su licencia prohíbe compilar fotos para un servicio que compite, y su API exige hotlink.
+
+**Vive en:** public/cv/plantillas/fotos/ · app/image-editor/_doory/editor/dialogs/DownloadDialog.tsx
+
+## Los ids de la plantilla viajan al diseño (29/10/2026)
+
+- **Causa:** `documentoDePlantilla` copia el JSON tal cual.
+- **Lo bueno:** permite saber de qué plantilla viene un diseño, sin migración.
+- **Regla:** el generador da ids estables, y las fotos de `public/cv/plantillas/fotos/` no se renombran nunca, porque
+  los diseños guardados las apuntan por ruta.
+
+**Vive en:** app/image-editor/mako/plantillas.ts · public/cv/plantillas/fotos/
+
+## Texto, tachado y medidas: lo que el español y el motor no perdonan (29/10/2026)
+
+- **Desborde:** «OFERTA» se cortaba en «OFERT». Cada texto se mide con la fuente real, y el experto acorta: no baja el
+  tamaño de la letra.
+- **Tachado:** `linethrough` usa el color del texto, así que no hay tachado rojo sobre un texto oscuro.
+- **Resaltado:** una forma puesta detrás de unas palabras se desacomoda al cambiar el texto. El resaltado va en su
+  propio texto, con el efecto `background`.
+- **Medidas viejas:** `anuncio_facebook` es 1200 × 628 (lib/image-editor/tamanos.ts), y Redimensionar no tiene
+  1440 × 1800. Los anuncios van a 1080 × 1350 y se descargan ×2.
+- **Topes de palabras:** el test del plan medía solo las capas «Titular», «Texto» y «Gancho», y los ejemplos rompían
+  el tope que el Diseñador le pide a la IA (la historia 8 tenía 38 palabras con un tope de 12; el anuncio 11, 56 con
+  uno de 20). El tope cuenta todas las capas de texto de la página, y la plantilla que no entra en el de su formato
+  declara el suyo (`topePalabras`), que viaja en `{{plantilla}}`.
+
+**Vive en:** app/image-editor/mako/plantillas/*.json · lib/image-editor/tamanos.ts
+
+## La investigación les atribuía a sus fuentes cifras que no dicen (29/10/2026)
+
+- **1of10 NO dice que la cara rinda peor en «negocios».** Dice que, en general, con o sin cara rinden parecido, que
+  ayuda en finanzas y que daña en salud y fitness. Por eso la versión sin cara puede ir por defecto (la miniatura 2 de
+  Pulso Dental la usa porque no hay ventaja general de la cara), y las piezas de Consulta Rentable (nutrición, salud)
+  van sin cara en la miniatura.
+- **La legibilidad verificada** es 320 × 180 (skill MIT de miniaturas) y ~360 px para el feed. No es 120 px.
+- **Regla:** cada cifra del prompt del Diseñador se relee en su fuente antes de entrar.
+
+**Vive en:** lib/image-editor/chat/prompts.ts (`image_editor.experto`)
+
+## El chat de imagen corre con Gemini por defecto (29/10/2026)
+
+- **Causa:** `lib/model-catalogo.ts:241` tiene GEMINI por defecto para `image-editor-ia`, y la decisión del 22/10 es
+  «sin Gemini».
+- **Lo que hace el plan:** el experto va en su propia feature, `image-editor-adaptar`, con un modelo que escribe mejor.
+  La contradicción de `image-editor-ia` queda sin resolver.
+
+**Vive en:** lib/model-catalogo.ts
+
+## Dos tests se rompen a propósito al sacar las de Doory (29/10/2026)
+
+- Se rompen el test 1 de tests/image-editor-plantillas-crear.test.ts («primero lo en blanco») y el 5 (la lista literal
+  `PLANTILLAS_NUEVO_DISENO` en las dos pantallas).
+- **Regla:** se reescriben con el cambio, no se fuerzan.
+
+**Vive en:** tests/image-editor-plantillas-crear.test.ts
+

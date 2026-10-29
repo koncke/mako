@@ -272,6 +272,110 @@ Lo que no quedó del todo:
 - **Un prompt guardado desde /configuraciones con la plantilla vieja no trae `{{alertas}}` ni
   `propuestoPorMako`**: lo determinista se aplica igual, pero los avisos no le llegan a la IA.
 
+## El diagnóstico obvio era el equivocado, dos veces (29/10/2026)
+
+- **«Offer necesita un agente nuevo»:** el agente ya existe (los prompts `offer.*`, el marco y la segunda capa de
+  lib/offer-reglas.ts). Lo que falta es la FORMA, y va como una clave que el código suma (`offer.experto`), no como otro
+  chat.
+- **«Los ejemplos van en `plantillasDeOffer`»:** eso rompe tests/m-offer.test.ts:170, que exige que el teléfono ofrezca
+  las mismas salidas de crear que esa función. Los ejemplos van en una función aparte (`plantillasEjemploDeOffer`).
+
+**Vive en:** app/offer/arbol.ts · lib/offer-ia.ts · tests/m-offer.test.ts
+
+## El elenco común rompía el marco, y el código lo marcaba (29/10/2026)
+
+- **Síntoma:** las ofertas de ejemplo salían con avisos de `aplicarReglasPropuesta`.
+- **Causa** (lib/offer-reglas.ts, 2953-2963):
+  - 8 y 10 semanas dan menos de 90 días: «el marco pide de 90 a 180 días»;
+  - USD 997 da nivel `medio`, y el código trata `medio` igual que alto: «por debajo de 1.000 USD»;
+  - 3 × USD 550 y 4 × USD 275 cobran menos del 50 % al inicio (marco §6.6).
+- **Regla:** el elenco pasó a 90 días (13 semanas, que suman de verdad: ver la entrada siguiente), USD 1,200 y 2 pagos,
+  hoy y a 30 días, en las cinco tabs. Un test pasa cada
+  ejemplo por `nivelDeOferta`, `duracionEnDias` y la regla de cuotas.
+
+**Vive en:** lib/offer-reglas.ts · docs/plantillas-reales/README.md (2.2) · tests/offer-plantillas.test.ts (del plan)
+
+## Cómo lee el código una oferta escrita: el primer «N unidad» y el monto mayor (29/10/2026)
+
+- **`duracionEnDias`** (lib/offer-reglas.ts:2780) toma el PRIMER «N unidad» del formato: «8 semanas en vivo y 4 de
+  práctica» se lee como 56 días. El total va primero («90 días: 8 semanas…»), **y tiene que ser verdad:** el código no
+  suma las partes, así que «90 días: 8 semanas en vivo y 4 de práctica» pasa la regla y son 84 días. Le pasó a la
+  primera corrección de Cierre Consultivo (el mismo largo que se había rechazado en Consulta Rentable). Ahora las
+  partes suman 13 semanas, y el test de offer-plantillas suma las semanas del formato.
+- **`precioDe`** toma el monto mayor del texto, y «2.4 M» puede no leerse. En las piezas, los precios van completos y
+  con moneda (`MXN 2,400,000`).
+- **Una preventa no es un programa:** la regla de 90 a 180 días y la de la garantía por acciones no le aplican, y
+  «18 meses» se leería como 540 días. Va la excepción `forma.tipo === 'producto'`.
+
+**Vive en:** lib/offer-reglas.ts
+
+## Las cifras del ejemplo no pueden pasar por cifras del dueño (29/10/2026)
+
+- **Causa:** `aplicarReglasPropuesta` y `cifrasConFuente` validan cada número contra `ContextoReglas.fuentes`. Si el
+  ejemplo entrara ahí, sus «52 personas» quedarían como un dato del dueño.
+- **Regla:** el ejemplo va solo en el system (`{{ejemplo}}`), marcado FICTICIO adentro del texto. Nunca va en
+  `fuentes`, `documentos` ni `piezas`, ni pasa por `contenidoNoConfiable`.
+
+**Vive en:** lib/offer-ia.ts · lib/offer-reglas.ts
+
+## El valor apilado: dos reglas que se contradicen (29/10/2026)
+
+- **Causa:** el marco (§6.3) pide que el total sume «4 o 5 veces el precio o más». marketingskills
+  (`bonus-stacking.md`) pide menos de 2 veces, porque si no, no se cree. Con los valores reales (lo que cada cosa se
+  vende suelta), los ejemplos dan de 1.3 a 1.6 veces.
+- **Decisión:** solo precios reales. Las 5 a 10 veces se muestran en el valor del RESULTADO (D7), no inflando el
+  apilado.
+- **Pendiente:** sumar la nota al marco.
+
+**Vive en:** docs/offer-marco.md §6.3
+
+## Sin funnel no hay conversación, y la vacía se reusa (29/10/2026)
+
+- **Sin funnel:** `'nueva'` exige `funnelId` (app/api/offer/route.ts:373). Los ejemplos se dibujan siempre, pero
+  usarlos pide un funnel: sin funnel, la tarjeta lo dice.
+- **La vacía:** `sesionVaciaDe` reusa la conversación vacía del funnel. Elegir una plantilla, volver y elegir otra
+  abriría la primera, con la forma vieja. La reutilización compara la plantilla.
+
+**Vive en:** app/api/offer/route.ts · lib/offer-sesiones.ts
+
+## Lo que un ejemplo no puede dejar escrito (29/10/2026)
+
+- **Fechas:** se vencen (una cohorte «de enero» se lee en marzo). Se guardan como días desde hoy y se calculan al
+  mostrar.
+- **`[completar]`:** `seccionesExternas` borra cualquier renglón que lo tenga. La miniatura y el extracto no pueden salir
+  de una sección con `[completar]`.
+- **El turno corre con un modelo chico** (`gemini-flash-lite-latest`, 2,000 tokens). El bloque del experto va antes de
+  `reglaNoExisteEn`, el ejemplo resumido tiene tope y el user sigue cerrando con la orden del JSON.
+- **Cifras que no cuadran entre sí:** el código revisa cada pieza por separado, no si los números del ejemplo cierran.
+  La revisión encontró una meta de 10 ventas al mes en un programa de 90 días con 15 lugares, un margen del 80 % que
+  con esos costos es del 70 %, «un equipo y 7 individuales» que no daba la meta, y 200 revisiones «desde 2024» de una
+  entrada que el mismo ejemplo dice que es posterior al programa (2025). Un ejemplo es lo que el experto copia: se
+  rehacen las cuentas a mano antes de escribirlo, y la meta va por cohorte cuando el cupo la limita.
+
+**Vive en:** lib/offer-plantillas.ts (del plan) · lib/offer-pdf.ts · lib/offer-ia.ts
+
+## Dibujar el ejemplo en la pantalla sin meter el PDF en el navegador (29/10/2026)
+
+- **Causa:** importar lib/offer-pdf.ts en la pantalla mete `pdf-escritor` y las métricas de Helvetica en el bundle del
+  navegador.
+- **Regla:** `documento-vivo.ts` lee `PropuestaOferta` directo, y un test fija que los títulos sean los de
+  `seccionesExternas`.
+
+**Vive en:** app/offer/documento-vivo.ts · app/offer/DocumentoVivo.tsx
+
+## La MIT de una skill no licencia el libro del que sale (29/10/2026)
+
+- **Causa:** wondelai `hundred-million-offers` (MIT, LICENSE leído), fabric `create_hormozi_offer` y
+  startup-ideation-kit cuentan «$100M Offers», a veces con citas textuales. La MIT del repo no da derechos sobre el
+  libro.
+- **Regla:**
+  - quedan como idea;
+  - en la pantalla no van «Grand Slam Offer», «$100M» ni los marcos con nombre de los cursos (Oferta HIDE, Vehículo
+    Azul, Nicho Dorado);
+  - lo copiable es la skill `offers` de marketingskills (MIT), traducida, sin su regla de apilado.
+
+**Vive en:** lib/avisos/LICENSE-MARKETINGSKILLS (del plan) · docs/plantillas-reales/offer.md (sección 4)
+
 ## Lo que quedó SIN hacer
 
 - **Offer v2:**

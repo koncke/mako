@@ -34,7 +34,9 @@
 
 import 'server-only';
 import { esperaDeRetryAfter, topeDeError, type TopeSocial } from './zernio-tope';
-import { credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
+import { clavesGuardadasConBase, credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
+import { createHash } from 'node:crypto';
+import { CLAVES_ZERNIO, leerCuentasDeZernio, slotDeClaveZernio, tieneListaDeCuentas } from './zernio-redes';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS, wsSuperAdmin } from './workspace';
 import { upsertRouting } from './webhook-routing';
@@ -130,6 +132,114 @@ export async function cfg(ws: number): Promise<ZernioCfg> {
     if (deLaPlataforma) return { apiKey: deLaPlataforma, byok: false };
   }
   throw new ZernioError('Zernio no está configurado', 0, null);
+}
+
+// ── Varias claves de Zernio por negocio (29/10/2026) ─────────────────────────
+//
+// Martín, 29/10: «la posibilidad de pegar una segunda API key con otra cuenta de Gmail del cliente... y ya tendrías cuatro redes».
+// Cada clave es OTRA cuenta (otro equipo) de Zernio DEL CLIENTE. La 1 es `cfg(ws)`, con sus reglas (el ws1, la cuenta prestada);
+// las extra (`ZERNIO_API_KEY_2…`) son SÓLO del negocio. UNA RED QUEDA ATADA A LA CLAVE CON QUE SE CONECTÓ: lo que opera sobre una
+// cuenta (un DM, un comentario, un post, los anuncios) habla con la clave que la tiene (`cfgDeCuenta`). Con una sola clave, todo
+// es exactamente como antes (y no se lee nada de más: `clavesZernio` corta en la 1 si no hay extra).
+
+/** Una clave del negocio, con su número y su huella (nunca se guarda ni se loguea la clave). */
+export type ClaveZernio = ZernioCfg & { slot: number; huella: string };
+/** La huella de una clave (sha256 corto): con ella se sabe con qué clave se hizo algo sin guardar la clave. */
+export const huellaClave = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 16);
+
+const TTL_CLAVES_MS = 60_000;
+const extrasCache = new Map<number, { extras: ClaveZernio[]; vence: number }>();
+const cuentasCache = new Map<string, { ids: Set<string>; vence: number; releida: number | null }>();
+
+/**
+ * Las claves de Zernio del negocio, en orden (la 1 primero). Tira como `cfg` si no hay ninguna. La misma clave pegada dos veces
+ * cuenta una vez. ⚠️ La 1 se lee SIEMPRE (`cfg`, como antes de las extra: cambiarla vale en el acto); sólo las EXTRA se cachean un
+ * minuto, porque el motor manda de a muchos mensajes y cada uno pregunta. `fresca`: sin caché, para conectar y para la lista de
+ * redes (quien acaba de pegar la clave 2 y toca «Conectar» no puede recibir el aviso de la 3.ª red de nuevo por un minuto viejo).
+ */
+export async function clavesZernio(ws: number, opc: { fresca?: boolean } = {}): Promise<ClaveZernio[]> {
+  const base = await cfg(ws);
+  const claves: ClaveZernio[] = [{ ...base, slot: 1, huella: huellaClave(base.apiKey) }];
+  const hit = opc.fresca ? undefined : extrasCache.get(ws);
+  let extras = hit && hit.vence > Date.now() ? hit.extras : null;
+  if (!extras) {
+    extras = [];
+    // Una lectura para saber si hay extra (lo normal es que no): sólo se descifran las que están. ⚠️ Con los nombres de las EXTRA
+    // (`ZERNIO_API_KEY_2…`), no con la base: `clavesGuardadasConBase` corta en `__` (las cuentas de una pasarela), así que con
+    // `ZERNIO_API_KEY` sólo devolvía la 1 y las extra no aparecían nunca.
+    const guardadas = await clavesGuardadasConBase(ws, CLAVES_ZERNIO.slice(1));
+    for (const env of CLAVES_ZERNIO.filter((n) => guardadas.includes(n))) {
+      const k = await credDelClienteEstricta(env, ws, { ilegibleTira: true });
+      if (k) extras.push({ apiKey: k, byok: true, slot: slotDeClaveZernio(env) ?? 0, huella: huellaClave(k) });
+    }
+    extrasCache.set(ws, { extras, vence: Date.now() + TTL_CLAVES_MS });
+  }
+  for (const k of extras) if (!claves.some((x) => x.apiKey === k.apiKey)) claves.push(k);
+  return claves;
+}
+
+/** Lo que espera una relectura después de otra: una cuenta que no es de NINGUNA clave no hace leer Zernio en cada mensaje. */
+const RELEER_MIN_MS = 10_000;
+
+/**
+ * Los ids de TODAS las cuentas del equipo de una clave (sin filtrar por perfil), cacheados un minuto. `fresca`: se relee, salvo que
+ * lo cacheado ya sea una relectura de hace menos de 10 s (la primera vez que una cuenta no aparece, se relee siempre).
+ */
+async function idsDeCuentasDe(k: ClaveZernio, fresca = false): Promise<Set<string>> {
+  const hit = cuentasCache.get(k.huella);
+  const vigente = hit && hit.vence > Date.now();
+  if (vigente && (!fresca || (hit.releida != null && Date.now() - hit.releida < RELEER_MIN_MS))) return hit.ids;
+  const r = await zFetch<unknown>(k.apiKey, '/accounts?excludeHidden=true');
+  const ids = new Set(tieneListaDeCuentas(r) ? leerCuentasDeZernio(r).map((c) => c.accountId) : []);
+  cuentasCache.set(k.huella, { ids, vence: Date.now() + TTL_CLAVES_MS, releida: fresca ? Date.now() : null });
+  return ids;
+}
+
+/**
+ * La clave DUEÑA de una cuenta de Zernio (la red quedó atada a la clave con que se conectó). Con una sola clave, la 1 sin preguntar
+ * nada. Si una clave no se puede leer, se sigue con las demás. Si no está en lo cacheado, se relee UNA vez (claves y cuentas): la red
+ * recién conectada con una clave extra no espera el minuto. Sin encontrarla, la 1 (Zernio dirá si no es suya).
+ * ⚠️ Lo que SÍ puede esperar hasta un minuto: la PRIMERA clave extra recién pegada, en un proceso que ya había leído «sólo la 1» (con
+ * una sola clave no se relee nada, a propósito: es el 99% de los negocios y cada mensaje pregunta).
+ */
+export async function cfgDeCuenta(ws: number, accountId: string | null | undefined): Promise<ClaveZernio> {
+  const deAntes = await clavesZernio(ws);
+  if (!accountId) return deAntes[0];
+  for (const fresca of [false, true]) {
+    const claves = fresca ? await clavesZernio(ws, { fresca: true }) : deAntes;
+    if (claves.length === 1) return claves[0];
+    for (const k of claves) {
+      const ids = await idsDeCuentasDe(k, fresca).catch((e) => {
+        console.warn(`[zernio] ws${ws}: no pude leer las cuentas de la clave ${k.slot}: ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      });
+      if (ids?.has(accountId)) return k;
+    }
+  }
+  return deAntes[0];
+}
+
+/** La clave del negocio con esa huella (la de un post programado), o null si ya no es del negocio. */
+export async function cfgDeHuella(ws: number, huella: string | null | undefined): Promise<ClaveZernio | null> {
+  if (!huella) return null;
+  return (await clavesZernio(ws)).find((k) => k.huella === huella) ?? null;
+}
+
+/**
+ * El perfil de una clave EXTRA: el Default de SU cuenta, y su ruteo (`RUTEO_PERFIL`), para que los mensajes de esas redes lleguen a
+ * este negocio. ⚠️ NO pasa por `profileIdEfectivo`: ése guarda el perfil de la clave 1 en `zernio_workspace` y lo «suelta» si no es
+ * de la cuenta que pregunta; preguntarle con la clave 2 le borraría el perfil a la 1.
+ */
+export async function perfilDeClaveExtra(ws: number, k: ClaveZernio): Promise<string | null> {
+  const r = await zFetch<{ profiles?: ZernioProfile[] }>(k.apiKey, '/profiles');
+  const { profileId } = profileDeLaCuenta(null, r.profiles ?? []);
+  if (profileId) await upsertRouting(RUTEO_PERFIL, profileId, ws);
+  return profileId;
+}
+
+/** Se olvida lo cacheado de un negocio (al guardar o quitar una clave en este proceso). */
+export function olvidarClavesZernio(ws: number): void {
+  extrasCache.delete(ws);
 }
 
 /** El ajuste del negocio de la PLATAFORMA que presta su cuenta de Zernio a los negocios sin key ('1'). Apagado por defecto. */
@@ -292,6 +402,20 @@ export async function cuentasConectadas(ws: number, plataforma?: 'instagram' | '
   if (plataforma) q.set('platform', plataforma);
   const r = await zFetch<{ accounts: ZernioAccount[] }>(c.apiKey, `/accounts?${q.toString()}`);
   const cuentas = (r.accounts ?? []).filter((a) => a.platform === 'instagram' || a.platform === 'facebook');
+  // Y las de las claves EXTRA (29/10/2026): una red conectada con la clave 2 también tiene que poder recibir.
+  // Sin caché: se llama al conectar (la clave recién pegada tiene que contar).
+  for (const k of (await clavesZernio(ws, { fresca: true })).slice(1)) {
+    try {
+      const perfil = await perfilDeClaveExtra(ws, k);
+      const qk = new URLSearchParams();
+      if (perfil) qk.set('profileId', perfil);
+      if (plataforma) qk.set('platform', plataforma);
+      const rk = await zFetch<{ accounts: ZernioAccount[] }>(k.apiKey, `/accounts?${qk.toString()}`);
+      cuentas.push(...(rk.accounts ?? []).filter((a) => a.platform === 'instagram' || a.platform === 'facebook'));
+    } catch (e) {
+      console.warn(`[zernio] ws${ws}: las cuentas de la clave ${k.slot} no se pudieron leer: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   for (const a of cuentas) await upsertRouting(RUTEO_CUENTA, a._id, ws);
   return cuentas;
 }
@@ -318,7 +442,17 @@ type ZernioWebhook = { _id: string; url?: string; events?: string[]; isActive?: 
 export async function asegurarWebhook(ws: number): Promise<'creado' | 'actualizado' | 'sin_secreto'> {
   const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
   if (!maestro) return 'sin_secreto';
-  const c = await cfg(ws);
+  const [principal, ...extra] = await clavesZernio(ws, { fresca: true });
+  const r = await asegurarWebhookEn(ws, principal, maestro);
+  // Las claves EXTRA (29/10/2026): cada una es otro equipo de Zernio, con su propio webhook. La URL y el secreto son del NEGOCIO
+  // (`?w=<ws>`), así que la ruta del webhook verifica igual. Una que falle no tumba a la 1: se dice en el log.
+  for (const k of extra) {
+    await asegurarWebhookEn(ws, k, maestro).catch((e) => console.warn(`[zernio] ws${ws}: el webhook de la clave ${k.slot} no quedó: ${e instanceof Error ? e.message : String(e)}`));
+  }
+  return r;
+}
+
+async function asegurarWebhookEn(ws: number, c: ZernioCfg, maestro: string): Promise<'creado' | 'actualizado'> {
   const { ruta, secret } = webhookDeLaCuenta(maestro, ws, c.byok);
   const url = linkApp(ruta, null);
   const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');
@@ -390,7 +524,8 @@ export type EnviarDmInput = {
  * ventana, Zernio contesta 400 `PLATFORM_LIMITATION` y lib/canal-zernio.ts cierra el hilo.
  */
 export async function enviarDm(ws: number, conversationId: string, input: EnviarDmInput): Promise<{ messageId: string | null }> {
-  const c = await cfg(ws);
+  // La clave dueña de la cuenta (varias claves, 29/10/2026); con una sola, la de siempre.
+  const c = await cfgDeCuenta(ws, input.accountId);
   if (!input.texto && !input.adjuntoUrl) throw new ZernioError('enviarDm: hace falta texto o adjunto', 0, null);
   const body: Record<string, unknown> = { accountId: input.accountId };
   if (input.texto) body.message = input.texto;
@@ -416,7 +551,7 @@ export async function enviarDm(ws: number, conversationId: string, input: Enviar
  * tienen»), y el primer DM de ManyChat es justo un botón. Quien llama decide si los manda (`cuentaRechazaBotones`).
  */
 export async function responderComentario(ws: number, input: { accountId: string; postId: string; commentId: string; texto: string; idempotencyKey?: string; botones?: readonly BotonZernio[] }): Promise<{ messageId: string | null }> {
-  const c = await cfg(ws);
+  const c = await cfgDeCuenta(ws, input.accountId);
   const r = await zFetch<{ messageId?: string }>(c.apiKey, `/inbox/comments/${encodeURIComponent(input.postId)}/${encodeURIComponent(input.commentId)}/private-reply`, {
     method: 'POST',
     headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey.slice(0, 255) } : {},
@@ -433,7 +568,7 @@ export async function responderComentario(ws: number, input: { accountId: string
  * comentario borrado) o la clave se reusó con otro texto. Las dos son terminales (`esRechazoDelComentario`).
  */
 export async function responderComentarioEnPublico(ws: number, input: { accountId: string; postId: string; commentId: string; texto: string; idempotencyKey?: string }): Promise<{ commentId: string | null }> {
-  const c = await cfg(ws);
+  const c = await cfgDeCuenta(ws, input.accountId);
   const r = await zFetch<{ data?: { commentId?: string }; commentId?: string }>(c.apiKey, `/inbox/comments/${encodeURIComponent(input.postId)}`, {
     method: 'POST',
     headers: input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey.slice(0, 255) } : {},
@@ -459,9 +594,13 @@ async function keyDeSeguimiento(ws: number): Promise<string | null> {
   return credDelClienteEstricta('ZERNIO_API_KEY', ws);
 }
 
-/** Un GET /accounts/{id}/follow-status/{igsid}, sin pasar por alto la caché de Zernio (`refresh=false`). */
-async function consultarSeguimiento(apiKey: string, accountId: string, igsid: string): Promise<boolean | null> {
-  const r = await zFetch<unknown>(apiKey, `/accounts/${encodeURIComponent(accountId)}/follow-status/${encodeURIComponent(igsid)}?refresh=false`, undefined, TIMEOUT_SEGUIMIENTO_MS);
+/**
+ * Un GET /accounts/{id}/follow-status/{igsid}. Con la caché de Zernio (`refresh=false`, que guarda la respuesta «briefly»
+ * por cuenta y persona), salvo `fresco`: quien ACABA de decir que siguió la cuenta («Ya te sigo», ticket #29 de Leandro).
+ * La doc de Zernio: «Pass refresh=true right after asking someone to follow, so a follow from a moment ago is visible».
+ */
+async function consultarSeguimiento(apiKey: string, accountId: string, igsid: string, fresco = false): Promise<boolean | null> {
+  const r = await zFetch<unknown>(apiKey, `/accounts/${encodeURIComponent(accountId)}/follow-status/${encodeURIComponent(igsid)}?refresh=${fresco ? 'true' : 'false'}`, undefined, TIMEOUT_SEGUIMIENTO_MS);
   return seguimientoDe(r);
 }
 
@@ -485,19 +624,23 @@ export async function estadoDeSeguimiento(ws: number, accountId: string, igsid: 
 export async function estadosDeSeguimiento(
   ws: number,
   pedidos: ReadonlyArray<{ leadId: number; accountId: string; igsid: string }>,
+  o: { fresco?: boolean } = {},
 ): Promise<Map<number, boolean | null>> {
   const out = new Map<number, boolean | null>();
   if (!pedidos.length) return out;
   const apiKey = await keyDeSeguimiento(ws);
   if (!apiKey) return out;
-  let cuentaCaida = false;
+  // Con varias claves (29/10/2026), cada cuenta se pregunta con la suya; una clave caída (401/402) apaga sólo las suyas.
+  const varias = (await clavesZernio(ws).catch(() => [])).length > 1;
+  const caidas = new Set<string>();
   await conTope(pedidos, CONCURRENCIA_SEGUIMIENTO, async (p) => {
-    if (cuentaCaida) { out.set(p.leadId, null); return; }
+    const key = varias ? (await cfgDeCuenta(ws, p.accountId)).apiKey : apiKey;
+    if (caidas.has(key)) { out.set(p.leadId, null); return; }
     try {
-      out.set(p.leadId, await consultarSeguimiento(apiKey, p.accountId, p.igsid));
+      out.set(p.leadId, await consultarSeguimiento(key, p.accountId, p.igsid, o.fresco === true));
     } catch (e) {
       if (!(e instanceof ZernioError) || !seguimientoNoSe(e.status)) throw e;
-      if (e.status === 401 || e.status === 402) cuentaCaida = true;
+      if (e.status === 401 || e.status === 402) caidas.add(key);
       out.set(p.leadId, null);
     }
   });

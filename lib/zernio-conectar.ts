@@ -25,9 +25,12 @@ import { createHash } from 'node:crypto';
 import { linkApp } from './app-url';
 import { estaImpersonando, OWNER_WS } from './workspace';
 import { wsPorIdentificadorEstricto } from './webhook-routing';
-import { asegurarWebhook, cfg, cuentasConectadas, profileIdEfectivo, RUTEO_CUENTA, RUTEO_PERFIL, usaCuentaPropia, zFetch, ZernioError, type ZernioCfg } from './zernio';
 import {
-  REDES, avisoDeCobroZernio, clavesDe, esFlujoValido, esRedZernio, leerCuentasDeZernio, MENSAJES_DE_MOTIVO, motivoDeRespuesta, textoAvisoCobro,
+  asegurarWebhook, cfg, cfgDeCuenta, clavesZernio, cuentasConectadas, perfilDeClaveExtra, profileIdEfectivo, RUTEO_CUENTA, RUTEO_PERFIL, usaCuentaPropia, zFetch,
+  ZernioError, type ClaveZernio, type ZernioCfg,
+} from './zernio';
+import {
+  REDES, claveConLugar, clavesDe, esFlujoValido, esRedZernio, leerCuentasDeZernio, MAX_CLAVES_ZERNIO, MENSAJES_DE_MOTIVO, motivoDeRespuesta, textoAvisoCobro,
   tieneListaDeCuentas, urlDeLoginDeZernio, validarVolver, volverConMarca,
   type ConexionZernio, type MotivoZernio, type RedZernio, type RespuestaConectar,
 } from './zernio-redes';
@@ -60,10 +63,10 @@ const huella = (apiKey: string) => createHash('sha256').update(apiKey).digest('h
  * la pantalla (cada 4 s) hacía un `GET /profiles` y una escritura de ruteo. Si la persona pega OTRA key, la huella cambia y se vuelve
  * a preguntar. Nunca se guarda la key.
  */
-async function contexto(ws: number): Promise<{ c: ZernioCfg; profileId: string }> {
+async function contexto(ws: number, k?: ClaveZernio): Promise<{ c: ZernioCfg; profileId: string }> {
   let c: ZernioCfg;
   try {
-    c = await cfg(ws);
+    c = k ?? await cfg(ws);
   } catch (e) {
     if (e instanceof ZernioError && e.status === 0 && e.message === NO_CONFIGURADO) throw new ZernioConectarError('sin-clave');
     throw e;
@@ -71,7 +74,8 @@ async function contexto(ws: number): Promise<{ c: ZernioCfg; profileId: string }
   const clave = `${ws}:${huella(c.apiKey)}`;
   const hit = perfiles.get(clave);
   if (hit && hit.vence > Date.now()) return { c, profileId: hit.profileId };
-  const profileId = await profileIdEfectivo(ws, c);
+  // Una clave EXTRA (29/10/2026) tiene su perfil aparte: el de la 1 vive en `zernio_workspace` y no se toca (`perfilDeClaveExtra`).
+  const profileId = k && k.slot > 1 ? await perfilDeClaveExtra(ws, k) : await profileIdEfectivo(ws, c);
   if (!profileId) throw new ZernioConectarError('sin-perfil');
   // ⚠️ DOS NEGOCIOS CON LA MISMA KEY comparten el profile Default de esa cuenta de Zernio (con key propia no hay un profile por negocio), y
   // `profileIdEfectivo` no mira quién lo reclamó primero: el segundo vería las cuentas del primero como suyas, y el ruteo de sus mensajes
@@ -132,19 +136,45 @@ export async function conexionesViaZernio(ws: number, red?: RedZernio): Promise<
   try {
     const { c, profileId } = await contexto(ws);
     usada = c;
-    const q = new URLSearchParams({ profileId, excludeHidden: 'true' });
-    if (red) q.set('platform', REDES[red].plataforma);
-    const r = await zFetch<unknown>(c.apiKey, `/accounts?${q.toString()}`);
-    // ⚠️ Un objeto SIN lista (un campo que Zernio renombró) NO es «no hay cuentas»: la persona esperaría 4 minutos a una conexión que acá no se sabe
-    // ver. Se dice `respuesta` y se loguean las CLAVES del cuerpo (nunca los valores), que es lo que hace falta para corregir el lector.
-    if (!tieneListaDeCuentas(r)) {
-      console.error(`[zernio-conectar] /accounts ws${ws}: la respuesta no trae lista (claves: ${clavesDe(r)})`);
-      throw new ZernioConectarError('respuesta');
+    const todas = (await cuentasDeUnaClave(ws, c, profileId, red)).map((x) => ({ ...x, clave: 1 }));
+    // Las de las claves EXTRA (29/10/2026), cada una con su número: la red queda atada a la clave con que se conectó. Una extra que
+    // no se puede leer no tumba la lista: se dice en el log y sus redes no se ven hasta que vuelva.
+    for (const k of (await clavesDelNegocio(ws)).slice(1)) {
+      try {
+        const ctx = await contexto(ws, k);
+        todas.push(...(await cuentasDeUnaClave(ws, ctx.c, ctx.profileId, red)).map((x) => ({ ...x, clave: k.slot })));
+      } catch (e) {
+        console.warn(`[zernio-conectar] ws${ws}: la clave ${k.slot} no se pudo leer: ${msg(e).slice(0, 200)}`);
+      }
     }
-    return leerCuentasDeZernio(r, profileId);
+    return todas;
   } catch (e) {
     throw motivoDeError(e, await esDeLaCasa(ws, usada));
   }
+}
+
+/** Las claves del negocio, sin caché (conectar y la lista de redes ven la clave recién pegada); sin ninguna, `sin-clave`. */
+async function clavesDelNegocio(ws: number): Promise<ClaveZernio[]> {
+  try {
+    return await clavesZernio(ws, { fresca: true });
+  } catch (e) {
+    if (e instanceof ZernioError && e.status === 0 && e.message === NO_CONFIGURADO) throw new ZernioConectarError('sin-clave');
+    throw e;
+  }
+}
+
+/** Las cuentas (de una red, o todas) de UNA clave, filtradas por su perfil. */
+async function cuentasDeUnaClave(ws: number, c: ZernioCfg, profileId: string, red?: RedZernio): Promise<ConexionZernio[]> {
+  const q = new URLSearchParams({ profileId, excludeHidden: 'true' });
+  if (red) q.set('platform', REDES[red].plataforma);
+  const r = await zFetch<unknown>(c.apiKey, `/accounts?${q.toString()}`);
+  // ⚠️ Un objeto SIN lista (un campo que Zernio renombró) NO es «no hay cuentas»: la persona esperaría 4 minutos a una conexión que acá no se sabe
+  // ver. Se dice `respuesta` y se loguean las CLAVES del cuerpo (nunca los valores), que es lo que hace falta para corregir el lector.
+  if (!tieneListaDeCuentas(r)) {
+    console.error(`[zernio-conectar] /accounts ws${ws}: la respuesta no trae lista (claves: ${clavesDe(r)})`);
+    throw new ZernioConectarError('respuesta');
+  }
+  return leerCuentasDeZernio(r, profileId);
 }
 
 // ── Conectar: el link del login ──────────────────────────────────────────────
@@ -171,7 +201,7 @@ export async function urlConectarViaZernio(
   ws: number,
   red: RedZernio,
   volver: string,
-  opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; flujo?: string | null; aceptaCobro?: boolean } = {},
+  opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; flujo?: string | null; aceptaCobro?: boolean; clave?: number | null } = {},
 ): Promise<RespuestaConectar> {
   let usada: ZernioCfg | null = null;
   try {
@@ -179,18 +209,10 @@ export async function urlConectarViaZernio(
     const def = REDES[red];
     const v = validarVolver(volver);
     if (!v) throw new ZernioConectarError('error', 'La dirección de vuelta no vale.');
-    const { c, profileId } = await contexto(ws);
+    const elegida = await claveParaConectar(ws, red, opc);
+    if ('cobro' in elegida) return { ok: false, motivo: 'cobro', error: elegida.cobro, puedeAgregarClave: elegida.puedeAgregar };
+    const { c, profileId } = await contexto(ws, elegida.clave);
     usada = c;
-
-    // El cobro, ANTES del login (27/10/2026, feedback de Leila): con la clave del negocio (con la de MaKo paga MaKo), si su Zernio ya
-    // tiene 2 cuentas activas y ésta es nueva, se contesta `cobro` y la pantalla pide confirmar; vuelve con `aceptaCobro`. Se cuenta
-    // TODA la cuenta de Zernio (sin `profileId`): Zernio cobra por equipo. Si no se puede contar, no se frena (el 402 de Zernio igual
-    // avisa cuando falta la tarjeta).
-    if (!opc.reconectarId && !opc.aceptaCobro && (await usaCuentaPropia(ws).catch(() => false))) {
-      const todas = await zFetch<unknown>(c.apiKey, '/accounts?excludeHidden=true').catch(() => null);
-      const aviso = todas && tieneListaDeCuentas(todas) ? avisoDeCobroZernio({ conectadas: leerCuentasDeZernio(todas), red }) : null;
-      if (aviso) return { ok: false, motivo: 'cobro', error: textoAvisoCobro(aviso.cuentas) };
-    }
 
     // ⚠️ El `?ws=` de la vuelta sólo si un admin de la plataforma está ADENTRO de un cliente (`estaImpersonando`): pegarlo siempre lo pone en
     // «vista de cliente» de sí mismo (21/10), y no pegarlo cuando está adentro lo hace volver a SU negocio (`wsDeVuelta` no sirve acá: esta
@@ -226,6 +248,35 @@ export async function urlConectarViaZernio(
   } catch (e) {
     return fallo(e, `conectar ${String(red)}`, ws, await esDeLaCasa(ws, usada));
   }
+}
+
+/**
+ * EN QUÉ CLAVE SE CONECTA (29/10/2026, varias claves). Reconectar: la dueña de esa cuenta. La pedida (`clave`, «Conectar igual» en
+ * esa). Si no, la PRIMERA con lugar (`claveConLugar`: menos de 2 cuentas activas, o ya tiene esa red). Si todas están llenas, el
+ * aviso de la 3.ª red ANTES del login (27/10, feedback de Leila; 29/10, Martín: «te advierte... si conectás esta cuenta sin otra API
+ * te va a empezar a cobrar Zernio»), salvo `aceptaCobro`. Se cuenta TODA la cuenta de Zernio de cada clave (sin `profileId`): Zernio
+ * cobra por equipo. Con la clave de MaKo (el ws1) no se avisa: paga MaKo. Si no se puede contar, no se frena (el 402 de Zernio avisa).
+ */
+async function claveParaConectar(
+  ws: number, red: RedZernio, opc: { reconectarId?: string | null; aceptaCobro?: boolean; clave?: number | null },
+): Promise<{ clave: ClaveZernio } | { cobro: string; puedeAgregar: boolean }> {
+  const claves = await clavesDelNegocio(ws);
+  if (opc.reconectarId) return { clave: await cfgDeCuenta(ws, opc.reconectarId) };
+  const pedida = opc.clave ? claves.find((k) => k.slot === opc.clave) : undefined;
+  if (pedida && opc.aceptaCobro) return { clave: pedida };
+  if (!(await usaCuentaPropia(ws).catch(() => false))) return { clave: claves[0] };
+  const conteos: Array<{ slot: number; conectadas: ConexionZernio[] }> = [];
+  for (const k of pedida ? [pedida] : claves) {
+    const todas = await zFetch<unknown>(k.apiKey, '/accounts?excludeHidden=true').catch(() => null);
+    if (!todas || !tieneListaDeCuentas(todas)) return { clave: k };
+    conteos.push({ slot: k.slot, conectadas: leerCuentasDeZernio(todas) });
+  }
+  const slot = claveConLugar(conteos, red);
+  if (slot != null) return { clave: claves.find((k) => k.slot === slot) ?? claves[0] };
+  if (opc.aceptaCobro) return { clave: pedida ?? claves[0] };
+  const llena = conteos[0];
+  const puedeAgregar = claves.length < MAX_CLAVES_ZERNIO;
+  return { cobro: textoAvisoCobro(llena.conectadas.filter((x) => x.activa).length, { puedeAgregar }), puedeAgregar };
 }
 
 // ── Quedó conectada: armar la recepción ──────────────────────────────────────

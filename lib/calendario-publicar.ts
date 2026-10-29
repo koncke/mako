@@ -38,7 +38,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { conexionesViaZernio, type ZernioConectarError } from './zernio-conectar';
-import { borrarPostZernio, crearPostZernio, huellaClaveActual, leerPostZernio } from './zernio-publicar';
+import { borrarPostZernio, crearPostZernio, huellasDelNegocio, leerPostZernio } from './zernio-publicar';
 import { ZernioError } from './zernio';
 import { esFormato, sumarDias, type FormatoPublicacion } from './calendario-modelo';
 import { instanteDe } from './cron-aviso';
@@ -51,6 +51,8 @@ import {
 export const COLS_PUBLICACION = 'red, cuenta_red, archivo, archivo_tipo, texto, post_id, publicacion, publicacion_motivo, publicacion_url, publicacion_intento, publicacion_clave';
 const COLS_EVENTO = 'id, tipo, formato, titulo, inicio, dia_completo, estado, updated_at';
 export const FALTA_MIGRACION_PUBLICAR = 'Falta la migración 0342 para publicar desde el Calendario.';
+/** LinkedIn, X, Threads o Google Business antes de la mig 0348: la base todavía no acepta esa red. */
+export const FALTA_MIGRACION_REDES = 'Publicar en esa red todavía no está activo en tu cuenta. Elige otra cuenta por ahora.';
 /** Hasta cuántas se programan de una vez (el mismo tope de un lote del Calendario). */
 export const MAX_PROGRAMAR = 40;
 /** Un reclamo `programando` más viejo que esto murió en el medio (la función, la base): pasa a `dudosa`. */
@@ -133,7 +135,8 @@ export async function estaProgramadoEnLaRed(id: string): Promise<boolean> {
 async function otraClave(ws: number, clave: string | null | undefined): Promise<boolean | null> {
   if (!clave) return false;
   try {
-    return (await huellaClaveActual(ws)) !== clave;
+    // Con varias claves (29/10/2026), «otra clave» es una que ya NO es de ninguna clave del negocio.
+    return !(await huellasDelNegocio(ws)).has(clave);
   } catch (e) {
     return e instanceof ZernioError && e.status === 0 && /no está configurado/i.test(e.message) ? true : null;
   }
@@ -225,6 +228,7 @@ export async function guardarPublicacion(id: string, cambio: {
     const { data, error } = await (libre === null ? q.is('publicacion', null) : q.eq('publicacion', libre)).select('id');
     if (error) {
       if (esSinMigracion(error.message)) return { ok: false, error: FALTA_MIGRACION_PUBLICAR };
+      if (/calendario_eventos_red_ok/.test(error.message ?? '')) return { ok: false, error: FALTA_MIGRACION_REDES };
       throw new Error(`No pude guardar la publicación: ${error.message}`);
     }
     if (data?.length) return { ok: true };
@@ -447,11 +451,11 @@ export async function cancelarPublicacion(id: string): Promise<{ ok: true } | { 
   if (ev.publicacion === 'dudosa') return { ok: false, error: 'No se sabe si quedó en Zernio: revisa allá. Si no quedó, márcala con «No quedó programada».' };
   if (ev.publicacion !== 'programada' || !ev.post_id) return { ok: false, error: ev.publicacion === 'publicada' ? 'Ya se publicó: se borra desde la red.' : 'No está programada.' };
   // ⚠️ Con OTRA clave, Zernio no la encuentra (404) aunque siga programada en la cuenta de antes (la verificación del 28/10).
-  if (ev.publicacion_clave && (await huellaClaveActual(ws)) !== ev.publicacion_clave) {
+  if (ev.publicacion_clave && !(await huellasDelNegocio(ws)).has(ev.publicacion_clave)) {
     return { ok: false, error: 'La clave de Zernio cambió desde que se programó: cancélala desde la cuenta de Zernio con la que se programó.' };
   }
   try {
-    await borrarPostZernio(ws, ev.post_id);
+    await borrarPostZernio(ws, ev.post_id, ev.publicacion_clave);
   } catch (e) {
     // Con la MISMA clave, un 404 es que Zernio ya no la tiene: no hay nada que cancelar allá.
     if (!(e instanceof ZernioError && e.status === 404)) return { ok: false, error: motivoDeFallo(e).replace('no la programó', 'no la canceló') };
@@ -486,13 +490,13 @@ export async function releerPublicaciones(ahora = Date.now()): Promise<number> {
   const { data, error } = await db.from('calendario_eventos').select('id, post_id, inicio, publicacion_clave')
     .eq('publicacion', 'programada').lte('inicio', new Date(ahora).toISOString()).order('inicio', { ascending: true }).limit(20);
   if (error) return cambiados;
-  let huella: string | null = null;
+  let huellas: Set<string> | null = null;
   for (const f of (data ?? []) as Array<{ id: string; post_id: string | null; publicacion_clave: string | null }>) {
     if (!f.post_id) continue;
     try {
       let fila: Record<string, unknown> | null = null;
       try {
-        const e = estadoDeZernio(await leerPostZernio(ws, f.post_id));
+        const e = estadoDeZernio(await leerPostZernio(ws, f.post_id, f.publicacion_clave));
         if (e) {
           fila = e.publicacion === 'publicada'
             ? { publicacion: 'publicada', estado: 'hecho', publicacion_url: e.url?.slice(0, 500) ?? null, publicacion_motivo: null }
@@ -500,9 +504,9 @@ export async function releerPublicaciones(ahora = Date.now()): Promise<number> {
         }
       } catch (e) {
         if (!(e instanceof ZernioError && e.status === 404)) throw e;
-        huella ??= await huellaClaveActual(ws);
+        huellas ??= await huellasDelNegocio(ws);
         // Con otra clave no se sabe (puede seguir en la cuenta de antes): se deja como está.
-        if (!f.publicacion_clave || f.publicacion_clave === huella) fila = { publicacion: 'fallo', publicacion_motivo: 'Zernio ya no la tiene: no va a salir.' };
+        if (!f.publicacion_clave || huellas.has(f.publicacion_clave)) fila = { publicacion: 'fallo', publicacion_motivo: 'Zernio ya no la tiene: no va a salir.' };
       }
       if (!fila) continue;
       const { data: ok } = await db.from('calendario_eventos').update({ ...fila, updated_at: new Date().toISOString() })

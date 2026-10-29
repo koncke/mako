@@ -57,10 +57,16 @@ export const puedeVolverAProbar = (fila: Pick<FilaPrevia, 'estado' | 'desenlace'
  * daba 422 y el DM, un 200 sin mandar nada. La segunda prueba de Leandro no salía. La vuelta es `inscripto_at`, que
  * `reactivarInscripcion` renueva: los reintentos de la MISMA vuelta repiten la clave (si una respuesta se pierde, Zernio
  * devuelve la original y no manda dos). Sin `inscripto_at` legible, la de siempre.
+ * ⚠️ Y LA PASADA (ticket #29 de Leandro, 29/10/2026): un botón que vuelve a una tarjeta por la que el lead ya pasó («Ya te
+ * sigo» → «¿Te sigue?» → no → el MISMO «Seguinos») la manda otra vez en la misma vuelta. Con la clave de la vez anterior,
+ * Zernio contestaba lo de antes sin mandar nada: el lead tocaba y no le llegaba nada, y MaKo lo anotaba «enviado».
+ * `pasada` = cuántas veces ya SALIÓ esa tarjeta en la vuelta, más uno; la primera lleva la clave de siempre, y los
+ * reintentos de una pasada que falló repiten la suya (un fallo no cuenta como salida).
  */
-export function claveDeEnvio(inscripcionId: number, inscriptoAt: string | null | undefined, nodo: string): string {
+export function claveDeEnvio(inscripcionId: number, inscriptoAt: string | null | undefined, nodo: string, pasada = 1): string {
   const vuelta = Date.parse(inscriptoAt ?? '');
-  return Number.isFinite(vuelta) ? `nutri:${inscripcionId}:${vuelta}:${nodo}` : `nutri:${inscripcionId}:${nodo}`;
+  const base = Number.isFinite(vuelta) ? `nutri:${inscripcionId}:${vuelta}:${nodo}` : `nutri:${inscripcionId}:${nodo}`;
+  return pasada > 1 ? `${base}:p${pasada}` : base;
 }
 
 /**

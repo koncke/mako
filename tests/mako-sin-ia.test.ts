@@ -196,7 +196,7 @@ test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resu
   const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
   assert.match(board, /const mostrarForm = i\.soloServidor === false;/);
   assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && !i\.sinConexion && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
-  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \|\| !!i\.sinConexion;/, 'no es un pendiente suyo');
+  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \|\| !!i\.sinConexion( \|\||;)/, 'no es un pendiente suyo');
 });
 
 test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, lecturas, guardar y la migración', () => {

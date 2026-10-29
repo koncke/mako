@@ -13,7 +13,7 @@
 //   · la fila que cuenta (dos cuentas de Instagram) la elige UNA regla, para el envío y la condición;
 //   · las secciones nuevas en las dos listas y el origen Instagram / Messenger;
 //   · el cableado del motor (`server-only`, así que sobre el FUENTE): una lectura por lote, el
-//     workspace explícito, la concurrencia de 4, `refresh=false` y lo que tira.
+//     workspace explícito, la concurrencia de 4, `refresh=false` (salvo la vía rápida de un lead, ticket #29) y lo que tira.
 //
 // PROBADO ROMPIÉNDOLO (12/10/2026), con un arnés que restaura DE MEMORIA, una rotura por vez
 // (scratchpad/wf-duodecima/ig-condiciones/romper.mjs). Base en verde: este archivo 17 pass / 0 fail. Cada
@@ -286,7 +286,8 @@ test('el motor: una lectura por lote, «te sigue» sólo si se pide y con el wor
   const sigue = bloque(src, 'const leerSigue', 'const [vsl', 600);
   assert.match(sigue, /if \(!pide\('sigue'\) \|\| !s\) return null;/);
   assert.match(sigue, /const ws = await getWorkspaceActual\(\);\n\s+if \(ws == null\) throw/, 'sin workspace no se adivina: tira');
-  assert.match(sigue, /return siguenEnInstagram\(ws, s\);/);
+  // Sin la caché de Zernio sólo cuando lo pide quien llama (la vía rápida de UN lead: tests/boton-vuelve-a-la-condicion).
+  assert.match(sigue, /return siguenEnInstagram\(ws, s, \{ fresco: o\.fresco === true \}\);/);
   assert.match(src, /c\.social = \{ instagram: s\?\.instagram \? conversacionDeFila\(s\.instagram\) : null, messenger: s\?\.messenger \? conversacionDeFila\(s\.messenger\) : null \};/);
   assert.match(src, /if \(sigue\) c\.sigueInstagram = sigue\.get\(f\.id\) \?\? null;/, 'quien no se consultó es «no sé»');
 });
@@ -304,19 +305,22 @@ test('canal-zernio: el envío y las condiciones eligen la fila con la MISMA regl
   assert.match(lote, /return conversacionesPorLead\(filas\);/);
   const sig = bloque(src, 'export async function siguenEnInstagram(', '\n}\n', 900);
   assert.match(sig, /pedidoDeSeguimiento\(c\.instagram\)/);
-  assert.match(sig, /return estadosDeSeguimiento\(ws, pedidos\);/);
+  assert.match(sig, /return estadosDeSeguimiento\(ws, pedidos, o\);/);
 });
 
-test('zernio: GET follow-status con refresh=false, tiempo propio, de a 4, y lo pasajero TIRA', () => {
+test('zernio: GET follow-status con refresh=false (true sólo si es fresco), tiempo propio, de a 4, y lo pasajero TIRA', () => {
   const src = sinComentarios(leer('../lib/zernio.ts'));
   const consultar = bloque(src, 'async function consultarSeguimiento(', '\n}\n', 700);
-  assert.match(consultar, /`\/accounts\/\$\{encodeURIComponent\(accountId\)\}\/follow-status\/\$\{encodeURIComponent\(igsid\)\}\?refresh=false`/);
+  assert.match(consultar, /`\/accounts\/\$\{encodeURIComponent\(accountId\)\}\/follow-status\/\$\{encodeURIComponent\(igsid\)\}\?refresh=\$\{fresco \? 'true' : 'false'\}`/);
+  assert.match(consultar, /async function consultarSeguimiento\(apiKey: string, accountId: string, igsid: string, fresco = false\)/, 'por defecto, con la caché');
   assert.match(consultar, /TIMEOUT_SEGUIMIENTO_MS\)/);
   assert.match(consultar, /return seguimientoDe\(r\);/);
   assert.match(src, /async function keyDeSeguimiento\(ws: number\)[^{]*\{\n\s+return credDelClienteEstricta\('ZERNIO_API_KEY', ws\);/, '«no pude leer la key» no es «no tiene Zernio», ni cae a la cuenta de la plataforma');
   const lote = bloque(src, 'export async function estadosDeSeguimiento(', '\n}\n', 1_500);
   assert.match(lote, /await conTope\(pedidos, CONCURRENCIA_SEGUIMIENTO,/);
   assert.match(lote, /if \(!\(e instanceof ZernioError\) \|\| !seguimientoNoSe\(e\.status\)\) throw e;/);
-  assert.match(lote, /if \(e\.status === 401 \|\| e\.status === 402\) cuentaCaida = true;/);
+  // Una clave caída (401/402) apaga las cuentas de ESA clave (varias claves, 29/10/2026): el resto queda «no se sabe».
+  assert.match(lote, /if \(e\.status === 401 \|\| e\.status === 402\) caidas\.add\(key\);/);
+  assert.match(lote, /if \(caidas\.has\(key\)\) \{ out\.set\(p\.leadId, null\); return; \}/);
   assert.match(src, /signal: AbortSignal\.timeout\(timeoutMs\)/);
 });

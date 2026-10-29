@@ -3120,4 +3120,25 @@ FEEDBACK PROBAR:
     revisar: "/crm",
     tickets: [19, 20],
   },
+  {
+    fecha: "29 oct", hora: "14:24", chat: "Automations", cuenta: "claude3",
+    sesion: "local_7f005343-1a2d-43ee-a797-24ad2b8fbaf0",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Automations: «Ya te sigo» vuelve a preguntar y entrega el recurso",
+    puntos: [
+      "Leandro: el botón «Ya te sigo», que vuelve a «¿Te sigue en Instagram?», no hacía nada, siguiera o no la cuenta.",
+      "No era el botón: volvía a preguntar, pero el segundo «Síguenos» no salía, un toque rápido se tiraba como doble y «¿te sigue?» venía de una caché.",
+      "Ahora cada toque pregunta en el momento, el mensaje sale de nuevo y quien sigue la cuenta recibe el recurso. Hasta 10 toques por inscripción.",
+      "En /docs, la guía «Palabras clave y botones de Instagram»: Contiene o Es exactamente, mayúsculas, tildes, la ñ y los emojis.",
+    ],
+    archivos: [
+      "lib/reentrada.ts — la clave de Zernio lleva la pasada",
+      "lib/nutricion.ts — el toque: el repetido, el tope y la pasada",
+      "lib/zernio.ts y lib/canal-zernio.ts — «¿te sigue?» fresco",
+      "app/api-mako/Articulos.tsx — la guía de /docs",
+      "tests/boton-vuelve-a-la-condicion.test.ts — por el webhook de verdad, probado rompiéndolo",
+    ],
+    revisar: "/automations",
+    tickets: [29],
+  },
 ];

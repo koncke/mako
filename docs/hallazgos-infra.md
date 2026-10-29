@@ -9163,6 +9163,27 @@ el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (
   `ops-center-bateria`, y cayó también el proceso de barredoras compartidas de otro chat, que tenía ese test en su lista.
   Se corta por pid propio, o por la línea entera de con-turno con su cwd.
 
+## El tren grande del 29/10: los VERDE sin barrido dejan los rojos para el tren, y dos tests de ramas distintas se contradicen (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` (tren-ab, `1cf06eba9`).
+
+- **El síntoma:** para ganar tiempo, el Cerebro pidió que los chats dejaran de correr `tests-afectados` completo y
+  mandaran el VERDE con tsc y sus tests dirigidos. El tren de 12 puntas dio 8 rojos de esas puntas, y cada uno costó una
+  vuelta con su chat o un arreglo de Integración: reportar-a-soporte (Zernio y AI Avatar), condiciones-instagram,
+  mako-no-puedo-falsos (dos veces: CRM fiscal y Pagos), notificaciones (Copywriter), integraciones-vercel (Zernio) y tres del
+  editor (Web Generator).
+- **El diagnóstico obvio («es la combinación de ramas») acertó dos veces de diez.** Las otras ocho daban rojo también en
+  el árbol de su chat, solo: un test que nombra o barre un archivo de la punta, fuera de sus dirigidos. **Regla:** antes de
+  devolver un rojo del tren, correrlo en el árbol del chat; si ahí también falla, es de la punta.
+- **Dos tests de ramas distintas se contradijeron, dos veces.** `keyDeSeguimiento`: `zernio-sin-respaldo` pedía `cfg(ws)` y
+  `condiciones-instagram` la key propia; ganó la decisión de Martín. `enviarAlGrupoMaKo`: `links-con-ws` fija `texto0` y
+  `grupo-ve-el-grupo` fijaba `texto`. Un test de forma (un regex sobre el fuente) fija un nombre que otra rama cambia sin
+  verlo. **Regla:** al resolver un choque de código, correr los tests de forma de los DOS lados que nombran ese archivo
+  (`grep -l <archivo> tests/`).
+- **Tocar el árbol del tren con los tests corriendo ensucia la corrida** (me pasó dos veces: el revert de Reels y un
+  `git rm`). Los tests leen archivos mientras corren. **Regla:** se mezcla entre corridas, nunca durante; lo que llega en
+  el medio espera y entra con los tests de la diferencia (`tests-afectados --base <el último sha probado>`).
+
 ## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
 
 - **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
@@ -9211,3 +9232,36 @@ Tres veces seguidas «NO SE PUDO CHEQUEAR (código 134, ~1.360 bytes de salida)�
 código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esas pantallas no entra en 2.560 MB. Con
 `--heap=3584` (y la RAM libre para darlo: con-turno espera 3,8 GB) corrió y dio los 14 errores conocidos de `_opencut`.
 **Regla:** 134 con salida → subir `--heap`; 1 sin salida → esperar turno o cerrar chats.
+
+## La síntesis concluyó «AI Avatar no se investigó»: la investigación le llegó cortada a 140 mil caracteres (29/10/2026)
+
+- **Síntoma:** la primera síntesis del plan de plantillas dijo que AI Avatar y Offer «no se investigaron» e Image «a
+  medias», y armó esas partes con el código y con propuestas propias. La investigación de las cinco tabs sí estaba hecha.
+- **Causa:** el script del workflow le pasó al sintetizador los resultados del fan-out concatenados y cortados con
+  `slice(0, 140000)`. Lo de AI Avatar y Offer quedó después del corte. No hubo error ni aviso: el sintetizador razonó
+  bien sobre un insumo trunco.
+- **El diagnóstico obvio era el equivocado:** «el agente de AI Avatar falló». Los resultados de los cinco agentes
+  estaban completos en disco.
+- **Regla:** los resultados de un fan-out se le pasan al sintetizador **por archivo o por tab**, nunca cortados con
+  `slice`. Si hay que achicar, se parte en una síntesis por tab y una de unión. El sintetizador dice qué partes leyó, y
+  una parte que «no está» se verifica en el disco antes de escribir «no se investigó».
+
+**Vive en:** los scripts de Workflow del Cerebro (fuera del repo) · el plan resultante, docs/plantillas-reales/README.md
+
+## Leer una licencia sin equivocarse: las herramientas fallan en silencio (29/10/2026)
+
+- **Síntoma:** licencias que «no existían» o que «eran MIT» sin serlo, y páginas de producto que no se pudieron ver.
+- **Causa:**
+  - WebFetch falla con github.com;
+  - un repo puede decir «MIT» en el README sin tener LICENSE (fal-ai-community/skills: `main/LICENSE` y la API de
+    licencias de GitHub dieron 404);
+  - Canva y Gamma dan 403;
+  - Kapwing muestra un contador «0+» por un error de carga suyo;
+  - la URL de plantillas de Adobe Express, `notion.com/templates/offer-builder` y
+    `pandadoc.com/coaching-proposal-template/` dan 404.
+- **Regla:** la licencia se lee en `raw.githubusercontent.com/<dueño>/<repo>/main/LICENSE`. Con un 404 se prueba
+  `master`, `LICENSE.md` y `api.github.com/repos/<dueño>/<repo>/license` antes de concluir «sin licencia». Un README
+  que dice «MIT» no alcanza. Lo que da 403 se mira en el navegador o queda «sin verificar», nunca «verificado».
+
+**Vive en:** el método de investigación (docs/plantillas-reales/README.md, sección 5)
+

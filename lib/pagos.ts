@@ -22,7 +22,7 @@ import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, type RestoDeCob
 import {
   aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
   diferenciaDePlan, planCambiadoAfuera, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
-  avisoDeConservadas, lineasDeCuotas, planComoEstaba, planPorTramosDelServer,
+  avisoDeConservadas, cuotaExistenteDe, lineasDeCuotas, planCambioDesde, planComoEstaba, planPorTramosDelServer,
   type AnticipoPlan, type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal, type TramoPlan,
 } from './pagos-campo';
@@ -346,12 +346,8 @@ export async function proteccionesDeCuotas(leadId: number, ids: readonly number[
 async function cuotasParaReconciliar(leadId: number, crm: Crm): Promise<CuotaExistente[]> {
   const pagos = await getPagosByLead(leadId, crm);
   const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado).map((q) => q.id));
-  return pagos.map((q) => ({
-    id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
-    // La de un cliente dado de baja (#871) queda fuera del plan como la devuelta: ni se casa, ni se reescribe, ni se borra.
-    devuelta: noEsDeuda(q), nacio_cobrada: !!q.nacio_cobrada, resto_de: q.resto_de ?? null, protegida: prot.get(q.id) ?? [],
-    moneda: q.moneda ?? null, monto_original: q.monto_original == null ? null : Number(q.monto_original),
-  }));
+  // La misma forma con que la propuesta de MaKo simula la reconciliación (`cuotaExistenteDe`, lib/pagos-campo.ts).
+  return pagos.map((q) => cuotaExistenteDe(q, prot.get(q.id) ?? []));
 }
 
 /**
@@ -498,7 +494,8 @@ export async function guardarCuotasPorId(
  */
 export async function guardarPlanPorTramos(
   leadId: number,
-  p: { desde: string; tramos: readonly TramoPlan[]; anticipo: AnticipoPlan | null },
+  /** `vistas`: las impagas que se leyeron al PROPONER (revisión de 805afb460, N1). Si cambiaron, no se escribe nada. */
+  p: { desde: string; tramos: readonly TramoPlan[]; anticipo: AnticipoPlan | null; vistas?: readonly number[] | null },
   autor: string,
 ): Promise<{ cambios: PlanDeCuotas; cuotas: number; nuevas: number; cubiertas: number; sinTocar: string | null }> {
   await asegurarLeadDelNegocio(leadId);
@@ -507,6 +504,9 @@ export async function guardarPlanPorTramos(
   const tipo = ventaTipoDe(lead.venta_tipo);
   if (tipo !== 'unico') throw new Error(tipo === 'suscripcion' ? 'Es una suscripción: pásala a pago único antes de armarle cuotas.' : 'Está como becado (sin cobro): no tiene cuotas que armar.');
   const pagos = await getPagosByLead(leadId);
+  const vistas = p.vistas ? new Set(p.vistas) : null;
+  const cambio = vistas ? planCambioDesde(pagos, vistas) : null;
+  if (cambio) throw new Error(cambio);
   const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id));
   const armado = planPorTramosDelServer({
     pagos, protegidas: new Set([...prot].filter(([, x]) => x.length > 0).map(([id]) => id)),
@@ -514,7 +514,13 @@ export async function guardarPlanPorTramos(
     desde: p.desde, tramos: p.tramos, anticipo: p.anticipo,
   });
   if (!armado.ok) throw new Error(armado.error);
-  const cambios = await guardarCuotasPorId(leadId, armado.deseadas, { vistos: new Set(armado.vistos), protegidasPrimero: true, sobreLoVisto: true });
+  // Dos «sí» a la vez: el segundo choca con el número de una cuota que el primero acaba de crear (revisión de 805afb460, B6). No
+  // duplica nada, pero contestaba el error crudo de la base.
+  const cambios = await guardarCuotasPorId(leadId, armado.deseadas, { vistos: vistas ?? new Set(armado.vistos), protegidasPrimero: true, sobreLoVisto: true })
+    .catch((e: unknown) => {
+      if (/pagos_lead_numero|duplicate key|23505/.test(e instanceof Error ? e.message : String(e))) throw new Error('Otro guardado del mismo plan llegó a la vez y éste no terminó: revisa las cuotas en la ficha antes de pedirlo otra vez.');
+      throw e;
+    });
   const { error } = await (await getTenantDb()).from('leads').update({ ...planComoEstaba(armado.columnas) }).eq('id', leadId);
   if (error) throw new Error(`Las cuotas quedaron, pero no pude guardar el plan del lead: ${error.message}`);
   await anotarEnHistorial(leadId, lineasDeCuotas(cambios), autor);

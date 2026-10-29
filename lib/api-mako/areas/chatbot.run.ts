@@ -406,7 +406,7 @@ export const RUNNERS: Runners = {
         notas: [
           'Un «Si responde» con paso_ia=true es un AI Step: UN AI Step por medio, con un objetivo y sus escenarios adentro (hasta 10). Contesta cuando el lead escribe, hasta lograr el objetivo. Cada escenario dice cuándo entra (cuando), cómo responde (responder; null = no contesta) y su libertad: avisa (sólo te avisa), aprueba (deja la respuesta para aprobar y te avisa) o sola (sale sola, nunca si habla de plata). lo_demas es lo que pasa con lo que no encaja en ningún escenario: avisa o aprueba. Un escenario nuevo entra con agregar_escenario_secuencia.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
-          'Un mensaje de Instagram o Messenger puede llevar botones (hasta 3): uno con «sigue» lleva a esa tarjeta cuando el lead lo toca (aunque sea una de antes); uno con «link» abre esa dirección. Un mensaje con botones de «sigue» y sin siguiente espera el toque. Se cambian con cambiar_botones_mensaje.',
+          'Un mensaje de Instagram o Messenger puede llevar botones (hasta 3): uno con «sigue» lleva a esa tarjeta cuando el lead lo toca (aunque sea una por la que ya pasó: sus mensajes salen otra vez; hasta 10 toques por inscripción); uno con «link» abre esa dirección. Un mensaje con botones de «sigue» y sin siguiente espera el toque. Se cambian con cambiar_botones_mensaje.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
         ],

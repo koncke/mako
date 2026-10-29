@@ -10,21 +10,26 @@
 // =============================================================================
 
 import 'server-only';
-import { createHash } from 'node:crypto';
-import { cfg, zFetch, ZernioError } from './zernio';
+import { cfg, cfgDeCuenta, cfgDeHuella, clavesZernio, huellaClave, zFetch, ZernioError } from './zernio';
 import type { CuerpoPost, PostZernio } from './calendario-publicar-reglas';
 
 /** La huella de una clave (nunca la clave): con ella se sabe si el post se programó con la clave de HOY (la verificación del 28/10). */
-const huellaDe = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 16);
+const huellaDe = huellaClave;
 
-/** La huella de la clave con la que el negocio habla HOY con Zernio. */
+/** La huella de la clave con la que el negocio habla HOY con Zernio (la 1). */
 export async function huellaClaveActual(ws: number): Promise<string> {
   return huellaDe((await cfg(ws)).apiKey);
 }
 
+/** Las huellas de TODAS las claves del negocio (varias claves, 29/10/2026): un post sigue siendo «de hoy» si su clave sigue. */
+export async function huellasDelNegocio(ws: number): Promise<Set<string>> {
+  return new Set((await clavesZernio(ws)).map((k) => k.huella));
+}
+
 /** Programa un post. Devuelve su id en Zernio y la huella de la clave con la que se programó. */
 export async function crearPostZernio(ws: number, cuerpo: CuerpoPost, requestId: string): Promise<{ id: string; clave: string }> {
-  const c = await cfg(ws);
+  // Con la clave DUEÑA de la cuenta donde se publica (varias claves, 29/10/2026); con una sola, la de siempre.
+  const c = await cfgDeCuenta(ws, cuerpo.platforms[0]?.accountId);
   const clave = huellaDe(c.apiKey);
   try {
     const r = await zFetch<{ post?: { _id?: string } }>(c.apiKey, '/posts', {
@@ -48,14 +53,15 @@ function idExistente(e: ZernioError): string | null {
 }
 
 /** El post como está ahora en Zernio. */
-export async function leerPostZernio(ws: number, postId: string): Promise<PostZernio> {
-  const c = await cfg(ws);
+export async function leerPostZernio(ws: number, postId: string, huella?: string | null): Promise<PostZernio> {
+  // Con la clave que lo creó (su huella), si sigue siendo del negocio; si no, la 1.
+  const c = (await cfgDeHuella(ws, huella)) ?? await cfg(ws);
   const r = await zFetch<{ post?: PostZernio }>(c.apiKey, `/posts/${encodeURIComponent(postId)}`);
   return r.post ?? {};
 }
 
 /** Cancela un post programado. ⚠️ Uno ya publicado no se borra así (Zernio da 400): eso es «despublicar», otra cosa. */
-export async function borrarPostZernio(ws: number, postId: string): Promise<void> {
-  const c = await cfg(ws);
+export async function borrarPostZernio(ws: number, postId: string, huella?: string | null): Promise<void> {
+  const c = (await cfgDeHuella(ws, huella)) ?? await cfg(ws);
   await zFetch<unknown>(c.apiKey, `/posts/${encodeURIComponent(postId)}`, { method: 'DELETE' });
 }

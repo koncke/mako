@@ -2221,7 +2221,8 @@ Martín (28/10): «Super importante advertir en la conexión de Zernio las limit
   MaKo midió un 402 que lo pedía. El test fija que el texto no lo nombre hasta que alguien lo mida con una cuenta real.
 - ⚠️ **La nota de la key no da para los límites:** el tope de una nota es una línea (120, tests/tutoriales-legibles.test.ts) y su
   texto lo fija tests/zernio-sin-respaldo.test.ts. Los límites van en el modal, abajo de la línea de las cuentas (con la key guardada).
-- ⚠️ **La salida gratis «conecta otra cuenta de Zernio (de otro email)» NO se dice NUNCA** (Martín, 29/10, por el Cerebro: cada
+- ⚠️ **[DADO VUELTA esa misma tarde: ver «Varias claves de Zernio por negocio…», abajo.]** **La salida gratis «conecta otra
+  cuenta de Zernio (de otro email)» NO se dice NUNCA** (Martín, 29/10, por el Cerebro: cada
   negocio con SU cuenta de Zernio; si necesita más, paga su plan). Varias cuentas gratis para un mismo negocio arriesgan la
   suspensión de Zernio (abajo, sus términos), y una suspensión le corta las publicaciones al cliente. La única salida gratis que se
   dice va en el aviso de la 3.ª: «desconecta en zernio.com una que ya no uses» (Zernio cobra sólo las activas).
@@ -2250,7 +2251,8 @@ Martín (28/10): «Super importante advertir en la conexión de Zernio las limit
   fechados el 09/10/2026. Leídos el 29/10: NO hablan de varias cuentas gratis, de agencias ni de compartir claves; sólo «Abuse of
   the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).
   Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio. Por eso
-  Martín dijo que NO (29/10): varias claves de Zernio por negocio quedó DESCARTADO, no pendiente.
+  Martín dijo que NO (29/10): varias claves de Zernio por negocio quedó DESCARTADO, no pendiente. ⚠️ **Dado vuelta esa tarde**
+  (Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente»): ver la entrada de las varias claves, abajo.
 
 ## Una sola pestaña, la de Zernio, y ningún token de Meta a la vista (29/10/2026, ticket #28)
 
@@ -2283,3 +2285,65 @@ tests/zernio-una-pestana.test.ts.
   cliente conecte desde la pantalla nueva hay que mirarla en producción.
 - **Sin hacer:** el ID del conjunto de datos de CRM (`META_CRM_DATASET_ID`, opcional) sólo se carga desde el modal de Meta con
   «Cargarlos a mano». Ese modal ya no se abre con `?abrir=meta`, sólo desde su tarjeta.
+
+## Varias claves de Zernio por negocio, todas las redes en Integraciones y el Calendario publicando en ellas (29/10/2026)
+
+Martín, 29/10 (audio en SuperAdmin, por el Cerebro): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con
+otra cuenta de Gmail del cliente... y ya tendrías cuatro redes... te advierte: "che, esta es la tercera cuenta..."». Y: «aprovechar
+todas las conexiones que tiene [Zernio] para implementar en integraciones todas las redes sociales... Y que aparezcan en
+integraciones». **Da vuelta el «NO a varias cuentas» de esa misma mañana** (la entrada de los límites, arriba): gana lo posterior.
+Cada clave es de una cuenta de Zernio DEL CLIENTE (su Gmail); MaKo no crea cuentas y ningún texto promete «gratis para siempre».
+
+**Vive en:** `lib/zernio.ts` (`clavesZernio`, `cfgDeCuenta`, `cfgDeHuella`, `perfilDeClaveExtra`, `asegurarWebhook` por clave) ·
+`lib/zernio-conectar.ts` (`claveParaConectar`, `conexionesViaZernio` junta las claves) · `lib/zernio-redes.ts` (`CLAVES_ZERNIO`,
+`claveConLugar`, `textoAvisoCobro`, `REDES_CON_TARJETA`, `QUE_HACE_MAKO`, `SIN_USO_TODAVIA`, `CLAVE_SIGUE_ZERNIO`) ·
+`lib/integraciones.ts` (`estadoDeRedZernio`) · `lib/calendario-publicar-reglas.ts` (`REDES_PUBLICAR`, `TOPE_TEXTO_RED`) · mig 0348 ·
+tests/zernio-varias-claves.test.ts y tests/zernio-todas-las-redes.test.ts.
+
+- **La regla de las claves: una red queda ATADA a la clave con que se conectó.** Lo que opera sobre una cuenta (un DM, un
+  comentario, un post, los anuncios) habla con la clave DUEÑA (`cfgDeCuenta`, que busca el `accountId` en las cuentas de cada
+  clave). Conectar va a la primera clave con lugar (`claveConLugar`: menos de 2 activas, o ya tiene esa red); con todas llenas, el
+  aviso de la 3.ª red ANTES del login con [Agregar otra clave] y [Conectar igual]. El webhook se registra en CADA clave con la
+  misma URL del negocio (`?w=<ws>`), así que la ruta verifica igual venga de la clave que venga.
+- ⚠️ **`clavesGuardadasConBase` corta en `__`, no en `_2`** (es la de las cuentas de una pasarela: `STRIPE_SECRET_KEY__c2`).
+  Llamada con `ZERNIO_API_KEY` devolvía SÓLO la 1: las claves `ZERNIO_API_KEY_2…` no aparecían nunca, sin error. Se ve en la
+  primera prueba con dos claves (6/7 con la rotura). Se llama con los nombres exactos de las extra.
+- ⚠️ **La caché de un minuto no puede tapar la clave recién pegada.** La clave 1 se lee SIEMPRE (`cfg`, como antes); sólo las
+  extra se cachean. Conectar y la lista de redes leen sin caché (`{ fresca: true }`): quien pega la clave 2 y toca «Conectar» no
+  puede recibir otra vez el aviso de la 3.ª red. Un DM de una red recién conectada con la clave 2 relee una vez (con 10 s entre
+  relecturas, para que una cuenta de nadie no lea Zernio en cada mensaje). Lo que SÍ puede esperar hasta un minuto: la PRIMERA
+  extra recién pegada, en un proceso que ya había leído «sólo la 1».
+- ⚠️ **El perfil de una clave extra NO pasa por `profileIdEfectivo`:** ése guarda el perfil de la clave 1 en `zernio_workspace` y
+  lo «suelta» si no es de la cuenta que pregunta; preguntarle con la clave 2 le borraba el perfil a la 1 (`perfilDeClaveExtra`).
+- **Todas las redes:** LinkedIn, X, Threads y Google Business se conectan en el paso 2 de Zernio, y cada red tiene su tarjeta en
+  «Redes sociales» (`red-<red>`), que abre Zernio y deja marcada la red que sigue. **Pinterest y Reddit se ven pero NO se
+  conectan:** MaKo no publica en ellas (un pin pide el tablero; un post de Reddit, la comunidad y un título) y conectarlas gastaba
+  una de las 2 gratis en nada. Bluesky, Telegram, Discord y Slack no son OAuth (usuario y contraseña de app, un código o un canal):
+  no están. YouTube no tiene tarjeta de red: ya tiene la suya (las vistas del VSL), y dos «YouTube» confunden.
+- ⚠️ **X pide tarjeta en Zernio aunque sea de las 2 gratis** (docs.zernio.com/quickstart: «A card only if you connect X
+  (twitter), because X bills every API call»). Se dice en su fila y en su tarjeta, antes del login.
+- **Lo que dice cada tarjeta es lo que hace MaKo** (`QUE_HACE_MAKO`, fijado contra `REDES_PUBLICAR` por el test): sólo Facebook e
+  Instagram reciben mensajes (`cuentasConectadas` rutea esas dos); las demás publican desde el Calendario y lo dicen.
+- **El Calendario publica en las cuatro nuevas** con el límite de cada una: X 280, Threads 500, Google Business 1.500 y sin video.
+  ⚠️ **La base no las acepta hasta la mig 0348** (la 0342 dejó `red` en cuatro valores, con un CHECK). Sin aplicarla, elegir una
+  cuenta de esas redes dice «Publicar en esa red todavía no está activo» en vez de un 500. **La 0348 está escrita, no aplicada.**
+- **El «Publicar» de los editores de Video e Imagen y del Copywriter no existe:** sólo exportan o descargan. Lo único que publica
+  en redes es el Calendario. Agregarlo es otra tarea.
+- ⚠️ **El diagnóstico de «tests afectados» por nombre de import se perdió uno:** el ticket #28 (`af78bb488`) renombró `abrir` →
+  `abrirCrudo` en la grilla y dejó rojo `tests/integraciones-vercel.test.ts` («4. un link `?abrir=`…»), que lee el archivo con un
+  helper (`tablero()`) y no nombra el import. Se vio recién al correr todos los que mencionan `IntegracionesBoard`. **Regla:** para
+  un componente, buscar los tests por su NOMBRE DE ARCHIVO también (`IntegracionesBoard`), no sólo por su ruta de import.
+- ⚠️ **El tren encontró tres rojos más del mismo cambio, en tests de OTRAS áreas que leen `lib/zernio.ts`** (tren-ac, 29/10,
+  Integración; el chat no corrió el barrido completo). `zernio-webhook-suscripcion` tapa `./credenciales` con `Module._load` y no
+  traía `clavesGuardadasConBase`: 14 de 18 con TypeError, porque un stub tiene que llevar CADA función que el módulo importa.
+  `zernio-leads` buscaba los dos `guardar` adentro de `asegurarWebhook`, que ahora delega en `asegurarWebhookEn` (una vez por
+  clave). `instagram-respuesta-publica` pedía el path a menos de 300 caracteres de la cabecera, y la línea de `cfgDeCuenta` lo
+  corrió. **Regla:** al sumar un import a `lib/zernio.ts`, `grep "'./credenciales'" tests/` y sumar la función a cada stub; al
+  partir o alargar una función, buscar los tests que la recortan por su cabecera (`funcion(ZERNIO, '…')`, `[\s\S]{0,N}`).
+- **El tutorial de Zernio va un paso por pantalla** (`capturas` en el tutorial del catálogo; `PasosUnoPorPantalla`), con los
+  nombres de los botones tal cual los dice zernio.com («API keys», «Create API key»: la clave empieza con `sk_` y se ve UNA vez).
+- **Sin hacer:** tres capturas del tutorial (el paso 2 pide entrar a una cuenta de Zernio; el 3 y el 4 son pantallas de MaKo) y
+  las de la pestaña antes/después y del aviso de la 3.ª red: no se levanta `next dev` local (regla), y el build parcial pide RAM
+  que esta noche no hay. Se sacan en producción, en el ws3, después del deploy. Tampoco se midió con una cuenta real el cuerpo del
+  post de LinkedIn, X, Threads ni Google Business. El consumo de mensajes (`usoZernioDelCiclo`) cuenta lo que manda el negocio
+  entero contra el ciclo y el tope de la clave 1: con varias claves avisa antes de tiempo (cada clave tiene sus 10.000).

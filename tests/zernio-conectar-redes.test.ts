@@ -82,8 +82,9 @@ test('volverConMarca y sinParamsDeVuelta: la marca de la red viaja y se consume 
 
 test('el catálogo: Facebook, Instagram y anuncios hoy; «toString» y compañía no son redes; Messenger es la página de Facebook', () => {
   // YouTube, desde el 27/10/2026: el canal se conecta con el login de Zernio (la tarjeta ya no pide la clave de Google). TikTok,
-  // desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio).
-  assert.deepEqual([...REDES_VISIBLES], ['facebook', 'instagram', 'metaads', 'tiktok', 'youtube']);
+  // desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio). LinkedIn, X, Threads y
+  // Google Business, ese mismo día (Martín: «todas las redes sociales»); Pinterest y Reddit no (tests/zernio-todas-las-redes.test.ts).
+  assert.deepEqual([...REDES_VISIBLES], ['facebook', 'instagram', 'metaads', 'linkedin', 'tiktok', 'youtube', 'twitter', 'threads', 'googlebusiness']);
   assert.equal(REDES.metaads.ruta, 'facebook/ads');
   assert.deepEqual(REDES.metaads.params, { loginMode: 'business' });
   assert.equal(REDES.metaads.plataforma, 'metaads');
@@ -329,8 +330,9 @@ const CONECTAR = fuente('lib/zernio-conectar.ts');
 test('el servidor: la key es la del negocio, el link nace de una ruta validada y sólo `recibirConexion` escribe', () => {
   assert.match(CONECTAR, /^import 'server-only';/m);
   // Clave del negocio: por `cfg` (lib/zernio.ts), que no cae a la plataforma; sin ella, `sin-clave`.
-  const ctx = bloque(CONECTAR, 'async function contexto(ws: number)', '\n}\n', 3200);
-  assert.match(ctx, /c = await cfg\(ws\);/);
+  const ctx = bloque(CONECTAR, 'async function contexto(ws: number', '\n}\n', 3200);
+  // Una clave extra del negocio (`k`, varias claves 29/10/2026) o la 1 por `cfg`.
+  assert.match(ctx, /c = k \?\? await cfg\(ws\);/);
   assert.match(ctx, /e\.status === 0 && e\.message === NO_CONFIGURADO\) throw new ZernioConectarError\('sin-clave'\);/);
   assert.match(ctx, /const clave = `\$\{ws\}:\$\{huella\(c\.apiKey\)\}`;/, 'el profile cacheado no se ata a la key');
   // Dos negocios con la MISMA key comparten el profile Default: si el profile ya es de OTRO negocio, no se sigue.
@@ -357,7 +359,12 @@ test('el servidor: la key es la del negocio, el link nace de una ruta validada y
 });
 
 test('el servidor: `conexionesViaZernio` sólo LEE (se llama cada 4 s); lo que escribe es `recibirConexion`', () => {
-  const lee = bloque(CONECTAR, 'export async function conexionesViaZernio(', '\n}\n', 2800);
+  // La lectura de UNA clave vive en `cuentasDeUnaClave` (varias claves, 29/10/2026); `conexionesViaZernio` las junta.
+  const junta = bloque(CONECTAR, 'export async function conexionesViaZernio(', '\n}\n', 2800);
+  assert.match(junta, /cuentasDeUnaClave\(ws, c, profileId, red\)/);
+  assert.match(junta, /for \(const k of \(await clavesDelNegocio\(ws\)\)\.slice\(1\)\)/);
+  assert.doesNotMatch(junta, /upsertRouting|asegurarWebhook|method: '(POST|PUT|DELETE)'/, 'la lista escribe');
+  const lee = bloque(CONECTAR, 'async function cuentasDeUnaClave(', '\n}\n', 2800);
   assert.match(lee, /excludeHidden: 'true'/);
   assert.match(lee, /q\.set\('platform', REDES\[red\]\.plataforma\);/);
   assert.match(lee, /return leerCuentasDeZernio\(r, profileId\);/);
@@ -369,7 +376,7 @@ test('el servidor: `conexionesViaZernio` sólo LEE (se llama cada 4 s); lo que e
   const casa = bloque(CONECTAR, 'async function esDeLaCasa(', '\n}\n', 400);
   assert.match(casa, /if \(ws === OWNER_WS\) return true;\n\s+if \(usada\) return !usada\.byok;/);
   assert.match(CONECTAR, /const m = motivoDeError\(e, deLaCasa\);/);
-  assert.match(lee, /throw motivoDeError\(e, await esDeLaCasa\(ws, usada\)\);/);
+  assert.match(junta, /throw motivoDeError\(e, await esDeLaCasa\(ws, usada\)\);/);
   assert.match(CONECTAR, /return fallo\(e, `conectar \$\{String\(red\)\}`, ws, await esDeLaCasa\(ws, usada\)\);/);
   assert.doesNotMatch(lee, /cuentasConectadas|asegurarWebhook|upsertRouting|method:\s*'(POST|PUT|PATCH|DELETE)'/, 'una lectura que escribe');
   const arma = bloque(CONECTAR, 'export async function recibirConexion(', '\n}\n', 2800);

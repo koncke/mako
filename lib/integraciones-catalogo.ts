@@ -15,6 +15,8 @@
  *  negocio del cliente). Solo la ve el super-admin. Ver el mismo flag en
  *  lib/metodo-catalogo.ts: los DOS catálogos tienen que declarar lo mismo o la UI de uno
  *  la esconde y la del otro la muestra. */
+import { QUE_HACE_MAKO, REDES, REDES_CON_TARJETA, SIN_USO_TODAVIA, tarjetaDeRed } from './zernio-redes';
+
 export type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean; soloPlataforma?: boolean; /** No se dibuja como tarjeta: se configura dentro de otra. */ oculto?: boolean };
 
 // 25/10/2026, Martín (docs/feedback-25-10-tarde.md): «Fijate los nombres, no inventes nombres como "MaKo AI", pon los nombres
@@ -30,7 +32,11 @@ export type Def = { key: string; nombre: string; categoria: string; descripcion:
  * Facebook. La tarjeta de Meta queda como el ESTADO de la cuenta publicitaria (saldo, medio de pago, entrega). Lo usan
  * `?abrir=` (avisos, la API de MaKo, MaKo en WhatsApp) y el botón de conectar de cualquier tab (`useConectarIntegracion`).
  */
-export const SE_CONFIGURA_EN: Readonly<Record<string, string>> = { meta: 'zernio' };
+export const SE_CONFIGURA_EN: Readonly<Record<string, string>> = {
+  meta: 'zernio',
+  // Cada red social (29/10/2026): su tarjeta dice si está conectada; se conecta en el paso 2 de Zernio, con su login.
+  ...Object.fromEntries(REDES_CON_TARJETA.filter((r) => !SIN_USO_TODAVIA[r]).map((r) => [tarjetaDeRed(r), 'zernio'])),
+};
 /** La integración cuyo modal se abre para CONFIGURAR `key` (la misma, salvo las de `SE_CONFIGURA_EN`). */
 export const integracionQueConfigura = (key: string): string => SE_CONFIGURA_EN[key] ?? key;
 /** Lo que dice la tarjeta de Meta sin conectar: dónde se conecta, nunca qué campo falta (el token ya no se pide). */
@@ -46,6 +52,10 @@ export const DEFS: Def[] = [
   // 25/10/2026, Martín: «Zernio no debe decir (Facebook, Instagram...), el nombre real de las apps en integraciones». Lo que
   // conecta lo dice la descripción.
   { key: 'zernio', nombre: 'Zernio', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
+  // UNA TARJETA POR RED SOCIAL (29/10/2026, Martín: «aprovechar todas las conexiones que tiene [Zernio]... Y que aparezcan en
+  // integraciones»). Sin `envs`: el estado sale de las cuentas conectadas en Zernio (lib/integraciones.ts, `estadoDeRedZernio`), y
+  // se conectan en la tarjeta de Zernio (`SE_CONFIGURA_EN`). La línea dice lo que MaKo hace con cada una, y lo que no.
+  ...REDES_CON_TARJETA.map((red): Def => ({ key: tarjetaDeRed(red), nombre: REDES[red].etiqueta, categoria: 'Redes sociales', descripcion: QUE_HACE_MAKO[red], envs: [] })),
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
   { key: 'anthropic', nombre: 'Anthropic API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
@@ -198,7 +208,7 @@ export const DEFS_TEST = DEFS;
 // por eso). Ya no filtra: una categoría nueva va al final, en orden alfabético, y agregar una integración sigue siendo tres
 // registros más el logo.
 // 'Pagos' (Stripe y Mercado Pago, 11/10/2026) va después de Mensajería: es lo que cierra la venta que las dos de arriba empezaron.
-export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
+export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Redes sociales', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
 
 /** El lugar de una categoría: las que no están en ORDEN_CATEGORIAS, al final (y entre ellas, como las ordene quien llama). */
 export function ordenCategoria(cat: string): number {
