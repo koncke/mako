@@ -1533,6 +1533,38 @@ pago 28 de noviembre y tercer pago 28 de diciembre». MaKo contestó que sus her
 - El plan de Fernando (ws1) NO se cargó: lo arma Mauricio con MaKo después del deploy. El ticket #26 está en «esperando_decision».
 - La venta de Fernando sigue sin monto. El plan no la cambia: la propuesta lo dice y nombra `editar_venta_lead`.
 
+### La re-verificación de 805afb460 (29/10/2026): el «sí» llega tarde, y lo confirmado tiene que ser lo que queda
+
+Integración re-verificó con el código real (C:/dev/revisiones/2910-reverificacion-pagos-tramos-805afb460.md, fuera del repo):
+entraba, con cuatro medias nuevas, todas sobre lo que la persona CONFIRMA. Cada una quedó como test en
+tests/api-mako-plan-tramos.test.ts, con su entrada.
+
+- ⚠️ **Una propuesta por chat vive 2 h: lo que se leyó al proponer tiene que VIAJAR en la propuesta (N1).** `guardarPlanPorTramos`
+  leía «lo visto» al ejecutar, así que `sobreLoVisto` sólo cubría milisegundos. Una propuesta armada sobre un lead sin cuotas,
+  confirmada después de que alguien armara 6 en la ficha, reescribía 3 y borraba 3, y contestaba «Listo». Ahora las impagas
+  leídas (`vistas`) van en el payload. `faltaParaConfirmar` (que corre ANTES de reclamar la pendiente, así que no la quema)
+  rechaza si una ya no está por cobrar o si apareció una del plan (`planCambioDesde`), y `guardarPlanPorTramos` lo vuelve a
+  mirar antes de escribir.
+- ⚠️ **El resumen de una acción de plata se arma con lo que va a QUEDAR, no con lo pedido (N2).** Con la #1 cobrada por US$500 y la
+  #3 con un link sin pagar, la propuesta de 3 × US$700 decía «Total: US$ 2.100»: quedaban US$1.700, y el aviso del link salía
+  después del «sí». Ahora la propuesta corre `reconciliarCuotas` sobre lo leído, sin escribir (`cuotasQueQuedan`), y dice cada
+  cuota como queda: la cobrada, la que «queda como está» y por qué, el total y lo ya cobrado. `cuotaExistenteDe` es la misma forma
+  con que el server arma lo que reconcilia, así que la simulación no es una copia.
+- **Un anticipo sobre uno cobrado se rechaza en la propuesta (N4).** La regla ya lo ignoraba (`!inicialCobrado`), pero el resumen
+  prometía los US$800 y el «sí» no creaba nada. En la ficha el campo dice «Cobrado» y no se edita: sólo pasaba por la API.
+- **Una diferencia hereda la moneda de su cuota (N3, mig 0343).** `cobrar_cuota_con_resto` (0318, 0323) insertaba la diferencia
+  sólo en dólares: MXN 6.000 de una cuota de 12.000 quedaban «US$ 300», y el recordatorio, el link y «Marcar pagada» le pedían
+  dólares a quien paga en pesos. La 0343 redefine el cuerpo con la misma firma (sin orden de despliegue): lee la moneda pactada
+  ANTES de la toma, que la pisa con la del cobro.
+- B6: dos «sí» a la vez no duplican (el índice único frena el segundo), pero el segundo contestaba el error crudo de la base;
+  ahora lo dice en palabras. B7: «Las cuota del plan…» → «La cuota del plan ya está cobrada».
+
+**Sin hacer:**
+- La 0343 NO está aplicada: va al Cerebro, y se aplica con el sí de Martín. Hasta entonces la diferencia sigue naciendo en dólares
+  (el código no cambia, así que no hay orden de despliegue).
+- `faltaParaConfirmar` lee y después `ejecutar` escribe: un cambio en ese instante lo frena recién `guardarPlanPorTramos`, que ya
+  consumió la pendiente.
+
 ## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
 
 - **El síntoma (el refutador, por la ruta real):** una venta de US$1 por un Payment Link del negocio, con

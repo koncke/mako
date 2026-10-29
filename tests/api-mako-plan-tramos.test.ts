@@ -47,6 +47,10 @@ type Salida = {
   conLink: Paso & { pagos: Array<{ id: number; monto_usd: number; fecha_esperada: string }> };
   aMedias: Paso & { pagos: Fila[] };
   cobranzaMia: unknown;
+  siViejo: { vistas: number[] | null; sinCambios: string | null; falta: string | null; ejec: { ok: boolean; resumen: string }; pagos: Fila[]; faltaLeo: string | null };
+  queda: Paso & { pagos: Fila[] };
+  anticipoCobrado: { error?: string; resumen?: string };
+  dosSi: { dos: Array<{ ok: boolean; resumen: string }>; pagos: Fila[] };
   red: string[];
 };
 let salida: Salida | null = null;
@@ -97,7 +101,7 @@ test('3. una implementación: la regla de la ficha y la escritura de lib/pagos.t
   assert.match(cuerpo, /const r = await guardarPlanPorTramos\(/);
   const lib = leer('lib/pagos.ts');
   const guardar = lib.slice(lib.indexOf('export async function guardarPlanPorTramos('), lib.indexOf('export type ResultadoPlan'));
-  assert.match(guardar, /guardarCuotasPorId\(leadId, armado\.deseadas, \{ vistos: new Set\(armado\.vistos\), protegidasPrimero: true, sobreLoVisto: true \}\)/, 'no guarda como la ficha');
+  assert.match(guardar, /guardarCuotasPorId\(leadId, armado\.deseadas, \{ vistos: vistas \?\? new Set\(armado\.vistos\), protegidasPrimero: true, sobreLoVisto: true \}\)/, 'no guarda como la ficha, sobre lo que se vio');
   assert.match(guardar, /await asegurarLeadDelNegocio\(leadId\);/);
   const campo = leer('lib/pagos-campo.ts');
   assert.match(campo, /const encima = cuotasDelPlanPorTramos\(\{ pagos: p\.pagos, protegidas: p\.protegidas, anticipo: p\.anticipo, lista: armado\.cuotas, planConInicial: p\.planConInicial \}\);/);
@@ -170,4 +174,53 @@ test('8. A1 en el server: cobrar a medias por la API una cuota en pesos, sin los
   assert.deepEqual(cobrada && [cobrada.monto_usd, cobrada.moneda, cobrada.monto_original], [300, 'MXN', 6000], 'la cuota quedó cobrada entera: se perdían 6.000 pesos');
   const resto = s.pagos.filter((q) => !q.pagado);
   assert.deepEqual(resto.map((q) => q.monto_usd), [300], 'no quedó la diferencia pendiente');
+  // N3 (revisión de 805afb460): la diferencia queda en la moneda de la cuota, lo pactado menos lo cobrado (mig 0343, copiada en
+  // tests/_postgrest-de-mentira.ts). Antes quedaba «US$300» y el recordatorio le pedía dólares a quien paga en pesos.
+  assert.deepEqual(resto.map((q) => [q.moneda, q.monto_original]), [['MXN', 6000]], 'la diferencia quedó en dólares');
+});
+
+test('9. N1: el «sí» a una propuesta vieja no pisa un plan armado después (ni una cuota cobrada en el medio), y lo dice', () => {
+  const s = correr().siViejo;
+  assert.deepEqual(s.vistas, [], 'la propuesta no guarda lo que vio');
+  assert.equal(s.sinCambios, null, 'sin cambios, el «sí» pasa');
+  assert.match(s.falta ?? '', /El plan de cuotas cambió desde que lo propuse \(apareció «Cuota 1»\): no guardé nada/, 'el «sí» viejo no se frena antes de reclamar la pendiente');
+  // Y si llega igual a ejecutar (la carrera entre el control y la escritura), no escribe.
+  assert.equal(s.ejec.ok, false);
+  assert.deepEqual(s.pagos.map((q) => q.monto_usd), [1000, 1000, 1000, 1000, 1000, 1000], 'pisó las 6 cuotas de la ficha');
+  assert.match(s.faltaLeo ?? '', /se cobró «Cuota 2»/);
+});
+
+test('10. N2: lo que se confirma es lo que QUEDA: la cobrada, la que no se puede cambiar y el total de verdad', () => {
+  const s = correr().queda;
+  const r = s.prep.resumen ?? '';
+  assert.match(r, /Cuotas: 10\/11\/2026 US\$ 500 \(cobrada\) · 10\/12\/2026 US\$ 700 · 10\/01\/2027 US\$ 500 \(queda como está\)\./, r);
+  assert.match(r, /Total: US\$ 1\.700\. Ya cobrado: US\$ 500\./, 'decía US$2.100: lo pedido, no lo que queda');
+  assert.match(r, /No se puede cambiar: Cuota 3: tiene un link sin pagar\./, 'el link se decía recién después del «sí»');
+  // Y es lo que queda de verdad después del «sí».
+  assert.deepEqual(s.pagos.map((q) => [q.monto_usd, q.pagado]), [[500, true], [700, false], [500, false]]);
+});
+
+test('11. N4 y B6: un anticipo sobre uno cobrado no se promete; dos «sí» a la vez no duplican ni contestan el error de la base', () => {
+  const s = correr();
+  assert.match(s.anticipoCobrado.error ?? '', /El anticipo de Ana ya está cobrado: no se pide otro/, 'prometía US$800 que no quedaban como deuda');
+  assert.deepEqual(s.dosSi.dos.map((x) => x.ok).sort(), [false, true]);
+  const segundo = s.dosSi.dos.find((x) => !x.ok)?.resumen ?? '';
+  assert.doesNotMatch(segundo, /duplicate key|pagos_lead_numero/, segundo);
+  assert.match(segundo, /Otro guardado del mismo plan llegó a la vez|El plan cambió/);
+  assert.equal(s.dosSi.pagos.length, 3, 'duplicó cuotas');
+});
+
+test('12. N3: la migración 0343 deja la diferencia en la moneda de la cuota, con la misma firma (cualquier orden de despliegue)', () => {
+  const sql = leer('supabase/migrations/0343_resto_en_la_moneda_de_la_cuota.sql').replace(/^\s*--.*$/gm, '');
+  assert.match(sql, /create or replace function public\.cobrar_cuota_con_resto\(/);
+  // La moneda pactada se lee ANTES de la toma, que la pisa con la del cobro.
+  assert.ok(sql.indexOf('select moneda, monto_original into v_moneda, v_pactado') < sql.indexOf('update pagos set'), 'lee la moneda después de pisarla');
+  assert.match(sql, /p_moneda is not null and upper\(p_moneda\) = upper\(v_moneda\)/);
+  assert.match(sql, /v_resto_original := v_pactado - p_monto_original;/);
+  assert.match(sql, /insert into pagos \(workspace_id, lead_id, numero, monto_usd, fecha_esperada, pagado, resto_de, moneda, monto_original\)\s*values \(p_ws, p_lead, v_numero, p_resto, p_vence, false, v_id, v_resto_moneda, v_resto_original\)/);
+  // La toma, igual que la 0323 (el monto leído), y cerrada a la clave pública.
+  assert.match(sql, /and \(p_original is null or monto_usd = p_original\)/);
+  const firma = 'public\\.cobrar_cuota_con_resto\\(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date, numeric\\)';
+  assert.match(sql, new RegExp(`revoke execute on function ${firma} from public, anon, authenticated;`));
+  assert.match(sql, new RegExp(`grant execute on function ${firma} to service_role;`));
 });
