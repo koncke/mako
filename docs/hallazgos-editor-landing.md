@@ -3695,3 +3695,47 @@ qué función de MaKo reemplaza a quién. «Tu oferta» de Replicar por partes N
 Tests: tests/web-generator-copia-identica.test.ts (14; los 13 primeros, probados rompiéndolo: 21 roturas, cada una caza). El arnés
 de medición y la comparación quedan en el scratchpad de la sesión (`medir-identica.mts`, `comparar-identica.mts`,
 `sondear.mts`): sacan la foto por el lector de la app, la arman y la dibujan como la publicada.
+
+## «No pude sacar la foto de la página»: la ventana del lector le borraba el árbol a una app de Next (29/10/2026, claude3)
+
+**Vive en:** `lib/editor-landing/replicar-reglas.ts` (`sinRastreadores`, `esDatosDeLaPagina`), `lib/editor-landing/lector-pagina.ts`
+(`documentoLector`), `lib/editor-landing/lector-script.ts` (`sacarFoto`, `terminar`), `lib/editor-landing/lector.ts`
+(`MOTIVOS_SIN_FOTO`), `lib/editor-landing/lector-navegador.ts` (`mensajeSinFoto`), `app/web-generator/crear/Replicar.tsx`.
+
+El ticket de Martín (ws9, /web-generator/68, «Replicar», 29/10 00:38): «No pude sacar la foto de la página. Vuelve a
+intentar.» con https://100ads.ai/ (la URL salió del log de Vercel de `/api/landing-generator/replicar/leer`: el ticket no la traía).
+
+- **El diagnóstico obvio era el equivocado.** La sospecha era el tope de 40 s del lector: que una página larga llegara al
+  tope antes de la foto. Los pedidos de Vercel lo descartaron en un minuto: la ventana abrió a las 03:38:41 y a las 03:38:53,
+  y el ticket salió a las 03:38:58. El segundo intento falló en menos de 5 s. **Regla:** antes de culpar a un tope, mirar
+  CUÁNTO tardó la falla en los logs.
+- **Inyectar el lector directo en la página daba foto (8,4 s).** El camino de Martín era otro: 100ads.ai no tiene el Pixel y
+  se lee en la ventana AISLADA (`responderPaginaLector`, con la política sandbox). Reproducida tal cual (la misma función,
+  servida en 127.0.0.1, y una página «MaKo» que la abre como `leerEnNavegador`): fin a los 3 s, **0 palabras**, y la foto con
+  el cuerpo VACÍO, que `sanearInstantanea` tiraba sin decir nada.
+- **La causa:** 100ads.ai es una app de Next (App Router). Su árbol viaja en pedazos `self.__next_f.push(…)` y uno, de
+  113 KB, es la página entera. Nombra a Facebook y a Clarity porque el layout los carga, y `sinRastreadores` saca cualquier
+  `<script>` que nombre a un rastreador. Sin ese pedazo React no puede armar la página («Connection closed», error #423), la
+  borra, y el `<body>` queda sólo con scripts. **Regla:** un script de DATOS (el árbol de Next, un
+  `<script type="application/json">` como `__NEXT_DATA__` o `__NUXT_DATA__`) no es un rastreador: nombrarlo no lo corre.
+  En la ventana se quedan (`guardarDatos`), porque el preludio ya apagó los rastreadores antes de la página (`fbq` mudo y
+  los pedidos a sus dominios atajados). Con eso: 684 palabras y la foto de 115 KB, 12 de 12.
+- **Cerrar la ventana 300 ms después de mandar la foto la PERDÍA** (2 de 18 corridas). No era una demora: MaKo esperó 4 s
+  más y la foto nunca llegó. **Regla:** con un mensaje de megas, lo cierra quien lo recibe (`leerEnNavegador` al recibirlo);
+  el cierre propio del lector, con foto, es un respaldo a los 10 s.
+- **Lo que corre un editor devuelve su motivo** (AGENTS.md). Sin foto, el lector manda `sinFoto` (`vacia`, `excepcion` con
+  el error, `error`, `salio`, `tope`) y el saneo suma `grande` y `vacia` si la foto vino y no pasa. Si llega el tope sin
+  foto, la saca igual (parcial). La pantalla dice un texto por motivo, y «Vuelve a intentar» sólo con `tope`; para el
+  resto ofrece el formato Landing.
+
+**Sin hacer:**
+- La vista del Diagnóstico (`documentoDiagnostico`, diagnostico.ts) y la copia fiel (`copiaFiel`) siguen sacando los datos.
+  Ninguna de las dos apaga los rastreadores antes de la página, así que una app de Next ahí probablemente también queda en
+  blanco. No está medido.
+- Los errores de hidratación #418 (los `<script>` de rastreadores que se sacan del HTML) siguen; React rearma la página
+  en el navegador y se ve, pero es más lenta de armar.
+
+Tests: tests/web-generator-foto.test.ts (8; el lector corre de verdad en un `vm` con un DOM y un reloj de mentira, y el
+reloj frena los temporizadores como en una ventana en segundo plano para que el tope llegue antes que la foto). Probado
+rompiéndolo: 18 roturas, cada una caza. El arnés de la ventana aislada y las mediciones: `C:/dev/revisiones/web-generator-foto/`
+(`ventana-repro.mts`: `node --conditions=react-server --import tsx ventana-repro.mts <worktree> <url> <salida.json>`).

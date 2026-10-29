@@ -339,7 +339,8 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
   var TOPE = 17000, QUIETO = 800, TOPE_QUIETO = 10000, TOPE_TOQUES = 7000;
   var MAX_DESP = 40, MAX_CLICS = 25, MAX_PIEZAS = 480, MAX_CHARS = 58000, MAX_NODOS = 25000;
   var dale = false, enviado = false, tocando = false, quietoOk = false, empezado = false, navego = false;
-  var conFoto = false, foto = null;
+  // sinFoto (29/10/2026): POR QUÉ no hay foto cuando MaKo la pidió ({ motivo, detalle }: MOTIVOS_SIN_FOTO, lector.ts).
+  var conFoto = false, foto = null, sinFoto = null;
   var inicioToques = 0, pendiente = null, botonActual = null;
   var anotado = new Map(), despues = new Map(), hechos = new WeakSet(), cargados = new WeakSet();
   var consumidos = new WeakSet(), consumidosIds = {}, agendaVista = {}, pestanasOriginales = new Map();
@@ -959,7 +960,19 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     cortar();
     return piezas;
   }
-  function terminar(parcial) {
+  // La foto de la copia idéntica: la instantánea de lo que hay, o el MOTIVO por el que no salió (sinFoto). Sin cuerpo es
+  // una página que no se dibujó (100ads.ai, 29/10/2026: React la borraba en la ventana), no una foto.
+  function sacarFoto() {
+    try {
+      foto = (` + JS_INSTANTANEA + String.raw`)();
+      if (!foto || !/\S/.test(String(foto.cuerpo || ''))) { foto = null; sinFoto = { motivo: 'vacia' }; }
+    } catch (e) {
+      foto = null;
+      sinFoto = { motivo: 'excepcion', detalle: String((e && e.message) || e).slice(0, 200) };
+    }
+  }
+  // porque: lo que cortó la lectura ({ motivo, detalle }); con la foto pedida y sin foto, viaja como sinFoto.
+  function terminar(parcial, porque) {
     if (enviado) return;
     enviado = true;
     tocando = false;
@@ -970,14 +983,23 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     if (!estilo) { try { estilo = leerEstilo(); } catch (e) { estilo = null; } }
     var final = { fase: 'fin', camino: camino, titulo: String(document.title || '').slice(0, 200), piezas: piezas, ms: ahora(), quieto: quietoOk, parcial: !!parcial || tarde(), estilo: estilo };
     if (foto) final.foto = foto;
+    else if (conFoto) final.sinFoto = sinFoto || porque || { motivo: 'otro' };
     mandar(final);
-    setTimeout(function () { try { window.close(); } catch (e) {} }, 300);
+    // Con la foto, MUCHO más tarde: cerrar la ventana 300 ms después de mandar un mensaje de megas lo PIERDE (2 de 18 en
+    // 100ads.ai, 29/10/2026: MaKo veía «se cerró» y la foto no llegaba nunca, ni esperando 4 s). MaKo la cierra al
+    // recibirlo (lector-navegador.ts); esto es por si MaKo ya no está.
+    setTimeout(function () { try { window.close(); } catch (e) {} }, conFoto ? 10000 : 300);
   }
 
   async function arrancar() {
     if (empezado) return;
     empezado = true;
-    setTimeout(function () { if (!enviado) terminar(true); }, Math.max(1000, TOPE + 500 - ahora()));
+    // El tope: con la foto pedida y sin sacar, se saca IGUAL con lo que haya (parcial, pero con foto).
+    setTimeout(function () {
+      if (enviado) return;
+      if (conFoto && !foto) sacarFoto();
+      terminar(true, { motivo: 'tope' });
+    }, Math.max(1000, TOPE + 500 - ahora()));
     try {
       apagarRastreadores();
       await cargado(TOPE_QUIETO - ahora());
@@ -998,7 +1020,7 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       // La copia idéntica: la foto ANTES de tocar nada (abrir un desplegable o apretar un botón cambia lo que se ve), y sin
       // los toques, que la copia no usa.
       if (conFoto) {
-        try { foto = (` + JS_INSTANTANEA + String.raw`)(); } catch (e) { foto = null; }
+        sacarFoto();
         terminar(false);
         return;
       }
@@ -1010,8 +1032,9 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       mirarAgendas(null, null);
       terminar(false);
     } catch (e) {
-      // Lo leído hasta acá vale más que un error: sale como lectura parcial.
-      terminar(true);
+      // Lo leído hasta acá vale más que un error: sale como lectura parcial (y con la foto, si se pidió y se puede).
+      if (conFoto && !foto && !enviado) sacarFoto();
+      terminar(true, { motivo: 'error', detalle: String((e && e.message) || e).slice(0, 200) });
     }
   }
   // La página se va (un botón que navega con location.href: en la ventana aislada no se puede atajar).
@@ -1021,7 +1044,7 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     if (tocando && botonActual && !anotado.has(botonActual)) {
       anotado.set(botonActual, { tipo: 'boton', texto: etiqueta(botonActual).slice(0, 120), destino: { tipo: 'url', valor: '' } });
     }
-    terminar(true);
+    terminar(true, { motivo: 'salio' });
   });
 }`;
 
