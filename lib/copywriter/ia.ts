@@ -34,7 +34,7 @@ import { getAngulosGuion } from '../guion-angulos-store';
 import { getEstructurasTodas } from '../guion-estructuras-store';
 import { ANGULOS_GUION_DEFAULT, instruccionesTexto } from '../guion-angulos';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../guion-estructuras';
-import { catalogosLite, estructurasDelTipo } from './catalogos';
+import { catalogosLite, conVsl, estructurasDelTipo } from './catalogos';
 import { metodologiaDe } from '../ig-formatos';
 import { parseJsonObject } from '../json-del-modelo';
 import { marcasDeVoseo } from '../puestas-data';
@@ -201,7 +201,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
   try {
     const [acento, negocio, angulos, estructuras, refs] = await Promise.all([
       acentoConId(), contextoDelNegocio(instruccion),
-      getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT),
+      getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT).then(conVsl),
       leerReferencias(p.referencias ?? []),
     ]);
     const lite = catalogosLite(angulos, estructuras);

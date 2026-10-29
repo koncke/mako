@@ -1,11 +1,12 @@
 'use client';
 
 // =============================================================================
-// Copywriter — el armazón: MaKo a la izquierda, el árbol de guiones y el documento (mila.gg + Notion)
+// Copywriter — el armazón: MaKo a la izquierda, las páginas al costado y la página abierta (Notion + mila.gg)
 // =============================================================================
-// Pedido de Martín (28/10/2026): «Quiero que implementes mila.gg combinado con notion en "copywriter"… Que tenga una
-// interfaz similar a la de web generator, con la sidebar de mako y el editor a la derecha». Diseño:
-// docs/diseno-copywriter.md (D2).
+// Pedido de Martín (28/10/2026): «Quiero que implementes mila.gg combinado con notion en "copywriter"… con la sidebar de
+// mako y el editor a la derecha». Y el 29/10: «quiero que sea una réplica de Notion… con la barra lateral de MaKo… y NO
+// quiero otras tabs internas ni nada de ONBOARDING». Cada documento es una página; «Nueva» abre los templates
+// («¿Qué vas a crear hoy?», ./Inicio.tsx). Diseño: docs/diseno-copywriter.md (D2, D11, D12).
 //
 // LO QUE ES DE ESTE ARCHIVO: el árbol (el índice de páginas) y lo que se hace con él —abrir, crear, renombrar, mover,
 // Papelera—, siempre en el acto en la pantalla y después en el server; si el server dice que no, vuelve a lo que había
@@ -16,15 +17,15 @@
 // =============================================================================
 
 import './notion.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Editor } from '@tiptap/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { aPapelera, cambiarPagina, mover as moverEnArbol, restaurar as restaurarEnArbol } from '@/lib/copywriter/arbol';
 import { propsNuevas, type GuionAbierto, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
-import { docDeEstructura } from '@/lib/copywriter/doc';
-import { estructuraPorDefecto, type CatalogosCopy } from '@/lib/copywriter/catalogos';
+import { type CatalogosCopy } from '@/lib/copywriter/catalogos';
+import { plantillasDe, type Plantilla } from '@/lib/copywriter/plantillas';
+import type { DocVivo } from './editor/propuesta';
 import { pedirCrear, pedirMover, pedirPapelera, pedirRenombrar, pedirRestaurar, rutaGuion } from './cliente';
 import { guardarPedido } from './pedido-guardado';
 import { Arbol } from './Arbol';
@@ -50,9 +51,12 @@ export type PropsCopywriter = {
   catalogos: CatalogosCopy;
   /** Las rutas: escritorio (/copywriter) o el teléfono (/m/copywriter, que el proxy sirve en la misma URL). */
   base?: string;
-  /** El tipo elegido de entrada en la caja grande (`?nuevo=<tipo>`). */
+  /** El tipo pedido por un link viejo (`?nuevo=<tipo>`): sus templates van primero en «Nueva». */
   tipoInicial?: TipoGuion | null;
 };
+
+/** «Nueva»: la galería de templates (la misma ruta de la tab con `?nueva`). */
+export const rutaNueva = (base: string) => `${base}?nueva=1`;
 
 export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null }: PropsCopywriter) {
   const router = useRouter();
@@ -70,7 +74,9 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   }, []);
   const plegar = useCallback((v: boolean) => { aMano.current = true; setPlegado(v); }, []);
   const [creando, setCreando] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
+  const [editor, setEditor] = useState<DocVivo | null>(null);
+  // «Preguntar a MaKo» de la página: lo seleccionado entra como cita en la caja del chat (lo llena PanelMaKo).
+  const citar = useRef<((seleccion?: string) => void) | null>(null);
   const [pausa, setPausa] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const cajaMako = useRef<HTMLTextAreaElement | null>(null);
@@ -105,14 +111,15 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     return false;
   }, [avisar]);
 
-  const crear = useCallback(async (tipo: TipoGuion, padre: string | null, pedido = '') => {
+  /** Crea una página desde un template (el cuerpo, el tipo y la estructura del template) y la abre. */
+  const crear = useCallback(async (plantilla: Plantilla, padre: string | null, pedido = '') => {
     if (creando) return;
     setCreando(true);
-    const e = estructuraPorDefecto(catalogos, tipo);
+    const { tipo } = plantilla;
     const titulo = pedido ? pedido.replace(/\s+/g, ' ').slice(0, 80) : '';
-    const r = await pedirCrear({ tipo, padre, titulo, props: propsNuevas(tipo, e?.id ?? null), ...(e ? { contenido: docDeEstructura(e.etiquetas) } : {}) });
+    const r = await pedirCrear({ tipo, padre, titulo, props: propsNuevas(tipo, plantilla.estructura), contenido: plantilla.contenido() });
     setCreando(false);
-    if (!r.ok) { avisar(`No se pudo crear el guion: ${r.error}`, undefined, 'bad'); return; }
+    if (!r.ok) { avisar(`No se pudo crear la página: ${r.error}`, undefined, 'bad'); return; }
     setPaginas(r.paginas);
     if (pedido) guardarPedido(ws, r.pagina.id, pedido);
     abrir(r.pagina.id);
@@ -148,13 +155,16 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     setPaginas((ps) => { const x = cambiarPagina(ps, abierta, c); return x.ok ? x.paginas : ps; });
   }, [abierta]);
 
-  const alMako = useCallback(() => { cajaMako.current?.focus(); }, []);
+  const alMako = useCallback((seleccion?: string) => { if (citar.current) citar.current(seleccion); else cajaMako.current?.focus(); }, []);
+  /** El «+» de una página en el árbol: una subpágina en blanco, como Notion. «Nueva» (arriba) abre los templates. */
+  const enBlanco = useMemo(() => plantillasDe(catalogos).find((x) => x.id === 'blanco')!, [catalogos]);
+  const nueva = useCallback(() => router.push(rutaNueva(base)), [base, router]);
 
   return (
     <div className="nt">
-      <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={cajaMako} onPausa={setPausa} avisar={avisar} />
+      <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={cajaMako} onPausa={setPausa} avisar={avisar} citarRef={citar} />
       <Arbol paginas={paginas} abierta={abierta} plegado={plegado} onPlegar={() => plegar(true)} onAbrir={abrir}
-        onCrear={(t, padre) => void crear(t, padre)} onRenombrar={renombrar} onPapelera={(id) => void papelera(id)} onRestaurar={restaurar} onMover={mover} />
+        onNueva={nueva} onSubpagina={(padre) => void crear(enBlanco, padre)} onRenombrar={renombrar} onPapelera={(id) => void papelera(id)} onRestaurar={restaurar} onMover={mover} />
       {guion ? (
         <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
           onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
@@ -164,7 +174,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
       ) : error ? (
         <div className="nt-doc"><div className="nt-inicio"><div className="nt-aviso" role="alert">{error}<ReportarASoporte /></div></div></div>
       ) : (
-        <Inicio creando={creando} onCrear={(t, pedido) => void crear(t, null, pedido)} arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} tipoInicial={tipoInicial} />
+        <Inicio creando={creando} catalogos={catalogos} onCrear={(pl, pedido) => void crear(pl, null, pedido)} arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} tipoInicial={tipoInicial} />
       )}
       {guion && (
         <Compartir recurso={RECURSO_GUION} recursoId={guion.pagina.id}

@@ -202,3 +202,44 @@ export async function restaurar(id: string) {
   if (!esIdPagina(id)) return falla(404, 'No existe');
   return cambiarIndice((ps) => restaurarEnArbol(ps, id));
 }
+
+/**
+ * Crea VARIAS páginas de una vez (la mudanza de lo de antes, D14): cada documento con su compare-and-set (de a 6 a la vez)
+ * y el índice en UNA escritura, con las hijas debajo de su padre por `clave`. Si el índice no se pudo escribir, los
+ * documentos quedan sin fila (como en `crear`) y se intenta borrarlos.
+ */
+export async function crearVarias(ps: readonly (PedidoCrear & { clave: string; padreClave: string | null })[]): Promise<{ ok: true; creadas: number } | Falla> {
+  const listos: { p: (typeof ps)[number]; id: string; valor: string }[] = [];
+  for (const p of ps) {
+    const s = sanearContenido(p.contenido ?? docVacio());
+    if (!s.ok) continue;
+    const props = sanearProps({ ...propsNuevas(p.tipo), ...(p.props ?? {}), tipo: p.tipo }, p.tipo);
+    listos.push({ p, id: idPaginaNuevo(), valor: JSON.stringify({ version: 1, props, contenido: s.doc } satisfies DocCopy) });
+  }
+  const escritos: typeof listos = [];
+  for (let i = 0; i < listos.length; i += 6) {
+    const tanda = listos.slice(i, i + 6);
+    const r = await Promise.allSettled(tanda.map((x) => cambiarSettingSi(claveDoc(x.id), null, x.valor)));
+    r.forEach((y, k) => { if (y.status === 'fulfilled' && y.value) escritos.push(tanda[k]); });
+  }
+  const idDe = new Map(escritos.map((x) => [x.p.clave, x.id]));
+  const ahora = new Date().toISOString();
+  const r = await cambiarIndice((paginas) => {
+    let actual: ResultadoArbol = { ok: true, paginas };
+    for (const x of escritos) {
+      if (!actual.ok) break;
+      const padre = x.p.padreClave ? idDe.get(x.p.padreClave) ?? null : null;
+      actual = agregar(actual.paginas, {
+        id: x.id, titulo: (x.p.titulo ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo) || SIN_TITULO,
+        emoji: typeof x.p.emoji === 'string' && x.p.emoji.trim() && x.p.emoji.length <= 16 ? x.p.emoji : null,
+        tipo: x.p.tipo, padre, actualizado: ahora,
+      }, padre ? undefined : 0);
+    }
+    return actual;
+  });
+  if (!r.ok) {
+    await Promise.allSettled(escritos.map((x) => borrarSettingSi(claveDoc(x.id), x.valor)));
+    return r;
+  }
+  return { ok: true, creadas: escritos.length };
+}

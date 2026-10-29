@@ -1,18 +1,19 @@
 // =============================================================================
-// copywriter/puerta — quién pasa la puerta del Copywriter (hoy, sólo el super admin)
+// copywriter/puerta — quién pasa la puerta del Copywriter: desde el 29/10/2026, todos los negocios
 // =============================================================================
-// La regla en UN lugar, en lib para que la usen las pantallas (app/copywriter/acceso.ts la re-exporta) Y las rutas del
-// chat que guardan o listan las charlas de un guion (/api/hilo-de-tab, /api/chart-insights, el Ops Center, el doer):
-// verificación del Cerebro del 28/10/2026, «el chat de MaKo de un guion lo ve y lo escribe el admin del negocio aunque la
-// tab sea sólo del super admin». El día que Martín abra la tab, cambia ESTA función (y la de la API de MaKo,
-// lib/copywriter/puerta-api.ts).
-// ⚠️ NO alcanza con ser admin del negocio (`requireRolWs`): el guard de «sólo la agencia» es `getSesionAdmin()`.
+// La tab nació el 28/10/2026 sólo para el super admin «hasta que Martín la valide». El 29/10 Martín pidió que Copywriting
+// SEA esto («quiero que Copywriter sea una réplica de Notion… y NO quiero otras tabs internas que hoy aparecen en la
+// topbar»): la tab Copywriting de todos los negocios abre el Copywriter, así que la puerta se abre. Quién entra lo decide
+// la pregunta de toda tab, en la página y en las rutas (`requireRolWs` / `soloAdminDeTab`: rol y capa).
+// La regla sigue en UN lugar, en lib, porque la usan las pantallas (app/copywriter/acceso.ts la re-exporta) Y las rutas
+// del chat que guardan o listan las charlas de una página (/api/hilo-de-tab, /api/chart-insights, el Ops Center, el doer):
+// si hubiera que volver a cerrarla, se cambia ESTA función y la de la API de MaKo (lib/copywriter/puerta-api.ts).
 // =============================================================================
 
 import 'server-only';
-import { getSesionAdmin } from '../auth';
+import { getUsuarioActual } from '../auth';
 
-/** ¿Quien pide puede usar el Copywriter (y ver sus charlas)? */
+/** ¿Quien pide puede usar el Copywriter (y ver sus charlas)? Toda persona con sesión; el rol y la capa los mira la tab. */
 export async function veCopywriter(): Promise<boolean> {
-  return !!(await getSesionAdmin());
+  return !!(await getUsuarioActual().catch(() => null));
 }

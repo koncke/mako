@@ -211,6 +211,7 @@ editar_comentario_comunidad
 editar_contacto_lead
 editar_cuota
 editar_dato_deal
+editar_documento_copywriter
 editar_etiqueta
 editar_evento_comunidad
 editar_grafico_dashboard
@@ -389,6 +390,7 @@ listar_pendientes
 listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
+listar_plantillas_copywriter
 listar_plantillas_imagen
 listar_plantillas_video
 listar_posts_comunidad

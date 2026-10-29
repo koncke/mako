@@ -39,7 +39,7 @@
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
-- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter`
+- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
@@ -13638,7 +13638,7 @@ curl -L \
 
 ## Content Machine — `contenido`
 
-Tab **Ads Writer** (`/ads-writer`). 15 lecturas · 13 acciones.
+Tab **Ads Writer** (`/ads-writer`). 16 lecturas · 14 acciones.
 
 ### `GET /api/v1/contenido/anuncios` — Anuncios planteados del negocio
 
@@ -14087,7 +14087,7 @@ curl -L \
 
 ### `GET /api/v1/contenido/documentos` — Documentos del Copywriter
 
-Los documentos del Copywriter del negocio (un documento por guion de ad, reel, story o YouTube): id, título, tipo, de qué documento cuelga y cuándo se tocó. Úsalo para encontrar el documentoId antes de leer o escribir en uno. Los de la Papelera no vienen salvo que se pidan.
+Los documentos del Copywriter del negocio (cada documento es una página, como en Notion: guiones de anuncios, reels, stories, YouTube y VSL, emails, posts o páginas en blanco): id, título, tipo, de qué documento cuelga y cuándo se tocó. Úsalo para encontrar el documentoId antes de leer o escribir en uno. Los de la Papelera no vienen salvo que se pidan.
 
 - **Ruta por operación:** `GET /api/v1/contenido/listar_documentos_copywriter`
 - **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
@@ -14099,7 +14099,7 @@ Los documentos del Copywriter del negocio (un documento por guion de ad, reel, s
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (ad \\| reel \\| story \\| youtube) | no | Sólo los de ese tipo (ad, reel, story, youtube). |
+| `tipo` | string (ad \\| reel \\| story \\| youtube \\| vsl \\| email \\| post \\| pagina) | no | Sólo los de ese tipo (ad, reel, story, youtube, vsl, email, post, pagina). |
 | `conPapelera` | boolean | no | true incluye los de la Papelera (marcados). |
 
 ```bash
@@ -14136,7 +14136,7 @@ curl -L \
 
 ### `POST /api/v1/contenido/documentos` — Crear un documento en el Copywriter
 
-Crea un documento nuevo en el Copywriter: un guion de ad, reel, story o YouTube, con su título y, si se pasa, el texto ya escrito o la estructura de la biblioteca (que arma sus secciones vacías). Puede colgar de otro documento. Devuelve su id. Queda pendiente hasta que la persona confirme.
+Crea un documento nuevo en el Copywriter (una página): con su título y, si se pasa, el texto ya escrito, un template de «Nueva» (listar_plantillas_copywriter: arma sus secciones) o la estructura de la biblioteca. Puede colgar de otro documento. Devuelve su id. Queda pendiente hasta que la persona confirme.
 
 - **Ruta por operación:** `POST /api/v1/contenido/crear_documento_copywriter`
 - **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
@@ -14152,7 +14152,8 @@ Crea un documento nuevo en el Copywriter: un guion de ad, reel, story o YouTube,
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `titulo` | string | sí | El título del documento. |
-| `tipo` | string (ad \\| reel \\| story \\| youtube) | sí | ad, reel, story o youtube. |
+| `tipo` | string (ad \\| reel \\| story \\| youtube \\| vsl \\| email \\| post \\| pagina) | sí | ad, reel, story, youtube, vsl, email, post, pagina. Con plantillaId, manda el del template. |
+| `plantillaId` | string | no | id de un template de «Nueva» (listar_plantillas_copywriter): la página nace con su tipo, su estructura y sus secciones si no viene texto. |
 | `estructuraId` | string | no | id de una estructura de la biblioteca (catalogo_estructuras_guion): arma sus secciones vacías si no viene texto. |
 | `texto` | string | no | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
 | `padreId` | string | no | documentoId del documento del que cuelga (opcional). |
@@ -14396,6 +14397,46 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/contenido/enlaces/ENLACE_ID"
+```
+
+### `GET /api/v1/contenido/listar_plantillas_copywriter` — Templates del Copywriter
+
+Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio en video, copy para Meta, Reel, stories, carrusel, email, VSL, YouTube y página en blanco, con su id, tipo y qué secciones arma. El id va en plantillaId de crear_documento_copywriter.
+
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+_Sin parámetros._
+
+```bash
+
+```
+
+### `POST /api/v1/contenido/editar_documento_copywriter` — MaKo escribe en un documento del Copywriter
+
+MaKo escribe o edita EN un documento del Copywriter lo que se le pide («mejora el gancho», «agrega una sección de preguntas frecuentes», «acórtalo»), como «Editar» en el chat de la página: lee el documento, escribe con la voz y el método del negocio, y la propuesta se ve en el resumen. Al confirmar se aplica sobre lo de AHORA (lo que se borró en el medio se descarta). Para pegar un texto ya escrito, agregar_al_documento_copywriter o reemplazar_documento_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia los bloques del documento (app_settings mako.copywriter.doc.<id>) y, si MaKo lo propone, el título o las propiedades
+- **Reversible:** no
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `instruccion` | string | sí | Qué escribir o cambiar, en las palabras de la persona. |
+
+```bash
+
 ```
 
 ## Video Generator — `video`

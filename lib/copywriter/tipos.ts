@@ -10,8 +10,12 @@
 // no compite con el árbol.
 // =============================================================================
 
-/** Los cuatro tipos que pidió Martín, en su orden. */
-export const TIPOS_GUION = ['ad', 'reel', 'story', 'youtube'] as const;
+/**
+ * Los tipos de página. Los cuatro primeros los pidió Martín el 28/10 (los guiones); el 29/10, con «Copywriter = Notion»,
+ * cada documento es una página y «Nueva» abre templates de anuncios, emails, posts y VSL (docs/diseno-copywriter.md, D12):
+ * se suman al FINAL (el orden es el de los selectores, y un índice guardado sólo trae los cuatro de antes).
+ */
+export const TIPOS_GUION = ['ad', 'reel', 'story', 'youtube', 'vsl', 'email', 'post', 'pagina'] as const;
 export type TipoGuion = (typeof TIPOS_GUION)[number];
 
 /** Cómo se ve cada tipo: su nombre (en inglés, como las tabs), el emoji de la página nueva y su duración típica. */
@@ -20,7 +24,19 @@ export const INFO_TIPO: Readonly<Record<TipoGuion, { label: string; emoji: strin
   reel: { label: 'Reel', emoji: '🎬', duracion: 45, uno: 'un reel' },
   story: { label: 'Story', emoji: '📱', duracion: null, uno: 'un día de stories' },
   youtube: { label: 'YouTube', emoji: '▶️', duracion: 600, uno: 'un video de YouTube' },
+  vsl: { label: 'VSL', emoji: '🎥', duracion: 900, uno: 'una VSL' },
+  email: { label: 'Email', emoji: '✉️', duracion: null, uno: 'un email' },
+  post: { label: 'Post', emoji: '📝', duracion: null, uno: 'un post' },
+  pagina: { label: 'Página', emoji: '📄', duracion: null, uno: 'una página' },
 };
+
+/**
+ * Los tipos con MÉTODO (ángulo, estructura y duración, de la biblioteca /admin/guiones): los que se graban o se pautan.
+ * Un email, un post o una página en blanco no los tienen: su página no muestra esas propiedades (Notion no muestra
+ * propiedades en una página suelta).
+ */
+export const TIPOS_CON_METODO: readonly TipoGuion[] = ['ad', 'reel', 'story', 'youtube', 'vsl'];
+export const tieneMetodo = (t: TipoGuion): boolean => TIPOS_CON_METODO.includes(t);
 
 export const esTipoGuion = (v: unknown): v is TipoGuion => typeof v === 'string' && (TIPOS_GUION as readonly string[]).includes(v);
 

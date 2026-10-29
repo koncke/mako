@@ -9,8 +9,10 @@
 //     sanear contra el de AHORA (la persona pudo escribir mientras MaKo pensaba);
 //   · PROPONER, NO APLICAR: la pantalla pausa el guion ANTES de construir, construye fuera del historial, y aceptar es UN
 //     paso de deshacer; al soltar la pausa, se guarda sólo si quedó distinto (descartar no escribe);
-//   · la API: las 8 operaciones del Copywriter van al FINAL del área `contenido`, con sus palabras («documento»,
-//     «copywriter») y sin las del Ads Writer («guion de anuncio»), y su runner pregunta la puerta en cada una.
+//   · la API: las 13 operaciones del Copywriter van al FINAL del área `contenido`, con sus palabras («documento»,
+//     «copywriter») y sin las del Ads Writer («guion de anuncio»), y su runner pregunta la puerta en cada una. Con
+//     «Copywriter = Notion» (29/10/2026): los templates y `editar_documento_copywriter` (MaKo escribe con IA por la API,
+//     con las MISMAS herramientas del chat, aplicadas sobre lo de AHORA al confirmar).
 // =============================================================================
 
 import test from 'node:test';
@@ -48,7 +50,7 @@ test('«Editar» le pasa al modelo las herramientas (el {{formato}}) y el catál
 
 test('la pantalla vuelve a sanear contra lo de AHORA, pausa antes de construir y acepta en un paso', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  const iAhora = panel.indexOf('const antes = ed.getJSON() as JsonNodo;');
+  const iAhora = panel.indexOf('const antes = ed.leer();');
   const iSanear = panel.indexOf('sanearOperaciones(r.operaciones, antes,');
   const iPausa = panel.indexOf('onPausa(true);');
   const iConstruir = panel.indexOf('await construir(ed, cuadrosDeConstruccion(antes, s.ops)');
@@ -56,27 +58,37 @@ test('la pantalla vuelve a sanear contra lo de AHORA, pausa antes de construir y
   assert.ok(iPausa > 0 && iConstruir > iPausa, 'la pausa va ANTES de construir (si no, el autoguardado escribe la propuesta)');
   assert.match(panel, /aceptarEnDoc\(ed, m\.propuesta\.antes, m\.propuesta\.final\)/);
   assert.match(panel, /!appEscritorio\.bloqueada/);
+  // Desde el 29/10/2026 el cuerpo es BlockNote (CuerpoNotion): lo que pone MaKo va fuera del historial y no se manda a
+  // guardar como un cambio de la persona (`poniendo`); la propuesta habla con el documento vivo (DocVivo).
+  const cuerpo = leer('app/copywriter/editor/CuerpoNotion.tsx');
+  assert.match(cuerpo, /if \(!op\.historial\) tr\.setMeta\('addToHistory', false\);/, 'construir va fuera del historial');
+  assert.match(cuerpo, /const alCambiar = useCallback\(\(\) => \{\n\s+if \(poniendo\.current\) return;/, 'lo que pone MaKo no se marca para guardar');
   const prop = leer('app/copywriter/editor/propuesta.ts');
-  assert.match(prop, /if \(!op\.historial\) tr\.setMeta\('addToHistory', false\);/, 'construir va fuera del historial');
-  assert.match(prop, /return ponerDoc\(editor, antes\) && ponerDoc\(editor, final, \{ historial: true \}\);/, 'aceptar: la foto de antes y el resultado en UN paso');
+  assert.match(prop, /return ponerDoc\(doc, antes\) && ponerDoc\(doc, final, \{ historial: true \}\);/, 'aceptar: la foto de antes y el resultado en UN paso');
+  assert.ok(!/@tiptap/.test(prop), 'la propuesta no conoce al editor');
   const editor = leer('app/copywriter/editor/EditorGuion.tsx');
-  assert.match(editor, /if \(foto != null && JSON\.stringify\(editor\.getJSON\(\)\) !== foto\) \{ marcar\(/, 'al soltar la pausa se guarda sólo si cambió');
-  assert.match(editor, /if \(!transaction\.docChanged \|\| pausaRef\.current\) return;/, 'en pausa no se marca para guardar');
+  assert.match(editor, /if \(foto != null && JSON\.stringify\(ahora\) !== foto\) \{ marcar\(/, 'al soltar la pausa se guarda sólo si cambió');
+  assert.match(editor, /const alCambiar = useCallback\(\(d: JsonNodo\) => \{\n\s+if \(pausaRef\.current\) return;/, 'en pausa no se marca para guardar');
 });
 
 test('la API: las del Copywriter al FINAL de `contenido`, con sus palabras, y la puerta en cada runner', () => {
-  // 8 de la tanda 2 y 3 de «Compartir para editar» (tanda 4: enlaces, compartir y revocar_enlace_copywriter).
+  // 8 de la tanda 2, 3 de «Compartir para editar» (tanda 4: enlaces, compartir y revocar_enlace_copywriter) y 2 de
+  // «Copywriter = Notion» (29/10/2026: listar_plantillas y editar_documento_copywriter).
   const contenido = REGISTRO.filter((d) => d.area === 'contenido').map((d) => d.id);
   const copy = contenido.filter((id) => id.endsWith('_copywriter'));
-  assert.equal(copy.length, 11);
-  assert.deepEqual(contenido.slice(-11), copy, 'van al final del área');
+  assert.equal(copy.length, 13);
+  assert.deepEqual(contenido.slice(-13), copy, 'van al final del área');
   for (const d of REGISTRO.filter((x) => x.id.endsWith('_copywriter'))) {
     assert.ok(!/guion de anuncio/i.test(`${d.titulo} ${d.descripcion}`), `${d.id} usa las palabras del Ads Writer`);
     assert.equal(d.gating?.tab, 'copywriter');
   }
   const run = leer('lib/api-mako/areas/copywriter.run.ts');
   const runners = [...run.matchAll(/^ {2}([a-z_]+_copywriter): \{/gm)].map((m) => m[1]);
-  assert.equal(runners.length, 11);
-  // Cada runner pregunta la puerta: 3 lecturas (leer) y 8 acciones (preparar).
-  assert.equal((run.match(/if \(await cerrada\(ctx\)\) return/g) ?? []).length, 11);
+  assert.equal(runners.length, 13);
+  // Cada runner pregunta la puerta: 4 lecturas (leer) y 9 acciones (preparar).
+  assert.equal((run.match(/if \(await cerrada\(ctx\)\) return/g) ?? []).length, 13);
+  // MaKo por la API escribe con las MISMAS herramientas del chat y, al confirmar, sobre lo de AHORA (por id).
+  assert.match(run, /const ia = await editarConIA\(\{ instruccion, guion:/);
+  assert.match(run, /const s = sanearOperaciones\(payload\.operaciones, r\.doc\.contenido, catalogo\);/);
+  assert.match(run, /await guardar\(\{ id, version: r\.doc\.version, contenido: res\.doc/);
 });

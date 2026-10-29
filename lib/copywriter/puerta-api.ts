@@ -1,16 +1,16 @@
 // =============================================================================
 // copywriter/puerta-api — la puerta del Copywriter para la API de MaKo (lib/api-mako/areas/copywriter.run.ts)
 // =============================================================================
-// La pantalla se cierra con `veCopywriter` (app/copywriter/acceso.ts: sólo el super admin). En la API no hay una sesión
-// que preguntar (un token, el grupo de WhatsApp) y su gating mira la CAPA del negocio, que en `completo` ve todas las
-// tabs: sin esto, cualquier negocio usaba por WhatsApp o por /api/v1 lo que su pantalla todavía no tiene. Mientras la tab
-// sea sólo del super admin, la API anda sólo en el negocio de la plataforma (el de MaKo). El día que Martín la abra, se
-// abren las DOS (ésta y acceso.ts). Aparte de acceso.ts para que los runners no carguen next/navigation.
+// Hasta el 28/10/2026 la API andaba sólo en el negocio de la plataforma, como la pantalla (sólo el super admin). Desde el
+// 29/10 la tab Copywriting de todos los negocios ES el Copywriter (lib/copywriter/puerta.ts), así que la API también: lo
+// que queda es el gating de cada operación (`gating.tab` y la capa del negocio). Si hubiera que volver a cerrarla, se
+// cierran las DOS (ésta y puerta.ts). Aparte de acceso.ts para que los runners no carguen next/navigation.
 // =============================================================================
 
 import 'server-only';
-import { wsSuperAdmin } from '../workspace';
+
 
 export async function veCopywriterEnApi(ws: number): Promise<boolean> {
-  return ws === (await wsSuperAdmin().catch(() => null));
+  void ws;
+  return true;
 }

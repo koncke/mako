@@ -1,52 +1,67 @@
 'use client';
 
 // =============================================================================
-// Inicio — el vacío del Copywriter: la caja grande de mila.gg («Create a doc about whales») y los cuatro tipos
+// Inicio — «Nueva»: «¿Qué vas a crear hoy?», la caja de MaKo y los templates
 // =============================================================================
-// mila.gg abre con UNA caja: se escribe qué documento se quiere y su IA lo arma. Acá igual (docs/diseno-copywriter.md,
-// D1): «¿Qué guion escribimos?», el tipo debajo (Ad · Reel · Story · YouTube) y Enter. Se crea el guion de ese tipo con
-// la estructura de la biblioteca y lo escrito queda como el primer pedido a MaKo.
-// Una sola cosa por pantalla (la regla de Martín): no hay lista, ni textos, ni pasos.
+// Pedido de Martín (29/10/2026): «Nueva» abre TEMPLATES bajo «¿Qué vas a crear hoy?» (docs/diseno-copywriter.md, D12).
+// Arriba la caja de mila.gg («Create a doc about whales»): lo escrito es el primer pedido a MaKo en la página nueva.
+// Abajo, los templates de lib/copywriter/plantillas.ts en tarjetas, por grupo, como la galería de Notion. Tocar uno crea
+// la página y la abre; Enter en la caja, sin elegir, crea una página en blanco y MaKo la escribe.
 // =============================================================================
 
-import { useState } from 'react';
-import { INFO_TIPO, TIPOS_GUION, type TipoGuion } from '@/lib/copywriter/tipos';
+import { useMemo, useState } from 'react';
+import type { TipoGuion } from '@/lib/copywriter/tipos';
+import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
+import { gruposDePlantillas, plantillasDe, type Plantilla } from '@/lib/copywriter/plantillas';
 
-export function Inicio({ onCrear, creando, arbolPlegado = false, onDesplegarArbol, tipoInicial = null }: {
-  onCrear: (tipo: TipoGuion, pedido: string) => void;
+export function Inicio({ onCrear, creando, catalogos, arbolPlegado = false, onDesplegarArbol, tipoInicial = null }: {
+  onCrear: (plantilla: Plantilla, pedido: string) => void;
   creando: boolean;
-  /** La barra de guiones plegada (ventana angosta): «»» la vuelve a abrir, como en las migas del documento. */
+  catalogos: CatalogosCopy;
+  /** La barra de páginas plegada (ventana angosta): «»» la vuelve a abrir, como en las migas del documento. */
   arbolPlegado?: boolean;
   onDesplegarArbol?: () => void;
-  /** El tipo elegido de entrada (`/copywriter?nuevo=<tipo>`). */
+  /** El tipo pedido por un link viejo (`/copywriter?nuevo=<tipo>`): sus templates van primero. */
   tipoInicial?: TipoGuion | null;
 }) {
-  const [tipo, setTipo] = useState<TipoGuion>(tipoInicial ?? 'ad');
   const [pedido, setPedido] = useState('');
-  const ir = () => { if (!creando) onCrear(tipo, pedido.trim()); };
+  const plantillas = useMemo(() => {
+    const todas = plantillasDe(catalogos);
+    return tipoInicial ? [...todas.filter((p) => p.tipo === tipoInicial), ...todas.filter((p) => p.tipo !== tipoInicial)] : todas;
+  }, [catalogos, tipoInicial]);
+  const grupos = useMemo(() => gruposDePlantillas(plantillas), [plantillas]);
+  const blanco = plantillas.find((p) => p.id === 'blanco') ?? plantillas[plantillas.length - 1];
+  const crear = (p: Plantilla) => { if (!creando) onCrear(p, pedido.trim()); };
   return (
     <div className="nt-doc">
       {arbolPlegado && (
         <div className="nt-barra">
-          <button type="button" className="nt-boton-ico" onClick={onDesplegarArbol} title="Abrir la barra de guiones" aria-label="Abrir la barra de guiones">»</button>
+          <button type="button" className="nt-boton-ico" onClick={onDesplegarArbol} title="Abrir la barra de páginas" aria-label="Abrir la barra de páginas">»</button>
         </div>
       )}
-      <div className="nt-inicio">
-        <div className="nt-inicio-caja">
-          <h1 className="nt-inicio-titulo">¿Qué guion escribimos?</h1>
+      <div className="nt-scroll">
+        <div className="nt-galeria">
+          <h1 className="nt-inicio-titulo">¿Qué vas a crear hoy?</h1>
           <div className="nt-inicio-campo">
-            <input value={pedido} onChange={(e) => setPedido(e.target.value)} placeholder={`Escribe ${INFO_TIPO[tipo].uno} sobre…`}
-              aria-label="Qué guion quieres" maxLength={2000} autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ir(); } }} />
-            <button type="button" className="nt-inicio-ir" onClick={ir} disabled={creando} aria-label="Crear el guion">{creando ? '…' : '→'}</button>
+            <input value={pedido} onChange={(e) => setPedido(e.target.value)} placeholder="Cuéntale a MaKo de qué se trata (opcional)"
+              aria-label="De qué se trata" maxLength={2000}
+              onKeyDown={(e) => { if (e.key === 'Enter' && pedido.trim()) { e.preventDefault(); crear(blanco); } }} />
+            <button type="button" className="nt-inicio-ir" onClick={() => crear(blanco)} disabled={creando || !pedido.trim()} aria-label="Crear con MaKo">{creando ? '…' : '→'}</button>
           </div>
-          <div className="nt-tipos" role="group" aria-label="Tipo de guion">
-            {TIPOS_GUION.map((t) => (
-              <button key={t} type="button" className="nt-tipo" aria-pressed={t === tipo} onClick={() => setTipo(t)}>
-                <span aria-hidden>{INFO_TIPO[t].emoji}</span>{INFO_TIPO[t].label}
-              </button>
-            ))}
-          </div>
+          {grupos.map((g) => (
+            <section key={g.grupo} className="nt-galeria-grupo" aria-label={g.grupo}>
+              <h2 className="nt-galeria-titulo">{g.grupo}</h2>
+              <div className="nt-galeria-grilla">
+                {g.plantillas.map((p) => (
+                  <button key={p.id} type="button" className="nt-plantilla" onClick={() => crear(p)} disabled={creando}>
+                    <span className="nt-plantilla-emoji" aria-hidden>{p.emoji}</span>
+                    <span className="nt-plantilla-nombre">{p.nombre}</span>
+                    <span className="nt-plantilla-desc">{p.descripcion}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
     </div>

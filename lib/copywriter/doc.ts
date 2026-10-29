@@ -72,6 +72,8 @@ const CON_TILDE: Readonly<Record<string, string>> = {
   AGITACION: 'Agitación', SOLUCION: 'Solución', ATENCION: 'Atención', INTERES: 'Interés', DESPUES: 'Después',
   PROMESA: 'Promesa', PRUEBA: 'Prueba', INTRODUCCION: 'Introducción', CONCLUSION: 'Conclusión', ACCION: 'Acción',
   EXPLICACION: 'Explicación', DEMOSTRACION: 'Demostración', OBJECION: 'Objeción',
+  // Las de los templates de «Nueva» (plantillas.ts) y de los VSL (lib/vsl-estructuras.ts).
+  TITULO: 'Título', BOTON: 'Botón', DESCRIPCION: 'Descripción', 'QUIEN SOY': 'Quién soy', TRANSICION: 'Transición',
 };
 
 /** «AGITACION» → «Agitación»; «CTA» queda «CTA»; «GANCHO» → «Gancho». */
@@ -303,8 +305,9 @@ function reparar(n: JsonNodo): JsonNodo | null {
       return { ...n, content: bloques.length ? bloques : [{ type: NODOS.parrafo }] };
     }
     case NODOS.desplegable: {
-      // El primer hijo es el renglón que se ve plegado (un párrafo); después, cualquier bloque.
-      const bloques = hijos.filter((h) => BLOQUES_DE_PRIMER_NIVEL.has(h.type) && h.type !== NODOS.desplegable);
+      // El primer hijo es el renglón que se ve plegado (un párrafo); después, cualquier bloque, también otro
+      // desplegable (Notion los anida y BlockNote también: tirarlo perdía lo escrito; la profundidad tiene su tope).
+      const bloques = hijos.filter((h) => BLOQUES_DE_PRIMER_NIVEL.has(h.type));
       if (!bloques.length || bloques[0].type !== NODOS.parrafo) bloques.unshift({ type: NODOS.parrafo });
       return { ...n, content: bloques };
     }

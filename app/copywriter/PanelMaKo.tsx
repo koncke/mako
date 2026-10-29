@@ -23,8 +23,7 @@
 //     el documento apenas se lo pidió.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import type { Editor } from '@tiptap/react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -43,7 +42,7 @@ import { escondida } from '@/lib/copywriter/arbol';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { aplicarTodo, cuadrosDeConstruccion, sanearOperaciones, type Descartada } from '@/lib/copywriter/operaciones';
 import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type Referencia } from '@/lib/copywriter/referencias-reglas';
-import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc } from './editor/propuesta';
+import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
 import { pedirCitables } from './cliente';
 import { tomarPedido } from './pedido-guardado';
@@ -77,9 +76,11 @@ let ultimoId = 0;
 const nuevoId = () => ++ultimoId;
 
 /** Lo que se ofrece para empezar: en «Discutir», PREGUNTAS; en «Editar», PEDIDOS (los del encargo de Martín). */
+// Las de «Editar» son las de Notion AI sobre una página («Mejorar la escritura», «Acortar», «Alargar», «Cambiar el tono»,
+// «Continuar escribiendo»), más las de la casa (la captura de Martín del chat del Web Generator, 29/10/2026).
 const SUGERENCIAS: Readonly<Record<'discutir' | 'editar', readonly string[]>> = {
-  discutir: ['¿Qué le falta a este guion para vender más?', '¿El gancho frena el scroll?', '¿El CTA es claro?'],
-  editar: ['Escribe el guion completo', 'Cambia el gancho', 'Haz 3 variantes del CTA'],
+  discutir: ['¿Qué le falta para vender más?', '¿El gancho frena el scroll?', 'Resúmelo en 3 líneas'],
+  editar: ['Mejorar la escritura', 'Acortar', 'Alargar', 'Cambiar el tono', 'Continuar escribiendo', 'Agregar una sección'],
 };
 
 /** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
@@ -88,11 +89,12 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
-  editor: Editor | null;
+  /** El documento vivo de la página abierta (BlockNote, por ./editor/propuesta.ts): MaKo lee y escribe por acá. */
+  editor: DocVivo | null;
   /** El título y las propiedades de AHORA (EditorGuion los cambia antes de guardarlos). */
   leerVivo: () => GuionVivo | null;
   /** Lo que el chat cambia de la página al aceptar (el título y las propiedades). */
@@ -102,6 +104,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   /** Una propuesta abierta: EditorGuion no se edita ni se guarda. */
   onPausa: (pausa: boolean) => void;
   avisar: (t: string) => void;
+  /**
+   * «Preguntar a MaKo» de la página (la barra de la selección y el «/»): lo seleccionado entra como CITA en la caja y
+   * el selector pasa a «Editar» («mejora este párrafo» habla de ESO). Sin selección, sólo lleva el cursor a la caja.
+   */
+  citarRef?: MutableRefObject<((seleccion?: string) => void) | null>;
 }) {
   const id = guion?.pagina.id ?? null;
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
@@ -183,7 +190,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const charla = () => vivo.current.mensajes.slice(-8).map((m) => ({ de: m.de, texto: m.texto }));
   const guionVivo = () => {
     const v = vivo.current.leerVivo();
-    return { titulo: v?.titulo ?? '', props: v?.props, contenido: vivo.current.editor?.getJSON() as JsonNodo };
+    return { titulo: v?.titulo ?? '', props: v?.props, contenido: vivo.current.editor?.leer() as JsonNodo };
   };
   // `Record` y no `{ noLeidos?: unknown }`: un tipo con todo opcional es «débil», y TS no deja pasar la respuesta (que no lo
   // nombra) aunque tenga índice (TS2559, lo vio el tsc acotado del 28/10).
@@ -224,7 +231,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     corte.current = ac;
     const r = await pedirIA({ accion: 'editar', instruccion, guion: guionVivo(), charla: charla(), referencias: citadas }, archivos, ac);
     if (corte.current === ac) corte.current = null;
-    if (vivo.current.id !== idG || vivo.current.editor !== ed || ed.isDestroyed) { setCorriendo(false); return true; }
+    if (vivo.current.id !== idG || vivo.current.editor !== ed || !ed.vivo()) { setCorriendo(false); return true; }
     if (!r.ok) {
       setCorriendo(false);
       const mako: Mensaje = { id: nuevoId(), de: 'mako', texto: r.error, error: true };
@@ -233,7 +240,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       return true;
     }
     // Otra vez contra lo de AHORA (la persona pudo escribir mientras MaKo pensaba): un id que ya no está se descarta.
-    const antes = ed.getJSON() as JsonNodo;
+    const antes = ed.leer();
     const cat = vivo.current.catalogos;
     const s = sanearOperaciones(r.operaciones, antes, { angulos: new Set(cat.angulos.map((a) => a.id)), estructuras: new Set(cat.estructuras.map((e) => e.id)) });
     const res = aplicarTodo(antes, s.ops);
@@ -262,7 +269,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     if (!ok) {
       descartarEnDoc(ed, antes);
       onPausa(false);
-      cambiarMensaje(mako.id, { estado: 'descartada', texto: `${respuesta}\n\n(No se pudo poner en el guion: queda como estaba.)` });
+      cambiarMensaje(mako.id, { estado: 'descartada', texto: `${respuesta}\n\n(No se pudo poner en la página: queda como estaba.)` });
       return true;
     }
     cambiarMensaje(mako.id, { estado: 'pendiente' });
@@ -273,7 +280,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const aceptar = (m: Extract<Mensaje, { de: 'mako' }>) => {
     const ed = vivo.current.editor;
     if (!m.propuesta || !ed) return;
-    if (!aceptarEnDoc(ed, m.propuesta.antes, m.propuesta.final)) { avisar('No se pudo poner en el guion'); return; }
+    if (!aceptarEnDoc(ed, m.propuesta.antes, m.propuesta.final)) { avisar('No se pudo poner en la página'); return; }
     const api = vivo.current.leerApi();
     if (m.propuesta.titulo) api?.cambiarTitulo(m.propuesta.titulo);
     if (Object.keys(m.propuesta.props).length) api?.cambiarProps(m.propuesta.props);
@@ -307,8 +314,18 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     if (!p || !editor || !id || corriendo || appEscritorio.bloqueada) return;
     pedidoInicial.current = null;
     elegirIntencion('editar');
-    void pedirEdicion(`Escribe el guion: ${p}`);
+    void pedirEdicion(`Escribe esta página: ${p}`);
   }, [editor, id, corriendo, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!citarRef) return;
+    citarRef.current = (seleccion) => {
+      const t = (seleccion ?? '').replace(/\s+/g, ' ').trim();
+      if (t) { setCita({ de: 'La página', texto: t, id: null }); elegirIntencion('editar'); }
+      window.setTimeout(() => campo.current?.focus(), 0);
+    };
+    return () => { citarRef.current = null; };
+  }, [citarRef, campo, elegirIntencion]);
 
   // La nota de voz sale en el acto y, ya en texto, va como lo escrito.
   const nota = useNotaEnElActo({ clave: `copywriter:${id ?? 'nada'}`, puede, mandar: (t) => { void pedir(t); } });
@@ -381,14 +398,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         <div className="nt-propuesta-tarjeta" data-estado={m.estado}>
           {m.estado === 'construyendo' && (
             <div className="nt-propuesta-fila">
-              <span className="nt-mako-estado">Escribiendo en el guion…</span>
+              <span className="nt-mako-estado">Escribiendo en la página…</span>
               <button type="button" className="nt-boton-texto" onClick={() => { saltear.current = true; }}>Saltear</button>
             </div>
           )}
           {m.estado === 'pendiente' && (
             <>
               <div className="nt-mako-estado">
-                {p.nuevos.length ? `${cuantos(p.nuevos.length)} nuevos, marcados en el guion.` : 'Cambios marcados en el guion.'}
+                {p.nuevos.length ? `${cuantos(p.nuevos.length)} nuevos, marcados en la página.` : 'Cambios marcados en la página.'}
                 {p.titulo ? ` Título: «${p.titulo}».` : ''}
               </div>
               {p.avisos.map((a) => <div key={a} className="nt-propuesta-aviso">{a}</div>)}
@@ -400,8 +417,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               </div>
             </>
           )}
-          {m.estado === 'aceptada' && <div className="nt-mako-estado">Aceptado. Ctrl+Z en el guion lo deshace.</div>}
-          {m.estado === 'descartada' && <div className="nt-mako-estado">Descartado: el guion quedó como estaba.</div>}
+          {m.estado === 'aceptada' && <div className="nt-mako-estado">Aceptado. Ctrl+Z en la página lo deshace.</div>}
+          {m.estado === 'descartada' && <div className="nt-mako-estado">Descartado: la página quedó como estaba.</div>}
         </div>
       ),
     };
@@ -437,10 +454,10 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         {mensajes.length === 0 && (
           <>
             <div className="nt-mako-bienvenida">
-              {!id ? 'Elige un guion, o escribe en la caja grande cuál quieres crear.'
-                : intencion === 'discutir' ? 'Pregúntame lo que quieras de este guion: te digo qué cambiaría, sin tocar nada.'
-                  : 'Pídeme que escriba o cambie el guion: lo escribo aquí al lado y tú decides si queda.'}
-              {id && ' Con @ citas otro guion, la oferta o un archivo.'}
+              {!id ? 'Elige una página, o crea una nueva con «Nueva».'
+                : intencion === 'discutir' ? 'Pregúntame lo que quieras de esta página: te digo qué cambiaría, sin tocar nada.'
+                  : 'Pídeme que escriba o edite esta página: lo escribo aquí al lado y tú decides si queda.'}
+              {id && ' Con @ citas otra página, la oferta o un archivo.'}
             </div>
             {id && (
               <div className="nt-mako-pildoras">

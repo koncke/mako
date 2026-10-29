@@ -417,22 +417,15 @@ export const FAMILIAS: NavFamilia[] = [
             { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
           ],
         },
+        // Copywriting ES el Copywriter desde el 29/10/2026 (Martín: «quiero que sea una réplica de Notion… con la barra lateral
+        // de MaKo… y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING»): UNA pantalla, sin
+        // `secciones`, con la key de su pantalla ('copywriter': la piden la página, el teléfono y la API). Ads Writer, Stories y
+        // YouTube Writer dejan la barra; sus keys siguen en SIN_FILA (sus rutas, la API y las capas las piden). El método de
+        // redacción y la biblioteca de guiones son herramientas del super admin y siguen en su menú (ADMIN_NAV).
+        // docs/diseno-copywriter.md, D11.
         {
-          key: 'copywriting', label: 'Copywriting', href: '/ads-writer', icon: 'escribir',
+          key: 'copywriter', label: 'Copywriting', href: '/copywriter', icon: 'escribir',
           match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p) || starts('/admin/guiones')(p),
-          secciones: [
-            // El Copywriter (28/10/2026, docs/diseno-copywriter.md): mila.gg + Notion, un documento por guion con MaKo al costado.
-            // Sólo el super admin hasta que Martín lo valide: `adminOnly` acá y la PUERTA en app/copywriter/acceso.ts.
-            { key: 'copywriter', adminOnly: true, label: 'Copywriter', href: '/copywriter', icon: 'escribir', match: starts('/copywriter') },
-            { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
-            // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: su propio código ya declara /content-machine como
-            // destino. Cuando aterrice, esto es cambiar el href.
-            { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-            { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
-            { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
-            HERRAMIENTAS.copywriting,
-            HERRAMIENTAS.guiones,
-          ],
         },
         {
           // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen… una
@@ -669,6 +662,12 @@ export const SIN_FILA: NavItem[] = [
   { key: 'cs-comunidad', label: 'Community', href: '/classroom/community', icon: 'comunidad', match: (p) => starts('/classroom/community')(p) || starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
   { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
+  // Las que eran secciones de Copywriting hasta el 29/10/2026 (ver la fila de Copywriting en FAMILIAS): sin fila, con su key
+  // viva. El Ads Writer sigue andando por su ruta (la matriz, «Analizar guion» y los links de MaKo); Stories y YouTube
+  // Writer redirigen al Copywriter. La API (`gating.tab: 'ads-writer'`) y las capas las siguen pidiendo.
+  { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
+  { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
+  { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', match: starts('/youtube-writer') },
 ];
 
 // ⚠️ Sin las herramientas del super admin aunque cuelguen como secciones de una tab: son de ADMIN_NAV, como antes del

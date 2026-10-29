@@ -1,3 +1,44 @@
+# Relevo — chat «Copywriter = Notion» (cuenta claude3, 29/10/2026)
+
+Rama `copywriter-notion-2910`, worktree `C:/dev/wt-copywriter-notion`. **Sale de origin/main (7f36fa9c6) con
+`copywriter-2810` MERGEADA adentro** (la tanda del 28/10, que estaba en la fila de verificación del Cerebro como
+`7eef753da`/`e003e8994`): esta rama la reemplaza. Diseño: [docs/diseno-copywriter.md](../diseno-copywriter.md), D11–D14.
+Cosecha: [hallazgos-copywriter.md](../hallazgos-copywriter.md). **No pusheo: el Cerebro verifica y sube.**
+
+## Lo pedido (Martín, 29/10, por el Cerebro)
+
+«quiero que trabajes en "Copywriter", quiero que sea una réplica de Notion, busca inspiraciones de la web o un repo que
+sea copia, y replícalo. Quiero que tenga la barra lateral de MaKo para que se pueda pedir cosas por allí y NO quiero otras
+tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING».
+
+## Lo hecho
+
+- **El editor es BlockNote 0.56.0** (MPL-2.0 el núcleo; los XL, GPL, no se instalan): bloques, «/», asa ⋮⋮ para arrastrar,
+  barra de la selección con «Preguntar a MaKo», listas, desplegables, tablas, «Texto destacado». Lo guardado NO cambió
+  (conversor `lib/copywriter/notion-bloques.ts`). D11.
+- **«Nueva» → «¿Qué vas a crear hoy?»** con 13 templates (anuncio, copy de Meta, Reel ← el del Editor, stories,
+  carrusel, email, 5 VSL de lib/vsl-estructuras.ts, YouTube, en blanco), escritorio y teléfono. Tipos nuevos: vsl, email,
+  post, pagina. D12.
+- **Sin tabs internas ni onboarding:** nav.ts (Copywriting → /copywriter, key `copywriter`, sin secciones; ads-writer,
+  stories, youtube-writer a SIN_FILA), lib/movil-rutas.ts (Copywriting → /m/copywriter), /stories redirige. **La puerta se
+  abrió a todos** (`veCopywriter`, `veCopywriterEnApi`). D13.
+- **API de MaKo:** `listar_plantillas_copywriter`, `plantillaId` al crear, `editar_documento_copywriter` (MaKo escribe en
+  la página con IA). docs/api-mako.md y el snapshot regenerados. D13.
+- **La mudanza:** la primera apertura copia los guiones del Ads Writer y el historial de Reels a páginas, una vez por
+  negocio (lib/copywriter/mudanza.ts). D14.
+- **Capturas** (maqueta con los componentes reales, Chrome sin ventana): C:/dev/revisiones/copywriter-notion-2910/.
+
+## Lo que falta verificar / lo que espera
+
+- **El shell único de Create** (`app/_crear/PantallaCrear.tsx` del chat «Create: un solo diseño») estaba SIN commitear: el
+  Copywriter todavía usa su armazón (MaKo · páginas · página). Le pedí a ese chat el sha para montarlo; también que no
+  toque la fila de Copywriting en nav.ts (ya está acá): **conflicto esperable** en el bloque de Create de nav.ts al juntar
+  las dos ramas (se resuelve a mano: las dos filas nuevas).
+- La mudanza ESCRIBE en producción la primera vez que cada negocio abre la tab (copias, no toca lo original).
+- `/ads-writer` sigue andando por link (la matriz, «Analizar guion»), sin fila. Qué hacer con eso: Martín.
+
+---
+
 # Relevo — chat «Copywriter» (cuenta claude4, 28-29/10/2026)
 
 Rama `copywriter-2810`, worktree `C:/dev/wt-copywriter-2810`. Diseño: [docs/diseno-copywriter.md](../diseno-copywriter.md).

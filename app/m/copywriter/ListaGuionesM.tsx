@@ -1,11 +1,11 @@
 'use client';
 
 // =============================================================================
-// ListaGuionesM — los guiones en el teléfono (el árbol de escritorio en una lista) y «Nuevo guion»
+// ListaGuionesM — las páginas del Copywriter en el teléfono (el árbol de escritorio en una lista) y «Nueva»
 // =============================================================================
 // El árbol de escritorio (app/copywriter/Arbol.tsx) en el orden en que se dibuja allá: cada página y, debajo, las suyas
-// (la segunda línea dice de cuál cuelgan). «Nuevo guion» abre la hoja con los cuatro tipos y crea el guion con la
-// estructura de la biblioteca, igual que escritorio (`estructuraPorDefecto`).
+// (la segunda línea dice de cuál cuelgan). «Nueva» abre la hoja «¿Qué vas a crear hoy?» con los MISMOS templates de
+// escritorio (lib/copywriter/plantillas.ts) y crea la página con el cuerpo del template.
 // =============================================================================
 
 import { useState } from 'react';
@@ -13,9 +13,9 @@ import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { FilaM, ListaM, PieFijoM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { enOrdenDeArbol } from '@/lib/copywriter/arbol';
-import { INFO_TIPO, TIPOS_GUION, propsNuevas, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
-import { docDeEstructura } from '@/lib/copywriter/doc';
-import { estructuraPorDefecto, type CatalogosCopy } from '@/lib/copywriter/catalogos';
+import { INFO_TIPO, propsNuevas, type PaginaCopy } from '@/lib/copywriter/tipos';
+import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
+import { plantillasDe, type Plantilla } from '@/lib/copywriter/plantillas';
 import { pedirCrear } from '@/app/copywriter/cliente';
 
 export function ListaGuionesM({ paginas, catalogos }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy }) {
@@ -25,11 +25,11 @@ export function ListaGuionesM({ paginas, catalogos }: { paginas: PaginaCopy[]; c
   const [creando, setCreando] = useState(false);
   const filas = enOrdenDeArbol(paginas);
 
-  const crear = async (tipo: TipoGuion) => {
+  const plantillas = plantillasDe(catalogos);
+  const crear = async (pl: Plantilla) => {
     if (creando) return;
     setCreando(true);
-    const e = estructuraPorDefecto(catalogos, tipo);
-    const r = await pedirCrear({ tipo, props: propsNuevas(tipo, e?.id ?? null), ...(e ? { contenido: docDeEstructura(e.etiquetas) } : {}) });
+    const r = await pedirCrear({ tipo: pl.tipo, props: propsNuevas(pl.tipo, pl.estructura), contenido: pl.contenido() });
     setCreando(false);
     if (!r.ok) { toast(`No se pudo crear: ${r.error}`); return; }
     router.push(`/m/copywriter/${r.pagina.id}`);
@@ -38,9 +38,9 @@ export function ListaGuionesM({ paginas, catalogos }: { paginas: PaginaCopy[]; c
   return (
     <>
       {filas.length === 0
-        ? <VacioM frase="Todavía no hay guiones." accion={{ rotulo: 'Crear un guion', onClick: () => setHoja(true) }} />
+        ? <VacioM frase="Todavía no hay páginas." accion={{ rotulo: 'Nueva', onClick: () => setHoja(true) }} />
         : (
-          <SeccionM titulo="Guiones">
+          <SeccionM titulo="Páginas">
             <ListaM>
               {filas.map(({ p, padre }) => (
                 <FilaM key={p.id} icono="escribir" titulo={p.titulo} href={`/m/copywriter/${p.id}`}
@@ -50,12 +50,12 @@ export function ListaGuionesM({ paginas, catalogos }: { paginas: PaginaCopy[]; c
           </SeccionM>
         )}
       <PieFijoM>
-        <Button variant="primary" size="lg" full onClick={() => setHoja(true)} disabled={creando}>Nuevo guion</Button>
+        <Button variant="primary" size="lg" full onClick={() => setHoja(true)} disabled={creando}>Nueva</Button>
       </PieFijoM>
-      <SheetM abierto={hoja} onCerrar={() => setHoja(false)} titulo="¿Qué guion?">
+      <SheetM abierto={hoja} onCerrar={() => setHoja(false)} titulo="¿Qué vas a crear hoy?">
         <ListaM>
-          {TIPOS_GUION.map((t) => (
-            <FilaM key={t} icono="escribir" titulo={INFO_TIPO[t].label} segunda={INFO_TIPO[t].uno} onClick={() => { setHoja(false); void crear(t); }} deshabilitada={creando} />
+          {plantillas.map((pl) => (
+            <FilaM key={pl.id} icono="escribir" titulo={`${pl.emoji} ${pl.nombre}`} segunda={pl.descripcion} onClick={() => { setHoja(false); void crear(pl); }} deshabilitada={creando} />
           ))}
         </ListaM>
       </SheetM>

@@ -114,53 +114,46 @@
 .nt-prop-vacio { color: var(--nt-suave); }
 .nt-separador-props { height: 1px; margin: 12px 0 8px; background: var(--nt-linea); }
 
-/* El cuerpo (ProseMirror). Los bloques respiran como en Notion: 3 px arriba y abajo, 2 px a los lados. */
-.nt-cuerpo .ProseMirror { outline: none; font-size: 16px; line-height: 1.5; caret-color: var(--nt-texto); white-space: pre-wrap; word-break: break-word; }
-.nt-cuerpo .ProseMirror > * { margin: 2px 0; padding: 3px 2px; }
-.nt-cuerpo .ProseMirror p { min-height: 1.5em; }
-.nt-cuerpo .ProseMirror h1, .nt-cuerpo .ProseMirror h2, .nt-cuerpo .ProseMirror h3 { font-weight: 600; line-height: 1.3; }
-.nt-cuerpo .ProseMirror h1 { margin-top: 1.4em; font-size: 1.875em; }
-.nt-cuerpo .ProseMirror h2 { margin-top: 1.1em; font-size: 1.5em; }
-.nt-cuerpo .ProseMirror h3 { margin-top: .8em; font-size: 1.25em; }
-.nt-cuerpo .ProseMirror h2[data-seccion]::before { content: attr(data-seccion); display: block; margin-bottom: 2px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--nt-suave); }
-.nt-cuerpo .ProseMirror ul, .nt-cuerpo .ProseMirror ol { padding-left: 1.7em; }
-.nt-cuerpo .ProseMirror li > p { margin: 0; }
-.nt-cuerpo .ProseMirror ul[data-type="taskList"] { padding-left: 2px; list-style: none; }
-.nt-cuerpo .ProseMirror ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
-.nt-cuerpo .ProseMirror ul[data-type="taskList"] li > label { flex: none; margin-top: 4px; }
-.nt-cuerpo .ProseMirror ul[data-type="taskList"] li > label input { width: 16px; height: 16px; accent-color: var(--nt-azul); cursor: pointer; }
-.nt-cuerpo .ProseMirror ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
-.nt-cuerpo .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--nt-suave); text-decoration: line-through; }
-.nt-cuerpo .ProseMirror blockquote { padding-left: 14px; border-left: 3px solid currentColor; font-size: 1.2em; }
-.nt-cuerpo .ProseMirror hr { height: 1px; margin: 12px 0; padding: 0; border: 0; background: var(--nt-linea); }
-.nt-cuerpo .ProseMirror hr.ProseMirror-selectednode { outline: 2px solid var(--nt-azul-fondo); }
-.nt-cuerpo .ProseMirror a { color: inherit; text-decoration: underline; text-decoration-color: var(--nt-linea-fuerte); }
-.nt-cuerpo .ProseMirror code { padding: .2em .4em; border-radius: 4px; background: var(--nt-gris); color: var(--bad); font-size: 85%; }
-.nt-cuerpo .ProseMirror table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.nt-cuerpo .ProseMirror td, .nt-cuerpo .ProseMirror th { min-width: 80px; padding: 6px 8px; border: 1px solid var(--nt-linea); vertical-align: top; text-align: left; }
-.nt-cuerpo .ProseMirror th { background: var(--nt-gris); font-weight: 600; }
-.nt-cuerpo .ProseMirror td > p, .nt-cuerpo .ProseMirror th > p { margin: 0; }
-.nt-cuerpo .ProseMirror .selectedCell { background: var(--nt-azul-fondo); }
-.nt-cuerpo .ProseMirror .is-empty::before { content: attr(data-placeholder); float: left; height: 0; color: var(--nt-suave); opacity: .7; pointer-events: none; }
-.nt-destacado { display: flex; gap: 10px; padding: 16px 16px 16px 12px !important; border-radius: 4px; background: var(--nt-gris); }
-.nt-destacado-emoji { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; line-height: 24px; cursor: pointer; }
-.nt-destacado-emoji:hover { background: var(--nt-hover); }
-.nt-destacado-cuerpo { flex: 1; min-width: 0; }
-.nt-destacado-cuerpo > p { margin: 0; }
-.nt-desplegable { display: flex; gap: 2px; }
-.nt-desplegable-flecha { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--nt-texto); font-size: 12px; cursor: pointer; transition: transform .12s ease; }
-.nt-desplegable-flecha:hover { background: var(--nt-hover); }
-.nt-desplegable[data-abierto="true"] > .nt-desplegable-flecha { transform: rotate(90deg); }
-.nt-desplegable-cuerpo { flex: 1; min-width: 0; }
-.nt-desplegable-cuerpo > * { margin: 0; padding: 1px 0; }
-.nt-desplegable[data-abierto="false"] > .nt-desplegable-cuerpo > :not(:first-child) { display: none; }
+/* El cuerpo: BlockNote (./editor/CuerpoNotion.tsx) con las MEDIDAS de Notion (16 px, 1,5 de interlínea, los
+   encabezados 1,875 / 1,5 / 1,25 em, 3 px arriba y abajo de cada bloque) y los colores de la casa (el tema apunta a los
+   tokens). El margen izquierdo es el del asa: BlockNote la dibuja ahí (el «+» y el ⋮⋮), como Notion. */
+.nt-bn { margin-left: -50px; }
+.nt-bn .bn-container, .nt-bn .bn-editor { background: transparent; }
+.nt-bn .bn-editor { padding-inline: 50px 0; font-family: var(--nt-letra); font-size: 16px; caret-color: var(--nt-texto); }
+.nt-bn .bn-default-styles { font-family: var(--nt-letra); }
+.nt-bn .bn-block-outer { line-height: 1.5; }
+.nt-bn .bn-block-content { padding: 3px 2px; }
+.nt-bn [data-content-type="heading"] { --level: 1.875em; padding-top: 1.1em; }
+.nt-bn [data-content-type="heading"][data-level="2"] { --level: 1.5em; padding-top: .9em; }
+.nt-bn [data-content-type="heading"][data-level="3"] { --level: 1.25em; padding-top: .6em; }
+.nt-bn .bn-block-outer:not([data-prev-type]) > .bn-block > .bn-block-content[data-content-type="heading"] { font-weight: 600; line-height: 1.3; }
+.nt-bn [data-content-type="quote"] blockquote { color: inherit; border-left: 3px solid currentColor; padding-left: 14px; font-size: 1.2em; }
+.nt-bn [data-content-type="divider"] hr { border-top-color: var(--nt-linea); }
+.nt-bn .bn-inline-content a { color: inherit; text-decoration: underline; text-decoration-color: var(--nt-linea-fuerte); }
+.nt-bn .bn-inline-content code { padding: .2em .4em; border-radius: 4px; background: var(--nt-gris); color: var(--bad); font-size: 85%; }
+.nt-bn [data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: var(--nt-suave); }
+.nt-bn [data-content-type="checkListItem"] input { accent-color: var(--nt-azul); }
+.nt-bn .bn-editor [data-content-type="table"] th, .nt-bn .bn-editor [data-content-type="table"] td { border-color: var(--nt-linea); padding: 6px 8px; }
+.nt-bn .bn-editor [data-content-type="table"] th { background: var(--nt-gris); font-weight: 600; }
+.nt-bn .bn-block-content:has(.ProseMirror-trailingBreak:only-child)::after { color: var(--nt-suave); font-style: normal; }
+.nt-bn .bn-side-menu { color: var(--nt-suave); }
+.nt-bn-icono { display: inline-flex; align-items: center; justify-content: center; width: 18px; font-size: 14px; font-weight: 600; }
+/* El menú «/» de Notion: un cuadrito por bloque y su descripción gris. */
+.bn-suggestion-menu .bn-mt-suggestion-menu-item-section[data-position="left"] { border: 1px solid var(--border); border-radius: 4px; padding: 6px; background: var(--surface); color: var(--ink); }
+/* El atajo («#», «-», «[]») en gris, como Notion (BlockNote lo pinta con los colores del tooltip). */
+.bn-suggestion-menu .bn-mt-suggestion-menu-item .mantine-Badge-root { background: transparent; color: var(--faint); font-weight: 500; }
+.bn-suggestion-menu .bn-mt-suggestion-menu-item-subtitle { color: var(--faint); }
+.nt-bn-mako { color: var(--primary); font-weight: 500; white-space: nowrap; }
 
-/* El asa del margen (+ y ⋮⋮), a la izquierda del bloque. */
-.nt-asa { position: absolute; display: flex; align-items: center; gap: 0; z-index: 3; transition: opacity .1s; }
-.nt-asa-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--nt-suave); font-size: 16px; line-height: 1; cursor: pointer; }
-.nt-asa-btn:hover, .nt-asa-btn[aria-expanded="true"] { background: var(--nt-hover); color: var(--nt-tenue); }
-.nt-asa-arrastre { width: 18px; cursor: grab; letter-spacing: -2px; }
-.nt-asa-arrastre:active { cursor: grabbing; }
+/* El «Texto destacado» (callout de Notion): fondo gris, el emoji a la izquierda; tocarlo abre los íconos. */
+.nt-destacado { position: relative; display: flex; gap: 10px; width: 100%; padding: 14px 16px 14px 12px; border-radius: 4px; background: var(--nt-gris); }
+.nt-destacado-lado { position: relative; flex: none; }
+.nt-destacado-emoji { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.nt-destacado-emoji:hover { background: var(--nt-hover); }
+.nt-destacado-texto { flex: 1; min-width: 0; }
+.nt-destacado-menu { position: absolute; top: 28px; left: 0; z-index: 30; display: grid; grid-template-columns: repeat(5, 32px); gap: 2px; width: auto; max-height: none; padding: 6px; }
+.nt-destacado-menu button { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; cursor: pointer; }
+.nt-destacado-menu button:hover { background: var(--nt-hover); }
 
 /* Los menús flotantes (el «/» y el del asa): la tarjeta de Notion. */
 .nt-menu { position: fixed; z-index: 60; width: 324px; max-height: min(40vh, 380px); overflow-y: auto; padding: 6px 0; border-radius: 10px; background: var(--nt-fondo); box-shadow: var(--nt-sombra); color: var(--nt-texto); font-size: 14px; }
@@ -183,7 +176,8 @@
 
 /* La propuesta de MaKo en el documento (Notion AI la marca hasta que se acepta): el fondo del azul de la casa, suave.
    Y en el chat, su tarjeta: Aceptar (el botón azul) · Descartar · Reintentar. */
-.nt-cuerpo .ProseMirror > .nt-propuesta { background: var(--nt-azul-fondo); border-radius: 4px; box-shadow: -3px 0 0 var(--nt-azul); transition: background .2s ease; }
+/* Las marcas de la propuesta en el cuerpo las pone CuerpoNotion por id de bloque (`--nt-propuesta`). */
+.nt-bn { --nt-propuesta: var(--nt-azul-fondo); }
 .nt-propuesta-tarjeta { display: grid; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--nt-linea); border-radius: 12px; background: var(--nt-fondo); }
 .nt-propuesta-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .nt-propuesta-aviso { font-size: 12.5px; color: var(--warn, var(--nt-tenue)); }
@@ -223,7 +217,7 @@
 .nt[data-movil] .nt-prop-nombre { width: 110px; }
 .nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
 .nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
-.nt[data-movil] .nt-cuerpo .ProseMirror input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
+.nt[data-movil] .nt-bn input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
 
 /* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
    alguien de afuera, el dueño lo ve en azul. */
@@ -244,3 +238,22 @@
 @media (prefers-reduced-motion: reduce) {
   .nt *, .nt *::before, .nt *::after { transition: none !important; animation: none !important; }
 }
+
+/* ── «Nueva»: «¿Qué vas a crear hoy?» y los templates (./Inicio.tsx). La galería de Notion: tarjetas con el ícono, el
+   nombre y una línea gris; una grilla que se acomoda al ancho (en el teléfono, una columna). ─────────────────────── */
+.nt-arbol-acciones { flex: none; padding: 0 4px 6px; }
+.nt-arbol-nuevo[data-principal] { color: var(--nt-texto); font-weight: 500; }
+.nt-galeria { width: min(880px, 100%); margin: 0 auto; padding: 56px clamp(16px, 5%, 48px) 30vh; box-sizing: border-box; display: grid; gap: 22px; }
+.nt-galeria .nt-inicio-titulo { text-align: left; }
+.nt-galeria-grupo { display: grid; gap: 10px; }
+.nt-galeria-titulo { margin: 0; font-size: 14px; font-weight: 600; color: var(--nt-tenue); }
+.nt-galeria-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.nt-plantilla { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px; align-items: center; padding: 12px 14px; border: 1px solid var(--nt-linea); border-radius: 10px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; text-align: left; cursor: pointer; transition: background .12s, border-color .12s; }
+.nt-plantilla:hover:not(:disabled) { background: var(--nt-hover); border-color: var(--nt-linea-fuerte); }
+.nt-plantilla:disabled { opacity: .6; cursor: default; }
+.nt-plantilla-emoji { grid-row: 1 / span 2; font-size: 26px; line-height: 1; }
+.nt-plantilla-nombre { font-size: 14px; font-weight: 600; }
+.nt-plantilla-desc { font-size: 12.5px; line-height: 1.4; color: var(--nt-suave); }
+.nt[data-movil] .nt-galeria { padding: 20px 16px 40vh; gap: 16px; }
+.nt[data-movil] .nt-galeria-grilla { grid-template-columns: 1fr; }
+.nt[data-movil] .nt-inicio-campo input { font-size: 16px; }

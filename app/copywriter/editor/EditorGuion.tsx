@@ -1,12 +1,13 @@
 'use client';
 
 // =============================================================================
-// EditorGuion — la página de un guion, copiada de Notion: ícono, título, propiedades y el cuerpo por bloques
+// EditorGuion — una página del Copywriter, copiada de Notion: ícono, título, propiedades y el cuerpo por bloques
 // =============================================================================
-// Diseño: docs/diseno-copywriter.md (D2, D3). De la página de Notion (notion.com/product/docs, la captura del editor):
-// arriba las migas y el estado del guardado; el ícono grande; el título enorme; las PROPIEDADES en renglones (nombre
-// gris a la izquierda, valor a la derecha): Tipo, Ángulo, Estructura y Duración; una línea; y el cuerpo, con el «/» y
-// el asa del margen.
+// Diseño: docs/diseno-copywriter.md (D2, D3, D11). De la página de Notion (notion.com/product/docs, la captura del
+// editor): arriba las migas y el estado del guardado; el ícono grande; el título enorme; las PROPIEDADES en renglones
+// (nombre gris a la izquierda, valor a la derecha): Tipo y, en los tipos con método (anuncios, reels, stories, YouTube,
+// VSL), Ángulo, Estructura y Duración; una línea; y el cuerpo. El cuerpo es BlockNote (./CuerpoNotion.tsx, 29/10/2026):
+// el «/», el asa ⋮⋮ para arrastrar, la barra de la selección y Tab para anidar, como Notion.
 //
 // ESTE COMPONENTE ES EL DUEÑO DEL DOCUMENTO ABIERTO. Las decisiones que no se ven, con el molde del Web Generator
 // (app/web-generator/editor/EditorLanding.tsx):
@@ -14,9 +15,9 @@
 //      otra pestaña guardó en el medio; la pantalla lo dice con «Recargar», nunca pisa. Los guardados van EN FILA (una
 //      promesa encadenada): dos en paralelo mandarían la misma versión y el segundo daría un conflicto falso. Respiro de
 //      1,2 s; al ocultarse la pestaña o al cerrar el guion se manda lo pendiente (con `keepalive` si entra).
-//   2. NO SE GUARDA LO QUE NO SE PUDO ABRIR: si el JSON no cumple el esquema, TipTap abre un documento VACÍO sin error y
-//      el autoguardado lo escribiría encima. Se valida con `schema.nodeFromJSON(...).check()` antes de dar el guion por
-//      abierto; si falla, queda de sólo lectura y lo dice.
+//   2. NO SE GUARDA LO QUE NO SE PUDO ABRIR: el documento guardado pasa a los bloques de BlockNote por un conversor que
+//      no tira texto (lib/copywriter/notion-bloques.ts, probado ida y vuelta); lo que el editor no conoce se abre como
+//      párrafo con su texto, nunca como un documento vacío que el autoguardado escribiría encima.
 //   3. EL TÍTULO Y EL ÍCONO SON DE LA PÁGINA (el árbol), no del documento: van por `onTitulo`/`onEmoji` al armazón, que
 //      los guarda en el índice. Las propiedades y el cuerpo, acá.
 //   4. CON UNA PROPUESTA DE MaKo ABIERTA (`pausa`), el autoguardado no escribe y el editor no se toca: lo que se ve es
@@ -28,27 +29,24 @@
 //      dueño la ve resaltada.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { INFO_TIPO, SIN_TITULO, TIPOS_GUION, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion } from '@/lib/copywriter/tipos';
+import { INFO_TIPO, SIN_TITULO, TIPOS_GUION, tieneMetodo, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion } from '@/lib/copywriter/tipos';
 import { docDeEstructura, sinTexto, textoDelDoc } from '@/lib/copywriter/doc';
 import { rutaDe } from '@/lib/copywriter/arbol';
 import { estructurasDelTipo, type CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { quienYCuando } from '@/lib/copywriter/editado';
 import { pedirGuardar, type GuardarGuion } from '../cliente';
-import { extensionesCopy } from './extensiones';
-import { catalogoCopy } from './bloques';
-import { MenuBloques } from './MenuBloques';
-import { Asa } from './Asa';
 import { useCerrarAfuera } from './cerrar-afuera';
+import { CuerpoNotion } from './CuerpoNotion';
+import type { DocVivo } from './propuesta';
 
 type EstadoGuardado = 'guardado' | 'pendiente' | 'guardando' | 'error' | 'conflicto' | 'roto';
 
 const RESPIRO_MS = 1_200;
 
 /** Los íconos que ofrece la página (Notion abre su selector entero; acá, los de un guion). */
-export const EMOJIS_PAGINA = ['📣', '🎬', '📱', '▶️', '✍️', '🔥', '🎯', '💡', '📌', '🧲', '🤝', '📖', '🎓', '🌉', '😩', '🚀'] as const;
+export const EMOJIS_PAGINA = ['📄', '📣', '🎬', '📱', '▶️', '🎥', '✉️', '📝', '✍️', '🔥', '🎯', '💡', '📌', '🧲', '🤝', '📖', '🎓', '🌉', '😩', '🚀'] as const;
 
 const TEXTO_ESTADO: Record<EstadoGuardado, string> = {
   guardado: 'Guardado',
@@ -71,10 +69,10 @@ export type PropsEditorGuion = {
   onEmoji: (emoji: string | null) => void;
   onAbrir: (id: string) => void;
   onPapelera: () => void;
-  /** El editor vivo, para el chat de MaKo (que escribe en él). */
-  onEditor?: (e: Editor | null) => void;
-  /** Llevar el foco a la caja de MaKo («Pedirle a MaKo» del «/»). */
-  onMako: () => void;
+  /** El documento vivo, para el chat de MaKo (que escribe en él). */
+  onEditor?: (e: DocVivo | null) => void;
+  /** «Pedirle a MaKo» del «/» (el foco a la caja) o «Preguntar a MaKo» con lo seleccionado. */
+  onMako: (seleccion?: string) => void;
   /** Una propuesta de MaKo abierta: no se guarda ni se edita (ver la cabecera). */
   pausa?: boolean;
   /** La barra de la izquierda, plegada: las migas ofrecen volver a abrirla. */
@@ -105,7 +103,8 @@ export function EditorGuion(p: PropsEditorGuion) {
   const [estado, setEstado] = useState<EstadoGuardado>('guardado');
   const [emojis, setEmojis] = useState(false);
   const [menuPagina, setMenuPagina] = useState(false);
-  const [scroll, setScroll] = useState<HTMLDivElement | null>(null);
+  const [doc, setDoc] = useState<DocVivo | null>(null);
+  const enfocarCuerpo = useRef<(() => void) | null>(null);
   const versionRef = useRef(guion.doc.version);
   const pendiente = useRef<{ contenido?: JsonNodo; props?: PropsGuion } | null>(null);
   const cola = useRef<Promise<void>>(Promise.resolve());
@@ -154,45 +153,27 @@ export function EditorGuion(p: PropsEditorGuion) {
     timer.current = window.setTimeout(() => { void guardarAhora(); }, RESPIRO_MS);
   }, [guardarAhora]);
 
-  const extensiones = useMemo(() => extensionesCopy(), []);
-  const editor = useEditor({
-    extensions: extensiones,
-    content: guion.doc.contenido,
-    immediatelyRender: false,
-    shouldRerenderOnTransaction: false,
-    editorProps: { attributes: { 'aria-label': 'El guion', spellcheck: 'true' } },
-    onCreate: ({ editor: e }) => {
-      // 2. NO SE GUARDA LO QUE NO SE PUDO ABRIR.
-      try { e.schema.nodeFromJSON(guion.doc.contenido).check(); } catch {
-        roto.current = true;
-        e.setEditable(false);
-        setEstado('roto');
-      }
-    },
-    onUpdate: ({ editor: e, transaction }) => {
-      if (!transaction.docChanged || pausaRef.current) return;
-      marcar({ contenido: e.getJSON() as JsonNodo });
-    },
-  });
+  // Lo que escribe la persona (lo que pone MaKo no pasa por acá: ./CuerpoNotion.tsx). En pausa no se marca para guardar.
+  const alCambiar = useCallback((d: JsonNodo) => {
+    if (pausaRef.current) return;
+    marcar({ contenido: d });
+  }, [marcar]);
 
-  // El editor vivo, para el chat.
-  useEffect(() => {
-    vivo.current.onEditor?.(editor ?? null);
-    return () => { vivo.current.onEditor?.(null); };
-  }, [editor]);
+  // El documento vivo, para el chat.
+  const alDoc = useCallback((d: DocVivo | null) => { setDoc(d); vivo.current.onEditor?.(d); }, []);
 
   // 4. La pausa de una propuesta: no se edita y se saca una foto. Al soltarla, si el cuerpo quedó distinto de la foto
   //    (se ACEPTÓ), se guarda; si quedó igual (se descartó), no hay nada que guardar. Y lo pendiente de antes, sale.
   const fotoPausa = useRef<string | null>(null);
   useEffect(() => {
-    if (!editor || roto.current) return;
-    editor.setEditable(!pausa);
-    if (pausa) { fotoPausa.current = JSON.stringify(editor.getJSON()); return; }
+    if (!doc || roto.current) return;
+    if (pausa) { fotoPausa.current = JSON.stringify(doc.leer()); return; }
     const foto = fotoPausa.current;
     fotoPausa.current = null;
-    if (foto != null && JSON.stringify(editor.getJSON()) !== foto) { marcar({ contenido: editor.getJSON() as JsonNodo }); return; }
+    const ahora = doc.leer();
+    if (foto != null && JSON.stringify(ahora) !== foto) { marcar({ contenido: ahora }); return; }
     if (pendiente.current) timer.current = window.setTimeout(() => { void guardarAhora(); }, RESPIRO_MS);
-  }, [pausa, editor, guardarAhora, marcar]);
+  }, [pausa, doc, guardarAhora, marcar]);
 
   // 1. Al ocultar la pestaña, al irse y al cerrar el guion: lo pendiente sale.
   useEffect(() => {
@@ -242,23 +223,21 @@ export function EditorGuion(p: PropsEditorGuion) {
 
   const { estructuras, propias } = estructurasDelTipo(catalogos, props.tipo);
   const estructura = catalogos.estructuras.find((e) => e.id === props.estructura) ?? null;
-  const catalogoMenu = useMemo(() => catalogoCopy(estructura?.etiquetas ?? [], { conMako: !compartido }), [estructura, compartido]);
 
   /** Elegir la estructura: si el cuerpo está vacío, arma sus secciones (un título por etiqueta). */
   const elegirEstructura = (idE: string) => {
     const e = catalogos.estructuras.find((x) => x.id === idE) ?? null;
     cambiarProps({ estructura: e?.id ?? null });
-    if (!e || !editor) return;
-    if (sinTexto(editor.getJSON() as JsonNodo)) {
-      editor.commands.setContent(docDeEstructura(e.etiquetas), { emitUpdate: true });
-      p.avisar(`Secciones de ${e.nombre}`);
+    if (!e || !doc) return;
+    if (sinTexto(doc.leer())) {
+      if (doc.poner(docDeEstructura(e.etiquetas), { historial: true })) { marcar({ contenido: doc.leer() }); p.avisar(`Secciones de ${e.nombre}`); }
     }
   };
 
   const copiarTexto = async () => {
     setMenuPagina(false);
-    if (!editor) return;
-    const t = [titulo.trim(), textoDelDoc(editor.getJSON() as JsonNodo)].filter(Boolean).join('\n\n');
+    if (!doc) return;
+    const t = [titulo.trim(), textoDelDoc(doc.leer())].filter(Boolean).join('\n\n');
     try { await navigator.clipboard.writeText(t); p.avisar('Texto copiado'); } catch { p.avisar('No se pudo copiar'); }
   };
 
@@ -309,7 +288,7 @@ export function EditorGuion(p: PropsEditorGuion) {
         </div>
       )}
 
-      <div className="nt-scroll" ref={setScroll}>
+      <div className="nt-scroll">
         {enError && (
           <div className="nt-aviso" role="alert">
             {estado === 'conflicto' && <>Este guion cambió en otra pestaña o lo editó alguien más. Para no pisar lo otro, <button type="button" className="nt-miga" onClick={() => window.location.reload()}>recarga la página</button>.</>}
@@ -340,7 +319,7 @@ export function EditorGuion(p: PropsEditorGuion) {
           </div>
           <textarea className="nt-titulo" rows={1} value={titulo} placeholder={SIN_TITULO} aria-label="Título del guion" maxLength={200}
             onChange={(e) => cambiarTitulo(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); editor?.commands.focus('start'); } }} />
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); enfocarCuerpo.current?.(); } }} />
 
           <div className="nt-props" aria-label="Propiedades">
             {compartido ? (
@@ -364,6 +343,8 @@ export function EditorGuion(p: PropsEditorGuion) {
                 </select>
               </span>
             </div>
+            {/* Ángulo, Estructura y Duración: sólo en los tipos con método (un email o una página en blanco no los tienen). */}
+            {tieneMetodo(props.tipo) && (<>
             <div className="nt-prop">
               <span className="nt-prop-nombre"><span aria-hidden>↗</span><span>Ángulo</span></span>
               <span className="nt-prop-valor">
@@ -392,6 +373,7 @@ export function EditorGuion(p: PropsEditorGuion) {
               </span>
             </div>
             </>)}
+            </>)}
             {editado && (
               <div className="nt-prop">
                 <span className="nt-prop-nombre"><span aria-hidden>✎</span><span>Última edición</span></span>
@@ -402,13 +384,11 @@ export function EditorGuion(p: PropsEditorGuion) {
           <div className="nt-separador-props" />
 
           <div className="nt-cuerpo">
-            {editor && <EditorContent editor={editor} />}
+            <CuerpoNotion inicial={guion.doc.contenido} editable={!pausa && estado !== 'conflicto' && estado !== 'roto'} etiquetas={estructura?.etiquetas ?? []}
+              conMako={!compartido} onCambio={alCambiar} onDoc={alDoc} onMako={(s) => vivo.current.onMako(s)} enfocarRef={enfocarCuerpo} movil={movil} />
           </div>
         </div>
-        {/* El asa vive en el contenedor que scrollea (su posición se mide contra él). */}
-        {editor && !movil && <Asa editor={editor} contenedor={scroll} />}
       </div>
-      {editor && <MenuBloques editor={editor} catalogo={catalogoMenu} alMako={p.onMako} />}
     </div>
   );
 }

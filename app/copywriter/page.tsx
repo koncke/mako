@@ -1,5 +1,5 @@
 // =============================================================================
-// /copywriter — el último guion tocado; sin ninguno, la caja grande de mila («¿Qué guion escribimos?»)
+// /copywriter — la última página tocada; sin ninguna (o con `?nueva`), «¿Qué vas a crear hoy?» y los templates
 // =============================================================================
 // Diseño: docs/diseno-copywriter.md (D1). La misma puerta que /copywriter/<id>. Redirige con un 307 de verdad: no hay
 // loading.tsx en la tab (un redirect de adentro de un Suspense va en el stream y queda en carrera con la hidratación:
@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { listar } from '@/lib/copywriter/server';
+import { mudarLoDeAntes } from '@/lib/copywriter/mudanza';
 import { masReciente } from '@/lib/copywriter/arbol';
 import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
@@ -23,12 +24,17 @@ export const revalidate = 0;
 export default async function CopywriterPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs([], { nav: 'copywriter' });
   await requireCopywriter();
-  // `?nuevo=<tipo>`: la caja grande con ese tipo elegido, aunque haya guiones (lo usan las rutas viejas que se mudaron
-  // acá: /youtube-writer, y «Abrir en Copywriter» de Stories y del Ads Writer). Nada se crea por abrir un link.
-  const nuevo = (await searchParams).nuevo;
+  // `?nueva` es «Nueva» de la barra de páginas: los templates, aunque haya páginas. `?nuevo=<tipo>` también (lo usan las
+  // rutas viejas que se mudaron acá: /youtube-writer, /stories y «Abrir en Copywriter»), con los templates de ese tipo
+  // primero. Nada se crea por abrir un link.
+  const sp = await searchParams;
+  const nuevo = sp.nuevo;
   const tipoInicial = esTipoGuion(nuevo) ? nuevo : null;
+  const enNueva = sp.nueva !== undefined || !!tipoInicial;
+  // La primera vez, lo que el negocio ya tenía (los guiones del Ads Writer, los de Reels) pasa a páginas (lib/copywriter/mudanza.ts).
+  await mudarLoDeAntes();
   const r = await listar();
-  const ultima = r.ok && !tipoInicial ? masReciente(r.paginas) : null;
+  const ultima = r.ok && !enNueva ? masReciente(r.paginas) : null;
   if (ultima) redirect(await rutaConWs(`/copywriter/${ultima.id}`));
   const [catalogos, ws] = await Promise.all([catalogosDelCopywriter(), getWorkspaceActual().catch(() => null)]);
   return (

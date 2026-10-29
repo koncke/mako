@@ -1,11 +1,12 @@
 'use client';
 
 // =============================================================================
-// Arbol — la barra de páginas de Notion, con los guiones del negocio
+// Arbol — la barra de páginas de Notion, con las páginas del Copywriter del negocio
 // =============================================================================
 // Copiado de la barra de Notion (help/writing-and-editing-basics: «Drag-and-drop also works in your sidebar to reorder
 // pages, nest pages inside pages»): la columna gris, un renglón de 30 px por página con su triángulo, su ícono y su
-// nombre; al pasar el cursor, «+» (una subpágina) y «⋯» (Renombrar · Mover a la Papelera); arrastrar un renglón lo
+// nombre; arriba «Nueva» (los templates, ./Inicio.tsx); al pasar el cursor, «+» (una subpágina en blanco, como
+// Notion) y «⋯» (Renombrar · Mover a la Papelera); arrastrar un renglón lo
 // reordena (sobre el borde de arriba o de abajo de otro) o lo anida (sobre el medio); «Papelera» al pie, con
 // «Restaurar»; y ««» pliega la columna entera. Lo que hace cada gesto con el índice es puro (lib/copywriter/arbol.ts)
 // y lo escribe el armazón.
@@ -14,8 +15,8 @@
 // toca el tamaño», «el navegador saca la FOTO al terminar tu handler»): la marca de «arrastrando» va en un setTimeout.
 // =============================================================================
 
-import { useMemo, useRef, useState, type CSSProperties, type DragEvent as EventoArrastre } from 'react';
-import { INFO_TIPO, TIPOS_GUION, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
+import { useMemo, useRef, useState, type DragEvent as EventoArrastre } from 'react';
+import { INFO_TIPO, type PaginaCopy } from '@/lib/copywriter/tipos';
 import { dePapelera, descendientes, hijasDe, rutaDe } from '@/lib/copywriter/arbol';
 import { useCerrarAfuera } from './editor/cerrar-afuera';
 
@@ -27,33 +28,21 @@ export type PropsArbol = {
   plegado: boolean;
   onPlegar: () => void;
   onAbrir: (id: string) => void;
-  onCrear: (tipo: TipoGuion, padre: string | null) => void;
+  /** «Nueva»: los templates. */
+  onNueva: () => void;
+  /** El «+» de una página: una subpágina en blanco adentro de ella. */
+  onSubpagina: (padre: string) => void;
   onRenombrar: (id: string, titulo: string) => void;
   onPapelera: (id: string) => void;
   onRestaurar: (id: string) => void;
   onMover: (id: string, padre: string | null, posicion: number) => void;
 };
 
-/** El menú «¿Qué guion?»: los cuatro tipos. */
-function MenuTipos({ onElegir, estilo }: { onElegir: (t: TipoGuion) => void; estilo: CSSProperties }) {
-  return (
-    <div className="nt-menu" data-chico="" role="menu" style={estilo} onMouseDown={(e) => e.preventDefault()}>
-      <div className="nt-menu-grupo">Nuevo guion</div>
-      {TIPOS_GUION.map((t) => (
-        <button key={t} type="button" role="menuitem" className="nt-menu-fila" onClick={() => onElegir(t)}>
-          <span className="nt-menu-cuadro" aria-hidden>{INFO_TIPO[t].emoji}</span>
-          <span className="nt-menu-textos"><span className="nt-menu-nombre">{INFO_TIPO[t].label}</span></span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function Arbol(p: PropsArbol) {
   const { paginas, abierta } = p;
   // Abiertas: las que contienen a la página abierta, más las que la persona abrió.
   const [abiertas, setAbiertas] = useState<Set<string>>(() => new Set(abierta ? rutaDe(paginas, abierta).map((x) => x.id) : []));
-  const [menu, setMenu] = useState<{ id: string | null; que: 'tipos' | 'pagina' } | null>(null);
+  const [menu, setMenu] = useState<{ id: string | null; que: 'pagina' } | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
   const [papelera, setPapelera] = useState(false);
   const [arrastrada, setArrastrada] = useState<string | null>(null);
@@ -126,14 +115,12 @@ export function Arbol(p: PropsArbol) {
           <span className="nt-fila-acciones" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="nt-boton-ico" aria-label={`Más opciones de ${pg.titulo}`} aria-expanded={menu?.id === pg.id && menu.que === 'pagina'}
               onClick={() => setMenu(menu?.id === pg.id && menu.que === 'pagina' ? null : { id: pg.id, que: 'pagina' })}>⋯</button>
-            <button type="button" className="nt-boton-ico" aria-label={`Añadir un guion adentro de ${pg.titulo}`} aria-expanded={menu?.id === pg.id && menu.que === 'tipos'}
-              onClick={() => setMenu(menu?.id === pg.id && menu.que === 'tipos' ? null : { id: pg.id, que: 'tipos' })}>+</button>
+            <button type="button" className="nt-boton-ico" aria-label={`Añadir una página adentro de ${pg.titulo}`} title="Añadir una página adentro"
+              onClick={() => { setMenu(null); setAbiertas((s) => new Set(s).add(pg.id)); p.onSubpagina(pg.id); }}>+</button>
           </span>
           {menu?.id === pg.id && (
             <div ref={refMenu} onClick={(e) => e.stopPropagation()}>
-              {menu.que === 'tipos'
-                ? <MenuTipos estilo={{ position: 'absolute', top: 30, right: 0 }} onElegir={(t) => { setMenu(null); setAbiertas((s) => new Set(s).add(pg.id)); p.onCrear(t, pg.id); }} />
-                : (
+              {(
                   <div className="nt-menu" data-chico="" role="menu" style={{ position: 'absolute', top: 30, right: 0 }}>
                     <button type="button" role="menuitem" className="nt-menu-fila" onClick={() => { setMenu(null); setRenombrando(pg.id); }}>
                       <span className="nt-menu-cuadro" aria-hidden>✎</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Renombrar</span></span>
@@ -159,16 +146,17 @@ export function Arbol(p: PropsArbol) {
   const raiz = hijasDe(paginas, null);
 
   return (
-    <nav className="nt-arbol" data-plegado={p.plegado ? '' : undefined} aria-label="Guiones">
+    <nav className="nt-arbol" data-plegado={p.plegado ? '' : undefined} aria-label="Páginas">
       <div className="nt-arbol-cab">
-        <span className="nt-arbol-titulo">Guiones</span>
-        <button type="button" className="nt-boton-ico" onClick={p.onPlegar} title="Cerrar la barra" aria-label="Cerrar la barra de guiones">«</button>
-        <div style={{ position: 'relative' }} ref={menu?.id === null ? refMenu : undefined}>
-          <button type="button" className="nt-boton-ico" onClick={() => setMenu(menu?.id === null ? null : { id: null, que: 'tipos' })} aria-expanded={menu?.id === null} aria-label="Nuevo guion" title="Nuevo guion">+</button>
-          {menu?.id === null && <MenuTipos estilo={{ position: 'absolute', top: 30, right: 0 }} onElegir={(t) => { setMenu(null); p.onCrear(t, null); }} />}
-        </div>
+        <span className="nt-arbol-titulo">Copywriter</span>
+        <button type="button" className="nt-boton-ico" onClick={p.onPlegar} title="Cerrar la barra" aria-label="Cerrar la barra de páginas">«</button>
       </div>
-      <div className="nt-arbol-lista" role="tree" aria-label="Tus guiones"
+      <div className="nt-arbol-acciones">
+        <button type="button" className="nt-arbol-nuevo" data-principal="" onClick={p.onNueva}>
+          <span aria-hidden>＋</span> Nueva
+        </button>
+      </div>
+      <div className="nt-arbol-lista" role="tree" aria-label="Tus páginas"
         onDragOver={(e) => { if (arrastrada) e.preventDefault(); }}
         onDrop={(e) => {
           // Soltado en el espacio vacío de abajo: al final de la raíz.
@@ -180,7 +168,7 @@ export function Arbol(p: PropsArbol) {
           p.onMover(id, null, Number.MAX_SAFE_INTEGER);
         }}>
         {raiz.map((pg) => renglon(pg, 0))}
-        {raiz.length === 0 && <div className="nt-arbol-seccion">Todavía no hay guiones</div>}
+        {raiz.length === 0 && <div className="nt-arbol-seccion">Todavía no hay páginas</div>}
       </div>
       <div className="nt-arbol-pie">
         <div style={{ position: 'relative' }} ref={refPapelera}>

@@ -10422,6 +10422,15 @@ Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/vid
 - **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
 Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
 
+# Un editor ofrece SÓLO lo que su formato guarda (29/10/2026)
+
+Una librería de editor (BlockNote en el Copywriter, TipTap en el Web Generator) trae más de lo que el documento de la casa
+sabe guardar: colores, alineación, imágenes, código, niveles de encabezado. Si el esquema del editor lo deja, la persona lo
+usa y desaparece al recargar, sin un error. **El esquema del editor es EXACTAMENTE el del formato guardado**; lo que el
+formato no anida sale a continuación, nunca se tira; y la ida y vuelta (guardado → editor → guardado) tiene su test de punto
+fijo (tests/copywriter-notion.test.ts). Cambiar de librería no cambia el formato guardado: se escribe un conversor
+(lib/copywriter/notion-bloques.ts). El porqué, en docs/hallazgos-copywriter.md.
+
 # Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
 
 `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts) aplica en el acto lo que un paso propone, y toda propuesta que no conoce

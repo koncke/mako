@@ -124,7 +124,9 @@ test('el editor con link guarda por el link y no ofrece MaKo', () => {
   assert.ok(catalogoCopy([]).some((b) => b.id === 'mako'), 'en la tab, sí');
   const e = leer('app/copywriter/editor/EditorGuion.tsx');
   assert.match(e, /const r = conLink\n\s+\? await conLink\.guardar\(/);
-  assert.match(e, /catalogoCopy\(estructura\?\.etiquetas \?\? \[\], \{ conMako: !compartido \}\)/);
+  // El cuerpo (BlockNote) arma el «/» con el catálogo, sin MaKo cuando es un link (CuerpoNotion: `catalogoCopy(p.etiquetas, { conMako: p.conMako })`).
+  assert.match(e, /conMako=\{!compartido\}/);
+  assert.match(leer('app/copywriter/editor/CuerpoNotion.tsx'), /catalogoCopy\(p\.etiquetas, \{ conMako: p\.conMako \}\)/);
   assert.match(e, /\{!compartido && \(\n\s+<button type="button" role="menuitem" className="nt-menu-fila" data-peligro=""/, 'sin la Papelera');
 });
 

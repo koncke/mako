@@ -1,39 +1,22 @@
 // =============================================================================
-// /stories — server wrapper: guards + onboarding de la tab + monta la app
+// /stories — DEPRECADA el 29/10/2026: lleva al Copywriter, a los templates de Story
 // =============================================================================
-// La page es el wrapper server que aplica el guard (requireRolWs con la capa) y
-// decide si la tab abre en su onboarding o en la vista normal. El trabajo pesado
-// vive en StoriesApp.tsx ('use client').
+// Martín (29/10/2026): Copywriting es UNA pantalla, el Copywriter («quiero que sea una réplica de Notion… NO quiero otras
+// tabs internas… ni nada de ONBOARDING»; «lo que no sirve se depreca»). La metodología de Stories (lib/ig-formatos.ts,
+// METODOLOGIA_STORY) ya vive en la estructura «story-dia» y en el template «Stories del día» (lib/copywriter/plantillas.ts),
+// y MaKo la usa al escribir una página de tipo Story. Sin onboarding: el template es el arranque.
+// StoriesApp.tsx, OnboardingStories.tsx y sus acciones quedan sin entrada (docs/relevo, para borrarlas en otra tanda).
+// Redirige con un 307 de verdad (no hay loading.tsx en la ruta), como /youtube-writer.
+// =============================================================================
 
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
-import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
-import { getSchema, getAnswers } from '@/lib/onboarding';
-import { OnboardingStories } from './OnboardingStories';
-import { StoriesApp } from './StoriesApp';
-import { veCopywriter } from '../copywriter/acceso';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function StoriesPage() {
   await requireRolWs([], { nav: 'stories' });
-
-  // El contexto que ya existe: grupos del perfil con al menos una respuesta y
-  // los que faltan — para decir QUÉ falta y DÓNDE se completa, no un genérico.
-  const gruposListos: string[] = [];
-  const gruposFaltan: string[] = [];
-  try {
-    const [schema, answers] = await Promise.all([getSchema(), getAnswers()]);
-    for (const g of schema) {
-      const tiene = g.fields.some((f) => (answers[f.key] ?? '').trim());
-      (tiene ? gruposListos : gruposFaltan).push(g.label);
-    }
-  } catch { /* sin perfil legible: el wizard muestra el camino al onboarding */ }
-
-  // La tab abre en su onboarding mientras no esté hecho, pero NO reemplaza la
-  // app para siempre: el wizard tiene su salida («Lo configuro después»).
-  if (await onboardingTabPendiente('stories')) {
-    return <OnboardingStories gruposListos={gruposListos} gruposFaltan={gruposFaltan} />;
-  }
-  return <StoriesApp conCopywriter={await veCopywriter()} />;
+  redirect(await rutaConWs('/copywriter?nuevo=story'));
 }

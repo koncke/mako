@@ -9,6 +9,7 @@
 
 import type { AnguloGuion } from '../guion-angulos';
 import type { EstructuraGuion } from '../guion-estructuras';
+import { ESTRUCTURAS_VSL_DEFAULT } from '../vsl-estructuras';
 import { TIPOS_GUION, esTipoGuion, type TipoGuion } from './tipos';
 
 export type AnguloLite = { id: string; nombre: string; emoji: string; cuando: string };
@@ -44,6 +45,21 @@ export function estructurasDelTipo(c: CatalogosCopy, tipo: TipoGuion): { estruct
 export function estructuraPorDefecto(c: CatalogosCopy, tipo: TipoGuion): EstructuraLite | null {
   const { estructuras, propias } = estructurasDelTipo(c, tipo);
   return propias ? estructuras[0] ?? null : null;
+}
+
+/**
+ * Las estructuras de VSL de la casa (lib/vsl-estructuras.ts) con la forma de la biblioteca, de tipo «vsl»
+ * (docs/diseno-copywriter.md, D12). Viven aparte porque las de la biblioteca son de ANUNCIO CORTO; el Copywriter las
+ * suma a lo que lee (la pantalla, la IA) sin escribirlas en el override del super admin.
+ */
+export const ESTRUCTURAS_VSL_COPY: readonly EstructuraGuion[] = ESTRUCTURAS_VSL_DEFAULT.map((v) => ({
+  id: v.id, nombre: v.nombre, emoji: v.emoji, cuando: v.cuando, etiquetas: [...v.etiquetas], guia: v.guia, activo: v.activo, tipos: ['vsl'],
+}));
+
+/** La biblioteca más las de VSL (una de la biblioteca con el mismo id gana). */
+export function conVsl<T extends EstructuraGuion>(estructuras: readonly T[]): EstructuraGuion[] {
+  const ids = new Set(estructuras.map((e) => e.id));
+  return [...estructuras, ...ESTRUCTURAS_VSL_COPY.filter((v) => !ids.has(v.id))];
 }
 
 export const CATALOGOS_VACIOS: CatalogosCopy = { angulos: [], estructuras: [] };

@@ -11,10 +11,13 @@
 import 'server-only';
 import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { abrir, crear, guardar, listar, papelera, renombrar, restaurar } from '@/lib/copywriter/server';
-import { bloquesDelDoc, docDeEstructura, textoDelDoc } from '@/lib/copywriter/doc';
+import { bloquesDelDoc, docDeEstructura, textoDeNodo, textoDelDoc } from '@/lib/copywriter/doc';
+import { plantillaPorId, plantillasDe } from '@/lib/copywriter/plantillas';
+import { aplicarTodo, sanearOperaciones } from '@/lib/copywriter/operaciones';
+import { editar as editarConIA } from '@/lib/copywriter/ia';
 import { bloquesDeTexto, docDeTexto } from '@/lib/copywriter/texto';
 import { escondida } from '@/lib/copywriter/arbol';
-import { esTipoGuion, INFO_TIPO, SIN_TITULO, type PaginaCopy } from '@/lib/copywriter/tipos';
+import { esTipoGuion, INFO_TIPO, SIN_TITULO, TIPOS_GUION, type PaginaCopy } from '@/lib/copywriter/tipos';
 import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { veCopywriterEnApi } from '@/lib/copywriter/puerta-api';
 import { crearShare, getShare, listarInvitados, listarShares, revocarShare, RECURSO_GUION } from '@/lib/shares';
@@ -76,7 +79,9 @@ export const RUNNERS: Runners = {
       const titulo = str(input, 'titulo');
       const tipo = str(input, 'tipo');
       if (!titulo) return { error: 'Falta el título.', faltan: ['titulo'] };
-      if (!esTipoGuion(tipo)) return { error: 'El tipo es ad, reel, story o youtube.', faltan: ['tipo'] };
+      if (!esTipoGuion(tipo)) return { error: `El tipo es uno de estos: ${TIPOS_GUION.join(', ')}.`, faltan: ['tipo'] };
+      const plantillaId = str(input, 'plantillaId');
+      if (plantillaId && !plantillaPorId(await catalogosDelCopywriter(), plantillaId)) return { error: `No hay ningún template «${plantillaId}» (listar_plantillas_copywriter).` };
       const estructuraId = str(input, 'estructuraId');
       if (estructuraId && !(await catalogosDelCopywriter()).estructuras.some((e) => e.id === estructuraId)) return { error: `No hay ninguna estructura «${estructuraId}» en la biblioteca (catalogo_estructuras_guion).` };
       const padreId = str(input, 'padreId');
@@ -86,20 +91,23 @@ export const RUNNERS: Runners = {
       }
       const texto = str(input, 'texto');
       return {
-        payload: { titulo, tipo, estructuraId: estructuraId || null, texto, padreId: padreId || null },
-        resumen: `Crear en el Copywriter ${INFO_TIPO[tipo].uno}: «${titulo}»${texto ? ` (${texto.split(/\s+/).length} palabras)` : estructuraId ? ' con las secciones de su estructura' : ''}.`,
+        payload: { titulo, tipo, estructuraId: estructuraId || null, plantillaId: plantillaId || null, texto, padreId: padreId || null },
+        resumen: `Crear en el Copywriter ${INFO_TIPO[tipo].uno}: «${titulo}»${texto ? ` (${texto.split(/\s+/).length} palabras)` : plantillaId ? ' con las secciones de su template' : estructuraId ? ' con las secciones de su estructura' : ''}.`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
-      const tipo = str(payload, 'tipo');
+      const catalogos = await catalogosDelCopywriter();
+      // Un template manda su tipo, su estructura y su cuerpo (si no viene texto ya escrito).
+      const pl = plantillaPorId(catalogos, str(payload, 'plantillaId'));
+      const tipo = pl?.tipo ?? str(payload, 'tipo');
       if (!esTipoGuion(tipo)) return { ok: false, resumen: 'La acción quedó con un tipo inválido.' };
-      const estructuraId = str(payload, 'estructuraId');
-      const e = estructuraId ? (await catalogosDelCopywriter()).estructuras.find((x) => x.id === estructuraId) : null;
+      const estructuraId = str(payload, 'estructuraId') || pl?.estructura || '';
+      const e = estructuraId ? catalogos.estructuras.find((x) => x.id === estructuraId) : null;
       const texto = str(payload, 'texto');
       const r = await crear({
         tipo, titulo: str(payload, 'titulo'), padre: str(payload, 'padreId') || null,
         props: { estructura: e?.id ?? null },
-        contenido: texto ? docDeTexto(texto) : e ? docDeEstructura(e.etiquetas) : undefined,
+        contenido: texto ? docDeTexto(texto) : pl ? pl.contenido() : e ? docDeEstructura(e.etiquetas) : undefined,
       });
       if (!r.ok) return { ok: false, resumen: `No se pudo crear: ${r.error}` };
       return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)} está en el Copywriter.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
@@ -262,6 +270,70 @@ export const RUNNERS: Runners = {
       if (!s || s.recurso !== RECURSO_GUION) return { ok: false, resumen: 'Ese link ya no está.' };
       await revocarShare(ctx.ws, enlaceId);
       return { ok: true, resumen: 'Listo: el link ya no abre.', datos: { enlaceId } };
+    },
+  },
+
+  // ── «Copywriter = Notion» (29/10/2026, D12 y D13) ──────────────────────────────────────────────────────────────
+  listar_plantillas_copywriter: {
+    leer: async (_input, ctx) => {
+      if (await cerrada(ctx)) return error(CERRADA);
+      const ps = plantillasDe(await catalogosDelCopywriter());
+      return json({
+        plantillas: ps.map((p) => ({
+          plantillaId: p.id, nombre: p.nombre, grupo: p.grupo, tipo: p.tipo, descripcion: p.descripcion, estructuraId: p.estructura,
+          secciones: bloquesDelDoc(p.contenido()).filter((b) => b.tipo === 'seccion').map((b) => b.seccion),
+        })),
+        nota: 'plantillaId va en crear_documento_copywriter (con el tipo del template).',
+      });
+    },
+  },
+
+  editar_documento_copywriter: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (await cerrada(ctx)) return { error: CERRADA };
+      const instruccion = str(input, 'instruccion');
+      if (!instruccion) return { error: 'Falta qué escribir o cambiar.', faltan: ['instruccion'] };
+      const id = str(input, 'documentoId');
+      const r = await abrir(id);
+      if (!r.ok) return { error: r.status === 404 ? `No hay ningún documento con id «${id}» en este negocio. Pide listar_documentos_copywriter.` : `No pude leerlo: ${r.error}`, ...(r.status === 404 ? {} : { falla: true }) };
+      // La MISMA escritura que «Editar» en el chat de la página (lib/copywriter/ia.ts): las herramientas, ya validadas.
+      const ia = await editarConIA({ instruccion, guion: { titulo: r.pagina.titulo, props: r.doc.props, contenido: r.doc.contenido } });
+      if (!ia.ok) return { error: ia.error, ...(ia.status === 502 ? { falla: true } : {}) };
+      const res = aplicarTodo(r.doc.contenido, ia.operaciones);
+      const cambia = res.nuevos.length > 0 || res.titulo != null || Object.keys(res.props).length > 0 || JSON.stringify(res.doc) !== JSON.stringify(r.doc.contenido);
+      if (!cambia) return { error: `MaKo no cambió nada: ${ia.respuesta}` };
+      const nuevos = new Set(res.nuevos);
+      const escrito = (res.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n').trim();
+      return {
+        payload: { documentoId: id, operaciones: ia.operaciones },
+        resumen: `MaKo en ${nombreDe(r.pagina)}: ${ia.respuesta.slice(0, 300)}${escrito ? `\n\n${escrito.slice(0, 1_200)}${escrito.length > 1_200 ? '…' : ''}` : ''}${ia.avisos.length ? `\n\n${ia.avisos.join(' ')}` : ''}`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const id = str(payload, 'documentoId');
+      const catalogos = await catalogosDelCopywriter();
+      const catalogo = { angulos: new Set(catalogos.angulos.map((a) => a.id)), estructuras: new Set(catalogos.estructuras.map((e) => e.id)) };
+      // Sobre lo de AHORA, por id (AGENTS.md, «Un chat que edita lo abierto»): lo que se borró en el medio se descarta. Si
+      // alguien guardó entre la lectura y la escritura, se vuelve a leer una vez.
+      for (let i = 0; i < 2; i++) {
+        const r = await abrir(id);
+        if (!r.ok) return { ok: false, resumen: r.status === 404 ? 'El documento ya no existe.' : `No pude leerlo: ${r.error}` };
+        const s = sanearOperaciones(payload.operaciones, r.doc.contenido, catalogo);
+        const res = aplicarTodo(r.doc.contenido, s.ops);
+        const props = Object.keys(res.props).length ? { ...r.doc.props, ...res.props } : undefined;
+        const g = await guardar({ id, version: r.doc.version, contenido: res.doc, ...(props ? { props } : {}) });
+        if (g.ok) {
+          if (res.titulo) await renombrar(id, { titulo: res.titulo });
+          const fuera = [...s.descartadas, ...res.descartadas];
+          return {
+            ok: true,
+            resumen: `Listo: MaKo escribió en ${nombreDe(r.pagina)}${fuera.length ? ` (${fuera.length} cambio${fuera.length === 1 ? '' : 's'} no se aplicó: el documento cambió en el medio)` : ''}.`,
+            datos: { documentoId: id, version: g.version, link: linkDoc(id) },
+          };
+        }
+        if (g.status !== 409) return { ok: false, resumen: `No se pudo guardar: ${g.error}` };
+      }
+      return { ok: false, resumen: 'El documento cambió mientras lo escribía. Vuelve a intentar.' };
     },
   },
 };

@@ -11,8 +11,11 @@
 // las del Ads Writer en el turno de WhatsApp (AGENTS.md, «Una operación nueva va AL FINAL de su área…»).
 //
 // Decisiones:
-//   · Escribir CON IA no entra acá: lo hace el chat de la tab, que muestra la propuesta antes de aceptarla. Por la API
-//     se escribe el TEXTO que trae el agente (con las etiquetas de sección en MAYÚSCULA, el contrato de la casa).
+//   · Escribir CON IA (29/10/2026, «Copywriter = Notion», D13): `editar_documento_copywriter` hace por la API lo MISMO
+//     que «Editar» en el chat de la página: MaKo lee la página y devuelve sus herramientas (lib/copywriter/operaciones.ts).
+//     Se prepara con la IA (la propuesta se ve en el resumen) y al confirmar se aplica sobre lo de AHORA, por id: lo que
+//     se borró en el medio se descarta. El TEXTO que trae el agente sigue entrando por crear/agregar/reemplazar.
+//   · «Nueva» con templates (D12): `listar_plantillas_copywriter` y `plantillaId` al crear.
 //   · Reemplazar el contenido entero es `pantalla` (texto libre largo que pisa la versión anterior, como
 //     editar_texto_guion_anuncio) y exige la `version` que se leyó: si alguien lo cambió en el medio, no se aplica.
 //   · Mientras el Copywriter sea sólo del super admin, la API también: cada runner pregunta la puerta de la tab
@@ -24,6 +27,7 @@ import type { OperacionDef, Parametro } from '../tipos';
 import { TIPOS_GUION } from '@/lib/copywriter/tipos';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
+const TIPOS = TIPOS_GUION.join(', ');
 const G = { tab: 'copywriter', rolMinimo: 'admin' } as const;
 
 const DOC: Parametro = { nombre: 'documentoId', tipo: 'string', obligatorio: true, max: 20, descripcion: 'id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter.', ejemplo: 'gk3h9s0a2bq' };
@@ -37,9 +41,9 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_documentos_copywriter', area: 'contenido', tipo: 'lectura',
     titulo: 'Documentos del Copywriter',
-    descripcion: 'Los documentos del Copywriter del negocio (un documento por guion de ad, reel, story o YouTube): id, título, tipo, de qué documento cuelga y cuándo se tocó. Úsalo para encontrar el documentoId antes de leer o escribir en uno. Los de la Papelera no vienen salvo que se pidan.',
+    descripcion: 'Los documentos del Copywriter del negocio (cada documento es una página, como en Notion: guiones de anuncios, reels, stories, YouTube y VSL, emails, posts o páginas en blanco): id, título, tipo, de qué documento cuelga y cuándo se tocó. Úsalo para encontrar el documentoId antes de leer o escribir en uno. Los de la Papelera no vienen salvo que se pidan.',
     parametros: [
-      { nombre: 'tipo', tipo: 'string', enum: TIPOS_GUION, descripcion: 'Sólo los de ese tipo (ad, reel, story, youtube).' },
+      { nombre: 'tipo', tipo: 'string', enum: TIPOS_GUION, descripcion: `Sólo los de ese tipo (${TIPOS}).` },
       { nombre: 'conPapelera', tipo: 'boolean', descripcion: 'true incluye los de la Papelera (marcados).' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G,
@@ -54,10 +58,11 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_documento_copywriter', area: 'contenido', tipo: 'accion',
     titulo: 'Crear un documento en el Copywriter',
-    descripcion: 'Crea un documento nuevo en el Copywriter: un guion de ad, reel, story o YouTube, con su título y, si se pasa, el texto ya escrito o la estructura de la biblioteca (que arma sus secciones vacías). Puede colgar de otro documento. Devuelve su id. Queda pendiente hasta que la persona confirme.',
+    descripcion: 'Crea un documento nuevo en el Copywriter (una página): con su título y, si se pasa, el texto ya escrito, un template de «Nueva» (listar_plantillas_copywriter: arma sus secciones) o la estructura de la biblioteca. Puede colgar de otro documento. Devuelve su id. Queda pendiente hasta que la persona confirme.',
     parametros: [
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 200, descripcion: 'El título del documento.' },
-      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_GUION, descripcion: 'ad, reel, story o youtube.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_GUION, descripcion: `${TIPOS}. Con plantillaId, manda el del template.` },
+      { nombre: 'plantillaId', tipo: 'string', max: 60, descripcion: 'id de un template de «Nueva» (listar_plantillas_copywriter): la página nace con su tipo, su estructura y sus secciones si no viene texto.' },
       { nombre: 'estructuraId', tipo: 'string', max: 60, descripcion: 'id de una estructura de la biblioteca (catalogo_estructuras_guion): arma sus secciones vacías si no viene texto.' },
       { ...TEXTO, obligatorio: false },
       { nombre: 'padreId', tipo: 'string', max: 20, descripcion: 'documentoId del documento del que cuelga (opcional).' },
@@ -137,5 +142,22 @@ export const DEFS: readonly OperacionDef[] = [
     confirmacion: 'chat', reversible: false,
     escribe: 'marca el link como revocado (tabla shares)',
     canales: TODOS, costo: 'gratis', gating: G,
+  },
+  // ── «Copywriter = Notion» (29/10/2026, D12 y D13): los templates de «Nueva» y MaKo escribiendo EN la página ──
+  {
+    id: 'listar_plantillas_copywriter', area: 'contenido', tipo: 'lectura',
+    titulo: 'Templates del Copywriter',
+    descripcion: 'Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio en video, copy para Meta, Reel, stories, carrusel, email, VSL, YouTube y página en blanco, con su id, tipo y qué secciones arma. El id va en plantillaId de crear_documento_copywriter.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G,
+  },
+  {
+    id: 'editar_documento_copywriter', area: 'contenido', tipo: 'accion',
+    titulo: 'MaKo escribe en un documento del Copywriter',
+    descripcion: 'MaKo escribe o edita EN un documento del Copywriter lo que se le pide («mejora el gancho», «agrega una sección de preguntas frecuentes», «acórtalo»), como «Editar» en el chat de la página: lee el documento, escribe con la voz y el método del negocio, y la propuesta se ve en el resumen. Al confirmar se aplica sobre lo de AHORA (lo que se borró en el medio se descarta). Para pegar un texto ya escrito, agregar_al_documento_copywriter o reemplazar_documento_copywriter. Queda pendiente hasta que la persona confirme.',
+    parametros: [DOC, { nombre: 'instruccion', tipo: 'string', obligatorio: true, max: 4000, descripcion: 'Qué escribir o cambiar, en las palabras de la persona.', ejemplo: 'Mejora el gancho y agrega una sección de preguntas frecuentes.' }],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'cambia los bloques del documento (app_settings mako.copywriter.doc.<id>) y, si MaKo lo propone, el título o las propiedades',
+    canales: TODOS, costo: 'ia', gating: G, lenta: true,
   },
 ];

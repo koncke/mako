@@ -109,11 +109,49 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   (ediciones de tandas anteriores). Un reemplazo que arma el texto con un solo tipo de salto no encuentra nada y no avisa
   por qué: se normaliza a `\n`, se reemplaza y se vuelve a escribir con el salto del archivo.
 
+## Cambiar el editor NO era reescribir el guardado (29/10/2026, «Copywriter = Notion»)
+
+- El obvio era el equivocado: pasar de la TipTap propia a BlockNote parecía pedir otro formato de documento (el de
+  BlockNote) y reescribir el saneo, las operaciones de MaKo, el texto exportado y la API. No hizo falta: lo guardado sigue
+  siendo el JSON de doc.ts y `lib/copywriter/notion-bloques.ts` traduce en los dos sentidos. Lo que costó fue el conversor,
+  no la casa: una lista son N ítems en BlockNote (vuelven a ser UNA con el `bid` del primero), un uuid tiene que dar
+  SIEMPRE el mismo `bid` (si no, MaKo apunta a otro bloque en el turno siguiente), y BlockNote exige ids únicos en todo
+  el documento (un `bid` repetido en un hijo rompe el editor; el segundo entra sin id).
+- **Regla:** el esquema del editor es EXACTAMENTE lo que el formato guarda. BlockNote ofrece colores, alineación,
+  imágenes, código y encabezados 4-6: si el esquema los deja, la persona los usa y desaparecen al recargar, sin un error.
+  Lo que el formato no anida (un párrafo con hijos, Tab) sale a continuación, nunca se tira. El saneo tiraba un desplegable
+  dentro de otro con lo escrito: ahora lo acepta (la profundidad tiene su tope).
+
+## BlockNote en la casa: tres trampas (29/10/2026)
+
+- **Los íconos del «/» salían en blanco:** el cuadrito de cada bloque usa los colores del TOOLTIP del tema de BlockNote
+  (texto `var(--surface)` sobre `var(--ink)`); al pintarle el fondo claro de Notion, el ícono quedó blanco sobre blanco.
+  Se le da `color` explícito (notion.css).
+- **`@blocknote/react/style.css` sólo existe con la condición «style»** de `exports`: esbuild (la maqueta) no lo encuentra
+  sin `conditions: ['style', …]`. Next la resuelve sola.
+- **El asa ⋮⋮ no aparece con un `mousemove` de JavaScript:** BlockNote la ubica con el ratón de verdad. En las capturas
+  por CDP va `Input.dispatchMouseEvent` (el plan de la maqueta tiene `raton` y `clic`).
+
+## Las capturas de esta tanda (29/10/2026)
+
+- Claude in Chrome no estaba conectado y producción pide sesión (entrar con una contraseña no lo hace Claude): no hay
+  «antes» de producción de la tab vieja. El «antes» es el Copywriter de la tanda del 28/10 (C:/dev/revisiones/copywriter-2810/)
+  y el «después», la maqueta con los componentes reales en Chrome sin ventana (C:/dev/revisiones/copywriter-notion-2910/:
+  d* escritorio, t* teléfono). Los scripts, en el scratchpad de la sesión y copiados a side-session-notes del Cerebro.
+- El test del tope de la mudanza daba verde con el padre sin contar: con 10 lugares y una sola matriz da lo mismo. Hizo
+  falta el caso de 5 (tres guiones + su padre, y no entra el Reel con el suyo) para que la rotura se viera.
+- `lib/razones.ts` es `server-only`: lo puro que necesita leer un guion de la matriz (la mudanza, con su test) copia la
+  normalización mínima en vez de importarla.
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
-- La estructura de YouTube (falta la fuente) y sacar de la barra Stories y YouTube Writer el día que Martín valide el
-  Copywriter (nav.ts es del jefe Sidebar): docs/diseno-copywriter.md, D6 y D7.
+- La estructura de YouTube (falta la fuente): docs/diseno-copywriter.md, D6. (Stories y YouTube Writer ya dejaron la barra el
+  29/10, D13.)
+- Montar el Copywriter en el shell único de Create (`app/_crear/PantallaCrear.tsx`) cuando el chat «Create: un solo diseño»
+  lo commitee: docs/diseno-copywriter.md, «Qué queda».
+- Borrar StoriesApp/OnboardingStories (sin entrada desde el 29/10) y decidir qué pasa con la matriz y «Analizar guion» del
+  Ads Writer (siguen por su ruta).
 - `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.
 - «Compartir para editar» desde el teléfono del dueño (la vista del guion del teléfono no tiene el menú ⋯): D9.

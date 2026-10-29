@@ -12,8 +12,8 @@
 //     el padre de sí mismo;
 //   · el CATÁLOGO del «/»: encuentra por nombre, atajo, sinónimo y sin tildes; y el motor del Web Generator con OTRO
 //     catálogo (`consultaValida` con `buscar`) sin cambiar lo de Gamma;
-//   · las PUERTAS: la página, la del teléfono y las dos rutas preguntan `veCopywriter` (hoy sólo el super admin), y la
-//     tab es `adminOnly` en nav.ts.
+//   · las PUERTAS: la página, la del teléfono y las dos rutas preguntan `veCopywriter` (desde el 29/10/2026, toda persona
+//     con sesión: Copywriting ES el Copywriter), y la tab Copywriting de nav.ts lleva a /copywriter SIN tabs internas.
 // =============================================================================
 
 import test from 'node:test';
@@ -234,7 +234,8 @@ test('el motor del «/» del Web Generator con OTRO catálogo, y sin opciones co
   const barra = leer('app/web-generator/editor/extensiones/barra.ts');
   assert.match(barra, /const buscar = this\.options\.buscar;/);
   assert.equal((barra.match(/calcular\(nuevo, [^)]*, buscar\)/g) ?? []).length, 2);
-  assert.match(leer('app/copywriter/editor/extensiones.ts'), /ExtensionBarra\.configure\(\{ buscar: \(q\) => buscarBloquesCopy\(q\), atajos: false \}\)/);
+  // El «/» del Copywriter es el de BlockNote desde el 29/10/2026, filtrado con el MISMO catálogo (CuerpoNotion.tsx).
+  assert.match(leer('app/copywriter/editor/CuerpoNotion.tsx'), /buscarBloquesCopy\(consulta, catalogo\)/);
   assert.equal(consultaValida('esto es una frase', (q) => buscarBloquesCopy(q)), false);
   assert.equal(consultaValida('a b c d e', () => []), false);
   assert.equal(consultaValida(''), true);
@@ -248,10 +249,14 @@ test('la charla de un guion se guarda con su clave (y la ruta la acepta)', () =>
 
 // ── Las puertas ───────────────────────────────────────────────────────────────
 
-test('las puertas: la tab es adminOnly y TODA entrada pregunta veCopywriter (hoy sólo el super admin)', () => {
+test('las puertas: Copywriting lleva al Copywriter sin tabs internas y TODA entrada pregunta veCopywriter', () => {
+  // Martín, 29/10/2026: «NO quiero otras tabs internas que hoy aparecen en la topbar». La fila de Copywriting ES el
+  // Copywriter: key 'copywriter' (la que piden la página y la API), sin `secciones` y sin `adminOnly`.
   const nav = leer('app/_components/nav.ts');
-  assert.match(nav, /key: 'copywriter', adminOnly: true, label: 'Copywriter', href: '\/copywriter'/);
-  assert.match(leer('lib/copywriter/puerta.ts'), /getSesionAdmin\(\)/, 'la regla vive en lib y acceso.ts la re-exporta');
+  const fila = /\{\s*key: 'copywriter', label: 'Copywriting', href: '\/copywriter',[^\n]*/.exec(nav)?.[0] ?? '';
+  assert.ok(fila, 'la fila de Copywriting lleva a /copywriter');
+  assert.ok(!/adminOnly|secciones/.test(fila), 'sin adminOnly ni secciones');
+  assert.match(leer('lib/copywriter/puerta.ts'), /getUsuarioActual\(\)/, 'la regla vive en lib y acceso.ts la re-exporta');
   for (const f of ['app/copywriter/page.tsx', 'app/copywriter/[id]/page.tsx']) {
     const s = leer(f);
     assert.match(s, /requireRolWs\(\[\], \{ nav: 'copywriter' \}\)/, f);

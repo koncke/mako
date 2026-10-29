@@ -7,6 +7,12 @@
 Una tab nueva, **Copywriter** (`/copywriter`), adentro del grupo Copywriting. Un DOCUMENTO por guion, como una página de
 Notion; MaKo al costado, como en mila.gg, escribiendo EN el documento. La ve sólo el super admin hasta que Martín la valide.
 
+> **29/10/2026, «Copywriter = Notion» (D11–D14).** Martín, textual: «quiero que trabajes en "Copywriter", quiero que sea una
+> réplica de Notion, busca inspiraciones de la web o un repo que sea copia, y replícalo. Quiero que tenga la barra lateral de
+> MaKo para que se pueda pedir cosas por allí y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de
+> ONBOARDING». Desde ahí: la tab **Copywriting** de todos los negocios ES el Copywriter (sin tabs internas, sin onboarding),
+> el cuerpo de cada página es **BlockNote**, «Nueva» abre los **templates** y lo que había se **muda** a páginas.
+
 ## Las fuentes y qué se copia de cada una (regla «NINGUNA pantalla se diseña de cero»)
 
 Se abrieron el 28/10/2026 en el navegador:
@@ -178,7 +184,98 @@ Dashboard: link abierto o invitados por mail, «quién tiene acceso», copiar, r
 - **En el teléfono** el dueño todavía no tiene «Compartir para editar» (la vista del guion del teléfono no tiene el menú
   ⋯); quien abre el link desde el teléfono sí edita, con la página a lo ancho.
 
+## D11 · El editor es BlockNote, la copia de Notion (29/10/2026)
+
+Se buscó la mejor base open source de un editor tipo Notion en React (29/10/2026, el registro de npm y los repos):
+
+| Base | Versión y fecha | Licencia | Motor | Por qué sí o por qué no |
+|---|---|---|---|---|
+| **BlockNote** (TypeCellOS/BlockNote) | 0.56.0, 14/10/2026 | **MPL-2.0** el núcleo (core, react, mantine); los paquetes **XL son GPL-3.0** (y comerciales) | TipTap 3 / ProseMirror | **Elegida.** Es la copia de Notion: el «+» y el asa ⋮⋮ en el margen, arrastrar bloques, el «/» que filtra, la barra al seleccionar, Tab para anidar, listas, desplegables, tablas, y el diccionario en español. Usa la MISMA TipTap 3 que ya tiene la casa (3.31). |
+| Novel (steven-tey/novel) | 1.0.2, 18/01/2025 | Apache-2.0 | TipTap **2** | Parado desde enero de 2025 y en TipTap 2 (chocaría con la 3 de la casa). |
+| Plate (udecode/plate) | 53.3.18, 18/10/2026 | MIT | Slate | Muy completo, pero es un armador de piezas (shadcn) y otro motor: dos editores distintos en la casa. |
+| Docmost | — | **AGPL-3.0** | TipTap | No: AGPL dentro del producto. |
+| Outline | — | BSL 1.1 | ProseMirror | No: no es open source para un producto. |
+
+⚠️ **La licencia.** MPL-2.0 es copyleft POR ARCHIVO: usar los paquetes sin cambiarlos no obliga a nada con el código de
+MaKo; si algún día se modifica un archivo de BlockNote, ESE archivo se publica. Los paquetes XL (`@blocknote/xl-*`, la IA
+de BlockNote, exportar a .docx/.pdf) son GPL y NO se instalan: la IA es la de MaKo. Las dependencias nuevas que trae
+(Mantine 8.3.18, @floating-ui/react, emoji-mart, react-number-format…) son MIT.
+
+- **Lo que se guarda NO cambió:** el JSON de ProseMirror de D3 (`bid` por bloque, el saneo, las secciones, las operaciones
+  de MaKo, la API). `lib/copywriter/notion-bloques.ts` traduce en los dos sentidos: `aBloques` (lo guardado → BlockNote,
+  una lista son N ítems, cada uno con su id) y `deBloques` (BlockNote → lo guardado: los ítems seguidos del mismo tipo son
+  UNA lista con el `bid` del primero; lo que el formato no anida, como un párrafo con hijos, sale a continuación). Un id de
+  BlockNote (uuid) da SIEMPRE el mismo `bid` (`bidDe`): MaKo apunta por id. La sección del guion (`attrs.seccion` de un
+  Título 2) viaja aparte, en un mapa id → etiqueta. Lo fija tests/copywriter-notion.test.ts (ida y vuelta de todos los
+  bloques, un punto fijo).
+- **El esquema del editor es EXACTAMENTE lo que se guarda** (`app/copywriter/editor/esquema.tsx`): Texto, Encabezados 1-3,
+  las tres listas, Lista desplegable (también anidada: el saneo ya no la tira), Cita, Divisor, Tabla con fila de encabezado,
+  y el «Texto destacado» propio (`createReactBlockSpec`, el molde del Alert de BlockNote). Sin imágenes, código,
+  encabezados 4-6, encabezados desplegables, colores ni alineación: lo que se ofrece y no se guarda se pierde al recargar.
+- **El «/»** es el catálogo de `app/copywriter/editor/bloques.ts` (los nombres y descripciones de Notion en español, más
+  «Secciones del guion» y «Pedirle a MaKo»); cada bloque básico usa la acción y el ícono de BlockNote. **La barra de la
+  selección**: Convertir en · negrita, cursiva, subrayado, tachado, código · enlace · **«Preguntar a MaKo»** (el «Ask AI» de
+  Notion: lo seleccionado entra como cita en la caja del chat y el selector pasa a «Editar»). **El asa**: Eliminar ·
+  Duplicar (y «Fila de encabezado» en una tabla). En el teléfono no hay asa (no hay cursor que pase por el margen).
+- **Los colores** son los de la casa: el tema de BlockNote apunta a los tokens (`var(--ink)`…), así el oscuro sale solo.
+  Los estilos de Mantine que trae `@blocknote/mantine/style.css` son sólo de sus componentes (sin el «baseline» global).
+- **MaKo escribe por `DocVivo`** (`app/copywriter/editor/propuesta.ts`): leer y poner el documento guardado, sin conocer al
+  editor. Lo que pone va fuera del historial (`addToHistory: false`) y no se manda a guardar como un cambio de la persona;
+  aceptar es la foto de antes + el resultado en UN paso de deshacer. Las marcas de la propuesta son CSS por id de bloque.
+
+## D12 · «Nueva»: los templates de «¿Qué vas a crear hoy?» (29/10/2026)
+
+- **Cada documento es una página.** A los cuatro tipos de guion se suman `vsl`, `email`, `post` y `pagina` (al final de
+  `TIPOS_GUION`). Los tipos con método (`TIPOS_CON_METODO`: ad, reel, story, youtube, vsl) muestran Ángulo, Estructura y
+  Duración; un email, un post o una página en blanco sólo el Tipo (Notion no muestra propiedades en una página suelta).
+- **«Nueva»** (arriba de la barra de páginas; en el teléfono, el botón de abajo) abre `/copywriter?nueva`: «¿Qué vas a crear
+  hoy?», la caja de MaKo (lo escrito es el primer pedido en la página nueva) y los templates en tarjetas por grupo
+  (`lib/copywriter/plantillas.ts`). El «+» de una página crea una subpágina en blanco, como Notion.
+- **Ningún template se inventó** (la fuente de cada uno, en la cabecera de plantillas.ts): Guion de anuncio (la estructura
+  de Ad por defecto), Copy de anuncio (los textos del Media Buyer: texto principal, título, botón y link), Guion de Reel (la
+  tab Reels del Editor que se retira: gancho con frase/título/visual, escenas con locución y cámara, moraleja, CTA con
+  palabra clave y caption), Stories del día (story-dia y los frames de `PiezaStory`), Post en carrusel (`PiezaCarrusel`),
+  Email (el broadcast de Email Marketing: asunto, vista previa, cuerpo, botón), un VSL por estructura de
+  `lib/vsl-estructuras.ts`, Guion de YouTube (sin estructura, D6) y Página en blanco.
+- **Los VSL** entran a la biblioteca del Copywriter con `conVsl` (lib/copywriter/catalogos.ts) sin escribirse en el override
+  del super admin: la página VSL tiene su selector y MaKo su guía.
+
+## D13 · Sin tabs internas, sin onboarding, abierto a todos (29/10/2026)
+
+- **nav.ts:** la fila Copywriting tiene la key de su pantalla (`copywriter`), lleva a `/copywriter` y NO tiene `secciones`.
+  Ads Writer, Stories y YouTube Writer dejan la barra con su key viva en `SIN_FILA` (las piden sus rutas, la API y las
+  capas). El método de redacción y la biblioteca de guiones siguen en el menú del super admin (ADMIN_NAV).
+- **La puerta se abrió:** `veCopywriter` es toda persona con sesión (el rol y la capa los mira la tab) y la API también
+  (`veCopywriterEnApi`). Si hubiera que volver a cerrarlo, son esas dos funciones.
+- **Sin onboarding:** `/copywriter` no tiene puerta de onboarding; el template es el arranque. `/stories` redirige a
+  `/copywriter?nuevo=story` y `/youtube-writer` a `?nuevo=youtube` (ya lo hacía). El Ads Writer sigue andando por su ruta
+  (la matriz, «Analizar guion» con Meta y los links de MaKo): deja la barra, no se borra.
+- **El teléfono:** la fila Copywriting abre `/m/copywriter` (key `copywriter`); `/ads-writer` sigue yendo a su pantalla
+  del teléfono con su `?tab=`.
+- **La API de MaKo:** `listar_plantillas_copywriter`, `plantillaId` al crear, y `editar_documento_copywriter`: MaKo escribe
+  EN la página con IA («mejora el gancho», «agrega una sección»), con las MISMAS herramientas del chat; se prepara con la IA
+  (la propuesta va en el resumen) y al confirmar se aplica sobre lo de AHORA, por id.
+
+## D14 · La mudanza de lo que ya había (29/10/2026)
+
+- La primera vez que un negocio abre el Copywriter (escritorio o teléfono), `mudarLoDeAntes` (lib/copywriter/mudanza.ts)
+  COPIA a páginas: cada guion del Ads Writer (`mako.razones`) como una página de Ad debajo de «Guiones del Ads Writer», con
+  su ángulo y su estructura si siguen en la biblioteca y el texto partido en secciones por sus etiquetas; y cada pieza del
+  historial de Reels (`reels.historial`) como una página de Reel debajo de «Reels», con el template del Reel lleno. Lo
+  original queda donde estaba.
+- UNA vez por negocio: la marca `mako.copywriter.mudanza` se toma por compare-and-set ANTES de escribir (dos pestañas no
+  mudan dos veces) y vence a los 10 minutos si quedó «en curso». «No pude leer» no es «no hay»: si una lectura falla, la
+  próxima apertura lo vuelve a intentar. Nunca frena la pantalla. Tope: 300 páginas y el lugar que deja el índice.
+- Las páginas se crean con `crearVarias` (lib/copywriter/server.ts): cada documento con su compare-and-set, de a 6, y el
+  índice en UNA escritura.
+
 ## Qué queda para después
+
+- **Mudar el Copywriter al shell único de Create** (`app/_crear/PantallaCrear.tsx`, del chat «Create: un solo diseño»,
+  todavía sin commitear el 29/10): `chat` = PanelMaKo (edita lo abierto), proyectos = las páginas, plantillas = las de
+  D12, `onPedido` = página nueva que MaKo escribe. Hasta entonces el armazón es el de D2 (MaKo · páginas · página).
+- Borrar lo que quedó sin entrada: StoriesApp/OnboardingStories (D13) y el Ads Writer del teléfono cuando Martín decida
+  qué hacer con la matriz y «Analizar guion».
 
 - «Compartir para editar» desde el teléfono del dueño (D9).
 - La búsqueda web con fuentes de mila.
