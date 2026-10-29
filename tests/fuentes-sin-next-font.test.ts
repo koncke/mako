@@ -66,8 +66,10 @@ test('ningún archivo importa next/font/google', () => {
   );
 });
 
+// La de Noto Sans del Image Editor (app/image-editor/fuenteUi.tsx) se borró el 29/10/2026: el editor usa la letra de MaKo,
+// Geist, que ya carga app/layout.tsx (tests/image-editor-colores-mako.test.ts, 5).
 test('las hojas de fuente que quedaron declaran precedence, para que React las deduplique', () => {
-  for (const f of ['app/chats/fuente.tsx', 'app/image-editor/fuenteUi.tsx']) {
+  for (const f of ['app/chats/fuente.tsx']) {
     const src = leer(f);
     assert.match(src, /fonts\.googleapis\.com/, `${f} dejó de servir la hoja de Google`);
     assert.match(src, /precedence=/, `${f} no declara precedence: dos montajes = dos hojas en el head`);

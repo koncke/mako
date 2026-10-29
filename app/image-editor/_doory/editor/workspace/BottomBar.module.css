@@ -1,5 +1,5 @@
 /*
- * La barra inferior de Canva (relevamiento §7): 40 px, el gris del cromo, botones terciarios (sin borde) con el
+ * La barra inferior de Canva (relevamiento §7): 40 px, el cromo (--bg), botones terciarios (sin borde) con el
  * hover y el presionado del sistema de diseño de Canva, y el zoom a la derecha.
  */
 .bar {
@@ -51,20 +51,20 @@
 }
 .textBtn:hover,
 .iconBtn:hover {
-  background: var(--cv-color-bg-muted); /* Canva: terciario hover #404F6D0F */
+  background: var(--cv-color-bg-muted);
 }
 .textBtn:active,
 .iconBtn:active {
-  background: var(--cv-color-border); /* Canva: terciario presionado #39466024 */
+  background: var(--cv-color-border);
 }
 .textBtn[aria-pressed='true'],
 .iconBtn[aria-pressed='true'] {
-  background: rgb(163 112 252 / 0.15); /* Canva: elegido #A370FC26 */
-  color: var(--cv-violet-800); /* Canva: texto elegido #4A2E7E */
+  background: var(--cv-color-selected); /* elegido */
+  color: var(--cv-color-selected-text); /* texto elegido */
 }
 .textBtn[aria-pressed='true']:active,
 .iconBtn[aria-pressed='true']:active {
-  background: rgb(163 112 252 / 0.2); /* Canva: elegido presionado #A370FC33 */
+  background: var(--cv-color-selected-hover); /* elegido, presionado */
 }
 .textBtn:focus-visible,
 .iconBtn:focus-visible {
@@ -109,7 +109,7 @@
   border-radius: var(--cv-radius-full);
   background: var(--cv-selection-color);
 }
-/* Canva: pulgar violeta #8B3DFF con borde blanco; al arrastrar, el halo #EBDCFF */
+/* Canva: pulgar azul (--primary) con borde blanco; al arrastrar, el halo azul claro */
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 16px;
@@ -130,10 +130,10 @@
   box-shadow: var(--cv-shadow-sm);
 }
 .slider:active::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px #ebdcff;
+  box-shadow: 0 0 0 4px var(--cv-color-brand-halo);
 }
 .slider:active::-moz-range-thumb {
-  box-shadow: 0 0 0 4px #ebdcff;
+  box-shadow: 0 0 0 4px var(--cv-color-brand-halo);
 }
 .slider:focus-visible {
   outline: none;
@@ -149,7 +149,7 @@
   min-width: 56px;
   height: 28px;
   padding: 0 var(--cv-space-2);
-  border: 1px solid var(--cv-color-border-strong); /* Canva: borde de campo #35415A33 */
+  border: 1px solid var(--cv-color-border-strong);
   border-radius: var(--cv-radius-sm);
   background: var(--cv-color-surface);
   color: var(--cv-color-text);
@@ -160,7 +160,7 @@
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
 }
 .percent:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar #1C213080 */
+  border-color: var(--cv-color-field-hover);
 }
 .percent[aria-expanded='true'] {
   border-color: var(--cv-selection-color);

@@ -1,4 +1,4 @@
-/* Aviso de Canva: banda oscura abajo al centro, texto blanco 14, radio 8, acción en violeta claro */
+/* El aviso del editor: abajo al centro, radio 8, en la superficie de MaKo con su tinta (sigue el tema claro u oscuro) */
 .stack {
   position: absolute;
   z-index: var(--cv-z-toast);
@@ -24,8 +24,8 @@
   padding: 8px var(--cv-space-2) 8px var(--cv-space-4);
   border: 0;
   border-radius: var(--cv-radius-sm);
-  background: var(--cv-tooltip-bg);
-  color: #fff;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
   box-shadow: var(--cv-shadow-lg);
   font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
   animation: toast-in var(--cv-duration-slow) var(--cv-ease-out);
@@ -33,13 +33,13 @@
 
 .icon {
   display: inline-flex;
-  color: #a370fc; /* Canva: violeta del tema oscuro */
+  color: var(--cv-color-brand);
 }
 .success .icon {
-  color: #3fc451; /* Canva: verde legible sobre fondo oscuro */
+  color: var(--cv-color-success);
 }
 .error .icon {
-  color: #fd4958; /* Canva: error del tema oscuro */
+  color: var(--cv-color-danger);
 }
 
 .message {
@@ -50,28 +50,28 @@
 .action {
   border: 0;
   background: transparent;
-  color: #a370fc;
+  color: var(--cv-color-brand);
   font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
 }
 .action:hover {
-  background: rgb(255 255 255 / 0.07);
+  background: var(--cv-color-bg-muted);
 }
 
 .close {
   display: inline-flex;
   border: 0;
   background: transparent;
-  color: rgb(255 255 255 / 0.7);
+  color: var(--cv-color-text-muted);
   padding: 6px;
   border-radius: 6px;
   cursor: pointer;
 }
 .close:hover {
-  background: rgb(255 255 255 / 0.07);
-  color: #fff;
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
 }
 
 .action:focus-visible,

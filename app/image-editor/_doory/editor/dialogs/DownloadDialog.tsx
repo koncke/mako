@@ -26,7 +26,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
  * «Compartir → Descargar» de Canva (relevamiento §9.1): «Tipo de archivo» en un desplegable con un ícono por formato
- * y el sugerido arriba, «Tamaño ×», «Calidad» (JPG), «Fondo transparente», «Seleccionar páginas» y el botón violeta
+ * y el sugerido arriba, «Tamaño ×», «Calidad» (JPG), «Fondo transparente», «Seleccionar páginas» y el botón azul
  * ancho «Descargar». La exportación es la de Doory (`engine/export`): este diálogo sólo elige qué pedirle.
  */
 

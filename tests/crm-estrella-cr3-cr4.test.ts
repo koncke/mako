@@ -78,7 +78,10 @@ test('la estrella y el panel encima de un modal: más arriba que su contenido, y
   // (24/10/2026, f34: al lado de lo que SE VE de la barra: tests/estrella-al-lado-de-la-barra.test.ts.)
   assert.match(pieza, /style=\{\{ left: bordeVisible \+ 16, \.\.\.\(encimaDeModales && prof > 0 \? \{ zIndex: zEncimaDeModales\(prof\) \} : \{\}\) \}\}/);
   assert.match(pieza, /const capa = useCapaModal\(sobre, \{ anidada: true \}\);/, 'el panel entra a la pila sin tapar la tarjeta');
-  assert.match(pieza, /if \(e\.key === 'Escape' && !menuWA && !infoWA && !conectando && \(!sobre \|\| capa\.esElDeArriba\(\)\)\) onCerrar\(\);/);
+  // Desde el 29/10/2026 la conversación es `ConversacionCerebro` (la usa también la tarjeta fija de Create): el panel le pasa
+  // «¿soy la capa de arriba?» y ella lo pregunta antes de cerrar con Escape.
+  assert.match(pieza, /const esDeArriba = useCallback\(\(\) => !sobre \|\| capa\.esElDeArriba\(\), \[sobre, capa\]\);/);
+  assert.match(pieza, /if \(e\.key === 'Escape' && !menuWA && !infoWA && !conectando && \(esDeArriba\?\.\(\) \?\? true\)\) onCerrar\(\);/);
   // Sin el prop (el CRM, cuya ficha ya tiene a MaKo a la izquierda), lo de siempre.
   assert.match(pieza, /onModo, pantalla = null, encimaDeModales = false \}/);
 });

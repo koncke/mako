@@ -793,7 +793,9 @@ export class EditorEngine implements PageCanvasHost {
       for (const v of this.allViews()) v.setTheme(this.themeValue)
     }
     const mo = new MutationObserver(update)
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] })
+    // MaKo cambia de tema con `<html data-tema="oscuro">` (y prueba temas con `data-tema-candidato`): sin esos dos, la
+    // selección del lienzo quedaba con el color del tema con que se abrió el editor.
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-tema', 'data-tema-candidato', 'class'] })
     const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null
     mq?.addEventListener('change', update)
     return () => {

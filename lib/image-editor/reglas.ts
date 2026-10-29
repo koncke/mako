@@ -153,15 +153,19 @@ export function versionValida(raw: unknown): number | null {
 // tests/image-editor-integracion.test.ts). Lo poco que la API necesita del documento vive acá, y
 // tests/api-mako-imagen.test.ts compara el documento en blanco con el `createBlankDocument` del motor.
 
-/** Un documento con una página en blanco, como el que crea el inicio del editor. */
-export function documentoEnBlanco(ancho: number, alto: number, pageId: string): Record<string, unknown> {
+/**
+ * Un documento en blanco, como el que crea «Nuevo diseño» del editor: una página por id (el carrusel trae varias,
+ * app/image-editor/plantillas-crear.ts). El server rechaza un documento sin páginas: va al menos un id.
+ */
+export function documentoEnBlanco(ancho: number, alto: number, pageId: string | readonly string[]): Record<string, unknown> {
   const lado = (n: number) => Math.min(20_000, Math.max(1, Math.round(n)));
+  const ids = typeof pageId === 'string' ? [pageId] : pageId;
   return {
     schemaVersion: 1,
     width: lado(ancho),
     height: lado(alto),
     unit: 'px',
-    pages: [{ id: pageId, background: { type: 'solid', color: '#ffffff' }, objects: [] }],
+    pages: ids.map((id) => ({ id, background: { type: 'solid', color: '#ffffff' }, objects: [] })),
   };
 }
 

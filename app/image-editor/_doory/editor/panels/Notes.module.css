@@ -1,6 +1,6 @@
 /*
  * Las notas de la página, como en Canva: se abren con «Notas» de la barra inferior y aparecen justo encima de ella,
- * sobre el mismo gris del cromo, con un campo blanco (borde de campo de Canva y foco violeta).
+ * sobre el mismo cromo (--bg), con un campo blanco (borde de campo de Canva y foco azul).
  */
 .bar {
   flex: none;
@@ -65,7 +65,7 @@
   max-height: calc(40vh - 52px);
   padding: 10px 12px 24px;
   resize: vertical;
-  border: 1px solid var(--cv-color-border-strong); /* Canva: borde de campo #35415A33 */
+  border: 1px solid var(--cv-color-border-strong);
   border-radius: var(--cv-radius-sm);
   background: var(--cv-color-surface);
   color: var(--cv-color-text);
@@ -76,9 +76,9 @@
   color: var(--cv-color-text-subtle);
 }
 .text:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar #1C213080 */
+  border-color: var(--cv-color-field-hover);
 }
-/* Canva: el campo con foco lleva el borde violeta #8B3DFF */
+/* Canva: el campo con foco lleva el borde azul (--primary) */
 .text:focus-visible,
 .text:focus {
   outline: none;

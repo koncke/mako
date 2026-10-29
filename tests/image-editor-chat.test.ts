@@ -17,7 +17,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cajaDe, refsDeIds, vistaDeDiseno } from '../lib/image-editor/chat/vista';
 import { TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
@@ -435,15 +435,27 @@ test('23: la tabla del hilo es por persona y diseño, sin workspace por omisión
   assert.doesNotMatch(chat, /body\.persona/, 'la persona sale de la sesión');
 });
 
-test('24: el botón redondo del riel abre el chat (ya no es «Próximamente»), y en pantallas chicas va en la tira', () => {
-  const riel = leer('app/image-editor/_doory/editor/chrome/RielCanva.tsx');
-  assert.doesNotMatch(riel, /aria-disabled|t\.rail\.soon/);
-  assert.match(riel, /toggle\(ia\.id\)/);
-  const barra = leer('app/image-editor/_doory/editor/TopBar.tsx');
-  assert.match(barra, /p\.id === PANEL_IA/);
-  assert.match(barra, /const tools = rail\.length > 0 \? \[\.\.\.rail, \.\.\.ia\] : all/);
-  const registro = leer('app/image-editor/mako/registro.ts');
-  assert.match(registro, /id: PANEL_IA,[\s\S]*component: PanelMakoIA,[\s\S]*requires: \(\{ state \}\) => !state\.readOnly/);
+// 29/10/2026, Martín: «la barra lateral del chat de MaKo SIEMPRE abierto a la izquierda». El chat ya no es un panel del riel
+// que se abre con el botón redondo (ni el último de la tira en el teléfono): va en la tarjeta izquierda de la pantalla de
+// Create, que no se cierra. Necesita el motor (`useEditor`), así que el editor lo monta por adentro (`dentro`) y se dibuja
+// por portal en el hueco de la tarjeta. Con un enlace para ver (sólo lectura) no había chat: el panel tenía `requires`.
+// Ahora no hay pantalla de sólo lectura en MaKo (Compartir está en null, mako/adaptadorNube.ts).
+// PROBADO ROMPIÉNDOLO (29/10/2026): PantallaEditor con `dentro={null}` (el chat no se monta) → 24/1 (éste). Restaurado: 25/0.
+test('24: el chat va en la tarjeta izquierda de Create, siempre abierto: sin botón en el riel, ni en la tira, ni panel', () => {
+  const riel = sinComentarios(leer('app/image-editor/_doory/editor/chrome/RielCanva.tsx'));
+  assert.doesNotMatch(riel, /PANEL_IA|rail-ai|Sparkles/, 'el botón redondo de la IA volvió al riel');
+  const barra = sinComentarios(leer('app/image-editor/_doory/editor/TopBar.tsx'));
+  assert.doesNotMatch(barra, /PANEL_IA/, 'el chat volvió a la tira de abajo');
+  assert.match(barra, /const tools = rail\.length > 0 \? rail : all/);
+  assert.doesNotMatch(sinComentarios(leer('app/image-editor/_doory/editor/panels/registry.ts')), /PANEL_IA/);
+  assert.ok(!existsSync(join(RAIZ, 'app/image-editor/mako/registro.ts')), 'registro.ts registraba el chat como panel');
+  const pantalla = sinComentarios(leer('app/image-editor/editor/PantallaEditor.tsx'));
+  assert.match(pantalla, /dentro=\{ranuraChat \? createPortal\(<PanelMakoIA \/>, ranuraChat\) : null\}/, 'el chat se monta adentro del editor y se dibuja en la tarjeta');
+  const app = sinComentarios(leer('app/image-editor/_doory/editor/EditorApp.tsx'));
+  assert.match(app, /<LiveRegion \/>\s*\{dentro\}\s*<\/EditorProvider>/, 'lo de `dentro` va con el contexto del editor');
+  const cliente = sinComentarios(leer('app/image-editor/ImageEditorCliente.tsx'));
+  assert.match(cliente, /chat=\{abierto && carga !== 'falla'\s*\? \(volver\) => <ChatDelEditor /, 'con un diseño abierto, la tarjeta es SU chat (con la «←» del shell)');
+  assert.doesNotMatch(cliente, /onCerrar|cerrarChat|plegar/i, 'el chat no se cierra ni se pliega');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

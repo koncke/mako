@@ -119,7 +119,8 @@ test('5. el chat no se cierra: ni columna a la derecha, ni botón que lo abre, n
   const panel = vivo(leer('app/video-editor/_opencut/chat/PanelChat.tsx'));
   assert.match(panel, /export function PanelChat\(\{ volver = null \}/);
   assert.doesNotMatch(panel, /onCerrar|Cerrar el panel/, 'el chat volvió a tener ✕');
-  assert.match(panel, /<header [^>]*>\n\s*\{volver\}/, 'la «←» de la pantalla de Create va primera en la cabecera del chat');
+  // La cabecera de toda tarjeta de Create (29/10/2026): «MaKo» con su estrella y la «←» de la pantalla (`antes`).
+  assert.match(panel, /<CabeceraDeChat [^>]*titulo="MaKo" criatura="MaKo" aspecto=\{ASPECTO_MAKO\}[\s\S]*?antes=\{volver\} \/>/, 'la cabecera del chat: «MaKo» con su estrella y la «←»');
   assert.doesNotMatch(vivo(leer('app/video-editor/_opencut/chat/estado.ts')), /abierto/);
   // Lo que pedía la portada al navegador (no borrar los proyectos) sigue, ahora en el editor.
   assert.match(page, /<StoragePersistenceDialog \/>/);

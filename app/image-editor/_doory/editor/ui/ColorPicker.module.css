@@ -60,7 +60,7 @@
   cursor: pointer;
 }
 .eye:hover {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-color-bg-muted);
 }
 .eye:focus-visible {
   outline: none;
@@ -82,7 +82,7 @@
   cursor: text;
 }
 .hexField:hover {
-  border-color: rgb(28 33 48 / 0.5);
+  border-color: var(--cv-color-field-hover);
 }
 .hexField:focus-within {
   border-color: var(--cv-color-brand);
@@ -93,7 +93,7 @@
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.2);
+  box-shadow: inset 0 0 0 1px var(--cv-color-border-strong);
 }
 .hexField input {
   flex: 1;
@@ -183,7 +183,7 @@
   font-variant-numeric: tabular-nums;
 }
 .input input:hover {
-  border-color: rgb(28 33 48 / 0.5);
+  border-color: var(--cv-color-field-hover);
 }
 .input input:focus {
   outline: none;
@@ -226,13 +226,13 @@
   cursor: pointer;
 }
 .swatch:hover {
-  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px rgb(57 70 96 / 0.2);
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-color-border-strong);
 }
 .swatch:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
 }
-/* Canva: la muestra elegida lleva un aro violeta separado por un filete blanco */
+/* Canva: la muestra elegida lleva un aro azul separado por un filete blanco */
 .swatchOn,
 .swatchOn:hover {
   box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-selection-color);

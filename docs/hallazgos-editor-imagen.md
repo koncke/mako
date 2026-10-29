@@ -459,3 +459,37 @@ perdieron a propósito: el rótulo del alcance dentro de la burbuja de la person
 OTRA cosa; el alcance sigue en sus chips), y el `maxLength` del campo (la caja única no tiene tope): el tope lo pone
 `enviar`, con `TOPES_CHAT_IMAGEN.instruccion`. **Vive en:** app/image-editor/mako/chat/PanelMakoIA.tsx ·
 tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## Los colores de MaKo y la pantalla de Create: el lienzo nunca había tenido el color del tema (29/10/2026, claude3)
+
+Martín, 29/10: «en las tabs de Editor e Image, pongas los colores de MaKo». Los `--cv-*` pasaron a los tokens de la app (claro
+y oscuro), sin el violeta ni el degradé de Canva, con Geist. Y la tab monta app/_crear/PantallaCrear.tsx. Lo que costó:
+
+- **El lienzo leía los colores donde no existen.** La selección del lienzo era SIEMPRE el violeta de Doory (`#6a52d9`):
+  `readCanvasTheme` leía los `--cv-*` de `<html>`, y sólo existen en `.cv`; caía al respaldo sin un error. Además
+  `watchTheme` no miraba `data-tema`: cambiar de tema no repintaba la selección. Ahora lee de `.cv` y mira el atributo
+  (`_doory/editor/engine/objects/theme.ts`, `engine/editor.ts`). **Regla:** lo que el lienzo lee con `getComputedStyle`
+  tiene que resolver a un hex plano (un `color-mix()` ahí se descarta en silencio).
+- **Salir del editor perdía lo no guardado.** `engine.stop()` → `persistence.dispose()` limpia el autoguardado pendiente SIN
+  mandarlo; el panel de Proyectos viejo lo tapaba con `saveNow` y una recarga entera. Medido en el banco: sin el arreglo, 0
+  PATCH al cambiar de diseño; con él, sale. `PantallaEditor` llama `saveNow` en la limpieza de su efecto (React desmonta de
+  arriba abajo: corre antes que la del hijo).
+- **Lo que se portalea fuera de `.cv` no ve los `--cv-*`.** El chat (PanelMakoIA) va a la tarjeta del shell: sus estilos usan
+  los tokens de MaKo. Y `[hidden]` sobre un elemento con `display:flex` en su módulo no lo esconde: hace falta
+  `[hidden]{display:none}` explícito.
+- **Renombrar el diseño abierto directo en la base da 409** en el próximo autoguardado (la versión): el renombre va por el
+  `meta.title` del editor.
+- **El banco (actualiza «Verificar el editor sin el dev server»):** con `splitting`, el CSS de los chunks perezosos no se
+  enlaza solo (cada `out/*.css` va al HTML); los módulos `'use server'` se reemplazan con un `onLoad` que lee sus exports (si
+  no, esbuild arrastra el server); `window.__MAKO_E2E__ = true` expone el motor para medir cosas como la del autoguardado.
+- **Worktree compartido:** `git rm` deja el borrado EN EL ÍNDICE, y otro chat que commitea sin rutas se lo lleva. Se borra con
+  `rm` y se commitea por ruta.
+
+**Quedó sin hacer:** `docs/diseno-editor-imagen.md` todavía describe `inicio/`, Proyectos, Noto Sans y el violeta (reglas 2 y
+9); «Cambiar nombre» usa `window.prompt` (no en el lugar, como el Web Generator: `ImageEditorCliente.tsx`); el «‹» del
+editor del teléfono (`salir`) no se vio en el banco; los 30 tamaños de Canva menos usados y «Tamaño personalizado» viven
+sólo en Redimensionar (`_doory/editor/dialogs/resizeSizes.ts`). Capturas del banco: `C:/dev/revisiones/create-shell-2910/`.
+
+**Vive en:** app/image-editor/_doory/styles/tokens.css · app/image-editor/plantillas-crear.ts · app/image-editor/actions.ts ·
+app/image-editor/ImageEditorCliente.tsx · app/image-editor/editor/PantallaEditor.tsx · tests/image-editor-colores-mako.test.ts ·
+tests/image-editor-plantillas-crear.test.ts

@@ -471,7 +471,8 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   // `abrir()` desde el 22/10/2026 (CR4): abre, y decide si va encima de un modal de la tab.
   assert.match(pieza, /if \(!pedido \|\| ultimaVez\.current === pedido\.vez\) return;\n\s*ultimaVez\.current = pedido\.vez;\n\s*setPorMandar\(pedido\);\n\s*abrir\(\);/);
   assert.match(pieza, /const abrir = useCallback\(\(\) => \{ setSobre\(encimaDeModales && profundidadModales\(\) > 0\); setAbierto\(true\); \}, \[encimaDeModales\]\);/);
-  assert.match(pieza, /if \(!pedido \|\| !k\.esJefe\) return;\n\s*if \(k\.enviar\(pedido\.texto\)\) onMandado\(\);/);
+  // (`onMandado?.()` desde el 29/10/2026: la tarjeta fija de Create, `ConversacionCerebro`, puede no pasarlo.)
+  assert.match(pieza, /if \(!pedido \|\| !k\.esJefe\) return;\n\s*if \(k\.enviar\(pedido\.texto\)\) onMandado\?\.\(\);/);
   // Abierta, el tablero le deja el lugar: la pieza publica su ancho y el padding izquierdo de CrmBoard lo lee.
   assert.match(leer('app/crm/CrmBoard.tsx'), /padding: `16px 44px \$\{view === 'kanban' \? ABAJO_KANBAN : 60\}px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)`/);
   // Nada de next/link: los links con el `?ws=` de la casa.

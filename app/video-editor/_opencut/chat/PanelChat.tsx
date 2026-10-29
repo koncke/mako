@@ -42,7 +42,9 @@ import { ERROR_ADJUNTO, memoriaConArchivos } from "@/lib/mako-adjuntos";
 import type { ItemHilo } from "@/app/m/mako/chat-ui";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiMagicIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Tick02Icon } from "@hugeicons/core-free-icons";
+import { CabeceraDeChat } from "@/app/admin/operaciones/PanelChat";
+import { ASPECTO_MAKO } from "@/lib/centro-munecos";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -574,11 +576,9 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		// La tarjeta izquierda de la pantalla de Create (app/_crear/PantallaCrear.tsx): llena su alto y NO se cierra. La «←»
 		// de su cabecera (`volver`) la da vuelta a la lista de proyectos.
 		<section role="complementary" className="cc-chat flex min-h-0 w-full flex-1 flex-col bg-(--surface)" aria-label="Editar con IA">
-			<header className="flex h-12 shrink-0 items-center gap-2 border-b border-(--border) pr-3 pl-2">
-				{volver}
-				<HugeiconsIcon icon={AiMagicIcon} className="size-4 shrink-0 text-(--primary)" />
-				<span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-(--ink)">Editar con IA</span>
-			</header>
+			{/* La cabecera de toda tarjeta de Create (29/10/2026): «MaKo» con su estrella (la regla de las criaturas, 21/10) y la «←». */}
+			<CabeceraDeChat clave={`video:${proyectoId}`} titulo="MaKo" criatura="MaKo" aspecto={ASPECTO_MAKO}
+				animo={hilo.corriendo ? "trabajando" : "despierto"} antes={volver} />
 
 			<div ref={hiloRef} className="co-hilo" style={{ padding: "12px" }} aria-live="polite">
 				<div className="co-hilo__col">

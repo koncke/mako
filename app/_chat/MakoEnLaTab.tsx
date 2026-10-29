@@ -173,11 +173,13 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
  *   · `antes`: lo que va antes de la criatura en la cabecera (la «←» a la lista de proyectos de Create).
  */
 export function ConversacionCerebro({ tab, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
-  pantalla = null, onCerrar, esDeArriba, antes }: {
+  pantalla = null, onCerrar, esDeArriba, antes, titulo }: {
   tab: string; arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
   pedido?: { texto: string; vez: number } | null; onMandado?: () => void;
   entidad?: EntidadChat | null; modo?: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla?: string | null;
   onCerrar?: () => void; esDeArriba?: () => boolean; antes?: ReactNode;
+  /** El nombre de la cabecera, si no es el de la conversación («MaKo» en la tarjeta de Create: la persona le habla a MaKo). */
+  titulo?: string;
 }) {
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
@@ -187,7 +189,10 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
   const idEntidad = entidad?.id ?? null;
   const desde = useMemo<Desde>(() => ({ tab, entidad, modo, ...(pantalla ? { pantalla } : {}) }), [tab, entidad?.tipo, idEntidad, entidad?.titulo, modo, pantalla]); // eslint-disable-line react-hooks/exhaustive-deps
   // Siempre el Cerebro: al llegar la lista lo elige solo (`entrarAlCerebro`).
-  const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
+  const base = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
+  // Con `titulo` («MaKo», la tarjeta de Create) la conversación se NOMBRA así en todos lados: la cabecera, «Escribe a MaKo» en
+  // la caja (con «Cerebro», en 340 px partía en dos renglones) y lo fijado. Adentro sigue siendo el Cerebro, que reparte.
+  const k = titulo ? { ...base, nombre: titulo } : base;
   // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
   useEffect(() => {
     if (!pedido || !k.esJefe) return;

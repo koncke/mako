@@ -1,4 +1,4 @@
-/* Aviso de conflicto bajo la barra superior: el aviso de advertencia suave de Canva (fondo #FFD9AD, texto #3E2A14). */
+/* Aviso de conflicto bajo la barra superior: el aviso de advertencia suave de Canva. */
 .banner {
   flex: none;
   display: flex;
@@ -7,7 +7,7 @@
   padding: var(--cv-space-2) var(--cv-space-4);
   border-bottom: 1px solid var(--cv-color-border);
   background: var(--cv-color-warning-soft);
-  color: #3e2a14; /* Canva: texto del aviso de advertencia suave */
+  color: var(--cv-color-warning); /* Canva: texto del aviso de advertencia suave */
   font: 400 var(--cv-text-base) / 22px var(--cv-font-sans);
 }
 .icon {
