@@ -4,6 +4,21 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
+## LO ÚLTIMO: 29/10/2026 tarde, cuenta 3 (claude3), sesión local_7f005343: el ticket #29 de Leandro
+
+**Lo pedido** (el Cerebro, con `mako_doer_conv` 1716): «Ya te sigo» vuelve a «¿Te sigue en Instagram?» y no hace nada; y que
+/docs explique las palabras clave del disparador. El punto 3 (MaKo le contestó con un borrador del Plan) es del chat de MaKo
+en WhatsApp: no se tocó.
+
+**Lo hecho** (main mezclado en 9ae15da85; la cosecha en docs/hallazgos-chatbot.md, la regla en AGENTS.md): el diagnóstico
+del ticket («no puede volver a una tarjeta de antes») era el equivocado: la base muestra que volvía. Eran (1) la clave de
+Zernio sin la pasada (el segundo «Seguinos» era la respuesta guardada), (2) el toque rápido tirado como doble y (3)
+«¿te sigue?» de la caché. Más el tope de 10 toques por vuelta. La guía nueva de /docs: «Palabras clave y botones de
+Instagram» (app/api-mako/Articulos.tsx). Test por el webhook de verdad: tests/boton-vuelve-a-la-condicion.test.ts con
+tests/_boton-vuelve-hijo.ts (8 roturas, todas en rojo). Hito con `tickets: [29]` en app/admin/dev/chatbot/bitacora.ts.
+**Sin hacer:** el tope deja sin recurso a quien tocó 10 veces sin seguir; un «fallo» que Zernio sí entregó no cuenta como
+pasada. Probarlo con la cuenta de Leandro después del deploy (con «Volver a probar» en su ficha).
+
 ## LO ÚLTIMO: 29/10/2026 madrugada, cuenta 3 (claude3), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 9df736464)
 
 **Lo pedido:** el Cerebro verificó 69b49a31c con refutador y NO entró al tren: 1 ALTA, 6 medias y 5 bajas (informe con la

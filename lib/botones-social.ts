@@ -136,6 +136,36 @@ export function botonPorTexto(botones: readonly BotonSocial[], texto: string | n
   return botones.find((b) => !b.url && normalizarTitulo(b.titulo) === t) ?? null;
 }
 
+/**
+ * CUÁNTOS TOQUES PUEDEN MOVER UNA INSCRIPCIÓN en una vuelta (ticket #29 de Leandro, 29/10/2026). Un botón que vuelve a una
+ * tarjeta de antes es un bucle A PROPÓSITO («Ya te sigo» → «¿Te sigue?» → no → «Seguinos» → «Ya te sigo»…): el lead decide
+ * cada vuelta, y cada toque puede mandarle un DM. Diez alcanzan para quien tarda en seguir la cuenta y frenan a quien toca
+ * sin parar. «Volver a probar» es otra vuelta: el conteo arranca de cero.
+ */
+export const TOPE_TOQUES_POR_VUELTA = 10;
+
+/**
+ * LA MARCA DEL ÚLTIMO TOQUE de una inscripción (`nutricion.boton.<inscripción>` en app_settings, la escribe `tocarBoton`):
+ * qué botón (`firma` = tarjeta:botón), cuándo, cuántos toques movieron la inscripción en la vuelta, y qué vuelta
+ * (`inscripto_at` en ms, `vueltaDeToque`). Una marca de antes del ticket #29 (`firma@cuando`) se lee con 0 toques.
+ */
+export type MarcaToque = { firma: string; at: string; veces: number; vuelta: string };
+
+export function leerMarcaToque(v: string | null | undefined): MarcaToque | null {
+  const [firma, at, veces, vuelta] = (v ?? '').split('@');
+  if (!firma || !at) return null;
+  const n = Number(veces);
+  return { firma, at, veces: Number.isInteger(n) && n > 0 ? n : 0, vuelta: vuelta ?? '' };
+}
+
+export const marcaToque = (m: MarcaToque): string => `${m.firma}@${m.at}@${m.veces}@${m.vuelta}`;
+
+/** La vuelta de una inscripción, para la marca: `inscripto_at` en ms ('' sin fecha legible). */
+export function vueltaDeToque(inscriptoAt: string | null | undefined): string {
+  const ms = Date.parse(inscriptoAt ?? '');
+  return Number.isFinite(ms) ? String(ms) : '';
+}
+
 /** Los botones como los recibe Zernio. Los de flujo llevan el `payload` de esta inscripción y esta tarjeta. */
 export function aBotonesZernio(botones: readonly BotonSocial[], inscripcionId: number, nodoId: string): BotonZernio[] {
   return botones.slice(0, TOPE_BOTONES).map((b) => (b.url

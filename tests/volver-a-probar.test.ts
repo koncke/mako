@@ -113,9 +113,13 @@ test('la clave de Zernio lleva la vuelta: otra en la segunda prueba, la misma en
   assert.notEqual(primera, segunda, 'Volver a probar renueva inscripto_at: la clave de la segunda prueba es otra');
   assert.notEqual(claveDeEnvio(5003, '2026-10-28T20:00:00.000Z', 'm2'), primera, 'cada tarjeta, la suya');
   assert.equal(claveDeEnvio(5003, null, 'm1'), 'nutri:5003:m1', 'sin inscripto_at, la de siempre');
+  // ⚠️ LA PASADA (ticket #29): la misma tarjeta otra vez en la misma vuelta (un botón que vuelve) lleva otra clave; la primera,
+  // la de siempre. De punta a punta, por el webhook: tests/boton-vuelve-a-la-condicion.test.ts.
+  assert.equal(claveDeEnvio(5003, '2026-10-28T20:00:00.000Z', 'm1', 1), primera, 'la primera pasada, la clave de siempre');
+  assert.notEqual(claveDeEnvio(5003, '2026-10-28T20:00:00.000Z', 'm1', 2), primera, 'la segunda pasada, otra');
   // El motor la usa, con `inscripto_at` en la cola, y `reactivarInscripcion` lo renueva.
   const motor = sinComentarios(leer('lib/nutricion.ts'));
-  assert.match(motor, /idempotencia: claveDeEnvio\(insc\.id, insc\.inscripto_at, idDe\(paso, insc\.paso_actual\)\)/);
+  assert.match(motor, /idempotencia: claveDeEnvio\(insc\.id, insc\.inscripto_at, idDe\(paso, insc\.paso_actual\), yaSalio \+ 1\)/);
   assert.doesNotMatch(motor, /idempotencia: `nutri:\$\{insc\.id\}/, 'nadie arma la clave vieja a mano');
   assert.match(motor, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at'\)/);
   assert.match(leer('lib/nutricion-reinscripcion.ts'), /inscripto_at: r\.ahora,/);

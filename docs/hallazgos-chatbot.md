@@ -27,6 +27,37 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «Ya te sigo» no hacía nada: el motor SÍ volvía a la tarjeta de antes (29/10/2026, ticket #29 de Leandro)
+
+**El síntoma** (Leandro, `mako_doer_conv` 1716): el «Seguinos» tiene «Ya te sigo», que vuelve a «¿Te sigue en Instagram?»;
+el lead lo toca y «no pasa nada, siga o no siga». **Su diagnóstico, y el del pedido:** «el botón no puede llevar a una
+tarjeta por la que el lead ya pasó». **Era el equivocado.** La base (la 680, inscripción 659 y la vuelta anterior del lead
+5436, `nutricion_envios` e `ig_mensajes`) muestra que el motor volvía a la condición en cada toque y anotaba el «Seguinos»
+como ENVIADO otra vez, y que a las 16:00:20 el link salió. Lo que el lead veía como «nada» eran tres cosas, ninguna en el
+grafo:
+- **El segundo «Seguinos» no salía y MaKo lo anotaba enviado.** La clave de Zernio era (inscripción, vuelta, tarjeta): la
+  misma tarjeta otra vez en la misma vuelta repetía la clave, y Zernio devuelve la respuesta guardada (24 h) SIN mandar.
+  Ahora la clave lleva la PASADA (`claveDeEnvio`, lib/reentrada.ts: cuántas veces ya salió esa tarjeta en la vuelta, sin
+  contar los fallos, que se reintentan con la suya).
+- **El toque de quien seguía rápido se tiraba.** Un toque del mismo botón dentro del minuto era «repetido» (15:43:47 y
+  15:44:07 en la base). Ahora es repetido sólo si la tarjeta del botón NO volvió a salir desde el toque anterior
+  (`tocarBoton`). Los reintentos de Zernio ni llegan: el webhook reclama cada evento.
+- **«¿Te sigue?» se leía de la caché de Zernio** (`refresh=false`, que guarda «briefly» por cuenta y persona). Su doc pide
+  `refresh=true` «right after asking someone to follow». Ahora la vía rápida de UN lead (la del toque) pregunta fresco;
+  la corrida de la hora, con la caché.
+Y como cada toque ahora SÍ manda un DM: **hasta 10 toques que mueven por vuelta** (`TOPE_TOQUES_POR_VUELTA`, la marca
+`nutricion.boton.<inscripción>` los cuenta; «Volver a probar» es otra vuelta). La guía de /docs «Palabras clave y botones de
+Instagram» lo dice, con las reglas de las palabras clave (el punto 2 del ticket).
+
+**La regla:** cuando algo «no pasa», mirar `nutricion_envios` contra lo que llegó de verdad antes de tocar el grafo: un
+envío «enviado» con la misma Idempotency-Key que otro NO salió. Y la prueba va con un Zernio de mentira que REPITE la
+respuesta guardada como el de verdad (tests/_boton-vuelve-hijo.ts): un doble que siempre «entrega» no ve esto.
+
+**Sin hacer:** quien tocó 10 veces sin seguir la cuenta no recibe el recurso en esa vuelta (el tope es a propósito; si
+molesta, se sube). Un envío que Zernio entregó pero dio «fallo» terminal (un tiempo agotado) no cuenta como pasada: la
+siguiente repetiría su clave. El costo de `refresh=true` en Zernio no está documentado (va una consulta por toque). El
+PostgREST de mentira no entiende `or=`: el hijo contesta vacío el «quién entró en 24 h» (si no, 7 s de reintentos por corrida).
+
 ## La difusión desde el CRM: tres cosas del motor que hacían que «un flujo con tres tarjetas» no sirviera (28/10/2026, Leila)
 
 **El pedido** (Martín, por Leila): elegir una columna o leads sueltos en el CRM y «mandar mensaje de difusión» por

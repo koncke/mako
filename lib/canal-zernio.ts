@@ -144,12 +144,12 @@ export async function conversacionesDeLeads(leadIds: readonly number[]): Promise
  * no escribió no se consulta y no está en el mapa: su condición dice «no sé». Una falla pasajera de
  * Zernio TIRA (`estadosDeSeguimiento`).
  */
-export async function siguenEnInstagram(ws: number, conversaciones: ConversacionesPorLead): Promise<Map<number, boolean | null>> {
+export async function siguenEnInstagram(ws: number, conversaciones: ConversacionesPorLead, o: { fresco?: boolean } = {}): Promise<Map<number, boolean | null>> {
   const pedidos = [...conversaciones].flatMap(([leadId, c]) => {
     const p = pedidoDeSeguimiento(c.instagram);
     return p ? [{ leadId, ...p }] : [];
   });
-  return estadosDeSeguimiento(ws, pedidos);
+  return estadosDeSeguimiento(ws, pedidos, o);
 }
 
 /**
