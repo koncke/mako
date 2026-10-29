@@ -1,6 +1,6 @@
 # Relevo — MaKo inteligente: recomendaciones reales y Second Brain (cuenta claude4)
 
-Rama `mako-inteligente-2710-c4`, worktree `C:/dev/wt-mako-inteligente-c4`. Al día: 28/10/2026, 22:25 (hora de Argentina). La cuenta claude4 pasó el 85 % semanal (89 % a las 22:20).
+Rama `mako-inteligente-2710-c4`, worktree `C:/dev/wt-mako-inteligente-c4`. Al día: 28/10/2026, 23:05 (hora de Argentina). La cuenta claude4 pasó el 90 % semanal (91 % a las 22:48).
 Lo que sube a main lo junta y lo sube el Cerebro; cada entrega va por SendMessage como «VERDE <sha>» con la lista de .ts.
 
 ## Lo pedido, con sus palabras
@@ -21,12 +21,19 @@ Lo que sube a main lo junta y lo sube el Cerebro; cada entrega va por SendMessag
 | La guarda de una herramienta (base 7) y sus agujeros: tragada, «la última», la marca `guarda:true` | e6f58be78, ae1660f9a, 5f0792446, ab2b3904d, 574107963 | en main (tren-u y tren-v) |
 | El catálogo de las funciones (lib/funciones-mako.ts), su capa del grafo y `grafoParaChat` | c272b97dd, 5402e7043, 0c80dd3ce | en main (tren-v) |
 | La verificación de 0c80dd3ce (lo del super admin, la caché) y el Web Generator con la función que vende | 220a80af6, 3d73a2ea0, c659dc0f4 | en main (tren-v, 23b329b5e) |
-| El turno de MaKo trae del Second Brain lo que nombra la pregunta, sin la plata para closers y setters | 809887ac9 … b2c19c445 | VERDE enviado al Cerebro (28/10, 21:35): falta su verificación |
-| En la plataforma, las funciones entran al turno sólo en una pregunta de producto («meta» ya no trae Ads Manager; 588 → 359 tokens) | cfab5c33a | VERDE enviado al Cerebro (28/10, 22:25): falta su verificación |
+| El turno de MaKo trae del Second Brain lo que nombra la pregunta, sin la plata para closers y setters | 809887ac9 … b2c19c445 | La verificación del Cerebro dio defectos (C:/dev/revisiones/2810-verificacion-mi-b2c19c445.md): no entra al tren |
+| En la plataforma, las funciones entran al turno sólo en una pregunta de producto («meta» ya no trae Ads Manager; 588 → 359 tokens) | cfab5c33a | va encima de b2c19c445: espera el arreglo |
 
 ## A medias
 
-- Nada: lo último (cfab5c33a) está commiteado y entregado.
+- **Los defectos de la verificación de b2c19c445, arreglados encima de cfab5c33a** (sin commitear al escribir esto):
+  - ALTA: un closer recibía el objetivo de facturación (nodo `objetivo`). `sinLaPlata` pasa a `VE_SIN_PLATA`, en positivo
+    (lib/cerebro-union.ts); el nodo sale de `nodoDelObjetivo` (lib/cerebro-vivo.ts, puro) para probarlo con los settings en
+    string. Regla en AGENTS.md.
+  - MEDIA: el CPU de `recuperar` con un mensaje largo. `preguntaDelTurno` (600 letras) y `semillasDe` normaliza cada texto
+    una vez (`buscador` en lib/buscar-tareas.ts). 220 nodos y 32.000 letras: de 4.358 ms a 9 ms.
+  - BAJA: los tests 1, 3 y 5 de tests/second-brain-turno.test.ts fijan el tope, la espera y el corte; 12 roturas en rojo.
+  - Falta: tsc-acotado y tests-afectados (la guardia de RAM lo frenó a las 23:00), commit por ruta y el VERDE sin tipos.
 - **La medición del turno** (ws 9, datos reales, 28/10, 21:40): con el filtro suma 359 tokens de promedio (7 de 9 preguntas
   traen algo; antes 588) contra 1.256 del grafo entero. «¿Cuál es mi meta del trimestre?» ya no trae nada (antes Ads Manager);
   «¿qué no hace la bandeja?» sigue trayendo sólo Chats (373).
