@@ -30,11 +30,19 @@ tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING».
 
 ## Lo que falta verificar / lo que espera
 
-- **El shell único de Create:** mergeado (create-shell-2910 en 2b62724ea, merge 61bc5a3c1) y el Copywriter montado en
-  `PantallaCrear` (D15). **Esta rama trae la de Create adentro:** sube una vez, con las dos (la de Create redirige /reels a
-  `/copywriter?nuevo=reel`, que vive acá). nav.ts y movil-rutas.ts los resolví acá, encima del commit de Create.
-- `/m/stories` (StoriesM) e `/ideas` (el «pronto») siguen vivos sin fila: retirarlos arrastra los tests del teléfono
-  (m-creacion, movil-rutas); va en otra tanda.
+- **El shell único de Create:** mergeado (create-shell-2910: 2b62724ea → merge 61bc5a3c1; su punta 4e75f2067 → merge
+  9c81c1a94) y el Copywriter montado en `PantallaCrear` (D15, d5af2bbca). **Esta rama trae la de Create adentro:** sube
+  una vez, con las dos (la de Create redirige /reels a `/copywriter?nuevo=reel`, que vive acá). nav.ts y movil-rutas.ts
+  los resolví acá, encima del commit de Create.
+- **Commits de esta rama (29/10):** d8093aa14 (Notion) · 5786f7fef · feb62eb06 · 61bc5a3c1 (merge Create) · d5af2bbca
+  (shell) · 9c9d02ba1 (tipos de «Duplicar») · 9c81c1a94 (merge Create, punta) · 0fc58707d (los rojos de tests-afectados).
+- **VERDE parcial (29/10, ~07:00):** tsc-acotado 0 sobre 53 archivos en 4 tandas + 13 del último commit (con los dos
+  `.d.ts` globales, ver hallazgos); los 13 tests que dieron rojo, 111/111, cada arreglo probado rompiéndolo. Falta la
+  segunda corrida de `tests-afectados --base origin/main --rapido` (la primera: 10 rojos en 8 archivos, arreglados en
+  0fc58707d y en el merge de la punta de Create).
+- `/m/stories` (StoriesM), `/ideas` y el «pronto» de YouTube Writer del teléfono siguen vivos sin fila (las keys `ideas` y
+  `youtube-writer` en SIN_FILA con `comingSoon`, porque sus páginas las piden): retirarlos arrastra los tests del
+  teléfono (m-creacion, movil-rutas, movil-desvio); va en otra tanda.
 - La mudanza ESCRIBE en producción la primera vez que cada negocio abre la tab (copias, no toca lo original).
 - `/ads-writer` sigue andando por link (la matriz, «Analizar guion»), sin fila. Qué hacer con eso: Martín.
 
