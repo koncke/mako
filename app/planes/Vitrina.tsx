@@ -29,7 +29,7 @@ export const CSS_VITRINA = `
 .planes-alta { margin: 12px 0 0; color: #5B6472; font-size: 14px; }
 .planes-tabla tr.planes-grupo th { text-align: left; background: #F8F9FB; color: #5B6472; font-size: 12px; font-weight: 700; letter-spacing: .07em;
   text-transform: uppercase; padding-top: 16px; }
-.planes-tabla thead th.programa { color: #142B66; }
+.planes-tabla thead th.programa { color: #101319; }
 .planes-faq { max-width: 760px; margin: 48px auto 0; display: grid; gap: 10px; }
 .planes-faq h2 { margin: 0 0 8px; font-size: 22px; text-align: center; }
 .planes-faq details { background: #fff; border: 1px solid #EAECF1; border-radius: 14px; padding: 0 18px; }

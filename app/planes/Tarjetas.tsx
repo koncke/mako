@@ -60,11 +60,13 @@ export const CSS_TARJETAS = `
 .mkpl-lista li { display: flex; gap: 10px; align-items: flex-start; }
 .mkpl-lista li::before { content: "✓"; flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center;
   justify-content: center; font-size: 12px; font-weight: 800; color: #1F7A4D; background: #E3F5EB; margin-top: 1px; }
-.mkpl-programa { background: radial-gradient(700px 320px at 100% 0%, rgba(122,162,255,.28), transparent 60%), linear-gradient(160deg, #142B66 0%, #0B1735 100%);
-  color: #F3F6FF; border-color: #1E3A80; box-shadow: 0 22px 54px rgba(11,23,53,.34); }
+/* El bloque del programa, OSCURO para que se destaque, pero grafito (#101319, el de la app) y no azul (29/10/2026, Martín: «no
+   me gusta que esté con el fondo azul»; el azul queda de acento). El brillo de arriba es el dorado de su botón. */
+.mkpl-programa { background: radial-gradient(700px 320px at 100% 0%, rgba(245,196,81,.14), transparent 60%), linear-gradient(160deg, #1C1F27 0%, #101319 100%);
+  color: #F4F5F7; border-color: #2A2F3A; box-shadow: 0 22px 54px rgba(16,19,25,.34); }
 .mkpl-programa .mkpl-insignia { background: #F5C451; color: #2A1E00; }
 .mkpl-programa .mkpl-ceja { color: #F5C451; }
-.mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-cuotas, .mkpl-programa .mkpl-precio small { color: #C9D3EE; }
+.mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-cuotas, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
 .mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
 /* Lo que el plan NO trae (29/10/2026), con ✗ y en gris, debajo de lo que sí. */
@@ -77,7 +79,7 @@ export const CSS_TARJETAS = `
 .mkpl-garantia { margin: -10px 0 20px; font-size: 13.5px; line-height: 1.45; color: #4A5260; }
 .mkpl-garantia b { color: #12151B; }
 .mkpl-garantia a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
-.mkpl-programa .mkpl-garantia { color: #C9D3EE; }
+.mkpl-programa .mkpl-garantia { color: #C4C8D0; }
 .mkpl-programa .mkpl-garantia b { color: #F3F6FF; }
 /* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
    elegido. Sin :has(), se ven los dos: nunca queda una tarjeta sin precio. */
@@ -94,7 +96,7 @@ export const CSS_TARJETAS = `
 .mkpl-gratis { display: inline-block; margin: 0 0 10px; padding: 3px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D;
   font-size: 12.5px; font-weight: 800; letter-spacing: .02em; }
 .mkpl-pagos b { color: #12151B; }
-.mkpl-despues { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: #C9D3EE; }
+.mkpl-despues { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: #C4C8D0; }
 @media (max-width: 900px) {
   .mkpl-grilla { grid-template-columns: 1fr; gap: 26px; }
   .mkpl-resumen { min-height: 0; }

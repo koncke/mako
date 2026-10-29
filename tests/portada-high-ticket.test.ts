@@ -73,3 +73,31 @@ test('la portada dibuja cada tarjeta con lo que NO incluye y la tabla comparativ
   assert.match(tarjeta, /<ul class="mkpl-lista mkpl-no" aria-label="No incluye">/, 'la tarjeta de Esencial no dice lo que NO incluye');
   for (const x of noIncluyeDe('completo')) assert.ok(tarjeta.includes(`<li>${x}</li>`), `Esencial: falta el ✗ de «${x}»`);
 });
+
+// ── Sin fondo azul también en el Acelerador (29/10/2026, el Cerebro con la regla de Martín: «fondo claro, el azul sólo de
+// acento»): su bloque sigue oscuro para destacarse, pero en el grafito de la app. Verificado rompiéndolo: volver al azul
+// marino → rojo.
+test('el bloque del Acelerador es grafito, no azul', () => {
+  const t = leer('app/planes/Tarjetas.tsx');
+  const regla = /\.mkpl-programa \{ background: ([^;]+);/.exec(t)?.[1] ?? '';
+  assert.match(regla, /#101319/, 'el Acelerador no tiene el fondo grafito de la app');
+  assert.doesNotMatch(regla, /#142B66|#0B1735|122,162,255/, 'el Acelerador volvió al fondo azul');
+});
+
+// ── Que toda la venta diga lo mismo (29/10/2026, el Cerebro): las páginas de cada funcionalidad (/vsl/<slug>) también apuntan a
+// High Ticket. Verificado rompiéndolo: volver una frase de features.ts → rojo.
+test('las páginas de cada funcionalidad tampoco dicen «VSL Funnel»', () => {
+  for (const rel of ['app/vsl/_detalle/features.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/showcase.ts']) {
+    assert.doesNotMatch(leer(rel), /VSL Funnel/i, rel);
+  }
+  assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /<p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta\.<\/p>/);
+});
+
+// ── /vsl/ads vende lo que hay (29/10/2026, el Cerebro): el Media Buyer que propone y aplica, no crear campañas desde MaKo (la
+// réplica del Ads Manager se borró el 25/10). Verificado rompiéndolo: volver «crea tu campaña» al showcase → rojo.
+test('la página de anuncios no vende crear campañas', () => {
+  for (const rel of ['app/vsl/_detalle/features.ts', 'app/vsl/showcase.ts']) {
+    assert.doesNotMatch(leer(rel), /crea(r)? (tu|tus)? ?campañas?|Crear campañas|creas campañas/i, rel);
+  }
+  assert.match(leer('app/vsl/_detalle/features.ts'), /name: "Tu media buyer con IA",/);
+});

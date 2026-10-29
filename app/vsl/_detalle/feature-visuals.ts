@@ -511,18 +511,18 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "signalFlow",
         "nodes": [
           {
-            "label": "Creativo",
-            "sub": "subes",
+            "label": "Tu cuenta",
+            "sub": "cada día",
             "tone": "blue"
           },
           {
             "label": "MaKo",
-            "sub": "arma árbol",
+            "sub": "decide y explica",
             "tone": "green"
           },
           {
-            "label": "En pausa",
-            "sub": "un clic",
+            "label": "Tú",
+            "sub": "apruebas o deshaces",
             "tone": "amber"
           }
         ]
