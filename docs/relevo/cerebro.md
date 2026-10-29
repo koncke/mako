@@ -38,7 +38,31 @@ preguntes: hacé esto en orden.
 Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node C:/dev/revisiones/subir-tren.mjs <log>`
 (`SUBIR_ARBOL` cambia el árbol; `SUBIR_UN_LUGAR=1` no espera el segundo lugar de tests). El Cerebro de claude3 es
 `local_428051c1`. Esto vale por encima del estado de claude4 de más abajo.
-- **AHORA (29/10 14:26): main = `1cf06eba9`, el tren grande (tren-ab).** 128 commits, con las 3 tandas de tipos en 0.
+- **AHORA (29/10 17:03): main = `ff908e645`, tren-ac. READY 17:07: hola-mako.com sirve `mako-8g8vtn7tv`
+  (dpl_ioqDqJGw…).** Avisados el Cerebro (que le escribe a Leandro por el #29) y Zernio. Los demás dueños estaban
+  archivados.
+  - **Qué trae:**
+    - El ticket #29 de Leandro (Automations `38c39d067` + `50b7ff798`): «Ya te sigo» vuelve a entregar el recurso, porque
+      pregunta a Zernio con `refresh=true`.
+    - Pagos `7f79a4e6c` y la tabla de planes `90a760e4b` (Web Generator).
+    - Zernio con varias claves por negocio (`7b7d1ca2b`), más LinkedIn, X, Threads y Google Business. Pasó la revisión de
+      privacidad.
+  - **Rojos del chequeo, arreglados en el tren:** tres tests de otras áreas que leen `lib/zernio.ts` (`606f2dcef` y
+    `27ba51334`). Cosechado en `docs/hallazgos-integraciones.md`.
+  - **El grupo compartido 2/2 murió con la RAM en 0:** «0 tests» y 388 rojos. Re-corrido solo dio 3755 tests, con sólo los
+    rojos conocidos (alta-cliente-conducta, que pasa sola, y el `todo` de chats-mako-envio).
+  - **⏸ PAUSA «reunión de Martín», prendida a las 17:03 por pedido del Cerebro:** no arrancar el tren-ad ni ningún barrido
+    hasta que el Cerebro la levante. Un proceso de Integración la refresca cada 20 min mientras diga eso, porque a los 90
+    min se da por olvidada.
+- **tren-ad (sin armar; espera la pausa):**
+  - **Lleva:**
+    - AI Avatar para todos los planes: `ai-avatar-todos-2910` en `4d66a5703`, que trae mergeada la landing hasta
+      `abfe143ed`.
+    - El Web Generator: `landing-high-ticket-2910` en `7511f5f14`, que suma sólo un comentario.
+  - Toca los planes (`planes-mako`, `topes-plan`, `planes-comparacion`), así que antes de subir pasa por una revisión
+    adversarial de plata.
+  - NO subir `ai-avatar-abrir-pro-2910` ni `ai-avatar-para-todos-2910`.
+- **Antes: el tren grande (tren-ab), main `1cf06eba9`, Ready 14:29.** 128 commits, con las 3 tandas de tipos en 0.
   - **Qué trae:**
     - Create entero: el shell, el Copywriter en Notion con la mudanza re-verificada, AI Avatar y el «Cómo conectarla».
     - MaKo en WhatsApp (`ac593ce1d`): las 6 fallas de Leandro, la ALTA 2 y los tickets al Cerebro (cartero 1.23.0).
@@ -57,16 +81,9 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   `C:/dev/wt-copywriter-notion/node_modules`. Lo que falta, con la app tranquila y sin tests corriendo, es pasar el clon
   principal a origin/main y correr `npm install` (NO `npm ci`, que borra el node_modules de todos mientras instala).
 - **Tren grande EN PRODUCCIÓN: `mako-obai8j5oz`, Ready 14:29.** Avisados el Cerebro y los dueños no archivados.
-- **tren-ac (`C:/dev/wt-push-q`, rama `tren-ac`, sobre main `1cf06eba9`):**
-  - **Lleva:** el ticket #29 de Leandro (`38c39d067`, «Ya te sigo» vuelve a entregar el recurso), Pagos `7f79a4e6c`
-    (re-verificado, entra con seis bajas devueltas) y la tabla de planes `90a760e4b`.
-  - **Frena:** un rojo del #29. Las descripciones más largas de chatbot.def.ts dejan afuera del presupuesto
-    editar_pasos_secuencia_mensajes y cambiar_crons_secuencia (ops-center-bateria y ops-center-clasificador-app). Ya se le
-    pidió el arreglo a Automations.
 - **0348 APLICADA (29/10, el Cerebro con el sí de Martín):** el CHECK de `red` del Calendario acepta las 8 redes.
-- **Zernio, varias claves (`7b7d1ca2b`):** Martín lo dio vuelta el 29/10 16:40 UTC (audio en el grupo de SuperAdmin). Entra
-  cuando pase su revisión adversarial de privacidad (corriendo; informe en
-  `C:/dev/revisiones/2910-verificacion-zernio-varias-claves-7b7d1ca2b.md`).
+- **Zernio, varias claves (`7b7d1ca2b`):** Martín lo dio vuelta el 29/10 16:40 UTC (audio en el grupo de SuperAdmin). Subió
+  en tren-ac. La revisión de privacidad está en `C:/dev/revisiones/2910-verificacion-zernio-varias-claves-7b7d1ca2b.md`.
 - **Lo que quedó para el tren siguiente:**
   - ~~Pagos `7f79a4e6c`~~: re-verificado, entra en tren-ac.
   - `tren-aa` (`C:/dev/wt-push-aa`): quedó VIEJO, todo lo suyo subió en tren-ab. Se puede borrar el worktree.
