@@ -119,3 +119,52 @@ export function cobrosParaLaAgencia(cobros: readonly CobroDeCliente[]): Record<n
   }
   return out;
 }
+
+// =============================================================================
+// EL PLAN Y LA PASARELA DE CADA CUENTA (29/10/2026, llamada con Thiago, agencia de España con 27 clientes)
+// =============================================================================
+// «Son los mismos planes, de 47 y 97» [10:24]: la cuenta de un cliente se abre con Esencial o Pro (los de /planes,
+// lib/planes-mako.ts), a su precio. Y se cobra como /planes: Mercado Pago sólo en el país de SU cuenta (la de MaKo es
+// argentina: cobra en pesos); en el resto del mundo, Stripe, en EUR en la zona euro si el plan tiene ese precio, y si no en
+// USD. Hasta este día sólo cobraba Mercado Pago en pesos: para España no salía ningún link y cada cuenta esperaba la firma.
+
+export type PlanCuenta = 'esencial' | 'pro';
+export const planCuentaDe = (v: unknown): PlanCuenta => (v === 'pro' ? 'pro' : 'esencial');
+/** La capa que abre cada plan (como /planes: Esencial = completo, Pro = agencia). */
+export const CAPA_DE_PLAN: Readonly<Record<PlanCuenta, 'completo' | 'agencia'>> = { esencial: 'completo', pro: 'agencia' };
+export const planDeCapa = (capa: string | null | undefined): PlanCuenta => (capa === 'agencia' ? 'pro' : 'esencial');
+
+const EUROZONA: ReadonlySet<string> = new Set(['ES', 'FR', 'DE', 'IT', 'PT', 'NL', 'BE', 'AT', 'IE', 'FI', 'GR', 'LU', 'SK', 'SI', 'EE', 'LV', 'LT', 'CY', 'MT', 'HR']);
+
+export type OpcionDeCobro = { pasarela: 'stripe' | 'mercadopago'; moneda: string; monto: number };
+
+/**
+ * Con qué se cobra una cuenta: de las opciones que YA filtró el país (`pasarelasDelPais`), Mercado Pago si quedó y se sabe
+ * el país (es el de su país); si no, Stripe, en EUR en la zona euro cuando el plan tiene precio en EUR (`eur`). ⚠️ SIN PAÍS,
+ * Stripe primero: Mercado Pago rechaza a quien no es de su país («la cuenta del vendedor es de otro país»), Stripe cobra en
+ * todo el mundo. null = hoy no se puede cobrar.
+ */
+export function cobroDeLaCuenta(p: { pais: string | null; opciones: readonly OpcionDeCobro[]; eur: number | null }): OpcionDeCobro | null {
+  const mp = p.opciones.find((o) => o.pasarela === 'mercadopago');
+  const stripe = p.opciones.find((o) => o.pasarela === 'stripe');
+  if (mp && (p.pais || !stripe)) return mp;
+  if (!stripe) return null;
+  if (p.pais && EUROZONA.has(p.pais) && p.eur != null && p.eur > 0) return { pasarela: 'stripe', moneda: 'EUR', monto: p.eur };
+  return stripe;
+}
+
+/** El país de una zona horaria (el respaldo cuando no hay encabezado, como en la API): sólo las que se saben sin dudar. */
+export function paisDeZona(tz: string | null | undefined): string | null {
+  const z = String(tz ?? '');
+  if (z.startsWith('America/Argentina/') || z === 'America/Buenos_Aires') return 'AR';
+  const EU: Record<string, string> = { Madrid: 'ES', Paris: 'FR', Berlin: 'DE', Rome: 'IT', Lisbon: 'PT', Amsterdam: 'NL', Brussels: 'BE', Vienna: 'AT', Dublin: 'IE', Athens: 'GR', Helsinki: 'FI' };
+  if (z.startsWith('Europe/')) return EU[z.slice(7)] ?? null;
+  if (['America/Mexico_City', 'America/Tijuana', 'America/Monterrey', 'America/Cancun', 'America/Merida', 'America/Chihuahua', 'America/Hermosillo', 'America/Mazatlan'].includes(z)) return 'MX';
+  return null;
+}
+
+/** Cuántos días antes de que empiece a cobrar se abre la renovación de Stripe (Stripe no difiere el primer cobro: cobra al pagarla). */
+export const DIAS_ANTES_RENOVACION_STRIPE = 5;
+
+/** ¿Ya se abre la renovación por Stripe? (MP la crea al terminar el onboarding con su `start_date`.) */
+export const abreRenovacionStripe = (inicioIso: string, ahoraMs: number): boolean => ahoraMs >= Date.parse(inicioIso) - DIAS_ANTES_RENOVACION_STRIPE * 86_400_000;

@@ -42,7 +42,7 @@ test('2. la ruta lo mira SÓLO al invitar, antes de crear la cuenta, y sin poder
   assert.match(invitar, /const tope = topeAlInvitar\(\{ cobraMako: await cobraMako\(ws\), capa: \(await getWorkspace\(ws\)\)\?\.capa, miembros: equipo\.length \}\);\n\s*if \(!tope\.ok\) return NextResponse\.json\(\{ ok: false, error: tope\.error, tope: tope\.tope, pasarAPro: tope\.pasarAPro \}, \{ status: 403 \}\);/);
   assert.ok(invitar.indexOf('topeAlInvitar(') < invitar.indexOf('crearUsuario('), 'antes de crear la cuenta');
   assert.equal((r.match(/topeAlInvitar\(/g) ?? []).length, 1, 'sólo al invitar: a los que ya están no se los toca (rol, estado, reenviar)');
-  assert.match(r, /try \{ return \(await suscripcionDeMakoDe\(ws\)\) != null; \} catch \(e\) \{[^}]*return false; \}/, 'si no se puede leer, no frena');
+  assert.match(r, /try \{ return await aplicanTopes\(ws\); \} catch \(e\) \{[^}]*return false; \}/, 'si no se puede leer, no frena');
 });
 
 test('3. el cartel con «Pasar a Pro», en la computadora y en el teléfono', () => {

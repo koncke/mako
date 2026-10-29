@@ -20,6 +20,10 @@ import { getSesionAdmin } from '@/lib/auth';
 import { aplicarPlantillaACliente, type ResultadoPlantilla } from '@/lib/plantillas-modelo';
 import { esModeloCliente } from '@/lib/plantillas-modelo-reglas';
 import { darDeBajaClienteDeAgencia } from '@/lib/agencia-baja';
+import { headers } from 'next/headers';
+import { paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { planCuentaDe } from '@/lib/agencia-cobro-reglas';
+import { cambiarPlanDeCliente } from '@/lib/agencia-plan';
 
 const emailDeQuienMira = () => getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
 
@@ -40,7 +44,7 @@ export async function sumarmeComoAgencyAction(perfil: { clientes?: string | null
  * Abrirle su cuenta de MaKo a un cliente de la agencia: desde un lead del CRM (`leadId`, cualquier etapa) o desde cero, y
  * eligiendo quién la paga. Devuelve el link del primer mes (si paga la agencia, lo paga ahí mismo).
  */
-export async function abrirCuentaClienteAction(datos: { leadId?: number | null; nombre?: string; email: string; paga?: string | null }): Promise<CuentaAbierta> {
+export async function abrirCuentaClienteAction(datos: { leadId?: number | null; nombre?: string; email: string; paga?: string | null; plan?: string | null }): Promise<CuentaAbierta> {
   try {
     const agenciaWs = await adminDeWorkspaceActual();
     if (!agenciaWs) return { ok: false, error: 'Sólo el admin de la cuenta puede abrirle una cuenta a un cliente.' };
@@ -51,6 +55,9 @@ export async function abrirCuentaClienteAction(datos: { leadId?: number | null; 
       leadId: datos?.leadId != null ? Number(datos.leadId) : null,
       pagador: await emailDeQuienMira(),
       paga: quienPagaDe(datos?.paga),
+      // Su plan (29/10/2026: «son los mismos planes, de 47 y 97») y el país de quien la abre, que decide la pasarela.
+      plan: planCuentaDe(datos?.plan),
+      pais: paisDelVisitante((await headers()).get('x-vercel-ip-country')),
     });
     if (r.ok) {
       revalidatePath('/agency');
@@ -110,5 +117,19 @@ export async function darDeBajaClienteAction(clienteWs: number): Promise<{ ok: t
     return r.ok ? { ok: true, resumen: r.resumen } : r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo dar de baja.' };
+  }
+}
+
+/** Cambiar el plan (Esencial ↔ Pro) de la cuenta de un cliente (29/10/2026, lib/agencia-plan.ts): sólo el admin de la agencia. */
+export async function cambiarPlanClienteAction(clienteWs: number, plan: string): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  try {
+    const agenciaWs = await adminDeWorkspaceActual();
+    if (!agenciaWs) return { ok: false, error: 'Sólo el admin de la cuenta puede cambiar el plan de un cliente.' };
+    const sesion = await getUsuarioActual();
+    const r = await cambiarPlanDeCliente({ agenciaWs, clienteWs: Number(clienteWs), plan: planCuentaDe(plan), autor: sesion?.nombre || sesion?.email || 'la agencia' });
+    if (r.ok) revalidatePath('/agency');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo cambiar el plan.' };
   }
 }

@@ -21,7 +21,7 @@ import { invitarPorEmail } from '@/lib/invitaciones';
 // Suspender, eliminar o bajarle el rol a alguien APAGA los tokens clásicos de la API que esa
 // persona acuñó (14/10/2026): sólo los que ya no administra, y sin tirar nunca.
 import { revocarAgenteTokensDe } from '@/lib/agente-token';
-import { suscripcionDeMakoDe } from '@/lib/cobros';
+import { aplicanTopes } from '@/lib/topes-plan-server';
 import { topeAlInvitar } from '@/lib/tope-equipo-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +35,7 @@ const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 /** ¿MaKo le cobra el plan a este negocio por la pasarela? Si no se puede leer, no se frena a nadie: mejor una invitación de
  *  más que frenar a quien paga por un error de la base. */
 async function cobraMako(ws: number): Promise<boolean> {
-  try { return (await suscripcionDeMakoDe(ws)) != null; } catch (e) { console.error('[equipo] no pude leer la suscripción de MaKo', ws, e); return false; }
+  try { return await aplicanTopes(ws); } catch (e) { console.error('[equipo] no pude leer la suscripción de MaKo', ws, e); return false; }
 }
 
 // Resuelve y autoriza: devuelve el ws si el request es admin-del-cliente (o

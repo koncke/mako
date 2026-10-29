@@ -188,6 +188,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del negocio (o de la persona) del cliente.' },
       { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el email de quien va a usar la cuenta: por ahí le llega el acceso.' },
       { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
+      { nombre: 'plan', rotulo: 'Plan', tipo: 'string', enum: ['esencial', 'pro'], descripcion: 'su plan de MaKo: esencial (default, US$47 por mes) o pro (US$97 por mes).' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

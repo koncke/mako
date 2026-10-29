@@ -47,7 +47,7 @@ test('lo que lee el plan: primero si MaKo lo cobra por la pasarela, y sin poder 
   const src = sinComentarios(leer('lib/tope-cuentas.ts'));
   const f = src.slice(src.indexOf('export async function topeDeCuentas('));
   assert.ok(f.indexOf('await suscripcionDeMakoDe(ws)') < f.indexOf('getWorkspace(ws)'), 'se leía la capa antes de saber si MaKo le cobra el plan');
-  assert.match(f, /if \(!sus\) return null;/);
+  assert.match(f, /if \(!\(await aplicanTopes\(ws\)\)\) return null;/);
   assert.match(f, /\} catch \(e\) \{[\s\S]*?return null;\s*\}/, 'sin poder leer el plan, frenaba la conexión');
   // Los grupos: las de cobro (Stripe y Mercado Pago juntas) y las de agenda (Calendly y Cal juntas).
   assert.match(src, /if \(grupo === 'cobro'\) return \(await cuentasDePago\(ws\)\)\.length;/);

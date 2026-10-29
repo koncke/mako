@@ -25,8 +25,8 @@ import { carteraDeAgencia, altasDeAgencia, esAgencia, agenciasHabilitadas, type 
 import { clientesAprobados, ESTADOS_CARTERA, type EstadoCartera } from './agencia-cartera';
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
 import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia } from './agencia-cobro';
-import type { PrecioClienteAgencia } from './agencia-cobro-reglas';
-import { capaDef } from './capas';
+import { CAPA_DE_PLAN, paisDeZona, planCuentaDe, planDeCapa, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
+import { zonaDelNegocio } from './timezone';
 import { caraDeUsuario } from './gravatar';
 import { guardarQuienPaga, quienPagaDeClientes } from './agency';
 import { quienPagaDe, type QuienPaga } from './agency-reglas';
@@ -46,8 +46,9 @@ export type CuentaPartner = {
   estado: EstadoCartera;
   /** Cuándo se abrió (la fila de la cartera). */
   desde: string;
-  /** El plan, sólo de las aprobadas. */
+  /** El plan de MaKo de la cuenta (MaKo Esencial o MaKo Pro). */
   plan: string | null;
+  planId: PlanCuenta;
   /** Su equipo, sólo de las aprobadas. `null` = no se pudo leer (no es «nadie»). */
   equipo: MiembroCuenta[] | null;
   /** Lo que la agencia pidió sumar a su equipo (mig 0178). */
@@ -121,7 +122,9 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
       nombre: w?.nombre?.trim() || leads.get(ws)?.nombre || `Cliente ${ws}`,
       estado: estadoValido(f.estado),
       desde: f.created_at,
-      plan: aprobada && w ? capaDef(w.capa).nombre : null,
+      // El plan de MaKo de la cuenta (29/10/2026: «son los mismos planes, de 47 y 97»), por su capa: Esencial o Pro.
+      plan: w ? (planDeCapa(w.capa) === 'pro' ? 'MaKo Pro' : 'MaKo Esencial') : null,
+      planId: w ? planDeCapa(w.capa) : 'esencial',
       equipo: aprobada ? (equipoPorWs.get(ws) ?? null) : null,
       altas: altasPorWs.get(ws) ?? [],
       cobro: (cobros as Record<number, CobroCuenta>)[ws] ?? null,
@@ -166,6 +169,10 @@ export type AbrirCuenta = {
   agenciaWs: number; nombre: string; email: string; leadId?: number | null; pagador: string | null;
   /** Quién paga su cuenta (25/10/2026). Sin esto, la agencia: lo que pasaba antes de que se pudiera elegir. */
   paga?: QuienPaga | null;
+  /** Su plan (29/10/2026): Esencial o Pro, a su precio. Sin esto, Esencial. */
+  plan?: PlanCuenta | null;
+  /** El país de quien la abre (`x-vercel-ip-country`): decide la pasarela, como /planes. */
+  pais?: string | null;
 };
 export type CuentaAbierta =
   | { ok: true; clienteWs: number; link: string | null; sinLink: string | null; paga: QuienPaga; acceso?: ResultadoInvitacion }
@@ -202,7 +209,10 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
     return { ok: false, error: 'Ese email ya tiene una cuenta de MaKo. Usa otro.' };
   }
 
-  const ws = await crearWorkspace(nombre);
+  const plan = planCuentaDe(p.plan);
+  // El país decide la pasarela: el de quien la abre, o el de la zona horaria de la agencia (la API no trae encabezado).
+  const pais = p.pais ?? paisDeZona(await zonaDelNegocio(p.agenciaWs).catch(() => null));
+  const ws = await crearWorkspace(nombre, CAPA_DE_PLAN[plan]);
   const { error: eCartera } = await getSupabaseServer()
     .from('agencia_clientes').insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' });
   if (eCartera) return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin pedir aprobación: ${eCartera.message}` };
@@ -240,6 +250,7 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
   const cobro = await linkPrimerMes({
     agenciaWs: p.agenciaWs, clienteWs: ws.id, nombreCliente: nombre,
     email: paga === 'cliente' ? correo : p.pagador, creadoPor: paga === 'cliente' ? `agencia para ${correo}` : (p.pagador ?? 'agencia'),
+    plan, pais,
   });
   if (!cobro.ok) console.warn(`[partners] cuenta ${ws.id} de la agencia ${p.agenciaWs} sin link del primer mes: ${cobro.motivo}`);
 

@@ -31,6 +31,7 @@ import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
 import { ModalNuevoCliente } from './NuevoCliente';
 import { PlantillaDeModelo } from './PlantillaDeModelo';
 import { DarDeBaja } from './DarDeBaja';
+import { cambiarPlanClienteAction } from './actions';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
 type Tono = 'warn' | 'good' | 'neutral' | 'bad';
@@ -110,6 +111,13 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
   }, [abierta]);
 
   const cerrarFicha = useCallback(() => setAbiertaWs(null), []);
+  const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  const cambiarPlan = async (ws: number, plan: 'esencial' | 'pro') => {
+    setCambiandoPlan(true);
+    const r = await cambiarPlanClienteAction(ws, plan).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    setCambiandoPlan(false);
+    if (r.ok) { show(r.resumen); router.refresh(); } else show(r.error, undefined, 'bad');
+  };
   const cerrarAlta = useCallback(() => setAlta(null), []);
   const cerrarPago = useCallback(() => setPago(null), []);
 
@@ -241,7 +249,17 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
             <div><dt>Estado</dt><dd>{estadoDe(abierta).texto}</dd></div>
             <div><dt>Quién paga</dt><dd>{ROTULO_QUIEN_PAGA[abierta.paga]}</dd></div>
             <div><dt>Desde</dt><dd>{fecha(abierta.desde)}</dd></div>
-            {abierta.plan && <div><dt>Plan</dt><dd>{abierta.plan}</dd></div>}
+            {abierta.plan && (
+              <div><dt>Plan</dt><dd>{abierta.plan}
+                {/* Cambiar el plan (29/10/2026, lib/agencia-plan.ts): la agencia, con la cuenta no dada de baja. */}
+                {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && (
+                  <button type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
+                    onClick={() => void cambiarPlan(abierta.ws, abierta.planId === 'pro' ? 'esencial' : 'pro')}>
+                    {cambiandoPlan ? 'Cambiando…' : abierta.planId === 'pro' ? 'Pasar a Esencial' : 'Pasar a Pro'}
+                  </button>
+                )}
+              </dd></div>
+            )}
             <div><dt>En tu CRM</dt><dd>{abierta.lead ? <Link href={`/crm/${abierta.lead.id}`}>{abierta.lead.nombre} →</Link> : 'No está'}</dd></div>
             {abierta.cobro?.renovacion?.activada && <div><dt>Renovación</dt><dd>Activa</dd></div>}
           </dl>
