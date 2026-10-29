@@ -92,7 +92,7 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver, adaptarRef }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
