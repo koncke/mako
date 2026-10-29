@@ -25,6 +25,13 @@ cerrados.**
   grafito, #beta #F5F7FA. Capturas: `C:/dev/revisiones/landing-principal-2910/produccion/`. **Quedan:** la tarjeta «Ads Manager
   para High Ticket» del respaldo sin documento (landing-html.ts); las páginas de funcionalidad se comparten con el og genérico del
   layout («MaKo — Marketing, CRM y ventas…»: `featureMetadata` no arma `openGraph`); la #40 y el Avatar, lo decide Martín.
+- **29/10 ~15:30 ART:** 90a760e4b (VERDE a Integración): la tabla saca «Videos para tus anuncios, armados con IA» (Video
+  Generator a medias) y «Crear y retocar imágenes con IA» pasa a «Diseñar tus imágenes sin salir de MaKo».
+- **29/10 ~16:30 ART: el Avatar, para todos (Martín).** La sesión AI Avatar (`local_33825c6f-…`, rama ai-avatar-para-todos-2910,
+  encima de 90a760e4b) hace TODO el código: topes-plan, la fila `enTodos` en la tabla, la línea de Esencial. Mío: abfe143ed, la
+  tarjeta «Tu avatar con IA» SEGUNDA en el script de la #32, en el lugar de «Su visita, grabada». Leído contra la v13, vista
+  previa en `C:/dev/revisiones/landing-principal-2910/propuesta-avatar/`. Lo corre el Cerebro con `--aplicar --version 13`
+  recién con esa rama DESPLEGADA.
 - DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
   «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
   Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
