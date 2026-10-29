@@ -68,8 +68,10 @@ import {
   linkDeAgendaAction,
   editarEtapaAction,
   eliminarLeadsAction,
+  recuperarLeadsAction,
   type OpEtapa,
 } from './actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import type { ReagendarResultado, StageMoveData, StageMoveResultado } from './actions';
 import type { TokenDeshacer } from '@/lib/deshacer-movimiento';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
@@ -156,6 +158,12 @@ import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
 import { guardarCamposTarjetaAction } from './tarjeta-campos-actions';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import dynamic from 'next/dynamic';
+import { seleccionDeColumna, type SeleccionDifusion } from './seleccion-difusion';
+
+// La hoja de la DIFUSIÓN es de Automations (app/automations/difusion/HojaDifusion.tsx): trae sus editores de cada canal, así
+// que se carga recién al abrirla y no con el tablero.
+const HojaDifusion = dynamic(() => import('@/app/automations/difusion/HojaDifusion').then((m) => m.HojaDifusion), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -1823,7 +1831,28 @@ export function CrmBoard({
    *  esta (lo borro otra pestaña, se movio de producto) no puede seguir contando. */
   const elegidos = useMemo(() => leads.filter((l) => selLeads.has(l.id)), [leads, selLeads]);
   const idsVisibles = filtered.map((l) => l.id);
+  // ¿Lo tildado es UNA columna entera? (28/10/2026, ticket #21: «todos los de esta etapa, con el conteo real»). Sólo sin
+  // filtros: con uno puesto, la casilla tilda «los N que se ven» y no la columna. La barra lo dice («Los 394 de Contacto
+  // nuevo») y la difusión manda a la COLUMNA, que resuelve el server (sin el tope de lo cargado).
+  // El funnel que se mira, CON su id aunque sea el principal (`funnelActivo` puede venir null): sin id, el server tomaría la
+  // etapa en TODOS los funnels (app/crm/seleccion-difusion.ts).
+  const funnelDeDifusion = funnelActivo ?? funnels.find((f) => f.esDefault)?.id ?? null;
+  const columnaEntera = (() => {
+    if (hayFiltros || !elegidos.length) return null;
+    const k = effStage(elegidos[0]);
+    if (!elegidos.every((l) => effStage(l) === k)) return null;
+    if (filtered.filter((l) => effStage(l) === k).length !== elegidos.length) return null;
+    const s = stages.find((x) => x.key === k);
+    return s ? { etapa: k, label: s.label, funnelId: funnelDeDifusion } : null;
+  })();
   const todosSel = idsVisibles.length > 0 && idsVisibles.every((id) => selLeads.has(id));
+  /** Las tarjetas de una columna que se ven ahora (con los filtros puestos). */
+  const visiblesDe = (key: string): number[] => filtered.filter((l) => effStage(l) === key).map((l) => l.id);
+  /** «Mandar mensaje de difusión» en el «⋯» de una columna: sólo el admin, y con alguien en la columna. */
+  const difusionDeColumna = (key: string): { visibles: number; filtrado: boolean } | null => {
+    const n = visiblesDe(key).length;
+    return puedeCrearCrm && n > 0 ? { visibles: n, filtrado: hayFiltros } : null;
+  };
 
   // ── worklist "datos sin marcar" ──
   const marcarPending = marcar.length;
@@ -1919,6 +1948,9 @@ export function CrmBoard({
   // la columna de entrada. Si en el medio se trajeron leads, al cerrar se refresca: si no,
   // el tablero sigue sin los que acaban de llegar.
   const [campanasAbierto, setCampanasAbierto] = useState(false);
+  // «Mandar mensaje de difusión» (29/10/2026, el pedido de Leila): la selección de la barra en bloque o la columna del «⋯».
+  // Sólo el admin (la difusión lo exige, app/automations/difusion/actions.ts): la misma pregunta que «Nuevo CRM».
+  const [difusion, setDifusion] = useState<SeleccionDifusion | null>(null);
   // «Asignar evento» de una etapa de reunión (16/10/2026): qué evento de Calendly o Cal.com cae en ella.
   const [eventoDe, setEventoDe] = useState<{ etapa: string; nombre: string } | null>(null);
   // «Vincular cobro» de Ganado (22/10/2026, app/crm/CobroDeEtapaModal.tsx): qué producto cobra ahí, y por qué cuentas.
@@ -2598,6 +2630,7 @@ export function CrmBoard({
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
+          difusion: difusionDeColumna(c.key),
         },
       };
     }
@@ -2716,6 +2749,8 @@ export function CrmBoard({
       case 'col_izquierda': if (c) moverCol(c.key, -1); return;
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
+      // La columna ENTERA sin tildar nada (sin filtros), o «los N que se ven» (`seleccionDeColumna`).
+      case 'col_difusion': if (c) setDifusion(seleccionDeColumna({ etapa: c.key, funnelId: funnelDeDifusion }, visiblesDe(c.key), hayFiltros)); return;
       case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
       case 'col_cobro': if (c) setCobroDe({ etapa: c.key, nombre: c.label }); return;
       // Del submenú, el tipo elegido (`valor`); sin submenú (no se sabía el tipo), el pop-up de siempre.
@@ -2752,6 +2787,7 @@ export function CrmBoard({
       // Las flechas, con el dibujo del «⋯». La que no tiene a dónde ir se apaga (ver `moverCol`: en la
       // punta derecha, `soltarCol` reescribiría el mismo orden).
       flechas: { izquierda: iProp > pisoCol, derecha: iProp >= 0 && iProp < colsPropias.length - 1, iconoIzquierda: <FlechaIzquierdaIcon />, iconoDerecha: <FlechaDerechaIcon /> },
+      difusion: abierto.ctx.sobre === 'columna' ? abierto.ctx.difusion : undefined,
     });
     const sobre = abierto.ctx.sobre;
     // ⚠️ NO el `ariaLabel` del «⋯» de la columna, a propósito: tests/funnel-estructura.test.ts ubica ese
@@ -3344,11 +3380,14 @@ export function CrmBoard({
             productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
             equipo={equipo}
             funnelActivo={funnelActivo}
+            columnaEntera={columnaEntera}
             // «Completar» en lote (24/10/2026): sólo el admin, la misma pregunta que «Nuevo CRM» (`puedeCrearCrm`).
             puedeCompletar={!!puedeCrearCrm}
             // Mientras «Completar» corre, la barra queda montada aunque la selección se vacíe por otro camino (el clic derecho,
             // la casilla de una columna): sin barra no hay avance ni «Parar» (la revisión del 24/10/2026).
             onCorriendo={setCompletandoLote}
+            // «Mandar mensaje» de la barra: la hoja de la difusión, con lo tildado o la columna entera.
+            onMandarMensaje={puedeCrearCrm ? setDifusion : undefined}
             onLimpiar={limpiarSel}
             // ⚠️ EL DESHACER DEL LOTE LO CUELGA EL TABLERO, no la barra: la barra se desmonta
             // al limpiar la selección y un aviso suyo moriría con ella. Hoy lo trae «agregar a
@@ -3611,6 +3650,13 @@ export function CrmBoard({
             }} />
         );
       })()}
+      {difusion && (
+        <HojaDifusion abierta seleccion={difusion} onCerrar={() => setDifusion(null)}
+          onCreada={(r) => mostrarAviso(<>
+            {r.yaEstaban ? `Esa difusión ya estaba creada: no se mandó dos veces (${r.leads} en total).` : `Listo: la difusión sale a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}.`}{' '}
+            <a href={`/automations?sec=${r.secuenciaId}`} style={{ color: 'inherit', fontWeight: 700 }}>Verla en Automations</a>
+          </>)} />
+      )}
       {campanasAbierto && (
         <CampanasModal
           // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con
@@ -3721,9 +3767,9 @@ export function CrmBoard({
           )}
         </Modal>
       )}
-      {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote, en singular y nombrando
-          al lead: «No se puede deshacer» es lo unico que convierte un icono chico al
-          borde de una fila en una decision. */}
+      {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote (`preguntaDePapelera`), en singular y nombrando
+          al lead. Desde el 28/10/2026 va a la PAPELERA (mig 0340): el aviso trae su «Deshacer», y 30 días
+          después se borra para siempre. */}
       {/* LA FICHA RÁPIDA de «Ver info» (17/10/2026): la cara, el paso del recorrido, unos datos, Llamar / WhatsApp / la
           ficha completa, y «Mover a…» por el MISMO camino que soltar la tarjeta en esa columna (`handleDrop`: cada
           columna abre su wizard, igual que el menú del clic derecho). La ficha completa NO cambia. */}
@@ -3770,23 +3816,32 @@ export function CrmBoard({
         <ModalLlevarAPartners leadId={aPartners.id} nombre={aPartners.name} email={aPartners.email || null}
           onCerrar={() => setAPartners(null)} onListo={() => router.refresh()} />
       )}
-      {borrarUno && (
-        <ConfirmDialog
-          title={`¿Eliminar «${borrarUno.name}»?`}
-          message="Se va con su historial y sus pagos. No se puede deshacer."
-          confirmLabel="Eliminar"
-          tone="danger"
-          onConfirm={() => {
-            const id = borrarUno.id;
-            const nombre = borrarUno.name;
-            setBorrarUno(null);
-            void eliminarLeadsAction([id]).then((r) => {
-              mostrarAviso(r.borrados ? `Eliminado «${nombre}»` : 'No se pudo eliminar');
-              router.refresh();
-            });
-          }}
-          onCancel={() => setBorrarUno(null)} />
-      )}
+      {borrarUno && (() => {
+        const q = preguntaDePapelera(1, borrarUno.name);
+        return (
+          <ConfirmDialog
+            title={q.titulo}
+            message={q.mensaje}
+            confirmLabel="Mandar a la papelera"
+            tone="danger"
+            onConfirm={() => {
+              const id = borrarUno.id;
+              const nombre = borrarUno.name;
+              setBorrarUno(null);
+              void eliminarLeadsAction([id]).then((r) => {
+                mostrarAviso(r.borrados ? `«${nombre}» a la papelera` : `No se pudo: ${r.motivo ?? 'no contestó'}`, r.borrados ? () => {
+                  startTransition(async () => {
+                    const v = await recuperarLeadsAction([id]).catch(() => null);
+                    if (!v?.recuperados) mostrarAviso(`No se pudo recuperar: ${v?.motivo ?? 'no contestó'}`, undefined, 'bad');
+                    router.refresh();
+                  });
+                } : undefined, r.borrados ? undefined : 'bad');
+                router.refresh();
+              }).catch((e: unknown) => mostrarAviso(e instanceof Error ? e.message : 'No se pudo', undefined, 'bad'));
+            }}
+            onCancel={() => setBorrarUno(null)} />
+        );
+      })()}
       <Toast state={avisoBoard} onClose={limpiarAviso} />
 
       {/* EL CLIC DERECHO. Va acá, al nivel del <main>, y no adentro de la tarjeta o la columna: un evento de

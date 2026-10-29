@@ -413,7 +413,7 @@ test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la 
     'el «traer» dejó de reportar cuántos ENTRARON (no cuántos se tildaron) y cuántos fallaron');
 });
 
-test('⚠️ ningún camino del CRM MUEVE un lead de producto: todos AGREGAN (06/10/2026)', () => {
+test('⚠️ ningún camino del CRM MUEVE un lead de producto callado: todos AGREGAN, y PASAR se pide aparte (06/10 y 28/10/2026)', () => {
   // «Le acabo de dar a un lead a "Mover a prueba" y se desapareció del producto principal de
   // Mauricio. Eso JAMÁS debe pasar... No se debe "Mover" se debe agregar al otro producto»
   // (Martín). `moverLeadAFunnelAction` y `moverLeadsAFunnelAction` le cambiaban la casa al
@@ -463,6 +463,14 @@ test('⚠️ ningún camino del CRM MUEVE un lead de producto: todos AGREGAN (06
   assert.match(lote, /deshacer\?: \(\) => Promise<void>/, 'el resultado de lote dejó de poder llevar UN deshacer al padre');
   assert.ok(!/tipo: 'producto'/.test(lote),
     'la barra volvió a PREGUNTAR antes de agregar: sumar es reversible y se deshace desde el aviso');
+
+  // ⚠️ PASAR A OTRO FUNNEL (28/10/2026, ticket #21 de Leila: «limpiar la casilla de contacto nuevo… y pasarlo a Funnel
+  // general»). Lo que Martín no quería el 06/10 era que «Mover» fuera el gesto por defecto y le sacara el lead del tablero sin
+  // pedirlo. PASAR es un renglón APARTE del mismo desplegable, con su pregunta (cuántos, a qué etapa, los que pagaron no van)
+  // y su Deshacer; va por agregar + quitar (lib/lead-funnel.ts, `pasarAOtroFunnel`), no por una escritura de la casa. Lo
+  // fija entero tests/crm-acciones-bloque.test.ts; acá, que el «Funnel» siga agregando por defecto.
+  assert.match(lote, /if \(v === PASAR\) \{ setPide\(\{ tipo: 'pasar' \}\); return; \}\n\s+agregarAFunnel\(/,
+    'el desplegable «Funnel» dejó de AGREGAR por defecto');
 });
 
 test('⚠️ el traer MARCA a los que ya están en el destino, y el conteo del pop-up ve a los agregados', () => {

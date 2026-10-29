@@ -415,6 +415,7 @@ listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+mandar_en_bloque_a_papelera
 mandar_landing_a_papelera
 marcar_asistencia_reunion
 marcar_avisos_leidos_comunidad
@@ -452,6 +453,8 @@ ordenar_etapas
 ordenar_modulos_curso
 panorama_closing
 pasar_comentarios_a_copia_landing
+pasar_en_bloque_otra_columna
+pasar_en_bloque_otro_funnel
 pausar_landing
 plan_retro
 plantillas_meta_de_secuencia
@@ -519,6 +522,7 @@ reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
 reconciliar_plantillas
 recortar_clip_video
+recuperar_de_papelera_crm
 recuperar_del_segundo_cerebro
 reducir_ruido_video
 reembolsar_cobro
@@ -647,6 +651,7 @@ ver_montaje_anuncio
 ver_mrr_activo
 ver_novedades_pixel
 ver_objetivo_principal
+ver_papelera_crm
 ver_pendiente
 ver_perfil_guiones
 ver_perfil_negocio

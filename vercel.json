@@ -191,6 +191,10 @@
       "schedule": "35 10 * * *"
     },
     {
+      "path": "/api/cron/leads-papelera",
+      "schedule": "45 10 * * *"
+    },
+    {
       "path": "/api/cron/agente-purga",
       "schedule": "20 6 * * *"
     },

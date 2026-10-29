@@ -98,7 +98,9 @@ test('M3: la casa nunca es un CRM agregado, aunque una fila de lead_funnel la re
 test('M4: no se quita a nadie de un CRM donde tiene plata, ni se borra para siempre un CRM con pagos', () => {
   const lf = sinComentarios(leer('lib/lead-funnel.ts'));
   const quitar = cuerpo(lf, 'export async function quitarDeProducto(');
-  assert.match(quitar, /const conPlata = !p\.esCasa \? funnelId : aQuienPromover\(productos\)\?\.funnelId \?\? null;/);
+  // El que toma la casa: el más viejo, o el que se pide (`promoverA`, el «pasar a otro funnel» del 28/10/2026).
+  assert.match(quitar, /const promovido = opts\?\.promoverA != null \? productos\.find\(\(x\) => x\.funnelId === opts\.promoverA && !x\.esCasa\) \?\? null : aQuienPromover\(productos\);/);
+  assert.match(quitar, /const conPlata = !p\.esCasa \? funnelId : promovido\?\.funnelId \?\? null;/);
   assert.match(quitar, /if \(await tratoConPlata\(leadId, conPlata\)\) \{\s*throw new Error\(!p\.esCasa\s*\? `Tiene una venta o pagos en/);
   // La guarda va ANTES de borrar nada.
   assert.ok(quitar.indexOf('tratoConPlata(') < quitar.indexOf(".delete()"), 'la guarda va antes del borrado');

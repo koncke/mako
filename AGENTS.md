@@ -10799,6 +10799,18 @@ Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pago
 escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
 docs/hallazgos-crm.md («El feedback del 27/10/2026»).
 
+# «Eliminar» un lead es mandarlo a la PAPELERA; borrar para siempre es interno (28/10/2026)
+
+Desde la mig 0340, todo «Eliminar» que ve una persona o pide MaKo (la barra en bloque, la tarjeta, la ficha, la API) va por
+`mandarLeadsAPapelera` (lib/leads-papelera.ts): la base saca la FOTO del lead y de todo lo que se lleva en cascada (las FKs se leen
+de `pg_constraint`, no de una lista) y lo borra, en una transacción por lead; durante 30 días vuelve igual, con sus mismos ids.
+**Regla para código nuevo:** un camino nuevo de «eliminar un lead» llama a la papelera, nunca a `deleteLead`; `deleteLead` queda
+para lo interno (unificar fichas, el lead que perdió la carrera de Instagram, el reset de un negocio). Sin la migración, la
+papelera NO cae al borrado de antes: lo dice y no borra. Una tabla nueva con FK al lead entra sola a la foto; una FK de VARIAS
+columnas en cascada la frena entera (no la sabe guardar). Lo fijan tests/crm-acciones-bloque.test.ts y
+scripts/probar-0340-pglite.mjs (contra un Postgres de verdad); el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la
+papelera»).
+
 # Lo que corre el chat de un editor devuelve su MOTIVO, no lo deja sólo en un store (28/10/2026)
 
 El chat del Video Editor sabe si algo salió por una sola señal: si la línea de tiempo cambió. Una operación larga que no
@@ -10830,3 +10842,12 @@ inventario: docs/diseno-create.md. Lo fija tests/crear-pantalla.test.ts.
 - **Un número y la lista de quiénes son usan la MISMA función** (`estadoDeAsistencia`, con la misma ventana): dos cuentas
   parecidas son dos cifras para lo mismo. Lo fijan tests/documento-fiscal-desde-el-chat.test.ts y
   tests/reuniones-por-asistencia.test.ts; el porqué, en docs/hallazgos-crm.md y docs/hallazgos-api-mako.md.
+
+# Una COLUMNA que se manda al server va con el id del funnel, también el principal (29/10/2026)
+
+`funnelActivo` llega `null` cuando se mira el funnel principal, y el server lee `{ funnelId: null, etapa }` como esa etapa en
+TODOS los funnels (`ambitoDeFunnel(null)` → «todos», lib/nutricion.ts). La difusión de Leila a «Contacto nuevo» del principal
+le habría llegado también a los de los otros funnels. **Regla para código nuevo:** lo que manda una columna al server la manda
+con `funnelActivo ?? funnels.find((f) => f.esDefault)?.id` (en CrmBoard, `funnelDeDifusion`; el mismo que «Vincular evento»),
+y si no hay id, manda los ids que se ven (`seleccionDeDifusion`, app/crm/seleccion-difusion.ts). Lo fija
+tests/crm-difusion-columna.test.ts; el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la papelera»).

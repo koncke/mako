@@ -30,6 +30,8 @@ import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscri
 import { terminalEstadoFor } from './pipeline';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import type { InformeMovimiento } from './reentrada';
+import { agendoLead, pagoLead } from './nutricion-grafo-motor';
+import type { EtapaDestino, PreviaPasar } from './pasar-funnel-reglas';
 
 /**
  * Lo cobrado de la casa (`total_cobrado_casa_usd`, mig 0325) depende de en qué CRMs está el lead: un pago con el funnel de
@@ -185,12 +187,15 @@ const esEstado = (v: unknown): v is EstadoDeshacer => typeof v === 'string' && (
  * no protege nada).
  *   · Si era una fila, se borra.
  *   · Si era la CASA, la fila más vieja pasa a ser la casa (funnel_id + su etapa) y se borra.
+ *     Con `promoverA` (28/10/2026, `pasarAOtroFunnel`), la que pasa a ser la casa es ESA, no la más vieja.
  */
-export async function quitarDeProducto(leadId: number, funnelId: number, opts?: { autor?: string }): Promise<DeshacerQuitar> {
+export async function quitarDeProducto(leadId: number, funnelId: number, opts?: { autor?: string; promoverA?: number }): Promise<DeshacerQuitar> {
   const { productos, defaultId, funnelIdDelLead, etapaCasa } = await productosDelLead(leadId);
   const p = productos.find((x) => x.funnelId === funnelId);
   if (!p) throw new Error('No está en ese funnel.');
   if (!puedeQuitar(productos)) throw new Error('Es su único funnel.');
+  const promovido = opts?.promoverA != null ? productos.find((x) => x.funnelId === opts.promoverA && !x.esCasa) ?? null : aQuienPromover(productos);
+  if (p.esCasa && opts?.promoverA != null && !promovido) throw new Error('No está en el funnel que tomaría su lugar.');
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const nombre = await nombreDeProducto(funnelId);
@@ -198,7 +203,7 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   // fila de `lead_funnel`, y sus pagos llevan su `funnel_id`. Borrarla perdía la venta (el Deshacer recrea la fila vacía) y
   // los pagos caían en la casa, mezclados con los de la venta de siempre (dos «cuota 1»). Lo mismo al quitar la CASA: la
   // fila que se promueve a casa se borra. Se dice por qué y qué hacer; nada se pierde de un clic.
-  const conPlata = !p.esCasa ? funnelId : aQuienPromover(productos)?.funnelId ?? null;
+  const conPlata = !p.esCasa ? funnelId : promovido?.funnelId ?? null;
   if (conPlata != null) {
     const { tratoConPlata } = await import('./pagos');
     if (await tratoConPlata(leadId, conPlata)) {
@@ -218,7 +223,7 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
     return { leadId, funnelId, fila: { funnel_id: funnelId, etapa: p.etapa ?? '', etapa_desde: p.desde }, casaAntes: null };
   }
 
-  const nueva = aQuienPromover(productos);
+  const nueva = promovido;
   if (!nueva) throw new Error('Es su único funnel.');
   // La casa nueva: su producto y su etapa pasan al lead; la fila deja de existir (nunca hay
   // fila para la casa). Se escribe directo y no por setPipelineStage: la etapa viene de otro
@@ -397,4 +402,137 @@ export async function quitarLoteDeProducto(leadIds: number[], funnelId: number, 
     if (ok.length) await db.from('lead_audit').insert(ok.map((lead_id) => ({ lead_id, campo: 'Funnel', valor_anterior: null, valor_nuevo: porQue, autor })));
   }
   return n;
+}
+
+/** Lo que hace falta para deshacer un `pasarAOtroFunnel`: el «quitar» del origen y si la fila del destino la creó el pase. */
+export type DeshacerPasar = { leadId: number; hacia: number; agregado: boolean; quitar: DeshacerQuitar };
+
+/**
+ * PASA el lead de un funnel a otro (28/10/2026, tickets #21 y #22 de Leila: «limpiar la casilla de contacto nuevo de
+ * lidermente y pasarlo a Funnel general»). Es AGREGAR al destino en `etapa` + QUITAR del origen, por los MISMOS caminos de
+ * siempre (no una tercera escritura de la casa): si el origen era su casa, la casa pasa a ser el destino (`promoverA`).
+ *
+ * ⚠️ NO ES EL «MOVER» QUE SE BORRÓ EL 06/10/2026 (`moverLeadsAFunnelAction`, ver la cabecera). Aquel era el gesto por defecto,
+ * callado, y reseteaba a la etapa de entrada a un Ganado con su venta colgando. Éste se pide aparte, con una pregunta que
+ * dice cuántos y a qué etapa; la etapa la elige la persona; y quien tiene PLATA en el origen no se pasa (la pantalla lo
+ * saca antes y lo dice; acá lo frena el guard de quitar: sus pagos son de ese funnel).
+ *
+ * Si ya estaba en el destino, se queda en su etapa de ahí: sólo se lo saca del origen. Si sacarlo del origen falla, la fila
+ * que se acaba de crear en el destino se borra: nunca queda en los dos sin que nadie lo haya pedido. Tira con el motivo.
+ */
+export async function pasarAOtroFunnel(leadId: number, desde: number, hacia: number, etapa: string, opts?: { autor?: string }): Promise<{ yaEstaba: boolean; deshacer: DeshacerPasar }> {
+  if (desde === hacia) throw new Error('Ya está en ese funnel.');
+  const { productos } = await productosDelLead(leadId);
+  if (!productos.some((p) => p.funnelId === desde)) throw new Error('No está en ese funnel.');
+  const yaEstaba = productos.some((p) => p.funnelId === hacia);
+  let agregado = false;
+  if (!yaEstaba) agregado = (await agregarAProducto(leadId, hacia, { autor: opts?.autor, etapa })).agregado;
+  try {
+    const quitar = await quitarDeProducto(leadId, desde, { autor: opts?.autor, promoverA: hacia });
+    return { yaEstaba, deshacer: { leadId, hacia, agregado, quitar } };
+  } catch (e) {
+    if (agregado) {
+      const { error } = await (await getTenantDb()).from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', hacia);
+      if (error) console.error(`[lead-funnel] lead ${leadId}: no pude sacar la fila del destino tras un pase fallido:`, error.message);
+    }
+    throw e;
+  }
+}
+
+/** Deshace un `pasarAOtroFunnel`: devuelve el origen como estaba y, si el pase creó la fila del destino, la saca. */
+export async function deshacerPasar(d: DeshacerPasar, opts?: { autor?: string }): Promise<void> {
+  await deshacerQuitar(d.quitar, opts);
+  if (!d.agregado) return;
+  const { error } = await (await getTenantDb()).from('lead_funnel').delete().eq('lead_id', d.leadId).eq('funnel_id', d.hacia);
+  if (error) throw new Error('No se pudo deshacer: ' + error.message);
+  await resincronizarCobrado([d.leadId]);
+}
+
+/**
+ * Lo que la pregunta de PASAR necesita saber de los tildados, antes de tocar nada: quiénes ya están en el destino, quiénes
+ * agendaron, quiénes tienen plata en el origen, y las etapas del destino. `desde` y `hacia`: ids reales. Tira si no puede
+ * leer: preguntar a ciegas es justo lo que esta lectura evita.
+ */
+export async function previaDePasar(leadIds: readonly number[], desde: number, hacia: number): Promise<PreviaPasar> {
+  const ids = [...new Set(leadIds.map(Number).filter((n) => Number.isFinite(n) && n > 0))];
+  const db = await getTenantDb();
+  const defaultId = await idDelFunnelDefault();
+  const yaEstan: number[] = [], agendaron: number[] = [], pagaron = new Set<number>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    const [{ data: leads, error: el }, { data: filas, error: ef }] = await Promise.all([
+      db.from('leads').select('id, funnel_id, estado_lead, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro').in('id', tanda),
+      db.from('lead_funnel').select('lead_id').eq('funnel_id', hacia).in('lead_id', tanda),
+    ]);
+    if (el || ef) throw new Error(`No pude leer a los elegidos: ${(el ?? ef)?.message}`);
+    const enDestino = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
+    for (const l of (leads ?? []) as Array<Record<string, unknown>>) {
+      const id = Number(l.id);
+      const casa = casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId);
+      if (casa === hacia || enDestino.has(id)) yaEstan.push(id);
+      if (agendoLead(l)) agendaron.push(id);
+      // La venta de la CASA vive en el lead (no en una fila): si el origen es su casa, mira el lead.
+      if (casa === desde && (pagoLead(l) || l.estado_lead === 'ganado')) pagaron.add(id);
+    }
+  }
+  const { leadsConPlataEn } = await import('./pagos');
+  for (const id of await leadsConPlataEn(desde, ids)) pagaron.add(id);
+  const etapas = (await etapasDeProducto(hacia)).map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null, band: s.band })) as EtapaDestino[];
+  return { yaEstan, agendaron, pagaron: [...pagaron], etapas };
+}
+
+/**
+ * PASA varios leads a otro funnel, de a uno (`pasarAOtroFunnel`) y con corte por tiempo: lo que no llega vuelve en
+ * `pendientes`, como mover de etapa (app/crm/lote-tandas.ts). Devuelve con qué deshacer cada uno.
+ */
+export async function pasarLoteAOtroFunnel(leadIds: readonly number[], desde: number, hacia: number, etapa: string, o: { autor?: string; hasta: number }): Promise<{
+  pasados: number[]; yaEstaban: number; fallaron: number; motivos: string[]; pendientes: number[]; deshacer: DeshacerPasar[];
+}> {
+  const ids = [...new Set(leadIds.map(Number).filter((n) => Number.isFinite(n) && n > 0))];
+  if (!(await etapasDeProducto(hacia)).some((s) => s.key === etapa)) throw new Error('Esa etapa no existe en ese funnel.');
+  const pasados: number[] = [], pendientes: number[] = [], deshacer: DeshacerPasar[] = [];
+  const motivos = new Set<string>();
+  let yaEstaban = 0, fallaron = 0;
+  for (const id of ids) {
+    if (Date.now() > o.hasta) { pendientes.push(id); continue; }
+    try {
+      const r = await pasarAOtroFunnel(id, desde, hacia, etapa, { autor: o.autor });
+      pasados.push(id);
+      deshacer.push(r.deshacer);
+      if (r.yaEstaba) yaEstaban += 1;
+    } catch (e) {
+      fallaron += 1;
+      motivos.add(e instanceof Error ? e.message : 'no se pudo');
+      console.error(`[lote] no se pudo pasar el lead ${id} del funnel ${desde} al ${hacia}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return { pasados, yaEstaban, fallaron, motivos: [...motivos], pendientes, deshacer };
+}
+
+/**
+ * Los `ids` que están AGREGADOS al CRM `funnelId` (null = el del negocio): tienen su fila en `lead_funnel` y su casa es
+ * otro. Con el id real de ese CRM. Tira si no puede leer: mover a ciegas es justo pisar la casa de alguien. La usan la barra
+ * en bloque (`moverLeadsDeEtapaAction`) y la API de MaKo (lib/crm-bloque-server.ts): a un agregado se lo mueve en su FILA.
+ */
+export async function agregadosDelCrm(ids: readonly number[], funnelId: number | null): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  if (!ids.length) return out;
+  const def = await idDelFunnelDefault();
+  const real = funnelId ?? def;
+  if (real == null) return out;
+  const db = await getTenantDb();
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    const [{ data: filas, error: eF }, { data: casas, error: eC }] = await Promise.all([
+      db.from('lead_funnel').select('lead_id').eq('funnel_id', real).in('lead_id', tanda),
+      db.from('leads').select('id, funnel_id').in('id', tanda),
+    ]);
+    if (eF || eC) throw new Error(`No pude leer en que CRM esta cada lead: ${(eF ?? eC)?.message}`);
+    const conFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
+    for (const l of (casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
+      const casa = casaReal(l.funnel_id == null ? null : Number(l.funnel_id), def);
+      if (conFila.has(Number(l.id)) && casa !== real) out.set(Number(l.id), real);
+    }
+  }
+  return out;
 }

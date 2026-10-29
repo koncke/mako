@@ -15,7 +15,10 @@ import { listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
 import {
   productosDelLead, agregarAProducto, quitarDeProducto, deshacerQuitar, moverEtapaEnProducto,
   agregarLoteAProducto, quitarLoteDeProducto, etapasDeProducto, type DeshacerQuitar,
+  previaDePasar, pasarLoteAOtroFunnel, deshacerPasar, type DeshacerPasar,
 } from '@/lib/lead-funnel';
+import type { PreviaPasar } from '@/lib/pasar-funnel-reglas';
+import { PRESUPUESTO_LOTE_MS } from './lote-tandas';
 import { puedeQuitar, nombreVisible } from '@/lib/lead-funnel-reglas';
 import { exigirSesion } from '@/lib/sesion-accion';
 import type { InformeMovimiento } from '@/lib/reentrada';
@@ -167,4 +170,61 @@ export async function quitarLoteDeProductoAction(leadIds: number[], funnelId: nu
   } catch (e) {
     return mal(e, 'No se pudo deshacer.');
   }
+}
+
+/** El nombre que ve la persona de un funnel por su id real. */
+async function nombreDeFunnel(id: number): Promise<string> {
+  const f = (await listarFunnels()).find((x) => x.id === id);
+  return (f ? nombreVisible(f) : '') || 'otro funnel';
+}
+
+/**
+ * Lo que la pregunta de «Pasar a otro funnel» muestra ANTES de tocar nada (28/10/2026, ticket #21 de Leila): quiénes ya
+ * están en el destino, quiénes agendaron, quiénes pagaron en el origen, y las etapas del destino. La pantalla la pide al
+ * elegir el destino.
+ */
+export async function previaPasarAction(leadIds: number[], desde: number | null, hacia: number | null): Promise<Res<PreviaPasar & { origen: string; destino: string }>> {
+  await exigirSesion();
+  try {
+    const ids = (Array.isArray(leadIds) ? leadIds : []).filter(idOk).slice(0, 5000);
+    const [d, h] = await Promise.all([resolverProducto(desde), resolverProducto(hacia)]);
+    if (d === h) return { ok: false, error: 'Ya están en ese funnel.' };
+    const previa = await previaDePasar(ids, d, h);
+    return { ok: true, ...previa, origen: await nombreDeFunnel(d), destino: await nombreDeFunnel(h) };
+  } catch (e) {
+    return mal(e, 'No pude leer a los elegidos.');
+  }
+}
+
+/**
+ * PASA los tildados a otro funnel, en `etapa` (de a tandas desde la pantalla, como mover de etapa: lo que no llega en el
+ * plazo vuelve en `pendientes`). Los que la pantalla dejó afuera (pagaron, agendaron) ni llegan acá; los de plata, si
+ * llegan, los frena `quitarDeProducto`. Devuelve con qué deshacer el lote.
+ */
+export async function pasarAOtroFunnelAction(leadIds: number[], desde: number | null, hacia: number | null, etapa: string): Promise<Res<{
+  pasados: number[]; yaEstaban: number; fallaron: number; motivos: string[]; pendientes: number[]; deshacer: DeshacerPasar[];
+}>> {
+  await exigirSesion();
+  try {
+    const ids = (Array.isArray(leadIds) ? leadIds : []).filter(idOk);
+    const [d, h] = await Promise.all([resolverProducto(desde), resolverProducto(hacia)]);
+    if (d === h) return { ok: false, error: 'Ya están en ese funnel.' };
+    const r = await pasarLoteAOtroFunnel(ids.slice(0, 200), d, h, String(etapa ?? ''), { hasta: Date.now() + PRESUPUESTO_LOTE_MS });
+    bust();
+    return { ok: true, ...r, pendientes: [...r.pendientes, ...ids.slice(200)] };
+  } catch (e) {
+    return mal(e, 'No se pudieron pasar.');
+  }
+}
+
+/** El «Deshacer» del aviso de un pase: cada lead vuelve a su funnel y su etapa de antes. Sigue aunque uno falle. */
+export async function deshacerPasarAction(items: DeshacerPasar[]): Promise<Res<{ deshechos: number; fallaron: number }>> {
+  await exigirSesion();
+  let deshechos = 0, fallaron = 0;
+  for (const d of (Array.isArray(items) ? items : []).slice(0, 200)) {
+    if (!d || !idOk(d.leadId) || !idOk(d.hacia) || !d.quitar || d.quitar.leadId !== d.leadId) { fallaron += 1; continue; }
+    try { await deshacerPasar(d); deshechos += 1; } catch { fallaron += 1; }
+  }
+  bust();
+  return { ok: true, deshechos, fallaron };
 }
