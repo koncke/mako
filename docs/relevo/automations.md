@@ -33,6 +33,13 @@ app/crm/AccionesLoteLeads.tsx y app/crm/seleccion-difusion.ts) está en la rama 
 Cuando entre, el CRM (CrmBoard) monta `<HojaDifusion abierta seleccion={sel} onCerrar={…} onCreada={(r) => …} />` con la
 selección que le pasa `onMandarMensaje`; `onCreada` trae `yaEstaban` cuando era el mismo pedido.
 
+**Sigue: el aviso antes de los 10.000 mensajes gratis de Zernio** (audio 327 de Leandro; coordinado el 29/10 con el chat de
+Zernio, `local_4a831c28`). Zernio arma `usoZernioDelCiclo(ws)` en lib/zernio-redes.ts, en la rama zernio-2510: el ciclo sale
+de GET /v1/billing y lo enviado desde MaKo se cuenta en MaKo (`nutricion_envios` social, más `ig_mensajes` saliente sin la
+pública). Automations lo consume cuando esa rama esté en main: en `avisarTopesSociales`, sólo en la corrida de la hora, al
+80 %, una vez por ciclo (`reclamarEspaciado`, clave `zernio-gratis:<desde>`). Va con el mismo evento `social_tope` y un
+tercer estado «gratis» en la plantilla y en `datosTopeSocial`. Hoy MaKo no mandó nada por redes desde el 01/09: no apura.
+
 **Verificación:** ver el VERDE al Cerebro (tsc-acotado y tests-afectados sobre la punta con main mezclado).
 
 ## 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
