@@ -79,6 +79,19 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **23:45, Zernio:**
+    - **Pedido de Martín:** advertir los límites en la conexión, y varias claves de Zernio por negocio, como en Gemini,
+      para conectar más redes sin pagar. Va con el aviso antes de la 3.ª red. Pasado al chat Zernio: los límites y el
+      aviso ahora; las varias claves, diseñadas para la próxima cuenta.
+    - **Límites, de zernio.com/pricing (leído a las 23:40):** 2 cuentas gratis (página, Instagram y anuncios cuentan una
+      cada una); de la 3.ª a la 10.ª, US$6 por mes; 10.000 mensajes ENVIADOS gratis por mes, y sin tarjeta los envíos se
+      frenan hasta el mes siguiente (con tarjeta, US$1 cada 10.000); comentarios gratis, sin contar como mensaje; 500
+      anuncios gestionados gratis; Analytics «incluido» según la página, aunque medimos un 402. Los términos de Zernio dan
+      404: no se sabe si permiten varias cuentas gratis.
+    - **Leandro: le contesté su audio de los límites** (3EB0FEEE89B0FEC6BCD81E): «el aviso antes del tope lo estamos
+      armando». Lo arma Zernio con Automations.
+    - **Planes `e6fd6d88d`: NO.** Alta: un segundo voucher (OXXO o SEPA) deja armar otra sesión y se cobra dos veces.
+      Informe en `C:/dev/revisiones/2810-verificacion-planes-e6fd6d88d.md`, ya mandado.
   - **23:30, verificaciones:**
     - **WhatsApp `c358fd0c4`: NO.** Dos altas: `pideAlgoAMaKo` calla los pedidos reales, y el aviso de arreglo de un
       ticket abre la ventana para todos. Dos medias: el «dale» como acuse y la ventana que se cierra con el primer
