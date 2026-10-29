@@ -13,6 +13,12 @@
 //   4. LA GRILLA mide Meta como los demás lectores: conectada sólo por Zernio también cuenta, y lo que falta se dice en palabras.
 //   5. LO QUE NO SE ROMPE: el corte sigue el 03/11 (el aviso que salió lo prometió), y el token guardado no se borra.
 //
+// Probado ROMPIÉNDOLO (29/10/2026), una rotura por vez y restaurando (7 pases y 0 fallos como está), cada una 6 / 1:
+//   «conectar Meta» desde una tab abre Meta · ?abrir=meta abre Meta · el modal de Meta muestra los tokens · el modal de Meta no
+//   lleva a Zernio · Zernio sin el paso 2 cuando falta la clave · el paso 2 sin «Anuncios de Meta» · TikTok no se ve · una nota
+//   de Meta vuelve a nombrar el token · ver_integracion lista el token cargado · la grilla mide Meta por el token · MaKo dicta
+//   «pega tu token».
+//
 // Correr: node --import tsx --test tests/zernio-una-pestana.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
