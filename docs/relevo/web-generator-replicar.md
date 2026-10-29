@@ -27,7 +27,12 @@ cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier
 - La cosecha ya escrita: `scratchpad/cosecha-blanco.md` (falta pegar el resultado en «Verificado» e insertarla en
   docs/hallazgos-infra.md después de «En /m, la ruta del header…» + fila del índice). Memoria `recorrer-local-build-parcial`
   ya actualizada.
-- **FALTA (en este orden):** 1) la corrida `SALIDA=arreglo2` (build con `app/web-generator/*/page.tsx`: los CORCHETES de
+- **28/10 23:10 (92 %): VERIFICADO con el build** (`arreglo2/informe.json`): menú 5/5 el editor (producción: 5/5 en blanco,
+  4-15 `_rsc`), `router.push` a #68/#69/#70 cada una en la suya (producción: las tres a /72). Commits en
+  `web-generator-blanco-2810`: 7e881d5b5 (arreglo) · 97eb40963 (/crm) · 11a0e8211 (cosecha hallazgos-infra + índice).
+  FALTA sólo: tsc-acotado (el 1º lo mató el vigía: 99) y `tests-afectados --base 23b329b5e` (en `C:/dev/revisiones/
+  web-generator-blanco/{tsc,tests-afectados}.log`), y el VERDE con el sha 11a0e8211 y las copias #68–#72 a la papelera.
+- (Lo de abajo ya está hecho, queda de historia.) **FALTA (en este orden):** 1) la corrida `SALIDA=arreglo2` (build con `app/web-generator/*/page.tsx`: los CORCHETES de
   `[id]` en `--debug-build-paths` son un patrón y esa ruta no se compila) y ver en `arreglo2/informe.json` que desde el menú
   aparezca el editor, sin la ráfaga de `/web-generator/72?_rsc`; 2) tsc-acotado y tests-afectados con turno; 3) cosecha +
   índice, commit por ruta en `web-generator-blanco-2810`; 4) VERDE al Cerebro con el sha nuevo y los números de las copias
