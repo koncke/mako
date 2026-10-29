@@ -150,7 +150,7 @@ preguntes: hacé esto en orden.
     verifica el delta `b2c19c445..cfab5c33a` cuando vuelva la verificación de b2c19c445.
   - **22:15: VERDE de Planes `e6fd6d88d`** (planes-2710, sobre `a196d5a93`): arregla la verificación de a196d5a93 (el
     diferido fallido, las pruebas detrás del tope, el seguro de 500 con reloj, la unidad mínima, el código libre de
-    Partners y la compra doble a Meta). La guardia de RAM no dejó lanzar la verificación (2,1 GB libres): **SIN LANZAR.**
+    Partners y la compra doble a Meta). La guardia de RAM no la dejó lanzar a las 22:15 (2,1 GB libres); **lanzada a las 22:27**: `wf_4ecaf858-5ac` (task `wvdwkngpi`).
     El script está en `workflows/scripts/verificar-planes-e6fd6d88d.js` de esta sesión, y el árbol en
     `C:/dev/verif-e6fd6d88d`. Se lanza apenas termine otro workflow.
   - **22:20, Planes y lo de Teo:** hechos los dos chicos (`0fa4bbe0d`: /planes ya no le promete AI Avatar a Pro, y en
