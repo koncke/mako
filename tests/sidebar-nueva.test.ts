@@ -100,7 +100,11 @@ test('las familias del prototipo: lo diario, y Sales · Marketing · Create; Hom
   assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
   for (const k of ['crm', 'calendario', 'setting', 'customer-success']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
   for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
-  for (const k of ['video-editor', 'video-generator', 'image-editor', 'ads-writer']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  // Copywriting ES el Copywriter desde el 29/10/2026 (key `copywriter`); el Ads Writer sigue por su ruta, en SIN_FILA.
+  for (const k of ['video-editor', 'image-editor', 'copywriter']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  assert.ok(!de('create').includes('ads-writer') && SIN_FILA.some((i) => i.key === 'ads-writer'), 'Ads Writer');
+  // Video Generator dejó de ser fila el 29/10/2026 (Create sin pestañas: es una plantilla de Video). Su key sigue en SIN_FILA.
+  assert.ok(!de('create').includes('video-generator') && SIN_FILA.some((i) => i.key === 'video-generator'), 'Video Generator');
   // «Home» (/general) ya no es fila: redirige al Dashboard (Focus). Su key sigue (capas, onboarding) en SIN_FILA, y el
   // Dashboard se marca estando en /general.
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'general'), 'General volvió a ser fila');
@@ -285,7 +289,7 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
   // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts); /admin/guiones (las bibliotecas
-  // de Ads Writer, que vivían en la página de Dev) es desde ese día una sección de Copywriting. /admin/cobros y /admin/agente
+  // de Ads Writer, que vivían en la página de Dev) fue desde ese día una sección de Copywriting. /admin/cobros y /admin/agente
   // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts).
   // /mensajes (MaKo Messages) salió el 26/10/2026 (Martín: «elimina eso»): redirige a Automations (tests/mensajes-mako-retirado).
   const RUTAS = ['/admin/copywriting', '/admin/guiones', '/admin/estrategia',
@@ -294,12 +298,24 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');
   const secciones = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => (t.secciones ?? []).map((s) => ({ tab: t, s })));
+  // Strategy y Offer Playbook dejaron de ser secciones de Offer el 29/10/2026 (Martín: «sin otras tabs, incluso en
+  // SuperAdmin»): su casa es el pie de la lista de ofertas, que la pantalla dibuja sólo para el super admin.
+  const offer = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'offer')!;
+  const pieOffer = sinComentarios(leer('app/offer/OfferApp.tsx')).match(/pieLista=\{superAdmin \? \(([\s\S]*?)\) : undefined\}/)?.[1] ?? '';
+  // Copy Method y Angles & Structures, lo mismo en Copywriting (29/10/2026, el Copywriter sin pestañas): al pie de su lista
+  // de páginas, sólo para el super admin (docs/diseno-copywriter.md, D15).
+  const copy = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'copywriter')!;
+  const pieCopy = sinComentarios(leer('app/copywriter/Copywriter.tsx')).match(/\{deLaPlataforma && \(([\s\S]*?)\)\}/)?.[1] ?? '';
   for (const ruta of RUTAS) {
     const arriba = ARRIBA.find((i) => i.href === ruta);
     const enTab = secciones.find(({ s }) => s.href === ruta);
     const enMenu = SUPERADMIN_MENU.find((i) => i.href === ruta);
-    const item = arriba ?? enTab?.s ?? enMenu;
-    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto`);
+    const enPie = pieOffer.includes(`<Link href="${ruta}">`) ? ADMIN_NAV.find((i) => i.href === ruta) : undefined;
+    const enPieCopy = pieCopy.includes(`<Link href="${ruta}">`) ? ADMIN_NAV.find((i) => i.href === ruta) : undefined;
+    const item = arriba ?? enTab?.s ?? enMenu ?? enPie ?? enPieCopy;
+    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto, ni al pie de Offer o del Copywriter`);
+    if (enPie) assert.equal(offer.match(ruta), true, `${ruta}: estando ahí, la barra no marca Offer`);
+    if (enPieCopy) assert.equal(copy.match(ruta), true, `${ruta}: estando ahí, la barra no marca Copywriting`);
     assert.equal(item.adminOnly, true, `${ruta} la vería un cliente`);
     assert.equal(puedeVerItem(item, SUPER), true, `${ruta}: el super admin no la ve`);
     assert.equal(puedeVerItem(item, CLIENTE), false, `${ruta}: el admin de un cliente la ve`);

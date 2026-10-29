@@ -56,10 +56,11 @@ test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   assert.equal(funcionDeKey('whatsapp')?.key, 'chats', 'WhatsApp se configura desde Chats');
   assert.equal(funcionDeKey('landing-writer')?.nombre, 'Web Generator');
   assert.equal(funcionDeKey('chats')?.familia, 'Today');
-  assert.equal(funcionDeKey('ai-avatar-voces')?.soloSuperAdmin, true);
-  // Una tab con secciones se llama como la tab, no como su primera sección («Create video»).
-  assert.deepEqual([funcionDeKey('ai-avatar-crear')?.nombre, funcionDeKey('ai-avatar-crear')?.ruta], ['AI Avatar', '/ai-avatar']);
-  assert.equal(funcionDeKey('video-editor')?.nombre, 'Video Editor', 'una sección de una tab con otras se llama como su sección');
+  assert.equal(funcionDeKey('ai-avatar')?.soloSuperAdmin, true);
+  // AI Avatar sin secciones desde el 29/10/2026 (el estudio de Higgsfield): la función se llama como la tab.
+  assert.deepEqual([funcionDeKey('ai-avatar')?.nombre, funcionDeKey('ai-avatar')?.ruta], ['AI Avatar', '/ai-avatar']);
+  // Video sin secciones desde el 29/10/2026 (tests/crear-pantalla.test.ts): la función se llama como la tab.
+  assert.equal(funcionDeKey('video-editor')?.nombre, 'Video', 'una tab sin secciones se llama como la tab');
   assert.equal(funcionDeKey('partners')?.noEnPlataforma, true);
   assert.equal(funcionDeKey('crm')?.soloSuperAdmin, false);
   assert.equal(funcionDeKey('integraciones')?.familia, 'Settings');
@@ -123,7 +124,8 @@ test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo
   const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, { funciones: string[]; capacidades: string[] }> & { error?: string };
   assert.ok(!R.error, String(R.error));
   const SOLO_SA = funcionesMako().filter((f) => f.soloSuperAdmin).map((f) => f.nombre);
-  assert.deepEqual(SOLO_SA.sort(), ['AI Avatar', 'Customers', 'Reels', 'Stories']);
+  // (Reels se fue el 29/10/2026: su guion es una plantilla del Copywriter.)
+  assert.deepEqual(SOLO_SA.sort(), ['AI Avatar', 'Customers', 'Stories']);
   // El dueño de un negocio cliente (plan completo, agencia o pm) nunca recibe lo que sólo ve el super admin.
   for (const k of ['11:admin', '12:admin', '13:admin', '11:miembro']) {
     for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);

@@ -1,4 +1,4 @@
-/* El panel «Capas», alineado al de Canva: filas de 48 px, miniatura sobre gris y la elegida con borde violeta */
+/* El panel «Capas», alineado al de Canva: filas de 48 px, miniatura sobre gris y la elegida con borde azul */
 .tree {
   display: flex;
   flex-direction: column;
@@ -27,17 +27,17 @@
   user-select: none;
 }
 .row:hover {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-color-bg-muted);
 }
 .row:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
 }
 
-/* Canva: la capa elegida lleva el borde violeta de selección sobre un violeta translúcido */
+/* Canva: la capa elegida lleva el borde azul de selección sobre un azul claro */
 .selected,
 .selected:hover {
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-color-selected);
   box-shadow: inset 0 0 0 2px var(--cv-selection-color);
 }
 .selected .label {
@@ -97,7 +97,7 @@
   cursor: pointer;
 }
 .chev:hover {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 
 .icon,
@@ -160,7 +160,7 @@
   opacity: 1;
 }
 .toggle:hover {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
   color: var(--cv-color-text);
 }
 .toggle.on {

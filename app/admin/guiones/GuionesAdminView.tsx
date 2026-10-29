@@ -18,12 +18,14 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '../../_components/icons';
 import { Dropdown } from '../../components/Dropdown';
+import { INFO_TIPO, TIPOS_GUION, type TipoGuion } from '@/lib/copywriter/tipos';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
 type Angulo = { id: string; nombre: string; emoji: string; cuando: string; requisitos: string; ejemplosHook: string[]; cuerpo: string; cta: string; siempre: string[]; nunca: string[]; preguntas: string[]; estructuras: string[]; activo: boolean };
-type Estructura = { id: string; nombre: string; emoji: string; cuando: string; etiquetas: string[]; guia: string; activo: boolean };
+/** `tipos` (28/10/2026, el Copywriter): para qué formatos es. Sin marcar = de anuncios, como nacieron las primeras. */
+type Estructura = { id: string; nombre: string; emoji: string; cuando: string; etiquetas: string[]; guia: string; activo: boolean; tipos?: TipoGuion[] };
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 };
 const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
@@ -214,6 +216,23 @@ export function GuionesAdminView({ tabExterna }: { tabExterna?: 'angulos' | 'est
                         <div><label style={labelStyle}>Nombre</label><input style={input} value={e.nombre} onChange={(ev) => edEstructura(e.id, { nombre: ev.target.value })} /></div>
                       </div>
                       <div><label style={labelStyle}>Cuándo conviene</label><input style={input} value={e.cuando} onChange={(ev) => edEstructura(e.id, { cuando: ev.target.value })} /></div>
+                      {/* Para qué formato es (el Copywriter la ofrece en ese tipo; el Ads Writer, sólo si es de Ad). */}
+                      <div role="group" aria-label="Para qué formato">
+                        <label style={labelStyle}>Para</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+                          {TIPOS_GUION.map((t) => {
+                            const actuales: TipoGuion[] = e.tipos?.length ? e.tipos : ['ad'];
+                            const marcado = actuales.includes(t);
+                            return (
+                              <label key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={marcado}
+                                  onChange={() => { const nuevos = marcado ? actuales.filter((x) => x !== t) : [...actuales, t]; edEstructura(e.id, { tipos: nuevos.length ? nuevos : ['ad'] }); }} />
+                                {INFO_TIPO[t].label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <div>
                         <label style={labelStyle}>Etiquetas de los bloques, EN ORDEN (una por línea, en MAYÚSCULA)</label>
                         <textarea rows={4} style={{ ...area, fontFamily: MONO, fontSize: 13 }} value={aLineas(e.etiquetas)} onChange={(ev) => edEstructura(e.id, { etiquetas: deLineas(ev.target.value).map((l) => l.toUpperCase()) })} />

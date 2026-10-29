@@ -19,7 +19,7 @@ export function aplicarContenidoLanding(root: HTMLElement): void {
   const doc = root.ownerDocument;
   // Título de sección refrescado.
   const secH = root.querySelector<HTMLElement>('#como-funciona h2');
-  if (secH) secH.textContent = 'Todo lo que tu VSL Funnel necesita, en una sola app';
+  if (secH) secH.textContent = 'Tu equipo de ventas High Ticket, en una sola app';
 
   // ── "Entrar" en el header ────────────────────────────────────────────────
   // Desde que la landing es la RAÍZ del dominio, esta es la única puerta de

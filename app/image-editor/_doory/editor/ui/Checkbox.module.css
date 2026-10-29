@@ -1,4 +1,4 @@
-/* Casilla de Canva: borde de campo, marcada en violeta #8B3DFF (hover #7630D7) con tilde blanca */
+/* Casilla de Canva: borde de campo, marcada en azul (--primary) con tilde blanca */
 .row {
   position: relative;
   display: flex;
@@ -10,7 +10,7 @@
 }
 
 .disabled {
-  color: rgb(28 33 48 / 0.5);
+  color: var(--cv-color-field-hover);
   cursor: not-allowed;
 }
 
@@ -30,7 +30,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  border: 1px solid rgb(28 33 48 / 0.5);
+  border: 1px solid var(--cv-color-field-hover);
   border-radius: 4px;
   background: var(--cv-color-surface);
   color: transparent;
@@ -45,7 +45,7 @@
 .input:indeterminate + .box {
   border-color: var(--cv-color-brand);
   background: var(--cv-color-brand);
-  color: #fff;
+  color: var(--cv-color-on-brand);
 }
 
 .row:hover .input:checked + .box,
@@ -59,8 +59,8 @@
 }
 
 .input:disabled + .box {
-  border-color: rgb(57 70 96 / 0.14);
-  background: rgb(64 79 109 / 0.06);
+  border-color: var(--cv-color-border);
+  background: var(--cv-color-bg-muted);
 }
 
 .text {

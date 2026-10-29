@@ -3796,3 +3796,29 @@ iframe por sección con `documentoEditable`, alto medido como `medir()`), a 1440
 
 Tests: tests/web-generator-copia-franjas.test.ts (10; la geometría corre en un `vm` con cajas de mentira). Probado
 rompiéndolo: 33 roturas, cada una caza (`romper_franjas.py`).
+
+## Lo que la landing puede vender (medido el 29/10/2026, el taller del Cerebro)
+
+**Vive en:** las tarjetas de la #32 (`scripts/landing-principal-high-ticket.mts`, `TARJETAS`) · lo que promete cada plan
+(`lib/planes-mako.ts`, `incluye`) · la tabla (`lib/planes-comparacion.ts`) · el detalle del taller en el journal
+`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/subagents/workflows/wf_081f1b8b-822/journal.jsonl`
+
+Martín vio las 6 tarjetas que elegí («lo que anda hoy, como un equipo») y contestó: «Esas no son las funcionalidades más
+hot... ¿Y el scraper? ¿Y el Avatar con IA? ¿Y la edición?». **El diagnóstico obvio («lo hot es lo que vende el rubro») era
+el equivocado sin el inventario:** lo hot es lo que el cliente VE y le resuelve algo hoy, y eso hay que medirlo pantalla
+por pantalla, no recordarlo. El taller (inventario + lo que vende el rubro + tres jurados) dio 9 tarjetas, 3 x 3.
+
+- **En producción y lo ve el cliente:** el setter de WhatsApp, el CRM automático, Instagram (comentario → DM), el scraper
+  de grupos de WhatsApp (sólo Pro), el Video Editor (sólo Pro), el Web Generator, el media buyer (apagado por defecto),
+  Closing (sólo Pro), el consultor y la grabación de la visita con su mapa de calor.
+- **A medias o sólo para el super admin:** AI Avatar (sólo super admin, sin probar con un look real: entra cuando un
+  cliente lo abra y le salga el video), la difusión (hasta tren-ab), Image con IA, Video Generator, y los otros scrapers
+  (Leads Scraper retirado el 25/10, ce27df948; LinkedIn nunca).
+- **Ya no existe:** crear campañas desde el Ads Manager.
+- **Gana el código, y quedó anotado:** Pro prometía «crea campañas» y «avatares con IA» (/planes dejó de venderlos el
+  28/10, `TABS_TODAVIA_CERRADAS`) y decía «sin topes» con tope de WhatsApp y de personas: corregido en `incluye`. Image
+  Editor y Video Generator se abren por la CAPA (`requireRolWs`), no sólo para el super admin: la tabla los nombra porque
+  el código los da; si están «a medias» en calidad, lo decide Planes, no la landing.
+
+**Regla:** una tarjeta o un renglón de precios sale de un inventario MEDIDO ese día (qué abre el cliente, con qué plan) y
+del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda».

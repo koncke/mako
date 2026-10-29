@@ -1,5 +1,5 @@
-/* El crédito de Doory: franja fina al pie del editor, sobre el gris del cromo de Canva. Discreta pero legible
-   (12 px, gris oscuro): la licencia pide que se vea en cada apertura. */
+/* El crédito de Doory: franja fina al pie del editor, sobre el cromo (el --bg de MaKo). Discreta pero legible
+   (12 px, la tinta tenue): la licencia pide que se vea en cada apertura. */
 .credito {
   display: flex;
   align-items: center;

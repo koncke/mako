@@ -7,8 +7,9 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { leerDocumentoIA } from '@/lib/ai-cheap';
+import { guardarDocumentoFiscal, LEAD_NO_ENCONTRADO } from '@/lib/deal-fiscal-doc';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -33,21 +34,13 @@ export async function POST(req: NextRequest) {
   const mime = file.type || 'application/octet-stream';
   const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
 
-  const supabase = (await getTenantDb());
   const ws = await getWorkspaceActual();
   if (ws == null) return Response.json({ error: 'workspace no resuelto' }, { status: 403 });
-  const { data: leadRow } = await supabase.from('leads').select('id, deal_fiscal').eq('id', leadId).maybeSingle();
-  if (!leadRow?.id) return Response.json({ error: 'lead no encontrado' }, { status: 404 });
 
-  // Guardar el documento fiscal del cliente y registrar su path en deal_fiscal.
-  const safe = (file.name || 'fiscal').replace(/[^\w.\-]+/g, '_').slice(-80);
-  const path = `${ws}/${leadId}/fiscal/${Date.now()}_${safe}`;
-  const { error: upErr } = await supabase.storage.from('contratos').upload(path, buf, { contentType: mime, upsert: true });
-  if (upErr) return Response.json({ error: `storage: ${upErr.message}` }, { status: 500 });
-  const doc_nombre = file.name || safe;
-  const fiscalActual = (leadRow.deal_fiscal ?? {}) as Record<string, unknown>;
-  const { error: dbErr } = await supabase.from('leads').update({ deal_fiscal: { ...fiscalActual, doc_path: path, doc_nombre } }).eq('id', leadId);
-  if (dbErr) return Response.json({ error: `leads: ${dbErr.message}` }, { status: 500 });
+  // Guardar el documento fiscal del cliente y registrar su path en deal_fiscal (el mismo camino que MaKo desde el chat).
+  const g = await guardarDocumentoFiscal({ ws, leadId, bytes: buf, mime, nombre: file.name || '' });
+  if (!g.ok) return Response.json({ error: g.error }, { status: g.error === LEAD_NO_ENCONTRADO ? 404 : 500 });
+  const doc_nombre = g.docNombre;
 
   const isPdf = mime.includes('pdf') || (file.name || '').toLowerCase().endsWith('.pdf');
 

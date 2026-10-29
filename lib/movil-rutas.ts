@@ -228,11 +228,15 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
   // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
-  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'create' },
+  // Video desde el 29/10/2026: una sola pantalla, el editor (como en escritorio: nav.ts → 'video-editor', sin secciones). El
+  // Video Generator (/m/video) quedó como su plantilla «Generar con IA», con fila oculta (lib/movil-creacion.ts).
+  { id: 'video', label: 'Video', titulo: 'Video', href: '/m/video-editor', icon: 'videogen', navKey: 'video-editor', familia: 'create' },
   // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
   // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
   { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'create' },
-  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'create' },
+  // Copywriting ES el Copywriter desde el 29/10/2026 (nav.ts, la fila de Copywriting): la lista de páginas y «Nueva»
+  // (app/m/copywriter). El Ads Writer del teléfono (/m/copywriting) queda sin fila.
+  { id: 'copywriting', label: 'Copywriting', titulo: 'Copywriting', href: '/m/copywriter', icon: 'escribir', navKey: 'copywriter', familia: 'create' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del
@@ -313,7 +317,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   'second-brain': ['area', 'vista'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
-  copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
+  copywriting: ['nuevo'], // app/copywriter/page.tsx (`?nuevo=<tipo>`: sus templates primero). El `?tab=` del Ads Writer va aparte.
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
@@ -797,7 +801,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (dentro(p, '/offer') || RUTA_VIEJA_OFFER.test(p)) return aSeccion('offer', q);
   // Copywriting: lo que un cliente ve de esa tab unificada es Ads Writer (y /content-machine, el destino que
   // su código ya declara). Ideas, YouTube Writer y Stories son del super admin y se quedan en la computadora.
-  if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) return aSeccion('copywriting', q);
+  // Desde el 29/10/2026 la fila Copywriting abre el Copywriter (/m/copywriter); el Ads Writer dejó la barra pero sigue con su
+  // pantalla del teléfono por link (la matriz, «Analizar guion» con su `?tab=`, los links de MaKo), como en escritorio.
+  if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) {
+    const tab = q.get('tab');
+    return tab ? `/m/copywriting?tab=${encodeURIComponent(tab)}` : '/m/copywriting';
+  }
   // La tab Classroom (era Clients, docs/diseno-clients.md; /classroom desde el 25/10/2026): Clients y las cinco sub-tabs de
   // la comunidad, ANTES que Classroom, que es la raíz (el curso). El teléfono sigue con sus tres pantallas. Lo de /clients
   // ya llega como /classroom (next.config.ts redirige antes del proxy).

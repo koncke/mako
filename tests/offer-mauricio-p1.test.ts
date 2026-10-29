@@ -170,9 +170,9 @@ test('O13 · el PDF y «Así está bien» dicen para qué sirve: MaKo la usa par
 
 // ── O12 ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-// rotura (el selector sin abrirEnLaRaiz): 1 fallo. rotura (el Dropdown ignora la prop): 1 fallo.
-test('O12 · el selector de Offer abre en la raíz (los funnels a la vista), y el Dropdown de la casa sigue igual por defecto', () => {
-  assert.match(leer('app/offer/SelectorFunnel.tsx'), /variante="principal"\s+abrirEnLaRaiz/);
+// rotura (el Dropdown ignora la prop): 1 fallo. (El selector de Offer se fue el 29/10/2026: las ofertas son la lista de la
+// tarjeta del chat, app/_crear/PantallaCrear.tsx; la prop del Dropdown queda para quien la use.)
+test('O12 · el Dropdown de la casa sigue igual por defecto (no abre en la raíz si no se le pide)', () => {
   const dd = leer('app/components/Dropdown.tsx');
   assert.match(dd, /abrirEnLaRaiz = false,/);
   assert.match(dd, /const camino = abrirEnLaRaiz \? null : caminoDe\(secciones, elegido\);/);

@@ -28,6 +28,7 @@
 
 import type { VariableAviso } from './variables-aviso';
 import { plata, fecha } from './variables-del-lead';
+import { formatoMonto } from './pasarela-moneda';
 
 /** Lo que el cron necesita de una cuota para decidir. Es el molde de `CuotaPendiente`
  *  (lib/pagos.ts), copiado como forma mínima para no arrastrar el server a este módulo. */
@@ -40,6 +41,9 @@ export type CuotaParaAvisar = {
   fecha_esperada: string;
   /** negativo = venció hace N días; positivo = vence en N días. */
   dias: number;
+  /** La moneda de la cuota (null = USD) y su monto en ella: la de un tramo en pesos se recuerda en pesos (29/10/2026). */
+  moneda?: string | null;
+  monto_original?: number | null;
 };
 
 export type DisparoCobranza = {
@@ -80,7 +84,8 @@ export const enDias = (n: number): string => `${Math.abs(n)} ${Math.abs(n) === 1
 function datosEstablesDe(c: CuotaParaAvisar): Record<string, string> {
   return {
     cuota_numero: String(c.numero),
-    cuota_monto: plata(c.monto_usd),
+    // En SU moneda: a quien le pactaron MXN 12.000 no se le recuerdan «US$ 600».
+    cuota_monto: c.moneda && c.moneda.toUpperCase() !== 'USD' && c.monto_original != null ? formatoMonto(Number(c.monto_original), c.moneda) : plata(c.monto_usd),
     cuota_vence: fecha(c.fecha_esperada),
   };
 }

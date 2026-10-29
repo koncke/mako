@@ -917,6 +917,27 @@ son lo que hay que resolver antes de abrir el gate.
 
 ## Análisis de creativos, guiones y diagnóstico
 
+### La biblioteca de estructuras era «de anuncios» sin decirlo, y un override la pisa entera (28/10/2026)
+
+**Síntoma posible:** sumar a `ESTRUCTURAS_GUION_DEFAULT` las estructuras de reel y story del Copywriter las ponía en la
+matriz del Ads Writer, en su API y en el estructurador de guiones pegados; y un negocio con la biblioteca ya editada en
+/admin/guiones no las iba a ver nunca.
+
+**Causa:** `getEstructurasGuion` lo leen cuatro lugares que suponen «estructura = anuncio» (lib/razones.ts,
+lib/guion-estructurar.ts, la API de MaKo de contenido y el onboarding de razones). Y el override de
+`mako.guion_estructuras` PISA los defaults por completo: lo que se suma de fábrica después de guardarlo no llega.
+
+**Cómo quedó:** `EstructuraGuion.tipos` (sin el campo = anuncio). `getEstructurasGuion` devuelve `soloDeAnuncios`;
+`getEstructurasTodas` es para el Copywriter y el editor del super admin. Al override se le suman al final las de orgánico
+de fábrica que no conoce (`conLasDeOrganicoNuevas`); las de anuncios no, porque el super admin pudo borrar una a
+propósito. Para sacar una de orgánico, se apaga.
+
+**Regla:** un catálogo con override que pisa todo necesita una regla para lo NUEVO de fábrica. Y si un catálogo pasa a
+servir a otra cosa, el getter de siempre sigue devolviendo lo de antes y lo nuevo va con otro nombre.
+
+**Vive en:** lib/guion-estructuras-store.ts · lib/guion-estructuras.ts (`soloDeAnuncios`) · tests/copywriter-tipos.test.ts ·
+*2026-10-28 copywriter*
+
 ### ⚠️ El botón «Regenerar transcript» devuelve éxito falso fuera del workspace dueño
 
 **Síntoma:** el cliente aprieta el botón, no pasa nada y el modal no muestra ningún error.

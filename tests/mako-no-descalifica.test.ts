@@ -43,7 +43,7 @@ test('2. va fija en buildSystemPrompt, después de lo editable, en el modo lean,
   assert.match(fuente('lib/mako-turno-app.ts'), /const base = await buildSystemPrompt\(/);
   const doer = fuente('lib/mako-doer-in.ts');
   assert.match(doer, /const base = await runWithWorkspace\(wsData, \(\) => buildSystemPrompt\(/);
-  assert.match(doer, /const baseRed = await runWithWorkspace\(wsData, \(\) => buildSystemPrompt\(\{[^}]*lean: true \}\)\);/);
+  assert.match(doer, /const baseRed = await runWithWorkspace\(wsData, \(\) => buildSystemPrompt\(\{[^}]*lean: true(?:, canal: 'grupo')? \}\)\);/);
   assert.match(fuente('app/api/mako-doer/route.ts'), /const base = await buildSystemPrompt\(/);
   // El asesor de WhatsApp (una caja de chat con el dueño) arma su system aparte, con la misma persona y el mismo núcleo.
   assert.match(fuente('lib/whatsapp-advisor.ts'), /let out = `\$\{persona\}\\n\\n\$\{nucleo\}\\n\\n\$\{REGLA_NO_DESCALIFICAR\}\\n\\n\$\{system\}`\.trim\(\);/,

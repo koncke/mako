@@ -80,6 +80,20 @@ export async function conteosDelEmbudo(funnelId: number | null): Promise<{
   return { conteos: out, leads: leads.length, cfg };
 }
 
+/**
+ * Los ids de UNA columna entera del embudo `funnelId` (null = el del negocio), con la MISMA regla que la cuenta
+ * (`etapaComoTablero`) y paginado (`listLeadsDeFunnel` lee de a 1.000 hasta el final): «todos los de esta etapa» de la API de
+ * MaKo (28/10/2026, tickets #21 y #22). Tira si no puede leer.
+ */
+export async function idsDeColumna(funnelId: number | null, key: string): Promise<number[]> {
+  const [leads, cfg] = await Promise.all([
+    listLeadsDeFunnel(funnelId),
+    funnelId != null ? getFunnelDe(funnelId) : getFunnelDefault(),
+  ]);
+  const validas = new Set(cfg.stages.map((st) => st.key));
+  return leads.filter((l) => etapaComoTablero(l, validas) === key).map((l) => l.id);
+}
+
 /** Lo que contesta `editarEtapa` (y la action que la envuelve). */
 export type ResultadoEtapa = Awaited<ReturnType<typeof editarEtapa>>;
 

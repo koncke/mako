@@ -3,7 +3,7 @@
   min-width: 0;
 }
 
-/* Tooltip de Canva: oscuro (#0F1015), texto blanco de 12 px, radio 6 */
+/* Tooltip: la tinta de MaKo de fondo y la superficie de letra (se da vuelta con el tema), 12 px, radio 6 */
 .tip {
   position: fixed;
   z-index: var(--cv-z-toast);
@@ -37,7 +37,7 @@
 /* El atajo va en gris claro al lado del rótulo, sin caja (como en Canva) */
 .kbd {
   font: 500 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
-  color: rgb(255 255 255 / 0.7);
+  color: color-mix(in srgb, var(--cv-tooltip-text) 70%, transparent);
   background: none;
   padding: 0;
 }

@@ -86,7 +86,8 @@ test('los TRES armados del system van sin la plata del trimestre para quien no e
   const armados = RUTA.split('buildSystemPrompt(').length - 1;
   assert.equal(armados, 3, `son ${armados}: si cambió, cada uno lleva el corte`);
   assert.equal(RUTA.split('sinNumerosDelNegocio: !q.admin').length - 1, armados, 'un armado del system le cuenta la plata a un closer');
-  assert.match(RUTA, /return persona \? \{ admin: rolWs === 'admin', persona \} : null;/, 'admin = el rol del workspace, nada más');
+  // Desde el 28/10/2026 lleva además si pasa la puerta del Copywriter (la charla de un guion: tests/copywriter-charla-puerta.test.ts).
+  assert.match(RUTA, /return persona \? \{ admin: rolWs === 'admin', persona, veCopywriter: copy \} : null;/, 'admin = el rol del workspace, nada más');
 });
 
 test('GET: sin sesión 401; la lista de un closer es la suya; por id y por clave, 404 si no le corresponde', () => {

@@ -4,7 +4,7 @@ import type {
 } from "@/app/video-editor/_opencut/timeline";
 
 // Los colores de los clips son los MEDIDOS en CapCut Desktop 9.3 (tokens
-// --cc-clip-* de capcut-theme.css): video verde petróleo con la franja del
+// --cc-clip-* de capcut-theme.css: son DATO, no superficie, y no cambian con el tema): video verde petróleo con la franja del
 // nombre un tono más clara, texto ladrillo, audio azul marino con la onda
 // celeste. Stickers, efectos, filtros y ajuste salen de la guía de 2023 (a ojo).
 // Nada de hex acá: el canvas de la onda lee el token con `leerToken`.
@@ -30,10 +30,11 @@ export const TIMELINE_TRACK_THEME: Record<
 
 /** La fila de la pista que tiene el clip elegido (`#2f2f2f`). */
 export const SELECTED_TRACK_ROW_CLASS = "bg-[var(--cc-track-active)]";
-export const DEFAULT_TIMELINE_BOOKMARK_COLOR = "#00c1cd";
+// El azul de MaKo (antes el cian de CapCut, 29/10/2026). Es DATO: un marcador sin color propio se pinta con éste.
+export const DEFAULT_TIMELINE_BOOKMARK_COLOR = "#2F6FED";
 /** «Agregar marcador con nuevo color» (Alt+M) recorre esta lista. */
 export const COLORES_MARCADOR = [
-	"#00c1cd",
+	"#2F6FED",
 	"#f2b01e",
 	"#f5464b",
 	"#3fb27f",

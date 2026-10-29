@@ -641,11 +641,13 @@ export const RUNNERS: Runners = {
           tema: plantillaPorId(l.plantillaId)?.nombre ?? l.plantillaId,
           estado: l.mediaId && l.url ? 'listo' : l.error ? 'fallo' : 'generando',
           error: l.error || null,
+          // Lo que la persona escribió en la barra encima del preset (AI Avatar = el estudio de Higgsfield, 29/10/2026).
+          ajuste: l.detalle || null,
           pedido: l.creadoEn || null,
         })),
-        temas_de_la_galeria: PLANTILLAS_AVATAR.map((p) => ({ nombre: p.nombre, categoria: p.categoria, lugar: p.lugar })),
+        temas_de_la_galeria: PLANTILLAS_AVATAR.map((p) => ({ nombre: p.nombre, categoria: p.categoria, lugar: p.lugar, nuevo: !!p.nuevo })),
         notas: [
-          'Un look «listo» se puede animar en AI Avatar → Crear video; «generando» lo está haciendo el navegador del cliente por el puente a Flow.',
+          'Cada look es un PROYECTO de AI Avatar: «listo» se anima abriendo su proyecto y «Generar video»; «generando» lo está haciendo el navegador del cliente por el puente a Flow.',
           'Los avatares que salen de anuncios del Video Generator no están aquí: los cuenta contar_escenarios_reusables.',
         ],
       });

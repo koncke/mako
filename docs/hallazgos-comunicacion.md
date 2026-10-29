@@ -17,6 +17,8 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Un fallo de producción se ubica contra el PUSH antes de diagnosticarlo** (29/10/2026). La nota de voz de Leandro que «Groq no
+  escuchó» llegó 45 s antes de que Groq estuviera subido: la atendió la versión de antes. Ver «MaKo con Leandro, 28 y 29/10», abajo.
 - **«No guarda contexto» era el TURNO, no la memoria** (26/10/2026). El modelo veía la charla, pero la intención y las
   herramientas salían del último mensaje solo: «pausala» o «publicá la del webinar» llegaban sin con qué hacerlo. Un
   seguimiento sigue el pedido del hilo (`lib/doer-hilo.ts`); ver «MaKo en WhatsApp no seguía la conversación», abajo.
@@ -102,6 +104,77 @@ Leandro cuando Instagram o Zernio frenen una respuesta (chat de Automations). Lo
 permite 750 respuestas privadas a comentarios por hora y por cuenta de Instagram, y 300 mensajes por segundo. Zernio
 admite 60 pedidos por minuto con 0 a 2 cuentas conectadas y 600 con 3 o más, y pasado el tope devuelve 429 con
 `Retry-After` (docs.zernio.com/rate-limits).
+
+## MaKo con Leandro, 28 y 29/10: el audio que «no escuchaba», las preguntas que se cargaban al Plan, los borrados inventados y el mensaje para Martín (29/10/2026)
+
+Martín: «Mira lo que le respondió MaKo en WhatsApp, sigue funcionando muy mal... A Leandro» (ws10, `mako_doer_conv` 1642-1702,
+`mako_doer_buffer` 316-336, leídos sólo lectura). Vive en `lib/mako-intencion.ts` (`clasificarIntencion`, regla 3-quinquies, y
+`QUEJA_NO_ANDA`), `lib/doer-salida.ts` (`sinLoQueMaKoNoDice`), `lib/doer-para-quien.ts` (`paraAlguienDelEquipo`,
+`bloqueParaElEquipo`), `lib/audio-citado.ts` (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`) y `lib/mako-doer-in.ts`. El test va por la entrada real
+con los payloads reales, anonimizados: `tests/grupo-leandro-2910.test.ts`.
+
+- **El audio 327 no falló en Groq: llegó 45 segundos ANTES de que Groq estuviera en producción.** El diagnóstico obvio era «la
+  nota de voz del grupo va a Groq desde tren-v y aun así no se escuchó». Medido: el audio entró a las 19:24:52 UTC, tren-v se
+  subió a las 19:25:37 UTC (`git reflog show origin/main`, la línea «update by push» de 23b329b5e) y el turno corrió con la versión
+  de antes: Gemini cortó por tiempo y salió el cartel «ia_lenta» a las 19:26:29 (`anthropic_usage`, feature `cartel-ia`). La 316 y
+  la 318 (13:21 y 13:24 UTC) también son de antes de tren-v: la 318 dejó su cartel y el ticket #18; la 316, en un lote con «Tal cual
+  como lo hace manychat», se descartó sin aviso, y el modelo contestó el «tal cual» solo. **La regla: un fallo de producción se
+  ubica contra el PUSH antes de diagnosticarlo** (el reflog de `origin/main`; ojo, los commits van en -0300 y la base en UTC).
+  El «no puedo escuchar audios» de las 19:41 es otra cosa: la citada todavía no se escuchaba (62876b064 está en la rama), y
+  «No me respondiste lo de este audio» era `charlar`, sin herramientas, por «confirmación sin nada pendiente»: `CONFIRMACION` mira
+  el arranque, y «No» lo es. El reclamo ahora es una queja (`QUEJA_NO_ANDA`), como «No me deja…».
+- **Una lista numerada con preguntas era un volcado.** «sumo tres cosas…» traía seis «?» y la lista lo hacía «dictado»: la regla
+  4 (dictado sin imperativo → capturar) va ANTES que la de la pregunta (8), y MaKo contestó «Listo, te armé el borrador» con un
+  link a /plan/revisar. Ahora un dictado con dos o más preguntas (fuera de un link y de lo citado entre «…») es una consulta; con
+  una sola sigue siendo un volcado («Ideas: … ¿y un podcast?»), y «anotá esto: …» gana igual.
+  ⚠️ **Y con la IA caída pasaba lo mismo por OTRO camino:** las dos salidas de «ningún proveedor contestó» guardan el mensaje
+  CRUDO como borrador del Plan si `esCargaDePlan` (dos renglones numerados) o si el router (`rutearDoer`, que no lee preguntas)
+  dijo «plan». Arreglar el clasificador no alcanzaba: con la IA del negocio caída, las mismas preguntas salían «Listo, te armé
+  el borrador». Ahora decide la intención (`eraCargaDePlan`). Lo encontró una escena del test que no llegaba al modelo.
+- **Lo que MaKo no sabía lo afirmaba, y lo peor era destructivo.** «borra el registro de la inscripción anterior», «darles de baja o
+  reetiquetarlos manualmente» (la vía real, «Volver a probar», ni estaba subida); «son limitaciones reales actuales del motor…
+  ya están escaladas al equipo»; «ya queda el registro técnico». Una regla en el prompt no alcanza (está, en `NUCLEO_GRUPO`): la
+  red va al salir, como las promesas. `sinLoQueMaKoNoDice` saca la ORACIÓN, dice la verdad en una línea y, si era de borrar o del
+  producto, deja el ticket (`[[no-pude: …]]` si el modelo no marcó nada). Precisión antes que recall: no saca «no hace falta
+  borrar nada», «borra el mensaje con tu clave», «borrador» ni «quedó el registro del pago». Y saca el número de lista que
+  quedaba solo («1.»): el partidor de oraciones lo toma por una.
+- **El audio que no se escuchaba desaparecía del lote** (un `continue`), y lo que seguía se contestaba a ciegas. Ahora su marca va
+  EN SU LUGAR, y un lote con sólo marcas no corre turno (el aviso ya lo dijo).
+- **«Hola Martin, …» es para el equipo, no para MaKo** (Leandro le escribía a Martín y MaKo contestaba como si fuera él). Lo que
+  hace ahora: un saludo o un «gracias» a esa persona, solo, no es para MaKo (ni 👍 ni turno); lo demás corre con
+  `bloqueParaElEquipo` (dice que es MaKo, contesta sólo lo que ve en sus herramientas, los pedidos abiertos o CÓMO FUNCIONA MAKO)
+  y el ticket queda SIEMPRE: si el modelo no marcó nada, la marca la pone el código. Trampa: la clave del ticket sale de las dos
+  primeras palabras de lo que pidió (`refDeNoPude`); con «Hola Martin» delante, todos los mensajes a Martín tenían la misma
+  («hola martin») y el segundo salía «Ya estaba avisado». Va sin el saludo (`pedidoDelTicket`). En el grupo del propio equipo
+  (el workspace SuperAdmin) hablarle a Martín es lo normal: ahí no hay bloque ni ticket.
+- **Trampas del test:** cada turno por `manejarEntranteDoer` espera la ventana de silencio REAL (8 s el texto): seis escenas son
+  ~3 minutos. Y el payload real lleva la voz del cliente (`message.base64`) y su teléfono (`participantAlt`): no entran a un test.
+  Un mensaje del EQUIPO (fromMe, firmado) es eco sólo si llega por la línea de MaKo (`mako.voz.instancia` del ws1, `esEcoDeMaKo`):
+  sin ese setting en el PostgREST de mentira, `instanciaVoz` devuelve el nombre por defecto, el mensaje del equipo corre un turno
+  como si lo hubiera escrito el dueño, y el test cuenta dos llamadas al modelo en vez de una.
+- **La ALTA 2 de la verificación de c358fd0c4 (va en la misma subida):** con una pregunta del equipo viva para una persona, su
+  siguiente texto sin citar se tomaba por la respuesta, y sólo seguía a MaKo si `pideAlgoAMaKo` veía un pedido. No veía casi
+  ninguno: **el clasificador deja los pedidos reales y las respuestas en el MISMO lugar** («capturar» dudoso, «sin señal clara»).
+  De 28 mensajes reales de clientes del 21 al 28/10, daba false en 21, todos los de Leila («Quiero saber porque Nadya Calderon no
+  aparece para agregarla» quedaba callado, avisado a SuperAdmin como respuesta y con la ventana cerrada; su respuesta de verdad,
+  después, iba a MaKo). En producción MaKo contestaba. La regla: `pideAlgoAMaKo` suma las formas de PEDIR que el clasificador no ve
+  (queja de algo que no anda, «quiero saber / necesito / quiero que», «cómo hago», el imperativo a un tercero: `PIDE_O_SE_QUEJA`,
+  `lib/doer-equipo.ts`), y sin citar, lo que es SÓLO un pedido (cada oración pide algo: `esSoloUnPedidoAMaKo`) va a MaKo sin aviso
+  y deja la pregunta abierta. Lo que contesta Y pide («Son 6 quincenas en mxn. Y pásame…») sigue yendo a los dos. Costo conocido:
+  una respuesta con forma de pedido («quiero que sean 6 quincenas») va a MaKo; citando, va al equipo igual.
+
+**Sin hacer:**
+- Después de que MaKo contesta el pedido de esa persona, su respuesta al equipo sin citar va a MaKo: `respuestaAlEquipo` cierra la
+  ventana si MaKo habló después de la pregunta (`ultimaDeMaKo`), y no mira si MaKo PREGUNTÓ algo o sólo contestó
+  (`lib/doer-equipo.ts`). Es el costo de no adivinar; citando, va al equipo.
+- El encabezado de todo lote (`unirMensajes`, `lib/mako-doer-buffer.ts`) dice «carga TODAS las tareas juntas»: empuja a cargar al
+  Plan aunque sean preguntas. Lo fijan `tests/agenda-whatsapp.test.ts` y `tests/doer-acuse.test.ts`.
+- Los nombres del equipo son una lista (`nombresDelEquipo`, «Martín»; `MAKO_EQUIPO_NOMBRES` la cambia): no sale de la base.
+- Que MaKo no hable COMO Martín depende del prompt (`bloqueParaElEquipo`); la red sólo garantiza el ticket. Se mide con el banco de
+  nivel 2 (con modelo), en la tanda del crédito Max.
+- El cartel de un audio que no escucharon ni el Groq de la plataforma ni el GPT del negocio dice «GPT, tu IA, no me contestó»
+  (`avisarAudioSinEscuchar`, `lib/mako-doer-in.ts`): visto en el test, sin tocar.
+- El filtro por palabra clave de los comentarios y «Volver a probar» están en la rama aut-2510 de Automations, sin subir.
 
 ---
 
@@ -11721,6 +11794,137 @@ funciona…», «No sale…»), que sólo saca las quejas. tests/mako-no-puedo-f
 «No consigo turno» con una reunión propuesta SON un «no»: con `QUEJA_NO_ANDA` en la regla 1 se perdía cancelar_accion y MaKo podía
 apilar otra propuesta (lib/doer-hilo.ts cuenta con que un «no» de verdad llega como 'confirmar'). **La regla:** la regla 1 sólo deja
 pasar la queja con OBJETO de la app (`QUEJA_DE_LA_APP`: «no me deja editar…», «no funciona el…»); la 9-bis sigue sacando toda queja.
+
+## El turno del grupo llegaba sin herramientas, por el camino barato o como si fuera un saludo (28/10/2026, claude4, el diagnóstico del Cerebro, tanda 1)
+
+**El síntoma:** de 58 respuestas de MaKo en los grupos del 21 al 28/10, 9 BIEN, 21 FLOJAS y 28 MAL. A «Tal cual como lo hace
+manychat» le contestó un consejo; a «y tú eres el servicio técnico», «Intenta desde otro navegador»; a «bien», «No hay tareas
+abiertas en el plan»; a «Si», «Hola. ¿En qué te puedo ayudar hoy?».
+⚠️ **El diagnóstico obvio, «el modelo es viejo», explica 5 de las 49.** Lo que pesó fue lo que el turno decide ANTES del modelo.
+
+- **G1, la causa más grande: el default del clasificador era `capturar` dudosa, con SÓLO `ver_plan` y `listar_pendientes`.**
+  Fue el 35 % de los turnos: el pedido de Leandro, todo el soporte de Leila («Fabi Pedraza no aparece en el SRM»), «Ya
+  conteste» y los saludos. Sin CRM ni tickets, el modelo no podía mirar ni reportar nada, y contestaba con el plan. La app lo
+  había arreglado el 20/10; el grupo no.
+  **La regla:** el clasificador marca su default (`sinSenal`) y el grupo lo decide DESPUÉS de seguir el hilo
+  (`enElGrupoSinSenal`, lib/doer-hilo.ts): un acuse o un saludo es charla; lo demás, una consulta con las áreas del hilo, MaKo
+  (lo que hace y los tickets del negocio) y las lecturas del CRM. Nunca el Plan por default.
+  ⚠️ **No va en el clasificador:** `conElHilo` usa esa misma duda para seguir el pedido vivo («pausala» después de «¿La
+  pauso?»). Cambiado ahí, el hilo deja de seguirse.
+- **G2: el camino barato iba sin historial ni el system del grupo**, y por la cascada de `chatCheap` (Gemini primero), no por
+  la del turno. Se fue del grupo: lo que llega como charla lo contesta la cascada con todo.
+- **Los saludos reales no eran acuse** (`esAcusePuro`, lib/doer-para-quien.ts): «Bien», «Excelente», «Buendiaa», «Okk perfe»,
+  «Buen día! Geniall», «Vamos que arranca la semana!». Contestar «Excelente» costó 15.630 tokens de entrada. Ahora llevan el
+  👍 sin turno (si nada espera respuesta), con la letra del final estirada como se escribe en WhatsApp (en el medio, «arranca»,
+  es la palabra).
+- **Medido con el banco de casos** (tests/_banco-grupo.ts, los textos reales, sin modelo): antes, 13 de 24 casos llegaban con
+  sólo el Plan y 5 iban por el camino barato; después, 0 y 0, y los 7 saludos llevan el 👍.
+
+**Sin hacer (las tandas siguientes del diagnóstico):** F2 (el turno no ve lo que el equipo y las automatizaciones mandan al
+grupo, ni los tickets del negocio, ni quién escribe); F4 (la marca y la memoria del audio y el video que no se pudieron leer);
+G3 (lo que llega durante un turno queda huérfano hasta el cron, 2 a 3 min tarde); G4 (la memoria corta a MaKo en su primera
+línea); G5 (la agencia escribe en 5 de 8 grupos y MaKo le contesta lo que era para el cliente); F6 (los reintentos que tiran una
+respuesta buena). «Si contacte Eli» sigue llegando como charla, sin herramientas: lo arregla F2a con el lead del aviso en la
+memoria, y F3, el «¿lo contactaron?» sin vuelta (chat de CRM).
+**Y la tanda de robustez** (la verificación del Cerebro de dda95f98d, C:/dev/revisiones/2810-verificacion-dda95f98d.md): los
+helpers de lib/api-mako/areas sin `falla` y los «No se pudieron…» con texto propio siguen saliendo como regla; la base caída
+dicha «No existe el lead» o «No encuentro la decisión» (los `.catch(() => null)` de cobros.run.ts y ads.run.ts); la acción
+confirmada que falla con un texto que no es tragado no deja ticket (`confirmarPendiente`); un audio mandado como ARCHIVO en el
+grupo va a Gemini y muestra el error técnico; dos notas de voz que Groq devuelve vacías quedan en 👍 y silencio.
+
+## El turno no veía lo que pasa en el grupo: el equipo, las automatizaciones, los pedidos ni lo que hace MaKo (28/10/2026, claude4, el diagnóstico del Cerebro, tanda 2, F2)
+
+**El síntoma:** Joan preguntó si el access token de Meta «sigue siendo el mismo» tres minutos después del aviso del equipo
+«Meta se conecta sólo con Zernio», y MaKo le dijo que sí. Leandro contestó al aviso de los botones de Instagram y MaKo no tenía
+a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplicado.
+
+- **F2a, lo que se manda al grupo.** `enviarAlGrupoMaKo` sólo anotaba el anti-eco: de 30 avisos del equipo en 7 grupos, ninguno
+  llegó a un turno. Ahora la `memoria` es OBLIGATORIA (`MemoriaDelEnvio`, lib/mako-grupo.ts): 'mako' (automatizaciones,
+  insistencias) a la conversación; 'equipo' (el aviso de un arreglo, la respuesta de un ticket) al anillo del negocio
+  (lib/doer-equipo.ts), que el turno ve como el bloque «LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO»; null si quien llama ya
+  lo guarda (lib/avisos.ts, con sus partes).
+  ⚠️ **Lo del equipo NO va como turno de MaKo ('assistant'):** `ultimoDeMako` toma el último 'assistant' para saber si MaKo
+  preguntó algo. Una pregunta del equipo pasaría por pregunta de MaKo, y un «sí» del dueño se volvería una confirmación.
+- **F2b, los pedidos del negocio.** `mis_tickets` es de UNA persona (su email) y viajaba sólo si el mensaje nombraba MaKo.
+  `ticketsDelNegocio` (lib/tickets-db.ts) trae los abiertos y los resueltos de 3 días de todo el negocio, y el turno los ve como
+  «PEDIDOS ABIERTOS DE ESTE NEGOCIO» (lib/pedidos-del-negocio.ts). La marca `[[ya-pedido: #N]]` suma el mensaje a ESE ticket
+  (`sumarAlPedidoDelNegocio`: sólo uno abierto del mismo negocio) y se lleva el `[[no-existe]]` del mismo pedido, que abría el
+  duplicado. La marca se saca SIEMPRE, también con un número ajeno: nunca le llega al cliente. Va en el doer, antes de
+  `conTicketsDeMaKo`: lib/no-pude-server.ts (de MaKo inteligente) no se tocó.
+- **F2c, lo que hace MaKo.** `listar_capacidades_mako` va con las de siempre (`CAPACIDADES_TOOLS`): viaja en todo turno que
+  consulta, actúa o piensa; en capturar y en charla no (`herramientasDelTurno` lo filtra por el contrato). La lista ya no dice
+  «y NINGUNA otra» (el texto de la app: «son una selección para este pedido»), y los hechos de MaKo suman lo que traen las
+  herramientas.
+
+**Sin hacer:**
+- ~~El catálogo de MaKo inteligente~~: desde el merge de tren-v, el system del grupo lleva «LO QUE HACE MaKo» compacto
+  (`funcionesParaElGrupo`, lib/nucleo-grupo.ts, ≤1.500 caracteres, del catálogo de lib/funciones-mako.ts) y el detalle viaja en
+  `listar_capacidades_mako`. La entrada de Automations sumó los disparadores de Instagram, los botones del DM y el alias
+  «manychat», que era justo lo que le faltó al turno de Leandro.
+- `conTicketsDeMaKo` no compara un [[no-existe]] con los títulos abiertos si el modelo no marca [[ya-pedido]]: el duplicado
+  sigue posible si el modelo no lo reconoce.
+- F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).
+
+## La respuesta al EQUIPO no es para MaKo (28/10/2026, claude4, Leila, ws11)
+
+**El síntoma:** el equipo le preguntó a Leila en su grupo, firmado, cuántas quincenas eran y en qué moneda. Leila contestó
+«Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000», y MaKo le puso 👍 y le contestó una cuenta («eso suma
+72,000 MXN… dime y lo hacemos juntos»). Martín: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa».
+
+**La causa:** el equipo escribe por la línea de MaKo (el panel, el teléfono): su mensaje vuelve como ECO y el doer lo
+descartaba sin anotarlo. Nada distinguía una respuesta al equipo de un mensaje para MaKo.
+
+**La regla (lib/doer-equipo.ts, `respuestaAlEquipo`; lib/mako-doer-in.ts, antes del 👍 y de la cola):**
+- el eco de un mensaje FIRMADO por el equipo entra a su anillo (también lo que no sale por `enviarAlGrupoMaKo`);
+- es respuesta al equipo si CITA un mensaje del equipo (uno del anillo, o uno firmado), o si es un texto que llega después de
+  una PREGUNTA del equipo, dentro de 6 h y antes de que MaKo vuelva a hablar. Nombrar a MaKo gana; un audio o un archivo sin
+  citar es para MaKo;
+- la respuesta al equipo no lleva 👍 (dice «MaKo lo tomó»), no entra a la cola, y queda para el equipo: en su ticket si el
+  mensaje del equipo lo tenía (la respuesta a un ticket, lib/tickets-cierre.ts; vuelve a la bandeja), y si no, un aviso al
+  grupo de SuperAdmin.
+- ⚠️ **La trampa: el aviso a SuperAdmin citaba la pregunta CON la firma.** Su eco en el grupo de Martín se anotaba como
+  mensaje del equipo, y una pregunta ahí callaba a Martín 6 horas en su propio grupo. La firma cuenta sólo AL PRINCIPIO
+  (`esFirmaDelEquipo`) y el aviso la saca de la cita (`sinFirmaDelEquipo`).
+
+⚠️ **El primer arreglo (5b7a1917d) calló a MaKo DE MÁS, y lo encontró la verificación con payloads reales:**
+- cualquier «?» abría la ventana: el de un link (`?abrir=zernio`) o el título de un ticket resuelto («¿Se puede…?»);
+- adentro de la ventana TODO texto sin «mako» callaba, de quien fuera: otra persona, otro tema, un pedido;
+- la cita en la forma REAL de Evolution v2 (`message.conversation` y el `contextInfo` en el nivel de ARRIBA) no se leía:
+  `citaDe` sólo miraba adentro del mensaje. Los tests usaban `extendedTextMessage`, que no es lo que llega.
+
+**Cómo quedó (lib/doer-equipo.ts):** pregunta = «¿» o un «?» fuera de un link; el aviso de un ticket nunca lo es salvo «el equipo
+te pregunta» (`esPreguntaDelEquipo`). La pregunta guarda a QUIÉN le habla (el nombre al principio, «Leila, …», o la @;
+`paraDelEquipo`) y la ventana vale sólo para esa persona. La cierra la PRIMERA respuesta (`respondida`). Lo que además le pide
+algo a MaKo (`pideAlgoAMaKo`, el clasificador) va a los dos. La cita se lee en todos sus lugares (`citaDelMensaje`). Una
+re-entrega no repite el aviso (`mako.equipo.respuestas`, por id). El anillo se escribe con lectura ESTRICTA: una lectura que
+falla no lo pisa.
+
+**Sin hacer:** un audio sin citar que le contesta al equipo va a MaKo. La pregunta a «todos» (sin nombre ni @) abre la ventana
+para cualquiera: la cierra la primera respuesta.
+
+## La nota de voz CITADA no se escuchaba (28/10/2026, claude4, Leandro, ws10, en producción)
+
+**El síntoma:** Leandro contestó citando su audio de 1:34 («No me respondiste lo de este audio») y MaKo le dijo «en este mensaje
+no puedo escuchar audios ni tengo la transcripción del tuyo. Mándame el texto exacto».
+**La causa (el diagnóstico del Cerebro, con datos de producción):** el audio original entró antes del deploy de tren-v y lo
+procesó el código viejo (Gemini, timeout). La cita trae el audio en `contextInfo.quotedMessage.audioMessage` (94 s) y el lote
+la guardó con `tiene_audio=false`: el turno sólo transcribía el audio del mensaje NUEVO.
+**La regla (lib/audio-citado.ts; `escucharElAudioCitado`, lib/mako-doer-in.ts):** la nota de voz citada se baja por el id de la
+cita (de la misma línea; se prueba como de otro y como propia) y se escucha por la vía de la nota de voz del grupo (Groq), en el
+mensaje suelto y en los dos lotes; su texto entra al turno. NUCLEO_GRUPO dice que MaKo escucha notas de voz: nunca «no puedo
+escuchar audios».
+
+⚠️ **El «si no se puede» obvio era el equivocado (la verificación de 5b7a1917d).** Se mandó la citada que no bajó a
+`avisarAudioSinEscuchar`, el aviso del audio que NINGUNA IA escuchó: eso arma la causa con las claves del negocio, y sin claves de
+audio dice «conecta tu GPT», deja ofrecida la ayuda, abre un ticket de CONFIGURACIÓN y corta el turno (el resto del pedido se
+tiraba). Y los lotes hacían `continue`: el mensaje entero desaparecía. Lo que pasó fue que WhatsApp no la entregó, no la IA.
+**Cómo quedó:** sin bajar, «La nota de voz que citaste no la puedo bajar de WhatsApp. ¿Me la reenvías o me la escribes?» (UNA
+vez), y el mensaje SIGUE al turno con una marca (`conLaCitaSinEscuchar`) para que el modelo no lo repita y conteste lo demás.
+
+⚠️ **La trampa del test:** el PostgREST de mentira no entendía el `or=(hasta.is.null,hasta.lt.…)` del candado del grupo
+(`reclamar`, lib/mako-doer-buffer.ts), y un error ahí es «no gané»: TODA prueba por `manejarEntranteDoer` encolaba y se iba, sin
+correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({ candado: true })` el turno corre de verdad
+(tests/_audio-citado-turno-hijo.ts: el camino suelto, con su espera de 8 s, y el lote del cron).
 
 ## Cuatro vueltas de arreglos en el grupo de WhatsApp: cada regla nueva destapó otra, y lo que las frenó fue VERIFICAR (28/10/2026, Cerebro)
 

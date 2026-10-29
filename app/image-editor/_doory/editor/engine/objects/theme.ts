@@ -1,6 +1,10 @@
 /**
  * Canvas selection styling driven by the design tokens. Colours are read from CSS custom properties at
  * runtime so light/dark themes (and any future theme) are followed without hard-coded values.
+ *
+ * ⚠️ MaKo: los `--cv-*` viven en `.cv` (la raíz del editor, styles/tokens.css), NO en <html>. Hasta el 29/10/2026 esto los
+ * leía de `document.documentElement`, donde no existen: el lienzo usó SIEMPRE el respaldo de abajo (el violeta #6a52d9 de
+ * Doory), ni el de Canva ni el de MaKo, y sin un error. Ahora se leen de la raíz `.cv`, y el respaldo son los de MaKo claro.
  */
 import { type Canvas, FabricObject } from 'fabric'
 
@@ -14,15 +18,20 @@ export interface CanvasTheme {
 }
 
 const FALLBACK: CanvasTheme = {
-  selection: '#6a52d9',
-  guide: '#ec5f98',
+  selection: '#2F6FED',
+  guide: '#ff4fd8',
   surface: '#ffffff',
-  muted: '#73667a',
-  text: '#2b1c17',
-  workspace: '#ebe7f5',
+  muted: '#66707F',
+  text: '#12151B',
+  workspace: '#F4F6F9',
 }
 
-export function readCanvasTheme(el: Element = document.documentElement): CanvasTheme {
+/** Donde están los tokens del editor: la raíz `.cv` (si no hay, <html>, y el respaldo). */
+function raizDeTokens(): Element {
+  return document.querySelector('.cv') ?? document.documentElement
+}
+
+export function readCanvasTheme(el: Element = raizDeTokens()): CanvasTheme {
   if (typeof getComputedStyle !== 'function') return FALLBACK
   const cs = getComputedStyle(el)
   const get = (name: string, fallback: string): string => cs.getPropertyValue(name).trim() || fallback

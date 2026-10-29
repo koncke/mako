@@ -69,7 +69,8 @@ test('la ficha provee el aviso con su releer, y relee al mover y al completar', 
   const src = sinComentarios(leer('app/crm/LeadSheet.tsx'));
   assert.match(src, /const releer = useCallback\(\(\) => \{\s*void getLeadFullAction\(lead\.id\)\.then\(\(x\) => \{ if \(x\) setFresca\(x\); \}\)/);
   assert.match(src, /<FichaCambioProvider value=\{releer\}>/);
-  assert.match(src, /onDone=\{\(\) => \{ const quedarse = completandoDatos; setMoveTo\(null\); router\.refresh\(\); if \(quedarse\) releer\(\); else onClose\(\); \}\}/);
+  // ⚠️ Cambiado A PROPÓSITO el 29/10/2026: al terminar se suelta el dato que pidió «Solucionar» (tests/ficha-datos-del-bloque.test.ts).
+  assert.match(src, /onDone=\{\(\) => \{ const quedarse = completandoDatos; setMoveTo\(null\); setDatoPedido\(null\); router\.refresh\(\); if \(quedarse\) releer\(\); else onClose\(\); \}\}/);
   // Mover desde el desplegable: la etapa nueva se pinta ya y se confirma releyendo.
   assert.match(src, /onHecho=\{\(\) => \{ const k = moverDirecto;[\s\S]{0,160}?setFresca\(\{ \.\.\.vigente, lead: \{ \.\.\.vigente\.lead, pipeline_stage: k \} \}\); releer\(\); \}\}/);
   assert.match(src, /onCompletar=\{\(\) => \{ const k = moverDirecto;[\s\S]{0,200}?releer\(\); setMoveTo\(k\); \}\}/);

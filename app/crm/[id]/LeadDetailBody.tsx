@@ -27,6 +27,7 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { deleteLeadAction, type LeadFullData } from '../actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt } from '@/lib/pipeline';
 import type { FathomLink } from '@/lib/leads';
@@ -106,6 +107,8 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // resuelve la ficha (`pedido`, lead-view/ficha/FichaPorBloques.tsx), con el asistente sólo de respaldo.
   const [pedido, setPedido] = useState<{ id: StepId; n: number } | null>(null);
   const solucionarDato = (id: StepId) => setPedido({ id, n: Date.now() });
+  // El dato que se tocó y que esta ficha no dibuja (`onNoEsta`): el asistente pide ESE (lib/datos-aviso.ts, `loQueSePide`).
+  const [datoPedido, setDatoPedido] = useState<StepId | null>(null);
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -152,7 +155,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       // quedarse mirando un lead borrado no es una opción. (El modal usa la versión
       // que no redirige, porque ahí la pantalla de atrás sigue viva.)
       try { await deleteLeadAction(lead.id); }
-      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo borrar. Reintenta.'); }
+      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
     });
   };
 
@@ -203,7 +206,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
       {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
       <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA}
-        pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} crm={crmEnVista(fichaProd, data)} />
+        pedido={pedido} onNoEsta={(paso) => { setDatoPedido(paso); setMoveTo(currentStage); }} crm={crmEnVista(fichaProd, data)} />
       {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
           que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
           suyo). Es irreversible, así que queda al fondo y con su confirmación
@@ -215,10 +218,11 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       </div>
 
       {confirmDelete && (
+        // A la PAPELERA desde el 28/10/2026 (mig 0340): la misma pregunta que la barra y la tarjeta.
         <ConfirmDialog
-          title="Borrar lead"
-          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
-          confirmLabel="Borrar definitivamente"
+          title={preguntaDePapelera(1, nombre).titulo}
+          message={preguntaDePapelera(1, nombre).mensaje}
+          confirmLabel="Mandar a la papelera"
           onConfirm={borrar}
           onCancel={() => setConfirmDelete(false)}
           zIndex={130}
@@ -233,10 +237,11 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           move={{ to: moveTo }}
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           completarDatos={moveTo === currentStage}
-          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar) : undefined}
+          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar, datoPedido) : undefined}
+          datoPedido={moveTo === currentStage ? datoPedido : null}
           equipo={equipo}
-          onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
-          onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
+          onClose={() => { setMoveTo(null); setDatoPedido(null); if (initialSolucionar) router.replace(pathname); }}
+          onDone={() => { setMoveTo(null); setDatoPedido(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
         />
       )}
 

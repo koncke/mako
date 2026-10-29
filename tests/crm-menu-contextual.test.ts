@@ -206,7 +206,9 @@ test('mover entra por `handleDrop`; las de lote, por la barra, con las MISMAS fu
   assert.match(manija, /asignar: pedirPersona,/);
   assert.match(lote, /onChange=\{pedirEtapa\}/, 'el desplegable «Etapa» pregunta lo mismo');
   assert.match(lote, /onChange=\{\(v\) => pedirPersona\(campo, v\)\}/, 'y «Closer»/«Setter» también');
-  assert.match(lote, /onChange=\{\(v\) => agregarAFunnel\(v === 'default' \? null : Number\(v\)\)\}/, 'y «Funnel»');
+  // «Funnel» (28/10/2026): su renglón «Pasar a otro funnel…» abre su pregunta; los demás AGREGAN como el menú.
+  assert.match(lote, /onChange=\{elegirFunnel\}/, 'y «Funnel»');
+  assert.match(lote, /if \(v === PASAR\) \{ setPide\(\{ tipo: 'pasar' \}\); return; \}\n\s+agregarAFunnel\(v === 'default' \? null : Number\(v\)\);/, 'y «Funnel» agrega con la misma función');
   assert.match(lote, /const destinos = destinosDeLote\(productos, funnelActivo\);/);
   assert.match(BOARD, /destinosDeLote\(funnels\.map/, 'el menú ofrece los MISMOS funnels que la barra');
 });

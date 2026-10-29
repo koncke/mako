@@ -64,6 +64,8 @@ import {
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
   DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
 } from './editor-landing/ia-reglas';
+import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
+import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
@@ -803,6 +805,52 @@ export const REGISTRY: Group[] = [
         variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el diseño o los elementos elegidos'), v('diseno', 'el diseño: páginas y elementos con su referencia, medidas, textos y colores')], scope: 'full', sensitive: false,
         default: CHAT_IMAGEN_USER_TEMPLATE,
         context: 'Le pasa a MaKo la instrucción y el diseño actual. Conserva los slots: {{instruccion}} y {{diseno}} llegan delimitados como dato no confiable.',
+      },
+    ],
+  },
+  {
+    // El Copywriter (28/10/2026, lib/copywriter/ia.ts; los defaults viven en lib/copywriter/ia-reglas.ts e ia-editar.ts).
+    // Las keys y los slots los fija tests/copywriter-ia.test.ts contra PROMPTS_COPY y PROMPTS_EDITAR.
+    group: 'Copywriter',
+    icon: '✍️',
+    blurb: 'MaKo al costado de cada guion del Copywriter: en «Discutir» contesta sin tocarlo; en «Editar» lo escribe en el documento con sus herramientas, como una propuesta que la persona acepta o descarta.',
+    entries: [
+      {
+        key: 'copywriter.discutir.system', source: 'override',
+        label: 'Discutir un guion (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de la respuesta y la voz del negocio')], scope: 'full', sensitive: false,
+        default: COPYWRITER_DISCUTIR_SYSTEM,
+        context: 'El chat del Copywriter en «Discutir»: MaKo contesta y sugiere SIN cambiar el guion. Conserva la regla de no tocar nada y la de no inventar datos.',
+      },
+      {
+        key: 'copywriter.discutir.user', source: 'override',
+        label: 'Pregunta + guion (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pregunta', 'lo que escribió la persona'), v('titulo', 'el título del guion'), v('props', 'tipo, ángulo, estructura y duración'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('charla', 'lo último del chat'), v('referencias', 'lo citado con @'),
+          v('negocio', 'lo que hace falta del Second Brain'), v('adjuntos', 'lo leído de los archivos'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_DISCUTIR_USER,
+        context: 'Le pasa a MaKo la pregunta y el guion. Conserva los slots: el guion, la charla, lo citado y el negocio llegan delimitados como dato no confiable.',
+      },
+      {
+        key: 'copywriter.editar.system', source: 'override',
+        label: 'Escribir en el guion (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma y la voz del negocio'), v('formato', 'las herramientas y la forma del JSON')], scope: 'full', sensitive: false,
+        default: COPYWRITER_EDITAR_SYSTEM,
+        context: 'El chat del Copywriter en «Editar»: MaKo escribe con sus herramientas (escribir_seccion, reemplazar_bloque…). Conserva {{formato}}: sin él la salida no se puede leer.',
+      },
+      {
+        key: 'copywriter.editar.user', source: 'override',
+        label: 'Pedido + guion (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('instruccion', 'lo que pidió la persona'), v('titulo', 'el título del guion'), v('props', 'tipo, ángulo, estructura y duración'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('estructura', 'la estructura y la guía de cada sección'), v('angulo', 'el paquete del ángulo'),
+          v('metodologia', 'la de reels o stories'), v('biblioteca', 'los ids de ángulos y estructuras'), v('charla', 'lo último del chat'),
+          v('referencias', 'lo citado con @'), v('negocio', 'lo que hace falta del Second Brain'), v('adjuntos', 'lo leído de los archivos'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_EDITAR_USER,
+        context: 'Le pasa a MaKo el pedido, el guion con los ids de cada bloque y todo lo que necesita para escribirlo. Conserva los slots.',
       },
     ],
   },

@@ -4924,3 +4924,28 @@ antes del bundle lo destraba; (2) el CSS viejo también va por `git show` (si no
 acciones `'use server'` se cambian por stubs por nombre de archivo (`negocio-actions`, `horario-actions`…), porque el bundle
 del navegador no puede importarlas; (4) un `python` dentro de un heredoc de Bash pierde las barras invertidas (`\r?\n` llega
 como un salto de línea de verdad): el script va a un archivo con la herramienta de escribir y se corre desde ahí.
+
+## Sacarle las `secciones` a un ítem del nav le cambia las KEYS: el ítem único lleva la de su sección principal (29/10/2026, claude3)
+
+- **Contexto:** Create sin pestañas arriba (docs/diseno-create.md). Lo obvio era borrar `secciones` de «Video» y dejar el
+  ítem con su key de siempre, `video`.
+- **Por qué estaba mal:** `itemsDe()` (nav.ts) APLANA: un ítem con secciones no existe con su key en `TODOS_LOS_ITEMS`;
+  existen las de sus secciones. Las capas (`lib/capas.ts`, `navKeys` con 'video-editor'), la API (`gating.tab`), las
+  funciones de MaKo (lib/funciones-mako.ts), las creaciones (`INFO_TIPO.nav`) y la puerta del teléfono (`puedeVerKey`)
+  preguntan por la key de la SECCIÓN. Con `video` como key, nada se rompe en el server (`tabEnCapa` compara strings) pero
+  el teléfono se cierra en silencio y los tests de funciones fallan.
+- **Regla:** el ítem que queda lleva la key de la que era su sección principal ('video-editor', 'image-editor'). Una
+  pantalla viva que deja de ser fila va a `SIN_FILA` con su key (el Video Generator, 29/10), nunca se borra el ítem.
+  Lo fija tests/crear-pantalla.test.ts.
+
+**Vive en:** app/_components/nav.ts (`itemsDe`, `SIN_FILA`, la familia Create) · tests/crear-pantalla.test.ts
+
+## Un VALOR exportado por un módulo 'use client' llega al server como referencia de cliente (29/10/2026, claude3)
+
+- **Síntoma:** `PantallaCrear.tsx` ('use client') re-exportaba `ESTILO_PAGINA_CREAR` para comodidad; una página server que lo
+  pasaba al `style` de su `<Pagina>` recibía una referencia de cliente, no el objeto. Lo cazó el agente del Video Editor.
+- **Regla:** los valores que usan las páginas server viven en un módulo SIN 'use client' (`app/_crear/reglas.ts`) y no se
+  re-exportan desde el componente: sin el re-export, el import equivocado falla al compilar en vez de romper en silencio.
+  (Es la misma frontera de AGENTS.md, «'use client' es una frontera de DATOS».)
+
+**Vive en:** app/_crear/reglas.ts · app/_crear/PantallaCrear.tsx · tests/video-editor-sidebar.test.ts

@@ -14,6 +14,7 @@ import { AnalizarGuion } from './AnalizarGuion';
 import { PuertaCopyGen } from './PuertaCopyGen';
 import { SIN_CONTEO } from './analizar';
 import { tabDeUrl } from './tabs';
+import { veCopywriter } from '../copywriter/acceso';
 
 /**
  * «Analizar guion» armado en el server: lo que se mudó de /ads-analyst el 11/10/2026 (valorar un guion
@@ -74,10 +75,12 @@ export default async function AdsWriterPage({
   // salida — mandar ahí a alguien que llegó por el link de «valorar este guion» lo deja sin la única
   // pantalla que buscaba. Va ANTES del guard a propósito, y devuelve el mismo `<AdsWriterApp>` en la
   // misma posición que la tab sin puerta: cambiar de vista no lo remonta (no se pierde lo escrito).
-  if (tab === 'analizar') return <AdsWriterApp tabInicial={tab} analizar={await vistaAnalizar()} />;
+  // «Abrir en Copywriter» en cada guion: sólo para quien ya ve el Copywriter (28/10/2026, app/copywriter/acceso.ts).
+  const conCopywriter = await veCopywriter();
+  if (tab === 'analizar') return <AdsWriterApp tabInicial={tab} analizar={await vistaAnalizar()} conCopywriter={conCopywriter} />;
 
   const falta = await onboardingTabPendiente('ads-writer').catch(() => false);
-  if (!falta) return <AdsWriterApp tabInicial={tab} />;
+  if (!falta) return <AdsWriterApp tabInicial={tab} conCopywriter={conCopywriter} />;
 
   // Las DOS mitades del oscuro, y las dos hacen falta:
   //   · el `<script>` acá, que marca el <html> antes del primer pintado (sin él hay un
@@ -95,7 +98,7 @@ export default async function AdsWriterPage({
   return (
     <>
       <TemaOscuroScript />
-      <PuertaCopyGen><AdsWriterApp tabInicial={tab} /></PuertaCopyGen>
+      <PuertaCopyGen><AdsWriterApp tabInicial={tab} conCopywriter={conCopywriter} /></PuertaCopyGen>
     </>
   );
 }

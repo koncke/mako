@@ -121,7 +121,7 @@ export function useCobrar(ctx: CtxFicha) {
       onHecho={(m, deshacer) => { cerrar(); cambio(); show(m, deshacer ? () => deshacerMarca(q) : undefined); }} />;
   } else if (abierto?.que === 'link') {
     const q = abierto.cuota;
-    modal = <CobrarCuotaConLink lead={leadCobro} pasarelas={pasarelas} cuentas={cuentas} cuota={{ pagoId: q.id, nombre: nombreCuota(q.numero), montoUsd: Number(q.monto_usd) }}
+    modal = <CobrarCuotaConLink lead={leadCobro} pasarelas={pasarelas} cuentas={cuentas} cuota={{ pagoId: q.id, nombre: nombreCuota(q.numero), montoUsd: Number(q.monto_usd), moneda: q.moneda ?? null, montoOriginal: q.monto_original != null ? Number(q.monto_original) : null }}
       onCreado={() => refrescarCobros(lead.id)} onCerrar={cerrar} />;
   } else if (abierto?.que === 'comprobante') {
     modal = <VerComprobante cuota={abierto.cuota} leadId={lead.id} onCerrar={cerrar} />;

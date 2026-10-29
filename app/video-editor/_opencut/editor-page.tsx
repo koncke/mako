@@ -9,7 +9,7 @@
 //   biblioteca 34,1 % · reproductor 34,5 % · propiedades 28,9 %   ← 63,6 % del alto
 //   línea de tiempo                                                ← 30,5 % del alto
 //
-// Los paneles van redondeados (~7 px) sobre el fondo de la ventana (#141414), con
+// Los paneles van redondeados (~7 px) sobre el fondo de la ventana (`--bg` de MaKo desde el 29/10/2026), con
 // 8 px entre ellos y 10 px de margen a los lados. Las separaciones SON los
 // divisores: se arrastran, como en CapCut, y no dibujan ninguna línea. «Diseño ▾»
 // de la barra superior mueve los cuatro de una (components/editor/diseno-paneles.ts).
@@ -42,8 +42,7 @@ import { usePasteMedia } from "@/app/video-editor/_opencut/media/use-paste-media
 import { MobileGate } from "@/app/video-editor/_opencut/components/editor/mobile-gate";
 import { tamanosDe, useDisenoStore } from "@/app/video-editor/_opencut/components/editor/diseno-paneles";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { PanelChat } from "@/app/video-editor/_opencut/chat/PanelChat";
-import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
+import { StoragePersistenceDialog } from "@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog";
 import { iniciarEspejo } from "@/app/video-editor/_opencut/chat/espejo";
 import { iniciarPropuestas } from "@/app/video-editor/_opencut/chat/propuestas";
 import { conEspacio } from "@/app/video-editor/espacio";
@@ -102,15 +101,17 @@ export function EditorPage({ projectId, propuesta = null }: { projectId: string;
 					<EditorHeader />
 					{/* Los paneles van en una caja `absolute inset-0`: un `size-full` contra el alto
 					    de un hijo flex no resuelve en Safari y el editor quedaría en cero (AGENTS.md). */}
-					<div className="flex min-h-0 min-w-0 flex-1 gap-2 px-[10px] pb-[10px]">
-						<div className="relative min-h-0 min-w-0 flex-1">
-							<div className="absolute inset-0">
-								<EditorLayout />
-							</div>
+					{/* «Editar con IA» ya no es una columna acá: es la tarjeta izquierda de la pantalla de Create, siempre abierta
+					    (VideoEditorCliente → PantallaCrear, 29/10/2026). */}
+					<div className="relative min-h-0 min-w-0 flex-1 mx-[10px] mb-[10px]">
+						<div className="absolute inset-0">
+							<EditorLayout />
 						</div>
-						<ColumnaChat />
 					</div>
 					<MigrationDialog />
+					{/* Pedir que el navegador no borre los proyectos cuando le falta espacio (lo hacía la portada de CapCut, que se
+					    borró el 29/10/2026): en Chrome se pide callado; en Firefox, con el diálogo. */}
+					<StoragePersistenceDialog />
 					{/* «Reemplazar el clip» / «Sustituir» (reemplazo/): uno solo, lo abre la línea de tiempo. */}
 					<DialogoReemplazar />
 				</div>
@@ -145,35 +146,15 @@ function AvisoRenderDegradado() {
 	);
 }
 
-/**
- * «Editar con IA» (chat/PanelChat.tsx): una columna AFUERA de la distribución de CapCut, a la
- * derecha y de alto entero, para que abrirla no cambie las proporciones medidas de los cuatro
- * paneles (sólo se angostan). Cerrada no ocupa nada.
- */
-function ColumnaChat() {
-	const abierto = useChatAbierto((s) => s.abierto);
-	const setAbierto = useChatAbierto((s) => s.setAbierto);
-	if (!abierto) return null;
-	return (
-		<div className="relative w-[320px] shrink-0">
-			<div className="absolute inset-0">
-				<Marco>
-					<PanelChat onCerrar={() => setAbierto(false)} />
-				</Marco>
-			</div>
-		</div>
-	);
-}
-
-/** El redondeado y el fondo de CapCut alrededor de cada panel. */
+/** El redondeado, el fondo y el borde de MaKo alrededor de cada panel. */
 function Marco({ children }: { children: React.ReactNode }) {
-	return <div className="size-full min-h-0 min-w-0 overflow-hidden rounded-[7px] bg-(--cc-panel)">{children}</div>;
+	return <div className="size-full min-h-0 min-w-0 overflow-hidden rounded-[7px] bg-(--cc-panel) shadow-[0_0_0_1px_var(--border)]">{children}</div>;
 }
 
 /** Los divisores son las separaciones de 8 px (7 px entre arriba y la línea de tiempo), sin línea. */
-const DIVISOR_VERTICAL = "w-2 shrink-0 bg-transparent after:w-2 hover:bg-white/5";
+const DIVISOR_VERTICAL = "w-2 shrink-0 bg-transparent after:w-2 hover:bg-(--velo-hover)";
 const DIVISOR_HORIZONTAL =
-	"data-[panel-group-direction=vertical]:h-[7px] data-[panel-group-direction=vertical]:after:h-[7px] hover:bg-white/5";
+	"data-[panel-group-direction=vertical]:h-[7px] data-[panel-group-direction=vertical]:after:h-[7px] hover:bg-(--velo-hover)";
 
 function EditorLayout() {
 	usePasteMedia();

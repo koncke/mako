@@ -1,17 +1,19 @@
 'use client';
 
 // =============================================================================
-// PanelMakoIA — «MaKo IA»: el chat del Image Editor, con la cara del panel de Canva AI
+// PanelMakoIA — el chat de MaKo del Image Editor: edita el diseño abierto
 // =============================================================================
 // Pedido de Martín (16/10/2026, por el Cerebro): «implementes este chat en todas las tabs… quiero que la app sea AI
-// NATIVE». Es el chat del Video Editor (app/video-editor/_opencut/chat/PanelChat.tsx) en el editor de imágenes, con la
-// pantalla del panel de Canva AI: el saludo con sugerencias en píldoras, los mensajes de la persona en burbuja lila a
-// la derecha y los de MaKo sueltos a la izquierda, y el cuadro de abajo con el enviar redondo en el degradado.
+// NATIVE». Es el chat del Video Editor (app/video-editor/_opencut/chat/PanelChat.tsx) en el editor de imágenes: el
+// saludo con sugerencias en píldoras, el hilo y la caja de MaKo.
 //   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado» que se acepta o se descarta entero; después de
 //     aceptar, «Restaurar» lo vuelve atrás (./acciones.ts);
 //   · el alcance en chips: «Todo el diseño» o lo elegido en el lienzo;
 //   · el hilo es por diseño y queda GUARDADO por persona (./hilo.ts, mig 0303).
-// Se abre con el botón redondo del pie del riel (chrome/RielCanva.tsx) y, en pantallas chicas, desde la tira de abajo.
+// DÓNDE (29/10/2026, Martín: «la barra lateral del chat de MaKo SIEMPRE abierto a la izquierda»): en la tarjeta izquierda
+// de la pantalla de Create (app/_crear/PantallaCrear.tsx), siempre abierto, sin botón para abrirlo ni cerrarlo. Usa el motor
+// (`useEditor`), así que lo monta el editor por adentro y se dibuja ahí por portal (../../editor/PantallaEditor.tsx). En el
+// teléfono es «MaKo» del interruptor de arriba de esa misma pantalla. Antes era un panel del riel con un botón redondo.
 //
 // CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
 // Center»): el hilo es `HiloMako` (con la criatura de la tab, la misma que lo nombra en el Ops Center) y la caja es

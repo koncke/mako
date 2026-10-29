@@ -22,7 +22,7 @@ export interface BarMenuItem {
   checked?: boolean
   disabled?: boolean
   separator?: boolean
-  /** La acción principal del menú: el botón violeta de ancho completo de los paneles de Canva. */
+  /** La acción principal del menú: el botón azul de ancho completo de los paneles de Canva. */
   primary?: boolean
   submenu?: BarMenuItem[]
   onSelect?: () => void

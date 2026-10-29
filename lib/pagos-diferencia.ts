@@ -28,3 +28,23 @@ export function diferenciaPendiente(original: number, monto: number | null | und
   const d = centavos(original - monto);
   return d > 0 ? d : 0;
 }
+
+/**
+ * ⚠️ UN COBRO EN LA MONEDA DE LA CUOTA, SIN LOS DÓLARES, VA A LA TASA DE LA CUOTA (revisión de 9fc4030dd, alta). Una cuota de un
+ * tramo en pesos (MXN 12.000 = US$600) cobrada por 6.000 sin decir los dólares se tomaba por los dólares ENTEROS de la cuota:
+ * no quedaba nada pendiente y se perdían 6.000 pesos. Son los dólares que la persona ya declaró para esa cuota, en proporción
+ * (no hay tasa que inventar). null: el cobro no es en la moneda de la cuota, o la cuota no tiene monto en ella.
+ */
+export function dolaresALaTasaDeLaCuota(
+  cuota: { monto_usd: number | string; moneda?: string | null; monto_original?: number | string | null },
+  cobro: { moneda?: string | null; montoOriginal?: number | null },
+): number | null {
+  const iso = (m: unknown) => (m == null ? '' : String(m).trim().toUpperCase());
+  if (!iso(cuota.moneda) || iso(cuota.moneda) === 'USD' || iso(cobro.moneda) !== iso(cuota.moneda)) return null;
+  const pactado = Number(cuota.monto_original);
+  const cobrado = Number(cobro.montoOriginal);
+  const usd = Number(cuota.monto_usd);
+  if (!(pactado > 0) || !(cobrado > 0) || !(usd > 0) || !Number.isFinite(pactado + cobrado + usd)) return null;
+  // Un cobro de algo es al menos un centavo: con 0, la cuota se tomaba entera.
+  return Math.max(centavos((usd * cobrado) / pactado), 0.01);
+}

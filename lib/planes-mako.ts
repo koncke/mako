@@ -110,10 +110,14 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     preciosLocales: {},
     resumen: '¿Ya vendes? Para escalar con anuncios, contenido y equipo.',
     incluye: [
-      'Todo lo de Esencial, sin topes',
-      'Anuncios de Meta: crea campañas y mira cuáles venden',
+      // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
+      // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
+      'Todo lo de Esencial, sin tope de contactos, páginas ni automatizaciones',
+      // 29/10/2026 (el taller del Cerebro): crear campañas desde MaKo ya no existe, y los avatares con IA no se venden desde el
+      // 28/10 (`TABS_TODAVIA_CERRADAS`). Lo que Pro sí trae: el media buyer que aplica solo y el Video Editor.
+      'Tu media buyer con IA aplica las mejoras de tus anuncios solo, sin pasarse de tu presupuesto',
       'Análisis de tus llamadas de venta con IA',
-      'Imágenes, videos y avatares con IA',
+      'Imágenes con IA, y edición de video: silencios, ruido, subtítulos y cortes',
       `Hasta ${n(T.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(T.agencia['equipo.usuarios'])} personas de tu equipo`,
       'Si eres agencia, los negocios de tus clientes en tu cuenta',
     ],

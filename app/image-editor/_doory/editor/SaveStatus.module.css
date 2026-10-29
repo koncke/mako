@@ -1,6 +1,6 @@
 /*
- * El estado de guardado vive sobre el degradado de la barra superior: blanco sobre violeta. Los avisos
- * (conflicto, error, sin conexión) son chips claros para que se lean sobre el color.
+ * El estado de guardado vive en la barra superior, con su tinta. Los avisos
+ * (conflicto, error, sin conexión) son chips con el fondo suave de su estado.
  */
 .cloud {
   display: inline-flex;
@@ -34,7 +34,7 @@
   text-overflow: ellipsis;
 }
 
-/* Guardando, solo lectura, conectando: texto blanco sin fondo, como la nube */
+/* Guardando, solo lectura, conectando: la tinta de la barra sin fondo, como la nube */
 .neutral,
 .ok {
   background: transparent;
@@ -43,16 +43,16 @@
 
 .warn {
   background: var(--cv-color-warning-soft);
-  color: #3e2a14; /* Canva: texto del aviso de advertencia suave */
+  color: var(--cv-color-warning);
 }
 
 .error {
   background: var(--cv-color-danger-soft);
-  color: #501b21; /* Canva: texto del aviso de error suave */
+  color: var(--cv-color-danger);
 }
 
 .live {
-  background: var(--cv-header-button-bg);
+  background: var(--cv-color-brand-soft);
   color: var(--cv-color-brand);
 }
 

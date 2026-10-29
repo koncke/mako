@@ -20,6 +20,102 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Solucionar» un dato que la ficha no dibuja: el asistente no sabía CUÁL (29/10/2026, claude3)
+
+**El síntoma.** Leila (ws11, lead Fabi Pedraza, 26/10): «me dice que no tengo los datos fiscales pero cuando los quiero
+cargar solamente me salen setter y closer», y «no me deja avanzar a los siguientes datos».
+
+**La causa** (medida con sus datos, no vista en pantalla):
+- ws11 tiene el canal «presencial» y su funnel tiene una sola etapa de reunión, así que la ficha es la plantilla
+  **«Evento»** (`elegirPlantilla`, lib/ficha/plantillas.ts). Esa plantilla **no trae el bloque «Datos fiscales» en Pagos** y
+  apaga sus avisos. Tampoco lo traen «Formulario de Meta», «Landing», «Te escriben», «Prospección» ni «Carrito».
+- «Solucionar» no encontraba dónde (`tabDelDato` → null) y caía al asistente con `onNoEsta()`, **sin decir qué dato**. El
+  asistente pedía lo que avisa el funnel (`loQueSePide`), y el dato tocado no avisa: lo sacaba. Y el documento fiscal no se
+  pregunta nunca en el asistente («nadie tiene el papel al mover»), así que tampoco había dónde subirlo.
+
+**El diagnóstico obvio era el equivocado.** La revisión del 27/10 sospechaba del modo «Editar» (los bloques son `inert`
+personalizando), y lo otro obvio era sumar el bloque a las plantillas. Lo primero no explica «setter y closer». Lo segundo le
+cambia la ficha a todos los clientes de seis plantillas, y la que eligió apagar el dato fue la plantilla.
+
+**La regla:** el respaldo de «Solucionar» lleva EL DATO: `onNoEsta(paso)` (FichaPorBloques, los dos caminos: sin bloque, y
+el señalador que no encuentra el campo) → `datoPedido` en LeadSheet y LeadDetailBody → `loQueSePide(faltan, avisan, pedido)`
+devuelve ése aunque el funnel no avise, y StageMoveDialog pregunta el documento fiscal o el comprobante SÓLO si son el dato
+pedido (al mover, nunca). Lo fija tests/documento-fiscal-desde-el-chat.test.ts (15 roturas cazadas).
+
+**Sin hacer:** el bloque «Datos fiscales» sigue sin estar en esas seis plantillas: con el arreglo se carga por el asistente,
+y quien lo quiera en la ficha lo agrega con «Personalizar». No se vio en pantalla (bootear local escribe en producción).
+
+**Vive en:** lib/datos-aviso.ts (`loQueSePide`) · app/crm/lead-view/ficha/FichaPorBloques.tsx (`solucionar`) ·
+app/crm/LeadSheet.tsx · app/crm/[id]/LeadDetailBody.tsx · app/crm/StageMoveDialog.tsx (`datoPedido`).
+
+## Acciones en bloque y la papelera: los 394 de «Contacto nuevo» de Leila (28/10/2026, tickets #21 y #22)
+
+**El síntoma.** Leila quería sacar los 394 de «Contacto nuevo» de LíderMente y pasarlos a Funnel general, o borrarlos. MaKo le
+contestó que movía de a uno y dentro del mismo funnel, y que borrar no existía. En el tablero: la casilla de la columna ya
+tildaba a todos, pero el desplegable «Funnel» sólo AGREGABA (la decisión de Martín del 06/10), y «Eliminar» era `delete` para
+siempre.
+
+**Lo que se midió antes de escribir:**
+- **«Todos los de esta etapa» ya andaba en el tablero, salvo un corte callado.** El tablero lee todo paginado y la casilla tilda
+  la columna entera, también lo que no se dibuja. Pero `filasDeAgregados` (lib/leads.ts) leía `lead_funnel` con un `select`
+  solo: un CRM con más de 1.000 agregados dibujaba 1.000 y la casilla tildaba 1.000. Ahora va por `leerTodo`.
+- **Borrar un lead se lleva 26 columnas de 23 tablas en cascada** (pagos, sus funnels, etiquetas, inscripciones, curso,
+  comunidad — y en la comunidad, también lo que OTROS leads escribieron en sus publicaciones), deja en NULL 15 columnas
+  (mensajes de WhatsApp, conversaciones de Instagram, correos, cobros) y deja huérfanas unas 10 tablas sin FK (el historial
+  `lead_audit`, los análisis). Nada lo frena (ningún RESTRICT).
+
+**El diagnóstico obvio era el equivocado: una columna `eliminado_at` en `leads`.** Parecía lo barato (hay un lugar central, el
+proxy de `getTenantDb`, donde filtrar). Pero no cubre los joins embebidos desde pagos, las vistas SQL, las lecturas con
+service_role (crons, webhooks) ni las tablas hijas que leen por `lead_id` sin mirar el lead: un lead «en la papelera» seguía
+recibiendo su secuencia de nutrición y su acceso al curso. Y si la migración llegaba después del deploy, TODA lectura de leads
+fallaba. La papelera es una FOTO: el lead se borra como siempre (nadie lo ve, nada le escribe) y la foto lo devuelve igual.
+
+**La regla:**
+- La foto la saca la base, no el código (mig 0340, `mandar_leads_a_papelera`): recorre `pg_constraint` desde `leads` hasta el
+  punto fijo (lo que cuelga de lo que cuelga), guarda los ids de lo que el borrado deja en NULL para volver a apuntarlo, y el
+  orden en que se devuelven (padres antes que hijos, por TODAS las FKs). Una transacción por lead: si algo no se puede guardar
+  (una FK de varias columnas, un ciclo), ese lead no se borra. Recuperar inserta con los mismos ids, sólo con las columnas que la
+  tabla tiene hoy (una nueva toma su default) y re-apunta sólo lo que sigue en NULL (un mensaje que en el medio se enganchó a
+  otro lead se queda con ése).
+- Se prueba contra un Postgres de verdad: scripts/probar-0340-pglite.mjs (PGlite, sin tocar ninguna base). 9 casos; 11
+  roturas de la función dan rojo cada una. Un test con regex sobre el .sql no prueba SQL dinámico.
+- «Pasar a otro funnel» NO es el «mover» que se borró el 06/10: es un renglón aparte del desplegable «Funnel» (que sigue
+  agregando al toque), con su pregunta, y va por agregar + quitar (`pasarAOtroFunnel`, lib/lead-funnel.ts) con
+  `quitarDeProducto(…, { promoverA })` para que la casa nueva sea el destino y no la fila más vieja. Los que tienen plata en el
+  origen no pasan (sus pagos llevan ese funnel y sumarían en el otro); los que agendaron, sólo si se marca.
+- MaKo con UNA confirmación: `preparar` congela los ids (la columna entera, paginada, con la regla de la cuenta,
+  `idsDeColumna`) y `ejecutar` corre con las piezas de la barra (lib/crm-bloque-server.ts), con 300 s (WhatsApp, el chat y la
+  bandeja tienen 420) y lo que no llega se dice.
+
+**En producción (29/10/2026, lo midió el Cerebro, sólo lectura):** la tabla y las funciones de la 0340 YA ESTÁN en la base
+(Martín dio el sí; se aplicó el archivo de crm-lote-2810 @ 77679ed63).
+- Antes de aplicarla: del lead cuelgan **51 FKs** (34 en cascada, 17 set null/default, 0 restrict), sin cascadas de varias
+  columnas ni ciclos: la foto lleva **24 tablas** en un orden posible. (El 28/10 se contaron 26 columnas de 23 tablas en cascada
+  leyendo las migraciones: la base de verdad tiene más.)
+- Después: `leads` siguió en 3017 filas; `leads_papelera` con RLS prendido, 0 filas y sin lectura para anon/authenticated; las
+  5 funciones son security invoker y sólo las ejecuta service_role; `papelera_leads_fks()` devuelve 51.
+- **«Eliminar» ya no se frena por la tabla.** Antes de la 0340, el botón seguía a la vista y al tocarlo decía «La papelera del
+  CRM todavía no está lista (falta la migración 0340): no se borró nada» (`FALTA_LA_PAPELERA`): no se apagaba solo, pero
+  tampoco borraba. Lo único que falta es que suba el código y el cron (`/api/cron/leads-papelera`, `45 10 * * *`, en
+  vercel.json): sin el cron, nada se purga a los 30 días, pero tampoco se pierde nada.
+- ⚠️ **El número 0340 es de ésta**: la rama motion-imagen-2610 tiene una `0340_image_editor_propuestas.sql`; a ésa la renumera
+  Integración al entrar, porque la de la papelera es la que está en la base.
+
+**Sin hacer:**
+- ~~Montar la hoja de la DIFUSIÓN~~: hecho el 29/10/2026 en crm-difusion-2910 (la barra y el «⋯» de la columna; ver
+  tests/crm-difusion-columna.test.ts). Al juntarlas apareció que la columna del funnel principal viajaba con `funnelId: null`,
+  que el server lee como esa etapa en TODOS los funnels: ahora va con el id del principal, y sin id, los ids que se ven.
+- Los archivos de Storage de un lead purgado (adjuntos de notas, contratos) quedan: ya pasaba con el borrado de antes.
+- El historial (`lead_audit`) de un lead purgado tampoco se borra: no tiene FK, como antes.
+- Una inscripción a una automatización vuelve como estaba al recuperar: si pasaron días, el próximo paso puede salir enseguida.
+- La cuenta de una columna del tablero y la del server difieren en un caso: el tablero manda a la primera columna una clave que
+  el funnel ya no tiene, `etapaComoTablero` la deja en su derivada. «Todos los de esta etapa» por MaKo usa la del server.
+
+**Vive en:** supabase/migrations/0340_leads_papelera.sql · lib/leads-papelera.ts · lib/leads-papelera-reglas.ts ·
+app/crm/PapeleraLeads.tsx · app/api/cron/leads-papelera/route.ts · lib/lead-funnel.ts (`pasarAOtroFunnel`, `previaDePasar`,
+`agregadosDelCrm`) · lib/pasar-funnel-reglas.ts · app/crm/PasarAOtroFunnel.tsx · app/crm/AccionesLoteLeads.tsx ·
+lib/crm-bloque-server.ts · lib/api-mako/areas/crm.* · tests/crm-acciones-bloque.test.ts · scripts/probar-0340-pglite.mjs.
+
 ## El feedback del 27/10/2026: «ganado» en la columna de Perdido, el contrato, la R1 cargada a mano y el día de UTC
 
 Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, textuales, en la cabecera de

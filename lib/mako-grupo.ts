@@ -723,8 +723,18 @@ export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string; 
  *  (puro): lo usa también el envío por partes. */
 const detalleEv = detalleEvolution;
 
+/**
+ * Dónde queda lo que se manda al grupo, para que el turno de MaKo lo vea (28/10/2026, el diagnóstico del Cerebro, F2a). Es
+ * OBLIGATORIO: ninguna salida nueva queda afuera por omisión.
+ *   · 'mako': lo dice MaKo (una automatización, una insistencia): queda en la conversación como suyo (`guardarTurno`);
+ *   · 'equipo': lo dice el equipo de MaKo (el aviso de un arreglo, la respuesta de un ticket): va al anillo del equipo
+ *     (lib/doer-equipo.ts), NUNCA como turno de MaKo: un «sí» del dueño a una pregunta del equipo no es una confirmación;
+ *   · null: quien llama ya lo guarda (lib/avisos.ts, con sus partes).
+ */
+export type MemoriaDelEnvio = 'mako' | 'equipo' | { de: 'equipo'; ticket: number } | null;
+
 /** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
-export async function enviarAlGrupoMaKo(ws: number, texto0: string): Promise<EnvioGrupo> {
+export async function enviarAlGrupoMaKo(ws: number, texto0: string, memoria: MemoriaDelEnvio): Promise<EnvioGrupo> {
   // ⚠️ Todo link a MaKo sale con el `?ws=` de ESTE negocio (27/10/2026, Leila: «Este lead no es de esta cuenta»;
   // lib/links-con-ws.ts): quien lo abre mirando otra cuenta llega al lead correcto. Uno que ya trae su `ws` no se toca.
   const texto = linksConWs(texto0, ws, APP_BASE_URL);
@@ -743,7 +753,38 @@ export async function enviarAlGrupoMaKo(ws: number, texto0: string): Promise<Env
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   // Al anillo anti-eco: el eco de un aviso no es el dueño escribiendo (ver `anotarEnviadosAlGrupo`).
   if (id) await anotarEnviadosConTope(OWNER_WS, jid, [id]);
+  // Lo que se mandó queda en lo que ve el turno (`MemoriaDelEnvio`). Si no se puede anotar, el mensaje ya salió: se loguea.
+  if (memoria === 'mako') {
+    const { guardarTurno } = await import('./mako-doer-conv');
+    await guardarTurno(ws, jid, 'assistant', texto, id || undefined)
+      .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude guardarlo en la conversación: ${e instanceof Error ? e.message : String(e)}`));
+  } else if (memoria === 'equipo' || (memoria && typeof memoria === 'object')) {
+    await anotarLoDelEquipo(ws, texto, id, typeof memoria === 'object' ? memoria.ticket : undefined)
+      .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude anotarlo como del equipo: ${e instanceof Error ? e.message : String(e)}`));
+  }
   return { ok: true, id };
+}
+
+/**
+ * Lo que el equipo escribió en el grupo del negocio, a su anillo (lib/doer-equipo.ts). La llaman `enviarAlGrupoMaKo` y el doer
+ * con el ECO de un mensaje firmado por el equipo (lo que escribe desde el panel o el teléfono, que no pasa por acá).
+ */
+export async function anotarLoDelEquipo(ws: number, texto: string, id: string, ticket?: number, para?: { jids?: string[]; nombre?: string }): Promise<void> {
+  const { CLAVE_EQUIPO_EN_EL_GRUPO, conElNuevo } = await import('./doer-equipo');
+  await runWithWorkspace(ws, async () => {
+    // ESTRICTA: con `getSetting`, una lectura que falla daba null y el anillo se pisaba entero (la verificación de 5b7a1917d).
+    const antes = await getSettingEstricto(CLAVE_EQUIPO_EN_EL_GRUPO);
+    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conElNuevo(antes, { at: new Date().toISOString(), texto, ...(id ? { id } : {}), ...(ticket ? { ticket } : {}), ...(para ? { para } : {}) })));
+  });
+}
+
+/** La pregunta del equipo `id` ya tiene su respuesta: su ventana se cierra (lib/doer-equipo.ts, `conLaRespondida`). */
+export async function cerrarLaPreguntaDelEquipo(ws: number, id: string): Promise<void> {
+  const { CLAVE_EQUIPO_EN_EL_GRUPO, conLaRespondida } = await import('./doer-equipo');
+  await runWithWorkspace(ws, async () => {
+    const antes = await getSettingEstricto(CLAVE_EQUIPO_EN_EL_GRUPO);
+    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conLaRespondida(antes, id)));
+  });
 }
 
 /**

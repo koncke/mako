@@ -14,7 +14,7 @@ const ARC_UP = <path d="M2 18 Q20 0 38 18" stroke="currentColor" strokeWidth="2"
 const ARC_DOWN = <path d="M2 2 Q20 20 38 2" stroke="currentColor" strokeWidth="2" fill="none" />
 
 /**
- * El panel «Texto» de Canva (relevamiento §3.2): el botón violeta «Agregar un cuadro de texto», los «Estilos de
+ * El panel «Texto» de Canva (relevamiento §3.2): el botón azul «Agregar un cuadro de texto», los «Estilos de
  * texto predeterminados» (título, subtítulo, un poco de texto) y las combinaciones de fuentes. Abajo, lo que Doory
  * suma: texto curvo y listas.
  */

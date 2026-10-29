@@ -1,6 +1,10 @@
 // =============================================================================
-// /offer — el ÁRBOL del selector (funnel → sus ofertas → sus conversaciones), PURO
+// /offer — el ÁRBOL de las ofertas (funnel → sus ofertas → sus conversaciones), PURO
 // =============================================================================
+// ⚠️ DESDE EL 29/10/2026 NO HAY DESPLEGABLE (Martín: «en offer pon el mismo sistema de la sidebar, en lugar del desplegable
+// actual»): el árbol sigue siendo el dato (el server lo arma, el teléfono lo dibuja en su hoja) y la computadora lo muestra como
+// la LISTA de la tarjeta del chat y las plantillas de «Nueva oferta» (`renglonesDeOffer`, `plantillasDeOffer`, al final).
+// Lo de abajo es la historia del desplegable.
 // Pedido de Martín (11/10/2026): «donde hoy está el título de "Offer" se elimine y ahí se
 // seleccione un funnel, y se pueda crear o analizar una oferta… Elimina el botón de "Ofertas
 // anteriores", para eso ya estará el desplegable… Y ese desplegable debe ser modo arbol, como lo
@@ -25,9 +29,8 @@
 // ofertas con el mismo nombre abrirían siempre la primera. Por eso los títulos de un mismo nivel se
 // desambiguan (`titulosUnicos`).
 
-import type { DropdownGroup, DropdownOption, IconoDeOpcion } from '@/app/components/Dropdown';
 import type { ArbolOffer, OfferSesionResumen, OfferSesionVista } from '@/lib/offer-marco';
-import { fechaCorta, masReciente } from './ayudas';
+import { masReciente } from './ayudas';
 
 export const ARBOL_VACIO: ArbolOffer = { funnels: [], sueltas: [] };
 
@@ -186,46 +189,8 @@ export function titulosUnicos(nombres: readonly string[], respaldo: string, rese
   });
 }
 
-/** Los íconos los pone la pantalla (son dibujos de React): esto es un `.ts` sin JSX. */
-export type IconosArbol = { funnel: IconoDeOpcion; oferta: IconoDeOpcion; conversacion: IconoDeOpcion; sueltas: IconoDeOpcion };
-
-/** El renglón de una conversación: su título y, debajo, la fecha y el puntaje si ya se concluyó. */
-function opcionDeSesion(s: OfferSesionResumen, icono: IconoDeOpcion): DropdownOption {
-  const fecha = fechaCorta(s.updatedAt);
-  const sub = [fecha, s.total != null ? `${s.total}/100` : ''].filter(Boolean).join(' · ');
-  return { value: valorSesion(s.id), label: s.titulo?.trim() || 'Oferta sin título', ...(sub ? { sub } : {}), icono };
-}
-
-export function seccionesDelArbol(a: ArbolOffer, iconos: IconosArbol): DropdownGroup[] {
-  const raiz = titulosUnicos(a.funnels.map((f) => f.nombre), 'Funnel sin nombre', a.sueltas.length ? [TITULO_SUELTAS] : []);
-  const funnels: DropdownGroup[] = a.funnels.map((f, i) => {
-    // La principal primero: es la que más se mira. El resto, en el orden en que llegan.
-    const ofertas = [...f.ofertas.filter((o) => o.principal), ...f.ofertas.filter((o) => !o.principal)];
-    const titulos = titulosUnicos(ofertas.map((o) => o.nombre), 'Oferta sin nombre');
-    return {
-      title: raiz[i],
-      icono: iconos.funnel,
-      grupos: ofertas.map((o, j) => ({
-        title: titulos[j],
-        icono: iconos.oferta,
-        // «Principal» donde iría el conteo: dice cuál es sin un renglón de más.
-        ...(o.principal ? { resumen: 'Principal' } : {}),
-        options: [
-          ...masNuevasPrimero(o.sesiones).map((s) => opcionDeSesion(s, iconos.conversacion)),
-          { value: valorNueva(f.id, o.id), label: 'Analizar', crear: true },
-        ],
-      })),
-      options: [
-        ...masNuevasPrimero(f.sesionesNuevas).map((s) => opcionDeSesion(s, iconos.conversacion)),
-        { value: valorNueva(f.id, null), label: 'Nueva oferta', crear: true },
-      ],
-    };
-  });
-  const sueltas: DropdownGroup[] = a.sueltas.length
-    ? [{ title: TITULO_SUELTAS, icono: iconos.sueltas, options: masNuevasPrimero(a.sueltas).map((s) => opcionDeSesion(s, iconos.conversacion)) }]
-    : [];
-  return [...funnels, ...sueltas];
-}
+// (Acá estaban `seccionesDelArbol` y el renglón de cada conversación del desplegable: se fueron con él el 29/10/2026. La
+// lista y las plantillas que lo reemplazan están al final: `renglonesDeOffer` y `plantillasDeOffer`.)
 
 // ── Lo que dice el botón ─────────────────────────────────────────────────────
 
@@ -238,4 +203,53 @@ export function caminoDeSesion(s: Pick<OfferSesionVista, 'funnelId' | 'funnelNom
   const funnel = s.funnelId == null ? TITULO_SUELTAS : (s.funnelNombre?.trim() || 'Funnel');
   const oferta = (s.modo === 'analizar' ? s.ofertaBaseNombre?.trim() : '') || s.titulo?.trim() || 'Nueva oferta';
   return { funnel, oferta };
+}
+
+// ── La tab dentro de la pantalla de Create (29/10/2026) ───────────────────────
+// Martín, 29/10/2026: «También en offer pon el mismo sistema de la sidebar, en lugar del desplegable actual... Y sin otras
+// tabs, incluso en SuperAdmin». El desplegable en árbol se fue: las conversaciones son la LISTA de la tarjeta del chat
+// (app/_crear/PantallaCrear.tsx, la «←») y crear o analizar es «Nueva oferta», con una plantilla por funnel y por oferta.
+
+/** Un renglón de la lista: una conversación, con el funnel al lado cuando hay más de uno (si no, sobra). */
+export type RenglonOffer = { id: string; nombre: string; cuando: number | null; valor: string };
+
+const msDe = (iso: string): number | null => { const t = Date.parse(iso); return Number.isFinite(t) ? t : null; };
+
+/** Todas las conversaciones, la más nueva arriba, con el nombre que se reconoce («Mentoría · Funnel principal»). */
+export function renglonesDeOffer(a: ArbolOffer): RenglonOffer[] {
+  const variosFunnels = a.funnels.length + (a.sueltas.length ? 1 : 0) > 1;
+  const conFunnel = (s: OfferSesionResumen, funnel: string) => ({ s, funnel });
+  const todas = [
+    ...a.funnels.flatMap((f) => [...f.ofertas.flatMap((o) => o.sesiones), ...f.sesionesNuevas].map((s) => conFunnel(s, f.nombre.trim() || 'Funnel sin nombre'))),
+    ...a.sueltas.map((s) => conFunnel(s, TITULO_SUELTAS)),
+  ];
+  return todas
+    .sort((x, y) => (msDe(y.s.updatedAt) ?? 0) - (msDe(x.s.updatedAt) ?? 0))
+    .map(({ s, funnel }) => {
+      const titulo = s.titulo?.trim() || 'Oferta sin título';
+      return { id: String(s.id), nombre: variosFunnels ? `${titulo} · ${funnel}` : titulo, cuando: msDe(s.updatedAt), valor: valorSesion(s.id) };
+    });
+}
+
+/** Una plantilla de «Nueva oferta»: crear una en un funnel, o analizar una oferta que el funnel ya tiene. */
+export type PlantillaOffer = { id: string; nombre: string; rotulo: string };
+
+export function plantillasDeOffer(a: ArbolOffer): PlantillaOffer[] {
+  return a.funnels.flatMap((f) => {
+    const funnel = f.nombre.trim() || 'Funnel sin nombre';
+    const ofertas = [...f.ofertas.filter((o) => o.principal), ...f.ofertas.filter((o) => !o.principal)];
+    return [
+      { id: valorNueva(f.id, null), nombre: 'Crear una oferta nueva', rotulo: funnel },
+      ...ofertas.map((o) => ({ id: valorNueva(f.id, o.id), nombre: `Analizar «${o.nombre.trim() || 'Oferta sin nombre'}»`, rotulo: funnel })),
+    ];
+  });
+}
+
+/**
+ * El funnel donde nace una oferta que se pide escribiendo en «¿Qué vas a crear hoy?»: el de la conversación abierta, si
+ * tiene; si no, el primero (el principal del negocio llega primero del server). null = no hay funnels.
+ */
+export function funnelParaPedido(a: ArbolOffer, abierta: Pick<OfferSesionVista, 'funnelId'> | null): number | null {
+  if (abierta?.funnelId != null && a.funnels.some((f) => f.id === abierta.funnelId)) return abierta.funnelId;
+  return a.funnels[0]?.id ?? null;
 }

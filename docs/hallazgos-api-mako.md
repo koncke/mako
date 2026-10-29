@@ -14,6 +14,62 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Las cifras de Joan eran ciertas las DOS: el dato cambió entre las preguntas (29/10/2026, claude3)
+
+**El síntoma.** Código Inmobiliario (ws13), 26/10, del 19/09 al 26/10: a las 16:15 MaKo dijo 25 no-shows y 14 sin marcar; a
+las 16:26, 28 y 10. Joan pidió los nombres de los sin marcar y MaKo contestó que «no se lista nominalmente».
+
+**Medido contra la base** (el estado de cada R1 a esa hora, deshaciendo `lead_audit`): a las 16:15 había 25 y 14; entre
+16:19 y 16:20 el equipo marcó cuatro R1 (una «vino», tres «no»), y a las 16:26 eran 28 y 10. **El diagnóstico obvio («MaKo
+suma mal», el F3 del diagnóstico de WhatsApp) era el equivocado para los totales:** estaban bien. Lo que sí estaba mal: el
+reparto «10 en septiembre y 18 en octubre» (era 8 y 20, sumado a mano: lo arregló `totalesDelPeriodo` el 28/10), que el
+número nuevo no dijera por qué cambió, y que no hubiera ninguna lectura con los NOMBRES.
+
+**La regla:**
+- Un número que el equipo cambia en el día dice que es «de ahora» (`totalesDelPeriodo`, lib/metricas-modelo.ts) y la lista
+  trae la hora de la cuenta (`contado_a`): si cambió, MaKo dice que se marcaron reuniones en el medio, no lo «corrige».
+- **El número y su lista, con UNA definición:** `estadoDeAsistencia` (lib/reuniones-por-asistencia.ts) la usan
+  `reporteMetricas` y `reuniones_por_asistencia`, con la misma ventana (`validarRango`). Dos cuentas parecidas dan dos
+  cifras para lo mismo, y eso es exactamente lo que se ve como «MaKo se contradice».
+- Va en el área **métricas**, no en la del CRM: por WhatsApp «sin marcar» y «no-show» abren métricas (`areasDelMensaje`,
+  lib/mako-intencion.ts). Con el área del CRM no llegaba al turno (medido con `herramientasDelTurno`).
+
+**Sin hacer:** `analisis_negocio` (`embudoDeFunnel`, lib/analisis-negocio.ts) cuenta lo mismo con su propio `if` y por
+funnel; da igual hoy, pero no usa `estadoDeAsistencia`. «Pasame los no show» por WhatsApp clasifica «pensar» y no trae la
+lista (es del clasificador del grupo).
+
+**Vive en:** lib/reuniones-por-asistencia.ts · lib/api-mako/areas/metricas.* (`reuniones_por_asistencia`) ·
+lib/metricas-negocio.ts · lib/metricas-modelo.ts · tests/reuniones-por-asistencia.test.ts.
+
+## Un archivo del chat que una herramienta guarda: el `ref` viaja en la pendiente (29/10/2026, claude3)
+
+**El síntoma.** Leila mandó la constancia fiscal de una clienta al chat del lead («este es el doc fiscal») y MaKo contestó
+«Desde este chat no puedo adjuntar ni guardar el documento en su ficha». Era cierto por dos lados:
+- el mensaje clasificaba «pensar» («adjunto para interpretar», lib/mako-intencion.ts), y con «pensar» no viaja ninguna
+  herramienta que escriba;
+- y no existía ninguna que tomara el archivo del mensaje.
+
+**La causa de fondo:** `ctx.adjuntos` (los archivos de ESTE mensaje, ya guardados en el chat) existe sólo durante el turno
+y sólo en la app. Una acción con tarjeta se EJECUTA después, al «sí», cuando ya no hay turno.
+
+**La regla:**
+- La acción toma el archivo en `preparar` (con el turno) y guarda su `ref` (`<id del mensaje>:<n>`) en la pendiente;
+  `ejecutar` lo baja con `bajarAdjunto` (lib/chat-mako-adjuntos.ts), con el MISMO índice que `urlDeAdjunto`.
+- El `ref` sale de `ctx.adjuntos`, nunca de lo que escribe el modelo.
+- Va con `canales: ['app']`: por WhatsApp el archivo no queda guardado así.
+- Lo que el documento dice lo pasa el modelo, que ya lo leyó. Se completa sólo lo VACÍO, también al confirmar (otro pudo
+  cargarlo entre la propuesta y el «sí»).
+- Guardar el archivo pasa por el mismo lugar que la pantalla (`guardarDocumentoFiscal`, lib/deal-fiscal-doc.ts).
+- En el clasificador, nombrar el DOCUMENTO («constancia», «doc fiscal») actúa (familia `documento-fiscal`,
+  lib/mako-intencion-app.ts). «Datos fiscales» sólo suma el área, porque «¿qué datos fiscales tiene?» es una pregunta.
+
+**Sin hacer:** por WhatsApp (el doer) el adjunto no llega a `ctx.adjuntos`: la constancia por el grupo sigue sin poder
+guardarse (dueño: MaKo en WhatsApp).
+
+**Vive en:** lib/api-mako/areas/cobros.* (`guardar_documento_fiscal`) · lib/deal-fiscal-doc-reglas.ts ·
+lib/deal-fiscal-doc.ts · lib/chat-mako-adjuntos.ts (`bajarAdjunto`) · lib/mako-intencion-app.ts ·
+tests/documento-fiscal-desde-el-chat.test.ts.
+
 ## «Regenerar los docs, el snapshot y el plugin»: qué cambia de verdad con una operación que no sale por HTTP (25/10/2026)
 
 Martín: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Cada entrega dice qué quedó
@@ -2790,3 +2846,16 @@ Son decenas de lecturas en todas las áreas, y las nuevas nacerían con el mismo
 
 **Vive en:** lib/api-mako/horas-del-negocio.ts · lib/api-mako/ejecutar.ts (`runnerDelRegistro`) · lib/metricas-modelo.ts ·
 tests/horas-del-negocio.test.ts
+
+## La API importaba de la carpeta de una RUTA: borrar la pantalla de Reels la tiraba abajo (29/10/2026, claude3)
+
+- **Síntoma:** al retirar /reels (su guion es una plantilla del Copywriter) se borraron sus módulos y
+  `tests/funciones-mako.test.ts` («listar_capacidades_mako por negocio y por rol») cayó con
+  `Cannot find module '@/app/reels/reels-datos'`. La pantalla no tenía nada que ver con esa prueba.
+- **Causa:** `lib/api-mako/areas/contenido.run.ts` importaba `estadoContextoReels` de `app/reels/reels-datos.ts`, el
+  módulo de datos de la TAB. Nadie lo ve leyendo la pantalla: el enlace va de lib hacia app, al revés de lo habitual.
+- **Regla:** lo que sobrevive a una pantalla no vive en su carpeta (se mudó a `lib/contexto-ig.ts`). Antes de retirar una
+  ruta, `grep -rn "@/app/<ruta>/" lib worker app/api` además de buscar sus links: los imports de la API también son
+  «quien la enlaza».
+
+**Vive en:** lib/contexto-ig.ts · lib/api-mako/areas/contenido.run.ts

@@ -220,6 +220,8 @@ test('el cierre sale de los hitos DESPLEGADOS: `tickets: [n]` en una bitácora',
   assert.deepEqual(m.get(12), { area: 'crm', titulo: 'La etapa se guarda' }, 'el primero que lo nombra');
   const cierre = sinComentarios(leer('lib/tickets-cierre.ts'));
   assert.match(cierre, /REGISTROS_SLUGS/, 'lee las bitácoras del build, no GitHub');
-  assert.match(cierre, /\.in\('estado', \['en_curso', 'arreglado'\]\)/, 'sólo cierra lo que estaba en curso');
+  // Desde el 29/10/2026 cierra todo lo ABIERTO (el #15 esperaba la decisión de Martín): tests/tickets-al-cerebro.test.ts lo
+  // corre por `cerrarLosDesplegados` de verdad. Acá, que el select y el update miren la MISMA lista.
+  assert.equal(cierre.split(".in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY])").length - 1, 2, 'el select y el update del cierre miran estados distintos');
   assert.match(leer('vercel.json'), /"\/api\/cron\/tickets"/);
 });
