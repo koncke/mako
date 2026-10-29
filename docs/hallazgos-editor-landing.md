@@ -3830,3 +3830,34 @@ por pantalla, no recordarlo. El taller (inventario + lo que vende el rubro + tre
 **Regla:** una tarjeta o un renglón de precios sale de un inventario MEDIDO ese día (qué abre el cliente, con qué plan) y
 del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda». Y algo a medias no se
 promete aunque el código lo abra: se vende cuando un cliente lo usó y le salió.
+
+## Las tarjetas siguen la demo de Martín, no el ranking del rubro (29/10/2026, noche)
+
+**Vive en:** `scripts/landing-principal-high-ticket.mts` (`TARJETAS`, `TARJETA_AVATAR`, `REEMPLAZA_A`, `Y_ADEMAS`, `NO_ESTA`) ·
+la llamada con Thiago (Fathom 197943284) y su análisis en el scratchpad del Cerebro (`llamada/como-presento-mako.md` y
+`promesas.md`, sesión 4d1a09d4).
+
+Martín: «revisa cómo le presenté la app a Thiago, qué cosas prioricé, y metelas en la landing de funcionalidades». A la
+tarde, las 9 del taller salieron del ranking del rubro (qué vende un coach o un infoproductor). **El diagnóstico obvio
+(«lo hot es lo que puntúa el mercado») era el equivocado:** lo hot es lo que Martín muestra EN VIVO cuando vende, y en qué
+orden. En la llamada, el scraper, las automatizaciones («un ManyChat 2.0») y replicar una landing fueron en vivo, y los
+dashboards se llevaron el mayor tiempo. Ninguno de los cuatro estaba arriba, y los dashboards ni tenían tarjeta. Al revés:
+el análisis de llamadas tenía tarjeta y ni lo nombró.
+
+- **El orden:** las cuatro en vivo o con más tiempo; después las de peso alto en el orden en que salieron (Plan desde las
+  reuniones, media buyer, editor de video, MaKo en tu WhatsApp); y los chats. El CRM, «QUIERO», el Calendario, School,
+  Canva, el Copywriter, el análisis de llamadas, la app, la API y la seguridad van a «Y además».
+- **Lo que dijo y no se pone:** LinkedIn en Chats y Automations, lanzar campañas desde el chat, el scraper de Instagram y
+  las publicaciones recurrentes no existen (`promesas.md`). `NO_ESTA` frena el script si alguno aparece en la sección. Del
+  media buyer dijo «él solo decide»: eso es sólo en Pro con el piloto prendido, así que la tarjeta dice «te propone» y «En
+  Pro, lo aplica solo».
+- **«Reemplaza a»** nombra sólo lo que MaKo reemplaza hoy: ManyChat, CapCut, Canva, Notion, Trello, Skool y el CRM.
+- **El script se puede volver a correr:** el marco y «Y además» llevan `data-mk` y se sacan antes de ponerlos. La base de
+  cada tarjeta es la ya publicada con su `data-feature`; si no está, la de `de`; y si tampoco, una azul. Medido: una
+  segunda pasada sobre su propia salida da lo mismo.
+- **Sin hacer:** el Avatar está detrás de `--con-avatar` (entra después del editor de video y los chats pasan a «Y
+  además»), y espera un look generado en producción. Automatizaciones, Plan y chats llevan a `#beta`, porque no tienen
+  página propia. /vsl/dashboard y /vsl/mako son textos viejos que no revisé. Con 9 tarjetas, a 390 la última queda sola.
+
+**Regla:** la grilla de la landing sale de cómo Martín presenta MaKo en vivo (el orden y el tiempo de su última demo),
+cruzado con lo que está en producción. El ranking del rubro sirve para desempatar, no para ordenar.
