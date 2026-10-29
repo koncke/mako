@@ -2,7 +2,7 @@
 
 **Cuenta:** claude3 (desde el 29/10 03:00; antes claude4). **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los
 merges de main son merge commits, nunca rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le
-devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 10:30 (AR) este archivo está al día.
+devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 12:20 (AR) este archivo está al día.
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
 
@@ -26,9 +26,11 @@ devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 1
   `conMemoria`, del lote y de `eraDePlan`). tests/grupo-leandro-2910.test.ts 6/6, 14 roturas cazadas (`roturas.mjs` del scratchpad).
 - **COMMITEADO (29/10 ~11:30): 1540681ca (los tickets) y 2d961c1ee (la ALTA 2).** Roturas: tickets T1–T15 cazadas (base 6/6);
   ALTA 2 A1–A4 cazadas (respuesta-al-equipo base 4/4; el 7 de grupo-leandro caza A1). tsc acotado `--rama --heap=4096`: 0
-  errores propios (los 14 de `_opencut`). **El VERDE de la punta corre en `C:/dev/verif-<sha de la punta>`**; logs `verde4-*.log`
-  en el scratchpad. Al terminar: VERDE al Cerebro y a Integración, con que el Runner pase al cartero 1.23.0 (`cartero.mjs
-  instalar` desde main: lo corre el Cerebro) y sacar el worktree (junction primero).
+  errores propios (los 14 de `_opencut`).
+- **VERDE MANDADO (29/10 ~12:15) al Cerebro y a Integración, punta final ac593ce1d:** tests-afectados de 43605fd59 con las 13
+  tandas verdes (76 archivos, 847 tests) y las barredoras con un solo rojo real (rutas de Windows en mi test de tickets,
+  arreglado en ac593ce1d); doer-recetas-video-imagen y chats-mako-envio son sus `todo` de siempre. El worktree de verificación
+  ya se sacó. Después del deploy, el Cerebro corre `cartero.mjs instalar` desde main (el Runner a 1.23.0).
 - Lo que había en el árbol antes de esos dos commits: (a) **la ALTA 2** de la verificación de c358fd0c4, que frenó
   Integración: `lib/doer-equipo.ts` (`PIDE_O_SE_QUEJA`, `esSoloUnPedidoAMaKo`), la guarda en `lib/mako-doer-in.ts`, la escena 10d
   de `tests/_respuesta-equipo-hijo.ts` y el test 7 de `tests/grupo-leandro-2910.test.ts` (turno entero: MaKo contesta). Las dos
@@ -46,20 +48,11 @@ devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 1
 
 ## Lo que falta, en orden (el plan del Cerebro)
 
-1. El VERDE de la punta con la ALTA 2 y los tickets (arriba).
-2. **Los tickets al Cerebro al INSTANTE** (el Cerebro, 29/10): el Runner le entrega al Cerebro TODO ticket nuevo (hoy sólo
-   `despacho='runner'` + `en_curso`, `lib/tickets-runner.ts`, `ticketsParaElCartero`), con texto fijo y el número, sin cambiar
-   el triage ni la aprobación ni los `aviso_*`: otra marca de entrega y un cartero nuevo (subir su versión y su lista de textos
-   fijos). Y que el hito de un deploy cierre también los `esperando_decision` (`cerrarLosDesplegados`, `lib/tickets-cierre.ts`,
-   sólo mira `en_curso`: pasó con el #15). Cosecha en `docs/hallazgos-ticketera.md`. **El diseño, con borradores en el
-   scratchpad (`borrador/`):** columnas `cerebro_*` (estado `not null default 'pendiente'`, para filtrar con `in` sin el null de
-   `<>`; el número de la migración lo da el Cerebro: 0340/0341/0342/0346 ya están tomados); `ticketsNuevosParaElCartero` y
-   `ticketsNuevosSinEntregar` (sólo `despacho is null` y `nuevo`/`esperando_decision`), `acusarTicketNuevo` (renglón «llegó al
-   Cerebro»), un array APARTE `ticketsNuevos` sólo para el cartero ≥ 1.23.0 con `mensajeTicketNuevo` en los dos lados y en la
-   lista de textos que no se suben como conversación; el cierre toma todo lo ABIERTO. Sin la migración no se cae
-   (`ticketsNuevosError`). Test por la vuelta REAL (`cicloCartero` dentro de un `workAsyncStorage` de mentira, por `after`) y
-   por `cartero.mjs ciclo` de verdad (el molde de tests/cartero-carpetas.test.ts). El PostgREST de mentira necesita `orCompleto`
-   (el `or` de `ticketsSinEntregar` trae `in.(…)` y `and(…)`).
+1. ~~El VERDE de la punta~~ y ~~los tickets al Cerebro~~: hechos (arriba). Lo que queda de los tickets, en
+   `docs/hallazgos-ticketera.md` → «Lo que quedó sin hacer»: que la bandeja dibuje «Entregado al Cerebro» para los nuevos (la 0343
+   ya está), y que el Runner pase a 1.23.0 después del deploy (lo corre el Cerebro). De la ALTA 2, en `docs/hallazgos-comunicacion.md`:
+   después de que MaKo contesta el pedido, la respuesta al equipo sin citar va a MaKo (`ultimaDeMaKo`).
+2. Si Integración o el refutador devuelven algo de esta punta (ac593ce1d), eso va primero.
 3. **A:** Claude PRIMERO con el crédito Max, desde la rama `wa-credito-grupos-2810`, «armalo para N cuentas»; el banco de
    casos de nivel 2 (con modelo) va en esa tanda.
 4. **F4** completo. **G3:** lo que llega durante un turno queda huérfano hasta el cron. **F5** y **F6**.
