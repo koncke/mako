@@ -128,6 +128,15 @@ preguntes: hacé esto en orden.
     Verificación en curso: `wf_930af84b-003` (task `wfduhtfbm`). Los árboles de sólo lectura son
     `C:/dev/verif-c358fd0c4` y `C:/dev/verif-b2c19c445`; antes de borrarlos, sacar el junction con `cmd /c rmdir`. Si sale
     limpio, va a tren-w; WhatsApp es lo urgente.
+  - **Ronda de las 21:46:**
+    - Los chats locales quietos esperan sus tests (dos lugares). WhatsApp sigue con la tanda A (el crédito Max para
+      los grupos).
+    - Los nueve tickets abiertos tienen dueño vivo y ninguno está resuelto en producción.
+    - Cuatro chats de la nube (Planes, Automations, Landings y Motion) esperan desde AYER una aprobación que sólo
+      Martín puede dar en la nube.
+    - Sus tres ramas siguen fuera de main: `nube/clic-derecho-2710` (`419d11e90`, el clic derecho en siete listas),
+      `nube/media-buyer-2710` (`54e13e9cc`) y `nube/video-generator-2710` (`9012f6070`, el estudio copiado de Arcads).
+      Están sobre un main viejo: se verifican DESPUÉS de WhatsApp y MaKo inteligente, para el tren siguiente.
   - **El workflow de pedidos perdidos llegó al 100% con 12 de sus 21 agentes cortados** («session limit»). Se reanudó a
     las 21:32 en esta sesión (task `wz8f0619h`, mismo runId `wf_fbaed0b3-099`): los 9 que terminaron vienen de la caché.
     Su resultado parcial (lo juntado por fuente y lo que no se pudo leer) está en
