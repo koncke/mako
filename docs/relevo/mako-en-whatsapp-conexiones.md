@@ -42,9 +42,10 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
    1. ✅ Mauricio (ws1), MEDIDO 28/10 22:45: la entrada no está rota; en su grupo nadie escribe desde el 08/10 (sus tres
       participantes son líneas de MaKo). El detalle en docs/hallazgos-comunicacion.md («Mauricio no escribe desde el 04/10»).
       Falta que el Cerebro decida qué hacer.
-   2. Joan (ws13): nombre y apellido de las llamadas sin marcar (las cifras se contradicen: 25 contra 28 no-shows, 14 contra 10
-      sin marcar; buffer 292, conv 1583-1584) y los links de las llamadas de la semana pasada (buffer 288). Armar los datos
-      correctos y mandárselos al Cerebro: la respuesta la manda él.
+   2. ✅ Joan (ws13), datos mandados al Cerebro el 28/10 23:05 (él contesta): del 19/09 al 26/10, 28 no-shows (8+20) y 9 sin
+      marcar, con nombres; de la semana del 19 al 25/10, 10 reuniones sin grabación (sólo el link de Meet). Abierto en código:
+      «los sin marcar con nombre» terminó en «no se lista nominalmente» (conv 1584): la herramienta da el total, no la lista.
+      Script: el scratchpad de claude4, `joan2.mjs` y `joan4.mjs`.
    3. Un link con dominio inventado a Código Inmobiliario («hola-malo.com/crm/2761», conv 1502): el saneo de la salida al grupo.
    4. Leila (ws11): el panel de Vida Poderosa dice que Ana Gómez no tiene datos de Fathom (buffer 293), y el Closing tiene
       168-193 análisis en error por el crédito de Claude (buffer 301).
