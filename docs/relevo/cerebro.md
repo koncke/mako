@@ -88,6 +88,14 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **00:30 (29/10): tren-w EN PRODUCCIÓN.** Lo subí yo (`c17134274`); alguien más subió encima tres commits de docs
+    del relevo, hasta `b59d14943`, que es el deploy que sirve el dominio (Ready a las 23:19). **tren-x** (el editor,
+    ticket 23: `004a4ae57`) **subido**, con su deploy en curso (task `bp0gnvtg8`). Cuando esté Ready, se cierra el ticket de
+    Leandro con su aviso.
+    - **La verificación de Automations `69b49a31c` está corriendo:** `wf_a92bf13a-ec9` (task `w48pws0wo`), con tres
+      verificadores (Instagram de Leandro, topes y avisos, difusión) y el árbol `C:/dev/verif-69b49a31c`.
+    - **Fila de verificación detrás:** Copywriter `7eef753da` (la puerta pública que escribe, primero) y Planes
+      `ddfa645d4` (el plan a mano). Después, los arreglos de WhatsApp y de MaKo inteligente cuando lleguen.
   - **00:05 (29/10), el push de tren-w está EN CURSO** (task `bca7muwun`, log en el scratchpad: `push-tren-w.log`), con
     la pausa prendida. Sube: las cajas de chat, las horas del CRM (`f13f8bbad`, verificado por el Cerebro con el script del
     refutador y mergeado en `c17134274`), el corte del 97%, la pausa, tsc-acotado con lock y `cambiarSettingSi`.
