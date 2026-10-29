@@ -46,7 +46,7 @@ test('la regla: la marcada entra UNA vez con el próximo EVENTO, aunque sea «Un
 });
 
 test('lo que se le dice a la persona: qué pasa y por qué no, en palabras', () => {
-  const sec = { nombre: "Comentario con 'pruebafm' en Instagram", archivada_at: null };
+  const sec: { nombre: string; archivada_at: string | null } = { nombre: "Comentario con 'pruebafm' en Instagram", archivada_at: null };
   const ok = textoDeVolverAProbar({ estado: 'completada', desenlace: null }, sec, '@martin.koncke');
   assert.ok(ok.ok && /^@martin\.koncke puede volver a probar «Comentario con 'pruebafm' en Instagram»: entra de nuevo con lo próximo que la arranca/.test(ok.resumen));
   const no = (f: { estado: string; desenlace: string | null }, s: typeof sec | null = sec) => {
@@ -96,7 +96,7 @@ test('la escritura, la action, el botón de la ficha y la API', () => {
   // La API: propone y espera el «sí», del admin, sin HTTP; no le escribe a nadie.
   const op = porId('volver_a_probar_lead_secuencia')!;
   assert.ok(op, 'la operación existe');
-  assert.equal(op.confirmacion, 'chat');
+  assert.equal((op as { confirmacion?: string }).confirmacion, 'chat');
   assert.equal((op as { aTerceros?: boolean }).aTerceros, undefined, 'no le manda nada a un tercero');
   assert.equal(op.gating?.rolMinimo, 'admin');
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
