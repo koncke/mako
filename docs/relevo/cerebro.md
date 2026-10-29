@@ -145,6 +145,9 @@ preguntes: hacé esto en orden.
     4. las ventas externas de Stripe en la cuenta de Mauricio (la clave la pega él);
     5. archivar los cuatro chats de la nube (Planes, Automations, Landings y Motion). Su trabajo pasó a la PC el 28/10:
        NO necesitan su aprobación, y en la ronda de las 21:46 se le dijo mal que sí.
+  - **22:25: VERDE de MaKo inteligente `cfab5c33a`**, encima de `b2c19c445`: las funciones de MaKo entran al turno sólo si
+    la pregunta es de producto (`esPreguntaDeProducto` + `sinFunciones`; «¿cuál es mi meta?» ya no trae Ads Manager). Se
+    verifica el delta `b2c19c445..cfab5c33a` cuando vuelva la verificación de b2c19c445.
   - **22:15: VERDE de Planes `e6fd6d88d`** (planes-2710, sobre `a196d5a93`): arregla la verificación de a196d5a93 (el
     diferido fallido, las pruebas detrás del tope, el seguro de 500 con reloj, la unidad mínima, el código libre de
     Partners y la compra doble a Meta). La guardia de RAM no dejó lanzar la verificación (2,1 GB libres): **SIN LANZAR.**
