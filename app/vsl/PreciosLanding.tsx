@@ -10,6 +10,8 @@
 
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from '@/app/planes/Tarjetas';
+import { CSS_PLANES } from '@/app/planes/estilo';
+import { CSS_VITRINA, CompararPlanes } from '@/app/planes/Vitrina';
 
 /** Un plan como lo dibuja la landing, con si se cobra en línea (la misma cuenta que /planes: `ofertasDeLosPlanes`). */
 export type PlanEnLanding = PlanEnTarjeta;
@@ -43,11 +45,14 @@ const CSS = `
 export function PreciosLanding({ planes, sufijo }: { planes: readonly PlanEnLanding[]; sufijo: string }) {
   return (
     <div className="mk-precios" id="precios">
-      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TARJETAS }} />
+      {/* La comparación de /planes, tal cual (29/10/2026, Martín: «en la landing no está la comparativa, la tabla»): sus
+          clases son `planes-*`, así que su hoja no toca el diseño de la landing. */}
+      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TARJETAS + CSS_PLANES + CSS_VITRINA }} />
       <h2 className="mk-precios-titulo">Elige cómo quieres crecer con MaKo</h2>
       <p className="mk-precios-sub">Por tu cuenta, con MaKo, o con nosotros a tu lado. {bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
       <TarjetasPlanes planes={planes} sufijo={sufijo} />
-      <p className="mk-precios-pie"><a href={`/planes${sufijo}`}>Compara los planes en detalle</a></p>
+      <CompararPlanes planes={planes} />
+      <p className="mk-precios-pie"><a href={`/planes${sufijo}`}>Ver los planes y las preguntas frecuentes</a></p>
     </div>
   );
 }

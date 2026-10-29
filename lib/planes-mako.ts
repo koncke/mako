@@ -110,7 +110,9 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     preciosLocales: {},
     resumen: '¿Ya vendes? Para escalar con anuncios, contenido y equipo.',
     incluye: [
-      'Todo lo de Esencial, sin topes',
+      // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
+      // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
+      'Todo lo de Esencial, sin tope de contactos, páginas ni automatizaciones',
       'Anuncios de Meta: crea campañas y mira cuáles venden',
       'Análisis de tus llamadas de venta con IA',
       'Imágenes, videos y avatares con IA',

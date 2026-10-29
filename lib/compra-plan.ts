@@ -385,10 +385,10 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
  * si se cobran en línea (la misma cuenta que /planes). Si no se pudo leer, los de hoy y sin cobro en línea: el botón dice
  * «Quiero …» y se pide (nunca «Empezar» sin un cobro detrás), y la landing no se queda sin precios.
  */
-export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean }>> {
+export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean }>> {
   const ofertas = await ofertasDeLosPlanes().catch(() => PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((plan) => ({ plan, cobrable: false })));
   return ofertas.map(({ plan, cobrable }) => ({
-    id: plan.id, nombre: plan.nombre, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado,
+    id: plan.id, nombre: plan.nombre, capa: plan.capa, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado,
     precioAnualUsd: plan.precioAnualUsd ?? null, preciosLocales: plan.preciosLocales, cobrable,
   }));
 }
