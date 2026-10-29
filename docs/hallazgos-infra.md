@@ -9106,3 +9106,17 @@ tres archivos se repiten juntos en UNA tanda: el rojo de verdad hace salir con c
 toma los archivos de la lista «✖ failing tests», donde node pone también los `todo` que fallan. **Regla:** antes de
 perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). **Sin hacer:** que el reintento separe los
 `todo` (el arreglo es del parser, en `leerResultado`).
+
+## El chequeo de tren-y con la PC llena: `node --test` sin archivos corre TODO, y la pausa no frena a quien llama a node directo (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` y `scripts/pausa-cerebro.mjs`.
+
+- **La lista vacía.** `node --import tsx --test $(cat lista.txt)` con `lista.txt` vacío (un `grep -l` que no encontró nada)
+  NO falla: node corre TODO `tests/` con su patrón por defecto. Se vio a los 10 minutos, con la PC en 0,7 GB y otro chequeo
+  en el medio. **Regla:** antes de pasarle una lista a `node --test`, `[ -s lista.txt ] || exit 1`.
+- **La tanda «colgada» era la RAM.** Con 0,27 GB libres, la tanda de 43 archivos «pasó los 10 min y se mató» con 517 tests
+  verdes y ninguno rojo: estaba paginando, no colgada. Re-corrida de a 6 archivos con 2 procesos: 608/608 en verde.
+  Un «se colgó» con la RAM libre mínima en 0,0 GB (la última línea de tests-afectados la dice) no es un test roto.
+- **La pausa del Cerebro sólo frena a `tests-afectados` y `tsc-acotado`.** Con la pausa prendida a las 02:46, un chat
+  lanzó `node --import tsx --test …` directo a las 03:06 y sumó nueve procesos de ~300 MB. **Sin hacer:** que la pausa
+  también la mire `C:/dev/con-turno.mjs`, por donde los chats deberían pasar lo pesado.
