@@ -107,7 +107,8 @@ export function haceCuanto(cuando: number | null | undefined, ahora: number): st
 
 /**
  * El estilo de la <Pagina> de una tab de Create: de borde a borde y del alto de la ventana (menos la barra de arriba de la
- * agencia), sin padding. Una sola copia para todas: si cada página escribiera el suyo, el día que cambie quedan cuatro.
+ * agencia y, si una tab todavía la dibuja, la de secciones: `--alto-secciones`, que SeccionesTab fija sólo mientras se ve),
+ * sin padding. Una sola copia para todas: si cada página escribiera el suyo, el día que cambie quedan cuatro.
  * ⚠️ Es un `calc(`: la regla global sólo corrige un alto que EMPIEZA con `height: 100vh` (docs/hallazgos-ui.md, 22/10/2026).
  * ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES (el molde de app/offer/page.tsx y del Dashboard): <Pagina> trae
  *    `flex: 1`, que en la columna del layout anula el `height`, y el <main> crecería con el chat (scrollearía el documento y
@@ -116,7 +117,7 @@ export function haceCuanto(cuando: number | null | undefined, ahora: number): st
 export const ESTILO_PAGINA_CREAR: CSSProperties = {
   padding: 0,
   flex: 'none',
-  height: 'calc(100dvh - var(--barra-agencia, 0px))',
+  height: 'calc(100dvh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
