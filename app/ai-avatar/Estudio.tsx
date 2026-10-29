@@ -400,12 +400,22 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
       </div>
       <p className={error ? 'hf-barra-linea hf-barra-linea--mal' : 'hf-barra-linea'} role={error ? 'alert' : undefined}>
         {error || linea || falta || 'Cada avatar sale de tu Google Flow con tu cara. Las imágenes no gastan créditos.'}
+        {!error && !linea && !puente.puede && <EnlaceConectar />}
         <ReportarASoporte />
       </p>
       {/* Si el error es el tope de la prueba gratis, el botón para empezar el plan (lib/topes-plan.ts). */}
       <div className="hf-barra-plan"><EmpezarPlanYa texto={error || null} /></div>
     </div>
   );
+}
+
+/**
+ * Lo que necesita el cliente para generar, cuando el puente no está (29/10/2026): el motivo solo («Conecta la extensión de
+ * MaKo») no decía CÓMO. Lleva a /extension/instalar, el único lugar con los pasos (instalarla, abrir Google Flow con su cuenta
+ * y «Conectar»); los mismos que usa el Video Generator (puente-avisos.tsx).
+ */
+function EnlaceConectar() {
+  return <> · <a className="hf-barra-enlace" href="/extension/instalar" target="_blank" rel="noopener">Cómo conectarla</a></>;
 }
 
 function Pastilla({ abierta, onClick, etiqueta, children }: { abierta: boolean; onClick: () => void; etiqueta: string; children: ReactNode }) {
@@ -666,6 +676,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
         </div>
         <p className={errorVideo ? 'hf-barra-linea hf-barra-linea--mal' : 'hf-barra-linea'} role={errorVideo ? 'alert' : undefined}>
           {errorVideo || linea || faltaVideo || 'Cada toma gasta créditos de tu cuenta de Flow. Se filma toma por toma y nada se repite solo.'}
+          {!errorVideo && !linea && !inicio.puente.puede && <EnlaceConectar />}
           <ReportarASoporte />
         </p>
         <div className="hf-barra-plan"><EmpezarPlanYa texto={errorVideo || null} /></div>

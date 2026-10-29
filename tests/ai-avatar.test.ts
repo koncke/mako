@@ -106,6 +106,7 @@ test('los looks no van al historial del Video Generator', () => {
 //   · la pastilla de Formato sin `sinMotor('formato')` → «toda pieza… SE VE».
 //   · (tras montarlo en PantallaCrear) el import de otra pantalla → «el diseño de Create» y crear-pantalla (24/2); usar un
 //     preset que llama a `generar(` → «el diseño de Create» (25/1); la page sin ESTILO_PAGINA_CREAR → ídem (25/1).
+//   · sacar el «Cómo conectarla» de la barra del video → «sin el puente, la barra dice CÓMO conectarlo» (19/1).
 //   · `quitarLook` sin chequear que el id estaba → «borrar… en POSITIVO».
 //   · `mezclarPorId` devolviendo sólo lo del server → «refrescar no se traga…».
 //   · `borrarLookAction` sin `puerta()` → «toda action… pasa por la puerta».
@@ -209,6 +210,12 @@ test('el diseño de Create: monta la pantalla única (chat de MaKo fijo y proyec
   for (const sub of ['avatares', 'voces', 'plantillas']) {
     assert.match(fuenteDe(`app/ai-avatar/${sub}/page.tsx`), /redirect\(await rutaConWs\(/, `/ai-avatar/${sub} no redirige`);
   }
+});
+
+test('sin el puente, la barra dice CÓMO conectarlo (no sólo que falta), en el look y en el video', () => {
+  const escritorio = fuenteDe('app/ai-avatar/Estudio.tsx');
+  assert.match(escritorio, /href="\/extension\/instalar"/, 'sin el link a los pasos de la extensión');
+  assert.equal((escritorio.match(/\.puede && <EnlaceConectar \/>/g) ?? []).length, 2, 'el link en las dos barras (look y video)');
 });
 
 test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo si estaba', () => {

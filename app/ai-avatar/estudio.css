@@ -112,6 +112,8 @@
 .hf-barra-der { display: flex; align-items: stretch; gap: 8px; flex: none; }
 .hf-barra-linea { max-width: 960px; margin: 8px auto 0; text-align: center; font-size: var(--fs-meta); color: var(--text-dim); min-height: 1.3em; }
 .hf-barra-linea--mal { color: var(--bad); }
+.hf-barra-enlace { color: var(--primary); font-weight: 600; text-decoration: none; }
+.hf-barra-enlace:hover { text-decoration: underline; }
 
 .hf-pastilla {
   display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 10px; border: 0;
