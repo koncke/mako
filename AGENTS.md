@@ -10727,3 +10727,13 @@ dos) o por `updateLead` (si el estado cambia y la columna lo contradice, la suel
 Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pagos.ts) mira lo mismo y suelta la columna; quien
 escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
 docs/hallazgos-crm.md («El feedback del 27/10/2026»).
+
+# Lo que corre el chat de un editor devuelve su MOTIVO, no lo deja sólo en un store (28/10/2026)
+
+El chat del Video Editor sabe si algo salió por una sola señal: si la línea de tiempo cambió. Una operación larga que no
+lanza y guarda su error en un store (como hacía `generarSubtitulos`) llega al chat como el genérico «no se pudo …», y el
+ticket de soporte sale sin la causa (ticket 23: se sospechó de la IA del negocio y era Whisper en el navegador). **Regla
+para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{ ok } | { ok: false, motivo }`, sin
+`return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
+molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
+el porqué, en docs/hallazgos-video-editor.md.

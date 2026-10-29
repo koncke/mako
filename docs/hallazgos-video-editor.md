@@ -1849,3 +1849,28 @@ técnico. **La causa de SU archivo no se puede saber sin el archivo**; lo que s�
 **Vive en:** `media/importar-motivo.ts` · `media/processing.ts` · `media/mediabunny.ts` (`SinPistaDeVideo`,
 `errorDecodificar`) · tests/video-editor-importar-motivo.test.ts (6 roturas; el 5, con `tests/fixtures/video-chico.mp4`) ·
 *27/10/2026, chat «Motion / Imagen» (claude5); el cortado, 28/10, chat «Video Editor: el ruido y los silencios de Leila».*
+
+## «No se pudo generar los subtítulos» por CUALQUIER causa: la función no lanza y el chat sólo mira la línea (ticket 23, Leandro, 28/10/2026)
+
+Leandro (ws 10) aceptó «generar los subtítulos» en el chat y el reporte dijo sólo «No se aplica: no se pudo generar los
+subtítulos». **El diagnóstico obvio era el equivocado:** se sospechó que su IA (sólo Claude, que no escucha audio) no podía
+transcribir. Los subtítulos NO pasan por la IA del negocio: los saca Whisper en el navegador (`services/transcription/`,
+WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configuración de IA no cambia nada.
+
+- ⚠️ **Una función que nunca lanza y deja el error en un store pierde la causa en el chat.** `generarSubtitulos` escribía
+  «No se pudo descargar» / «No se reconoció la voz» en `useTrabajoSubtitulos` y volvía sin nada; el panel lo mostraba abajo
+  del botón, pero `correrLarga` (`chat/aplicar.ts`) sólo ve si la línea cambió, y sin avisos escribe el genérico «no se
+  pudo …». Encima había dos `return` mudos (un trabajo ya corriendo, sin proyecto) que nadie contaba. Y «Transcribir»
+  (pestaña Transcripción) no mostraba ninguno.
+- **La regla:** una operación larga que el chat llama devuelve un resultado `{ ok } | { ok: false, motivo }` (como
+  `quitarSilencios` y `usarPlantilla`), y el botón y el chat leen el MISMO: un texto por motivo que dice qué pasó y qué
+  hacer (`subtitles/resultado.ts`). Lo que lanzó se clasifica por la fase en que iba (audio, modelo, transcribiendo,
+  armando).
+- **El ticket no alcanza para saber cuál fue la de Leandro:** trae Chrome 156 de escritorio en Windows, sin el error
+  interno. Por probabilidad: la bajada del modelo (la primera vez) o un clip sin voz. El próximo reporte ya trae el motivo.
+- **Lo que NO entra:** transcribir en el servidor (con el Groq de la plataforma) para no bajar el modelo al navegador. Es
+  decisión de producto, no este arreglo (Cerebro, 28/10).
+
+**Vive en:** `subtitles/resultado.ts` (puro, lo carga el test) · `subtitles/generar.ts` · `chat/aplicar.ts` (`correrLarga`) ·
+`transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
+*28/10/2026, chat «Video Editor: el ruido y los silencios de Leila».*
