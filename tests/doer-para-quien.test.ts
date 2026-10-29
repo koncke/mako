@@ -44,7 +44,7 @@ test('4. el doer: lo saltea antes del turno (leyendo la memoria sólo si hace fa
   assert.match(doer, /if \(nombraAMaKo\(texto\) \|\| quien\.aMaKo \|\| delLote\?\.nombra\) return null;/, 'una @mención a MaKo dejó de contar como nombrarla');
   assert.match(doer, /const pideUnSi = async \(\) => \(await hayPendientes\(\)\) \|\| \(await makoAcabaDePreguntar\(wsData, jid\)\);/);
   assert.match(doer, /return \(await pideUnSi\(\)\) \? null : candidato;/, 'el «ok» después de una pregunta de MaKo dejó de ser un sí');
-  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
+  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
 });
 
 // La revisión adversarial de 92d23e11d: elegir a MaKo con la @ manda el jid de su línea, no la palabra «mako», y quedaba callado.
@@ -157,7 +157,8 @@ test('8. la respuesta a otro es un acuse o una confirmación ENTERA, de OTRA per
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /&& !\(await contestaAOtroEnLaCola\(wsData, instance, jid, msgId, texto\)\)/);
   assert.match(doer, /return conLasRespuestas\(textos\)\[i\]\.para === 'a-otro';/);
-  assert.equal((doer.match(/autor: p\.key\?\.participant \?\? null/g) ?? []).length, 3, 'un lote no pasa el autor');
+  // Cuatro desde el 29/10/2026: el turno, los dos lotes y la marca del audio del lote que no se escuchó (`marcaDelAudioDelLote`).
+  assert.equal((doer.match(/autor: p\.key\?\.participant \?\? null/g) ?? []).length, 4, 'un lote no pasa el autor');
   assert.match(doer, /const pide = q\.aOtros\.length > 0 && confirmaYNombraAOtro\(texto\) && \(await pideUnSi\(\)\);/);
   assert.match(leer('lib/doer-para-quien.ts'), /export function paraQuienDelLote<T extends ConAutor>\(entrada: readonly T\[\]\): \{ quedan: T\[\]; decision: ParaQuienDelLote \} \{\n\s*const mensajes = conLasRespuestas\(entrada\);/);
 });

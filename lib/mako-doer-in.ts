@@ -659,6 +659,14 @@ async function numeroDeLaLinea(instance: string): Promise<string | null> {
 }
 
 /**
+ * El audio del lote que no se escuchó deja su MARCA en su lugar (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`), de su autor y sin hablarle a
+ * nadie: sin ella, el «tal cual» que seguía se contestaba a ciegas (29/10/2026). El MISMO objeto en el lote del turno y en el del cron.
+ */
+function marcaDelAudioDelLote(p: MsgIn) {
+  return { texto: AUDIO_DEL_LOTE_SIN_ESCUCHAR, para: 'mako' as const, autor: p.key?.participant ?? null, leHabla: false, payload: p, marca: true as const };
+}
+
+/**
  * Una imagen o un PDF NO entran en un lote: el turno sintético es texto plano y los bloques nativos no viajan. Antes
  * desaparecían sin dejar rastro — mandabas la captura junto a un mensaje y MaKo contestaba como si no existiera. Ahora al menos
  * se nombra, así MaKo puede pedirla de nuevo. El MISMO texto en el lote del turno y en el del cron (la verificación de
@@ -1045,13 +1053,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       let t = m.texto.trim();
       if (!t && audioDe(p)) {
         const oido = await transcribirDeMensaje(instance, p);
-        // El audio que no se escuchó lo dice MaKo (una vez por lote): antes desaparecía sin aviso. En el turno queda su MARCA en su
-        // lugar (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`): sin ella, el «tal cual» que seguía se contestaba a ciegas (29/10/2026).
-        if (!('texto' in oido)) {
-          avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido);
-          textos.push({ texto: AUDIO_DEL_LOTE_SIN_ESCUCHAR, para: 'mako', autor: p.key?.participant ?? null, leHabla: false, payload: p, marca: true });
-          continue;
-        }
+        // El audio que no se escuchó lo dice MaKo (una vez por lote): antes desaparecía sin aviso. En el turno queda su marca.
+        if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido); textos.push(marcaDelAudioDelLote(p)); continue; }
         t = oido.texto;
       }
       // La nota de voz que CITA (Leandro, 28/10/2026): con lo que dice; si no se pudo, como un audio que no se escuchó.
@@ -2868,12 +2871,8 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
             let t = m.texto.trim();
             if (!t && audioDe(p)) {
               const oido = await transcribirDeMensaje(instancia, p);
-              // Su marca en su lugar, como en el lote de la entrada (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`).
-              if (!('texto' in oido)) {
-                avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido);
-                textos.push({ texto: AUDIO_DEL_LOTE_SIN_ESCUCHAR, para: 'mako', autor: p.key?.participant ?? null, leHabla: false, payload: p, marca: true });
-                continue;
-              }
+              // Su marca en su lugar, como en el lote de la entrada.
+              if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido); textos.push(marcaDelAudioDelLote(p)); continue; }
               t = oido.texto;
             }
             const citado = await escucharElAudioCitado(instancia, jid, p);
