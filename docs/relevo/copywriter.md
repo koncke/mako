@@ -22,15 +22,16 @@ la derecha». Y después (el Cerebro, por lo que Martín le prometió a Teo): «
 - Verificación del Cerebro de 2f4df801e: la charla del guion cerrada al admin del negocio (3f0c73eac); guiones largos y
   muchos guiones con el arreglo de raíz del Cerebro (12a413e01 + cherry-pick 7c5a4498c de f92b74992 + test 169fb8e1a).
 - Tipos: PanelMaKo (05b64e49b).
+- Los rojos de la primera corrida de tests-afectados (29/10, 00:40 UTC: 4.723 tests, 4 rojos): el voseo del copy, mi test
+  de la API (11 operaciones) y el renglón de «Analizar guion» que fija tests/ads-writer-analizar: ba1a749db.
 
 ## Lo que falta verificar
 
-- **tests-afectados `--base origin/main --rapido`** de las tandas 2-4 + la verificación: programado a las 00:31 UTC del
-  29/10 con `con-turno` (scratchpad afectados-0031.sh, log afectados-t234.log). Si no corrió, correrlo así:
-  `node C:/dev/con-turno.mjs node scripts/tests-afectados.mjs --base origin/main --rapido` (SIN MAKO_TESTS_SIN_ESPERA).
+- ✔ **tests-afectados `--base origin/main --rapido`** sobre ba1a749db: VERDE, 4.723 tests de 451 archivos (29/10).
+  VERDE mandado al Cerebro por SendMessage.
 - **tsc acotado**: hecho en 6 tandas con `con-turno` el 28/10: 0 errores propios (sólo los 14 de `_opencut`; los 2 de
   `app/conocimientos/Compartir.tsx` en una tanda son el `<style jsx>` que el acotado no carga: la otra tanda lo compila
-  limpio). Falta mandarle el VERDE al Cerebro con esa lista.
+  limpio). Después sólo cambiaron textos y números de tests (ba1a749db). Falta mandarle el VERDE al Cerebro.
 - **Capturas de las tandas 3 y 4** (escritorio y teléfono) con la maqueta: side-session-notes/…/copywriter-maqueta/ y el
   scratchpad (plan-t3.json, plan-t4.json; la maqueta ya tiene la vista del link y el modal). Sin hacer.
 
