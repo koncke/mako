@@ -9079,3 +9079,19 @@ tabnews.com.br (el dato de 80 MB por instancia).
   está configurado (medido). Sólo eran docs y no cambiaron nada para los clientes. **Regla hasta encontrar la causa:**
   mientras corre el push de un tren, en esa rama no se commitea NADA que no sea docs. Un merge de código va DESPUÉS de que
   el push termine y el deploy esté Ready.
+
+## Buscar en los logs de Vercel: el filtro con `*` da 0 sin error, y el menú pide las tabs de a pares (29/10/2026, claude3)
+
+**Vive en:** la CLI de Vercel (`npx vercel logs`, v65), usada para encontrar la URL de un ticket y para medir el blanco del
+Web Generator en producción.
+
+- **`-q 'requestPath:"/web-generator*"'` devuelve 0 registros**, con `recordsReturned: 0` y sin error. El comodín no se
+  interpreta. Lo que anduvo: el camino EXACTO (`-q 'requestPath:"/api/landing-generator/replicar/leer"'`) o bajar todo el rato
+  (`vercel logs requests --since <ISO> --until <ISO> --json -n 10000`) y filtrar con un script. Con ~7.000 pedidos en 2 h 20 min,
+  10.000 alcanzan; el resumen final dice `hasMore`.
+- **`vercel logs requests` trae el camino, el estado y el deploy, pero no la URL pedida ni lo que se mandó.** Lo que dijo el
+  server está en los logs de la función (`vercel logs`, sin `requests`) del mismo pedido, y ahí estaba la URL del ticket
+  (`[editor-landing/replicar-lectura] https://100ads.ai/: …`).
+- **Un `GET /web-generator` 200, de a dos por segundo y junto con `/crm`, `/plan`, `/offer`…, es el PREFETCH del menú**, no
+  alguien entrando. Una entrada de verdad es un 307 (la carga directa) seguido de `/web-generator/<id>`, o un
+  `/web-generator/<id>` suelto. Sin sesión, el prefetch da 307 a `/login` en todas las tabs a la vez.
