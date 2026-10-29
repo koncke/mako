@@ -390,20 +390,20 @@ export const SIN_HACER_LO_DEMAS = 'Lo demás no lo llegué a hacer en este mensa
  * «¿lo actualizaste en la documentación API?» y salió «No tengo acceso directo para editar la documentación de la API desde aquí.
  * Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago»: el saneo sacó un «Ya quedó reportado al equipo de
  * desarrollo…» falso y pegó `SIN_HACER` debajo de un «no puedo». Una promesa falsa: pedírselo otra vez no lo hace posible. Si la
- * respuesta dice que MaKo no puede (`noLoPuedeHacer`) o lo sacado era del EQUIPO, no va `SIN_HACER`: queda lo que dijo, y si no
- * queda nada, esta línea, que no promete.
+ * respuesta dice que MaKo no puede (`noLoPuedeHacer`), no va `SIN_HACER`: queda lo que dijo, y si no queda nada, esta línea, que
+ * no promete.
  */
 export const SIN_HACER_SIN_PROMESA = 'Eso no quedó hecho en este mensaje.';
 
 /** La respuesta dice que MaKo NO puede hacer eso (no tiene acceso, no está a su alcance). */
 const NO_PUEDE = /\b(?:no\s+tengo\s+(?:acceso|permisos?|forma\s+de)|no\s+(?:puedo|podr[ée])\s+(?:editar|modificar|cambiar|hacer|tocar|acceder|actualizar|entrar|publicar|borrar)|no\s+(?:est[áa]|queda)\s+a\s+mi\s+alcance|fuera\s+de\s+mi\s+alcance|(?:eso|esto)\s+no\s+(?:lo\s+)?puedo|mako\s+no\s+(?:tiene\s+acceso|puede))\b/i;
-/** Lo que se dice HECHO es del EQUIPO de MaKo («quedó reportado al equipo de desarrollo», «registré el pedido para el equipo
- *  técnico»): no es algo que MaKo haga en el próximo turno por un «pídemelo otra vez». */
-const DEL_EQUIPO = /\b(?:report|registr|escal|deriv|pas[éeao]|avis)\w*\b[^.?!\n]{0,80}?\bequipo\b|\bequipo\s+(?:de\s+(?:desarrollo|soporte|mako)|t[ée]cnico)\b/i;
-
-/** ¿Lo que se promete o se da por hecho es algo que MaKo NO hace (no puede, o lo hace el equipo)? */
+/**
+ * ¿La respuesta dice que MaKo NO puede hacer eso? ⚠️ «Quedó reportado al equipo» NO cuenta: reportarlo es abrir un ticket, y eso
+ * MaKo SÍ lo hace; el «He reportado el error al equipo» de Leila (27/10) sigue llevando la verdad de siempre (tests/doer-hecho-grupo,
+ * que lo cazó en tests-afectados cuando la primera versión también lo tapaba).
+ */
 export function noLoPuedeHacer(texto: string): boolean {
-  return NO_PUEDE.test(texto || '') || DEL_EQUIPO.test(texto || '');
+  return NO_PUEDE.test(texto || '');
 }
 
 /** La línea que va después de sacar una promesa o un «hecho» sin respaldo: `normal`, o ninguna si MaKo no lo puede hacer. */
@@ -691,7 +691,7 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
   const sinRespaldoGrupo = enElGrupo && !enElGrupo.respaldado ? afirmacionesDeHecho(textoEntero, { enElGrupo: delGrupo }) : [];
   if (sinRespaldoGrupo.length) {
     const queda = sinOraciones(textoEntero, (o) => afirmacionesDeHecho(o, { enElGrupo: delGrupo }).length > 0);
-    // Lo que MaKo no puede hacer (o era del equipo) no lleva «pídemelo otra vez y lo hago» (`SIN_HACER_SIN_PROMESA`, el #30).
+    // Lo que MaKo no puede hacer no lleva «pídemelo otra vez y lo hago» (`SIN_HACER_SIN_PROMESA`, el #30).
     const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : laVerdad(textoEntero, SIN_HACER);
     const resto = queda ? sanearSalida(queda, { corrioHerramientas, bloquesDebajo, finDeTurno }) : null;
     const yaLoDice = !!resto && (resto.texto.includes(SIN_HACER) || resto.texto.includes(SIN_HACER_LO_DEMAS));

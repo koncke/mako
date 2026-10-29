@@ -12,7 +12,8 @@
 //
 // Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base verde; restaurado con .rotura-bak): la delegación sin
 // mirar si pregunta un dato → 2 · la delegación sin la red de la lectura → 2 · los teléfonos sin los últimos 8 dígitos → 4 · el
-// «listo» del delegado como el de un ticket → 5 · el cartero sin reconocer su aviso de delegado → 5.
+// «listo» del delegado como el de un ticket → 5 · el cartero sin reconocer su aviso de delegado → 5 · (el #30) `SIN_HACER` sin mirar
+// `noLoPuedeHacer` → 7 · el bloque de pedidos sin lo que salió en producción → 8.
 // =============================================================================
 
 import test from 'node:test';
@@ -152,15 +153,19 @@ test('7. el #30 de Leandro: «pídemelo otra vez y lo hago» nunca ante lo que M
   const s = sanearSalida(real, grupo);
   assert.equal(s.texto, 'No tengo acceso directo para editar la documentación de la API desde aquí.');
   assert.ok(s.sinRespaldo?.length, 'el «ya quedó reportado» falso no se sacó');
-  // Sólo el «hecho» del equipo, sin nada más: la línea que no promete.
-  assert.equal(sanearSalida('Ya quedó reportado al equipo de desarrollo.', grupo).texto, SIN_HACER_SIN_PROMESA);
+  // Una promesa en la misma oración que el «no puedo», y no queda nada: la línea que no promete.
+  assert.equal(sanearSalida('No puedo editar eso desde aquí, déjame ver y te aviso.', { corrioHerramientas: false }).texto, SIN_HACER_SIN_PROMESA);
+  assert.equal(sanearSalida('No tengo acceso a eso. Déjame ver y te aviso.', { corrioHerramientas: false }).texto, 'No tengo acceso a eso.');
+  // Reportarlo al equipo SÍ lo hace MaKo (es abrir el ticket): el «He reportado el error al equipo» de Leila sigue con la verdad de
+  // siempre (tests/doer-hecho-grupo.test.ts lo cazó cuando la primera versión también lo tapaba).
+  assert.equal(sanearSalida('Ya quedó reportado al equipo de desarrollo.', grupo).texto, SIN_HACER);
   // Una promesa sin herramientas, con «no puedo» al lado: tampoco.
   const p = sanearSalida('Eso no puedo editarlo desde aquí. Déjame ver con el equipo técnico y te aviso.', { corrioHerramientas: false });
   assert.doesNotMatch(p.texto, /pídemelo/);
   // Lo que MaKo SÍ hace sigue llevando la verdad de siempre (no se tapa todo).
   assert.ok(sanearSalida('Déjame ver el plan y te cargo las tareas.', { corrioHerramientas: false }).texto.includes(SIN_HACER));
   assert.ok(noLoPuedeHacer('No tengo acceso directo para editar la documentación'));
-  assert.ok(noLoPuedeHacer('lo registré para que el equipo técnico lo corrija'));
+  assert.ok(!noLoPuedeHacer('lo registré para que el equipo técnico lo corrija'), 'reportarlo al equipo es abrir el ticket: MaKo puede');
   assert.ok(!noLoPuedeHacer('Te cargo las tareas al plan.'));
 });
 

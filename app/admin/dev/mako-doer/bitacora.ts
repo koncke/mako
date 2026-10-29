@@ -728,7 +728,7 @@ export const BITACORA: Hito[] = [
     titulo: 'MaKo ya no te ofrece hacer lo que no puede, y si le preguntas por un arreglo te dice en qué quedó',
     puntos: [
       'Leandro preguntó «¿lo actualizaste en la documentación API?» y MaKo contestó «no tengo acceso… pídemelo otra vez y lo hago»: una promesa falsa, y un ticket de «no pude» por una pregunta.',
-      '«Pídemelo otra vez y lo hago» ya no sale cuando la respuesta dice que MaKo no puede o lo que se dio por hecho era del equipo.',
+      '«Pídemelo otra vez y lo hago» ya no sale cuando la respuesta dice que MaKo no puede hacerlo.',
       'Ahora MaKo ve lo que salió en producción para cada pedido resuelto del negocio, y una pregunta por el estado de un arreglo se contesta con eso.',
       '**Cómo se prueba:** en el grupo de un negocio con un pedido resuelto, preguntar «¿eso ya quedó?».',
     ],

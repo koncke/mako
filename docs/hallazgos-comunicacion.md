@@ -12001,8 +12001,10 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
 - **Y la pregunta tenía respuesta:** el #29 estaba resuelto y la guía ya estaba desplegada (tren-ac). El turno veía el ticket
   («Ya está arreglado: …») pero no lo que salió en producción, y la voz no le decía que una pregunta por un arreglo se contesta
   con su estado.
-- **Lo que quedó:** `SIN_HACER` / `SIN_HACER_LO_DEMAS` / `NOTA_SIN_HACER` no van si la respuesta dice que MaKo no puede o lo que se
-  daba por hecho era del equipo (`noLoPuedeHacer`); sin nada que quede, `SIN_HACER_SIN_PROMESA`, que no promete. Cada pedido
+- **Lo que quedó:** `SIN_HACER` / `SIN_HACER_LO_DEMAS` / `NOTA_SIN_HACER` no van si la respuesta dice que MaKo no puede
+  (`noLoPuedeHacer`); sin nada que quede, `SIN_HACER_SIN_PROMESA`, que no promete. ⚠️ La primera versión también tapaba «quedó
+  reportado al equipo», y tests-afectados lo cazó (tests/doer-hecho-grupo.test.ts, el caso de Leila): reportarlo ES abrir el ticket,
+  y eso MaKo lo hace; ahí la verdad de siempre está bien. Cada pedido
   resuelto del negocio llega al turno con el hito de la bitácora que lo nombra (`tickets: [n]`): título y 3 puntos.
 - **La regla:** una línea que escribe el código y PROMETE («lo hago») mira antes si es posible. Un hito que cierra un ticket es lo
   que el cliente va a leer como «Ya está arreglado: …»: su título va en palabras del cliente, y sus puntos, con los links.

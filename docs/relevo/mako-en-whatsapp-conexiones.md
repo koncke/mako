@@ -14,6 +14,13 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
 (sólo ws9) con `diagnosticar_negocio` y el ticket al Cerebro con la evidencia; CHARLA el 👍; NO_REPLY silencio.
 - Commiteado: 953f9610e (el crédito de los grupos), 687bc14d0 (`sinMuletillas`, links), 61ae98de2 (`diagnosticar_negocio`),
   ffc63aced (REENVIADO + imágenes del lote), fd7b00a45 (el clasificador IA, el TICKET por código, el banco en `tests/fixtures/`).
+- **El ticket #30 de Leandro (29/10 ~17:30, pedido del Cerebro): 9ac30e8c8.** «pídemelo otra vez y lo hago» ya no sale ante lo que
+  MaKo no puede (`noLoPuedeHacer`, lib/doer-salida.ts); el turno ve lo que salió en producción para cada pedido resuelto
+  (`hitosDesplegados`); el hito de mako-doer lleva `tickets: [30]`; el caso al banco (conv:1728, retenido): PREGUNTA con Haiku.
+  Roturas D1–D15: 15/15 cazadas (base verde). tsc acotado `--rama`: 0 propios. tests-afectados: en el worktree de verificación
+  `C:/dev/verif-9ac30e8c8` (junction a node_modules: para sacarlo, `cmd /c rmdir` del junction ANTES de `git worktree remove`).
+  El VERDE va a Integración para el tren-ad o el tren-ae (borrador en la carpeta compartida del Cerebro,
+  `mako-whatsapp-despachante-verde.md`).
 - **Lo de esta tanda: 4a15d0775** (el despachante), **de5778615** y **6af2bb1e0** (los rojos de tests-afectados: cableado de la
   forma vieja, el test que importaba un `server-only`, «acá», el hijo de Leandro con la pregunta del equipo viva). tsc acotado de
   la rama: 0 propios. La app se cayó a las 15:31 en medio de la verificación; se retomó igual. En detalle: `lib/despacho-grupo.ts`, el cableado en `procesarDoer` (DEBUG, delegación,
