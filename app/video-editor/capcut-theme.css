@@ -1,28 +1,35 @@
 /* =============================================================================
-   Video Editor — el tema de CapCut, limitado a `.ce`
+   Video Editor — los tokens del motor (OpenCut portado) sobre los COLORES DE MAKO, limitados a `.ce`
    =============================================================================
-   El motor portado de OpenCut está escrito con utilidades de Tailwind sobre los
-   tokens de shadcn (`bg-background`, `text-muted-foreground`, `border-border`…).
-   Tres de esos nombres YA existen en MaKo con otro valor (`--primary`, `--border`,
-   `--accent`) y el `:root` de OpenCut además pisa `--sidebar`, que es la barra
-   lateral de MaKo. Copiar su globals.css repinta la app entera.
+   Martín, 29/10/2026: «en las tabs de Editor e Image, pongas los colores de MaKo, no esos colores». Hasta ese día `.ce`
+   era la paleta MEDIDA de CapCut Desktop 9.3 (casi negro y el cian #00c1cd) y forzaba el oscuro. Ahora cada `--cc-*` es
+   un token de MaKo (app/globals.css: `:root` y `[data-tema="oscuro"]`), así que el editor sigue el tema claro u oscuro que
+   eligió la persona. Los NOMBRES `--cc-*` se quedan: los usan cientos de clases del motor, y su papel (panel, cabecera,
+   campo, hundido…) no cambió; cambió de dónde sale el color.
 
-   La receta (AGENTS.md → «Una pantalla oscura se hace redefiniendo TOKENS»):
+   El motor está escrito con utilidades de Tailwind sobre los tokens de shadcn (`bg-background`, `text-muted-foreground`,
+   `border-border`…). La receta (AGENTS.md → «Una pantalla oscura se hace redefiniendo TOKENS»):
    · los vars se definen DENTRO de `.ce`, la raíz del editor; afuera no existen;
-   · al `@theme` global sólo se le suman NOMBRES QUE NO EXISTÍAN, apuntando a esos
-     vars (afuera de `.ce` no resuelven a nada y nadie los usa);
+   · al `@theme` global sólo se le suman NOMBRES QUE NO EXISTÍAN, apuntando a esos vars;
    · el `@layer base` de OpenCut (bordes y body globales) va scopeado a `.ce`;
-   · `dark:` se ata a `.ce`: CapCut es oscuro siempre y MaKo no usa `dark:`.
+   · `dark:` sigue al tema de MaKo (`[data-tema="oscuro"]`): fuera del editor nadie usa `dark:`.
 
-   La paleta es la MEDIDA píxel a píxel sobre las capturas oficiales de CapCut
-   Desktop 9.3 (relevamiento del 11/10/2026, docs/diseno-editor-video.md). La
-   fuente de CapCut (CapCut Sans) es de ByteDance y no se copia: va Geist, la
-   de MaKo.
+   ⚠️ UN TOKEN DE MAKO NO SE REDEFINE ACÁ EN TÉRMINOS DE UN `--cc-*` QUE A SU VEZ LO LEE. `.ce { --cc-accent: var(--primary);
+   --primary: var(--cc-accent) }` es un CICLO: los dos quedan inválidos y todo lo que los usa sale transparente, sin error.
+   Por eso `--primary`, `--border`, `--bg`, `--surface`, `--ink`… ya no se tocan en `.ce` (el motor los toma tal cual de
+   MaKo), y sólo se redefinen los de shadcn que MaKo no tiene o que en MaKo son OTRA cosa (`--accent` es el ocre de MaKo:
+   en el motor, el fondo de lo que se pasa el mouse).
 
-   Este archivo lo importa app/globals.css (las directivas @theme/@custom-variant/
-   @utility sólo valen dentro de la entrada de Tailwind). */
+   ⚠️ LO QUE SE DIBUJA EN UN CANVAS LEE EL TOKEN RESUELTO (guides/reglas.tsx, timeline/components/theme.ts → `leerToken`):
+   esos (`--cc-sunken`, `--cc-panel`, `--cc-line-2`, `--cc-ruler`, `--cc-text-3`, `--cc-clip-audio-wave`) son un `var()`
+   de un color liso o un hex, nunca un `color-mix()`, que el canvas puede no entender.
 
-@custom-variant dark (&:where(.ce, .ce *));
+   La fuente de CapCut (CapCut Sans) es de ByteDance y no se copia: va Geist, la de MaKo.
+
+   Este archivo lo importa app/globals.css (las directivas @theme/@custom-variant/@utility sólo valen dentro de la entrada
+   de Tailwind). */
+
+@custom-variant dark (&:where([data-tema="oscuro"], [data-tema="oscuro"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -70,120 +77,103 @@
 
 /* OpenCut esconde barras de desplazamiento; en MaKo eso está prohibido
    (AGENTS.md → «Dos reglas de layout», regla 4). Los mismos nombres de utilidad
-   dibujan acá la barra FINA de CapCut. */
+   dibujan acá la barra FINA, con el gris de los bordes de MaKo. */
 @utility scrollbar-hidden {
   scrollbar-width: thin;
-  scrollbar-color: var(--cc-scroll, #404040) transparent;
+  scrollbar-color: var(--cc-scroll, var(--border-strong)) transparent;
 }
 @utility scrollbar-x-hidden {
   scrollbar-width: thin;
-  scrollbar-color: var(--cc-scroll, #404040) transparent;
+  scrollbar-color: var(--cc-scroll, var(--border-strong)) transparent;
 }
 @utility scrollbar-y-hidden {
   scrollbar-width: thin;
-  scrollbar-color: var(--cc-scroll, #404040) transparent;
+  scrollbar-color: var(--cc-scroll, var(--border-strong)) transparent;
 }
 @utility scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--cc-scroll, #404040) transparent;
+  scrollbar-color: var(--cc-scroll, var(--border-strong)) transparent;
 }
 
 .ce {
-  /* ── La paleta de CapCut Desktop 9.3 (medida) ─────────────────────────── */
-  --cc-app: #141414;          /* ventana, barra superior, separaciones */
-  --cc-panel: #262626;        /* cuerpo de paneles, línea de tiempo, Exportar */
-  --cc-panel-head: #303030;   /* franja de pestañas y cabeceras */
-  --cc-raised: #3b3b3b;       /* subcategorías, desplegables, segmento elegido */
-  --cc-input: #343337;        /* campos de texto, botón Menú */
-  --cc-sunken: #1c1c1c;       /* control segmentado, cajas numéricas */
-  --cc-btn-2: #4f4f4f;        /* Compartir, Cancelar, interruptor apagado */
-  --cc-scroll: #404040;
-  --cc-track-head: #2a2a2a;
-  --cc-track: #292929;
-  --cc-track-active: #2f2f2f;
-  --cc-line: #09090b;
-  --cc-line-2: #353535;
-  --cc-accent: #00c1cd;       /* EL cian: Exportar, pestaña activa, tiempo actual */
-  --cc-text: #e0e0e0;
-  --cc-text-2: #bababa;
-  --cc-text-3: #929292;
-  --cc-ruler: #555555;
-  --cc-icon: #c9c9c9;
-  --cc-icon-off: #575757;
-  --cc-track-icon: #808080;
+  /* ── El papel de cada superficie del editor, con los colores de MaKo ───── */
+  --cc-app: var(--bg);               /* ventana, barra superior, separaciones entre paneles */
+  --cc-panel: var(--surface);        /* cuerpo de paneles, línea de tiempo, Exportar */
+  --cc-panel-head: var(--surface-2); /* franja de pestañas y cabeceras */
+  --cc-raised: color-mix(in srgb, var(--ink) 8%, var(--surface)); /* subcategorías, desplegables, segmento elegido */
+  --cc-input: color-mix(in srgb, var(--ink) 5%, var(--surface));  /* campos de texto, botón Menú */
+  --cc-sunken: var(--bg);            /* control segmentado, cajas numéricas (y el fondo de la regla, en canvas) */
+  --cc-btn-2: var(--border-strong);  /* botones secundarios rellenos, interruptor apagado */
+  --cc-scroll: var(--border-strong);
+  --cc-track-head: var(--surface-2);
+  --cc-track: color-mix(in srgb, var(--ink) 3%, var(--surface));
+  --cc-track-active: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  --cc-line: var(--border-strong);
+  --cc-line-2: var(--border);
+  --cc-accent: var(--primary);       /* Exportar, pestaña activa, tiempo actual: el azul de MaKo */
+  --cc-text: var(--ink);
+  --cc-text-2: var(--dim);
+  --cc-text-3: var(--faint);
+  --cc-ruler: var(--border-strong);
+  --cc-icon: var(--dim);
+  --cc-icon-off: color-mix(in srgb, var(--faint) 50%, transparent);
+  --cc-track-icon: var(--faint);
+  /* Los clips son DATO (qué tipo de elemento es cada uno), no superficie: sus colores siguen siendo propios, oscuros y
+     saturados, con el texto claro encima, y se leen igual sobre la línea de tiempo clara y sobre la oscura (los de
+     CapCut, medidos: el de video es petróleo y no azul a propósito, para no confundirse con el audio ni los filtros). */
   --cc-clip-video: #004d52;
   --cc-clip-video-name: #1a5f64;
   --cc-clip-text: #9c4937;
   --cc-clip-audio: #0e3058;
   --cc-clip-audio-wave: #0e81b3;
   --cc-clip-audio-name: #274569;
-  --cc-beat: #f7c948;         /* puntos de ritmo bajo el clip de audio (sin medir: amarillo de CapCut a ojo) */
+  --cc-beat: var(--mako);            /* puntos de ritmo bajo el clip de audio */
   --cc-clip-sticker: #a8622a;
   --cc-clip-effect: #6a4bb0;
   --cc-clip-filter: #4e4fb3;
   --cc-clip-adjust: #a2862e;
-  --cc-select: #ffffff;
-  --cc-playhead: #ffffff;
-  /* Inicio (pc_home.png): fondo casi negro con un resplandor verde azulado
-     arriba, botones de la barra de «Proyectos» y el banner «Crear proyecto». */
-  --cc-home: #0d0d0d;
-  --cc-home-glow: #0f2123;
-  --cc-home-btn: #29292d;
-  --cc-create-from: #60d5e1;
-  --cc-create-to: #13bddc;
-  --cc-on-create: #0d0d0d;
+  /* El borde del clip elegido y el cabezal: tienen que verse sobre los clips oscuros Y sobre el fondo claro. */
+  --cc-select: var(--primary);
+  --cc-playhead: var(--ink);
 
-  /* ── Los tokens de shadcn que usa el motor, con los valores de CapCut ──── */
+  /* ── Los tokens de shadcn que usa el motor ─────────────────────────────── */
   --background: var(--cc-app);
-  --foreground: var(--cc-text);
+  --foreground: var(--ink);
   --card: var(--cc-panel);
-  --card-foreground: var(--cc-text);
-  --popover: #2d2d2d;
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
   --popover-hover: var(--cc-raised);
-  --popover-foreground: var(--cc-text);
-  --primary: var(--cc-accent);
-  --primary-foreground: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary-foreground: var(--on-primary);
   --secondary: var(--cc-raised);
-  --secondary-border: #4a4a4a;
-  --secondary-foreground: var(--cc-text);
+  --secondary-border: var(--border-strong);
+  --secondary-foreground: var(--ink);
   --muted: var(--cc-input);
-  --muted-foreground: var(--cc-text-3);
+  --muted-foreground: var(--faint);
+  /* En MaKo `--accent` es el ocre de la marca; en shadcn, el fondo de lo que se pasa el mouse. Adentro del editor, eso. */
   --accent: var(--cc-raised);
-  --accent-foreground: var(--cc-text);
-  --destructive: #f5464b;
-  --destructive-foreground: #ffffff;
-  --constructive: #3fb27f;
-  --constructive-foreground: #ffffff;
-  --caution: #f2b01e;
-  --caution-foreground: #1a1a1a;
-  --border: var(--cc-line-2);
+  --accent-foreground: var(--ink);
+  --destructive: var(--bad);
+  --destructive-foreground: var(--on-primary);
+  --constructive: var(--good);
+  --constructive-foreground: var(--on-primary);
+  --caution: var(--mako);
+  --caution-foreground: var(--criatura-tinta, #22262E);
   --input: var(--cc-sunken);
-  --ring: var(--cc-accent);
-
-  /* ── Los tokens de MaKo que se cruzan (barras de scroll globales, primitives) */
-  --bg: var(--cc-app);
-  --surface: var(--cc-panel);
-  --surface-2: var(--cc-raised);
-  --ink: var(--cc-text);
-  --dim: var(--cc-text-2);
-  --faint: var(--cc-text-3);
-  --border-strong: #4a4a4a;
-  --on-primary: #ffffff;
-  --focus-ring: 0 0 0 2px var(--cc-accent);
+  --ring: var(--primary);
 
   --ce-text-xs: 0.72rem;
   --ce-text-sm: 0.79rem;
   --ce-text-base: 0.92rem;
 
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--ink);
   font-family: 'Geist', system-ui, sans-serif;
-  color-scheme: dark;
   overscroll-behavior-x: contain;
 }
 
-/* Los paneles (biblioteca, reproductor, propiedades, línea de tiempo) son un
-   escalón más claros que la ventana, como en CapCut. */
+/* Los paneles (biblioteca, reproductor, propiedades, línea de tiempo) son la
+   superficie de MaKo sobre el fondo de la ventana. */
 .ce .panel {
   --background: var(--cc-panel);
   --card: var(--cc-panel);
@@ -198,7 +188,7 @@
   border-color: var(--border);
 }
 .ce ::selection {
-  background: rgb(0 193 205 / 0.35);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 /* Los portales de radix (menús, popovers, diálogos) se montan en <body>, FUERA

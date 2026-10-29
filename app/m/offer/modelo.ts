@@ -18,12 +18,12 @@
 import {
   DIMENSIONES, PIEZAS, avisosAfirmables, dimensionLabel,
   type ArbolOffer, type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type OfferMensaje, type OfferSesionResumen,
-  type OfferSesionVista, type PiezaKey, type PiezasSabidas, type PropuestaOferta,
+  type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import { TITULO_SUELTAS, titulosUnicos } from '@/app/offer/arbol';
 import {
-  GRUPOS_PIEZAS, VARIABLE_LABEL, contarSabidas, controlFinalDe, esOpcionArmar, esOpcionNinguna, estadoDePieza, fechaCorta, linksDe, piezasAgrupadas, reemplaza,
-  textoDeEstado, tiene, tonoDeNota, type EstadoPieza, type TonoNota,
+  GRUPOS_PIEZAS, VARIABLE_LABEL, controlFinalDe, esOpcionArmar, esOpcionNinguna, fechaCorta, linksDe, reemplaza,
+  textoDeEstado, tiene, tonoDeNota, type TonoNota,
 } from '@/app/offer/ayudas';
 
 // ── Los rótulos de escritorio ────────────────────────────────────────────────
@@ -40,6 +40,7 @@ export const ROTULOS = {
   principal: 'Principal', // arbol.ts
   sinTitulo: 'Oferta sin título', // arbol.ts
   tuOferta: 'Tu oferta', // PiezasRail.tsx
+  seArma: 'Tu oferta se arma acá mientras le contestas a MaKo.', // DocumentoVivo.tsx
   verMiOferta: 'Ver mi oferta', // PiezasRail.tsx
   diagnostico: 'Diagnóstico', // Generando.tsx y Conclusion.tsx
   ofertaNueva: 'Oferta nueva', // Generando.tsx y Conclusion.tsx
@@ -71,13 +72,15 @@ export const ROTULOS = {
 
 /** Dónde vive cada rótulo en escritorio (lo lee el test). */
 export const DONDE_VIVE: Record<keyof typeof ROTULOS, readonly string[]> = {
-  selector: ['app/offer/SelectorFunnel.tsx'],
-  elegirFunnel: ['app/offer/SelectorFunnel.tsx'],
+  // Escritorio ya no tiene selector (29/10/2026: las ofertas son la lista de la tarjeta del chat): la hoja es del teléfono.
+  selector: [],
+  elegirFunnel: [],
   nuevaOferta: ['app/offer/arbol.ts'],
   analizar: ['app/offer/arbol.ts'],
-  principal: ['app/offer/arbol.ts'],
+  principal: [], // el «Principal» del desplegable de escritorio se fue con él (29/10/2026)
   sinTitulo: ['app/offer/arbol.ts'],
   tuOferta: ['app/offer/PiezasRail.tsx'],
+  seArma: ['app/offer/DocumentoVivo.tsx'],
   verMiOferta: ['app/offer/PiezasRail.tsx'],
   diagnostico: ['app/offer/Generando.tsx', 'app/offer/Conclusion.tsx'],
   ofertaNueva: ['app/offer/Generando.tsx', 'app/offer/Conclusion.tsx'],
@@ -175,29 +178,10 @@ export const caminoEnUnaLinea = (c: { funnel: string; oferta: string }): string 
 
 // ── Las piezas («Tu oferta») ─────────────────────────────────────────────────
 
-// Los grupos son los del riel de escritorio: `GRUPOS_PIEZAS` y `piezasAgrupadas` viven en app/offer/ayudas.ts
-// (puro; PiezasRail.tsx los re-exporta). Se re-exportan aquí para quien ya los leía de este módulo.
+// Los grupos son los del riel de escritorio: `GRUPOS_PIEZAS` vive en app/offer/ayudas.ts (puro; PiezasRail.tsx lo
+// re-exporta). Se re-exporta aquí para quien ya lo leía de este módulo. Desde el 29/10/2026 «Tu oferta» es el DOCUMENTO que
+// se arma (app/offer/documento-vivo.ts, el mismo de escritorio): la cuenta «9/20» y las casillas se fueron.
 export { GRUPOS_PIEZAS };
-
-export type PiezaVisible = { key: PiezaKey; label: string; estado: EstadoPieza };
-
-/** Los grupos con sus piezas, en el orden de GRUPOS_PIEZAS, más «Más» con lo que nadie agrupó (lo mismo que escritorio). */
-export function piezasEnGrupos(piezas: PiezasSabidas): Array<{ titulo: string; piezas: PiezaVisible[] }> {
-  return piezasAgrupadas(PIEZAS).map((g) => ({
-    titulo: g.titulo,
-    piezas: g.piezas.map((p): PiezaVisible => ({ key: p.key, label: p.label, estado: estadoDePieza(piezas, p.key) })),
-  }));
-}
-
-/** «9/20» y cuánto de la barra se llena (0-100, recortado). El total sale del marco, no de un número escrito. */
-export function progresoDePiezas(piezas: PiezasSabidas): { sabidas: number; total: number; pct: number } {
-  const total = PIEZAS.length;
-  const sabidas = contarSabidas(piezas);
-  return { sabidas, total, pct: total ? Math.max(0, Math.min(100, Math.round((sabidas / total) * 100))) : 0 };
-}
-
-/** Lo que lee el lector de pantalla de una pieza (escritorio: `${label}: ${ESTADO_TEXTO}`). */
-export const ESTADO_PIEZA: Record<EstadoPieza, string> = { vacia: 'falta', negocio: 'del negocio', confirmada: 'confirmada' };
 
 // ── El chat ──────────────────────────────────────────────────────────────────
 

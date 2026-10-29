@@ -1,22 +1,33 @@
 'use client';
 
 // =============================================================================
-// InicioVideoM — el inicio del Video Editor en el teléfono, como el de CapCut del celular
+// InicioVideoM — la tab Video en el teléfono: «Nuevo video» y los proyectos de este teléfono
 // =============================================================================
-// Copiado de la app de CapCut para el teléfono (su pantalla de inicio): arriba el botón grande «Nuevo proyecto»,
-// que abre la galería del teléfono para elegir los clips; abajo «Proyectos», una fila por proyecto con su
-// miniatura, el nombre y «tamaño | duración», y su «⋯» con Renombrar y Eliminar. En CapCut del teléfono, «Nuevo
-// proyecto» va DIRECTO a elegir los clips y los pone uno detrás del otro: acá igual (`crearConClips`).
+// Martín, 29/10/2026: «En "nueva"... TEMPLATES con la sección de ¿Qué vas a crear hoy?», «para todas las secciones de
+// "create" no quiero otras tabs» y «En la computadora Y en el teléfono». Arriba, el botón grande «Nuevo video», que abre
+// «¿Qué vas a crear hoy?» con las MISMAS tarjetas que la computadora (app/video-editor/plantillas-crear.ts) y con su
+// mismo dibujo (las clases de app/_crear/crear.css):
+//   · un LIENZO (Reel, YouTube, Cuadrado, Post) abre la galería del teléfono y arma el proyecto con los clips elegidos,
+//     uno detrás del otro, en ese tamaño (lo que hace «Nuevo proyecto» de CapCut del teléfono: va DIRECTO a los clips);
+//   · «Generar con IA», el Video Generator del teléfono (/m/video);
+//   · una plantilla de anuncio, armada en un proyecto nuevo (`?plantilla=`).
+// En la computadora la caja de «¿Qué vas a crear hoy?» le escribe al chat de MaKo que está al lado; acá ese chat es otra
+// pantalla, así que va «Pídeselo a MaKo», que lleva a él (como Ads del teléfono).
+// Abajo, «Proyectos»: una fila por proyecto con su miniatura, el nombre y «tamaño | duración», y su «⋯» con Renombrar y
+// Eliminar.
 //
 // Los proyectos son los del MISMO motor y el MISMO almacenamiento que escritorio (OpenCut: IndexedDB/OPFS del
 // navegador, separados por negocio). Por eso cada aparato tiene los suyos: lo que se hizo en la computadora se abre
 // allá, y lo de este teléfono, acá (lo dice la fila de la computadora del final).
 // =============================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import '@/app/_crear/crear.css';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
+import { marcoDe } from '@/app/_crear/reglas';
+import { TITULO_CAJA } from '@/app/web-generator/CajaPedido';
 import { useEditor } from '@/app/video-editor/_opencut/editor/use-editor';
 import { importarArchivos } from '@/app/video-editor/_opencut/media/importar';
 import { buildElementFromMedia } from '@/app/video-editor/_opencut/timeline/element-utils';
@@ -26,6 +37,8 @@ import { nombreLibre, nombreProyectoNuevo } from '@/app/video-editor/_opencut/in
 import { formatoDuracionTarjeta, formatoPeso, useTamanoProyecto } from '@/app/video-editor/_opencut/inicio/tamano';
 import type { TProjectMetadata } from '@/app/video-editor/_opencut/project/types';
 import type { EditorCore } from '@/app/video-editor/_opencut/core';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
+import { GENERAR_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, type LienzoNuevo } from '@/app/video-editor/plantillas-crear';
 import {
   ComputadoraM, FilaM, ListaM, PieM, SeccionM, SheetM, SkeletonFilas, VacioM, useToastM,
 } from '@/app/m/_ui';
@@ -34,14 +47,16 @@ import { CampoM, ErrorLineaM } from '../_creacion/escritor';
 const rutaProyecto = (id: string) => `/m/video-editor/${encodeURIComponent(id)}`;
 
 /**
- * Proyecto nuevo con los clips elegidos, uno detrás del otro en la pista principal (lo que hace «Nuevo proyecto» de
- * CapCut del teléfono). El orden de los pasos es el de «Editar en el editor» (app/video-editor/desde/ImportarDesde):
- * proyecto, archivos a Multimedia por el camino de «Importar», clips en la pista principal y guardar. Si nada se pudo
- * importar, el proyecto vacío se borra: un proyecto fantasma en la lista se lee como «ya lo hice».
+ * Proyecto nuevo en el tamaño elegido con los clips elegidos, uno detrás del otro en la pista principal (lo que hace
+ * «Nuevo proyecto» de CapCut del teléfono). El orden de los pasos es el de «Editar en el editor»
+ * (app/video-editor/desde/ImportarDesde): proyecto, tamaño, archivos a Multimedia por el camino de «Importar», clips en la
+ * pista principal y guardar. El tamaño va ANTES de los clips: con la proporción fijada, el primer clip no lo pisa. Si nada
+ * se pudo importar, el proyecto vacío se borra: un proyecto fantasma en la lista se lee como «ya lo hice».
  */
-async function crearConClips(editor: EditorCore, files: File[], alAvanzar: (pct: number) => void): Promise<string> {
+async function crearConClips(editor: EditorCore, files: File[], lienzo: LienzoNuevo, alAvanzar: (pct: number) => void): Promise<string> {
   const id = await editor.project.createNewProject({ name: await nombreProyectoNuevo() });
   try {
+    await editor.project.updateSettings({ settings: lienzo, pushHistory: false });
     const medios = await importarArchivos({ editor, files, onProgress: alAvanzar });
     if (medios.length === 0) throw new Error('No se importó ningún archivo');
     const principal = editor.scenes.getActiveScene().tracks.main;
@@ -91,16 +106,19 @@ function FilaProyecto({ p, onMas }: { p: TProjectMetadata; onMas: () => void }) 
   );
 }
 
-export function InicioVideoM() {
+export function InicioVideoM({ senales = null }: { senales?: SenalesNegocio | null }) {
   const editor = useEditor();
   const router = useRouter();
   const toast = useToastM();
   const cargando = useEditor((e) => e.project.getIsLoading() || !e.project.getIsInitialized());
   const proyectos = useEditor((e) => e.project.getFilteredAndSortedProjects({ searchQuery: '', sortOption: 'updatedAt-desc' }));
+  const plantillas = useMemo(() => plantillasNuevoVideo(senales), [senales]);
   const galeria = useRef<HTMLInputElement>(null);
+  // El lienzo elegido en «Nuevo video», mientras la galería está abierta.
+  const lienzo = useRef<LienzoNuevo | null>(null);
   const [creando, setCreando] = useState<number | null>(null);
   const [error, setError] = useState('');
-  const [hoja, setHoja] = useState<'proyecto' | 'renombrar' | null>(null);
+  const [hoja, setHoja] = useState<'nuevo' | 'proyecto' | 'renombrar' | null>(null);
   // El proyecto de la hoja queda puesto mientras la hoja se va (LEEME.md).
   const [elegido, setElegido] = useState<TProjectMetadata | null>(null);
   const [nombre, setNombre] = useState('');
@@ -110,11 +128,23 @@ export function InicioVideoM() {
     if (!editor.project.getIsInitialized()) void editor.project.loadAllProjects();
   }, [editor.project]);
 
+  /** Una tarjeta de «¿Qué vas a crear hoy?». La galería se abre EN el toque (fuera de él, el teléfono no la deja abrir). */
+  const usar = (id: string) => {
+    const d = destinoDe(id);
+    if (!d) return;
+    if (d.tipo === 'ia') { router.push(GENERAR_CON_IA.movil); return; }
+    if (d.tipo === 'plantilla') { router.push(rutaDePlantilla(d.id, true)); return; }
+    lienzo.current = d.lienzo;
+    setHoja(null);
+    galeria.current?.click();
+  };
+
   const alElegir = async (files: File[]) => {
-    if (files.length === 0 || creando != null) return;
+    const tamano = lienzo.current;
+    if (files.length === 0 || creando != null || !tamano) return;
     setError(''); setCreando(0);
     try {
-      const id = await crearConClips(editor, files, (pct) => setCreando(Math.round(pct)));
+      const id = await crearConClips(editor, files, tamano, (pct) => setCreando(Math.round(pct)));
       // `creando` queda prendido: la pantalla se va, y un segundo toque no arma otro proyecto.
       router.push(rutaProyecto(id));
     } catch {
@@ -158,11 +188,10 @@ export function InicioVideoM() {
         hidden
         onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; void alElegir(fs); }}
       />
-      <button type="button" className="m-video-editor-nuevo" disabled={creando != null}
-        onClick={() => galeria.current?.click()}>
+      <button type="button" className="m-video-editor-nuevo" disabled={creando != null} onClick={() => setHoja('nuevo')}>
         {creando != null
           ? <><span className="mk-spin" aria-hidden /><span>{creando > 0 ? `Importando ${creando}%` : 'Importando…'}</span></>
-          : <><Icon name="plus" size={24} /><span>Nuevo proyecto</span></>}
+          : <><Icon name="plus" size={24} /><span>Nuevo video</span></>}
       </button>
       {error && <ErrorLineaM>{error}</ErrorLineaM>}
 
@@ -181,6 +210,25 @@ export function InicioVideoM() {
       )}
 
       <ComputadoraM que="Los proyectos de la computadora y la línea de tiempo completa" />
+
+      <SheetM id="nuevo" abierto={hoja === 'nuevo'} onCerrar={() => setHoja(null)} titulo={TITULO_CAJA} snap="alto" rotuloCerrar="Cerrar">
+        <div className="m-video-editor-plantillas">
+          <button type="button" className="m-video-editor-pedir" onClick={() => router.push('/m/mako')}>
+            <Icon name="mako" size={18} /><span>Pídeselo a MaKo</span>
+          </button>
+          <div className="cr-plantillas__grilla">
+            {plantillas.map((pl) => (
+              <button key={pl.id} type="button" className="cr-plantilla" onClick={() => usar(pl.id)} aria-label={`Usar la plantilla ${pl.nombre}`}>
+                <span className="cr-plantilla__mini" style={{ aspectRatio: '4 / 3' }}>
+                  <span className="cr-plantilla__marco" style={marcoDe(pl.formato)} />
+                  {pl.rotulo ? <span className="cr-plantilla__rotulo">{pl.rotulo}</span> : null}
+                </span>
+                <span className="cr-plantilla__nombre">{pl.nombre}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </SheetM>
 
       <SheetM
         id="proyecto"

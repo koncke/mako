@@ -368,15 +368,11 @@ export const FAMILIAS: NavFamilia[] = [
     color: '--sec-marketing',
     bloques: [
       [
-        {
-          key: 'oferta', label: 'Offer', href: '/offer', icon: 'tag',
-          match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p),
-          secciones: [
-            { key: 'offer', label: 'Offer', seccion: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
-            HERRAMIENTAS.estrategia,
-            HERRAMIENTAS.offerPlaybook,
-          ],
-        },
+        // Offer SIN pestañas desde el 29/10/2026 (Martín: «También en offer pon el mismo sistema de la sidebar... Y sin otras
+        // tabs, incluso en SuperAdmin»): la pantalla de Create (app/_crear/PantallaCrear.tsx). Lleva la key de la que era su
+        // sección, 'offer' (la miran las capas, la API y el teléfono). Strategy y Offer Playbook, del super admin, van al pie de
+        // la lista de ofertas (app/offer/OfferApp.tsx) y siguen en ADMIN_NAV por su key; la barra las marca en Offer.
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
       ],

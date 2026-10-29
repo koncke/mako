@@ -7,15 +7,15 @@
 // MISMO «Aceptar» (./aplicar.ts → aceptarPropuesta, que la revisa contra la línea de tiempo de ahora con las refs de
 // la propuesta) y, aceptada o descartada, se cierra en la base.
 //
-//   · Se buscan al abrir el editor, al volver a la pestaña y cada tanto mientras se ve. Si llega una nueva, el panel
-//     del chat se abre: quien la pidió por WhatsApp la está esperando.
+//   · Se buscan al abrir el editor, al volver a la pestaña y cada tanto mientras se ve. Si llega una nueva, lo avisa:
+//     quien la pidió por WhatsApp la está esperando (el chat ya está a la vista: desde el 29/10/2026 no se cierra).
 //   · El mensaje tiene el id de la propuesta (`api-<id>`): no se repite al volver a buscar, y si la propuesta creció
 //     (otra acción se sumó) el mensaje se actualiza mientras siga pendiente.
 //   · Una que ya no está abierta (se resolvió en otra pestaña) queda descartada en el hilo, con su aviso.
 //   · ⚠️ EL LINK ABRE ESA PROPUESTA. La API y el Ops Center mandan a `/video-editor/<p>?propuesta=<id>`, y hasta el
 //     20/10 el `?propuesta=` no lo leía nadie: el editor traía todas y abría el panel SÓLO si llegaba una nueva. Quien
 //     tocaba «Aceptar en el editor» por segunda vez caía en el editor con el chat cerrado y sin saber dónde estaba lo
-//     que venía a aceptar. Ahora el panel se abre, baja hasta esa propuesta y la resalta; si ya se resolvió, lo dice.
+//     que venía a aceptar. Ahora el chat baja hasta esa propuesta y la resalta; si ya se resolvió, lo dice.
 // =============================================================================
 
 import { toast } from "sonner";
@@ -152,7 +152,6 @@ export async function traerPropuestas(editor: EditorCore, opciones: { incluir?: 
 			}
 		}
 		if (nuevas) {
-			useChatAbierto.getState().setAbierto(true);
 			toast(nuevas === 1 ? "MaKo te propone un cambio" : `MaKo te propone ${nuevas} cambios`);
 		}
 		return { nuevas, abiertas: [...abiertas.keys()] };
@@ -194,12 +193,10 @@ export async function resolverEnServidor(
 	}
 }
 
-/** Abre el panel en la propuesta del link, o dice por qué no está. */
+/** Lleva el chat a la propuesta del link, o dice por qué no está. */
 function enfocarPropuesta(proyectoId: string, propuestaId: string, abiertas: readonly string[]): void {
 	const f = focoDePropuesta(propuestaId, new Set(abiertas), leerHilo(proyectoId).mensajes);
-	const estado = useChatAbierto.getState();
-	estado.setAbierto(true);
-	if (f.mensajeId) estado.setFoco(f.mensajeId);
+	if (f.mensajeId) useChatAbierto.getState().setFoco(f.mensajeId);
 	if (f.aviso) toast(f.aviso);
 }
 
@@ -208,7 +205,7 @@ const INTENTOS_FOCO = 20;
 
 /**
  * Busca al abrir, al volver a la pestaña y cada tanto mientras se ve (lo monta editor-page.tsx). Con `foco` (el
- * `?propuesta=` del link), la primera búsqueda se reintenta hasta que el proyecto cargó y abre el panel en ESA.
+ * `?propuesta=` del link), la primera búsqueda se reintenta hasta que el proyecto cargó y lleva el chat a ESA.
  */
 export function iniciarPropuestas(editor: EditorCore, opciones: { foco?: string | null; proyecto?: string } = {}): () => void {
 	let pendienteDeFoco = opciones.foco ?? null;
