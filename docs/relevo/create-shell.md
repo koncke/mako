@@ -15,15 +15,17 @@ Copywriter). Y después: Offer con el mismo sistema, la oferta armándose al cos
 - e9971db4a — los 5 rojos que vio AI Avatar (tests que fijaban texto de MakoEnLaTab, /m/reels y /m/carousels borradas,
   cerebro-funciones) y la cosecha de Video y Offer.
 
+- 72be0210c — Image en el shell con los colores de MaKo (agente): «Nuevo diseño» con «Carrusel de Instagram», la home de
+  Canva borrada; arreglos del shell («MaKo» en la tarjeta, rótulo de plantillas, «aquí»).
+- 49cd15779 — la misma cabecera en las tres tarjetas («MaKo» con la estrella), «Escribe a MaKo», cosecha de Image.
+
 ## Lo que falta
-- **Image** (agente en curso, archivos sin commitear en `app/image-editor/**`, `app/m/image-editor/**`, `lib/image-editor/**`,
-  tests de image-editor y `tests/fuentes-sin-next-font.test.ts`). Al terminar: commitear por ruta y sacar Image de
-  `PAGINAS_CREATE` en tests/crear-pantalla.test.ts.
-- **tsc-acotado** de toda la rama: NO corrió todavía (guardia de RAM, pausa del Cerebro y las reglas de la noche). Va por
-  `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs <archivos>`; la lista de archivos está en el scratchpad
-  (`tsc-archivos.txt`, salida en `tsc-mio.txt`).
-- **tests-afectados --base origin/main --rapido**: tampoco (lo paré al llegar las reglas de la noche). Por con-turno.
-- **Capturas** antes/después (computadora y teléfono): Claude in Chrome desconectado; el navegador integrado cae en el login.
+- **tsc-acotado** de toda la rama y después **tests-afectados --base origin/main --rapido**: lanzados en UN proceso por
+  con-turno (uno detrás del otro). Salidas en el scratchpad: `tsc-mio.txt` y `afectados.txt`. Si el chat se corta, se
+  relanzan igual: `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs $(git diff --name-only 7f36fa9c6 HEAD -- '*.ts' '*.tsx')`.
+- **Capturas**: las del banco (sin dev server) de Image están en `C:/dev/revisiones/create-shell-2910/` (antes de los
+  últimos arreglos de cabecera). Las de producción, antes y después, faltan: Claude in Chrome desconectado; el navegador
+  integrado cae en el login. Video y Offer no se vieron en un navegador.
 - Copywriting y AI Avatar los cierran sus chats en sus ramas encima de las mías (nav.ts de su bloque incluido); están
   anotados en `FALTAN_SIN_SECCIONES` / `PAGINAS_CREATE`. `/reels` redirige a `/copywriter`: la rama del Copywriter sube
   con o después de ésta.
