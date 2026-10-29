@@ -375,6 +375,7 @@ export function documentoEditable(html: string, css: string, op: { envoltorios?:
     '<style>html,body{margin:0;padding:0;background:transparent}</style>',
     '<style>' + baseLibre(op.sinBase) + '</style>',
     hojaLimpia ? '<style>' + fijo(hojaLimpia) + '</style>' : '',
+    op.sinBase ? '<style>' + CSS_CAJA_BODY_EN_EL_EDITOR + '</style>' : '',
     '</head><body><div class="' + CLASE_LIBRE + '">',
     abre + (op.sinBase ? propio.replace(/(\sstyle=")([^"]*)(")/gi, (_t, a: string, v: string, c: string) => a + conVhFijo(v) + c) : propio) + cierra,
     '</div></body></html>',
@@ -443,6 +444,14 @@ export function politicaDelEditor(html: string, css: string): string {
     "form-action 'none'",
   ].map((d) => d.trim()).join('; ');
 }
+
+/**
+ * La caja con las clases del <body> de una copia (`data-gm-copia="body"`, copia-identica.ts) envuelve a TODAS las secciones:
+ * en la publicada, una vez alrededor de la página; en el editor, una vez por sección. Su alto mínimo (`min-h-screen` en
+ * 100ads.ai) era de la página entera, y en el editor estiraba cada sección a una pantalla: un `<div>` vacío medía 900 px
+ * (29/10/2026). Sólo en el editor (`documentoEditable`).
+ */
+export const CSS_CAJA_BODY_EN_EL_EDITOR = '[data-gm-copia="body"]{min-height:0!important}';
 
 /** La ventana contra la que se mide un `vh` de una copia en el iframe del editor: 1vh = 9 px (una ventana de 900). */
 export const PX_POR_VH_EDITOR = 9;

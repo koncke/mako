@@ -78,6 +78,39 @@ export const JS_MIRAR_VISIBLES = String.raw`function () {
   } catch (e) {}
 }`;
 
+/**
+ * ¿Los hijos de esta caja van JUNTOS? (29/10/2026, Martín: «las páginas clonadas se desfasaron todas»). El server parte la
+ * copia en secciones y el editor dibuja cada una SOLA en su iframe: una caja con columnas lado a lado (el hero de
+ * tryholo.ai, el texto a la izquierda y las tarjetas a la derecha), con piezas encimadas o con un hijo absoluto, partida
+ * así queda apilada y corrida. Lo dice la geometría de la página armada, no el HTML: sí cuando un hijo visible empieza
+ * antes de que termine lo de arriba (2 px de tolerancia) o está en `absolute`. Lo fijo no cuenta (es de la ventana), lo
+ * escondido o sin tamaño tampoco, y lo `contents` cuenta por sus hijos. Una expresión de función `(el) → boolean`, aparte
+ * para que el test la corra con cajas de mentira; la usa JS_INSTANTANEA (la marca `data-gm-junto`, copia-identica.ts).
+ */
+export const JS_HIJOS_JUNTOS = String.raw`function (el) {
+  var enFlujo = function (caja, out) {
+    for (var k = 0; k < caja.children.length; k++) {
+      var h = caja.children[k], hcs = null;
+      try { hcs = getComputedStyle(h); } catch (e) {}
+      if (!hcs || hcs.display === 'none' || hcs.position === 'fixed') continue;
+      if (hcs.display === 'contents') { enFlujo(h, out); continue; }
+      out.push([h, hcs.position]);
+    }
+    return out;
+  };
+  if (!el || !el.children || el.children.length < 2) return false;
+  var hs = enFlujo(el, []), fin = -Infinity, vistos = 0;
+  for (var k = 0; k < hs.length; k++) {
+    var r = hs[k][0].getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    if (hs[k][1] === 'absolute') return true;
+    if (vistos && r.top < fin - 2) return true;
+    fin = Math.max(fin, r.bottom);
+    vistos++;
+  }
+  return false;
+}`;
+
 export const JS_INSTANTANEA = String.raw`function () {
   var d = document;
   var base = d.baseURI;
@@ -130,6 +163,8 @@ export const JS_INSTANTANEA = String.raw`function () {
     return String(s || '').replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, function (m, q, u) { return 'url("' + abs(u) + '")'; });
   };
   var medidas = { imagenes: 0, lienzos: 0, usos: 0, campos: 0, marcos: 0 };
+  // Las cajas cuyos hijos van JUNTOS (JS_HIJOS_JUNTOS, arriba): llevan «data-gm-junto» y partirParaCopia no las abre.
+  var esJunta = ` + JS_HIJOS_JUNTOS + String.raw`;
 
   var copia = d.body.cloneNode(true);
   var orig = d.body.querySelectorAll('*');
@@ -138,6 +173,7 @@ export const JS_INSTANTANEA = String.raw`function () {
   for (var i = 0; i < orig.length && i < cop.length; i++) {
     var o = orig[i], c = cop[i];
     var tag = o.tagName.toLowerCase();
+    try { if (esJunta(o)) c.setAttribute('data-gm-junto', ''); } catch (e) {}
     if (enFijo.has(o)) volver(o, c);
     else reaparecer(o, c);
     if (c.hasAttribute('style')) c.setAttribute('style', urlsDeEstilo(c.getAttribute('style')));

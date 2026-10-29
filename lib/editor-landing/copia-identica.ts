@@ -327,6 +327,35 @@ export type SeccionCopia = { html: string; envoltorios: string[] };
  * entero de respond.io (648 KB, medido el 28/10/2026) no entraba ni en el tope de una sección (`TOPES.htmlEditable`).
  */
 export const PARTIR_DESDE = 60_000;
+/**
+ * La marca de la foto en una caja cuyos hijos van JUNTOS (columnas lado a lado, piezas encimadas, un hijo absoluto:
+ * copia-identica-script.ts, `esJunta`). El editor dibuja cada sección sola en su iframe: abierta, esa caja quedaba
+ * apilada y corrida (29/10/2026, Martín: «las páginas clonadas se desfasaron todas»; medido en el hero de tryholo.ai).
+ */
+const RE_JUNTO = /\sdata-gm-junto(?:="[^"]*")?(?=[\s/>])/;
+const RE_JUNTO_TODOS = new RegExp(RE_JUNTO.source, 'g');
+/** ¿La etiqueta de apertura lleva la marca de «hijos juntos»? */
+export const esCajaJunta = (apertura: string): boolean => RE_JUNTO.test(apertura);
+/** La marca no viaja a la copia: es sólo para partirla. */
+const sinJunto = (h: string): string => h.replace(RE_JUNTO_TODOS, '');
+
+/**
+ * ¿La parte no dibuja nada? Una etiqueta sola y VACÍA (sin hijos ni texto), sin clase (una clase le puede dar alto: un
+ * espaciador `h-24` sí ocupa), y escondida (`hidden`) o absoluta. El `<div hidden>` del principio de tryholo.ai y el
+ * `<div style="position:absolute">` del final de 100ads.ai (el anunciador de rutas de Next) eran secciones propias, y el
+ * editor les daba su alto mínimo: 80 px corridos arriba en una, 900 en la otra (29/10/2026).
+ */
+export function esParteVacia(parte: string): boolean {
+  // Sin los comentarios: el `<div hidden>` de una app de React llega con sus marcas de Suspense adentro (`<!--$-->`).
+  const m = /^\s*<([a-zA-Z][\w-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>\s*<\/\1\s*>\s*$/.exec(parte.replace(/<!--[\s\S]*?-->/g, ''));
+  if (!m) return false;
+  const attrs = m[2];
+  if (/\sclass\s*=/i.test(attrs)) return false;
+  if (/\shidden(?=[\s=>/]|$)/i.test(attrs)) return true;
+  const estilo = /\sstyle\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? '';
+  return /(?:^|;)\s*position\s*:\s*absolute/i.test(estilo) && !/(?:^|;)\s*(?:width|height|min-height|inset|background)/i.test(estilo);
+}
+
 /** Las etiquetas que no son partes (las saca la foto, pero una página puede traerlas sueltas). */
 const SUELTAS = new Set(['script', 'style', 'link', 'noscript', 'template', 'meta']);
 
@@ -334,6 +363,9 @@ const SUELTAS = new Set(['script', 'style', 'link', 'noscript', 'template', 'met
  * Las secciones de la copia: baja por los envoltorios de un solo hijo hasta el primer nivel con varias partes (lo chico
  * va pegado a lo que sigue), y una parte más grande que `PARTIR_DESDE` que es UNA caja con varios hijos se abre: la caja
  * pasa a ser un envoltorio de sus hijos. Arriba de todo, la caja con las clases del <html> y del <body> de la página.
+ * Una caja con la marca de «hijos juntos» (`esCajaJunta`) NO se abre mientras entre entera en una sección
+ * (`TOPES.htmlEditable`): sus hijos no son franjas que se apilan, y separados el editor los dibuja corridos. Lo que no
+ * dibuja nada (`esParteVacia`) no es una sección.
  */
 export function partirParaCopia(inst: Instantanea): SeccionCopia[] {
   const clases = [inst.html.clase, inst.body.clase].join(' ').replace(/\s+/g, ' ').trim();
@@ -349,6 +381,9 @@ export function partirParaCopia(inst: Instantanea): SeccionCopia[] {
       const hayTexto = nodos.some((n) => n.tipo === 'texto' && actual.slice(n.inicio, n.fin).trim() !== '');
       const el = els[0];
       if (els.length !== 1 || hayTexto || !el || el.cierreInicio <= el.aperturaFin || mios.length >= PROFUNDIDAD_MAX) break;
+      // Bajando por un envoltorio de un solo hijo también: una caja con los hijos juntos que entra entera no se abre (el
+      // hero de tryholo.ai era una grilla de dos columnas a la que se llegaba así, y quedaba en dos secciones apiladas).
+      if (esCajaJunta(actual.slice(el.inicio, el.aperturaFin)) && el.fin - el.inicio <= TOPES.htmlEditable) break;
       mios.push(actual.slice(el.inicio, el.aperturaFin));
       actual = actual.slice(el.aperturaFin, el.cierreInicio);
     }
@@ -376,6 +411,11 @@ export function partirParaCopia(inst: Instantanea): SeccionCopia[] {
         const nodos = nodosDeNivel(parte);
         const els = elementos(nodos);
         const el = els.length === 1 ? els[0] : null;
+        // Sus hijos van juntos y entra entera: va así, una sección (si no entra, se parte igual: la publicada no cambia).
+        if (el && esCajaJunta(parte.slice(el.inicio, el.aperturaFin)) && parte.length <= TOPES.htmlEditable) {
+          out.push({ html: parte, envoltorios: mios });
+          return;
+        }
         if (el && el.cierreInicio > el.aperturaFin && elementos(nodosDeNivel(parte.slice(el.aperturaFin, el.cierreInicio))).length >= 1) {
           bajar(parte.slice(el.aperturaFin, el.cierreInicio), [...mios, parte.slice(el.inicio, el.aperturaFin)], profP + 1);
           return;
@@ -389,11 +429,12 @@ export function partirParaCopia(inst: Instantanea): SeccionCopia[] {
           return;
         }
       }
-      out.push({ html: parte, envoltorios: mios });
+      if (!esParteVacia(parte)) out.push({ html: parte, envoltorios: mios });
     };
     for (const parte of partes) abrir(parte, prof);
   };
   bajar(inst.cuerpo, [caja], 0);
+  for (const s of out) { s.html = sinJunto(s.html); s.envoltorios = s.envoltorios.map(sinJunto); }
   // Las piezas chicas seguidas, bajo los mismos envoltorios, van juntas: abrir lo grande de Elementor daba 116 secciones
   // de 1-3 KB en reportei.com (28/10/2026), y una página lleva hasta `TOPES.tarjetasPorPagina`.
   let juntas = juntarVecinas(out, JUNTAR_HASTA);
