@@ -43,6 +43,18 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
   Cerebro, que se lo dice a Martín y cierra su ticket (ws9, /web-generator/68). **READY 05:50: hola-mako.com sirve
   `mako-mf08d4332` (dpl_46nkYU9H…); avisados el Cerebro y el Web Generator.**
   - Fuera de tren-y: `d413ad03b` del Web Generator (las copias idénticas en el editor). Es otra pieza y necesita su VERDE.
+- **tren-z (rama `tren-z` de `C:/dev/wt-push-q`, sin subir): main `eab9c62e1` + Zernio + Planes `4b6acf1c0` (merge
+  `4e9a099d9`) + Web Generator `c3c6849bc` (las copias idénticas en el editor, merge `d45a0665f`).** Choques sólo de docs;
+  `docs/api-mako.md` regenerado. Los guiones del refutador de Planes sobre `4b6acf1c0` (salidas en
+  `C:/dev/revisiones/scratch-4b6a/`): en todos los casos de SEPA, tarjeta y segundo voucher queda UNA cuota, y sub_A se cancela
+  antes de armar B. Faltan los tests del tren; se sube con `node C:/dev/revisiones/subir-tren.mjs <log>`.
+- **Automations `0265924c6`: NO entra (re-verificación del 29/10, `C:/dev/revisiones/2910-reverificacion-automations-0265924c6.md`).**
+  Los 11 arreglos aguantan, pero el del ALTA abre una regresión. `tomadas` (app/api/webhooks/zernio/route.ts:238) cuenta
+  CUALQUIER inscripción pausada, así que el primer DM de quien ya está en una automatización de comentario sin AI Step queda
+  sin respuesta y sin aviso. Es el flujo de Leandro. Devuelto al chat, con dos bajas más. Se sacó de tren-z (reset local de un
+  merge sin subir).
+- **Pagos por tramos: VERDE `9fc4030dd`** (pagos-tramos-2910, `C:/dev/wt-pagos-tramos`; ticket #13 de Leila). Toca plata:
+  va con revisión adversarial después de tren-z.
 - **WhatsApp `450677f90` (wa-fallas-2710): NO trae lo de Leandro.** Sus 6 fallas están en `152cfcd27`, sin VERDE, y la
   ALTA 2 de su verificación sigue abierta: `pideAlgoAMaKo` calla los pedidos reales mientras hay una pregunta del equipo
   viva, una REGRESIÓN contra producción. Se le preguntó al Cerebro si entra igual o espera a `152cfcd27`.
