@@ -62,6 +62,37 @@ preguntes: hacé esto en orden.
   - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
     Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
     sugerido.
+  - **23:30, las respuestas de Martín** (desde el Centro; los cierres ya se mandaron):
+    - **Decisiones que valen así:**
+      - Zernio: NO a la cuenta de MaKo, cada negocio con la suya.
+      - No se borran los datos de las visitas de Código Inmobiliario ni de P2P.
+      - Stripe de Mauricio: «Pídeselo a Mauricio». Espera la respuesta sobre el 8122.
+      - Los chats de la nube se archivan si no les queda nada: no aparecen en mi lista, así que los archiva él.
+    - **Esperan su sí ESCRITO EN EL CHAT** (el Centro no alcanza para la base de producción):
+      - la tabla nueva de MaKo sin conexión (0346) y la de publicar desde el Calendar (0342), cada una cuando su revisión
+        salga limpia;
+      - los dos cambios del Sprint de Mauricio;
+      - la espera y el recordatorio de Brigitte.
+      - Se le pidió con un renglón para copiar.
+    - Martín no entendía «aplicar la migración»: regla en la memoria `migracion-en-palabras`.
+    - **Avisos del corte de Meta ENVIADOS a Pablo, Sergio y Patricia.** Sin «no tienes anuncios activos», que no se pudo
+      comprobar. Sólo falta P2P, que espera a Martín.
+    - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
+      links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **23:30, verificaciones:**
+    - **WhatsApp `c358fd0c4`: NO.** Dos altas: `pideAlgoAMaKo` calla los pedidos reales, y el aviso de arreglo de un
+      ticket abre la ventana para todos. Dos medias: el «dale» como acuse y la ventana que se cierra con el primer
+      mensaje. Informe en `C:/dev/revisiones/2810-verificacion-wa-c358fd0c4.md`, ya mandado.
+    - **MaKo inteligente `b2c19c445`: NO.** Alta: un closer recibe el objetivo de facturación por el nodo `objetivo`.
+      Informe en `…-mi-b2c19c445.md`, ya mandado; arregla encima de `cfab5c33a`.
+    - **VERDE de Automations `69b49a31c`** (aut-2510, todo desde 7f7e404d9): SIN verificar todavía (RAM y cuota). Después
+      del deploy, con el «dale» del Cerebro: la config del 680, «Volver a probar» en los leads 5425 y 5426, y la fila del
+      ws 9 de social_tope.
+    - Planes `e6fd6d88d`: verificación en curso (`wf_4ecaf858-5ac`).
+  - **Audios de Leandro, transcriptos:** el 316 y el 318 son la respuesta pública a comentarios (ya en el VERDE de
+    Automations). El 327 es NUEVO: los límites de Instagram y Zernio, y que MaKo le avise antes de quedarse sin, «lo que
+    menos me gustaría… que se pare la automatización… y que Maco no me avise nada». **SIN REPARTIR:** es de Automations
+    (tiene el tope) y de Zernio.
   - **22:55, Mauricio sin mensajes:** WhatsApp midió que la entrada NO está rota. En su grupo no escribe nadie desde el
     08/10, y MaKo le manda ~15 mensajes por día. Los tres participantes son el personal de Martín, MaKo y un +…8122 (la
     línea `mako_ws1`). Le pregunté a Martín si el 8122 es Mauricio: si no lo es, Mauricio no recibe nada. Cosecha en
