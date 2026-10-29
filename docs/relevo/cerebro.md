@@ -54,6 +54,16 @@ preguntes: hacé esto en orden.
   22/10; 70 PERDIDOS y 21 esperan a Martín. Arriba de todo, «Lo urgente», y abajo las fuentes que nadie leyó. Se
   repartió a los chats con dueño vivo lo urgente de cliente (ver ese documento); lo demás queda en su lista, con el
   dueño sugerido.
+  - 22:40, repartido:
+    - **Zernio:** el aviso del corte de Meta del 03/11 (arma el texto y lo manda el Cerebro) y las campañas de Joan.
+    - **MaKo en WhatsApp**, después de la tanda A: Mauricio sin mensajes desde el 04/10, los dos pedidos de Joan, el
+      dominio inventado, el Fathom de Leila y los tres audios de Leandro.
+    - **CRM**, después de las horas: Fabi Pedraza y las cifras de Joan.
+  - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
+    Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
+    sugerido.
+  - **Tres aprobaciones más a Martín** (`cartero preguntar`): los dos cambios del Sprint de Mauricio, la espera y el
+    recordatorio de Brigitte, y borrar nombre y email en ~670 visitas de Código Inmobiliario y P2P.
 - **Dos workflows corrían al escribir esto.** Otra cuenta no los reanuda, pero puede leer lo que devolvieron en
   `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/<runId>/journal.jsonl`:
   - `wf_fbaed0b3-099`, **los pedidos perdidos.** Martín: «Revisa todos los pedidos de absolutamente todos lados, a ver si
