@@ -832,11 +832,16 @@ async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: st
   const quien = data.pushName?.trim() || 'Alguien del negocio';
   // Una re-entrega del mismo mensaje (Evolution reintenta, otra línea lo entrega) no repite el aviso ni el comentario.
   const id = data.key?.id ?? '';
+  // Si el registro no se puede leer, se avisa igual: un aviso de más es mejor que una respuesta perdida (la verificación de
+  // c358fd0c4: el throw de la lectura estricta se comía la respuesta).
   if (id) {
-    const avisadas = await runWithWorkspace(wsData, () => getSettingEstricto(CLAVE_RESPUESTAS_AVISADAS));
-    const r = conLaAvisada(avisadas, id);
-    if (r.yaEstaba) return;
-    await runWithWorkspace(wsData, () => setSetting(CLAVE_RESPUESTAS_AVISADAS, JSON.stringify(r.ids)));
+    const avisadas = await runWithWorkspace(wsData, () => getSettingEstricto(CLAVE_RESPUESTAS_AVISADAS)).then((v) => ({ v }), () => null);
+    if (avisadas) {
+      const r = conLaAvisada(avisadas.v, id);
+      if (r.yaEstaba) return;
+      await runWithWorkspace(wsData, () => setSetting(CLAVE_RESPUESTAS_AVISADAS, JSON.stringify(r.ids)))
+        .catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude anotar la respuesta avisada: ${e instanceof Error ? e.message : String(e)}`));
+    }
   }
   if (a.ticket && (await sumarAlPedidoDelNegocio(wsData, a.ticket, `${quien}: ${texto}`).catch(() => false))) return;
   const negocio = (await getWorkspace(wsData).catch(() => null))?.nombre ?? `ws${wsData}`;

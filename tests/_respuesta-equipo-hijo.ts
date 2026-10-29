@@ -26,9 +26,16 @@ const pg = crearPostgrest({
   unicos: [{ tabla: 'mako_doer_buffer', columnas: ['grupo_jid', 'wa_message_id'], donde: (f) => f.wa_message_id !== '', nombre: 'ux_doer_buffer_msg' }],
 });
 const red: Array<{ camino: string; cuerpo: string }> = [];
+let fallaAvisadas = false;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
-  if (u.host === 'supa.test') return pg.responder(u, init);
+  if (u.host === 'supa.test') {
+    // La lectura del registro de re-entregas que falla (la verificación de c358fd0c4): la respuesta no se pierde.
+    if (fallaAvisadas && (init.method ?? 'GET') === 'GET' && u.pathname.endsWith('/app_settings') && u.search.includes('mako.equipo.respuestas')) {
+      return new Response(JSON.stringify({ message: 'se cayó la base' }), { status: 503, headers: { 'content-type': 'application/json' } });
+    }
+    return pg.responder(u, init);
+  }
   red.push({ camino: u.pathname, cuerpo: typeof init.body === 'string' ? init.body : '' });
   return new Response(JSON.stringify({ key: { id: `env-${red.length}` } }), { status: 200, headers: { 'content-type': 'application/json' } });
 }) as typeof fetch;
@@ -90,6 +97,11 @@ async function main() {
   //      Con la pregunta a Leila (EQ-4) todavía viva, lo que escribe OTRA persona es para MaKo.
   await equipo('EQ-5', 'Listo: lo de «¿Se pueden responder comentarios como ManyChat?» ya quedó. Pruébalo y me cuentas.');
   await paso('avisoArreglo', () => de(SOFI, 'Sofi', 'SO-2', 'Tal cual como lo hace manychat'));
+  // 10c. Otra pregunta, y la respuesta con el registro de re-entregas que no se puede leer: el aviso sale igual.
+  await equipo('EQ-6', 'Leila, ¿la cuota es en pesos?');
+  fallaAvisadas = true;
+  await paso('sinRegistro', () => de(LEILA, 'Leila', 'LE-7c', 'sí, en pesos mexicanos'));
+  fallaAvisadas = false;
   // 11. De control: MaKo habló DESPUÉS de la pregunta; un mensaje sin nombrarla es para MaKo.
   pg.db.mako_doer_conv.push({ id: ++n, workspace_id: WS, grupo_jid: JID, role: 'assistant', content: 'Hoy entraron 4 leads.', created_at: new Date(Date.now() + 1000).toISOString() });
   await paso('makoHablo', () => de(LEILA, 'Leila', 'LE-8', 'es el de pruebafm, sí'));
