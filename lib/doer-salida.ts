@@ -477,6 +477,71 @@ export function sinLoQueMaKoNoDice(texto: string, { escuchoUnAudio = false }: { 
   return { texto: [queda, ...verdades].filter(Boolean).join('\n\n'), borrar, producto, audios, ticket: borrar.length + producto.length > 0 };
 }
 
+// ── LAS MULETILLAS Y EL RELLENO (29/10/2026, Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp») ──────────
+// Medido en los grupos reales del 21 al 29/10: «Te voy a ser directo, Martín: …», «Seamos honestos: tienes razón en que…», «Te entiendo
+// perfecto y tienes toda la razón en cada punto», «Mira… …», y oraciones que son SÓLO relleno: «te agradezco que lo estés tomando»,
+// «Ya tomé nota para barrer…» (sin nada que lo respalde), «MaKo ya tiene tu contexto», «Bien ahí por la velocidad», «Tiene todo el
+// sentido…», «Quedo atento». El prompt las prohíbe; esto las saca igual, porque el modelo las vuelve a meter.
+
+/** La muletilla de la PUNTA de una oración, hasta su puntuación: «Te voy a ser directo, Martín:», «Mira…», «Perfecto.», «Entendido,». */
+const MULETILLA_AL_PRINCIPIO = new RegExp(String.raw`^[\s¡]*(?:` + [
+  String.raw`te\s+(?:voy\s+a\s+ser|soy)\s+(?:directo|directa|sincero|sincera|honesto|honesta|clar[oa])(?:\s*,?\s*\p{L}+)?`,
+  String.raw`(?:seamos|siendo|para\s+ser)\s+(?:honest[oa]s?|sincer[oa]s?|direct[oa]s?|clar[oa]s?)`,
+  String.raw`mira`,
+  String.raw`ojo(?:\s+con\s+esto)?`,
+  String.raw`(?:te\s+)?entiendo(?:\s+perfect(?:o|amente))?`,
+  String.raw`entendido(?:\s+perfectamente)?(?:\s*,?\s*\p{L}+)?`,
+  String.raw`(?:perfecto|excelente|genial|buen[ií]simo|de\s+una|dale)`,
+].join('|') + String.raw`)\s*(?:…|\.{3}|[:,.!—-])+\s*`, 'iu');
+
+/** La oración que es SÓLO relleno, aunque arranque con «te entiendo (perfecto) y …». Se va entera. */
+const ORACION_DE_RELLENO = new RegExp(String.raw`^[\s¡]*(?:(?:te\s+)?entiendo(?:\s+perfect(?:o|amente))?\s*,?\s*y\s+)?(?:` + [
+  String.raw`(?:tienes|ten[eé]s|tiene)\s+(?:toda\s+la\s+)?raz[oó]n`,
+  String.raw`te\s+agradezco`,
+  String.raw`gracias\s+por\s+(?:avisar|contarme|la\s+paciencia|tu\s+paciencia|tomarte)`,
+  String.raw`es\s+una\s+clave\s+(?:gigante|enorme|important[ei]s?)`,
+  String.raw`tiene\s+todo\s+el\s+sentido`,
+  String.raw`quedo\s+atent[oa]`,
+  String.raw`seguimos\s+firmes`,
+  String.raw`(?:ya\s+)?tom[eé]\s+nota`,
+  String.raw`(?:mako\s+)?ya\s+tiene\s+tu\s+contexto`,
+  String.raw`arrancamos\s+con\s+todo`,
+  String.raw`bien\s+ah[ií](?!\p{L})`,
+  String.raw`buen\s+ritmo`,
+].join('|') + ')', 'iu');
+
+export type SinMuletillas = { texto: string | null; muletillas: string[] };
+
+/**
+ * La respuesta sin las muletillas de la punta de cada oración ni las oraciones de puro relleno. `texto` es null si no queda nada
+ * que valga la pena mandar (menos de 15 letras): para un acuse, eso es lo correcto (va la reacción). Una marca de ticket no se toca.
+ */
+export function sinMuletillas(texto: string): SinMuletillas {
+  const muletillas: string[] = [];
+  // Lo que queda arranca con mayúscula, como lo escribiría quien no puso la muletilla («Mira…» suele ser su propia oración).
+  const mayuscula = (s: string): string => s.replace(/^(\s*[¡¿«"“(]*)(\p{Ll})/u, (_x, a: string, b: string) => a + b.toUpperCase());
+  const lineas = oraciones(texto).map((ors) => {
+    const quedan = ors.map((o) => {
+      if (esMarca(o)) return o;
+      let r = o;
+      // Puede haber dos seguidas («Mira, te voy a ser directo: …»).
+      for (let i = 0; i < 3; i++) {
+        const m = MULETILLA_AL_PRINCIPIO.exec(r);
+        if (!m) break;
+        muletillas.push(m[0].trim());
+        r = r.slice(m[0].length);
+      }
+      if (ORACION_DE_RELLENO.test(r)) { muletillas.push(r.trim()); return ''; }
+      return r === o ? o : mayuscula(r);
+    }).filter((o) => o.trim());
+    const linea = quedan.join(' ').trimEnd();
+    return quedan.length && quedan[0] !== ors[0] ? mayuscula(linea) : linea;
+  });
+  if (!muletillas.length) return { texto, muletillas };
+  const limpio = lineas.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return { texto: (limpio.match(/\p{L}/gu) ?? []).length >= 15 ? limpio : null, muletillas };
+}
+
 /** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
 export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 
