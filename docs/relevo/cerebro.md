@@ -61,8 +61,11 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
   columna): se toma esa y no las dos sueltas. La 0340 ya está en la base.
 - **⚠️ Choque de número 0340:** `motion-imagen-2610` (Video/Image Editor) trae otra `0340_image_editor_propuestas.sql`. Al
   entrar esa rama, la que se RENUMERA al siguiente libre es la del Image Editor: la del CRM es la que está en la base.
-- **Cómo se sube (igual que claude4):** `node scripts/pausa-cerebro.mjs prender "<motivo>"`, `MAKO_TIPOS_SOLO_TANDAS=1
-  MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main` en segundo plano, y `apagar` al terminar. La
+- **Cómo se sube (cambió el 29/10, 04:20):** la pausa NO se prende para el push (con con-turno traba el lock de tipos:
+  docs/hallazgos-infra.md, «La pausa TRABA el push»). Se espera la fila de tipos vacía y RAM ≥ 5,2 GB (si falta, se cierra
+  Chrome con `taskkill` sin /F) y `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin
+  HEAD:main` en segundo plano. Lo hace solo el guion del scratchpad de Integración `subir-cuando-libre.ps1` (copia en
+  `C:/dev/revisiones/subir-cuando-libre.ps1`). La
   rama `integracion` NO avanza main (sin Actions): el push de docs de claude4 a las 01:40 quedó ahí (`5d36f97d5`).
 
 ## Estado al escribir — RELEVO FINAL de claude4 (29/10 ~00:55 ART, semana al 95 %; la cuenta arrancó el 27/10 20:33)
