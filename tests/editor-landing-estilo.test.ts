@@ -368,7 +368,8 @@ test('el lector: lee el estilo antes de tocar nada y lo manda; MaKo lo sanea y l
   assert.ok(JS_LECTOR.includes('function leerEstilo()'));
   const lee = JS_LECTOR.indexOf('estiloLeido = leerEstilo()');
   assert.ok(lee > 0 && lee < JS_LECTOR.indexOf('tocando = true;'), 'el estilo se lee después de tocar botones (con un modal abierto)');
-  // (28/10/2026: el mensaje final suma la foto de la copia idéntica cuando MaKo la pidió; 29/10: sin foto, su motivo)
+  // (28/10/2026: el mensaje final suma la foto de la copia idéntica cuando MaKo la pidió; 29/10: y si no salió, su motivo,
+  // tests/web-generator-foto.test.ts)
   assert.match(JS_LECTOR, /parcial: !!parcial \|\| tarde\(\), estilo: estilo \};\s*if \(foto\) final\.foto = foto;\s*else if \(conFoto\) final\.sinFoto = [^;]+;\s*mandar\(final\);/);
   const m = sanearMensajeLectura({ tipo: 'mako-lectura', id: 'abcdefghijklmnopQRSTUV_-12', fase: 'fin', camino: 'ventana', titulo: 'T', ms: 1, quieto: true, parcial: false,
     piezas: [{ tipo: 'texto', texto: '# Crece tu negocio hoy' }], estilo: LEIDO }, { id: 'abcdefghijklmnopQRSTUV_-12', url: URL_L });

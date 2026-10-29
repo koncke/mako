@@ -9095,3 +9095,14 @@ Web Generator en producción.
 - **Un `GET /web-generator` 200, de a dos por segundo y junto con `/crm`, `/plan`, `/offer`…, es el PREFETCH del menú**, no
   alguien entrando. Una entrada de verdad es un 307 (la carga directa) seguido de `/web-generator/<id>`, o un
   `/web-generator/<id>` suelto. Sin sesión, el prefetch da 307 a `/login` en todas las tabs a la vez.
+
+## tests-afectados cuenta como rojos los `todo` cuando el reintento aislado tiene un rojo de verdad (29/10/2026, claude3)
+
+**Vive en:** `scripts/tests-afectados.mjs`, el reintento AISLADO de lo que dio rojo en un proceso compartido.
+
+Una corrida dio «Rojos: chats-mako-envio, doer-recetas-video-imagen, editor-landing-estilo». Sólo el tercero era rojo. Los
+otros dos tienen un `todo` que falla a propósito en main (dependen de la rama mako-wa), y corridos solos dan `fail 0`. Los
+tres archivos se repiten juntos en UNA tanda: el rojo de verdad hace salir con código distinto de 0, y `leerResultado`
+toma los archivos de la lista «✖ failing tests», donde node pone también los `todo` que fallan. **Regla:** antes de
+perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). **Sin hacer:** que el reintento separe los
+`todo` (el arreglo es del parser, en `leerResultado`).
