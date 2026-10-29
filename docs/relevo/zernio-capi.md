@@ -255,3 +255,40 @@ el árbol no tiene.
 
 `tests/zernio-conectar-redes.test.ts` → «la pantalla: la ventana se abre EN el clic…»: la regex no encuentra
 `if (errorDeVentana) { fallar(…) }` en `app/_components/ConectarViaZernio.tsx`, que esta rama no toca (rojo de main).
+
+## RELEVO 28/10 noche (claude4, cortó por cuota): arreglos de la verificación 2810-verificacion-zernio-bef5bfcd3.md
+
+Informe: C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md. El Cerebro: «Cada arreglo, con su test probado rompiéndolo.
+Cuando esté, mandame VERDE sin tipos con el sha». NADA de esto está commiteado (sólo este relevo): el código vive SIN COMMITEAR
+en C:/dev/wt-zernio-2510 (git status lo muestra). No se corrió ningún test ni tsc de esta ronda.
+
+HECHO en código (sin probar):
+- 0342: publicacion_intento, publicacion_clave, estado 'dudosa'.
+- lib/calendario-publicar-reglas.ts: dudosa, esFallaDudosa (status 0 o >=500), huellaParaConfirmar, TOPE_TITULO_YOUTUBE.
+- lib/calendario-publicar.ts (reescrito): cuenta validada contra las del negocio (guardar y programar); timeout/5xx -> 'dudosa'
+  (no 'fallo'); reintento con el MISMO requestId si fue hace <4 min; 'programando' trabado >10 min -> dudosa; publicacion_clave
+  (huella de la apiKey) y cancelar con clave distinta -> error, no «cancelado»; noQuedoProgramada; huellas del «sí» de la API.
+- lib/calendario.ts: mover/tildar/borrar con la condición EN la escritura (sinPublicacionEnCurso); el Deshacer no devuelve la cuenta.
+- app/calendario: actions (error de tildar/borrar, noQuedoProgramadaAction), CalendarioApp, PublicarEnRed (bloque dudosa).
+- lib/api-mako/areas/calendario.run.ts: resumen con la cuenta y payload.huellas; ejecutar pasa { huellas }.
+- lib/api-mako/rest.ts: POST /calendario/publicaciones/programaciones y GET /contenido/rendimiento-redes; recursos.ts título.
+- Orgánico: organico-reglas (diaLocal, noEntregadasDe, sinMetricas por syncStatus pending/unavailable — enum de la doc de
+  Zernio: synced|pending|partial|unavailable —, textoOrganico de la casa); zernio-organico (cuenta nombrada que no está = error
+  con las conectadas; faltan con no entregadas y sin sincronizar; textos con byok false); contenido.run.ts fecha con diaLocal(tz).
+- lib/zernio-conectar.ts: esDeLaCasa(ws, usada) = ws1 o byok false (la cuenta prestada), en fallo() y conexionesViaZernio.
+
+FALTA (en este orden):
+1. tests/_calendario-publicar-hijo.ts: programar ahora valida la cuenta -> mockear Zernio GET /profiles y /accounts (acc_ig_1
+   en el perfil del ws3) y lo que pida contexto() (zernio_workspace). Casos nuevos: cuenta ajena (guardar y programar), timeout
+   -> dudosa sin duplicar, reintento mismo x-request-id, trabado -> dudosa, clave cambiada en cancelar, carrera mover/borrar,
+   huellas en la API (cambio entre resumen y «sí»), YouTube >100, marcar programada. (j) del hijo: el 409 NO es «24 h».
+2. tests/organico-reglas + _organico-hijo: diaLocal (01:30Z -> 27/10 en BA), syncStatus pending -> null y en faltan,
+   unavailableMetrics en faltan, cuenta nombrada que no está, 402 con byok false sin «tu cuenta». tests/zernio-conectar-redes
+   (o uno nuevo): prestada + 402 -> 'error' sin pagoUrl.
+3. Probar rompiendo cada arreglo (scripts romperN.mjs en el scratchpad).
+4. node --import tsx scripts/generar-api-doc.mjs (docs/api-mako.md y tests/api-mako-http.snapshot.txt).
+5. tsc: node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs --heap=3000 <los .ts tocados>; tests de a uno (api-mako-rest,
+   sin-instagram, calendario, m-calendario, integracion-sin-salir, puente-panel-copy, confirmacion-terceros, zernio-*, organico*).
+6. Cosecha: docs/hallazgos-calendario.md (CORREGIR la línea del 409 «dentro de 24 h»; dudosa, clave, condición en la escritura),
+   docs/hallazgos-integraciones.md (orgánico: UTC, syncStatus, unavailableMetrics, de la casa; DUDA sin medir: en qué zona filtra
+   Zernio fromDate/toDate), índice docs/hallazgos.md. Commit por ruta, firmado; SendMessage al Cerebro «VERDE sin tipos <sha>».
