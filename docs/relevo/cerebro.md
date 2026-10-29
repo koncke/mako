@@ -33,6 +33,28 @@ preguntes: hacé esto en orden.
    El 28/10 había cinco chats de la nube 13 horas sin entregar (esperaban aprobaciones que nadie vio), tres ramas
    `nube/*` sin integrar y el ticket #15 de Leila sin dueño. Un chat de la nube NO le avisa al Cerebro: se lo mira.
 
+## Integración — los TRENES de claude3 (29/10 desde ~02:30 ART; lo arma el chat «Cerebro › Integración»)
+
+Integración arma y chequea cada tren en `C:/dev/wt-push-q` (rama `tren-y`, la que antes era tren-x) y lo sube; el Cerebro de
+claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 de más abajo.
+- **tren-y = main `7f36fa9c6` + los docs de claude4 + el P0 de Martín: la foto de Replicar** (`a24437bb3`, rama
+  `web-generator-foto-2910`, merge `531bb04da`). Guardas en verde; los tests del tren corren. Al desplegarse: avisarle al chat
+  Web Generator (`local_12107aea`) y cerrar el ticket de Martín (ws9, /web-generator/68) con el aviso.
+- **Zernio `8d48ef4c3` + `df3f9bebf`: sus arreglos PASAN** (re-corrí el refutador de la verificación sobre `df3f9bebf`, en
+  `C:/dev/verif-df3f9bebf`; scripts y salida en `C:/dev/revisiones/scratch-df3f/`). Las dobles publicaciones de «Reintentar»
+  (R1a-d, también con el replay `{existingPost}`), los 4xx (R2), el «Deshacer» (R5) y la carrera (R6) dejan UN post o frenan;
+  la clave cambiada (R7) dice «Ya lo resolví en Zernio». R3b deja dos posts sólo si la persona aprieta «No quedó programada»
+  sabiendo que quedó: ahora tiene el botón correcto. `resolverEnZernio` escribe con `getTenantDb` y con la condición.
+- **⛔ Pero Zernio NO entra todavía:** lleva Planes hasta `d15b4ec1d`, con la MEDIA «un pago OXXO, Boleto o SEPA que falló no se
+  puede reintentar» (regresión de d15b4ec1d, `C:/dev/revisiones/2810-verificacion-a196d5a93.md:193`) y MAU-10. El arreglo
+  está en Planes `ddfa645d4`, que dio NO con TRES ALTAS (SEPA de suscripción que arma otra sin cancelar la primera, dos
+  casos; el plan a mano `ya_tenia_cuenta` sin alta). No hay chat de Planes en claude3: se le propuso al Cerebro dárselas al
+  chat Zernio (`local_4a831c28`). Los dos rojos de Zernio (puente-panel-copy y cobro-lanzamiento) los arreglan `a196d5a93` y
+  `94633ec58`, de Planes: entran solos al mezclar Planes.
+- **Cómo se sube (igual que claude4):** `node scripts/pausa-cerebro.mjs prender "<motivo>"`, `MAKO_TIPOS_SOLO_TANDAS=1
+  MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main` en segundo plano, y `apagar` al terminar. La
+  rama `integracion` NO avanza main (sin Actions): el push de docs de claude4 a las 01:40 quedó ahí (`5d36f97d5`).
+
 ## Estado al escribir — RELEVO FINAL de claude4 (29/10 ~00:55 ART, semana al 95 %; la cuenta arrancó el 27/10 20:33)
 
 **Si Martín te escribe «Continua»:** la regla del 97% (28/10) deja a cada chat con su relevo commiteado y anota dónde en
