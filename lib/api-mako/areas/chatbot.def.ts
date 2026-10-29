@@ -638,6 +638,8 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
           // Ticket #17 de Leandro (28/10/2026): las palabras clave del CRON de comentario, como ManyChat.
+          // ⚠️ CORTAS A PROPÓSITO (ticket #29, 29/10/2026): alargadas, las herramientas no entraban en el presupuesto del turno
+          // (tests/ops-center-bateria). Cómo se comparan, con ejemplos, está en la guía de /docs (app/api-mako/Articulos.tsx).
           { nombre: 'palabras', tipo: 'string[]', max: 20, descripcion: 'con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario.' },
           { nombre: 'coincidencia', tipo: 'string', enum: ['contiene', 'exacta'], descripcion: 'con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra).' },
           {

@@ -594,9 +594,13 @@ async function keyDeSeguimiento(ws: number): Promise<string | null> {
   return credDelClienteEstricta('ZERNIO_API_KEY', ws);
 }
 
-/** Un GET /accounts/{id}/follow-status/{igsid}, sin pasar por alto la caché de Zernio (`refresh=false`). */
-async function consultarSeguimiento(apiKey: string, accountId: string, igsid: string): Promise<boolean | null> {
-  const r = await zFetch<unknown>(apiKey, `/accounts/${encodeURIComponent(accountId)}/follow-status/${encodeURIComponent(igsid)}?refresh=false`, undefined, TIMEOUT_SEGUIMIENTO_MS);
+/**
+ * Un GET /accounts/{id}/follow-status/{igsid}. Con la caché de Zernio (`refresh=false`, que guarda la respuesta «briefly»
+ * por cuenta y persona), salvo `fresco`: quien ACABA de decir que siguió la cuenta («Ya te sigo», ticket #29 de Leandro).
+ * La doc de Zernio: «Pass refresh=true right after asking someone to follow, so a follow from a moment ago is visible».
+ */
+async function consultarSeguimiento(apiKey: string, accountId: string, igsid: string, fresco = false): Promise<boolean | null> {
+  const r = await zFetch<unknown>(apiKey, `/accounts/${encodeURIComponent(accountId)}/follow-status/${encodeURIComponent(igsid)}?refresh=${fresco ? 'true' : 'false'}`, undefined, TIMEOUT_SEGUIMIENTO_MS);
   return seguimientoDe(r);
 }
 
@@ -620,6 +624,7 @@ export async function estadoDeSeguimiento(ws: number, accountId: string, igsid: 
 export async function estadosDeSeguimiento(
   ws: number,
   pedidos: ReadonlyArray<{ leadId: number; accountId: string; igsid: string }>,
+  o: { fresco?: boolean } = {},
 ): Promise<Map<number, boolean | null>> {
   const out = new Map<number, boolean | null>();
   if (!pedidos.length) return out;
@@ -632,7 +637,7 @@ export async function estadosDeSeguimiento(
     const key = varias ? (await cfgDeCuenta(ws, p.accountId)).apiKey : apiKey;
     if (caidas.has(key)) { out.set(p.leadId, null); return; }
     try {
-      out.set(p.leadId, await consultarSeguimiento(key, p.accountId, p.igsid));
+      out.set(p.leadId, await consultarSeguimiento(key, p.accountId, p.igsid, o.fresco === true));
     } catch (e) {
       if (!(e instanceof ZernioError) || !seguimientoNoSe(e.status)) throw e;
       if (e.status === 401 || e.status === 402) caidas.add(key);

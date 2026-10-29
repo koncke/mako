@@ -4,6 +4,21 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
+## LO ÚLTIMO: 29/10/2026 tarde, cuenta 3 (claude3), sesión local_7f005343: el ticket #29 de Leandro
+
+**Lo pedido** (el Cerebro, con `mako_doer_conv` 1716): «Ya te sigo» vuelve a «¿Te sigue en Instagram?» y no hace nada; y que
+/docs explique las palabras clave del disparador. El punto 3 (MaKo le contestó con un borrador del Plan) es del chat de MaKo
+en WhatsApp: no se tocó.
+
+**Lo hecho** (main mezclado en 9ae15da85; la cosecha en docs/hallazgos-chatbot.md, la regla en AGENTS.md): el diagnóstico
+del ticket («no puede volver a una tarjeta de antes») era el equivocado: la base muestra que volvía. Eran (1) la clave de
+Zernio sin la pasada (el segundo «Seguinos» era la respuesta guardada), (2) el toque rápido tirado como doble y (3)
+«¿te sigue?» de la caché. Más el tope de 10 toques por vuelta. La guía nueva de /docs: «Palabras clave y botones de
+Instagram» (app/api-mako/Articulos.tsx). Test por el webhook de verdad: tests/boton-vuelve-a-la-condicion.test.ts con
+tests/_boton-vuelve-hijo.ts (8 roturas, todas en rojo). Hito con `tickets: [29]` en app/admin/dev/chatbot/bitacora.ts.
+**Sin hacer:** el tope deja sin recurso a quien tocó 10 veces sin seguir; un «fallo» que Zernio sí entregó no cuenta como
+pasada. Probarlo con la cuenta de Leandro después del deploy (con «Volver a probar» en su ficha).
+
 ## LO ÚLTIMO: 29/10/2026 madrugada, cuenta 3 (claude3), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 9df736464)
 
 **Lo pedido:** el Cerebro verificó 69b49a31c con refutador y NO entró al tren: 1 ALTA, 6 medias y 5 bajas (informe con la
@@ -27,6 +42,14 @@ docs/hallazgos.md):
 - 8287ce624 — baja: la difusión que terminó se pausa sola (clave `difusion-…`, `pausarDifusionesTerminadas` en la corrida
   de la hora).
 - 9df736464 — merge de origin/main (dos choques de docs, quedan los dos lados).
+- La reverificación de Integración sobre 0265924c6 (NO entró: 1 MEDIA-ALTA, 2 bajas), arreglada y re-verificada con SU arnés
+  (C:/dev/revisiones/scratch-0265/ig-refuta/_hijo.mts; las salidas de la segunda vuelta en scratch-f8a1/):
+  - b3d734055 — MEDIA-ALTA, regresión de 5e67180c7: `tomadas` contaba inscripciones PAUSADAS, y una automatización sin AI
+    Step también se pausa: el primer DM quedaba sin respuesta. Ahora el webhook mira `atencion.contestada` (lo llenan el AI
+    Step de la respuesta o la charla abierta; `seguirCharla` devuelve si contestó).
+  - 88cf6bbd7 + f8a13def3 — la difusión pausada: el mismo pedido la vuelve a prender (sin `aunqueDuplique`: la pudieron
+    editar mientras estaba pausada) y suma a los que faltan.
+  - d8516957f — sin zona del negocio se frena sólo el recordatorio de los días siguientes (`necesitaLaZona`); el primer aviso sale.
 
 **La media que no es de Automations:** `HojaDifusion` no está montada. El enganche (`onMandarMensaje` en
 app/crm/AccionesLoteLeads.tsx y app/crm/seleccion-difusion.ts) está en la rama `crm-lote-2810`, que todavía no está en main.
@@ -57,7 +80,15 @@ Acordado con Zernio (29/10): el texto dice «llevas CERCA DE X enviados DESDE MA
 desde el inbox de Zernio no se ve). Cuando el motor guarde las partes y marque la pública en `nutricion_envios`, se le pasa a
 Zernio la columna (o el `asunto`) y él ajusta `usoZernioDelCiclo`, que es suyo. zernio-2510 tiene VERDE (4b6acf1c0).
 
-**Verificación:** ver el VERDE al Cerebro (tsc-acotado y tests-afectados sobre la punta con main mezclado).
+**Dónde está (29/10, mañana):** f8a13def3 aguantó el arnés de Integración y entró al tren `tren-z` (merge ff8ec04b6) junto
+con Zernio + Planes y las copias del Web Generator; corren los tests del tren entero y Integración avisa cuando esté Ready.
+Después del deploy y con el «dale» del Cerebro: la fila `social_tope` del ws9 (la mudanza), la config de la 680 y «Volver a
+probar» de los leads 5425/5426.
+**⚠️ lib/zernio.ts: partir de tren-z (o de main, cuando entre).** En el tren, `keyDeSeguimiento` vuelve a
+`credDelClienteEstricta('ZERNIO_API_KEY', ws)`: la rama de Zernio la había pasado a la cuenta de la plataforma, contra la
+decisión de Martín (una cuenta por negocio) y contra tests/condiciones-instagram y tests/zernio-sin-respaldo.
+**Verificación:** tsc-acotado limpio (sólo los 14 de _opencut) y tests-afectados ✔ VERDE sobre f8a13def3 (5960 tests de 596
+archivos).
 
 ## 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
 

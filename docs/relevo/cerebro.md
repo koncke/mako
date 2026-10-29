@@ -35,25 +35,42 @@ preguntes: hacé esto en orden.
 
 ## Integración — los TRENES de claude3 (29/10 desde ~02:30 ART; lo arma el chat «Cerebro › Integración»)
 
-Integración arma y chequea cada tren en `C:/dev/wt-push-q`, salvo tren-aa, que va en `C:/dev/wt-push-aa` por el
-node_modules. Después lo sube. El Cerebro de claude3 es `local_428051c1`. Esto vale por encima del estado de claude4 de más
-abajo.
-- **AHORA (29/10 ~10:45): main = `9f8216dc8`, tren-z EN PRODUCCIÓN** (`mako-fkchtlw76`, Ready 10:27; avisado el Cerebro).
-  Tablas APLICADAS el 29/10 por el Cerebro con el sí de Martín: 0340 (la papelera del CRM), 0342 (publicar desde el
-  Calendar: publicar ya no dice «falta la migración») y 0343 (las columnas `cerebro_*` de tickets; su código entra con el
-  VERDE de MaKo en WhatsApp). Esperan: 0344 (el Image Editor, que renumera su 0340) y 0346 (MaKo sin conexión).
-- **tren-aa (Create), en `C:/dev/wt-push-aa`, rama `tren-aa`, sobre tren-z.**
-  - **Mezclados:** Copywriter en Notion `544991179` (trae el shell de Create, `b57b67268`) y AI Avatar `3020bfbbc`.
-  - **Faltan:** CRM fiscal `b39a42ba7` y la difusión de Leila `crm-difusion-2910` @ `d462f9c6c` (trae aut-2510 y crm-lote).
-  - **⚠️ El node_modules es un JUNCTION a `C:/dev/wt-copywriter-notion/node_modules`,** porque el común no tiene BlockNote
-    ni Mantine (docs/hallazgos-infra.md, «Esperar con el turno tomado»). El push sale desde `C:/dev/wt-push-aa`. Después del
-    deploy, `npm ci` en el clon principal.
-  - **Revisión dura pendiente (el Cerebro): la mudanza del Copywriter,** que escribe en producción la primera vez que cada
-    negocio abre la tab. Tiene que COPIAR sin borrar, ser idempotente con dos pestañas a la vez y no romper ws1. También la
-    puerta pública que escribe (`/api/compartido/guion`).
-  - **Sube también un arreglo de Integración:** `tipos-respaldo-push.mjs` espera la RAM ANTES del lock.
-- **WhatsApp:** entra con el VERDE de `f8d2901ce`, con la ALTA 2 arreglada (decidió el Cerebro). **Pagos por tramos:** devuelto
-  con dos ALTAS.
+Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node C:/dev/revisiones/subir-tren.mjs <log>`
+(`SUBIR_ARBOL` cambia el árbol; `SUBIR_UN_LUGAR=1` no espera el segundo lugar de tests). El Cerebro de claude3 es
+`local_428051c1`. Esto vale por encima del estado de claude4 de más abajo.
+- **AHORA (29/10 14:26): main = `1cf06eba9`, el tren grande (tren-ab).** 128 commits, con las 3 tandas de tipos en 0.
+  - **Qué trae:**
+    - Create entero: el shell, el Copywriter en Notion con la mudanza re-verificada, AI Avatar y el «Cómo conectarla».
+    - MaKo en WhatsApp (`ac593ce1d`): las 6 fallas de Leandro, la ALTA 2 y los tickets al Cerebro (cartero 1.23.0).
+    - Pagos por tramos (`805afb460` + `d9ad67553`): tickets #13 y #26.
+    - CRM: el documento fiscal (`ba0c6c4b3`) y la difusión de Leila con la papelera y su cron.
+    - La landing High Ticket (`213952a92`) y Zernio #28 (`59db6b0eb`: Meta en la pestaña de Zernio).
+  - **Antes:** el hotfix #27 de Joan (`3648cedb8`, Ready 12:52) y tren-z (`9f8216dc8`, Ready 10:27).
+  - **Al estar Ready:**
+    - El Cerebro corre `node scripts/operaciones/cartero.mjs instalar` desde main, para el Runner 1.23.0.
+    - Avisar a los dueños.
+  - **Tablas APLICADAS el 29/10 (el Cerebro, con el sí de Martín):** 0340, 0342, 0343 y 0347 (la diferencia en pesos de
+    Pagos). Esperan: 0344 (el Image Editor) y 0346 (MaKo sin conexión).
+- **⚠️ BlockNote y Mantine no están en el node_modules COMÚN** (el junction de casi todos los worktrees de C:/dev, al clon
+  principal). Desde ahora main los importa: hasta que el clon principal los tenga, un test o un tsc de un chat que toque el
+  Copywriter va a fallar con «Cannot find module». `C:/dev/wt-push-q/node_modules` apunta hoy a
+  `C:/dev/wt-copywriter-notion/node_modules`. Lo que falta, con la app tranquila y sin tests corriendo, es pasar el clon
+  principal a origin/main y correr `npm install` (NO `npm ci`, que borra el node_modules de todos mientras instala).
+- **Tren grande EN PRODUCCIÓN: `mako-obai8j5oz`, Ready 14:29.** Avisados el Cerebro y los dueños no archivados.
+- **tren-ac (`C:/dev/wt-push-q`, rama `tren-ac`, sobre main `1cf06eba9`):**
+  - **Lleva:** el ticket #29 de Leandro (`38c39d067`, «Ya te sigo» vuelve a entregar el recurso), Pagos `7f79a4e6c`
+    (re-verificado, entra con seis bajas devueltas) y la tabla de planes `90a760e4b`.
+  - **Frena:** un rojo del #29. Las descripciones más largas de chatbot.def.ts dejan afuera del presupuesto
+    editar_pasos_secuencia_mensajes y cambiar_crons_secuencia (ops-center-bateria y ops-center-clasificador-app). Ya se le
+    pidió el arreglo a Automations.
+- **0348 APLICADA (29/10, el Cerebro con el sí de Martín):** el CHECK de `red` del Calendario acepta las 8 redes.
+- **Zernio, varias claves (`7b7d1ca2b`):** Martín lo dio vuelta el 29/10 16:40 UTC (audio en el grupo de SuperAdmin). Entra
+  cuando pase su revisión adversarial de privacidad (corriendo; informe en
+  `C:/dev/revisiones/2910-verificacion-zernio-varias-claves-7b7d1ca2b.md`).
+- **Lo que quedó para el tren siguiente:**
+  - ~~Pagos `7f79a4e6c`~~: re-verificado, entra en tren-ac.
+  - `tren-aa` (`C:/dev/wt-push-aa`): quedó VIEJO, todo lo suyo subió en tren-ab. Se puede borrar el worktree.
+  - `ai-avatar-abrir-pro-2910` (`4912250c6`): NO subir (abre AI Avatar a Pro; espera la prueba con un avatar real).
 - **tren-y SUBIDO: main = `eab9c62e1` (29/10 05:46).** Trae los docs de claude4 y el P0 de Martín, la foto de Replicar
   (`22b4b75c4`, rama `web-generator-foto-2910`). Tests del tren verdes (la tanda de 43 re-corrida de a 6: 608/608), las
   guardas, la batería y las 3 tandas de tipos en 0. Al estar Ready: avisarles al Web Generator (`local_12107aea`) y al

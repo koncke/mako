@@ -349,7 +349,10 @@ test('los leads son un evento APARTE de los que ya andan', () => {
 });
 
 test('`asegurarWebhook` pide los leads y, si Zernio los rechaza, registra los de siempre solos', () => {
-  const f = funcion(ZERNIO, 'export async function asegurarWebhook(');
+  // Varias claves (29/10/2026): `asegurarWebhook` registra con la 1 y repite en cada extra; lo de los leads vive en `asegurarWebhookEn`.
+  const entrada = funcion(ZERNIO, 'export async function asegurarWebhook(');
+  assert.match(entrada, /const r = await asegurarWebhookEn\(ws, principal, maestro\);/, 'la clave 1 pasa por el mismo registro');
+  const f = funcion(ZERNIO, 'async function asegurarWebhookEn(');
   const iConLeads = f.indexOf('await guardar([...EVENTOS_ESCUCHADOS]);');
   const iSolos = f.indexOf('await guardar([...EVENTOS_WEBHOOK]);');
   assert.ok(iConLeads > 0 && iSolos > iConLeads, 'primero con los leads, después sin ellos');

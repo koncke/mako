@@ -1239,6 +1239,9 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
    sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
    sí la podía confirmar (comunidad, 17/10/2026).
+   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (las cuotas, los ids) VIAJA en el payload, y
+   `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata dice lo que va a QUEDAR, no lo pedido:
+   las cuotas cobradas y las que no se pueden tocar (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
@@ -6851,7 +6854,10 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   sobre 69b49a31c): Zernio guarda la respuesta de cada clave 24 h, y `nutri:<inscripción>:<nodo>`
   servía mientras una inscripción era UNA corrida. «Volver a probar» la reusa: la segunda prueba
   mandaba con la clave de la primera, la pública daba 422 y el DM volvía con el 200 viejo sin
-  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). Y lo que se CREA
+  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). **Y si la misma tarjeta
+  puede salir dos veces en UNA corrida** (un botón que vuelve a una de antes, ticket #29), la clave lleva
+  también la PASADA: con la de la primera, Zernio devolvía la respuesta guardada, no salía nada y el motor
+  lo anotaba «enviado». Y lo que se CREA
   a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
   otro: `crearDifusion` (lib/difusion.ts).
 

@@ -74,6 +74,7 @@ export function Articulo({ slug, d }: { slug: SlugArticulo; d: DatosArticulos })
       {slug === 'buenas-practicas' && <BuenasPracticas d={d} />}
       {slug === 'problemas' && <Problemas d={d} />}
       {slug === 'migrar-curso' && <MigrarCurso d={d} />}
+      {slug === 'instagram-palabras-botones' && <InstagramPalabrasBotones />}
     </article>
   );
 }
@@ -358,6 +359,45 @@ function Problemas(_: { d: DatosArticulos }) {
         <thead><tr><th style={{ width: 80 }}>Código</th><th>Qué significa y qué hacer</th></tr></thead>
         <tbody>{filas.map(([c, t]) => <tr key={c}><td><C>{c}</C></td><td>{t}</td></tr>)}</tbody>
       </table>
+    </>
+  );
+}
+
+/**
+ * LAS PALABRAS CLAVE Y LOS BOTONES DE INSTAGRAM (ticket #29 de Leandro, 29/10/2026). Lo que dice sale de
+ * lib/palabras-clave.ts (`normalizarComentario`, `comentarioDispara`) y de `tocarBoton` (lib/nutricion.ts): si una
+ * regla cambia allá, se cambia acá (tests/boton-vuelve-a-la-condicion.test.ts mira el tope).
+ */
+function InstagramPalabrasBotones() {
+  return (
+    <>
+      <h2 id="palabras">Las palabras clave del disparador</h2>
+      <p>El disparador «Comenta tu publicación o Reel» (y el de «en vivo») arranca con <strong>cualquier comentario</strong>, o sólo con los que tienen alguna de sus palabras clave. Se ponen en Automations, en la tarjeta del disparador: hasta 20 palabras, de hasta 60 letras cada una. Por la API todavía no se pueden cambiar.</p>
+      <table className="gh-tabla">
+        <thead><tr><th style={{ width: 160 }}>Cómo se busca</th><th>Qué comentario arranca</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Contiene</strong></td><td>El que tiene la palabra <strong>entera</strong>. «guía» está en «quiero la guía!», pero no en «guiar». Una de varias palabras («la guía») tiene que estar entera y en ese orden.</td></tr>
+          <tr><td><strong>Es exactamente</strong></td><td>El que <strong>es</strong> la palabra, sin contar los signos: «¡Guía!» sí, «la guía» no. Si la palabra no tiene emoji, tampoco cuentan los emojis del comentario: «Fiesta 🎉» es «fiesta».</td></tr>
+        </tbody>
+      </table>
+      <h3 id="como-compara">Cómo se compara</h3>
+      <ul>
+        <li><strong>No distingue mayúsculas ni tildes:</strong> «PruebaFM», «prúebafm» y «pruebafm» son la misma palabra.</li>
+        <li><strong>La «ñ» sí cuenta:</strong> «año» no es «ano».</li>
+        <li><strong>Los signos no cuentan:</strong> «¡Guía!» es «guía».</li>
+        <li><strong>Un emoji es una palabra propia:</strong> «🔥» sirve de palabra clave, y «Fiesta🎉» se lee «fiesta 🎉».</li>
+        <li>Una palabra sin letras, números ni emoji («?», «...») no se puede guardar.</li>
+      </ul>
+      <Nota>Una persona que ya pasó por una automatización no vuelve a entrar sola. Para probar otra vez con la misma cuenta, usa «Volver a probar» en la ficha del lead: entra de nuevo con su próximo comentario.</Nota>
+
+      <h2 id="botones">Los botones de un DM</h2>
+      <ul>
+        <li>Un DM de Instagram o Messenger lleva <strong>hasta 3 botones</strong>, con un título de hasta 20 letras. Cada uno hace una cosa: lleva a otra tarjeta, o abre un link.</li>
+        <li><strong>Puede volver a una tarjeta por la que el lead ya pasó.</strong> El caso típico: «Obtener recurso» lleva a «¿Te sigue en Instagram?»; el «no» manda «Síguenos» con «Ya te sigo», que vuelve a esa misma condición. Cada toque la vuelve a mirar, y los mensajes que siguen salen otra vez.</li>
+        <li><strong>«¿Te sigue en Instagram?» se pregunta en el momento del toque:</strong> quien acaba de seguir la cuenta pasa por el «sí».</li>
+        <li><strong>Hasta 10 toques por inscripción.</strong> Después, el toque no mueve nada y el historial del lead dice por qué. «Volver a probar» los cuenta de nuevo. Un doble toque cuenta como uno.</li>
+        <li>Los botones y el texto de un DM se cambian con <C>PATCH /api/v1/chatbot/secuencias/&#123;secuenciaId&#125;/mensajes/&#123;tarjeta&#125;</C> (<C>cambiar_botones_mensaje</C>). Mientras espera un toque, <C>espera_toque</C> dice qué botones tiene el lead por delante.</li>
+      </ul>
     </>
   );
 }
