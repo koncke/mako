@@ -9172,3 +9172,13 @@ sacara la regla que vigilaba (no buscaba lo que decía), y un `(…)\b(…)<\/\1
 0x01-0x08 lo delata; el Read del editor no lo muestra. **Regla:** las cadenas con regex van CRUDAS (prefijo `r`), o se
 edita con la herramienta Edit. Y un `find` de un pedazo corto (`const m = /^`) agarra la PRIMERA aparición: así se
 reemplazó media hoja de un archivo. Se ancla con el nombre de la función, y `git diff --stat` antes de seguir.
+
+## tsc-acotado: el código 134 no siempre es el vigía de RAM, también es el heap de 2.560 MB (29/10/2026, claude3)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (`--heap`, default 2560).
+
+Tres veces seguidas «NO SE PUDO CHEQUEAR (código 134, ~1.360 bytes de salida)» sobre 14 archivos que tocaban
+`app/planes/Vitrina.tsx` y `app/vsl/PreciosLanding.tsx`. El mensaje sugiere el vigía de RAM, pero el vigía mata con
+código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esas pantallas no entra en 2.560 MB. Con
+`--heap=3584` (y la RAM libre para darlo: con-turno espera 3,8 GB) corrió y dio los 14 errores conocidos de `_opencut`.
+**Regla:** 134 con salida → subir `--heap`; 1 sin salida → esperar turno o cerrar chats.
