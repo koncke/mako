@@ -11718,6 +11718,17 @@ a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplica
   sigue posible si el modelo no lo reconoce.
 - F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).
 
+## El dominio que el modelo inventa: «hola-malo.com/crm/2761» a Código Inmobiliario (28/10/2026, claude4)
+
+**El síntoma (conv 1502, ws13):** MaKo le pasó al cliente un link a «hola-malo.com/crm/2761». El modelo reescribe el link que le
+dio una herramienta y le cambia una letra al dominio: el link lleva a otro sitio.
+**Por qué pasaba el saneo:** `linksConWs` (lib/links-con-ws.ts) reconoce SÓLO el host exacto de MaKo para pegarle el `?ws=`; un
+host parecido no es «de MaKo» para él, así que salía tal cual. Y el historial lo guardaba, y el modelo lo repetía.
+**La regla:** `conElDominioDeMaKo` corrige al de MaKo un host a una o dos letras de él (`hola-malo.com`, `holamako.com`,
+`hola-mako.co`), y no toca uno distinto de verdad (google.com, el sitio del negocio, `mako.com`) ni los propios
+(`DOMINIOS_MAKO`). Corre sobre `partes` en el doer: lo que sale al grupo Y la memoria. Lo fija tests/links-con-ws.test.ts 4 y 5
+(el turno real, tests/_link-inventado-hijo.ts).
+
 ## «Mauricio no escribe desde el 04/10»: la entrada no estaba rota, en su grupo no hay nadie que escriba (28/10/2026, claude4)
 
 **El síntoma (el relevamiento de pedidos perdidos):** el ws1 no tiene un mensaje en `mako_doer_buffer` desde el 04/10, y es el

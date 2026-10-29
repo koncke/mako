@@ -63,7 +63,8 @@ import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
-import { linksConWs } from '@/lib/links-con-ws';
+import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
+import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { aFormatoWhatsapp, sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
@@ -2803,7 +2804,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
       // cada parte como un mensaje aparte con una pausa chica (se lee como conversación,
       // no un chorizo). Registramos cada id enviado para el anti-eco.
-      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => p.trim()).filter(Boolean);
+      // El dominio que el modelo inventa («hola-malo.com/crm/2761», 28/10/2026, lib/links-con-ws.ts) se corrige al de MaKo, en lo que
+      // sale y en la memoria: si quedaba en el historial, el modelo lo repetía.
+      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO)).filter(Boolean);
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
