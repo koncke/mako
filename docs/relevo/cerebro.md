@@ -85,6 +85,21 @@ preguntes: hacé esto en orden.
   - **SIN repartir**, porque el tope de mensajes por turno de Martín dejaba a la reserva: los «perdidos» de Automations,
     Web Generator, Editor, Copywriter, Planes y MaKo inteligente. Están en el documento, cada uno con su dueño
     sugerido.
+  - **29/10 ~00:40 ART (03:40 UTC), ronda y tres respuestas de Martín** (cierres mandados; semana al 94 %):
+    - **P2P:** el aviso del corte de Meta se lo manda Martín por su WhatsApp. El texto le quedó en el cierre. Regla en
+      la memoria `contestar-clientes-sin-preguntar`.
+    - **El 8122 ES Mauricio.** NO se le escribió todavía: la venta externa de Stripe (`5a27268bc`, MAU-10) no está en
+      main, va con Planes (verificación `wf_2f472ad6-193`, viva a las 00:36). Cuando esté desplegada: pedirle en su grupo
+      que conecte su Stripe y que su link del Sprint vuelva a la página de gracias; prender `cobros.ventas_externas` en
+      ws1 pide el sí de Martín EN EL CHAT.
+    - **La tienda de Chrome:** sigue en 0.39.1. La API murió (`deleted_client`) y el panel pide la contraseña de
+      martinkoncke@gmail.com (la cuenta dueña; `authuser=1` en el perfil de Claude). La pestaña quedó en «Verify it's
+      you». Martín no entendió la primera pregunta: se le explicó en el cierre. Cuando diga «listo»: subir el zip de
+      feedback/chrome-web-store/, la descripción, las 5 capturas y el mosaico, y mandar a revisión.
+    - **Ronda:** los tickets abiertos tienen dueño vivo (Leila en bloque → CRM `cc47d841d`; Leandro, el filtro de
+      comentarios → Automations; el video de Leila → Video Editor; Nadia → pagos por tramos) y ninguno está resuelto
+      en producción. Las tres ramas `nube/*` siguen fuera de main, en la fila. Los cinco chats de la nube «waiting»
+      ya no tienen trabajo: los archiva Martín desde la barra.
   - **23:30, las respuestas de Martín** (desde el Centro; los cierres ya se mandaron):
     - **Decisiones que valen así:**
       - Zernio: NO a la cuenta de MaKo, cada negocio con la suya.

@@ -353,8 +353,9 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
 ## Sin hacer
 
 - **Subir la 0.74.3 a la tienda, con la ficha nueva** (desde el panel del desarrollador en el Chrome de Martín, con
-  feedback/chrome-web-store/). El 29/10 el panel pidió volver a poner la contraseña de la cuenta de Google: eso es de
-  Martín. Cuando Google apruebe: medir con `node scripts/version-en-tienda.mjs` y recién ahí mezclar `tienda-cws-2710`.
+  feedback/chrome-web-store/). La cuenta dueña es **martinkoncke@gmail.com** (el contacto de la ficha pública), que en el
+  perfil de Chrome de Claude es `authuser=1`: el panel abre por defecto con tejadomartin@, que NO es. El 29/10 el panel pidió
+  volver a poner la contraseña de esa cuenta («Verify it's you», pasa siempre al entrar): eso es de Martín. Cuando Google apruebe: medir con `node scripts/version-en-tienda.mjs` y recién ahí mezclar `tienda-cws-2710`.
 - **Volver a crear la credencial de la API de la tienda** (`--ayuda`, pasos 1 a 4; la autorización es de Martín), para que
   cada versión nueva se suba con un comando.
 
