@@ -130,7 +130,7 @@ preguntes: hacé esto en orden.
     reemplaza la anterior y pierde las redes de la vieja. Va después de las varias claves (punto 3), y antes se revisan
     los términos de Zernio. Para el punto 1 queda el texto propuesto, sin Analytics hasta volver a medirlo. Del punto 4
     (el aviso antes de los 10.000 mensajes), falta medir de dónde sale el conteo de mensajes enviados del mes.
-  - **00:50: VERDE de Zernio `854a6fda0`** (zernio-2510), con los arreglos de su verificación: la cuenta validada contra
+  - **00:50: VERDE de Zernio `854a6fda0`** (zernio-2510; encima, `254856316`: la salida gratis que existe HOY en el aviso de la 3.ª red, «desconecta en zernio.com una que ya no uses»), con los arreglos de su verificación: la cuenta validada contra
     las del negocio, las publicaciones «dudosas» en vez de «fallo», la huella de la clave, las escrituras condicionadas, la
     REST en verde y el orgánico en la zona del negocio. ⚠️ **Lleva adentro diez commits de planes-2710** (hasta
     `d15b4ec1d`, merge `042e10323`), así que **Zernio y Planes (`ddfa645d4`) se verifican y entran JUNTOS**. El rojo
