@@ -405,3 +405,16 @@ Rama `zernio-token-2910` (desde origin/main 3648cedb8, en C:/dev/wt-zernio-2510)
 - El corte sigue el 03/11 y leer con el token sigue después (lo prometió el aviso). El token guardado no se borra.
 - Lo de MaKo diciendo «ya tomé nota para barrer…» sin ticket es del chat de MaKo en WhatsApp: no se tocó.
 - Detalle y trampas: docs/hallazgos-integraciones.md («Una sola pestaña, la de Zernio…»).
+
+## EN CURSO (29/10 ~14:00, claude3): varias claves de Zernio y todas las redes (pedido de Martín, da vuelta el «NO» de la mañana)
+
+Martín, audio en SuperAdmin (29/10 16:40 UTC): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con otra
+cuenta de Gmail del cliente... y ya tendrías cuatro redes... si vas a conectar la tercera cuenta te advierte». El Cerebro le dice
+lo de los términos (suspensión por «abuso»). El plan, en este orden, cada pieza con su commit:
+1. Varias claves: `ZERNIO_API_KEY_2…_5` (slot + email, como las IA). La 1 sigue siendo `cfg(ws)` (nada cambia con una sola).
+   Lo que opera sobre UNA cuenta usa la clave dueña (`cfgDeCuenta`); conectar elige la primera clave con lugar; el webhook y el
+   ruteo se registran en cada clave (el secreto es por negocio: la misma URL `?w=` sirve).
+2. El aviso de la 3.ª red, por clave, con [Agregar otra clave] y [Conectar igual].
+3. Zernio primero en todo «Conectar» sin clave.
+4. Todas las redes de Zernio (las de login: LinkedIn, X, Threads, Reddit, Pinterest, Google Business) en Integraciones y al publicar.
+5. El tutorial con capturas.
