@@ -101,3 +101,15 @@ test('la página de anuncios no vende crear campañas', () => {
   }
   assert.match(leer('app/vsl/_detalle/features.ts'), /name: "Tu media buyer con IA",/);
 });
+
+// ── La tabla y los planes venden sólo lo que anda (29/10/2026, el Cerebro, con el inventario del taller): el Video Generator
+// está a medias (la extensión y los créditos de Flow del cliente; el motor nunca se midió en vivo) y generar imágenes con IA
+// no existe (el editor de imágenes sí). Verificado rompiéndolo: volver la fila «Videos para tus anuncios, armados con IA», el
+// «Crear y retocar imágenes con IA» o el «Imágenes con IA» de Pro → cada uno, rojo.
+test('la tabla y lo que trae cada plan no prometen videos ni imágenes hechos con IA', () => {
+  const A_MEDIAS = /videos?.*armad[oa]s? con IA|im[aá]genes con IA|crear y retocar/i; // «Tu oferta armada con IA» sí anda
+  for (const f of filasDeComparacion()) assert.doesNotMatch(f.que, A_MEDIAS, `la tabla promete «${f.que}»`);
+  for (const p of PLANES_MAKO_DEFAULT) for (const l of p.incluye) assert.doesNotMatch(l, A_MEDIAS, `${p.id} promete «${l}»`);
+  assert.equal(NOMBRE_TAB_PRO['image-editor'], 'Diseñar tus imágenes sin salir de MaKo');
+  assert.ok(filasDeComparacion().some((f) => f.que === NOMBRE_TAB_PRO['video-editor']), 'la edición de video, que sí anda, sigue');
+});

@@ -3817,8 +3817,16 @@ por pantalla, no recordarlo. El taller (inventario + lo que vende el rubro + tre
 - **Ya no existe:** crear campañas desde el Ads Manager.
 - **Gana el código, y quedó anotado:** Pro prometía «crea campañas» y «avatares con IA» (/planes dejó de venderlos el
   28/10, `TABS_TODAVIA_CERRADAS`) y decía «sin topes» con tope de WhatsApp y de personas: corregido en `incluye`. Image
-  Editor y Video Generator se abren por la CAPA (`requireRolWs`), no sólo para el super admin: la tabla los nombra porque
-  el código los da; si están «a medias» en calidad, lo decide Planes, no la landing.
+  Editor y Video Generator se abren por la CAPA (`requireRolWs`), no sólo para el super admin.
+- **Que el código lo abra no alcanza (corregido a la tarde, el Cerebro recorriendo la portada en producción):** yo había
+  dejado en la tabla «Videos para tus anuncios, armados con IA» (✓ en los tres planes) y «Crear y retocar imágenes con IA»
+  porque el código los da. Pero el Video Generator depende de la extensión y de los créditos de Flow del cliente, y al motor
+  nunca se lo midió en vivo; y generar imágenes con IA no existe (`NO_SE_PUEDE_CHAT_IMAGEN`): el editor tipo Canva sí. La
+  fila del video salió, la de imágenes dice «Diseñar tus imágenes sin salir de MaKo», y Pro promete edición de video y de
+  imágenes. Guarda: `tests/portada-high-ticket.test.ts` («no prometen videos ni imágenes hechos con IA»). Sin tocar: la
+  pregunta de la prueba en /planes (Vitrina.tsx) cuenta «1 video con avatar de IA» y «20 imágenes» como TOPES de la prueba;
+  la fija `tests/prueba-topes.test.ts`, y cambiarla es decisión de Planes.
 
 **Regla:** una tarjeta o un renglón de precios sale de un inventario MEDIDO ese día (qué abre el cliente, con qué plan) y
-del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda».
+del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda». Y algo a medias no se
+promete aunque el código lo abra: se vende cuando un cliente lo usó y le salió.

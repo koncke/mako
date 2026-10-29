@@ -117,7 +117,8 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       // 28/10 (`TABS_TODAVIA_CERRADAS`). Lo que Pro sí trae: el media buyer que aplica solo y el Video Editor.
       'Tu media buyer con IA aplica las mejoras de tus anuncios solo, sin pasarse de tu presupuesto',
       'Análisis de tus llamadas de venta con IA',
-      'Imágenes con IA, y edición de video: silencios, ruido, subtítulos y cortes',
+      // Y generar imágenes con IA no existe: el editor de imágenes sí (lib/planes-comparacion.ts, `NOMBRE_TAB_PRO`).
+      'Edición de tus videos (silencios, ruido, subtítulos y cortes) y de tus imágenes',
       `Hasta ${n(T.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(T.agencia['equipo.usuarios'])} personas de tu equipo`,
       'Si eres agencia, los negocios de tus clientes en tu cuenta',
     ],
