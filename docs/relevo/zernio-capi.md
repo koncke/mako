@@ -277,18 +277,18 @@ HECHO en código (sin probar):
   con las conectadas; faltan con no entregadas y sin sincronizar; textos con byok false); contenido.run.ts fecha con diaLocal(tz).
 - lib/zernio-conectar.ts: esDeLaCasa(ws, usada) = ws1 o byok false (la cuenta prestada), en fallo() y conexionesViaZernio.
 
-FALTA (en este orden):
-1. tests/_calendario-publicar-hijo.ts: programar ahora valida la cuenta -> mockear Zernio GET /profiles y /accounts (acc_ig_1
-   en el perfil del ws3) y lo que pida contexto() (zernio_workspace). Casos nuevos: cuenta ajena (guardar y programar), timeout
-   -> dudosa sin duplicar, reintento mismo x-request-id, trabado -> dudosa, clave cambiada en cancelar, carrera mover/borrar,
-   huellas en la API (cambio entre resumen y «sí»), YouTube >100, marcar programada. (j) del hijo: el 409 NO es «24 h».
-2. tests/organico-reglas + _organico-hijo: diaLocal (01:30Z -> 27/10 en BA), syncStatus pending -> null y en faltan,
-   unavailableMetrics en faltan, cuenta nombrada que no está, 402 con byok false sin «tu cuenta». tests/zernio-conectar-redes
-   (o uno nuevo): prestada + 402 -> 'error' sin pagoUrl.
-3. Probar rompiendo cada arreglo (scripts romperN.mjs en el scratchpad).
-4. node --import tsx scripts/generar-api-doc.mjs (docs/api-mako.md y tests/api-mako-http.snapshot.txt).
-5. tsc: node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs --heap=3000 <los .ts tocados>; tests de a uno (api-mako-rest,
-   sin-instagram, calendario, m-calendario, integracion-sin-salir, puente-panel-copy, confirmacion-terceros, zernio-*, organico*).
-6. Cosecha: docs/hallazgos-calendario.md (CORREGIR la línea del 409 «dentro de 24 h»; dudosa, clave, condición en la escritura),
-   docs/hallazgos-integraciones.md (orgánico: UTC, syncStatus, unavailableMetrics, de la casa; DUDA sin medir: en qué zona filtra
-   Zernio fromDate/toDate), índice docs/hallazgos.md. Commit por ruta, firmado; SendMessage al Cerebro «VERDE sin tipos <sha>».
+AL VOLVER (21:30, cuota nueva) — HECHO además:
+- tests/_calendario-publicar-hijo.ts reescrito: Zernio de mentira con cuentas POR PERFIL (acc_ig_otro es de prof_ws13),
+  x-request-id idempotente y posts por clave. Casos k (cuenta ajena, lo primero), l/l2 (dudosa, mismo pedido, «No quedó
+  programada»), m (trabado), n (clave cambiada), o (carrera, `antesDeEscribir`), p (Deshacer sin cuenta), q (YouTube), i2
+  (huellas del «sí»). Corrido el hijo a mano: todo da lo esperado. (d) ahora es un 400 (un 500 es «dudosa»).
+- tests/calendario-publicar.test.ts, tests/organico.test.ts, tests/organico-reglas.test.ts y tests/_organico-hijo.ts con los
+  casos nuevos (h fecha de noche, i sin sincronizar, j unavailableMetrics, k cuenta mal tipeada, l ws1 y prestada, m Conectar).
+- contenido.run.ts: cada post sin métricas dice `sin_metricas`.
+- docs/api-mako.md regenerado; cosecha escrita (hallazgos-calendario: la línea del 409 corregida y los ⚠️ nuevos;
+  hallazgos-integraciones: orgánico y la regla «de la casa»; índice docs/hallazgos.md).
+- El script de roturas: <scratchpad>/romper-2810.mjs (19 roturas, restaura cada una; correrlo ENTERO con con-turno).
+
+FALTA: correr calendario-publicar y organico (estaban en la cola de con-turno), romper-2810.mjs, tsc acotado, tests afectados
+de a uno (api-mako-rest, sin-instagram, calendario, m-calendario, integracion-sin-salir, puente-panel-copy,
+confirmacion-terceros, zernio-*), anotar las roturas en la cabecera de los tests, commit por ruta y VERDE al Cerebro.
