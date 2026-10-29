@@ -9,6 +9,10 @@
 //   4. una consulta no afirma un número que no vio (`numerosSinFuente`), sin marcar las horas, las fechas ni los teléfonos reescritos;
 //   5. el «listo» de un pedido delegado dice QUÉ quedó hecho; el texto al Cerebro es el MISMO en el cartero y en el servidor;
 //   6. un pedido delegado del ws1 lo dice en su ticket.
+//
+// Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base verde; restaurado con .rotura-bak): la delegación sin
+// mirar si pregunta un dato → 2 · la delegación sin la red de la lectura → 2 · los teléfonos sin los últimos 8 dígitos → 4 · el
+// «listo» del delegado como el de un ticket → 5 · el cartero sin reconocer su aviso de delegado → 5.
 // =============================================================================
 
 import test from 'node:test';

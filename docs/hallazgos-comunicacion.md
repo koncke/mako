@@ -11973,7 +11973,15 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
 - **Dos decisiones que salieron del banco (casos del 60 % de ajuste):** un TICKET principal con una pregunta adentro es el
   ticket con texto fijo (conv:1701: contestarlo primero ponía al modelo a explicar cómo anda el producto); y una ACCIÓN que leyó y
   contestó sin decir «ya quedó» no se delega (conv:1563, «pásame la misma lista con el teléfono», era una lectura).
-- **Sin hacer (al 29/10):** las 2 escrituras en la clase equivocada (la regla propuesta: «cambiar cómo funciona MaKo es TICKET
+- ⚠️ **Trampas de la verificación:** (1) fd7b00a45 (el clasificador) se verificó con sus tests sueltos y nunca pasó por
+  tests-afectados: ahí cayeron 10 tests de cableado que fijan la FORMA de `procesarDoer` (`const intencion = enElGrupoSinSenal`,
+  `const tools = pideFuncion…`, cada línea pegada del bucle de herramientas) y un test que importaba un módulo `server-only`
+  (tests-afectados corre sin `--conditions=react-server`: cae el ARCHIVO entero, no el test). Lo puro va en un módulo sin
+  `server-only` (lib/despacho-grupo.ts) y se prueba desde ahí. (2) Las escenas de un hijo comparten la base de mentira: la
+  pregunta del equipo que deja viva una escena (`mako.equipo.*`) convierte el reenvío de la siguiente en «respuesta al equipo».
+  Con `ESCENAS=` sola pasaba; entera, no. Una escena que mide otra cosa limpia lo que no es suyo.
+- **Sin hacer (al 29/10):** un reenvío mientras hay una pregunta del equipo viva para esa persona se toma por su respuesta al equipo
+  (lib/doer-equipo.ts): puede ser lo correcto («pásanos lo que te mandó el cliente») o no; no se tocó. Y las 2 escrituras en la clase equivocada (la regla propuesta: «cambiar cómo funciona MaKo es TICKET
   aunque diga corrige», medirla con otra corrida); la consistencia (`--corridas 3`) no se midió; el DEBUG con un negocio que SÍ
   existe sólo está probado por partes (`respuestaDelDebug` y `hechosDelDiagnostico`), no por la entrada con la base de mentira; un
   TICKET abierto por el grupo sale con el `tipo` que le pone el triage (`clasificar`, lib/tickets-reglas.ts: «pregunta» en el

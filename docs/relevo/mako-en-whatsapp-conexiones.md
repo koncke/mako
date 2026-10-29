@@ -14,7 +14,9 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
 (sólo ws9) con `diagnosticar_negocio` y el ticket al Cerebro con la evidencia; CHARLA el 👍; NO_REPLY silencio.
 - Commiteado: 953f9610e (el crédito de los grupos), 687bc14d0 (`sinMuletillas`, links), 61ae98de2 (`diagnosticar_negocio`),
   ffc63aced (REENVIADO + imágenes del lote), fd7b00a45 (el clasificador IA, el TICKET por código, el banco en `tests/fixtures/`).
-- **Lo de esta tanda** (el commit que sigue a fd7b00a45): `lib/despacho-grupo.ts`, el cableado en `procesarDoer` (DEBUG, delegación,
+- **Lo de esta tanda: 4a15d0775** (el despachante), **de5778615** y **6af2bb1e0** (los rojos de tests-afectados: cableado de la
+  forma vieja, el test que importaba un `server-only`, «acá», el hijo de Leandro con la pregunta del equipo viva). tsc acotado de
+  la rama: 0 propios. La app se cayó a las 15:31 en medio de la verificación; se retomó igual. En detalle: `lib/despacho-grupo.ts`, el cableado en `procesarDoer` (DEBUG, delegación,
   `VOZ_DE_LA_CONSULTA`, `numerosSinFuente`), cartero 1.24.0 y los tests que fijan la versión, `textoDelAviso` del delegado, los
   ejemplos fijos del clasificador (sólo del 60 % de ajuste), `tests/despacho-grupo.test.ts` y las escenas 5–7 de
   `tests/clase-del-grupo.test.ts`. Roturas: `roturas-despacho.mjs` (D1–D9) en el scratchpad.

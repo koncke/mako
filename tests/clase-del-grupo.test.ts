@@ -14,6 +14,11 @@
 //   6. ACCIÓN (lib/despacho-grupo.ts): sólo las escrituras simples; si no propuso ni hizo nada y no pregunta un dato, se DELEGA como
 //      «pedido» marcado `delegado`, con la respuesta fija;
 //   7. DEBUG: sólo en el grupo de SuperAdmin, lo resuelve el código (sin turno); afuera es una PREGUNTA.
+//
+// Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base 7/7; restaurado con .rotura-bak): sin la delegación
+// → 6 · la ACCIÓN con todas las escrituras → 6 · sin el chequeo de los números → 5 · el DEBUG sin el deny → 7 · el DEBUG con el turno
+// del modelo → 7 · la delegación sin mirar si pregunta un dato → 6. (Las del veredicto, en tests/mako-intencion-ia.test.ts: el TICKET
+// principal contestado primero → 2; sin la guarda del «sí» suelto → 2.)
 // =============================================================================
 
 import { test } from 'node:test';
