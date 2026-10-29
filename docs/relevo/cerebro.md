@@ -50,6 +50,15 @@ preguntes: hacé esto en orden.
     `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8 git push origin HEAD:main`.
   - **El deploy se confirma** con `npx vercel ls --scope mbustos-4239s-projects -m githubCommitSha=<sha ENTERO>` y
     `vercel inspect hola-mako.com`.
+- **⭐ PEDIDO NUEVO DE MARTÍN, para la próxima cuenta (29/10, ~00:10, escrito en el chat del Cerebro), textual:** «En
+  "Classroom" unifica la tab de clients con members, es literal los botones de kanban o lista que tenemos en el crm».
+  - **Hoy:** `/classroom` tiene las sub-tabs Clients · Community · Classroom · Calendar · Members · Leaderboards · About
+    (`app/classroom/ClientsShell.tsx`, `lib/clients-rutas.ts` → `seccionesDe`).
+  - **Lo pedido:** UNA sola sub-tab con el selector Kanban / Lista del CRM. Kanban es el tablero de clientes por etapa de
+    entrega; Lista, los miembros. Se copia el control del CRM tal cual. La ruta vieja de la que se va se redirige con su
+    query (AGENTS.md → «Retirar una RUTA…»).
+  - **Dueño sugerido:** un chat «Classroom» nuevo, o CRM y Chats, que tiene el selector Kanban / Lista. No se arrancó: la
+    cuenta estaba al 92%.
 - **⭐ LOS PEDIDOS PERDIDOS (terminó a las 22:30): `docs/relevo/pedidos-perdidos-2810.md`.** Son 362 pedidos desde el
   22/10; 70 PERDIDOS y 21 esperan a Martín. Arriba de todo, «Lo urgente», y abajo las fuentes que nadie leyó. Se
   repartió a los chats con dueño vivo lo urgente de cliente (ver ese documento); lo demás queda en su lista, con el
