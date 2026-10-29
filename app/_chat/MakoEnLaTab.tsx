@@ -229,7 +229,8 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
               {onModo && <ModosMako modo={modo ?? 'editar'} onModo={onModo} />}
             </div>
           )}
-          <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} angosta />
+          {/* Con `titulo` («MaKo», la tarjeta de Create), también la caja: «Escribe a MaKo». Con «Cerebro», en 340 px partía. */}
+          <CajaDelCliente k={titulo ? { ...k, nombre: titulo } : k} campo={caja} seguir={seguirHilo} angosta />
           </div>
         </>}
         estado={estadoDelCliente(k)}>

@@ -23,6 +23,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PantallaCrear, type AccionProyecto, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
 import { CabeceraDeChat } from '@/app/admin/operaciones/PanelChat';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
@@ -49,7 +50,8 @@ function ChatDelEditor({ disenoId, volver, carga, onRanura }: {
   const hilo = useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => SIN_HILO);
   return (
     <section className={`co-panel ${chat.marco}`} aria-label="Conversación con MaKo sobre el diseño">
-      <CabeceraDeChat clave={`imagen:${disenoId}`} titulo="MaKo" criatura="Image Editor" animo={hilo.corriendo ? 'trabajando' : 'despierto'} antes={volver} />
+      {/* «MaKo» con su estrella, como toda tarjeta de Create (la regla de las criaturas, 21/10): no la criatura de la tab. */}
+      <CabeceraDeChat clave={`imagen:${disenoId}`} titulo="MaKo" criatura="MaKo" aspecto={ASPECTO_MAKO} animo={hilo.corriendo ? 'trabajando' : 'despierto'} antes={volver} />
       {carga === 'cargando' && <p className={chat.espera}>Abriendo el diseño…</p>}
       <div ref={onRanura} className={chat.ranura} hidden={carga !== 'listo'} />
     </section>
