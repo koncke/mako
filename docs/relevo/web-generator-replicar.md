@@ -38,6 +38,9 @@ test) · 4bfbf85db (cosecha).** Medido DOM contra DOM (`C:/dev/revisiones/clonad
   **VERDE mandado ~06:50 al Cerebro y a Integración.** tests-afectados no corrió (fila tomada). Worktree de «antes»:
   `C:/dev/verif-clonadas-antes` (origin/main 7f36fa9c6, limpio): se puede borrar cuando suba. Sin hacer: a 390 la publicada de holo/reportei
   también se corre (la copia en celular); una sección de holo +486 px en el editor.
+- **29/10 ~08:20: tren-z dio 3 rojos** (diseno-elementos, editor-web-diseno-editable-clic, punta-a-punta-26-10: fijaban el
+  JSX de antes de la escala). Arreglado en **9e73cfb2b** (sólo tests): 14/14 verdes, romper 9/9 rojas
+  (`C:/dev/revisiones/clonadas-2910/romper-escala.json`). sha mandado a Integración.
 
 ## 0. P0 (29/10 00:40) — «No pude sacar la foto de la página. Vuelve a intentar.» — ARREGLADO (claude3, 29/10 ~03:00)
 
