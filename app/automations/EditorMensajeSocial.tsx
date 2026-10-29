@@ -60,6 +60,7 @@ import { ConectarMedio, useAlConectarMedio, leerZernio, type CuentaZernio, type 
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { botonesDe } from '@/lib/botones-social';
 import { BotonesSocial } from './BotonesSocial';
+import { Checkbox } from '@/app/_ui/Toggle';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -81,6 +82,11 @@ export type EditorMensajeSocialProps = {
     paraGuion?: { objetivo?: string | null; gancho?: string | null } | null;
     chat?: HistorialRedacta | null;
   } | null;
+  /**
+   * LA AUTOMATIZACIÓN ARRANCA CON UN COMENTARIO en este canal (ticket #17 de Leandro, 28/10/2026): se ofrece «Responder en
+   * público, debajo del comentario» (`en_comentario`). Sin esto no se ofrece; si la tarjeta ya lo tiene, se ve para apagarlo.
+   */
+  comentario?: boolean;
 };
 
 /** Lo que dice la cuenta de salida (POST /api/zernio, leído por `leerZernio`). `null` = todavía no llegó. */
@@ -103,7 +109,7 @@ function IconEnviar() {
   return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 21 3l-8.5 18-2.2-7.3L3 11.5Z" fill="currentColor" /></svg>;
 }
 
-export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, onAdjuntoNuevo, deshabilitado, onError, mako = null }: EditorMensajeSocialProps) {
+export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, onAdjuntoNuevo, deshabilitado, onError, mako = null, comentario = false }: EditorMensajeSocialProps) {
   const ws = useWs();
   const ident = IDENTIDAD_SOCIAL[canal];
   const nombreCanal = NOMBRE_CANAL[canal];
@@ -283,6 +289,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
   const conNegocio = (t: string) => aplicarVariables(t, negocio?.trim() ? { negocio: negocio.trim() } : {});
   const ocupado = !!deshabilitado || !!subida;
+  const enComentario = paso.en_comentario === true;
   // EL «{ }» DE LA CASA (el árbol, como en WhatsApp y el email), con lo que el motor resuelve POR ESTE
   // CANAL: `enviarPasoSocial` (lib/nutricion.ts) recibe lo que arma `datosParaElLead`, el catálogo
   // entero, como el WhatsApp no oficial (integración de la segunda pasada).
@@ -336,6 +343,15 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, minWidth: 0, border: `1px solid ${ident.borde}`, borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}>
+      {/* LA RESPUESTA PÚBLICA (ticket #17): el texto sale debajo del comentario, no por DM. Un comentario no lleva botones:
+          prenderla los saca (Publicar los frenaría, `problemasDeRespuestaPublica`). */}
+      {(comentario || enComentario) && (
+        <div data-en-comentario="" style={{ flex: 'none', padding: '4px 12px', borderBottom: '1px solid var(--border)' }}>
+          <Checkbox checked={enComentario} disabled={ocupado} label="Responder en público, debajo del comentario"
+            hint={enComentario ? 'Lo ven todos. Sale sólo el texto.' : undefined}
+            onChange={(v) => onChange(v ? { en_comentario: true, botones: undefined } : { en_comentario: undefined })} />
+        </div>
+      )}
       {panelMako && mako && (
         <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: 12, borderTop: '1px solid var(--border)' }}>
           <MakoRedacta canal={canal} datos="motor" permiteAudio={false} historial={mako.chat ?? null}
@@ -351,9 +367,10 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           {vista}
           {/* LOS BOTONES (24/10/2026, como ManyChat): debajo del último mensaje, como los ve la persona. Con algo escrito: los
-              botones van debajo de un texto. */}
-          {partes.length > 0 && (
-            <BotonesSocial botones={botonesDe(paso)} deshabilitado={ocupado}
+              botones van debajo de un texto. `comoSeEscribe` (27/10/2026, ticket #12): saneada, la lista se comía el espacio
+              del final en cada tecla. */}
+          {partes.length > 0 && !enComentario && (
+            <BotonesSocial botones={botonesDe(paso, undefined, { comoSeEscribe: true })} deshabilitado={ocupado}
               onCambio={(b) => onChange({ botones: b.length ? b : undefined })} />
           )}
         </div>

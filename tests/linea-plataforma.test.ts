@@ -18,6 +18,7 @@ import { elegirLinea } from '../lib/lineas-whatsapp';
 import { chipDeTarjeta, CHIP_NO_ESCUCHA, type EstadoMedios } from '../lib/medios-automatizacion';
 import { remitenteDelNegocio } from '../lib/email-remitente';
 import { normalizar, type PasoGrafo } from '../lib/flujo-grafo';
+import { emisoresDeLineas, lineaDeEnvio } from '../app/automations/PanelProbar';
 
 const leer = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const MAKO = 'mako_superadmin_muylqv8r';
@@ -71,4 +72,29 @@ test('el email de un negocio nunca sale con MaKo; el de la plataforma, sí (con 
   const hechos = { resendFrom: 'MaKo <equipo@hola-mako.com>', resendDominio: 'hola-mako.com', credFrom: null, keyPropia: false };
   assert.deepEqual(remitenteDelNegocio({ ...hechos, plataforma: false }), { puede: false, motivo: 'de-mako' });
   assert.deepEqual(remitenteDelNegocio({ ...hechos, plataforma: true }), { puede: true, from: 'MaKo <equipo@hola-mako.com>', via: 'dominio' });
+});
+
+// LOS SELECTORES TAMBIÉN (27/10/2026, la llamada con Aaron, 876825880-06: la prueba «le llegó desde el número de MaKo» y la
+// pantalla decía la línea de Martín). El envío y el estado ya miraban `lineasParaMandar`; el «De» de «Probar», el número de
+// salida de la automatización y el de un mensaje leían `listarLineas`, sin la de MaKo: en la plataforma la de por defecto
+// que se veía no era la que salía, y elegirla mandaba por la de MaKo igual.
+// Roturas (scratchpad romper-sale-desde.cjs, base 5 / 0): la ruta sin `para=mandar` → 4 / 1; RUTA_LINEAS sin él → 4 / 1;
+// SecuenciaPerfil con la ruta vieja → 4 / 1; `lineaDeEnvio` sin «Sale desde» → 4 / 1 (y decima-tanda).
+test('los selectores de línea de Automations muestran las MISMAS con las que se manda; la bandeja, las del negocio', () => {
+  assert.match(leer('lib/evolution.ts'), /export async function lineasParaMandarAqui\(\): Promise<LineaRow\[\]> \{\n\s+return \(await lineasParaMandar\(await wsEstricto\(\)\)\)\.lineas;/);
+  assert.match(leer('app/api/whatsapp/evolution/mensajes/route.ts'), /searchParams\.get\('para'\) === 'mandar' \? await lineasParaMandarAqui\(\) : await listarLineas\(\)/,
+    'la ruta no sabe dar las líneas con las que se manda');
+  assert.match(leer('app/automations/SalidaWhatsApp.tsx'), /export const RUTA_LINEAS = '\/api\/whatsapp\/evolution\/mensajes\?lineas=1&para=mandar';/);
+  // Nadie de Automations pide la lista sin `para=mandar`; la bandeja, sí (no manda por la de MaKo ni la opera).
+  for (const f of ['app/automations/SecuenciaPerfil.tsx', 'app/automations/PanelProbar.tsx', 'app/automations/SalidaWhatsApp.tsx']) {
+    assert.doesNotMatch(leer(f), /mensajes\?lineas=1'/, `${f} lee las líneas sin la de MaKo`);
+  }
+  assert.doesNotMatch(leer('app/whatsapp/WhatsAppApp.tsx'), /para=mandar/, 'la bandeja no ve la línea de MaKo');
+  // Con la lista de mandar, la de por defecto que se ve es la de MaKo: la que sale. Y el renglón lo dice.
+  const em = emisoresDeLineas([
+    { linea: MAKO, rotulo: 'WhatsApp de MaKo', estado: 'conectado', esDefault: true },
+    { linea: 'mako_ws9', rotulo: '+5491100000000', estado: 'conectado', esDefault: false },
+  ], null);
+  assert.deepEqual(em.map((o) => [o.valor, o.rotulo]), [['', 'WhatsApp de MaKo'], ['mako_ws9', '+5491100000000']]);
+  assert.equal(lineaDeEnvio(em[0].rotulo, '+54 9 11 2505 2605'), 'Sale desde WhatsApp de MaKo → +54 9 11 2505 2605');
 });

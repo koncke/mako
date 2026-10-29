@@ -1,8 +1,11 @@
 // =============================================================================
 // API interna: secuencias de nutrición para la tab /whatsapp
 // =============================================================================
-// GET   → todas las secuencias (activas y pausadas) + inscriptos/enviados.
-// PATCH → activar/pausar una secuencia, sus pasos o su línea. Body: { id, activa?, pasos?, linea? }.
+// GET   → todas las secuencias (activas y pausadas) + inscriptos/enviados. Con `?existentes=<id>` (sólo el admin), cuántos
+//         de los que YA están en la etapa de su CRON entran solos y cuántos no (Leila 2, lib/etapa-existentes.ts).
+// PATCH → activar/pausar una secuencia, sus pasos o su línea. Body: { id, activa?, pasos?, linea?, incluirExistentes? }.
+//         `incluirExistentes` con `activa: true`: después de prenderla, inscribe a los de la etapa que la ventana de 90 días
+//         dejaba afuera (`incluirExistentes`); vuelve `incluidos`.
 //         Con `pasos` (Publicar), un medio sin conectar contesta 409 { error: 'Conecta tu WhatsApp', medio }.
 //         El medio de las tarjetas Y el del CRON (un CRON de Instagram necesita Instagram). Con Instagram o
 //         Messenger conectado, asegura el webhook de Zernio; si falla, publica igual y vuelve `aviso`.
@@ -14,7 +17,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, existentesEnEtapa, incluirExistentes, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
@@ -23,6 +26,20 @@ import { comprobarVisto, type DbBorrador } from '@/lib/secuencia-borrador';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  // LOS QUE YA ESTÁN EN LA ETAPA (Leila 2, 28/10/2026): lo que la pantalla cuenta al activar. Sólo el admin (es quien activa).
+  const existentes = req.nextUrl.searchParams.get('existentes');
+  if (existentes != null) {
+    if ((await getRolWsEfectivo()) !== 'admin') return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
+    const id = Number(existentes);
+    if (!Number.isInteger(id) || id <= 0) return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+    try {
+      return Response.json({ ok: true, existentes: await existentesEnEtapa(id) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[api:whatsapp/secuencias GET existentes] ${msg}`);
+      return Response.json({ ok: false, error: msg }, { status: 500 });
+    }
+  }
   try {
     const etapa = req.nextUrl.searchParams.get('etapa') || '';
     const [todas, envioWhatsapp, envioEmail] = await Promise.all([
@@ -45,7 +62,7 @@ export async function PATCH(req: NextRequest) {
   if ((await getRolWsEfectivo()) !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
   }
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown; aunqueDuplique?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown; aunqueDuplique?: unknown; incluirExistentes?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -90,8 +107,17 @@ export async function PATCH(req: NextRequest) {
         if (ws != null) aviso = await asegurarAvisosSociales(ws, medios.sociales);
       }
     }
+    let incluidos: number | null = null;
     if (typeof body.activa === 'boolean') {
       await setSecuenciaActiva(id, body.activa, { aunqueDuplique: body.aunqueDuplique === true });
+      // «Incluirlas» (Leila 2): los de la etapa que la ventana de 90 días dejaba afuera, ya prendida. Si falla, la activación
+      // ya quedó: se dice y no se deshace.
+      if (body.activa && body.incluirExistentes === true) {
+        incluidos = await incluirExistentes(id).catch((e: unknown) => {
+          aviso = `Quedó activada, pero no pude sumar a los que ya estaban en la etapa (${e instanceof Error ? e.message.slice(0, 120) : 'error'}).`;
+          return null;
+        });
+      }
     }
     // De qué línea sale (`null` o "" = la de por default). La valida lib/nutricion.ts.
     if ('linea' in body) {
@@ -99,7 +125,7 @@ export async function PATCH(req: NextRequest) {
     }
     // La «Reentrada» del CRON (mig 0279). La valida lib/nutricion.ts.
     if ('reentrada' in body) await setSecuenciaReentrada(id, body.reentrada);
-    return Response.json(aviso ? { ok: true, aviso } : { ok: true });
+    return Response.json({ ok: true, ...(aviso ? { aviso } : {}), ...(incluidos != null ? { incluidos } : {}) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Lo que no es un flujo válido es un error del que guarda, no del servidor: 400, con el

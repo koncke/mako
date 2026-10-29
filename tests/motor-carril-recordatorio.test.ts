@@ -263,7 +263,7 @@ test('M4 (desde el 14/10/2026): una RESPUESTA no corta nada; se anota y el motor
   // vuelve a mirar, y en 'respondio' no se reusaría nunca más.
   assert.equal(estadoAlEscribir('respondio', 'completada', 'fallo'), 'completada');
   assert.equal(estadoAlEscribir('respondio', 'activa', 'fallo'), 'respondio');
-  assert.match(PROC, /proximo_envio_at, hilos, hilos_rev, estado, desenlace'\)/);
+  assert.match(PROC, /proximo_envio_at, hilos, hilos_rev, estado, desenlace(, inscripto_at)?'\)/);
   assert.equal(desenlaceEsperaAlCarril({ estado: 'respondio', proximo_envio_at: '2026-10-13T16:00:00Z' }), true);
   assert.equal(desenlaceEsperaAlCarril({ estado: 'respondio', proximo_envio_at: null }), false);
   // El cableado: `pausarPorRespuesta` sólo ANOTA ('respondio', con su posición y su próximo envío intactos); la cola y

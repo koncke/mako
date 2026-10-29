@@ -65,11 +65,13 @@ test('el webhook: una respuesta de un lead PAUSA y después dispara, en el mismo
   assert.match(ent, /const ES_RESPUESTA: ReadonlySet<EventoSocial\['subtipo'\]> = new Set\(\['mensaje', 'historia'\]\);/);
   // Un lead NUEVO no tiene nada que pausar.
   assert.match(proc, /return \{ accion: `\$\{accion\}_sin_automatizacion`, leadId: null, disparar: false, pausar: false \};/);
-  assert.match(ent, /return pausarPorRespuesta\(leadId, \{ origen: canal, texto: extra\.texto \?\? undefined, cuenta: extra\.cuenta \?\? null \}\);/);
+  // (29/10/2026, la reverificación de Integración: además de pausar, dice si ESE mensaje ya tuvo respuesta, `atencion`.)
+  assert.match(ent, /const pausadas = await pausarPorRespuesta\(leadId, \{ origen: canal, texto: extra\.texto \?\? undefined, cuenta: extra\.cuenta \?\? null, atencion \}\);/);
   const ruta = sinComentarios(leer('app/api/webhooks/zernio/route.ts'));
   const despues = bloque(ruta, 'after(async () => {', '\n        });');
   const iPausa = despues.indexOf('pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId })');
-  const iDisparo = despues.indexOf('dispararEventoSocial(leadId, canal, subtipo)');
+  // (28/10/2026, ticket #17: con lo que COMENTÓ, para las palabras clave del CRON de comentario.)
+  const iDisparo = despues.indexOf('dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto)');
   assert.ok(iPausa > 0 && iDisparo > iPausa, 'pausar después de disparar pausa la automatización que este mismo DM acaba de arrancar');
 });
 
@@ -77,12 +79,12 @@ test('el webhook pregunta por ESTE evento, con el subtipo en las palabras del CR
   const ent = sinComentarios(leer('lib/zernio-entrante.ts'));
   const hay = bloque(ent, 'export async function hayQuienEscuche(', '\n}\n');
   assert.match(hay, /const sub = subtipoDelEvento\(canal, subtipo\);/);
-  assert.match(hay, /return escuchaElEvento\(await getSecuenciasActivas\(\), canal, \{ subtipo: sub \}\);/);
+  assert.match(hay, /return escuchaElEvento\(await getSecuenciasActivas\(\), canal, \{ subtipo: sub, texto: texto \?\? null \}\);/);
   assert.doesNotMatch(hay, /trigger_tipo/, 'volvió a preguntar por el PRIMER CRON y por cualquier evento del canal');
   const disp = bloque(ent, 'export async function dispararEventoSocial(', '\n}\n');
-  assert.match(disp, /return enrolarPorEvento\(leadId, canal, \{ subtipo: sub \}\);/);
+  assert.match(disp, /return enrolarPorEvento\(leadId, canal, \{ subtipo: sub, texto: texto \?\? null \}\);/);
   assert.doesNotMatch(ent, /as unknown as/, 'volvió un cast: un evento que el motor no conoce compila y no inscribe a nadie');
-  assert.match(sinComentarios(leer('lib/zernio-entrante.ts')), /if \(!\(await hayQuienEscuche\(e\.canal, e\.subtipo\)\)\)/);
+  assert.match(sinComentarios(leer('lib/zernio-entrante.ts')), /if \(!\(await hayQuienEscuche\(e\.canal, e\.subtipo, e\.texto\)\)\)/);
 });
 
 // ── El email que llega ────────────────────────────────────────────────────────

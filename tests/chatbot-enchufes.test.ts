@@ -74,7 +74,8 @@ test('el número de salida viaja de SecuenciaPerfil al editor de WhatsApp', () =
   const montaje = bloque(PERFIL, '<FlujoLienzo', '\n        chrome={', 3_000);
   assert.match(montaje, /linea=\{rolAdmin \? \{ actual: lineaSec, onElegir: elegirLineaDesdeEditor \} : undefined\}/);
   const elegir = bloque(PERFIL, 'const elegirLineaDesdeEditor', 'await guardarLinea(linea);', 1_200);
-  assert.match(elegir, /mensajes\?lineas=1/, 'un número recién vinculado no vuelve a pedir la lista');
+  // (27/10/2026: la lista es RUTA_LINEAS, las líneas con las que se manda; tests/linea-plataforma.test.ts.)
+  assert.match(elegir, /fetch\(RUTA_LINEAS/, 'un número recién vinculado no vuelve a pedir la lista');
   // ⚠️ SEXTA TANDA (WhatsApp 2): el número va en la CABECERA del panel y es de CADA mensaje; la línea de
   // la automatización llega a la cabecera como lo que se ve cuando la tarjeta no eligió otra.
   const cabecera = bloque(FLUJO, 'tituloEditor={cabeceraDe(', '\n    />', 1_500);

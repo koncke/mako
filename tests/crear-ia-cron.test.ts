@@ -53,7 +53,8 @@ const PRODUCTOS: EntradaCronIA['productos'] = [
   { funnelId: 6, productoId: 10, nombre: 'Service Delivery & Ops', etapas: [{ value: 'nuevo', label: 'Nuevo' }], etapasEntrega: [{ value: 'onboarding', label: 'Onboarding' }] },
 ];
 const ETIQUETAS: EntradaCronIA['etiquetas'] = [{ id: 7, nombre: 'Cualificado' }, { id: 8, nombre: 'Vieja', archivada_at: '2026-01-01T00:00:00Z' }];
-const entrada = (conectados: CanalesConectadosIA): EntradaCronIA => ({ productos: PRODUCTOS, etiquetas: ETIQUETAS, conectados });
+// `anuncio`: el «clic en un anuncio» (prendido el 28/10/2026) la IA lo ve sólo si el pedido habla de anuncios (`PIDE_ANUNCIO`).
+const entrada = (conectados: CanalesConectadosIA, anuncio = false): EntradaCronIA => ({ productos: PRODUCTOS, etiquetas: ETIQUETAS, conectados, anuncio });
 const valores = (secs: ReadonlyArray<{ options: ReadonlyArray<{ value: string }> }>) => secs.flatMap((s) => s.options.map((o) => o.value));
 const seccion = (secs: ReadonlyArray<{ title: string; options: ReadonlyArray<{ value: string; label: string }> }>, title: string) => secs.find((s) => s.title === title);
 
@@ -85,7 +86,8 @@ test('1: Instagram, Messenger, Email y Pagos entran SÓLO si su canal está cone
 });
 
 test('1: ningún evento «apagado», y están TODOS los que no lo están', () => {
-  const secs = opcionesCronIA(entrada(TODOS));
+  // Con un pedido que habla de anuncios (sin él, el anuncio no se ofrece: ver abajo).
+  const secs = opcionesCronIA(entrada(TODOS, true));
   const tablas = [
     ['Instagram', 'instagram', EVENTOS_INSTAGRAM], ['Messenger', 'messenger', EVENTOS_MESSENGER],
     ['Email', 'email_recibido', EVENTOS_EMAIL], ['Pagos', 'pago', EVENTOS_PAGO],
@@ -101,6 +103,9 @@ test('1: ningún evento «apagado», y están TODOS los que no lo están', () =>
   }
   // Y la misma lista con que se valida al guardar (`eventosParaIA`), sin apagados.
   for (const c of ['instagram', 'messenger', 'email', 'pagos'] as const) assert.ok(eventosParaIA(c).every((e) => !e.apagado));
+  // Sin un pedido de anuncios, el anuncio no va (el techo de Groq, tests/crear-ia-tercera).
+  const sin = valores(opcionesCronIA(entrada(TODOS)));
+  assert.ok(!sin.includes('instagram:anuncio') && !sin.includes('messenger:anuncio'));
 });
 
 test('1: los valores EXACTOS de §3.1', () => {
@@ -128,6 +133,8 @@ test('2: `disparadorDeValorIA` para cada clase, y todo lo ofrecido pasa la valid
   assert.deepEqual(uno('etiqueta_quitada'), { id: 'd1', trigger_tipo: 'etiqueta_quitada', ignorar: [] });
   assert.deepEqual(uno('instagram:dm'), { id: 'd1', trigger_tipo: 'instagram', subtipo: 'dm' });
   assert.deepEqual(uno('messenger:qr'), { id: 'd1', trigger_tipo: 'messenger', subtipo: 'qr' });
+  // El anuncio, prendido el 28/10/2026: si el modelo lo eligió (lo vio), se entiende.
+  assert.deepEqual(uno('instagram:anuncio'), { id: 'd1', trigger_tipo: 'instagram', subtipo: 'anuncio' });
   assert.deepEqual(uno('email_recibido:recibido'), { id: 'd1', trigger_tipo: 'email_recibido', subtipo: 'recibido' });
   assert.deepEqual(uno('pago:aprobado'), { id: 'd1', trigger_tipo: 'pago', subtipo: 'aprobado' });
   assert.equal(disparadorDeValorIA('instagram:comentario', 'd3')[0].id, 'd3');
@@ -148,7 +155,7 @@ test('2: `disparadorDeValorIA` para cada clase, y todo lo ofrecido pasa la valid
 test('2: lo que no entiende (o la pantalla no guardaría) → []', () => {
   for (const v of [
     '', 'x', 'manual', 'trigger:manual', 'trigger:agendo', 'grupo_mako', 'aviso_mako:pago_recibido',
-    'instagram:anuncio', 'messenger:anuncio', 'messenger:tienda', 'instagram:xyz', 'instagram:', 'pago:', 'pago:cuota',
+    'messenger:tienda', 'instagram:xyz', 'instagram:', 'pago:', 'pago:cuota',
     'email:recibido', 'email_recibido:otro', 'etiqueta:agregada', 'etiqueta:0', 'etiqueta:x',
     'venta::agendado', 'venta:abc:nuevo', 'venta:5:', 'entrega:0:onboarding', 'entrega::onboarding', 'entrega:39:',
   ]) {

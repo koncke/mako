@@ -148,7 +148,9 @@ export type InscripcionVista = {
   /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
   enviados: EnvioVista[];
   /** `porQueNo`: por qué no se puede empezar de nuevo (frenada, en pausa, con una persona). */
-  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
+  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string; volverAProbar?: boolean };
+  /** Ya tiene «Volver a probar» puesto (ticket #19): entra de nuevo con lo próximo que la arranca. */
+  listaParaProbar?: boolean;
   /** «Una sola vez», «Otra reunión» o «Cada vez que vuelve a entrar» (null = no se sabe), y su rótulo. */
   reentrada: 'una_vez' | 'otra_reunion' | 'siempre' | null;
   reentradaTexto?: string | null;
@@ -198,6 +200,7 @@ export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVist
     proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.que?.que || i.proximo.titulo || null, clase: i.proximo.que?.clase ?? null } : null,
     frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto, saleAt: i.frenado.saleAt ?? null } : null,
     termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
+    ...(i.listaParaProbar ? { listaParaProbar: true } : {}),
     contesto: i.contesto ?? null, respuesta: i.respuesta ?? null, esperaToque: i.esperaToque ?? null,
     enviados: i.enviados.map((e) => ({
       at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error,
@@ -452,6 +455,18 @@ export function preguntaDeEmpezarDeNuevo(o: { nombre?: string | null; aut: Pick<
   return {
     titulo: `Empezar de nuevo «${o.aut.nombre}»`,
     mensaje: `${quien ? `A ${quien} le` : 'Le'} vuelve a salir todo desde el principio.`,
+  };
+}
+
+/**
+ * La pregunta antes de «Volver a probar» (ticket #19): no le manda nada ahora; lo próximo que la arranca (otro comentario con
+ * la palabra, otro mensaje) la vuelve a correr, una vez. Es como prueba un negocio su automatización con su propia cuenta.
+ */
+export function preguntaDeVolverAProbar(o: { nombre?: string | null; aut: Pick<InscripcionVista, 'nombre'> }): { titulo: string; mensaje: string } {
+  const quien = primerNombreDe(o.nombre);
+  return {
+    titulo: `Volver a probar «${o.aut.nombre}»`,
+    mensaje: `No le sale nada ahora. La próxima vez que ${quien ? `${quien} comente o escriba` : 'comente o escriba'} lo que la arranca, entra de nuevo (una vez).`,
   };
 }
 

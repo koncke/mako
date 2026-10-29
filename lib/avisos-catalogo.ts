@@ -201,6 +201,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'reunion-compromisos-tareas': 'plan', 'reunion-tareas-al-plan': 'plan',
   // El Claude del negocio que no puede analizar sus llamadas (26/10/2026, el evento de la plataforma `closing_ia_caida`).
   'closing-ia-caida': 'sistema',
+  // Instagram o Zernio frenan los mensajes de un negocio (28/10/2026, el evento de la plataforma `social_tope`).
+  'social-tope': 'sistema',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
   'avisos-resumen': 'reporte',
@@ -356,6 +358,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   // El Claude del negocio no puede analizar sus llamadas (26/10/2026): sin crédito, clave borrada o sin permiso. Nace
   // PRENDIDA: es lo único que le dice al negocio que el Closing dejó de andar (el ws11 juntó 168 fallos sin enterarse).
   'closing-ia-caida',
+  // Instagram o Zernio frenan los mensajes (28/10/2026, Leandro): nace PRENDIDA, es lo que le dice que no se perdió nada.
+  'social-tope',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -925,6 +929,19 @@ Tu clave de Claude se quedó sin crédito (desde el 8 de octubre), y el Closing 
 
 👉 Cárgale crédito en console.anthropic.com → Billing. Apenas tenga, las 12 llamadas que esperan se analizan solas.
 https://hola-mako.com/integraciones?abrir=anthropic — MaKo`,
+  },
+  {
+    id: 'social-tope', titulo: 'Instagram frenó los mensajes de tus automatizaciones', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // 28/10/2026: un EVENTO de la plataforma (`social_tope`, lib/disparadores.ts). Pedido de Leandro (ws10): «que MaKo me
+    // avise antes de que se trabe la automatización, para no encontrarme con mil mensajes sin responder». Lo emite el motor
+    // (`avisarTopesSociales`, lib/nutricion.ts) con `{{tope_estado}}`, `{{tope_quien}}`, `{{tope_canal}}`, `{{tope_cuantos}}`,
+    // `{{tope_espera}}` y `{{tope_limite}}`; el texto de cada estado lo tiene la automatización del SuperAdmin.
+    disparador: 'El motor de las automatizaciones manda por Instagram o Messenger y Zernio o Meta contestan que llegó al tope (o lo que salió en la última hora se acerca al de Meta). No más de un aviso por hora; lo que no salió vuelve a salir solo.',
+    ejemplo: `⚠️ *Instagram frenó los mensajes de tus automatizaciones*
+Llegaste al tope de Instagram (750 respuestas por hora): 37 mensajes esperan.
+
+No se pierde ninguno: salen solos en 1 h. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',

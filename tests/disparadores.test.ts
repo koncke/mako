@@ -17,7 +17,7 @@ import {
   ZONAS_POR_PAIS, paisDeZona, EVENTOS_INSTAGRAM, EVENTOS_MESSENGER, CLASES_DISPARADOR, VALOR_GRUPO,
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_SOLO_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TOPE_DISPARADORES, vistasPorDisparador, unaPorSecuencia,
-  conProximas, nuevosOCambiados,
+  conProximas, nuevosOCambiados, opcionesCronIA, PIDE_ANUNCIO,
   type Disparador,
 } from '../lib/disparadores';
 import { PAISES } from '../lib/paises';
@@ -163,19 +163,31 @@ test('lo que le falta: dos iguales, un segundo sin elegir, el grupo sin horario,
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_SOLO_GRUPO, grupo: true }, { unico: true }), 'El grupo de MaKo es para un Recurrente');
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: 'manual', cron: CRON }, { unico: true }), 'Elige a quién le llega');
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_SOLO_GRUPO, cron: CRON, grupo: true }, { unico: true }), null);
-  assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_INSTAGRAM, subtipo: 'anuncio' }, { unico: true }), 'Ese evento todavía no se puede usar');
+  // El clic en un anuncio se prendió el 28/10/2026 (Teo: «ManyChat 2.0»); la tienda de Facebook sigue apagada.
+  assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_INSTAGRAM, subtipo: 'anuncio' }, { unico: true }), null);
+  assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_MESSENGER, subtipo: 'tienda' }, { unico: true }), 'Ese evento todavía no se puede usar');
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_MESSENGER, subtipo: null }, { unico: true }), 'Elige el evento');
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_INSTAGRAM, subtipo: 'dm', cron: CRON }, { unico: true }), 'Un evento no se repite por horario');
   assert.equal(problemaDeDisparador({ id: 'd1', trigger_tipo: 'entrega_actual', etapa: 'onb' }, { unico: true }), 'Elige el producto');
 });
 
-test('los eventos de ManyChat: seis de Instagram y seis de Messenger, con el del anuncio APAGADO (y la tienda, que Zernio no avisa)', () => {
+test('el clic en un anuncio (prendido el 28/10/2026): la IA lo ve SÓLO si el pedido habla de anuncios (el techo de Groq)', () => {
+  const valores = (anuncio?: boolean) => opcionesCronIA({ productos: [], etiquetas: [], conectados: { instagram: true, messenger: true, email: false, pagos: false }, anuncio })
+    .flatMap((s) => s.options.map((o) => o.value));
+  assert.ok(!valores().includes('instagram:anuncio') && !valores().includes('messenger:anuncio'));
+  assert.ok(valores(true).includes('instagram:anuncio') && valores(true).includes('messenger:anuncio'));
+  assert.ok(valores().includes('instagram:comentario'), 'los demás eventos siguen');
+  for (const t of ['cuando alguien hace clic en mi anuncio de Instagram', 'leads de Meta Ads', 'los que vienen por publicidad']) assert.match(t, PIDE_ANUNCIO);
+  for (const t of ['cuando comentan fiesta', 'Martín anunció la promo', 'un DM de bienvenida']) assert.doesNotMatch(t, PIDE_ANUNCIO);
+});
+
+test('los eventos de ManyChat: seis de Instagram y seis de Messenger; apagada sólo la tienda, que Zernio no avisa (el anuncio, prendido el 28/10)', () => {
   assert.equal(EVENTOS_INSTAGRAM.length, 6);
   assert.equal(EVENTOS_MESSENGER.length, 6);
-  assert.deepEqual(EVENTOS_INSTAGRAM.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio']);
+  assert.deepEqual(EVENTOS_INSTAGRAM.filter((e) => e.apagado).map((e) => e.subtipo), []);
   // La tienda de Facebook, apagada desde la segunda pasada (09/10/2026): Zernio no la avisa
   // (`DISPARADORES_SOCIALES` la marca `disponible: false`, tests/disparadores-canal-social.test.ts).
-  assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['anuncio', 'tienda']);
+  assert.deepEqual(EVENTOS_MESSENGER.filter((e) => e.apagado).map((e) => e.subtipo), ['tienda']);
   // «Pagos», el séptimo (11/10/2026): botón propio por decisión de Martín, con la grilla en 4+3.
   assert.deepEqual(CLASES_DISPARADOR.map((c) => c.label), ['Funnel', 'Recurrente', 'Etiqueta', 'Instagram', 'Messenger', 'Email', 'Pagos']);
 });

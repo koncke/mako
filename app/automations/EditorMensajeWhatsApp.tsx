@@ -376,7 +376,9 @@ export function placeholderDe(tipo: PasoSecuenciaDto['tipo'], propio?: string, a
   if (adjunto === 'media') return 'Agrega un texto (opcional)';
   if (adjunto === 'audio') return 'Texto después del audio';
   if (tipo === 'ia') return 'Qué tiene que lograr';
-  return propio ?? 'Escribe un mensaje';
+  // «TAL CUAL» (27/10/2026, MK-24: Joan escribió una instrucción donde va el mensaje, y le llegó al lead así; Martín: «ahí no
+  // va un prompt… Es como manychat»). Para que lo escriba MaKo está el ✦ de la tarjeta («Lo adapta MaKo»).
+  return propio ?? 'Escribe lo que le llega, tal cual';
 }
 
 /** Un adjunto elegido que todavía no se envió (el chip arriba de la barra). El de lib/borrador-barra.ts: se guarda. */

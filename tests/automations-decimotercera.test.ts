@@ -106,7 +106,8 @@ test('punto 2: «Pídeselo a MaKo» cierra el modal y crea la fila por la puerta
   assert.match(ruta, /const sinId = modo === 'crear' && \(body\.secuenciaId == null \|\| body\.secuenciaId === ''\);/);
   // 20/10/2026 (punto 4, decir qué hizo): lo que dice MaKo lo arma el core con lo GUARDADO (cuándo sale, a quién, qué
   // manda) y viaja en `r.texto`; la ruta lo anota y lo manda en `listo`, y la pantalla lo dibuja tal cual.
-  assert.match(ruta, /await anotar\(\[mensajeChat\('mako', r\.texto, 'app', \{ avisos: r\.avisos \}\)\]\);/);
+  // (27/10/2026: y con qué IA lo escribió, `ia`; tests/automations-quien-contesto.test.ts.)
+  assert.match(ruta, /await anotar\(\[mensajeChat\('mako', r\.texto, 'app', \{ avisos: r\.avisos, \.\.\.\(ia \? \{ ia \} : \{\}\) \}\)\]\);/);
   // Lo que dice MaKo al crear lo dice IGUAL el chat de la pantalla y el que guarda el server.
   assert.equal(textoDeCreada('Bienvenida'), textoDeCreadaServer('Bienvenida'));
   assert.match(CHAT, /texto: l\.modo === 'crear' \? \(l\.texto \?\? textoDeCreada\(l\.nombre\)\) : textoDeListo\(l\)/);

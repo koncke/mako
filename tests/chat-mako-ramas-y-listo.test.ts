@@ -128,8 +128,9 @@ test('la ruta: la primera vez lo que falta es un error (reintento); después se 
   // Sin `control` (otro llamador), cada intento es el primero.
   assert.deepEqual(revisarEdicion({ obj: HAIKU_SIN_PREGUNTA, base: BASE, ctx: CTX, pedido: PEDIDO, historial: [], intencion: 'editar' }).errores, [errorDeFaltantes([falta])]);
   assert.match(ruta, /noHecho\.length \? 'No pude hacer todo lo que pediste' : 'Listo'/);
-  assert.match(ruta, /\.\.\.\(noHecho\.length \? \{ noHecho \} : \{\}\),\n\s+\}\)\]\);/, 'el chat guardado no sabe qué faltó');
-  assert.match(ruta, /\.\.\.\(noHecho\.length \? \{ noHecho \} : \{\}\),\n\s+\}\);/, 'el stream no dice qué faltó');
+  // (27/10/2026: después de lo que faltó va con qué IA contestó, `ia`; tests/automations-quien-contesto.test.ts.)
+  assert.match(ruta, /\.\.\.\(noHecho\.length \? \{ noHecho \} : \{\}\),\n\s+\.\.\.\(ia \? \{ ia \} : \{\}\),\n\s+\}\)\]\);/, 'el chat guardado no sabe qué faltó');
+  assert.match(ruta, /\.\.\.\(noHecho\.length \? \{ noHecho \} : \{\}\),\n\s+\.\.\.\(ia \? \{ ia \} : \{\}\),\n\s+\}\);/, 'el stream no dice qué faltó');
   // Y lo que no se hizo se guarda en el chat (el saneado no lo tira).
   assert.deepEqual(sanearMensaje({ id: 'm1', de: 'mako', texto: 'x', at: new Date().toISOString(), via: 'app', noHecho: ['No quedó: «a»'] })?.noHecho, ['No quedó: «a»']);
 });
