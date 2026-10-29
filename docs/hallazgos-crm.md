@@ -59,10 +59,24 @@ fallaba. La papelera es una FOTO: el lead se borra como siempre (nadie lo ve, na
   `idsDeColumna`) y `ejecutar` corre con las piezas de la barra (lib/crm-bloque-server.ts), con 300 s (WhatsApp, el chat y la
   bandeja tienen 420) y lo que no llega se dice.
 
+**En producción (29/10/2026, lo midió el Cerebro, sólo lectura):** la tabla y las funciones de la 0340 YA ESTÁN en la base
+(Martín dio el sí; se aplicó el archivo de crm-lote-2810 @ 77679ed63).
+- Antes de aplicarla: del lead cuelgan **51 FKs** (34 en cascada, 17 set null/default, 0 restrict), sin cascadas de varias
+  columnas ni ciclos: la foto lleva **24 tablas** en un orden posible. (El 28/10 se contaron 26 columnas de 23 tablas en cascada
+  leyendo las migraciones: la base de verdad tiene más.)
+- Después: `leads` siguió en 3017 filas; `leads_papelera` con RLS prendido, 0 filas y sin lectura para anon/authenticated; las
+  5 funciones son security invoker y sólo las ejecuta service_role; `papelera_leads_fks()` devuelve 51.
+- **«Eliminar» ya no se frena por la tabla.** Antes de la 0340, el botón seguía a la vista y al tocarlo decía «La papelera del
+  CRM todavía no está lista (falta la migración 0340): no se borró nada» (`FALTA_LA_PAPELERA`): no se apagaba solo, pero
+  tampoco borraba. Lo único que falta es que suba el código y el cron (`/api/cron/leads-papelera`, `45 10 * * *`, en
+  vercel.json): sin el cron, nada se purga a los 30 días, pero tampoco se pierde nada.
+- ⚠️ **El número 0340 es de ésta**: la rama motion-imagen-2610 tiene una `0340_image_editor_propuestas.sql`; a ésa la renumera
+  Integración al entrar, porque la de la papelera es la que está en la base.
+
 **Sin hacer:**
-- Montar la hoja de la DIFUSIÓN de Automations (`HojaDifusion`): la barra tiene `onMandarMensaje` y `seleccionDeDifusion`
-  (app/crm/seleccion-difusion.ts), pero al 28/10 la hoja no existía en ninguna rama. CrmBoard no le pasa `onMandarMensaje`
-  todavía: sin eso el botón no se dibuja.
+- ~~Montar la hoja de la DIFUSIÓN~~: hecho el 29/10/2026 en crm-difusion-2910 (la barra y el «⋯» de la columna; ver
+  tests/crm-difusion-columna.test.ts). Al juntarlas apareció que la columna del funnel principal viajaba con `funnelId: null`,
+  que el server lee como esa etapa en TODOS los funnels: ahora va con el id del principal, y sin id, los ids que se ven.
 - Los archivos de Storage de un lead purgado (adjuntos de notas, contratos) quedan: ya pasaba con el borrado de antes.
 - El historial (`lead_audit`) de un lead purgado tampoco se borra: no tiene FK, como antes.
 - Una inscripción a una automatización vuelve como estaba al recuperar: si pasaron días, el próximo paso puede salir enseguida.

@@ -3850,4 +3850,23 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
     tickets: [21, 22],
   },
+  {
+    fecha: '29 oct', hora: '06:30', chat: 'CRM y Chats', sesion: 'local_50d3b679-7aa4-4438-a315-993bea9b1e1a', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: mandar un mensaje de difusión desde los 3 puntitos de una columna del CRM',
+    pedido: 'Martín: «¿Se está ejecutando todo lo del CRM, como lo que quería Leila de enviar un mensaje de difusión en los 3 puntitos de la columna?»',
+    puntos: [
+      '**En los 3 puntitos de cada columna:** «Mandar mensaje de difusión» abre la hoja de la difusión con TODA la columna, sin tildar nada. Si tienes filtros puestos dice «Mandar mensaje a los N que se ven» y va a esos.',
+      '**Desde la barra en bloque también:** con leads tildados, el botón de enviar abre la misma hoja.',
+      '**Antes de mandar ves a quién le llega** por cada canal y quién queda afuera; al crearla te deja el link para verla en Automations.',
+      '**Sólo a los de ese funnel:** mirando el funnel principal, una columna le habría llegado también a los leads de los otros funnels con esa etapa. Ya no.',
+      'Lo ve sólo el administrador, igual que la difusión en Automations.',
+    ],
+    archivos: [
+      'app/crm/CrmBoard.tsx — la hoja montada, la barra y el «⋯» · app/crm/menu-contextual-crm.ts — el renglón',
+      'app/crm/seleccion-difusion.ts — la columna o los que se ven, siempre con el funnel · app/automations/difusion/HojaDifusion.tsx (Automations)',
+      'tests/crm-difusion-columna.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+  },
 ];

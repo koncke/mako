@@ -10808,3 +10808,12 @@ para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{
 `return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
 molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
 el porqué, en docs/hallazgos-video-editor.md.
+
+# Una COLUMNA que se manda al server va con el id del funnel, también el principal (29/10/2026)
+
+`funnelActivo` llega `null` cuando se mira el funnel principal, y el server lee `{ funnelId: null, etapa }` como esa etapa en
+TODOS los funnels (`ambitoDeFunnel(null)` → «todos», lib/nutricion.ts). La difusión de Leila a «Contacto nuevo» del principal
+le habría llegado también a los de los otros funnels. **Regla para código nuevo:** lo que manda una columna al server la manda
+con `funnelActivo ?? funnels.find((f) => f.esDefault)?.id` (en CrmBoard, `funnelDeDifusion`; el mismo que «Vincular evento»),
+y si no hay id, manda los ids que se ven (`seleccionDeDifusion`, app/crm/seleccion-difusion.ts). Lo fija
+tests/crm-difusion-columna.test.ts; el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la papelera»).
