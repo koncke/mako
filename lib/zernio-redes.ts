@@ -128,7 +128,10 @@ export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; r
 
 /** El aviso, en una línea: cuántas hay y cuánto cuesta la que viene (de la 3.ª a la 10.ª, US$6 por mes, prorrateado por día). */
 export function textoAvisoCobro(cuentas: number): string {
-  return `Tu Zernio ya tiene ${cuentas} cuentas conectadas: ésta se paga. Zernio te cobra US$6 por mes por cada una desde la 3.ª, prorrateado por día.`;
+  // La salida gratis (Martín, 28/10: «la misma advertencia cuando estén por conectar su 3ra red»): Zernio cobra sólo las cuentas
+  // ACTIVAS, así que desconectar allá una que no se usa la deja gratis. «Conecta otra cuenta de Zernio» NO va todavía: MaKo usa
+  // UNA clave por negocio, y pegar otra reemplaza a la anterior (se dice cuando existan varias claves, docs/relevo/zernio-capi.md).
+  return `Tu Zernio ya tiene ${cuentas} cuentas conectadas: ésta se paga. Zernio te cobra US$6 por mes por cada una desde la 3.ª, prorrateado por día. Para no pagar, desconecta en zernio.com una que ya no uses y vuelve a intentarlo.`;
 }
 
 // ── A dónde vuelve ───────────────────────────────────────────────────────────

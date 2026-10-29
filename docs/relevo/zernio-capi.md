@@ -352,3 +352,7 @@ notas del Cerebro). P2P (ws14) no tiene grupo de WhatsApp: por eso nunca le lleg
 - Punto 3 (varias claves): el diseño de 4 pasos está en la sección «Varias claves de Zernio en un negocio» de este relevo
   (en main). Antes de arrancarlo: los términos de Zernio (zernio.com/terms dio 404) — si prohíben varias cuentas gratis para
   lo mismo, avisar al Cerebro.
+- 29/10 ~00:00: punto 2, la parte que es CIERTA hoy: el aviso de la 3.ª red (`textoAvisoCobro`, lib/zernio-redes.ts) suma «Para
+  no pagar, desconecta en zernio.com una que ya no uses y vuelve a intentarlo» (Zernio cobra sólo las ACTIVAS). La de «otra
+  cuenta de Zernio» espera a varias claves; el test fija que no aparezca. Probado rompiéndolo (12/1 → 11/2; el 1 es el «Mirá»
+  de Planes), tsc 0. Falta: punto 1 (los límites en la nota y el modal, con Analytics MEDIDO de nuevo), punto 4 y punto 3.
