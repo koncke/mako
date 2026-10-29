@@ -87,7 +87,8 @@ test('⚠️ el pago HABILITA: compare-and-set sobre `pendiente`, sólo la plata
 test('el aviso de la pasarela y el cron habilitan; una renovación no', () => {
   const c = fuente('lib/cobros.ts');
   assert.match(c, /await altaSiCorresponde\(actual\);\s*if \(!renovacion\) await habilitarClienteDeAgencia\(actual\);/);
-  assert.match(c, /for \(const c of pagados\) \{\s*await habilitarClienteDeAgencia\(c\);/);
+  // (Desde el 28/10/2026 la vuelta mira primero si le queda tiempo: `if (sinTiempo()) { cortado = true; break; }`.)
+  assert.match(c, /for \(const c of pagados\) \{\s*if \(sinTiempo\(\)\) \{ cortado = true; break; \}\s*(?:\/\/[^\n]*\n\s*)?await habilitarClienteDeAgencia\(c\);/);
 });
 
 test('⚠️ `crearCobro`: el lugar de un cliente lo cobra SÓLO la plataforma, y un inicio diferido sólo en una suscripción de Mercado Pago', () => {

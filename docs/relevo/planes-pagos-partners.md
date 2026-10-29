@@ -43,8 +43,9 @@ Este archivo reemplaza a docs/relevo/planes-nube-2710.md (el relevo de la nube d
 ## Estado de la entrega
 - Último VERDE mandado: 3ca2d8328 → verificado; a196d5a93 → verificado con 2 medias y bajas, arregladas en 1e6bd27e8.
 - **1e6bd27e8** (28/10, 21:10): tsc acotado sobre los 63 .ts de la unión, limpio (sólo los 14 de `_opencut`). Los tests de cada
-  arreglo, de a uno, verdes, con su rojo-verde por los scripts del refutador y 12 roturas. **tests-afectados todavía NO corrió**:
-  con-turno esperó 30 min y la fila de tests la tenían otros chats. Se relanza; el VERDE va al Cerebro cuando dé.
+  arreglo, de a uno, verdes, con su rojo-verde por los scripts del refutador y 12 roturas. tests-afectados (22:10): 4309 tests de
+  405 archivos, un solo rojo (tests/agencia-cobro.test.ts fijaba la primera línea del lazo de pagados, donde ahora va el reloj),
+  arreglado en el commit siguiente y corrido solo: 12/0. VERDE mandado al Cerebro con esa punta; espera su verificación.
 
 ## Lo que falta verificar
 - /planes, /planes/<plan>, /partners y /m/partners nunca se miraron en pantalla (piden build parcial; el Cerebro frenó lo pesado).
