@@ -35,11 +35,12 @@ tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING».
   una vez, con las dos (la de Create redirige /reels a `/copywriter?nuevo=reel`, que vive acá). nav.ts y movil-rutas.ts
   los resolví acá, encima del commit de Create.
 - **Commits de esta rama (29/10):** d8093aa14 (Notion) · 5786f7fef · feb62eb06 · 61bc5a3c1 (merge Create) · d5af2bbca
-  (shell) · 9c9d02ba1 (tipos de «Duplicar») · 9c81c1a94 (merge Create, punta) · 0fc58707d (los rojos de tests-afectados).
-- **VERDE parcial (29/10, ~07:00):** tsc-acotado 0 sobre 53 archivos en 4 tandas + 13 del último commit (con los dos
-  `.d.ts` globales, ver hallazgos); los 13 tests que dieron rojo, 111/111, cada arreglo probado rompiéndolo. Falta la
-  segunda corrida de `tests-afectados --base origin/main --rapido` (la primera: 10 rojos en 8 archivos, arreglados en
-  0fc58707d y en el merge de la punta de Create).
+  (shell) · 9c9d02ba1 (tipos de «Duplicar») · 9c81c1a94 (merge Create, punta 4e75f2067) · 0fc58707d (los rojos de
+  tests-afectados) · d938b5003 (el pie del super admin con la forma de Offer).
+- ✔ **VERDE (29/10, ~08:00) sobre d938b5003:** `tests-afectados --base origin/main --rapido` 5.339 tests de 528 archivos,
+  0 rojos; tsc-acotado 0 (53 archivos en 4 tandas + 13 + 5, con los dos `.d.ts` globales, ver hallazgos). Cada arreglo,
+  probado rompiéndolo. Capturas nuevas: d14 (pie del super admin), d15 (el cliente no lo ve), t5 (teléfono con
+  `?nuevo=reel`: la hoja abierta con el Reel primero).
 - `/m/stories` (StoriesM), `/ideas` y el «pronto» de YouTube Writer del teléfono siguen vivos sin fila (las keys `ideas` y
   `youtube-writer` en SIN_FILA con `comingSoon`, porque sus páginas las piden): retirarlos arrastra los tests del
   teléfono (m-creacion, movil-rutas, movil-desvio); va en otra tanda.
