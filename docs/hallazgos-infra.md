@@ -9163,6 +9163,27 @@ el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (
   `ops-center-bateria`, y cayó también el proceso de barredoras compartidas de otro chat, que tenía ese test en su lista.
   Se corta por pid propio, o por la línea entera de con-turno con su cwd.
 
+## El tren grande del 29/10: los VERDE sin barrido dejan los rojos para el tren, y dos tests de ramas distintas se contradicen (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` (tren-ab, `1cf06eba9`).
+
+- **El síntoma:** para ganar tiempo, el Cerebro pidió que los chats dejaran de correr `tests-afectados` completo y
+  mandaran el VERDE con tsc y sus tests dirigidos. El tren de 12 puntas dio 8 rojos de esas puntas, y cada uno costó una
+  vuelta con su chat o un arreglo de Integración: reportar-a-soporte (Zernio y AI Avatar), condiciones-instagram,
+  mako-no-puedo-falsos (dos veces: CRM fiscal y Pagos), notificaciones (Copywriter), integraciones-vercel (Zernio) y tres del
+  editor (Web Generator).
+- **El diagnóstico obvio («es la combinación de ramas») acertó dos veces de diez.** Las otras ocho daban rojo también en
+  el árbol de su chat, solo: un test que nombra o barre un archivo de la punta, fuera de sus dirigidos. **Regla:** antes de
+  devolver un rojo del tren, correrlo en el árbol del chat; si ahí también falla, es de la punta.
+- **Dos tests de ramas distintas se contradijeron, dos veces.** `keyDeSeguimiento`: `zernio-sin-respaldo` pedía `cfg(ws)` y
+  `condiciones-instagram` la key propia; ganó la decisión de Martín. `enviarAlGrupoMaKo`: `links-con-ws` fija `texto0` y
+  `grupo-ve-el-grupo` fijaba `texto`. Un test de forma (un regex sobre el fuente) fija un nombre que otra rama cambia sin
+  verlo. **Regla:** al resolver un choque de código, correr los tests de forma de los DOS lados que nombran ese archivo
+  (`grep -l <archivo> tests/`).
+- **Tocar el árbol del tren con los tests corriendo ensucia la corrida** (me pasó dos veces: el revert de Reels y un
+  `git rm`). Los tests leen archivos mientras corren. **Regla:** se mezcla entre corridas, nunca durante; lo que llega en
+  el medio espera y entra con los tests de la diferencia (`tests-afectados --base <el último sha probado>`).
+
 ## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
 
 - **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
