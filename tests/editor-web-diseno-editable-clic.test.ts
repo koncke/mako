@@ -116,7 +116,8 @@ test('el iframe del «Diseño editable» recibe el clic con la sección SIN acti
 test('el camino del DOM del test es el que dibuja la vista', () => {
   const vista = leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx');
   assert.match(vista, /<NodeViewWrapper className="gmx-nv" data-activo=\{mostrarBarra \? 'si' : undefined\}/);
-  assert.match(vista, /<div className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable=\{false\}>\n\s*<iframe ref=\{marco\}/);
+  // 29/10/2026: la caja mide la escala de la copia (ref) y, achicada, recorta al alto escalado; el iframe sigue adentro.
+  assert.match(vista, /<div ref=\{cajaMarco\} className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable=\{false\}\n\s*style=\{escala < 1 \? \{ height: Math\.ceil\(alto \* escala\) \+ 'px', overflow: 'hidden' \} : undefined\}>\n\s*<iframe ref=\{marco\}/);
   // La sección se activa con el mousedown de ADENTRO del iframe: por eso el clic tiene que llegar.
   // (26/10/2026: el diseño activo vive en ../puente-diseno.ts, que también lee la barra «Texto».)
   assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\n\s*activarDiseno\(\{ doc: d, guardar: \(\) => guardarVivo\.current\(\) \}\);\n\s*marcarSeccion\(\);/);
