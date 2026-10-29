@@ -9079,3 +9079,51 @@ tabnews.com.br (el dato de 80 MB por instancia).
   está configurado (medido). Sólo eran docs y no cambiaron nada para los clientes. **Regla hasta encontrar la causa:**
   mientras corre el push de un tren, en esa rama no se commitea NADA que no sea docs. Un merge de código va DESPUÉS de que
   el push termine y el deploy esté Ready.
+
+## Buscar en los logs de Vercel: el filtro con `*` da 0 sin error, y el menú pide las tabs de a pares (29/10/2026, claude3)
+
+**Vive en:** la CLI de Vercel (`npx vercel logs`, v65), usada para encontrar la URL de un ticket y para medir el blanco del
+Web Generator en producción.
+
+- **`-q 'requestPath:"/web-generator*"'` devuelve 0 registros**, con `recordsReturned: 0` y sin error. El comodín no se
+  interpreta. Lo que anduvo: el camino EXACTO (`-q 'requestPath:"/api/landing-generator/replicar/leer"'`) o bajar todo el rato
+  (`vercel logs requests --since <ISO> --until <ISO> --json -n 10000`) y filtrar con un script. Con ~7.000 pedidos en 2 h 20 min,
+  10.000 alcanzan; el resumen final dice `hasMore`.
+- **`vercel logs requests` trae el camino, el estado y el deploy, pero no la URL pedida ni lo que se mandó.** Lo que dijo el
+  server está en los logs de la función (`vercel logs`, sin `requests`) del mismo pedido, y ahí estaba la URL del ticket
+  (`[editor-landing/replicar-lectura] https://100ads.ai/: …`).
+- **Un `GET /web-generator` 200, de a dos por segundo y junto con `/crm`, `/plan`, `/offer`…, es el PREFETCH del menú**, no
+  alguien entrando. Una entrada de verdad es un 307 (la carga directa) seguido de `/web-generator/<id>`, o un
+  `/web-generator/<id>` suelto. Sin sesión, el prefetch da 307 a `/login` en todas las tabs a la vez.
+
+## tests-afectados cuenta como rojos los `todo` cuando el reintento aislado tiene un rojo de verdad (29/10/2026, claude3)
+
+**Vive en:** `scripts/tests-afectados.mjs`, el reintento AISLADO de lo que dio rojo en un proceso compartido.
+
+Una corrida dio «Rojos: chats-mako-envio, doer-recetas-video-imagen, editor-landing-estilo». Sólo el tercero era rojo. Los
+otros dos tienen un `todo` que falla a propósito en main (dependen de la rama mako-wa), y corridos solos dan `fail 0`. Los
+tres archivos se repiten juntos en UNA tanda: el rojo de verdad hace salir con código distinto de 0, y `leerResultado`
+toma los archivos de la lista «✖ failing tests», donde node pone también los `todo` que fallan. **Regla:** antes de
+perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). **Sin hacer:** que el reintento separe los
+`todo` (el arreglo es del parser, en `leerResultado`).
+
+## El chequeo de tren-y con la PC llena: `node --test` sin archivos corre TODO, y la pausa no frena a quien llama a node directo (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` y `scripts/pausa-cerebro.mjs`.
+
+- **La lista vacía.** `node --import tsx --test $(cat lista.txt)` con `lista.txt` vacío (un `grep -l` que no encontró nada)
+  NO falla: node corre TODO `tests/` con su patrón por defecto. Se vio a los 10 minutos, con la PC en 0,7 GB y otro chequeo
+  en el medio. **Regla:** antes de pasarle una lista a `node --test`, `[ -s lista.txt ] || exit 1`.
+- **La tanda «colgada» era la RAM.** Con 0,27 GB libres, la tanda de 43 archivos «pasó los 10 min y se mató» con 517 tests
+  verdes y ninguno rojo: estaba paginando, no colgada. Re-corrida de a 6 archivos con 2 procesos: 608/608 en verde.
+  Un «se colgó» con la RAM libre mínima en 0,0 GB (la última línea de tests-afectados la dice) no es un test roto.
+- **La pausa del Cerebro sólo frena a `tests-afectados` y `tsc-acotado`.** Con la pausa prendida a las 02:46, un chat
+  lanzó `node --import tsx --test …` directo a las 03:06 y sumó nueve procesos de ~300 MB. **Sin hacer:** que la pausa
+  también la mire `C:/dev/con-turno.mjs`, por donde los chats deberían pasar lo pesado.
+- **⚠️ La pausa TRABA el push si los chats pasan el tsc por con-turno (el diagnóstico obvio, «falta RAM», era el
+  equivocado).** `con-turno.mjs` toma `mako-typecheck.lock` ANTES de lanzar `tsc-acotado`, y recién adentro `tsc-acotado`
+  espera la pausa (hasta 60 min, `esperarSinPausa`). Con la pausa prendida, el chat queda con el turno de tipos en la mano y
+  sin correr nada. El hook del push espera ese mismo lock: `typecheck-lock` 10 min y `tipos-respaldo-push` otros 10, y
+  después sale con 99 «no hubo RAM». Así cayó el primer push de tren-y (04:17), con cuatro tsc de chats en la fila.
+  **Regla:** para subir, la pausa NO se prende antes del push. Se apaga, se espera la fila de tipos vacía y se empuja; el
+  push toma el lock y los chats esperan detrás. **Sin hacer:** que `con-turno` espere la pausa ANTES de tomar el lock.

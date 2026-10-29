@@ -62,7 +62,7 @@ import type { LecturaReplica, RespuestaLectura } from '@/lib/editor-landing/repl
 import { leerEventos, vistaDeEventos, type EventoReplica } from '@/lib/editor-landing/replicar-progreso';
 import { ArmadoEnVivo, useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import {
-  abrirEnElClic, cerrarVentana, leerEnNavegador, pedirConVentana, tomarVentanaReservada,
+  abrirEnElClic, cerrarVentana, leerEnNavegador, mensajeSinFoto, pedirConVentana, tomarVentanaReservada,
   type SalidaSinLectura, type VentanaDelClic,
 } from '@/lib/editor-landing/lector-navegador';
 import {
@@ -212,7 +212,8 @@ export function useReplicarEnVivo(): {
       const v = op.ventanaFoto;
       const l = await leerEnNavegador(url, { foto: true, ...(v && v !== 'bloqueada' ? { ventana: v } : {}) });
       if (!montado.current) return;
-      if (!l.ok || !l.foto) { fallar(l.ok ? 'No pude sacar la foto de la página. Vuelve a intentar.' : l.mensaje); return; }
+      // Sin foto, el MOTIVO que mandó el lector (lector-navegador.ts → mensajeSinFoto), no un «Vuelve a intentar» para todo.
+      if (!l.ok || !l.foto) { fallar(l.ok ? mensajeSinFoto(l.sinFoto) : l.mensaje); return; }
       foto = l.foto;
     }
     const cuerpo = { ...(formato === 'web' ? { url, formato, ...(foto ? { foto } : {}) } : { url, formato, ...dato, ...(adaptar ? { adaptar: true } : {}) }), enVivo: true };

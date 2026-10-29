@@ -246,6 +246,24 @@ UNA letra no tenía esa forma.
 barre el Calendario y el Classroom (escritorio y teléfono) buscando cualquier primera unidad recortada o sola en mayúscula;
 `charAt(0).toUpperCase() + x.slice(1)` (poner la mayúscula) no rompe y no se marca. **Vive en:** app/calendario/ListaLlamadas.tsx.
 
+## Publicar desde el Calendar: los «4 minutos del mismo pedido» se cuentan desde el PRIMER envío (29/10/2026)
+
+**Vive en:** lib/calendario-publicar.ts (`programarPublicaciones`, `releerPublicaciones`, `esFallaDudosa`) ·
+app/…/PublicarEnRed.tsx («Reintentar»). Medido por la verificación de `254856316` (informe con los scripts:
+C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md).
+
+- **El síntoma:** dos posts públicos a la misma hora en el Instagram del negocio, y uno de ellos MaKo no lo puede cancelar.
+- **La causa:** el reintento reusa el `x-request-id` si `updated_at` es de hace menos de 4 min. Pero `updated_at` se
+  pisa en cada anotación: la relectura pasa un «programando» trabado a «dudosa» con la hora nueva, y una respuesta
+  perdida otra vez la renueva. Para Zernio, el pedido salió hace más de ~5 min: es uno NUEVO, y lo crea.
+- **El diagnóstico obvio («el reintento dentro de 4 min es seguro») es el equivocado:** se mide desde el primer envío.
+  La hora se guarda junto al intento, y la relectura de un trabado borra `publicacion_intento`.
+- **Un 4xx en el reintento NO prueba que el original no exista:** sólo un 2xx o un 409 con `existingPostId` resuelve la
+  duda. Hoy un 429 o un 422 la borran y «Programar» crea otro post.
+- **Sin hacer** (los cuatro, del chat Zernio): el arreglo de arriba. Una salida para la «dudosa» que SÍ salió y para la
+  «programada» con la clave cambiada (hoy hace falta SQL), con un texto de tildar que no prometa «se tilda sola». Y el
+  reclamo con `.eq('updated_at', ev.updated_at)` para la carrera G al revés.
+
 ## Lo que quedó SIN hacer
 
 - **Las TAREAS de Google** (decisión de Martín del 14/10: después de la aprobación de la verificación). Piden el permiso
