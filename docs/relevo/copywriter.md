@@ -37,6 +37,10 @@ tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING».
 - **Commits de esta rama (29/10):** d8093aa14 (Notion) · 5786f7fef · feb62eb06 · 61bc5a3c1 (merge Create) · d5af2bbca
   (shell) · 9c9d02ba1 (tipos de «Duplicar») · 9c81c1a94 (merge Create, punta 4e75f2067) · 0fc58707d (los rojos de
   tests-afectados) · d938b5003 (el pie del super admin con la forma de Offer).
+- **Verificación de la mudanza (Integración, 29/10):** ALTA + tres medias (C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md).
+  Arregladas en ac588e955 (id estable por origen, «hecha» sólo si entró todo, Reels primero, la celda vieja), con
+  tests/copywriter-mudanza.test.ts y el arnés de Integración corrido sobre esta rama
+  (C:/dev/revisiones/scratch-cw-copywriter/mudanza-salida.json). Las bajas que quedan, en hallazgos-copywriter («Qué quedó»).
 - ✔ **VERDE (29/10, ~08:00) sobre d938b5003:** `tests-afectados --base origin/main --rapido` 5.339 tests de 528 archivos,
   0 rojos; tsc-acotado 0 (53 archivos en 4 tandas + 13 + 5, con los dos `.d.ts` globales, ver hallazgos). Cada arreglo,
   probado rompiéndolo. Capturas nuevas: d14 (pie del super admin), d15 (el cliente no lo ve), t5 (teléfono con

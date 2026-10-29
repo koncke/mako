@@ -170,6 +170,25 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   son de nadie: se suman `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts` y `node_modules/styled-jsx/global.d.ts`
   a la lista (declaran módulos para todo el repo y el acotado no los ve solo).
 
+## La mudanza se duplicaba al reintentar, y la marca «una vez» no lo evitaba (29/10/2026)
+
+Verificación del Cerebro de 544991179: C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md (arnés en
+C:/dev/revisiones/scratch-cw/). Arreglado en ac588e955 y fijado en tests/copywriter-mudanza.test.ts.
+- **Síntoma:** si la última escritura (la marca «hecha») no llegaba, a los 10 minutos se mudaba todo otra vez: 7 → 14
+  páginas, con dos «Guiones del Ads Writer». En ws1 eran ~150 duplicados.
+- **El diagnóstico obvio era el equivocado:** «la marca por compare-and-set la hace idempotente». La marca protege de
+  DOS PESTAÑAS A LA VEZ, no de un CORTE A LA MITAD. Con ids al azar nada recuerda qué ya se mudó.
+- **Regla (AGENTS.md):** lo que se puede cortar y reintentar crea con ids que salen de su origen y saltea lo que ya está.
+- **Una compensación que borra después de un error AMBIGUO** rompe lo que sí llegó. La escritura del índice llegó y se
+  perdió la respuesta, `crearVarias` creyó que falló y borró los documentos: 6 de 7 páginas abrían «No existe». Con id
+  estable no hace falta borrar: el reintento adopta el documento (`cambiarSettingSi(…, null, …)` da `false` = «ya
+  existía», y tira ante un error, así que `false` nunca es «no sé»). `crear` (una página) sigue borrando: abajo.
+- **«Lo que no entró queda donde estaba» deja de ser cierto si la mudanza es la única salida del dato.** La tab Reels se
+  retiró, así que un Reel que fallaba una vez (la marca quedaba «hecha» con menos) ya no lo veía nadie. Por eso: «hecha»
+  sólo si no faltó nada, y los Reels primero en el tope.
+- El lugar del tope se cuenta SIN lo ya mudado. Si no, el reintento (con el índice más lleno) elige otras páginas y las
+  que faltaron quedan afuera.
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
@@ -182,4 +201,11 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - Borrar StoriesApp/OnboardingStories (sin entrada desde el 29/10) y decidir qué pasa con la matriz y «Analizar guion» del
   Ads Writer (siguen por su ruta).
 - `grafoParaChat` (rama mako-inteligente-2710-c4): el enganche es `const GRAFO` en lib/copywriter/contexto.ts.
+- Las bajas de la verificación de la mudanza (C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md):
+  - `crear` (lib/copywriter/server.ts) borra el documento si el índice «falla», aunque haya llegado: abre «No existe» (B7);
+  - el link compartido de una página cuya madre está en la Papelera sigue editando: app/api/compartido/guion/route.ts
+    mira sólo `pagina.papelera`; falta `escondida(paginas, id)` (B6);
+  - después de mudar, /copywriter abre una página mudada y no la última del usuario: nacen con `actualizado = ahora` (B3);
+  - con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4);
+  - un `reels.historial` con JSON roto se toma como «no hay» (B5).
 - «Compartir para editar» desde el teléfono del dueño (la vista del guion del teléfono no tiene el menú ⋯): D9.

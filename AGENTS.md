@@ -10422,6 +10422,15 @@ Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/vid
 - **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
 Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
 
+# Lo que se puede cortar y reintentar crea con ids que salen de su ORIGEN (29/10/2026)
+
+Una mudanza, una importación o cualquier tanda que escribe muchas filas puede cortarse en el pedido menos pensado (la
+última escritura, o una respuesta que se pierde con la escritura ya hecha). **Cada cosa que crea lleva un id que sale de su
+origen** (hash del negocio + la clave de lo que copia), y el reintento **saltea lo que ya está** y adopta lo que quedó a
+medias. Una marca «ya se hizo» tomada por compare-and-set protege de dos a la vez, NO de un corte a la mitad. Y ante un
+error **ambiguo** no se compensa borrando: puede haber llegado. Lo que costó no verlo (7 → 14 páginas, 6 que abrían «No
+existe»), en docs/hallazgos-copywriter.md; el molde, `crearVarias` + `idDeMudanza` (lib/copywriter/).
+
 # Un editor ofrece SÓLO lo que su formato guarda (29/10/2026)
 
 Una librería de editor (BlockNote en el Copywriter, TipTap en el Web Generator) trae más de lo que el documento de la casa

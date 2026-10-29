@@ -268,6 +268,16 @@ de BlockNote, exportar a .docx/.pdf) son GPL y NO se instalan: la IA es la de Ma
   próxima apertura lo vuelve a intentar. Nunca frena la pantalla. Tope: 300 páginas y el lugar que deja el índice.
 - Las páginas se crean con `crearVarias` (lib/copywriter/server.ts): cada documento con su compare-and-set, de a 6, y el
   índice en UNA escritura.
+- **Se puede cortar y repetir** (verificación del Cerebro de 544991179, C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md):
+  - cada página tiene el id de su origen (`idDeMudanza`: el negocio, la celda y el guion, o el Reel). `crearVarias`
+    saltea lo que ya está en el índice, adopta el documento de una corrida cortada y no borra nada si el índice falla;
+  - la marca queda «hecha» sólo si no faltó nada (un documento que no se escribió, una hija sin su padre): si no, vence a
+    los 10 minutos y la próxima apertura muda lo que faltó. Lo que el árbol no acepta (el tope, un padre en la Papelera)
+    no se reintenta;
+  - los Reels van primero (no tienen otra pantalla), y el lugar se cuenta sin lo ya mudado: el reintento elige las
+    mismas páginas que la primera corrida;
+  - la celda de antes del multi-guion (sólo `guion`) se muda como «General», como la muestra la matriz.
+  - tests/copywriter-mudanza.test.ts corre la mudanza real con cortes en cada pedido.
 
 ## D15 · El shell único de Create (29/10/2026)
 
