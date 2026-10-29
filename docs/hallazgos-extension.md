@@ -346,6 +346,12 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
   diagnóstico obvio («vencido el refresh token, se canjea otro») es el equivocado: sin cliente no hay qué canjear; hay que
   crear la credencial de nuevo (pasos 1 a 4 de `--ayuda`). Mientras tanto, el camino es el panel del desarrollador. Y la
   API nunca cambia la ficha (descripción, capturas): eso es siempre desde el panel.
+- **Claude no puede manejar el panel de la tienda, ni con la sesión abierta** (medido el 29/10): en
+  chrome.google.com/webstore Chrome le niega a TODA extensión leer, tocar y hasta sacar captura («The extensions gallery
+  cannot be scripted»), así que Claude in Chrome no sirve ahí. El navegador de la app tampoco la abre («only works in a
+  full browser»). Subir el paquete y cambiar la ficha es de Martín, a mano, hasta que vuelva la API (y la ficha, siempre).
+  Otra trampa: la sesión de Google que importa es la del PERFIL de Chrome conectado a Claude. Martín entró en el suyo y el
+  panel seguía pidiendo verificar en el otro; `switch_browser` cambia de perfil.
 - **El `.env.local` de las credenciales es el del clon principal** (dashboard-marketing/), no el del worktree del tren, y
   `public/mako-puente.zip` no se versiona: en el tren no existe. Para subir desde el tren hay que cargar las `CWS_*` en el
   entorno (dotenv no pisa lo que ya está) y poner el zip; el de la tienda está en feedback/chrome-web-store/.
