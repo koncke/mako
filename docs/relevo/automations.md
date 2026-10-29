@@ -53,6 +53,9 @@ tercer estado «gratis» en la plantilla y en `datosTopeSocial`. Hoy MaKo no man
 Devuelve `{ enviados, gratis, desde, hasta, deLaCasa } | null` (`hasta` excluido; `deLaCasa`: la clave es la de MaKo, el ws1 →
 avisarle a Martín, no al grupo). Es APROXIMADO: una fila de `nutricion_envios` cuenta 1 aunque salgan varias partes, y la
 pública (gratis para Zernio) cuenta. Para que sea exacto, el motor tiene que guardar las partes y marcar la pública.
+Acordado con Zernio (29/10): el texto dice «llevas CERCA DE X enviados DESDE MAKO» (lo aproximado, y lo que el negocio manda
+desde el inbox de Zernio no se ve). Cuando el motor guarde las partes y marque la pública en `nutricion_envios`, se le pasa a
+Zernio la columna (o el `asunto`) y él ajusta `usoZernioDelCiclo`, que es suyo. zernio-2510 tiene VERDE (4b6acf1c0).
 
 **Verificación:** ver el VERDE al Cerebro (tsc-acotado y tests-afectados sobre la punta con main mezclado).
 
