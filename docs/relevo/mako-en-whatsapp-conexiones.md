@@ -2,7 +2,7 @@
 
 **Cuenta:** claude4. **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los merges de main son merge commits, nunca
 rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le devuelve igual, con la lista de .ts).
-Las puntas las sube el Cerebro. Al 28/10 23:00 (AR) este archivo está al día (cuenta al 91 %). **Desde el 28/10 21:40, la tanda A va en otro
+Las puntas las sube el Cerebro. Al 28/10 23:20 (AR) este archivo está al día (cuenta al 91 %). **Desde el 28/10 21:40, la tanda A va en otro
 worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fallas-2710` adentro, sin tocar esa rama).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
@@ -39,10 +39,14 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
    (worktree `C:/dev/wt-conex-2510`), cada uno con su test por la entrada real probado rompiéndolo, y VERDE sin tipos con el sha:
    - ALTA: `pideAlgoAMaKo` (lib/doer-equipo.ts) no ve 21 de 28 pedidos reales (todos los de Leila): con una pregunta del equipo
      viva, el primer pedido de esa persona queda callado y cierra la ventana, y después su respuesta real va a MaKo.
-   - ALTA: el aviso de ARREGLO de un ticket cuyo título es una pregunta (`avisarArregloAlGrupo` → `enviarAlGrupoMaKo(ws, texto,
+   - **Hechos en `wa-fallas-2710`, con test por la entrada real y roturas, SIN VERDE todavía:** c6d63791a (el aviso de arreglo
+     ya no abre la ventana: el «?» entre «…» no cuenta; `[[ya-pedido]]` con raya o un corchete) y 78543b7dd (el acuse después
+     de la cita; sin cita, sólo gracias y saludos). Quedan: `pideAlgoAMaKo` (ALTA), el cierre de la ventana (MEDIA) y dos
+     BAJAS (la firma pegada por un cliente y la lectura estricta de las re-entregas). Después: tests-afectados y VERDE.
+   - ✅ ALTA: el aviso de ARREGLO de un ticket cuyo título es una pregunta (`avisarArregloAlGrupo` → `enviarAlGrupoMaKo(ws, texto,
      'equipo')` SIN ticket, lib/aviso-arreglo.ts:89) abre la ventana para cualquiera. Que mande `{de:'equipo', ticket}`, o que no
      cuente el «?» entre «…».
-   - MEDIA: «dale», «ok», «listo», «perfecto» contestándole al equipo son acuse porque `esAcusePuro` corre ANTES de la cita
+   - ✅ MEDIA: «dale», «ok», «listo», «perfecto» contestándole al equipo son acuse porque `esAcusePuro` corre ANTES de la cita
      (mako-doer-in.ts:811). Con cita o firma, el acuse no se mira; sin cita, sólo gracias y saludos.
    - MEDIA: la ventana se cierra con el primer mensaje de quien fue preguntado aunque conteste en dos o el primero tenga la @ de
      otro. Un mensaje para otro no cierra, y la ventana sigue unos minutos para el mismo autor.
