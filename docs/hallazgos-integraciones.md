@@ -2238,9 +2238,14 @@ Martín (28/10): «Super importante advertir en la conexión de Zernio las limit
   cerca del tope, y no hay cuenta con qué medir. La salida: contar en MaKo lo que MaKo manda por Zernio en el CICLO (no ve lo que se
   manda desde el inbox de Zernio u otra herramienta con la misma cuenta: el aviso dice «desde MaKo») y, cuando un negocio pase los
   10.000, mirar si `lineItems` trae `messages` con su `quantity`.
-- **Sin hacer:** el aviso al 80% de los 10.000 (una vez por ciclo, en el grupo del negocio). Propuesto el 29/10 a Automations, que
-  tiene el envío y ya avisa los topes de Meta y los 429 de Zernio (`social_tope`, c6f78deb4), para que no queden dos avisos: el
-  conteo en MaKo por ciclo y el mismo evento. Espera su respuesta.
+- **El conteo, hecho (29/10): `usoZernioDelCiclo(ws)` (lib/zernio-uso.ts).** El reparto con Automations, para que no salgan dos
+  avisos: el canal cuenta y lee el ciclo; Automations avisa (`avisarTopesSociales`, al 80%, una vez por ciclo, el evento
+  `social_tope` con el estado «gratis»). Devuelve `{ enviados, gratis, desde, hasta, deLaCasa }` o null. ⚠️ Es una aproximación,
+  y en las dos direcciones: una fila del motor (`nutricion_envios`) es UN mensaje aunque el paso saliera en varias partes (para
+  Zernio son varias), y la respuesta PÚBLICA a un comentario (gratis) cuenta igual porque la fila no la distingue de un DM. Para
+  contarlo exacto, el motor tendría que guardar cuántas partes salieron y marcar la pública (es de Automations). ⚠️ No vive en
+  lib/zernio-redes.ts: ese módulo lo importa el navegador (ConectarRedes, ConectarViaZernio), y esto habla con la base y con Zernio.
+  Por eso es un archivo del canal nuevo, sumado a la lista de tests/sin-instagram.test.ts.
 - **Los términos de Zernio están en zernio.com/tos** (no en /terms ni /terms-of-service, que dan 404; la portada no los enlaza),
   fechados el 09/10/2026. Leídos el 29/10: NO hablan de varias cuentas gratis, de agencias ni de compartir claves; sólo «Abuse of
   the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).

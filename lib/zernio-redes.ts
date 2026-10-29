@@ -124,6 +124,19 @@ export const ANUNCIOS_GRATIS_ZERNIO = 500;
 export const USD_CUENTA_EXTRA_ZERNIO = 6;
 
 /**
+ * El CICLO de facturación de Zernio, de `GET /v1/billing` (`period.start`/`period.end`), con los dos instantes en ISO con Z. Los
+ * 10.000 mensajes gratis son por ciclo, no por mes calendario: el ciclo arranca el día del alta (medido el 29/10 con el ws10: del
+ * 12/10 03:00Z al 01/11, `anchorDay` 12; Zernio los manda con `+00:00`). null si no viene o no se entiende (no se inventa un mes).
+ */
+export function cicloDeZernio(billing: unknown): { desde: string; hasta: string } | null {
+  const p = billing && typeof billing === 'object' ? (billing as { period?: { start?: unknown; end?: unknown } }).period : null;
+  const desde = typeof p?.start === 'string' ? Date.parse(p.start) : Number.NaN;
+  const hasta = typeof p?.end === 'string' ? Date.parse(p.end) : Number.NaN;
+  if (!Number.isFinite(desde) || !Number.isFinite(hasta) || hasta <= desde) return null;
+  return { desde: new Date(desde).toISOString(), hasta: new Date(hasta).toISOString() };
+}
+
+/**
  * Los límites de Zernio, dichos al conectar (Martín, 28/10: «Super importante advertir en la conexión de Zernio las limitaciones,
  * como que hasta 2 redes sociales es gratis»). Va en el modal de Zernio, abajo de la línea de las cuentas (`lineaDeCobro`).
  */

@@ -105,6 +105,10 @@ const CANAL: Record<string, string> = {
   // 28/10/2026, el mismo pedido («por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram»): la fuente de
   // Instagram orgánico (la cuenta, los seguidores y las publicaciones con sus métricas) por la Zernio del negocio.
   'lib/zernio-organico.ts': 'lo orgánico de Instagram por Zernio: la cuenta, los seguidores y las publicaciones con sus métricas',
+  // 29/10/2026, el audio de Leandro («que no se pare la automatización… y que Maco no me avise nada»): el aviso antes de los
+  // 10.000 mensajes gratis de Zernio lo arma Automations; el conteo vive acá. Lee el ciclo de Zernio (`GET /v1/billing`, con
+  // `cfg`) y CUENTA los salientes de `ig_mensajes` (los de Chats) y del motor. No manda nada.
+  'lib/zernio-uso.ts': 'cuántos mensajes mandó el negocio por Zernio en su ciclo (para el aviso antes del tope de los gratis)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

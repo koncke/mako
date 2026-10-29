@@ -387,5 +387,6 @@ ws13) con el sí del Cerebro. Detalle: docs/hallazgos-integraciones.md, «Los l�
 suspensión por «abuso»).
 **Punto 4, medido con el ws10 (sí del Cerebro, sólo lectura):** su ciclo va del 12/10 al 01/11 y `lineItems` no trae `messages`, pero
 el ws10 no mandó nada, y MaKo no mandó NINGÚN mensaje por redes desde el 01/09 en ningún negocio: no hay con qué medir y nadie está
-cerca del tope. El aviso al 80% (conteo en MaKo por ciclo, el evento `social_tope`) se lo propuse a Automations (local_7f005343…,
-«Automations: Instagram de Leandro, Leila y Mauricio»); espera su respuesta. Si lo toman ellos, este chat no lo arma.
+cerca del tope. El aviso al 80% lo arma Automations (local_7f005343…, «Automations: Instagram de Leandro, Leila y Mauricio», en
+aut-2510, cuando zernio-2510 esté en main); el CONTEO es de este chat: `usoZernioDelCiclo(ws)` en lib/zernio-uso.ts (no en
+zernio-redes, que lo importa el navegador), con tests/zernio-uso.test.ts. Ya se lo pasé con el sha.
