@@ -102,6 +102,12 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **00:50: VERDE de Zernio `854a6fda0`** (zernio-2510), con los arreglos de su verificación: la cuenta validada contra
+    las del negocio, las publicaciones «dudosas» en vez de «fallo», la huella de la clave, las escrituras condicionadas, la
+    REST en verde y el orgánico en la zona del negocio. ⚠️ **Lleva adentro diez commits de planes-2710** (hasta
+    `d15b4ec1d`, merge `042e10323`), así que **Zernio y Planes (`ddfa645d4`) se verifican y entran JUNTOS**. El rojo
+    de «Mirá» en `lib/cobros-webhook.ts` lo corrige `a196d5a93`, de Planes. Además, la tabla nueva 0342 (con
+    `publicacion_intento`, `publicacion_clave` y el estado «dudosa») espera el sí de Martín en el chat.
   - **00:40, WhatsApp:**
     - **La tanda A tiene su VERDE (`9b5fc9ad4`, wa-credito-grupos-2810).** Trae el crédito de Claude de los grupos para N
       cuentas (una lista única: `CUENTAS_DEL_CREDITO`) y la corrección del dominio inventado (`conElDominioDeMaKo`). Lleva
