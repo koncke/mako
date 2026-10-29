@@ -20,11 +20,18 @@ cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier
   lo hace sólo en la carga; navegando, la página. Aplicado en /web-generator, /plan (/plan ↔ /plan/agencia) y
   /m/second-brain (→ /mapa; lo encontró el recorrido del test). Tests: `tests/redirige-navegando.test.ts` (recorre todo
   `app/`) + `redirige-antes-del-loader.test.ts`: 17/17.
-- **FALTA (en este orden):** 1) rebuild + `pipeline-blanco.sh` con `SALIDA=arreglo` (`node C:/dev/con-turno.mjs bash
-  <scratchpad>/scripts/pipeline-blanco.sh`) y ver que desde el menú aparezca el editor (`informe.json`: `editor:true`, sin
-  la ráfaga de `/web-generator/72?_rsc`); 2) romper (sacar la condición en cada layout y la regla pura); 3) tsc-acotado y
-  tests-afectados con turno; 4) cosecha en docs/hallazgos-infra.md (al lado de los dos #310) + fila del índice; 5) VERDE al
-  Cerebro con los números de las copias #68–#72 para la papelera (lo pidió así).
+- **28/10 22:05 (88 % semanal):** sumado /crm (el resumen de un lead de otro negocio redirige a `/crm/<id>/resumen?ws=<dueño>`,
+  debajo de su layout): `app/crm/layout.tsx` + test 2, SIN commitear en `C:/dev/wt-replicar-2810`. 20/20 tests (con
+  `crm-redirige-antes-del-loader`); romper 9/9 (`scratchpad/romper_blanco.py`, B9 = /crm). /dashboard (→ /plan o /crm) y
+  /admin/operaciones (→ /inicio o /second-brain) NO caen debajo de sí mismos: sanos.
+- La cosecha ya escrita: `scratchpad/cosecha-blanco.md` (falta pegar el resultado en «Verificado» e insertarla en
+  docs/hallazgos-infra.md después de «En /m, la ruta del header…» + fila del índice). Memoria `recorrer-local-build-parcial`
+  ya actualizada.
+- **FALTA (en este orden):** 1) la corrida `SALIDA=arreglo2` (build con `app/web-generator/*/page.tsx`: los CORCHETES de
+  `[id]` en `--debug-build-paths` son un patrón y esa ruta no se compila) y ver en `arreglo2/informe.json` que desde el menú
+  aparezca el editor, sin la ráfaga de `/web-generator/72?_rsc`; 2) tsc-acotado y tests-afectados con turno; 3) cosecha +
+  índice, commit por ruta en `web-generator-blanco-2810`; 4) VERDE al Cerebro con el sha nuevo y los números de las copias
+  #68–#72 para la papelera (lo pidió así).
 - ⚠️ **Trampa de la reproducción:** `next build --debug-build-paths` en Windows (Next 16.2.6) NO compila ninguna ruta de
   `app/` y sale verde (compara `/x/page.tsx` con `\x\page.tsx` en `route-discovery.js`, `applyDebugFilter`), y `next start`
   sirve el `.next` VIEJO. Parche local SÓLO en `C:/dev/wt-replicar-2810/node_modules/next/dist/build/route-discovery.js`
