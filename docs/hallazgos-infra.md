@@ -9133,3 +9133,31 @@ perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). 
   subir-tren.mjs` prende la pausa, toma `mako-tests.lock` y `mako-tests-2.lock` cuando se liberan (con su pid: con-turno ve
   un dueño vivo y espera), espera la fila de tipos libre y 5,2 GB, empuja y suelta todo. Con eso la PC llegó a 6,3 GB y las
   tres tandas dieron 0 en ~6 min. Esperar los dos lugares tardó 40 min (una barredora de un chat).
+
+## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
+
+- **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
+  tiene 0340». Al ir a commitearla, la 0340 ya era de `motion-imagen-2610` (`0340_image_editor_propuestas.sql`, rama del
+  26/10 que no estaba en ningún tren) y de su copia `respaldo/motion-2710-nube`. La del código de Partners pasó a 0341.
+- **La causa:** se miró el tren y main, no todas las refs. Y desde que los chats se cortan y siguen en la nube, el trabajo
+  vive también en ETIQUETAS (`respaldo/*`, `nube/*`), que `git branch -a` no lista.
+- **La regla:** el número se elige al commitear, barriendo ramas, remotas, etiquetas y worktrees:
+  `for b in $(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes refs/tags); do git ls-tree --name-only "$b" supabase/migrations/ | sed "s#^#$b: #"; done | sort -u -k2 | tail -8`
+  y `git worktree list` + `ls supabase/migrations` de cada uno (lo sin commitear). El número final lo confirma el Cerebro.
+
+**Vive en:** AGENTS.md (la regla del número de migración, con este caso) · supabase/migrations/.
+
+## «La tanda pasó los 10 min y se mató»: era tipos-por-tandas con la RAM en 0, no el cambio (28/10/2026, Planes)
+
+- **El síntoma:** `tests-afectados --rapido` dio ROJO con «tanda 10/11 · 0 tests · ROJA (? archivos) · la tanda pasó los 10 min 0 s y se
+  mató: un test se colgó», sin decir cuál. La RAM libre mínima de la corrida fue 0,0 GB.
+- **El diagnóstico obvio era el equivocado («algo del cambio se cuelga»):** los 6 de esa tanda, corridos de a uno, daban verde en
+  segundos, salvo `tests/tipos-por-tandas.test.ts`, una BARREDORA que corre siempre, toque lo que toque el cambio. Levanta varios tsc
+  de verdad (`medir-tipos.mjs` con 10 min de tope, tsc de 2 min cada uno): solo y con 4 GB libres da 32/0 en 403 s; en una tanda con
+  otros cinco y la PC en 0 GB, pasa el tope de la tanda.
+- **Las dos trampas para encontrarlo:** la carpeta `tests-afectados-*` con el log de la tanda roja ya no existe al terminar, y
+  `--listar` / `--explicar` dicen POR QUÉ entra cada test, no en qué tanda cae. La tanda se reconstruye con las mismas funciones del
+  script: `planear('origin/main', { profundidad: 1 })` (eso es `--rapido`) y `agrupar(sel.tests, sel.compartibles, { compartir: true })`,
+  y `orden` partido de a 6.
+
+**Vive en:** scripts/tests-afectados.mjs (`planear`, `agrupar`, `TOPE_TANDA_MS`) · tests/tipos-por-tandas.test.ts.

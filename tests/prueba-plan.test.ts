@@ -8,7 +8,7 @@
 //   · la vigencia: en prueba está al día hasta el cobro; cancelada, cubierta hasta ese día y vencida desde ahí; sin el
 //     cobro del día 8, mora. Antes un negocio en prueba era «sin pasarela» y nunca se cortaba;
 //   · el cableado (lib/cobros.ts y lib/compra-plan.ts son `server-only`: se leen del FUENTE): el checkout arma la prueba
-//     sólo con Mercado Pago y con el primer cobro a los 7 días; el alta se hace al AUTORIZAR; la suscripción de MaKo del
+//     con Mercado Pago o Stripe (27/10) y con el primer cobro a los 7 días; el alta se hace al AUTORIZAR; la suscripción de MaKo del
 //     negocio incluye la prueba (los topes, la baja); una prueba repetida se corta en la pasarela ANTES de anularse;
 //   · MaKo Partners: el crédito sigue contando cuotas COBRADAS, y la prueba no deja ninguna.
 //
@@ -50,7 +50,9 @@ test('qué cobro es una PRUEBA: una suscripción de la plataforma con alta, crea
   assert.ok(!esPruebaDePlan({ tipo: 'unico', alta_capa: 'agencia', creado_por: 'planes:pro:prueba' }));
   assert.ok(!esPruebaDePlan({ tipo: 'suscripcion', alta_capa: 'agencia', creado_por: 'reactivar:12' }), 'quien vuelve no tiene otra prueba');
   assert.equal(finDeLaPrueba(T0), new Date(T0 + 7 * DIA).toISOString());
-  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago'], 'sólo la que la arma con tarjeta (Stripe no toma vendedores de Argentina)');
+  // Desde el 27/10/2026 también Stripe (con `trial_period_days`): sin ella, /planes nunca ofrecía Stripe y a quien compraba
+  // desde México le llegaba el link de la Mercado Pago argentina (tests/planes-stripe-afuera.test.ts).
+  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe'], 'las dos que la arman con tarjeta');
 });
 
 test('la HUELLA de Mercado Pago: la cuenta que paga y la tarjeta guardada; una coincidencia en cualquiera es la misma persona', () => {
@@ -150,12 +152,15 @@ test('el ALTA al autorizar la prueba; la SUSCRIPCIÓN DE MaKo del negocio incluy
 
 test('la ACTIVACIÓN: sólo autorizada y de la cuenta de MaKo; una huella repetida se corta en la pasarela ANTES de anular', () => {
   const f = cuerpo('lib/cobros.ts', 'activarPruebaSiAutorizo');
-  assert.match(f, /if \(!s\.ok \|\| s\.estado !== 'authorized' \|\| s\.cobradorId !== mp\.userId \|\| s\.referencia !== c\.token\) return null;/);
-  const corte = f.indexOf('const corte = await cancelarSuscripcionMp(mp.token, s.id, idemBaja(c.id));');
+  // Mercado Pago: autorizada, cobrada por la cuenta de MaKo y de ESTE cobro (`pruebaAutorizadaMp`).
+  assert.match(cuerpo('lib/cobros.ts', 'pruebaAutorizadaMp'), /if \(!s\.ok \|\| s\.estado !== 'authorized' \|\| s\.cobradorId !== mp\.userId \|\| s\.referencia !== c\.token\) return null;/);
+  assert.match(cuerpo('lib/cobros.ts', 'pruebaAutorizadaMp'), /cancelar: \(\) => cancelarSuscripcionMp\(mp\.token, s\.id, idemBaja\(c\.id\)\)/);
+  assert.match(f, /const s = c\.proveedor === 'stripe' \? await pruebaAutorizadaStripe\(c, plataforma\) : await pruebaAutorizadaMp\(c, plataforma\);\n\s*if \(!s\) return null;/);
+  const corte = f.indexOf('const corte = await s.cancelar();');
   const anula = f.indexOf("estado: 'anulado', suscripcion_estado: 'cancelada'");
-  assert.ok(corte > 0 && anula > corte, 'primero se corta el cobro en MP; si no, el día 8 cobraría una prueba anulada');
-  assert.match(f.slice(corte, anula), /if \(!corte\.ok\) \{\s*console\.error\([^\n]*\);\s*return null;\s*\}/, 'si MP no la canceló, no se anula nada (el cron reintenta)');
-  const activa = f.indexOf("{ suscripcion_estado: 'activa', proveedor_suscripcion_id: s.id }");
+  assert.ok(corte > 0 && anula > corte, 'primero se corta el cobro en la pasarela; si no, el día 8 cobraría una prueba anulada');
+  assert.match(f.slice(corte, anula), /if \(!corte\.ok\) \{\s*console\.error\([^\n]*\);\s*return null;\s*\}/, 'si la pasarela no la canceló, no se anula nada (el cron reintenta)');
+  const activa = f.indexOf("{ suscripcion_estado: 'activa', proveedor_suscripcion_id: s.id");
   assert.ok(activa > anula && f.indexOf('altaSiCorresponde(r)') > activa, 'el alta, con la suscripción ya activa');
   assert.match(f, /update\(\{ prueba_huella: huella \}\)/);
   // La llaman la página de vuelta y el cron.

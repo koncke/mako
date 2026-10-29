@@ -1,6 +1,10 @@
 # Una venta con el Stripe PROPIO del negocio entra como un cobro externo ya pagado, con su Purchase (DISEÑO, 24/10/2026)
 
-> **Estado: DISEÑO, sin construir.** Decisión del Cerebro (24/10/2026): no se toca antes del lanzamiento del 25/10, porque
+> **Estado (28/10/2026): pasos 1 a 4 CONSTRUIDOS, con el interruptor `cobros.ventas_externas` APAGADO en todos los
+> negocios** (chat «Zernio y CAPI», MAU-10). Lo que cambió respecto de este diseño, abajo en «Lo que cambió al construirlo».
+> Faltan el paso 5 (prenderlo en el ws1: necesita el sí de Martín y conectar su Stripe) y el 6 (el script de recuperación).
+>
+> **Estado original: DISEÑO, sin construir.** Decisión del Cerebro (24/10/2026): no se toca antes del lanzamiento del 25/10, porque
 > es el mismo webhook que cobra la suscripción de MaKo («cambiar plata futura por plata presente»). Se reparte después.
 > El hallazgo que lo origina: docs/hallazgos-pagos.md, «Una venta con el Stripe PROPIO del negocio no entra a MaKo».
 >
@@ -180,7 +184,14 @@ webhook de Stripe tiene 8 s (route.ts:51) y ahí corre el alta de la cuenta de M
 reintentaría 3 días). ⚠️ Fuera de `runWithWorkspace`, `credWs` resuelve a `WS_NINGUNO` (credenciales.ts:113-115) y el evento
 sale `sin_pixel` sin rastro (meta-capi.ts:184-187).
 
-**Payload:** `eventName 'Purchase'`; `eventId` = `'purchase:' + proveedorPagoId` (`pi_` o `in_`: uno solo por primer pago,
+> ⚠️ **CAMBIÓ (27/10/2026, lo decidió el Cerebro): el `eventId` es `purchase:<cs_>`, el id de la sesión de Checkout, NO
+> `purchase:<pi_|in_>`.** La página de gracias sólo conoce el `cs_` (llega en `?session_id={CHECKOUT_SESSION_ID}`), y el Pixel
+> de MaKo v28 manda desde el navegador el Purchase con ese mismo id: así Meta deduplica el del navegador con el del servidor
+> en vez de prohibir uno de los dos (lo que este párrafo pedía abajo, en «No duplicar con el navegador»). Una suscripción no
+> duplica: el Purchase sale sólo de la rama de checkout, nunca del `invoice.paid`. Vive en `eventIdCompra` y
+> `compraDeLaSesion` (lib/meta-capi-payload.ts). La marca durable es `lineaCompraEnMeta` (lib/cobros-externos-reglas.ts).
+
+**Payload (original):** `eventName 'Purchase'`; `eventId` = `'purchase:' + proveedorPagoId` (`pi_` o `in_`: uno solo por primer pago,
 llegue primero el evento que llegue; sin email, a diferencia del de Schedule); email y teléfono del checkout, hasheados
 (meta-capi.ts:111-127); `metaLeadId` si el lead vino de un formulario de Meta; `eventTime = ev.creado`;
 `actionSource 'website'`; `eventSourceUrl` = el `success_url` sin query; `externalId` = el `visitor_id` si la visita llegó
@@ -273,3 +284,31 @@ cobros.ts:1492-1551); checkouts sin Payment Link (condición 3, lib/cobros-exter
 MaKo (en `aplicarPagoAprobado`, con `ws !== plataforma`); Mercado Pago, con el mismo agujero (cobros-webhook.ts:334-335); las
 secuencias de la casa de un lead que ganó sólo en un CRM agregado (nutricion.ts:1429); y que a quien paga le llegue una
 bienvenida: la `post_pago` del ws1 está archivada.
+
+## 8. Lo que cambió al construirlo (27-28/10/2026, chat «Zernio y CAPI», MAU-10)
+
+- **El `event_id` es `purchase:<cs_>`** (ver §5): lo decidió el Cerebro para deduplicar con el Purchase del navegador.
+- **La puerta del webhook deja pasar también un cobro EXTERNO que ya existe** (`esCobroExterno`), no sólo «no hay cobro».
+  ⚠️ Este diseño suponía que el reintento de un aviso cortado entre el INSERT y el lead llegaba a `registrarVentaExterna`
+  y seguía desde el paso que faltaba (§2). No llegaba: `cobroStripe` encuentra la fila por el `cs_` y la mandaba por el
+  camino de los cobros de MaKo, que decía «ya estaba pagado» y dejaba la venta sin lead, sin cuota y sin la compra a Meta
+  para siempre. Lo mostró tests/venta-externa.test.ts (caso «un aviso cortado…»), en rojo antes del arreglo.
+- **El Purchase no se reintenta solo:** sale una vez, después de asentar la plata, y con lead queda la línea fija o la de
+  «Meta no recibió la compra (…)». Un fallo de Meta en el primer aviso no vuelve (Stripe recibió 200). Ni `eventSourceUrl`
+  (el `success_url`) ni `externalId` (el `visitor_id`) viajan todavía. **Desde el 28/10:** si la venta se cortó antes de la
+  compra (en la cuota, por ejemplo) y el cron la repara, el cron manda la compra que faltó (`compraExternaQueFalto`,
+  lib/cobros-externos-meta.ts), una vez por venta.
+- ⚠️ **§1 suponía mal que «si es un token real, `cobroDelAviso` ya lo encontró» era seguro** (la verificación de 3ca2d8328,
+  28/10): el token es público y un Payment Link acepta `?client_reference_id=<token>`, y una venta de US$1 marcaba pagado un
+  cobro de MaKo de US$1.500. La rama de MaKo exige ahora que la sesión sea la del cobro (`sesionDelCobro`,
+  lib/cobros-eventos.ts, de Planes: la metadata `mako_cobro` o la sesión guardada, sin Payment Link, el monto o el de origen);
+  si no lo es, se ignora y abre un ticket (NO va a la venta externa: esa venta se mira a mano). Y el «otro aviso la está
+  registrando» del §2 va con status 503: sin él la ruta contestaba 200 y Stripe no volvía.
+- **Apagado, la compra a Meta sale igual** (sin lead ni cobro): es lo que hacía 749086da2 antes de esto.
+- **Cómo se probó sin modo prueba:** tests/venta-externa.test.ts corre `procesarEventoStripe` REAL sobre la base, Stripe y
+  Meta de mentira (los casos a–j del paso 4, más el corte a mitad y una suscripción). El ensayo de sólo lectura sobre los
+  checkouts reales del ws1 y la prueba en el ws 3 con `sk_test` NO se hicieron: no hay claves de prueba de Stripe en el
+  proyecto.
+- **Sin hacer, además de lo de arriba:** el paso 6 (`scripts/recuperar-ventas-externas.mts`), unir la compra con la visita
+  por el `session_id` del pageview (§6), y que el reintento de una venta ya reclamada se complete aunque el interruptor se
+  haya apagado en el medio (hoy se ignora con la compra a Meta, y la fila queda pagada sin lead).

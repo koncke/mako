@@ -40,6 +40,7 @@ const TITULOS: Record<string, string> = {
   'media-buyer': 'Media Buyer',
   'motivos-venta-llamada': 'Motivos de venta por llamada',
   'personalidad-voz': 'Personalidad y voz',
+  'rendimiento-redes': 'Rendimiento en redes',
   'scores-mensuales': 'Scores mensuales',
   'segundo-cerebro': 'Second Brain',
   'lead-magnets': 'Lead magnets',

@@ -84,6 +84,11 @@ export type CAPIEventParams = {
    * datos del píxel. Sólo para probar (`probar_capi_meta` de la API de MaKo); un envío real nunca lo lleva.
    */
   testCode?: string;
+  /**
+   * Al píxel del SITIO aunque el negocio tenga conjunto de datos de CRM (27/10/2026): la COMPRA de una página no es un evento del
+   * CRM, y ahí iría con los campos del CRM (`CUSTOM_DATA_CRM`). docs/diseno-venta-externa-stripe.md §5.
+   */
+  soloPixel?: true;
 };
 
 /** Por qué no entró. Cada motivo es una acción distinta, así que no se funden. */
@@ -163,10 +168,10 @@ function hashPhone(phone: string | null): string | null {
  * A dónde va un evento y con qué token. Lo usan el envío y la pregunta de la ficha
  * (`adondeVaLaCalificacion`): dos lecturas distintas contestarían distinto.
  */
-async function destinoYToken(): Promise<{ destino: ReturnType<typeof destinoCAPI>; accessToken: string | null; canal: CanalMeta }> {
+async function destinoYToken(soloPixel = false): Promise<{ destino: ReturnType<typeof destinoCAPI>; accessToken: string | null; canal: CanalMeta }> {
   // Primero el conjunto de datos de CRM si el cliente lo creó, y si no el píxel del
-  // sitio: el porqué y el centinela PENDING están en `destinoCAPI`.
-  const destino = destinoCAPI(await credWs('META_CRM_DATASET_ID'), await credWs('META_PIXEL_ID'));
+  // sitio: el porqué y el centinela PENDING están en `destinoCAPI`. `soloPixel`: la compra (CAPIEventParams).
+  const destino = destinoCAPI(soloPixel ? null : await credWs('META_CRM_DATASET_ID'), await credWs('META_PIXEL_ID'));
   const canal = await canalMeta();
   // El token de CAPI dejó de ser obligatorio: el botón "Generar token de acceso"
   // de Events Manager arma por detrás un token con ads_management sobre ese píxel
@@ -198,7 +203,7 @@ export async function adondeVaLaCalificacion(ws: number): Promise<AdondeVaLaCali
 }
 
 export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIResultado> {
-  const { destino, accessToken, canal } = await destinoYToken();
+  const { destino, accessToken, canal } = await destinoYToken(params.soloPixel === true);
   const apiVersion = process.env.META_API_VERSION || 'v24.0';
 
   if (!destino) {

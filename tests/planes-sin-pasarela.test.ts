@@ -82,7 +82,8 @@ test('/planes arma el botón con la regla y decide por plan con la misma cuenta 
   const tarjetas = fuente('app/planes/Tarjetas.tsx');
   assert.match(tarjetas, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/);
   assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/);
-  assert.match(pagina, /ofertasDeLosPlanes\(\)/);
+  // Con el país de quien mira (27/10/2026): Mercado Pago sólo en el suyo (tests/planes-stripe-afuera.test.ts).
+  assert.match(pagina, /ofertasDeLosPlanes\(paisDelVisitante\(/);
   const lib = fuente('lib/compra-plan.ts');
   const ofertas = lib.slice(lib.indexOf('export async function ofertasDeLosPlanes'), lib.indexOf('export async function ofertasDeLosPlanes') + 700);
   assert.match(ofertas, /precioEn\(plan, m\.moneda\) != null/);
@@ -101,7 +102,8 @@ test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Acelerado
   assert.match(form, /JSON\.stringify\(\{\s*plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico, periodo: p\.periodo,\s*codigo: preguntas\.length \? undefined : codigoParaMandar\(codigo, p\.refCodigo\),\s*\}\)/);
   // La ruta: el pedido va con el código de partner que ganó (la cookie de /r primero), y nunca abre un pago.
   const ruta = fuente('app/api/planes/comprar/route.ts');
-  assert.match(ruta, /if \(pedido\.quiero\) \{\s*const q = await pedirPlanSinPasarela\(\{ \.\.\.pedido, ref \}\);/);
+  // Con el código que cuenta (sólo el de un partner, 28/10/2026: tests/partners-codigo-editable.test.ts).
+  assert.match(ruta, /if \(pedido\.quiero\) \{\s*const q = await pedirPlanSinPasarela\(\{ \.\.\.pedido, ref: refQueCuenta \}\);/);
   assert.ok(ruta.indexOf('if (pedido.quiero)') < ruta.indexOf('iniciarCompraDePlan('), 'un pedido no llega al checkout');
   const lib = fuente('lib/compra-plan.ts');
   const pedir = lib.slice(lib.indexOf('export async function pedirPlanSinPasarela'));

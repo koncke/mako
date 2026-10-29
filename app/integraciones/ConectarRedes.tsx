@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Button } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { EstadoConexion, leerConexiones, useConectarViaZernio } from '@/app/_components/ConectarViaZernio';
-import { REDES, REDES_VISIBLES, estadoDeRed, lineaDeCobro, type ConexionZernio, type RedZernio } from '@/lib/zernio-redes';
+import { REDES, REDES_VISIBLES, estadoDeRed, lineaDeCobro, textoGratisZernio, type ConexionZernio, type RedZernio } from '@/lib/zernio-redes';
 
 const SANS = "'Geist', sans-serif";
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
@@ -51,6 +51,8 @@ export default function ConectarRedes() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Redes</span>
         <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{lineaDeCobro(total)}</span>
+        {/* Los límites de Zernio, al conectar (Martín, 28/10): lo que da gratis además de las 2 cuentas, y qué pasa al pasarse. */}
+        <span data-gratis-zernio style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>{textoGratisZernio()}</span>
       </div>
 
       {errorLectura && (

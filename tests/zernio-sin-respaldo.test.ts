@@ -56,14 +56,26 @@ test('cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCre
   assert.match(cfg, /const propia = await credDelClienteEstricta\('ZERNIO_API_KEY', ws, \{ ilegibleTira: true \}\);/);
   assert.match(cfg, /if \(propia\) return \{ apiKey: propia, byok: ws !== OWNER_WS \};/);
   assert.match(cfg, /throw new ZernioError\('Zernio no está configurado', 0, null\);/);
-  assert.doesNotMatch(cfg, /credWs\(|envCred\(/, 'cfg volvió a caer a la cuenta de la plataforma');
+  assert.doesNotMatch(cfg, /credWs\(/, 'cfg volvió a credWs (cae al entorno para el ws1 sin preguntar)');
+  // 28/10/2026 (el Cerebro: «conectar Instagram y Facebook sin pegar una clave de Zernio»): la key de la plataforma vuelve, PERO sólo
+  // DESPUÉS de la propia, detrás del interruptor de la plataforma (apagado por defecto) y nunca para el negocio de la plataforma.
+  const iPropia = cfg.indexOf('if (propia) return');
+  const iGuarda = cfg.indexOf('if (ws !== (await wsSuperAdmin()) && (await plataformaPrestaSuCuenta())) {');
+  const iPlataforma = cfg.indexOf("const deLaPlataforma = await envCred('ZERNIO_API_KEY');");
+  assert.ok(iPropia > 0 && iGuarda > iPropia && iPlataforma > iGuarda, 'la key de la plataforma va después de la propia y detrás del interruptor');
+  assert.equal(cfg.split('envCred(').length, 2, 'un solo envCred en cfg: el de la guarda');
+  assert.match(cfg, /if \(deLaPlataforma\) return \{ apiKey: deLaPlataforma, byok: false \};/, 'con la key de la plataforma va el perfil por negocio (byok: false)');
+  const presta = funcion(ZERNIO, 'export async function plataformaPrestaSuCuenta(): Promise<boolean> {');
+  assert.match(presta, /\.eq\('workspace_id', await wsSuperAdmin\(\)\)\.eq\('key', AJUSTE_CUENTA_PLATAFORMA\)/, 'el interruptor es del negocio de la PLATAFORMA');
+  assert.match(presta, /if \(error\) throw new ZernioError\(/, '«no pude leer» el interruptor se tragaba');
+  assert.match(presta, /=== '1';/);
   const seg = funcion(ZERNIO, 'async function keyDeSeguimiento(ws: number): Promise<string | null> {');
-  assert.match(seg, /return credDelClienteEstricta\('ZERNIO_API_KEY', ws\);/);
-  assert.doesNotMatch(seg, /envCred|credWs\(/, 'el «¿te sigue?» volvió a la cuenta de la plataforma');
-  // El único `envCred` que queda en el archivo es el del secreto maestro del webhook (no es una cuenta de Zernio).
-  // Qué claves se leen del entorno, no cuántas veces: `asegurarWebhook` y `leadsEnElWebhook` leen la misma.
-  const usos = [...new Set([...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]))];
-  assert.deepEqual(usos, ['ZERNIO_WEBHOOK_SECRET'], `lib/zernio.ts lee del entorno: ${usos.join(', ')}`);
+  assert.match(seg, /return \(await cfg\(ws\)\)\.apiKey;/, 'el «¿te sigue?» no usa la misma key que el canal');
+  assert.doesNotMatch(seg, /envCred|credWs\(/, 'el «¿te sigue?» lee la key de la plataforma por su cuenta');
+  // Qué claves se leen del entorno: el secreto maestro del webhook y, desde el 28/10, la key de la plataforma SÓLO en cfg.
+  const usos = [...new Set([...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]))].sort();
+  assert.deepEqual(usos, ['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET'], `lib/zernio.ts lee del entorno: ${usos.join(', ')}`);
+  assert.equal(ZERNIO.split("envCred('ZERNIO_API_KEY')").length, 2, 'la key de la plataforma se lee en otro lugar de lib/zernio.ts');
   assert.doesNotMatch(ZERNIO, /import \{[^}]*\bcredWs\b[^}]*\} from '\.\/credenciales'/, 'lib/zernio.ts importa credWs (cae al entorno para el ws1)');
 });
 
@@ -99,11 +111,14 @@ test('ningún código de app ni lib lee la key de Zernio de la plataforma para u
   const clave = funcion(sinComentarios(leer(PERMITIDA.archivo)), 'export async function claveZernioAnuncios(ws: number)', 400);
   assert.equal(clave.split(PERMITIDA.linea).length, 2, 'la key de la plataforma en los anuncios dejó de estar detrás de wsSuperAdmin');
   assert.match(clave, /\n  return credDelCliente\('ZERNIO_API_KEY', ws\);$/, 'un cliente dejó de leer SU key en los anuncios');
+  // Y la de `cfg` (28/10/2026): la cuenta de la plataforma para un negocio sin key, detrás del interruptor (la fija el test de arriba).
+  const PERMITIDA_CFG = { archivo: 'lib/zernio.ts', linea: "    const deLaPlataforma = await envCred('ZERNIO_API_KEY');" };
   const culpables: string[] = [];
   for (const f of archivos) {
     if (SALVO.some((r) => r.test(f))) continue;
     let src = sinComentarios(leer(f));
     if (f === PERMITIDA.archivo) src = src.replace(PERMITIDA.linea, '');
+    if (f === PERMITIDA_CFG.archivo) src = src.replace(PERMITIDA_CFG.linea, '');
     if (/(envCred|credWs)\(\s*['"`]ZERNIO_API_KEY['"`]|process\.env(\.ZERNIO_API_KEY|\[\s*['"`]ZERNIO_API_KEY)/.test(src)) culpables.push(f);
   }
   assert.deepEqual(culpables, [], `leen la key de la plataforma: ${culpables.join(', ')}`);

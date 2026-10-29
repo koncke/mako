@@ -31,9 +31,11 @@ import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { resumenDePrueba } from '@/lib/prueba-uso';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
-import { altaDePartner, cambiarCobroPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
-import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio } from '@/lib/partners-reglas';
-import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
+import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
+import { mensajesParaCopiar } from '@/lib/partners-recursos';
+import { NOMBRE_COSA_PRUEBA, textoSoloPro } from '@/lib/topes-plan';
+import { esEsencialDe } from '@/lib/plan-esencial';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
@@ -278,6 +280,9 @@ export const RUNNERS: Runners = {
         negocios: t.referidos.map((r) => ({ nombre: r.nombre, plan: r.plan, desde: r.desde, estado: TEXTO_ESTADO_REFERIDO[r.estado], le_deja_usd: r.estado === 'se-fue' ? 0 : r.gananciaUsd })),
         pagos: t.pagos.map((p) => ({ fecha: p.fecha, monto_usd: p.montoUsd })),
         cuando_se_gana: `cuando cada negocio paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes`, link,
+        // Los recursos para recomendar (27/10/2026, lib/partners-recursos.ts): los mismos mensajes del panel, con su link. El
+        // PDF de venta se arma en el navegador (/partners, «Descargar el PDF de venta»).
+        ...(t.link && t.codigo ? { mensajes_para_recomendar: mensajesParaCopiar({ link: t.link, codigo: t.codigo }).map((m) => ({ para: m.titulo, texto: m.texto })) } : {}),
       });
     },
   },
@@ -285,6 +290,8 @@ export const RUNNERS: Runners = {
     preparar: seguro(async (input, ctx) => {
       const alta = altaLimpia(input);
       const ya = await altaDePartner(ctx.ws).catch(() => null);
+      // Sólo MaKo Pro (27/10/2026): no se propone lo que `hacermePartner` va a frenar.
+      if (!ya && (await esEsencialDe(ctx.ws))) return { error: textoSoloPro('partners') };
       const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
       const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
       const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);
@@ -306,6 +313,21 @@ export const RUNNERS: Runners = {
     ejecutar: sinLanzar(async (payload, ctx) => {
       const r = await cambiarCobroPartner(ctx.ws, payload.cobro);
       return r.ok ? { ok: true, resumen: `Listo: se le transfiere a ${r.cobro}.` } : { ok: false, resumen: r.error };
+    }),
+  },
+  // Cambiar el código (27/10/2026): lo mismo que «Cambiar» del panel (lib/partners-programa.ts, `cambiarCodigoPartner`).
+  cambiar_codigo_partners: {
+    preparar: seguro(async (input, ctx) => {
+      const v = codigoNuevoValido(input.codigo);
+      if (!v.ok) return { error: v.error };
+      const t = await tableroDe(ctx.ws);
+      if (!t.alta || !t.codigo) return { error: 'Este negocio todavía no es partner: primero hacerme_partner.' };
+      if (t.codigo === v.codigo) return { error: `Su código ya es ${v.codigo}.`, yaEstaba: true };
+      return { payload: { codigo: v.codigo }, resumen: `Cambiar el código de MaKo Partners de ${t.codigo} a ${v.codigo}. El link y el código de antes le siguen acreditando.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await cambiarCodigoPartner(ctx.ws, payload.codigo);
+      return r.ok ? { ok: true, resumen: `Listo: su código es ${r.codigo} y su link ${r.link}.`, datos: { codigo: r.codigo, link: r.link } } : { ok: false, resumen: r.error };
     }),
   },
   ver_programa_partners: {

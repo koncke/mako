@@ -867,6 +867,9 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   número después de recorrer `git worktree list` y listar cada `supabase/migrations/`. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
+  ⚠️ **Y el barrido va también por las ETIQUETAS** (`respaldo/*`, `nube/*`: el trabajo de un chat cortado o en la nube vive
+  ahí, y `git branch -a` no las lista) **y por las ramas que no están en el tren.** El 28/10/2026 la 0340 «verificada libre»
+  mirando tren-o y main era de `motion-imagen-2610`: docs/hallazgos-infra.md, «Un número de migración "verificado libre"».
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
@@ -3828,6 +3831,15 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
 - **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
+  ⚠️ **Y releer no alcanza: lo releído tiene que ser lo que MaKo armó para ESE cobro, por lo que pide** (28/10/2026). El
+  token del cobro viaja en /pagar/<token> y un Payment Link acepta `?client_reference_id=<token>`: una venta de US$1 marcaba
+  pagado un cobro de US$1.500. La sesión lleva la metadata de MaKo (o es la guardada en el cobro), no sale de un Payment Link,
+  y el monto y la moneda alcanzan (`sesionDelCobro`, lib/cobros-eventos.ts); si no, se ignora con un ticket. Detalle:
+  [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Un Payment Link con el token de un cobro de MaKo».
+  ⚠️ **Y una guarda que se extiende de un caso a TODOS los cobros se decide estado por estado** (28/10/2026): «sesión `complete`
+  → ya pagado», escrita para la prueba de Stripe, dejó en un bucle a un OXXO o SEPA que FALLÓ (también `complete`, pero `unpaid`).
+  Antes de generalizarla, listar qué estados llegan (`paid`, `no_payment_required`, `unpaid` × cobro pendiente o fallido) y
+  decidir cada uno ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Una guarda nueva que vale para TODO cobro…»).
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
