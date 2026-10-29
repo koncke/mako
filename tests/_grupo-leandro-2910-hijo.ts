@@ -39,8 +39,8 @@ const pg = crearPostgrest({
   candado: true,
 });
 
-/** Lo que hace la red en cada escena: si Groq escucha, y lo que contesta el modelo. */
-const escena = { escucha: true, transcripcion: '', respuesta: '' };
+/** Lo que hace la red en cada escena: si Groq escucha, lo que contesta el modelo, y si la IA del negocio está caída. */
+const escena = { escucha: true, transcripcion: '', respuesta: '', iaCaida: false };
 const red: Array<{ host: string; camino: string; cuerpo: string }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
@@ -58,6 +58,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   }
   // La IA del negocio (su GPT): contesta el turno con lo que MaKo contestó en producción.
   if (u.host === 'api.openai.com' && u.pathname.endsWith('/chat/completions')) {
+    if (escena.iaCaida) return r(503, { error: { message: 'The server is overloaded' } });
     return r(200, { id: 'c1', object: 'chat.completion', model: 'gpt-4o-mini', choices: [{ index: 0, message: { role: 'assistant', content: escena.respuesta }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } });
   }
   return r(500, { error: { message: 'red de mentira' } });
@@ -111,13 +112,17 @@ async function main() {
   });
   const escuchas = () => red.filter((x) => x.camino.endsWith('/audio/transcriptions')).map((x) => x.host);
   /** Una escena: limpia lo de la anterior, corre `f` y anota lo que salió, lo que vio el modelo y los tickets. */
+  /** `ESCENAS=f6,f6equipo` corre sólo ésas (para mirar una sin esperar las ocho). */
+  const solo = process.env.ESCENAS?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
   const correr = async (k: string, e: Partial<typeof escena>, f: () => Promise<unknown>) => {
-    Object.assign(escena, { escucha: true, transcripcion: '', respuesta: NEUTRA }, e);
+    if (solo.length && !solo.includes(k)) return;
+    Object.assign(escena, { escucha: true, transcripcion: '', respuesta: NEUTRA, iaCaida: false }, e);
     red.splice(0);
     pg.db.mako_doer_conv.splice(0); pg.db.tickets.splice(0); pg.db.mako_doer_lock.splice(0);
     const r = await f();
     out[k] = {
       r, salio: salio(), modelo: alModelo(), escuchas: escuchas(), reacciones: red.filter((x) => x.camino.includes('/message/sendReaction/')).length,
+      ias: red.filter((x) => x.host !== 'evolution.test').map((x) => `${x.host}${x.camino}`),
       tickets: pg.db.tickets.map((t) => ({ titulo: t.titulo, descripcion: t.descripcion, ref: t.ref })),
     };
   };
@@ -145,6 +150,8 @@ async function main() {
   // F6. El mensaje para Martín, con una respuesta del modelo SIN marca: el ticket lo deja el código. Y un «gracias» suelto a Martín.
   await correr('f6', {}, () => manejarEntranteDoer(LINEA, texto('3EB0AEE039261106E9EB7X', 1793252998, T335) as never));
   await correr('f6gracias', {}, () => manejarEntranteDoer(LINEA, texto('3EB0AEE039261106E9EB7Y', 1793252999, '¡Gracias Martín!') as never));
+  // F1 con la IA del negocio CAÍDA: lo que se guarda crudo como borrador del Plan es una carga, no una lista de preguntas.
+  await correr('f1caida', { iaCaida: true }, () => manejarEntranteDoer(LINEA, texto('3EB040F648AA5CEF52621X', 1793253401, T336) as never));
   process.stdout.write(`@@LEANDRO@@${JSON.stringify(out)}\n`);
 }
 

@@ -4,7 +4,8 @@
 // Martín, 29/10: «Mira lo que le respondió MaKo en WhatsApp, sigue funcionando muy mal... A Leandro». Cada falla con su caso real,
 // por la entrada REAL del grupo (`manejarEntranteDoer`, tests/_grupo-leandro-2910-hijo.ts) con los payloads de `mako_doer_buffer`:
 //   1. (1702) «sumo tres cosas…», con cinco preguntas: «Listo, te armé el borrador» con un link a /plan/revisar. La lista numerada
-//      lo hacía «dictado» y el clasificador lo mandaba a capturar. Una pregunta nunca es una carga de tareas.
+//      lo hacía «dictado» y el clasificador lo mandaba a capturar. Una pregunta nunca es una carga de tareas. Tampoco con la IA
+//      caída: el mensaje se guardaba CRUDO como borrador si traía una lista o el router decía «plan»; ahora decide la intención.
 //   2. (1682) «darles de baja o reetiquetarlos manualmente»; (1700) «borra el registro de la inscripción anterior»: procedimientos
 //      inventados y destructivos. MaKo NUNCA indica borrar datos: lo dice y queda el ticket.
 //   3. (1700) «son limitaciones reales actuales del motor… ya están escaladas al equipo», «ya queda el registro técnico»: lo que no
@@ -23,6 +24,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { clasificarIntencion } from '../lib/mako-intencion';
 import { ESCUCHO_AUDIOS, SIN_BORRAR, SIN_SABER_DEL_PRODUCTO, sinLoQueMaKoNoDice } from '../lib/doer-salida';
@@ -50,6 +52,8 @@ function escena(k: string): Escena {
   return e;
 }
 const TICKET = /\n\nQuedó el ticket #\d+ para el equipo de MaKo\.$/;
+/** La fuente del doer, sin comentarios (para el cableado que un turno de test no alcanza). */
+const leerDoer = (): string => readFileSync(new URL('../lib/mako-doer-in.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
 
 test('1. (1702) las cinco preguntas no son una carga del Plan: consulta, sin la herramienta del borrador', () => {
   const e = escena('f1');
@@ -57,6 +61,11 @@ test('1. (1702) las cinco preguntas no son una carga del Plan: consulta, sin la 
   assert.ok(e.modelo[0].tools.length > 0, 'una consulta sin herramientas no puede mirar nada');
   assert.ok(!e.modelo[0].tools.includes('proponer_tareas_plan'), 'llegó con la herramienta que arma el borrador del Plan');
   assert.ok(!e.salio.some((t) => t.includes('/plan/revisar')), 'salió un borrador del Plan');
+  // Con la IA del negocio CAÍDA, el mensaje se guardaba crudo como borrador del Plan (la lista y la ruta «plan» del router):
+  // «Listo, te armé el borrador» con las preguntas adentro. Ahora lo decide la intención: el cartel de la IA, sin borrador.
+  const c = escena('f1caida');
+  assert.ok(c.salio.length > 0, 'con la IA caída no dijo nada');
+  assert.ok(!c.salio.some((t) => /\/plan\/revisar|te armé el borrador|lo dejé tal cual/i.test(t)), `guardó las preguntas como borrador del Plan: ${c.salio.join(' | ')}`);
   // El clasificador, con los textos reales y sus vecinos.
   const t336 = e.modelo[0].persona;
   assert.equal(clasificarIntencion(t336).intencion, 'consultar');
@@ -139,6 +148,10 @@ test('6. «Hola Martin, …» es para el equipo: MaKo no contesta como él, y el
   // Un «gracias» suelto a Martín: ni 👍, ni turno.
   const g = escena('f6gracias');
   assert.deepEqual([g.r.skip, g.modelo.length, g.salio.length, g.reacciones], ['no es para MaKo (a-otro)', 0, 0, 0]);
+  // En el grupo del propio equipo (el workspace SuperAdmin) hablarle a Martín es lo normal: ni el bloque ni un ticket por mensaje.
+  // Se mira el cableado: ese grupo contesta con la IA de la plataforma, que en un test no llega al modelo.
+  assert.match(leerDoer(), /const paraElEquipo = wsData === \(await wsSuperAdmin\(\)\.catch\(\(\) => null\)\) \? null : paraAlguienDelEquipo\(sinPrefijoDeLote\(texto\)\);/,
+    'en el grupo del equipo (SuperAdmin), «Martín, …» abriría un ticket por mensaje');
   // A quién le habla.
   assert.deepEqual(paraAlguienDelEquipo('Hola Martin, probamos la 680'), { nombre: 'Martín', resto: 'probamos la 680' });
   assert.equal(paraAlguienDelEquipo('Martín: ¿y el filtro?')?.resto, '¿y el filtro?');
@@ -166,3 +179,5 @@ test('6. «Hola Martin, …» es para el equipo: MaKo no contesta como él, y el
 //   R10 sin «acuse + nombre» (`¡Gracias Martín!`)                                                 → falla el 6
 //   R11 `escuchoUnAudio` siempre en false (sale «Mándame el texto exacto»)                        → falla el 4
 //   R12 la clave del ticket con el saludo («Hola Martin» delante: dos mensajes, un ticket)        → falla el 6
+//   R13 sin la excepción del grupo del equipo (SuperAdmin)                                        → falla el 6
+//   R14 con la IA caída, «era del Plan» vuelve a mirar la lista y la ruta, no la intención        → falla el 1

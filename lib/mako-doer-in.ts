@@ -292,6 +292,15 @@ function esCargaDePlan(texto: string): boolean {
   return (texto.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\S/g) ?? []).length >= 2;
 }
 
+/**
+ * ¿El turno era una CARGA al Plan? Con la IA caída, eso se guarda crudo como borrador para no perderlo. Lo decide la INTENCIÓN
+ * (29/10/2026, Leandro, ws10): «sumo tres cosas…», con seis preguntas, trae una lista (`esCargaDePlan`) y el router la manda a
+ * «plan», pero es una consulta; con la IA caída salía «Listo, te armé el borrador» con sus preguntas adentro.
+ */
+function eraCargaDePlan(texto: string, motivoRuta: string, v: { intencion: string; dudosa?: boolean }): boolean {
+  return v.intencion === 'capturar' && (esCargaDePlan(texto) || (esRutaPlan(motivoRuta) && !v.dudosa));
+}
+
 /** Sanea el historial para la Messages API: arranca en 'user' y no repite rol. */
 function saneaHistorial(turnos: Array<{ role: 'user' | 'assistant'; content: string }>): RichMsg[] {
   const out: RichMsg[] = [];
@@ -1504,7 +1513,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const ctxPedidos = bloqueDePedidos(pedidosDelNegocio, new Date(), tzGrupo);
     // EL MENSAJE PARA ALGUIEN DEL EQUIPO (29/10/2026, Leandro, ws10; lib/doer-para-quien.ts): «Hola Martin, …». MaKo no contesta
     // como si fuera él: dice lo que sabe con datos y lo demás queda para el equipo, con su ticket (abajo, después del saneo).
-    const paraElEquipo = paraAlguienDelEquipo(sinPrefijoDeLote(texto));
+    // En el grupo del propio equipo (el workspace SuperAdmin) hablarle a Martín es lo normal: ahí no abre un ticket por mensaje.
+    const paraElEquipo = wsData === (await wsSuperAdmin().catch(() => null)) ? null : paraAlguienDelEquipo(sinPrefijoDeLote(texto));
     const ctxParaElEquipo = paraElEquipo ? bloqueParaElEquipo(paraElEquipo.nombre) : '';
     /** Lo que pidió, sin el saludo a esa persona: con «Hola Martin» delante, todos sus tickets tendrían la misma clave. */
     const pedidoDelTicket = paraElEquipo?.resto || sinPrefijoDeLote(texto);
@@ -2497,7 +2507,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           // El veredicto se decide SÓLO con lo del cliente (ver `erroresPlataforma`). Lo
           // nuestro va al log, que es donde se diagnostica.
           const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
-          const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
+          const eraDePlan = eraCargaDePlan(texto, ruta.motivo, intencion);
           // Sin keys propias y con la red cortada por datos de clientes, «carga una key» no dice por qué nuestra IA no lo
           // cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad. La marca existe
           // sólo donde había una red que saltear (arriba, 24/10/2026): para un negocio, desde IA16, el cartel es su causa.
@@ -2736,7 +2746,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * a Claude: se contesta con la verdad y se salva el trabajo.
      */
     if (!respuesta) {
-      const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
+      const eraDePlan = eraCargaDePlan(texto, ruta.motivo, intencion);
       console.error(`[mako-doer-in] ws=${wsData} NINGÚN proveedor dejó una respuesta usable · ruta «${ruta.motivo}» · ${texto.length} chars · borrador=${linkBorrador ?? 'no'}`);
 
       /**

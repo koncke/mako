@@ -75,6 +75,10 @@ con los payloads reales, anonimizados: `tests/grupo-leandro-2910.test.ts`.
   4 (dictado sin imperativo → capturar) va ANTES que la de la pregunta (8), y MaKo contestó «Listo, te armé el borrador» con un
   link a /plan/revisar. Ahora un dictado con dos o más preguntas (fuera de un link y de lo citado entre «…») es una consulta; con
   una sola sigue siendo un volcado («Ideas: … ¿y un podcast?»), y «anotá esto: …» gana igual.
+  ⚠️ **Y con la IA caída pasaba lo mismo por OTRO camino:** las dos salidas de «ningún proveedor contestó» guardan el mensaje
+  CRUDO como borrador del Plan si `esCargaDePlan` (dos renglones numerados) o si el router (`rutearDoer`, que no lee preguntas)
+  dijo «plan». Arreglar el clasificador no alcanzaba: con la IA del negocio caída, las mismas preguntas salían «Listo, te armé
+  el borrador». Ahora decide la intención (`eraCargaDePlan`). Lo encontró una escena del test que no llegaba al modelo.
 - **Lo que MaKo no sabía lo afirmaba, y lo peor era destructivo.** «borra el registro de la inscripción anterior», «darles de baja o
   reetiquetarlos manualmente» (la vía real, «Volver a probar», ni estaba subida); «son limitaciones reales actuales del motor…
   ya están escaladas al equipo»; «ya queda el registro técnico». Una regla en el prompt no alcanza (está, en `NUCLEO_GRUPO`): la
@@ -89,7 +93,8 @@ con los payloads reales, anonimizados: `tests/grupo-leandro-2910.test.ts`.
   `bloqueParaElEquipo` (dice que es MaKo, contesta sólo lo que ve en sus herramientas, los pedidos abiertos o CÓMO FUNCIONA MAKO)
   y el ticket queda SIEMPRE: si el modelo no marcó nada, la marca la pone el código. Trampa: la clave del ticket sale de las dos
   primeras palabras de lo que pidió (`refDeNoPude`); con «Hola Martin» delante, todos los mensajes a Martín tenían la misma
-  («hola martin») y el segundo salía «Ya estaba avisado». Va sin el saludo (`pedidoDelTicket`).
+  («hola martin») y el segundo salía «Ya estaba avisado». Va sin el saludo (`pedidoDelTicket`). En el grupo del propio equipo
+  (el workspace SuperAdmin) hablarle a Martín es lo normal: ahí no hay bloque ni ticket.
 - **Trampas del test:** cada turno por `manejarEntranteDoer` espera la ventana de silencio REAL (8 s el texto): seis escenas son
   ~3 minutos. Y el payload real lleva la voz del cliente (`message.base64`) y su teléfono (`participantAlt`): no entran a un test.
 
