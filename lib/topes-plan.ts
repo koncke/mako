@@ -55,7 +55,6 @@ export type FuncionSoloPro = (typeof FUNCIONES_SOLO_PRO)[number];
 
 const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Traer los contactos de un grupo de WhatsApp',
-  partners: 'Ser MaKo Partner y ganar por cada negocio que traes',
 };
 /** El texto del candado: qué es, que es de Pro y cómo tenerlo (con el botón a `RUTA_CAMBIAR_PLAN`). */
 export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. Pasa a Pro para usarlo.`;

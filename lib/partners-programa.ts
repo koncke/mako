@@ -188,8 +188,7 @@ export async function altaDePartner(ws: number): Promise<AltaPartner | null> {
   return leerAlta(await leerSetting(ws, CLAVE_ALTA_PARTNERS));
 }
 
-/** `soloPro`: el negocio paga Esencial y hacerse partner es de Pro (la pantalla muestra «Pasar a Pro»). */
-export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: AltaPartner } | { ok: false; error: string; soloPro?: true };
+export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: AltaPartner } | { ok: false; error: string };
 
 /**
  * Terminar el alta (el último paso del onboarding corto, o `hacerme_partner` por la API): guarda lo que contestó y le da su
