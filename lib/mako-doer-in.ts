@@ -56,7 +56,7 @@ import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { conElNegocio } from '@/lib/nucleo-grupo';
-import { bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esGraciasOSaludo, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
+import { bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esGraciasOSaludo, esPreguntaDelEquipo, esSoloUnPedidoAMaKo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
 import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
 import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
@@ -956,7 +956,10 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     return { engaged: false, skip: 'respuesta al equipo (re-entrega)' };
   }
   const alEquipo = await contestaAlEquipo(wsData, instance, jid, data, texto, !audio && !adjunto);
-  if (alEquipo) {
+  // Sin citar, SÓLO un pedido a MaKo no es la respuesta al equipo: va a MaKo, sin aviso, y la pregunta del equipo sigue abierta
+  // para la respuesta de verdad (la ALTA 2 de la verificación de c358fd0c4: «Quiero saber porque Nadya Calderon no aparece para
+  // agregarla» quedaba callado, avisado como respuesta y con la ventana cerrada; en producción MaKo contestaba).
+  if (alEquipo && !(alEquipo.ventana && texto && esSoloUnPedidoAMaKo(texto))) {
     await registrarRespuestaAlEquipo(wsData, data, texto || '(una nota de voz o un archivo)', alEquipo.delEquipo)
       .catch((e) => console.error(`[mako-doer-in] ws=${wsData} la respuesta al equipo no quedó registrada: ${e instanceof Error ? e.message : String(e)}`));
     // La ventana se cierra con la PRIMERA respuesta: lo que sigue ya es para MaKo (la verificación de 5b7a1917d).

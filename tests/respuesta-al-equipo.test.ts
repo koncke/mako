@@ -9,7 +9,7 @@
 //   1. la entrada REAL del grupo (tests/_respuesta-equipo-hijo.ts), en la forma v2: la respuesta de quien fue preguntado (citada
 //      o no) va al equipo sin 👍 ni turno; otra persona, lo siguiente a la primera respuesta, un «?» de un link, un audio citado,
 //      un «gracias» y lo que llega después de que MaKo habló van a MaKo; lo que además pide algo va a los dos; la re-entrega no
-//      repite nada;
+//      repite nada; y (la ALTA 2, 29/10) lo que SÓLO le pide algo a MaKo sin citar va a MaKo y no cierra la pregunta del equipo;
 //   2. la regla pura (`respuestaAlEquipo`): pregunta de verdad, a quién, la ventana, cerrada con la primera respuesta;
 //   3. las piezas: la cita y la pregunta donde vengan, a quién le habla, qué le pide a MaKo, la firma sólo al principio;
 //   4. el cableado.
@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { citaDelMensaje, conElNuevo, conLaAvisada, conLaRespondida, esGraciasOSaludo, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, textoCitado, VENTANA_RESPUESTA_AL_EQUIPO_MS, type DelEquipo } from '../lib/doer-equipo';
+import { citaDelMensaje, conElNuevo, conLaAvisada, conLaRespondida, esGraciasOSaludo, esPreguntaDelEquipo, esSoloUnPedidoAMaKo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, textoCitado, VENTANA_RESPUESTA_AL_EQUIPO_MS, type DelEquipo } from '../lib/doer-equipo';
 import { esFirmaDelEquipo, FIRMA_DESARROLLADOR, sinFirmaDelEquipo } from '../lib/aviso-arreglo-reglas';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -43,12 +43,14 @@ const alEquipo = { engaged: false, skip: 'respuesta al equipo' };
 test('1. por la entrada real (forma v2): al equipo sólo lo de quien fue preguntado; MaKo no calla de más; nada se repite', () => {
   const r = correr();
   // Al equipo: sin 👍, sin cola, con su aviso.
-  for (const k of ['respuesta', 'citada', 'dale', 'sinRegistro']) {
+  for (const k of ['respuesta', 'citada', 'dale', 'sinRegistro', 'respuestaDespues']) {
     assert.deepEqual(r[k].r, alEquipo, `${k}: ${JSON.stringify(r[k])}`);
     assert.deepEqual([r[k].entro, r[k].reacciones, r[k].superAdmin], [false, 0, 1], `${k}: ${JSON.stringify(r[k])}`);
   }
   // A MaKo: entra a la cola (con su 👍, salvo el acuse) y sin aviso al equipo.
-  for (const k of ['otraPersona', 'despues', 'link', 'audioCitado', 'avisoArreglo', 'makoHablo']) {
+  // `pedido`, `queja` y `anota`: la ALTA 2. Con la pregunta del equipo viva, lo que Leila le PIDE a MaKo sin citar es para MaKo, y
+  // la pregunta sigue abierta (`respuestaDespues`, arriba, va al equipo).
+  for (const k of ['otraPersona', 'despues', 'link', 'audioCitado', 'avisoArreglo', 'pedido', 'queja', 'anota', 'makoHablo']) {
     assert.equal(r[k].entro, true, `${k}: MaKo calla de más (${JSON.stringify(r[k])})`);
     assert.equal(r[k].reacciones, 1, `${k}: sin 👍`);
     assert.equal(r[k].superAdmin, 0, `${k}: se tomó por respuesta al equipo`);
@@ -60,7 +62,7 @@ test('1. por la entrada real (forma v2): al equipo sólo lo de quien fue pregunt
   assert.deepEqual(r.reentrega.r, { engaged: false, skip: 'respuesta al equipo (re-entrega)' });
   assert.deepEqual([r.reentrega.entro, r.reentrega.superAdmin], [false, 0]);
   // El anillo: las preguntas contestadas, cerradas; a quién le hablaba cada una.
-  assert.deepEqual(r.anillo.map((d: { id: string; respondida: boolean }) => [d.id, d.respondida]), [['EQ-1', true], ['EQ-2', true], ['EQ-3', false], ['EQ-4', true], ['EQ-5', false], ['EQ-6', true]]);
+  assert.deepEqual(r.anillo.map((d: { id: string; respondida: boolean }) => [d.id, d.respondida]), [['EQ-1', true], ['EQ-2', true], ['EQ-3', false], ['EQ-4', true], ['EQ-5', false], ['EQ-6', true], ['EQ-7', true]]);
   assert.deepEqual(r.anillo[0].para, { nombre: 'leila' });
   assert.equal(r.anillo[2].para, null);
 });
@@ -105,6 +107,14 @@ test('3. las piezas: la cita en la forma v2, qué es pregunta, a quién le habla
   assert.deepEqual(paraDelEquipo('¿cuántas?', ['5215500000000@s.whatsapp.net']), { jids: ['5215500000000@s.whatsapp.net'] });
   for (const t of ['Cárgame el pago de hoy de Fabi Pedraza, 423 MXN', '¿cuántos leads entraron hoy?', 'Son 6 quincenas en mxn. Y pásame el resumen de cobros de la semana']) assert.equal(pideAlgoAMaKo(t), true, `«${t}»`);
   for (const t of ['Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000', 'Son 6 quincenas en mxn']) assert.equal(pideAlgoAMaKo(t), false, `«${t}»`);
+  // La ALTA 2: los pedidos REALES de los clientes (21 al 28/10) que el clasificador deja en «capturar» dudoso, como a una respuesta.
+  for (const t of ['Quiero saber porque Nadya Calderon no aparece para agregarla', 'Está en whatsapp y no la encuentro dentro del chat',
+    'dice que no puede analizar la llamada de fathom tras 4 intentos', 'aquí no me deja editar que son 423, no 4235', 'mandale el recordatorio a Juan',
+    'necesito el resumen de cobros de la semana', 'Ah y otra cosa, anotá que Nadia arranca el lunes', 'Quiero que cuando comenten guía les mande el PDF por DM',
+    'Hola! no me deja editar el pago. Dice error 423', '¿cómo hago para agregarla?']) assert.equal(esSoloUnPedidoAMaKo(t), true, `«${t}» no se vio como pedido`);
+  // Lo que contesta no pide nada, y lo que contesta Y pide va a los dos (no es SÓLO un pedido).
+  for (const t of ['Son 6 quincenas en mxn', 'sí, a las 9 está bien', 'dale', 'no, eran 12', 'no puede el lunes', 'en pesos mexicanos', 'Listo, ya la agregué',
+    'Son 6 quincenas en mxn. Y pásame el resumen de cobros de la semana']) assert.equal(esSoloUnPedidoAMaKo(t), false, `«${t}» se tomó por sólo un pedido`);
   assert.equal(esFirmaDelEquipo(`${FIRMA_DESARROLLADOR}\nhola`), true);
   assert.equal(esFirmaDelEquipo(`Contesta a: «${FIRMA_DESARROLLADOR} ¿cuántas?»`), false, 'una cita de la firma en el medio');
   assert.equal(sinFirmaDelEquipo(`${FIRMA_DESARROLLADOR}\n¿Cuántas?`), '¿Cuántas?');
@@ -157,3 +167,8 @@ test('4. el cableado: antes del 👍 y de la cola; la re-entrega; el cierre; lo 
 //   X3 cualquier acuse («dale», «ok») antes de la cita                                    → falla el 1 y el 4
 //   X4 `esGraciasOSaludo` toma «dale» por saludo                                         → falla el 1 y el 4
 //   X5 la lectura estricta de las re-entregas tira y se come la respuesta                → falla el 1
+//   (29/10/2026, la ALTA 2; base 4 / 0)
+//   A1 `pideAlgoAMaKo` sin las formas de pedir (el clasificador solo, lo de antes)        → falla el 1 y el 3 (y el 7 de grupo-leandro-2910)
+//   A2 sin la guarda de la entrada: el pedido se toma por respuesta y cierra la ventana   → falla el 1
+//   A3 «sólo un pedido» mirando el texto entero (lo que contesta y pide deja el equipo)   → falla el 1 y el 3
+//   A4 `puede` sin un verbo atrás («no puede el lunes» se toma por queja)                  → falla el 3

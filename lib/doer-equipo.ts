@@ -201,12 +201,45 @@ export function textoCitado(message: Record<string, unknown> | undefined): strin
 }
 
 /**
- * ¿El mensaje, además de contestarle al equipo, le PIDE algo a MaKo? («Son 6 quincenas en mxn. Y pásame el resumen de cobros»,
- * la verificación de 5b7a1917d): entonces va a los dos. Un pedido claro del clasificador: actuar, consultar o pensar.
+ * Las formas de PEDIR que el clasificador deja en «capturar» dudoso, igual que una respuesta (la ALTA 2 de la verificación de
+ * c358fd0c4, 29/10/2026: de 28 mensajes reales de clientes del 21 al 28/10, `pideAlgoAMaKo` daba false en 21, todos los de Leila).
+ * Sobre el texto sin tildes. Una respuesta («Son 6 quincenas en mxn», «sí, a las 9», «no, eran 12») no tiene ninguna.
+ *   · una queja de algo que no anda: «no aparece», «no la encuentro», «no me deja editar», «no puede analizar…»;
+ *   · querer o necesitar algo: «quiero saber…», «necesito el resumen…», «quiero que cuando comenten…», «¿cómo hago…?»;
+ *   · el imperativo a un tercero, que el clasificador no conoce: «mandale», «avisale», «agregala».
+ * `puede`/`puedo` sólo con un verbo atrás: «no puede analizar» es una queja, «no puede el lunes» es una respuesta.
+ * El costo conocido: una respuesta con forma de pedido («quiero que sean 6 quincenas») va a MaKo, como en producción hasta acá.
+ * Citando la pregunta del equipo, va al equipo igual.
+ */
+const PIDE_O_SE_QUEJA = new RegExp([
+  String.raw`\bno\s+(?:me\s+|le\s+|nos\s+|la\s+|lo\s+|las\s+|los\s+|se\s+)?(?:deja|dejan|aparece|aparecen|encuentro|encuentra|encontramos|funciona|funcionan|anda|andan|carga|cargan|guarda|abre|reconoce|llega|llegan|muestra)\b`,
+  String.raw`\bno\s+(?:me\s+|le\s+|la\s+|lo\s+|se\s+)?(?:puedo|puede|pude|pudo|podemos)\s+[a-z]+(?:ar|er|ir)(?:la|lo|las|los|le|les)?\b`,
+  String.raw`\b(?:da|dice|tira|sale|salio|aparece|marca)\s+(?:un\s+)?error\b`,
+  String.raw`\b(?:quiero|quisiera|queria|necesito|necesitaria|ocupo|me\s+gustaria)\s+(?:saber|que|ver|el|la|los|las|un|una|mi|mis|ayuda|agregar|cargar|crear|hacer|mandar|enviar|cambiar|poner|sacar|editar|conectar|configurar)\b`,
+  String.raw`\bcomo\s+(?:hago|puedo|se\s+hace|le\s+hago|lo\s+hago|la\s+agrego|lo\s+agrego|lo\s+cargo|la\s+cargo)\b`,
+  String.raw`\b(?:manda|envia|pasa|avisa|recuerda|agenda|agrega|carga|crea|cambia|mueve|pon|anota|apunta|escribe|responde|contesta)(?:le|les|la|lo|las|los|selo|sela|selos|selas)\b`,
+].join('|'));
+
+/**
+ * ¿El mensaje le PIDE algo a MaKo? Un pedido claro del clasificador (actuar, consultar, pensar, o «anotá» explícito) o una de las
+ * formas de pedir de arriba. Si además le contesta al equipo («Son 6 quincenas en mxn. Y pásame el resumen de cobros», la
+ * verificación de 5b7a1917d), va a los dos.
  */
 export function pideAlgoAMaKo(texto: string): boolean {
   const v = clasificarIntencion(texto);
-  return !v.dudosa && (v.intencion === 'actuar' || v.intencion === 'consultar' || v.intencion === 'pensar');
+  if (!v.dudosa && (v.intencion === 'actuar' || v.intencion === 'consultar' || v.intencion === 'pensar' || v.intencion === 'capturar')) return true;
+  return PIDE_O_SE_QUEJA.test(norm(texto));
+}
+
+/**
+ * ¿Es SÓLO un pedido a MaKo, sin una respuesta al equipo adentro? Cada oración (lo que separan . ! ? o un salto de línea; el
+ * punto de un número no corta) pide algo, o es un saludo. Sin citar, con la pregunta del equipo viva, eso es para MaKo y la
+ * pregunta sigue abierta (la ALTA 2: «Quiero saber porque Nadya Calderon no aparece para agregarla» quedaba callado y cerraba la
+ * ventana, y después la respuesta de verdad iba a MaKo). Si una oración no pide nada, es la respuesta: va a los dos.
+ */
+export function esSoloUnPedidoAMaKo(texto: string): boolean {
+  const partes = texto.split(/[!?¿¡\n]+|\.(?!\d)/).map((p) => p.trim()).filter((p) => /[\p{L}\p{N}]/u.test(p));
+  return partes.length > 0 && partes.every((p) => pideAlgoAMaKo(p) || esGraciasOSaludo(p));
 }
 
 /** Las respuestas al equipo ya avisadas (por el id del mensaje): una re-entrega de Evolution no repite el aviso. */

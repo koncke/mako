@@ -2,7 +2,7 @@
 
 **Cuenta:** claude3 (desde el 29/10 03:00; antes claude4). **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los
 merges de main son merge commits, nunca rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le
-devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 09:10 (AR) este archivo está al día.
+devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 10:30 (AR) este archivo está al día.
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
 
@@ -24,13 +24,24 @@ devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 0
   Integración) y después las 6 fallas de Leandro: **152cfcd27** (las seis), **2f7bf68af** (IA caída, SuperAdmin, R9, ESCENAS),
   **cfcdac6e9** (el `/s` del test) y **f8d2901ce** (los 7 tests de cableado que el barrido dio en rojo: leían la forma vieja de
   `conMemoria`, del lote y de `eraDePlan`). tests/grupo-leandro-2910.test.ts 6/6, 14 roturas cazadas (`roturas.mjs` del scratchpad).
-- **El VERDE de f8d2901ce** corre en un worktree APARTE, fijo en ese commit: `C:/dev/verif-f8d2901ce` (detached, `node_modules`
-  como junction). Logs en el scratchpad de la sesión: `verde3-tipos.log` y `verde3-tests.log`. Al terminar: el VERDE al Cerebro
-  (local_428051c1) y a Integración (local_6c54122e), y `git worktree remove C:/dev/verif-f8d2901ce`.
+- **EN EL ÁRBOL, sin commit todavía (29/10 ~10:30):** (a) **la ALTA 2** de la verificación de c358fd0c4, que frenó
+  Integración: `lib/doer-equipo.ts` (`PIDE_O_SE_QUEJA`, `esSoloUnPedidoAMaKo`), la guarda en `lib/mako-doer-in.ts`, la escena 10d
+  de `tests/_respuesta-equipo-hijo.ts` y el test 7 de `tests/grupo-leandro-2910.test.ts` (turno entero: MaKo contesta). Las dos
+  corridas pasan salvo un ajuste del test (reacciones ≥ 1). (b) **los tickets al Cerebro**: mig **0343** (número del Cerebro; YA
+  APLICADA en producción el 29/10, por el Cerebro con el sí de Martín: los 22 tickets en 'pendiente'), `lib/tickets-aviso.ts`, `lib/tickets-runner.ts`, `lib/operaciones.ts`,
+  `lib/tickets-cierre.ts`, `scripts/operaciones/cartero.mjs` (1.23.0), los cinco tests que fijan la versión, `tests/tickets.test.ts`,
+  `tests/_postgrest-de-mentira.ts` (`orCompleto`) y el test nuevo `tests/tickets-al-cerebro.test.ts` + hijo. La cosecha de los dos
+  ya está en `docs/hallazgos-comunicacion.md`, `docs/hallazgos-ticketera.md` y el índice.
+- **Corriendo con turno:** las roturas (`roturas-tickets.mjs` T1–T15 y `roturas-alta2.mjs` A1–A4, en el scratchpad) y el tsc
+  acotado con `--heap=4096` (con 2560 aborta con código 134: la lista de la rama creció). Después: commit de las dos piezas, un
+  worktree `C:/dev/verif-<sha>` limpio (junction a node_modules; para sacarlo, `cmd /c rmdir` del junction ANTES de
+  `git worktree remove`), tests-afectados ahí, y el VERDE de esa punta al Cerebro y a Integración (el de f8d2901ce no vale: la
+  ALTA 2 y los tickets lo cambian, e Integración mató sin querer ese barrido).
+- ⚠️ Texto con comillas invertidas: nunca adentro de un `node -e "…"` de bash (las ejecuta como comandos). Con el Edit.
 
 ## Lo que falta, en orden (el plan del Cerebro)
 
-1. El VERDE de f8d2901ce (arriba).
+1. El VERDE de la punta con la ALTA 2 y los tickets (arriba).
 2. **Los tickets al Cerebro al INSTANTE** (el Cerebro, 29/10): el Runner le entrega al Cerebro TODO ticket nuevo (hoy sólo
    `despacho='runner'` + `en_curso`, `lib/tickets-runner.ts`, `ticketsParaElCartero`), con texto fijo y el número, sin cambiar
    el triage ni la aprobación ni los `aviso_*`: otra marca de entrega y un cartero nuevo (subir su versión y su lista de textos

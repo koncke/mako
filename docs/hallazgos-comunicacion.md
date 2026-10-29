@@ -97,8 +97,24 @@ con los payloads reales, anonimizados: `tests/grupo-leandro-2910.test.ts`.
   (el workspace SuperAdmin) hablarle a Martín es lo normal: ahí no hay bloque ni ticket.
 - **Trampas del test:** cada turno por `manejarEntranteDoer` espera la ventana de silencio REAL (8 s el texto): seis escenas son
   ~3 minutos. Y el payload real lleva la voz del cliente (`message.base64`) y su teléfono (`participantAlt`): no entran a un test.
+  Un mensaje del EQUIPO (fromMe, firmado) es eco sólo si llega por la línea de MaKo (`mako.voz.instancia` del ws1, `esEcoDeMaKo`):
+  sin ese setting en el PostgREST de mentira, `instanciaVoz` devuelve el nombre por defecto, el mensaje del equipo corre un turno
+  como si lo hubiera escrito el dueño, y el test cuenta dos llamadas al modelo en vez de una.
+- **La ALTA 2 de la verificación de c358fd0c4 (va en la misma subida):** con una pregunta del equipo viva para una persona, su
+  siguiente texto sin citar se tomaba por la respuesta, y sólo seguía a MaKo si `pideAlgoAMaKo` veía un pedido. No veía casi
+  ninguno: **el clasificador deja los pedidos reales y las respuestas en el MISMO lugar** («capturar» dudoso, «sin señal clara»).
+  De 28 mensajes reales de clientes del 21 al 28/10, daba false en 21, todos los de Leila («Quiero saber porque Nadya Calderon no
+  aparece para agregarla» quedaba callado, avisado a SuperAdmin como respuesta y con la ventana cerrada; su respuesta de verdad,
+  después, iba a MaKo). En producción MaKo contestaba. La regla: `pideAlgoAMaKo` suma las formas de PEDIR que el clasificador no ve
+  (queja de algo que no anda, «quiero saber / necesito / quiero que», «cómo hago», el imperativo a un tercero: `PIDE_O_SE_QUEJA`,
+  `lib/doer-equipo.ts`), y sin citar, lo que es SÓLO un pedido (cada oración pide algo: `esSoloUnPedidoAMaKo`) va a MaKo sin aviso
+  y deja la pregunta abierta. Lo que contesta Y pide («Son 6 quincenas en mxn. Y pásame…») sigue yendo a los dos. Costo conocido:
+  una respuesta con forma de pedido («quiero que sean 6 quincenas») va a MaKo; citando, va al equipo igual.
 
 **Sin hacer:**
+- Después de que MaKo contesta el pedido de esa persona, su respuesta al equipo sin citar va a MaKo: `respuestaAlEquipo` cierra la
+  ventana si MaKo habló después de la pregunta (`ultimaDeMaKo`), y no mira si MaKo PREGUNTÓ algo o sólo contestó
+  (`lib/doer-equipo.ts`). Es el costo de no adivinar; citando, va al equipo.
 - El encabezado de todo lote (`unirMensajes`, `lib/mako-doer-buffer.ts`) dice «carga TODAS las tareas juntas»: empuja a cargar al
   Plan aunque sean preguntas. Lo fijan `tests/agenda-whatsapp.test.ts` y `tests/doer-acuse.test.ts`.
 - Los nombres del equipo son una lista (`nombresDelEquipo`, «Martín»; `MAKO_EQUIPO_NOMBRES` la cambia): no sale de la base.

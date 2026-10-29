@@ -152,6 +152,16 @@ async function main() {
   await correr('f6gracias', {}, () => manejarEntranteDoer(LINEA, texto('3EB0AEE039261106E9EB7Y', 1793252999, '¡Gracias Martín!') as never));
   // F1 con la IA del negocio CAÍDA: lo que se guarda crudo como borrador del Plan es una carga, no una lista de preguntas.
   await correr('f1caida', { iaCaida: true }, () => manejarEntranteDoer(LINEA, texto('3EB040F648AA5CEF52621X', 1793253401, T336) as never));
+  // La ALTA 2 de la verificación de c358fd0c4: el equipo le pregunta a Leandro por su nombre (firmado, por la línea de MaKo) y él,
+  // sin citar, le PIDE algo a MaKo (su pedido real de la verificación). El turno corre y la respuesta sale al grupo.
+  const { FIRMA_DESARROLLADOR } = await import('../lib/aviso-arreglo-reglas');
+  await correr('alta2', {}, async () => {
+    // El equipo escribe por la LÍNEA de MaKo (`mako.voz.instancia`): sin ella, su mensaje no es un eco y corre como del dueño.
+    pg.db.app_settings.push({ workspace_id: 1, key: 'mako.voz.instancia', value: LINEA });
+    await manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id: '3EB0EQUIPO0000000000L1', fromMe: true }, instance: LINEA,
+      message: { conversation: `${FIRMA_DESARROLLADOR}\nLeandro, ¿nos confirmás si el flujo es el de pruebafm?` } } as never);
+    return manejarEntranteDoer(LINEA, texto('3EB0A1A2A3A4A5A6A7A8A9', 1793253500, 'Quiero que cuando comenten guía les mande el PDF por DM') as never);
+  });
   process.stdout.write(`@@LEANDRO@@${JSON.stringify(out)}\n`);
 }
 

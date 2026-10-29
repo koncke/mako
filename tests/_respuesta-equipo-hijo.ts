@@ -102,6 +102,14 @@ async function main() {
   fallaAvisadas = true;
   await paso('sinRegistro', () => de(LEILA, 'Leila', 'LE-7c', 'sí, en pesos mexicanos'));
   fallaAvisadas = false;
+  // 10d. La ALTA 2 (la verificación de c358fd0c4): el equipo le pregunta a Leila y ella, sin citar, le PIDE algo a MaKo (sus textos
+  //      reales del 26/10). Es para MaKo (👍 y a la cola, sin aviso al equipo) y la pregunta sigue abierta: su respuesta de verdad,
+  //      después, va al equipo.
+  await equipo('EQ-7', 'Leila, para cargar el plan de Nadia: ¿cuántas quincenas eran y en qué moneda?');
+  await paso('pedido', () => de(LEILA, 'Leila', 'LE-9', 'Quiero saber porque Nadya Calderon no aparece para agregarla'));
+  await paso('queja', () => de(LEILA, 'Leila', 'LE-10', 'aquí no me deja editar que son 423, no 4235'));
+  await paso('anota', () => de(LEILA, 'Leila', 'LE-11', 'Ah y otra cosa, anotá que Nadia arranca el lunes'));
+  await paso('respuestaDespues', () => de(LEILA, 'Leila', 'LE-12', RESPUESTA));
   // 11. De control: MaKo habló DESPUÉS de la pregunta; un mensaje sin nombrarla es para MaKo.
   pg.db.mako_doer_conv.push({ id: ++n, workspace_id: WS, grupo_jid: JID, role: 'assistant', content: 'Hoy entraron 4 leads.', created_at: new Date(Date.now() + 1000).toISOString() });
   await paso('makoHablo', () => de(LEILA, 'Leila', 'LE-8', 'es el de pruebafm, sí'));

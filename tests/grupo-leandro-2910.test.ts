@@ -17,6 +17,8 @@
 //      el «tal cual» a ciegas. El audio que no se escuchó deja su marca EN SU LUGAR en el lote.
 //   6. «Hola Martin, …»: Leandro le escribe al EQUIPO y MaKo contestaba como si fuera Martín. Ahora dice que es MaKo, contesta sólo
 //      lo que sabe con datos y lo demás queda para el equipo con su ticket; un «gracias» suelto a Martín no es para MaKo.
+//   7. La ALTA 2 de la verificación de c358fd0c4 (va en la misma subida): con una pregunta del equipo a Leandro viva, lo que él le
+//      PIDE a MaKo sin citar se tomaba por su respuesta y MaKo quedaba callado. Ahora el turno corre y contesta.
 //
 // Probado rompiéndolo (29/10/2026, una rotura por vez, restaurada): ver el pie.
 // =============================================================================
@@ -165,6 +167,18 @@ test('6. «Hola Martin, …» es para el equipo: MaKo no contesta como él, y el
   assert.equal(noEsParaMaKo({ ...base, texto: 'Hola Martin, ¿y el filtro?' }), null, 'una pregunta a Martín corre el turno (con el bloque)');
 });
 
+test('7. (la ALTA 2) con una pregunta del equipo a Leandro viva, lo que él le PIDE a MaKo se contesta', () => {
+  // La verificación de c358fd0c4: la ventana de la respuesta al equipo tomaba su pedido por la respuesta (el clasificador lo deja en
+  // «capturar» dudoso) y MaKo quedaba callado, con un aviso a SuperAdmin. En producción MaKo contestaba. El turno entero.
+  const e = escena('alta2');
+  assert.notEqual(e.r?.skip, 'respuesta al equipo', `MaKo calló el pedido: ${JSON.stringify(e.r)}`);
+  assert.ok(e.reacciones >= 1, 'sin 👍');
+  assert.equal(e.modelo.length, 1, 'el turno no corrió');
+  assert.match(e.modelo[0].persona, /les mande el PDF por DM/);
+  assert.ok(e.salio.some((s: string) => s.includes('la automatización 680 está activa')), `la respuesta de MaKo no salió: ${JSON.stringify(e.salio)}`);
+  assert.ok(!e.salio.some((s: string) => /Respuesta al equipo/.test(s)), 'se avisó como respuesta al equipo');
+});
+
 // ── Probado rompiéndolo (29/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   R1  sin la regla 3-quinquies (un dictado con 2+ preguntas es consulta)                       → falla el 1
 //   R2  `indicaBorrar` nunca ve nada                                                             → fallan el 2 y el 3
@@ -181,3 +195,6 @@ test('6. «Hola Martin, …» es para el equipo: MaKo no contesta como él, y el
 //   R12 la clave del ticket con el saludo («Hola Martin» delante: dos mensajes, un ticket)        → falla el 6
 //   R13 sin la excepción del grupo del equipo (SuperAdmin)                                        → falla el 6
 //   R14 con la IA caída, «era del Plan» vuelve a mirar la lista y la ruta, no la intención        → falla el 1
+//   A1  `pideAlgoAMaKo` sin las formas de pedir (la ALTA 2; base del 7 en verde)                  → falla el 7
+//       Las otras roturas de la ALTA 2 (la guarda de la entrada, «sólo un pedido») las caza tests/respuesta-al-equipo.test.ts:
+//       acá MaKo contesta igual, porque el pedido también sigue a MaKo cuando se toma por respuesta.
