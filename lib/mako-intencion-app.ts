@@ -206,7 +206,7 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'area-fiscal', test: /\bdatos fiscales\b/, areas: ['cobros', 'crm'], relevancia: 'editar dato deal fiscal' },
   // Un plan DICTADO (ticket #26, 29/10/2026): «7500 dolares en 3 pagos, primer pago 28 de octubre…» no arranca con un verbo ni dice
   // «cuotas», y traía `guardar_plan_pagos` sin `armar_plan_por_tramos`; «300 dólares cada quincena» traía las tareas del Plan.
-  { id: 'plan-dictado', test: /\b\d+\s+(?:pagos|cuotas|mensualidades|quincenas)\b|\bcada quincena\b|\b(?:por|en) tramos\b/, areas: ['cobros'], relevancia: 'armar plan cuotas tramos', actua: true },
+  { id: 'plan-dictado', test: /\b\d+\s+(?:pagos|cuotas|mensualidades|quincenas)\b|\bcada quincena\b|\b(?:por|en) tramos\b/, areas: ['cobros'], relevancia: 'armar tramos editar cuota venta', actua: true },
   { id: 'rol-equipo', test: /\brol\b[^.\n]{0,30}\b(?:closer|setter|admin|miembro|equipo)\b|\b(?:cambi\w+)\b[^.\n]{0,12}\brol\b/, areas: ['equipo'], relevancia: 'cambiar rol miembro', actua: true, ganaAlLead: true },
   { id: 'renombrar-chat', test: /\brenombr\w+\b[^.\n]{0,15}\bchat\b/, areas: ['mako'], relevancia: 'renombrar chat mako', actua: true, ganaALaAgenda: true },
   // ── Offer, Copywriting, Second Brain y experimentos (tanda 5) ──

@@ -19790,14 +19790,14 @@ curl -L \
 
 ### `PUT /api/v1/cobros/ventas/{leadId}/plan` — Armar el plan de cuotas por tramos
 
-PROPONE el plan de cuotas de una venta de pago único, como lo arma la ficha: uno o varios tramos seguidos, cada uno con lo que vale cada cuota, su moneda, cada cuánto vence (mes, quincena o semana, y en qué días) y cuántas cuotas o hasta qué fecha; el siguiente tramo arranca donde termina el anterior. Sirve para «7500 dólares en 3 pagos de 2500, el 28 de octubre, noviembre y diciembre» (un tramo: 2500, mes, día 28, 3 cuotas, primera el 28/10), «300 dólares cada quincena, los días 1 y 15» o «6 meses de 12.000 pesos y después 6 de 10.000». Con un anticipo opcional. Se guarda encima de lo que hay: cada cuota sin cobrar se rehace por su id, las cobradas quedan y cubren su lugar, y la que tiene un link sin pagar o un recordatorio corriendo no se toca (se avisa). En otra moneda, los dólares de cada cuota los dice la persona: no se inventa la tasa. Una suscripción se pasa antes a pago único con editar_venta_lead. No cambia el monto de la venta (eso también es editar_venta_lead) ni gana el lead.
+PROPONE el plan de cuotas de una venta de pago único, como «Armar el plan» de la ficha: uno o varios tramos seguidos, cada uno con el monto de cada cuota, su moneda, cada cuánto (mes, quincena o semana) y cuántas cuotas o hasta qué fecha. Ej.: «7500 dólares en 3 pagos de 2500, el 28 de octubre, noviembre y diciembre» = un tramo de 2500, día 28, 3 cuotas, primera el 28/10. Rehace por su id las cuotas sin cobrar; las cobradas y las que tienen un link o un recordatorio quedan, y se dice. Una suscripción se pasa antes a pago único con editar_venta_lead, que también cambia el monto de la venta.
 
 - **Ruta por operación:** `POST /api/v1/cobros/armar_plan_por_tramos`
 - **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** rehace por su id las cuotas sin cobrar del plan del lead (inserta las que faltan y quita las que sobran si no tienen link ni recordatorio), escribe las columnas del plan del lead y deja el antes y el después en el historial
+- **Escribe:** rehace por su id las cuotas sin cobrar del plan del lead, escribe las columnas del plan y deja el historial
 - **Reversible:** no
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -19805,21 +19805,21 @@ PROPONE el plan de cuotas de una venta de pago único, como lo arma la ficha: un
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead (de buscar_leads). |
-| `primeraCuota` | string | sí | AAAA-MM-DD de la primera cuota del plan (la del primer tramo). |
-| `tramos` | object[] | sí | los tramos, en orden (hasta 10). Un plan parejo es UN tramo. |
-| `tramos.monto` | number | sí | lo que vale CADA cuota del tramo, en su moneda. |
-| `tramos.moneda` | string | no | código de 3 letras (USD, MXN, ARS…). Sin ella, USD. |
-| `tramos.montoUsd` | number | no | sólo si la moneda no es USD, y entonces obligatorio: cuánto es cada cuota en dólares (es lo que suma a los reportes). |
-| `tramos.cada` | string (mes \\| quincena \\| semana) | no | cada cuánto vence una cuota. Sin valor, mes. |
-| `tramos.dia` | number | no | mes: el día del mes (sin valor, el de la primera cuota del tramo; 29 a 31 caen el último día de un mes más corto). Quincena: el primero de los dos días (sin valor, 1). |
-| `tramos.dia2` | number | no | sólo quincena: el segundo día del mes (sin valor, 15). |
-| `tramos.cuotas` | number | no | cuántas cuotas tiene el tramo. Va esto o «hasta». |
-| `tramos.hasta` | string | no | AAAA-MM-DD: el tramo cobra hasta esa fecha, incluida (en vez de «cuotas»). |
-| `anticipo` | number | no | un cobro inicial aparte de las cuotas, en su moneda. Sin él, el anticipo sin cobrar que ya tenga queda como está. |
-| `anticipoMoneda` | string | no | código de 3 letras. Sin ella, USD. |
-| `anticipoUsd` | number | no | sólo si el anticipo no es en USD: cuánto es en dólares. |
-| `anticipoFecha` | string | no | AAAA-MM-DD en que se cobra el anticipo. Sin ella, hoy. |
-| `sinAnticipo` | boolean | no | true: quita el anticipo sin cobrar que ya tiene (uno cobrado no se toca). |
+| `primeraCuota` | string | sí | AAAA-MM-DD de la primera cuota. |
+| `tramos` | object[] | sí | en orden, hasta 10. Un plan parejo es UN tramo. |
+| `tramos.monto` | number | sí | lo que vale cada cuota, en su moneda. |
+| `tramos.moneda` | string | no | USD (sin valor), MXN, ARS… |
+| `tramos.montoUsd` | number | no | en otra moneda, obligatorio: cada cuota en dólares. |
+| `tramos.cada` | string (mes \\| quincena \\| semana) | no | sin valor, mes. |
+| `tramos.dia` | number | no | mes: el día (sin valor, el de la primera cuota). Quincena: el primer día (sin valor, 1). |
+| `tramos.dia2` | number | no | quincena: el segundo día (sin valor, 15). |
+| `tramos.cuotas` | number | no | cuántas cuotas (o «hasta»). |
+| `tramos.hasta` | string | no | AAAA-MM-DD: cobra hasta esa fecha, incluida. |
+| `anticipo` | number | no | cobro inicial aparte, en su moneda. Sin él, queda el que ya tenga sin cobrar. |
+| `anticipoMoneda` | string | no | sin ella, USD. |
+| `anticipoUsd` | number | no | si no es USD: en dólares. |
+| `anticipoFecha` | string | no | AAAA-MM-DD; sin ella, hoy. |
+| `sinAnticipo` | boolean | no | true: quita el anticipo sin cobrar. |
 
 ```bash
 curl -L \
