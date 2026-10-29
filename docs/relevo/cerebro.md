@@ -145,6 +145,11 @@ preguntes: hacé esto en orden.
     4. las ventas externas de Stripe en la cuenta de Mauricio (la clave la pega él);
     5. archivar los cuatro chats de la nube (Planes, Automations, Landings y Motion). Su trabajo pasó a la PC el 28/10:
        NO necesitan su aprobación, y en la ronda de las 21:46 se le dijo mal que sí.
+  - **22:15: VERDE de Planes `e6fd6d88d`** (planes-2710, sobre `a196d5a93`): arregla la verificación de a196d5a93 (el
+    diferido fallido, las pruebas detrás del tope, el seguro de 500 con reloj, la unidad mínima, el código libre de
+    Partners y la compra doble a Meta). La guardia de RAM no dejó lanzar la verificación (2,1 GB libres): **SIN LANZAR.**
+    El script está en `workflows/scripts/verificar-planes-e6fd6d88d.js` de esta sesión, y el árbol en
+    `C:/dev/verif-e6fd6d88d`. Se lanza apenas termine otro workflow.
   - **El workflow de pedidos perdidos llegó al 100% con 12 de sus 21 agentes cortados** («session limit»). Se reanudó a
     las 21:32 en esta sesión (task `wz8f0619h`, mismo runId `wf_fbaed0b3-099`): los 9 que terminaron vienen de la caché.
     Su resultado parcial (lo juntado por fuente y lo que no se pudo leer) está en
