@@ -54,8 +54,10 @@ cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier
 
 Martín: «Es super importante que la replica de las landing, no solo replique, sino que luego sea editable absolutamente
 todo... Sino, no tendrá sentido replicarla, seria como hacer una captura... Debe ser todo editable».
-- **Rama `replica-editable-2810`, worktree `C:/dev/wt-replica-editable`, SIN commitear** (sólo este relevo, 714bc51e1 y el
-  de ahora). Tests `tests/replica-editable.test.ts` 20/20; romper 40/40 (`scratchpad/romper_replica.py`).
+- **29/10 ~00:15 (93 %): COMMITEADO a medias en a72620aa3** (rama `replica-editable-2810`, worktree
+  `C:/dev/wt-replica-editable`, árbol limpio, sin pushear: NO es VERDE). tsc-acotado sin errores propios (hace falta
+  `--heap=4096`: con 2560 aborta con código 134; corregidos dos getters sin tipo en el DOM de mentira del test); tests
+  48/48. Corriendo la matriz + capturas (`pipeline-replica-2.sh`, salida en `C:/dev/revisiones/replica-editable/`). Tests `tests/replica-editable.test.ts` 20/20; romper 40/40 (`scratchpad/romper_replica.py`).
 - Hecho en el worktree: «Elemento» (el de afuera, duplicar, mover, quitar, colores, fondo e imagen de fondo, fuente,
   «Agregar» texto/botón/imagen) y «Contenido» (TODO lo de la sección, también lo OCULTO) en `HtmlEditableVista.tsx`,
   `PanelContenidoDiseno.tsx`, `lib/editor-landing/diseno-elemento-acciones.ts`, `diseno-contenido.ts`. El chat: sacar,
