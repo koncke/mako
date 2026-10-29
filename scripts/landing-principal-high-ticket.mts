@@ -146,6 +146,39 @@ function grilla(html: string): { ini: number; fin: number; tarjetas: Map<string,
   return { ini, fin, tarjetas };
 }
 
+/** Dónde cierra el <div> cuyo contenido empieza en `ini` (contando los <div> de adentro). -1 si no cierra. */
+function cierreDelDiv(html: string, ini: number): number {
+  const re = /<div\b|<\/div>/g;
+  re.lastIndex = ini;
+  let prof = 1;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    prof += m[0] === '<div' ? 1 : -1;
+    if (prof === 0) return m.index;
+  }
+  return -1;
+}
+
+/**
+ * El mosaico de íconos de «¿Qué es MaKo?» con LOS MISMOS íconos (y colores) de las tarjetas de la grilla, 3 x 3 (el Cerebro,
+ * 29/10: «que toda la venta diga lo mismo»; tenía 12, de funcionalidades que ya no están en la grilla).
+ */
+const RE_MOSAICO = /<div style="display:grid;grid-template-columns:repeat\([34],1fr\);gap:10px">/g;
+function conMosaico(html: string, tarjetas: string[]): string {
+  const abres = [...html.matchAll(RE_MOSAICO)];
+  if (abres.length !== 1) throw new Error(`t04quees: hay ${abres.length} mosaicos de íconos (se esperaba 1)`);
+  const ini = abres[0].index! + abres[0][0].length;
+  const fin = cierreDelDiv(html, ini);
+  const baldosa = fin < 0 ? null : /<div style="aspect-ratio:1;[^"]*">/.exec(html.slice(ini, fin))?.[0];
+  if (!baldosa) throw new Error('t04quees: el mosaico no tiene la forma de siempre');
+  const iconos = tarjetas.map((a) => {
+    const svg = /<svg\b[\s\S]*?<\/svg>/.exec(a)?.[0];
+    if (!svg) throw new Error('una tarjeta sin ícono');
+    return svg.replace(/width="2[45]" height="2[45]"/, 'width="22" height="22"');
+  });
+  return html.slice(0, abres[0].index) + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">\n'
+    + iconos.map((svg) => `          ${baldosa}${svg}</div>`).join('\n') + '\n        ' + html.slice(fin);
+}
+
 /** Una tarjeta con su título y su bajada (los dos <div> de sólo texto: el del ícono lleva el <svg>). */
 function conTexto(a: string, titulo: string, bajada: string): string {
   const textos = [...a.matchAll(/(<div style="[^"]*">)([^<]*)(<\/div>)/g)];
@@ -192,6 +225,7 @@ export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>): { cont
     return conTexto(t.nueva ? nuevaTarjeta(base, t.nueva) : base, t.titulo, t.bajada);
   });
   poner('t05comofunciona', h5.slice(0, g.ini) + '\n        ' + nuevas.join('') + '\n      ' + h5.slice(g.fin));
+  poner('t04quees', conMosaico(html('t04quees'), nuevas));
 
   let css = String(config.diseno?.css ?? '');
   for (const [buscar, nuevo] of CSS_HOJA) css = reemplazarUnaVez(css, buscar, nuevo, 'la hoja del diseño');
