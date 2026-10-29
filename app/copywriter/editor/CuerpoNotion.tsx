@@ -22,7 +22,7 @@
 // =============================================================================
 
 import '@blocknote/mantine/style.css';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type PartialBlock } from '@blocknote/core';
 import { SideMenuExtension } from '@blocknote/core/extensions';
 import { es } from '@blocknote/core/locales';
@@ -93,16 +93,13 @@ export type PropsCuerpo = {
 };
 
 export function CuerpoNotion(p: PropsCuerpo) {
+  // Las props de AHORA para los manejadores (se actualizan después de cada render, no durante).
   const vivo = useRef(p);
-  vivo.current = p;
-  // Las secciones del guion de los Títulos 2 (id → etiqueta): viajan aparte del editor (notion-bloques.ts).
-  const secciones = useRef<Secciones>({});
-  const inicio = useMemo(() => {
-    const r = aBloques(p.inicial);
-    secciones.current = r.secciones;
-    return r.bloques;
-    // Sólo al montar: el padre monta uno nuevo por página (`key`).
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { vivo.current = p; });
+  // Lo que abre el editor, una sola vez: el padre monta uno nuevo por página (`key`). Las secciones del guion de los
+  // Títulos 2 (id → etiqueta) viajan aparte del editor (notion-bloques.ts).
+  const [{ bloques: inicio, secciones: seccionesIniciales }] = useState(() => aBloques(p.inicial));
+  const secciones = useRef<Secciones>(seccionesIniciales);
 
   const editor = useCreateBlockNote({
     schema: esquemaCopy,
