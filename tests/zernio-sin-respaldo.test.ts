@@ -70,7 +70,10 @@ test('cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCre
   assert.match(presta, /if \(error\) throw new ZernioError\(/, '«no pude leer» el interruptor se tragaba');
   assert.match(presta, /=== '1';/);
   const seg = funcion(ZERNIO, 'async function keyDeSeguimiento(ws: number): Promise<string | null> {');
-  assert.match(seg, /return \(await cfg\(ws\)\)\.apiKey;/, 'el «¿te sigue?» no usa la misma key que el canal');
+  // El «¿te sigue?» lee SÓLO la key del negocio, nunca la de la plataforma aunque se prenda el interruptor (Martín, 28/10/2026:
+  // «NO a la cuenta de MaKo, cada negocio con la suya»; lo mismo fija tests/condiciones-instagram.test.ts).
+  assert.match(seg, /return credDelClienteEstricta\('ZERNIO_API_KEY', ws\);/);
+  assert.doesNotMatch(seg, /envCred|credWs\(|cfg\(/, 'el «¿te sigue?» volvió a la cuenta de la plataforma');
   assert.doesNotMatch(seg, /envCred|credWs\(/, 'el «¿te sigue?» lee la key de la plataforma por su cuenta');
   // Qué claves se leen del entorno: el secreto maestro del webhook y, desde el 28/10, la key de la plataforma SÓLO en cfg.
   const usos = [...new Set([...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]))].sort();
