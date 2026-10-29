@@ -4,7 +4,38 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
+## LO ÚLTIMO: 29/10/2026 madrugada, cuenta 3 (claude3), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 9df736464)
+
+**Lo pedido:** el Cerebro verificó 69b49a31c con refutador y NO entró al tren: 1 ALTA, 6 medias y 5 bajas (informe con la
+entrada exacta y los scripts en C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md y scratch-69b4/). La cuenta 4
+hizo el ALTA y cortó al 94%; la cuenta 3 siguió con lo demás.
+
+**Lo hecho** (cada uno probado rompiéndolo; la cosecha en docs/hallazgos-chatbot.md y -comunicacion.md, el índice en
+docs/hallazgos.md):
+- 5e67180c7 — ALTA: un DM de Instagram ya no recibe DOS respuestas del AI Step (una charla abierta y una «envía un mensaje»
+  con el AI Step primero): la nueva contesta sólo si ninguna charla tomó el mensaje (`tomadas === 0`, el webhook).
+- 1b4f6e636 — media: «Volver a probar» ya no reusa la clave de Zernio de la vez anterior (`claveDeEnvio`, lib/reentrada.ts:
+  inscripción, VUELTA = `inscripto_at`, y nodo).
+- 3447cb4c5 — media: `mudanza-avisos-plataforma.mts --eventos=social_tope` ya no tira; tests/mudanza-apagados fija que TODO
+  evento de la plataforma tiene su línea.
+- 19710af7b — medias de la difusión y una baja: una vez por pedido (clave del pedido + compare-and-set; el mismo pedido
+  retoma la suya y suma a los que faltan); Instagram con goteo promete sólo a quien el turno alcanza antes de su ventana
+  (`salidaHastaMs`, `demoraDelTurno`); `difundir_a_leads` sólo en la app; el goteo fuera de rango se dice antes del «sí».
+- 2a9bf59b5 — baja: la pública va sólo al comentario del disparo (uno de más de 2 min después de inscribirse, no).
+- 99900a0d3 — bajas: el «cerca del tope» por cuenta (`cuentaMasCargada`) y con su canal; el recordatorio diario con
+  `zonaDelNegocioEstricta` (sin zona, esa vuelta no avisa).
+- 8287ce624 — baja: la difusión que terminó se pausa sola (clave `difusion-…`, `pausarDifusionesTerminadas` en la corrida
+  de la hora).
+- 9df736464 — merge de origin/main (dos choques de docs, quedan los dos lados).
+
+**La media que no es de Automations:** `HojaDifusion` no está montada. El enganche (`onMandarMensaje` en
+app/crm/AccionesLoteLeads.tsx y app/crm/seleccion-difusion.ts) está en la rama `crm-lote-2810`, que todavía no está en main.
+Cuando entre, el CRM (CrmBoard) monta `<HojaDifusion abierta seleccion={sel} onCerrar={…} onCreada={(r) => …} />` con la
+selección que le pasa `onMandarMensaje`; `onCreada` trae `yaEstaban` cuando era el mismo pedido.
+
+**Verificación:** ver el VERDE al Cerebro (tsc-acotado y tests-afectados sobre la punta con main mezclado).
+
+## 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
 
 **Lo pedido** (el Cerebro, reenviado tras la caída de las 18:34, en este orden): (1) arreglar lo que sobrevivió a su
 refutador sobre 7f7e404d9 (C:/dev/revisiones/2810-verificacion-automations-ig.md y -anuncio.md): el ALTA «una palabra clave
@@ -37,37 +68,7 @@ cuestión de baneo». Todo junto en un VERDE por SendMessage; lo pesado con `nod
 repetidos de a uno en verde. Tipos: los 35 archivos de antes y los de la difusión, limpios (sólo los 14 de `_opencut` y 2 de
 `Compartir.tsx`); los 4 tocados en 2172da39b, esperando turno. Después, el VERDE al Cerebro.
 
-**LA VERIFICACIÓN DEL CEREBRO SOBRE 69b49a31c (29/10, NO ENTRA AL TREN hasta arreglar esto).** Informe con la entrada exacta
-y los scripts: C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md (y scratch-69b4/). Hecho: el ALTA (un DM con
-dos respuestas del AI Step) en 5e67180c7. Lo que queda, con cómo hacerlo (el siguiente chat: arreglar, probar rompiéndolo,
-tests-afectados con con-turno y un VERDE nuevo):
-- MEDIA — «Volver a probar» reusa la inscripción y las MISMAS Idempotency-Key de Zernio (`nutri:<insc>:<nodo>`, en
-  `procesarEnvios`, lib/nutricion.ts): Zernio devuelve lo de la vez anterior y la pública y el DM de la segunda prueba no
-  salen. La clave tiene que llevar la vuelta: p.ej. `nutri:<insc>:<inscripto_at>:<nodo>` (ya se lee `inscripto_at` en la
-  cola; `reactivarInscripcion` lo renueva). Ojo con los reintentos de la MISMA vuelta: tienen que seguir con la misma clave.
-- MEDIA — el aviso del tope no se puede crear: `scripts/mudanza-avisos-plataforma.mts --eventos=social_tope` rechaza
-  «social_tope». Ver qué lista de eventos valida la mudanza y sumarlo (con su plantilla `mako-social-tope`).
-- MEDIA — la difusión sale dos veces sin idempotencia (reintento, dos pestañas, la hoja más MaKo). En `crearDifusion`
-  (lib/difusion.ts): una clave del pedido (hash de la selección + canales + mensajes + goteo) reclamada con
-  `reclamarEspaciado(ws, 'difusion', minutos, clave)` antes de crear; la segunda devuelve «ya se mandó».
-- MEDIA — Instagram con goteo: los que pasan del tope del día se quedan sin DM (se les cierra la ventana de 24 h) y la hoja
-  prometía N. En `alcanceDe`/la hoja: para Instagram, «le llega» como mucho a `dia` en las 24 h; o avisar en la hoja «por
-  Instagram, sólo los primeros N: Meta no deja escribir pasadas 24 h».
-- MEDIA — HojaDifusion no está montada: el CRM dejó el enganche (`onMandarMensaje` y app/crm/seleccion-difusion.ts) en la
-  rama `crm-lote-2810`. Montar `<HojaDifusion>` ahí cuando esa rama esté en main (coordinar con el chat del CRM).
-- MEDIA — por el grupo de WhatsApp, un setter o un closer puede lanzar una difusión: el `gating` de `difundir_a_leads`
-  (lib/api-mako/areas/chatbot.def.ts) está en `rolMinimo: 'admin'` pero el doer del grupo trata a todos como admin (ver la
-  memoria api-mako-registro, «El doer de WhatsApp trata como admin a todo participante»). Pedir confirmación en PANTALLA
-  (`confirmacion: 'pantalla'`, como `proponer_leads`) o mirar el rol real de quien escribe en el grupo.
-- BAJA — la pública detrás de una espera sale debajo de un comentario posterior (`filaDe` pisa el comentario guardado). Guardar
-  el comentario del disparo en la inscripción, o no responder en público uno posterior al primero tras la inscripción.
-- BAJA — el aviso «cerca del tope» cuenta por negocio y no por cuenta de Instagram (`avisarTopesSociales`, lib/nutricion.ts).
-- BAJA — la zona del aviso diario cae a Tijuana si no se puede leer (`zonaDelNegocio` devuelve el default): usar
-  `zonaDelNegocioEstricta` y, sin zona, no filtrar por horario.
-- BAJA — cada difusión queda activa para siempre (ocupa el tope del plan Esencial): pausarla cuando no le queda nadie
-  corriendo (en el motor, al cerrar la última inscripción de una automatización «Difusión ·», o un barrido).
-- BAJA — la API propone un goteo fuera de rango y falla recién después del «sí»: en `preparar` de `difundir_a_leads`, llamar
-  `goteoValido(pedido.goteo)` y devolver el error.
+**La verificación del Cerebro sobre 69b49a31c:** arreglada el 29/10 por la cuenta 3 (ver arriba).
 
 **A medias / sin hacer:** el botón «Mandar mensaje» y la selección del tablero son del CRM (el Cerebro le pasó la interfaz);
 la difusión no se probó mandando; elegir la publicación o el Reel en el CRON de comentario (tanda siguiente); «Crear con IA»
