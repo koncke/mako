@@ -52,7 +52,7 @@ function LiveRegion() {
  * panels, history, export, autosave triggering) lives inside.
  */
 export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function EditorApp(props, ref) {
-  const { document: doc, meta, adapter, onTitleChange, onSaveStateChange, onConflictResolve, topBarStart, topBarEnd } = props
+  const { document: doc, meta, adapter, onTitleChange, onSaveStateChange, onConflictResolve, topBarStart, topBarEnd, dentro } = props
   const [engine] = useState(() => new EditorEngine({ adapter, document: doc, meta }))
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -169,8 +169,8 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
       <EditorProvider engine={engine} portalRoot={root} collab={session}>
         <ChromeProvider>
           {/*
-            El armazón de Canva 2025–26 (docs/editor-imagen/relevamiento-canva-armazon.md §1): arriba la barra con el
-            degradado; abajo, en fila sobre el gris del cromo, el riel (72 px), el panel lateral como tarjeta
+            El armazón de Canva 2025–26 (docs/editor-imagen/relevamiento-canva-armazon.md §1), con los colores de MaKo:
+            arriba la barra; abajo, en fila sobre el cromo, el riel (72 px), el panel lateral como tarjeta
             flotante y el área del lienzo. La barra del objeto va ADENTRO del área, arriba, para flotar sobre el
             lienzo. Debajo de 1024 px el riel no está: las herramientas van en la tira de abajo (CompactTools) y
             abren como hoja inferior (DrawerHost).
@@ -199,6 +199,7 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
         <ContextMenuHost />
         <Toaster />
         <LiveRegion />
+        {dentro}
       </EditorProvider>
     </div>
   )

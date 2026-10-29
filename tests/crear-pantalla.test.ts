@@ -50,8 +50,8 @@ test('el marco de una plantilla sin imagen: lo ancho se mide por el ancho y lo a
   assert.equal(proporcion('roto'), 1);
   assert.equal(proporcion(undefined), 1);
   assert.equal(proporcion('0 / 5'), 1);
-  assert.deepEqual(marcoDe('16 / 9'), { width: '72%', aspectRatio: String(16 / 9), maxWidth: 'none' });
-  assert.deepEqual(marcoDe('9 / 16'), { height: '72%', aspectRatio: String(9 / 16), maxWidth: 'none' });
+  assert.deepEqual(marcoDe('16 / 9'), { width: '62%', aspectRatio: String(16 / 9), maxWidth: 'none' });
+  assert.deepEqual(marcoDe('9 / 16'), { height: '62%', aspectRatio: String(9 / 16), maxWidth: 'none' });
   assert.ok('height' in marcoDe('1 / 1'), 'un cuadrado es más alto que 4:3: va por el alto');
 });
 
@@ -101,7 +101,7 @@ test('Create: Video e Image llevan la key que miran las capas y la API', () => {
 /** Las páginas de Create y si ya montan la pantalla. Las que faltan, con su chat. Sólo se achica. */
 const PAGINAS_CREATE: Readonly<Record<string, string | null>> = {
   'app/video-editor/VideoEditorCliente.tsx': null,
-  'app/image-editor/ImageEditorCliente.tsx': 'chat «Create: un solo diseño» (create-shell-2910)',
+  'app/image-editor/ImageEditorCliente.tsx': null,
   // AI Avatar (29/10/2026, el estudio de Higgsfield): AiAvatarCliente.tsx se fue y la pantalla es Estudio.tsx.
   'app/ai-avatar/Estudio.tsx': null,
 };

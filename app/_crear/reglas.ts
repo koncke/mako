@@ -87,7 +87,8 @@ export function proporcion(formato: string | undefined): number {
  */
 export function marcoDe(formato: string | undefined): CSSProperties {
   const r = proporcion(formato);
-  const lado = r >= 4 / 3 ? { width: '72%' } : { height: '72%' };
+  // 62 % y no más: el rótulo («1080 × 1920») va debajo del marco, en la franja libre (con 72 % lo pisaba en los verticales).
+  const lado = r >= 4 / 3 ? { width: '62%' } : { height: '62%' };
   return { ...lado, aspectRatio: String(r), maxWidth: 'none' };
 }
 

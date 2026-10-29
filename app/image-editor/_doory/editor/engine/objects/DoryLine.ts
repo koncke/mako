@@ -131,7 +131,7 @@ function endControl(which: 'start' | 'end'): Control {
     render: (ctx, left, top, _style, target) => {
       ctx.save()
       ctx.fillStyle = '#ffffff'
-      ctx.strokeStyle = typeof target.borderColor === 'string' ? target.borderColor : '#6a52d9'
+      ctx.strokeStyle = typeof target.borderColor === 'string' ? target.borderColor : '#2F6FED'
       ctx.lineWidth = 1.5
       ctx.beginPath()
       ctx.arc(left, top, END_HANDLE_PX / 2, 0, Math.PI * 2)

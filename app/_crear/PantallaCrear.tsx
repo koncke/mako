@@ -155,7 +155,8 @@ export function PantallaCrear(p: PropsPantallaCrear) {
           <ListaDeProyectos {...p} creando={centro === 'nueva'} onNuevo={alNuevo} onChat={alChat}
             onElegido={() => { setCreando(false); setCara('chat'); setMovil('pieza'); }} />
         ) : !conCerebro && p.chat ? p.chat(volver) : (
-          <ConversacionCerebro tab={tab} antes={volver} entidad={p.entidad ?? null} pedido={pedido} onMandado={() => setPedido(null)} />
+          // «MaKo» en la cabecera, como el chat propio de cada tab (el Image Editor, Offer): adentro es el Cerebro, que reparte.
+          <ConversacionCerebro tab={tab} titulo="MaKo" antes={volver} entidad={p.entidad ?? null} pedido={pedido} onMandado={() => setPedido(null)} />
         )}
       </section>
 

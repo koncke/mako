@@ -1,4 +1,4 @@
-/* La tira de miniaturas: el mismo gris del cromo que el área del lienzo y la barra inferior (Canva 2025–26). */
+/* La tira de miniaturas: el mismo cromo (--bg) que el área del lienzo y la barra inferior (Canva 2025–26). */
 .strip {
   flex: none;
   background: var(--cv-chrome);
@@ -28,7 +28,7 @@
   padding: 0;
   border: 0;
   border-radius: 6px;
-  background: var(--cv-color-border); /* Canva: neutro normal #39466024 */
+  background: var(--cv-color-border);
   color: var(--cv-color-text);
   cursor: pointer;
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
@@ -37,6 +37,6 @@
   background: var(--cv-color-border-strong);
 }
 .add:focus-visible {
-  outline: 2px solid #3d8bff; /* Canva: borde de foco de teclado */
+  outline: 2px solid var(--cv-color-brand); /* Canva: borde de foco de teclado */
   outline-offset: 2px;
 }

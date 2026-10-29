@@ -1,7 +1,7 @@
 /* Reglas de Canva: blancas, finas (20 px), marcas grises y números chicos; la guía que se arrastra va en el color de las guías. */
 .rulers {
   --ruler-bg: var(--cv-color-surface);
-  --ruler-tick: #c1c5cd; /* Canva: gris de controles deshabilitados */
+  --ruler-tick: var(--cv-color-border-strong); /* Canva: gris de controles deshabilitados */
   --ruler-fg: var(--cv-color-text-subtle);
   --ruler-accent: var(--cv-color-bg-muted);
   --ruler-font: var(--cv-font-sans);

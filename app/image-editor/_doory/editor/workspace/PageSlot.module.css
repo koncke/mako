@@ -62,7 +62,7 @@
 .titleInput:hover {
   background: var(--cv-color-bg-muted);
 }
-/* Canva: el campo con foco va blanco con el borde violeta #8B3DFF */
+/* Canva: el campo con foco va blanco con el borde azul (--primary) */
 .titleInput:focus {
   outline: none;
   border-color: var(--cv-selection-color);

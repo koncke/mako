@@ -2,7 +2,7 @@
   /*
    * The editor's names for its colours and metrics, mapped onto the Doory tokens: the chrome
    * stylesheets (chrome/ed.module.css and friends) are written against these, so re-theming is one place.
-   * Con el armazón de Canva el fondo es el gris del cromo (riel, área del lienzo, barra inferior).
+   * Con el armazón de Canva el fondo es el cromo (--bg) (riel, área del lienzo, barra inferior).
    */
   --ed-bg: var(--cv-chrome);
   --ed-surface: var(--cv-color-surface);

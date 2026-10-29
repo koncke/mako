@@ -42,7 +42,7 @@
 .preset:hover {
   background: var(--cv-color-bg-muted);
 }
-/* Canva: chip elegido con borde #8B3DFF y fondo #F1EAFF */
+/* Canva: chip elegido con borde azul y fondo azul claro */
 .preset[aria-pressed='true'] {
   border-color: var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
@@ -107,7 +107,7 @@
 .modeBtn[aria-pressed='true'] {
   border-color: var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800); /* Canva: texto elegido #4A2E7E */
+  color: var(--cv-color-selected-text); /* texto elegido */
 }
 .modeBtn:focus-visible {
   outline: none;

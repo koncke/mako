@@ -79,7 +79,7 @@ export function DocumentoVivo({ sesion, acciones }: { sesion: OfferSesionVista; 
             </div>
           )}
         </header>
-        {secciones.length === 0 && <p className="of-doc__vacio">Tu oferta se arma acá mientras le contestas a MaKo.</p>}
+        {secciones.length === 0 && <p className="of-doc__vacio">Tu oferta se arma aquí mientras le contestas a MaKo.</p>}
         {secciones.map((s) => (
           <section key={s.titulo} className="of-doc__seccion">
             <h2>{s.titulo}</h2>

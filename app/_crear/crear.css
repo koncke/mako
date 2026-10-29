@@ -105,8 +105,8 @@
 }
 .cr-plantilla__mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* Sin imagen, el marco del formato: un rectángulo con la proporción de la pieza y su medida adentro. */
-.cr-plantilla__marco { display: block; border-radius: 6px; border: 1.5px dashed var(--primary-weak); background: var(--surface); }
-.cr-plantilla__rotulo { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font-size: 11.5px; font-weight: 500; color: var(--dim); white-space: nowrap; }
+.cr-plantilla__marco { display: block; margin-bottom: 14px; border-radius: 6px; border: 1.5px dashed var(--primary-weak); background: var(--surface); }
+.cr-plantilla__rotulo { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); font-size: 11.5px; font-weight: 500; color: var(--dim); white-space: nowrap; }
 .cr-plantilla__usar {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 14px; border-radius: 9999px; background: var(--primary); color: var(--on-primary); font-size: 13px; font-weight: 600;
