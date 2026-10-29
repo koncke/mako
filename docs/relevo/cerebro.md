@@ -90,8 +90,8 @@ preguntes: hacé esto en orden.
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
   - **00:30 (29/10): tren-w EN PRODUCCIÓN.** Lo subí yo (`c17134274`); alguien más subió encima tres commits de docs
     del relevo, hasta `b59d14943`, que es el deploy que sirve el dominio (Ready a las 23:19). **tren-x** (el editor,
-    ticket 23: `004a4ae57`) **subido**, con su deploy en curso (task `bp0gnvtg8`). Cuando esté Ready, se cierra el ticket de
-    Leandro con su aviso.
+    ticket 23: `004a4ae57`) **subido**, en PRODUCCIÓN (Ready a las 23:33). **Ticket de Leandro (subtítulos) CERRADO** y aviso mandado
+    a su grupo (3EB0050E870B3AA0C5E540).
     - **La verificación de Automations `69b49a31c` está corriendo:** `wf_a92bf13a-ec9` (task `w48pws0wo`), con tres
       verificadores (Instagram de Leandro, topes y avisos, difusión) y el árbol `C:/dev/verif-69b49a31c`.
     - **Fila de verificación detrás:** Copywriter `7eef753da` (la puerta pública que escribe, primero) y Planes
