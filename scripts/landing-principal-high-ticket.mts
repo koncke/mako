@@ -115,9 +115,10 @@ const cuenta = (s: string, buscar: string) => s.split(buscar).length - 1;
  * Un reemplazo que tiene que aparecer UNA vez. Si ya no está y lo nuevo SÍ (la #32 ya publicada con este script, la v11), ya
  * se aplicó y se sigue; si no está ninguno de los dos, la landing cambió y no se toca nada.
  */
-function reemplazarUnaVez(s: string, buscar: string, poner: string, donde: string): string {
+function reemplazarUnaVez(s: string, buscar: string, poner: string, donde: string, estricto = true): string {
   const n = cuenta(s, buscar);
-  if (n === 0 && (poner === '' || cuenta(s, poner) >= 1)) return s;
+  // Una landing de funnel (`--doc`) no tiene todo lo de la principal (su hero es propio): lo que no está, no se toca.
+  if (n === 0 && (!estricto || poner === '' || cuenta(s, poner) >= 1)) return s;
   if (n !== 1) throw new Error(`${donde}: «${buscar.slice(0, 70)}» aparece ${n} veces (se esperaba 1): la landing cambió, no se toca nada`);
   return s.replace(buscar, () => poner);
 }
@@ -198,7 +199,7 @@ function nuevaTarjeta(base: string, n: NonNullable<(typeof TARJETAS)[number]['nu
 }
 
 /** La landing nueva a partir de la fila de hoy (puro). Tira si algo no está donde se esperaba. */
-export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>): { contenido: Contenido; config: Config } {
+export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>, o: { principal: boolean } = { principal: true }): { contenido: Contenido; config: Config } {
   const contenido = JSON.parse(JSON.stringify(f.contenido)) as Contenido;
   const config = JSON.parse(JSON.stringify(f.config)) as Config;
   if (contenido.paginas.length !== 1) throw new Error(`la landing tiene ${contenido.paginas.length} páginas (se esperaba 1)`);
@@ -211,10 +212,10 @@ export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>): { cont
   const html = (id: string) => { const e = secciones.get(id); if (!e) throw new Error(`falta la sección ${id}`); return String(e.attrs?.html ?? ''); };
   const poner = (id: string, h: string) => { secciones.get(id)!.attrs!.html = h; };
 
-  for (const [id, buscar, nuevo] of REEMPLAZOS) poner(id, reemplazarUnaVez(html(id), buscar, nuevo, id));
+  for (const [id, buscar, nuevo] of REEMPLAZOS) poner(id, reemplazarUnaVez(html(id), buscar, nuevo, id, o.principal));
   const top = html('t02top');
   const yaEsta = cuenta(top, DEBAJO_DEL_BOTON[0]) === 0 && cuenta(top, DEBAJO_DEL_BOTON[1]) === 2;
-  if (!yaEsta && cuenta(top, DEBAJO_DEL_BOTON[0]) !== 2) throw new Error(`t02top: la línea debajo del botón aparece ${cuenta(top, DEBAJO_DEL_BOTON[0])} veces (se esperaban 2)`);
+  if (!yaEsta && cuenta(top, DEBAJO_DEL_BOTON[0]) !== 2 && (o.principal || cuenta(top, DEBAJO_DEL_BOTON[0]) !== 0)) throw new Error(`t02top: la línea debajo del botón aparece ${cuenta(top, DEBAJO_DEL_BOTON[0])} veces (se esperaban 2)`);
   poner('t02top', top.split(DEBAJO_DEL_BOTON[0]).join(DEBAJO_DEL_BOTON[1]));
 
   const h5 = html('t05comofunciona');
@@ -228,9 +229,10 @@ export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>): { cont
   poner('t04quees', conMosaico(html('t04quees'), nuevas));
 
   let css = String(config.diseno?.css ?? '');
-  for (const [buscar, nuevo] of CSS_HOJA) css = reemplazarUnaVez(css, buscar, nuevo, 'la hoja del diseño');
+  for (const [buscar, nuevo] of CSS_HOJA) css = reemplazarUnaVez(css, buscar, nuevo, 'la hoja del diseño', o.principal);
   config.diseno = { ...config.diseno, css };
-  config.sitio = { ...config.sitio, seoTitulo: SEO_TITULO };
+  // El SEO es propio de cada landing de funnel; sólo la principal lleva el de la portada.
+  if (o.principal) config.sitio = { ...config.sitio, seoTitulo: SEO_TITULO };
 
   const todo = JSON.stringify({ contenido, config });
   if (/VSL Funnel/i.test(todo)) throw new Error('quedó un «VSL Funnel»');
@@ -253,7 +255,9 @@ async function main() {
   const { data: wsFila } = await db.from('workspaces').select('id').eq('capa', 'superadmin').order('id').limit(1).maybeSingle();
   const ws = Number((wsFila as { id?: number } | null)?.id ?? 9);
   const { data: ajuste } = await db.from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_PRINCIPAL).maybeSingle();
-  const docId = Number((JSON.parse(String((ajuste as { value?: string } | null)?.value ?? '{}')) as { docId?: number }).docId);
+  // `--doc <id>`: una landing de cada funnel (#33–#40, el Cerebro 29/10: «que toda la venta diga lo mismo»), no la principal.
+  const principal = !arg('--doc');
+  const docId = principal ? Number((JSON.parse(String((ajuste as { value?: string } | null)?.value ?? '{}')) as { docId?: number }).docId) : Number(arg('--doc'));
   if (!docId) throw new Error(`el ws ${ws} no tiene landing principal (${CLAVE_PRINCIPAL})`);
   const { data, error } = await db.from('landing_docs').select('id, titulo, contenido, config, version, carpeta, publicado, slug').eq('workspace_id', ws).eq('id', docId).single();
   if (error || !data) throw new Error(`no pude leer la #${docId}: ${error?.message}`);
@@ -268,7 +272,7 @@ async function main() {
   const sinAnclas = (h: string) => h.replace(/<span id="t-[^"]*" class="gm-ancla-seccion" aria-hidden="true"><\/span>/g, '');
   const borradorEsLoPublicado = sinAnclas(fotoHoy.paginas[0]?.html ?? '') === sinAnclas(f.publicado?.paginas[0]?.html ?? '-');
 
-  const nueva = landingHighTicket(f);
+  const nueva = landingHighTicket(f, { principal });
   const foto = armarFoto({ ...f, ...nueva, version: f.version + 1 } as never, [], new Date().toISOString(), urlBase, null);
   const pagina = foto.paginas[0];
   const vista = armarDocumento({ html: pagina.html, config: nueva.config as never, css: foto.css, cssDiseno: foto.cssDiseno, fuentes: foto.fuentes, workspaceId: ws, modo: 'vista' as never, urlCanonica: urlBase, titulo: pagina.titulo, descripcion: pagina.descripcion });
