@@ -41,8 +41,17 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
      viva, el primer pedido de esa persona queda callado y cierra la ventana, y después su respuesta real va a MaKo.
    - **Hechos en `wa-fallas-2710`, con test por la entrada real y roturas, SIN VERDE todavía:** c6d63791a (el aviso de arreglo
      ya no abre la ventana: el «?» entre «…» no cuenta; `[[ya-pedido]]` con raya o un corchete) y 78543b7dd (el acuse después
-     de la cita; sin cita, sólo gracias y saludos). Quedan: `pideAlgoAMaKo` (ALTA), el cierre de la ventana (MEDIA) y dos
-     BAJAS (la firma pegada por un cliente y la lectura estricta de las re-entregas). Después: tests-afectados y VERDE.
+     de la cita; sin cita, sólo gracias y saludos) y 450677f90 (la lectura de las re-entregas que falla ya no se come la
+     respuesta). **Quedan, en este orden:**
+     1. ALTA `pideAlgoAMaKo` (lib/doer-equipo.ts): usar los 28 mensajes reales del informe (scratch-c358/) como banco del
+        test; con una pregunta viva, un pedido de esa persona tiene que ir a MaKo (y a los dos si además contesta), y NO cerrar
+        la ventana si no contestó.
+     2. MEDIA el cierre: un mensaje con la @ de OTRA persona no cierra; la ventana sigue unos minutos para el mismo autor (dos
+        mensajes seguidos), en `respuestaAlEquipo` y `cerrarLaPreguntaDelEquipo`.
+     3. BAJA la firma pegada por un cliente: en `respuestaAlEquipo`, citar un mensaje que arranca con la firma vale sólo si
+        el citado es de la línea de MaKo (`cita.participante`, `numeroDeLaLinea`), no de un cliente.
+     Después: `node C:/dev/con-turno.mjs node scripts/tests-afectados.mjs --base origin/main` en `C:/dev/wt-conex-2510` y
+     VERDE sin tipos con el sha. El hijo es tests/_respuesta-equipo-hijo.ts (pasos 1-11, más 10a, 10b y 10c).
    - ✅ ALTA: el aviso de ARREGLO de un ticket cuyo título es una pregunta (`avisarArregloAlGrupo` → `enviarAlGrupoMaKo(ws, texto,
      'equipo')` SIN ticket, lib/aviso-arreglo.ts:89) abre la ventana para cualquiera. Que mande `{de:'equipo', ticket}`, o que no
      cuente el «?» entre «…».
@@ -50,7 +59,7 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
      (mako-doer-in.ts:811). Con cita o firma, el acuse no se mira; sin cita, sólo gracias y saludos.
    - MEDIA: la ventana se cierra con el primer mensaje de quien fue preguntado aunque conteste en dos o el primero tenga la @ de
      otro. Un mensaje para otro no cierra, y la ventana sigue unos minutos para el mismo autor.
-   - BAJAS: citar el mensaje de un cliente que pegó la firma calla a MaKo; si falla la lectura estricta de las re-entregas, la
+   - BAJAS (la de las re-entregas y la del ya-pedido, ✅): citar el mensaje de un cliente que pegó la firma calla a MaKo; si falla la lectura estricta de las re-entregas, la
      respuesta se pierde; `[[ya-pedido]]` con raya (—, –) o con un solo corchete todavía sale.
 
 1. **A:** hecha la parte de N cuentas. **Falta el banco de casos de nivel 2** (con modelo): correr los casos del diagnóstico
