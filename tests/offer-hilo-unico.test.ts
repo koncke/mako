@@ -134,8 +134,11 @@ test('5. la pantalla de Offer descuenta la barra de arriba, y la caja no queda d
   // `--barra-agencia`. La regla global de app/globals.css sólo toca un alto en línea que EMPIEZA con `height: 100dvh`.
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
+  // Desde el 29/10/2026 la página usa `ESTILO_PAGINA_CREAR` (app/_crear/reglas.ts), el de toda pantalla de Create.
   const pagina = readFileSync(join(__dirname, '..', 'app/offer/page.tsx'), 'utf8');
-  assert.match(pagina, /height: 'calc\(100dvh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)'/,
+  assert.match(pagina, /<Pagina ancho="completo" densidad="compacta" style=\{ESTILO_PAGINA_CREAR\}>/);
+  const reglas = readFileSync(join(__dirname, '..', 'app/_crear/reglas.ts'), 'utf8');
+  assert.match(reglas, /height: 'calc\(100dvh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)'/,
     'con la barra de arriba la página queda más alta que la ventana (medido el 22/10/2026: 50 px)');
 });
 

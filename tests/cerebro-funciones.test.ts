@@ -140,7 +140,7 @@ test('6. la función que vende una landing: la que nombra el pedido; si no, la q
 
 test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan, y la función entera viaja del grafo unido', () => {
   const corto = catalogoCorto();
-  for (const x of ['Chats (en vez de respond.io)', 'Web Generator (en vez de Gamma)', 'Video Editor (en vez de CapCut)', 'CRM', 'Automations']) assert.ok(corto.includes(x), `falta «${x}»`);
+  for (const x of ['Chats (en vez de respond.io)', 'Web Generator (en vez de Gamma)', 'Video (en vez de CapCut)', 'CRM', 'Automations']) assert.ok(corto.includes(x), `falta «${x}»`);
   assert.doesNotMatch(corto, /AI Avatar|Reels|Customers/, 'nombra una función que sólo ve el super admin');
   assert.ok(tokensDe(corto) < 150, 'el catálogo corto dejó de ser corto');
   const negocio: Cerebro<string> = {

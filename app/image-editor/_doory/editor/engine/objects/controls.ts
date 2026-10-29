@@ -1,5 +1,5 @@
 /**
- * Los tiradores de la selección, con el aspecto de Canva: marco violeta de 2 px, tiradores de esquina circulares
+ * Los tiradores de la selección, con el aspecto de Canva: marco azul de 2 px (--cv-selection-color, el --primary de MaKo), tiradores de esquina circulares
  * blancos con borde gris y sombra (12 px), tiradores laterales en forma de píldora y el control de rotación ABAJO
  * del elemento (un círculo blanco con la flecha de girar), sin la rayita que lo une.
  *
@@ -26,9 +26,9 @@ export const ROTATE_OFFSET = 30
 const BORDER_WIDTH = 2
 
 const HANDLE_FILL = '#ffffff'
-const HANDLE_BORDER = 'rgba(57, 70, 96, 0.24)' /* Canva: neutro normal #39466024 */
-const HANDLE_SHADOW = 'rgba(21, 30, 130, 0.22)' /* Canva: sombra elevada #151e82 */
-const GLYPH = '#0e1318' /* Canva: texto de la interfaz */
+const HANDLE_BORDER = 'rgba(18, 21, 27, 0.24)' /* el borde neutro de MaKo (el tirador es blanco en los dos temas) */
+const HANDLE_SHADOW = 'rgba(18, 21, 27, 0.22)'
+const GLYPH = '#12151B' /* la tinta de MaKo (sobre el tirador blanco) */
 
 const EDGES = ['ml', 'mr', 'mt', 'mb'] as const
 const CORNERS = ['tl', 'tr', 'bl', 'br'] as const

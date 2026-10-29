@@ -1898,3 +1898,16 @@ tests/well-known-publico.test.ts · *22/10/2026, chat «Chats de las tabs», por
 
 **Vive en:** app/m/customers/CustomersM.tsx · app/m/layout.tsx (`contextoMovil`) · *26/10/2026, chat «Agencias y
 clientes» (claude5).*
+
+## La fila «Video» de More abría el Video Generator, no el editor (29/10/2026, claude3)
+
+- **Síntoma:** al dejar Video como UNA pantalla (el editor) en escritorio, el teléfono seguía abriendo /m/video, la lista de
+  anuncios del Video Generator, con su key `video-generator`.
+- **Causa:** en `SECCIONES_MAS` (lib/movil-rutas.ts) la fila de una tab unificada lleva la key y la ruta de la sección que
+  el teléfono eligió mostrar, no la de la tab. Al cambiar la tab de escritorio, la fila no se entera.
+- **Regla:** cuando una tab de escritorio cambia de forma, la fila de More se revisa a mano: `href` y `navKey` de la
+  pantalla que la tab abre ahora. Lo que deja de ser la entrada (el Video Generator) queda como fila OCULTA en
+  `SECCIONES_CREACION` (lib/movil-creacion.ts), con su key en `SIN_FILA` de nav.ts: sin el ítem, `requireMovil` cierra
+  en silencio.
+
+**Vive en:** lib/movil-rutas.ts (`SECCIONES_MAS`) · lib/movil-creacion.ts · tests/m-creacion.test.ts

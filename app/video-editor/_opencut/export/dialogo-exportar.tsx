@@ -345,7 +345,7 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 								type="button"
 								onClick={() => void exportar()}
 								disabled={!puedeExportar}
-								className="h-8 w-[86px] cursor-pointer rounded-[4px] bg-primary text-[13px] font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+								className="h-8 w-[86px] cursor-pointer rounded-[4px] bg-primary text-[13px] font-medium text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
 							>
 								Exportar
 							</button>
@@ -354,7 +354,7 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 							<button
 								type="button"
 								onClick={() => setFase({ tipo: "formulario" })}
-								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-white hover:brightness-110"
+								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:brightness-110"
 							>
 								Reintentar
 							</button>

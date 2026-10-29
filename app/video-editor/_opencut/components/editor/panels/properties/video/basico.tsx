@@ -578,7 +578,7 @@ function Muestra({
 			onClick={onClick}
 			style={estilo}
 			className={cn(
-				"aspect-square w-full cursor-pointer rounded-[4px] border border-white/10",
+				"aspect-square w-full cursor-pointer rounded-[4px] border border-(--border)",
 				elegida && "outline-2 outline-offset-1 outline-primary",
 			)}
 		/>
@@ -603,7 +603,7 @@ function ColorPropio({
 					aria-label="Color"
 					title="Color"
 					className={cn(
-						"relative aspect-square w-full cursor-pointer overflow-hidden rounded-[4px] border border-white/10",
+						"relative aspect-square w-full cursor-pointer overflow-hidden rounded-[4px] border border-(--border)",
 						propio && "outline-2 outline-offset-1 outline-primary",
 					)}
 					style={{
@@ -658,7 +658,7 @@ const MuestraDesenfoque = memo(function MuestraDesenfoque({
 			aria-pressed={elegida}
 			onClick={onClick}
 			className={cn(
-				"relative aspect-square w-full cursor-pointer overflow-hidden rounded-[4px] border border-white/10",
+				"relative aspect-square w-full cursor-pointer overflow-hidden rounded-[4px] border border-(--border)",
 				elegida && "outline-2 outline-offset-1 outline-primary",
 			)}
 		>

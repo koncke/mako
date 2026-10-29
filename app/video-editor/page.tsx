@@ -1,20 +1,19 @@
 // =============================================================================
-// /video-editor — el Video Editor (copia de CapCut): la pantalla de inicio
+// /video-editor — la tab Video de Create sin un proyecto abierto: «¿Qué vas a crear hoy?»
 // =============================================================================
-// La page sólo aplica el guard (./acceso.ts: hoy, sólo el super admin; adentro,
-// el de toda tab con la key exacta del nav). Todo lo demás corre
-// en el navegador: el motor (portado de OpenCut classic, MIT, en `_opencut/`)
-// guarda los proyectos en IndexedDB/OPFS y renderiza con WebGPU/WebCodecs, así
-// que no hay nada que leer del server para dibujar la lista.
+// La pantalla de Create (app/_crear/PantallaCrear.tsx, 29/10/2026): el chat de MaKo a la izquierda (su «←» da la lista de
+// proyectos) y al centro la caja con las plantillas de «Nuevo video» (./plantillas-crear.ts). La page aplica el guard
+// (./acceso.ts: hoy, sólo el super admin; adentro, el de toda tab con la key exacta del nav) y lee las señales del negocio
+// para poner primero las plantillas sugeridas. Lo demás corre en el navegador: el motor (portado de OpenCut classic, MIT,
+// en `_opencut/`) guarda los proyectos en IndexedDB/OPFS, así que no hay nada que leer del server para la lista.
 //
-// Onboarding: la tab ES la herramienta, así que su onboarding es su estado
-// vacío («Crear proyecto»), sin entrada en el catálogo (la regla del 05/10, como
-// /api-mako y el Dashboard).
+// Sin onboarding: la plantilla es el arranque (29/10/2026, «Nuevo …» con plantillas en todas las tabs de Create).
 
 import { getWorkspaceActual } from '@/lib/workspace';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { requireEditorVideo } from './acceso';
 import { Pagina } from '@/app/_ui';
-import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { VideoEditorCliente } from './VideoEditorCliente';
 
 export const dynamic = 'force-dynamic';
@@ -24,13 +23,10 @@ export default async function VideoEditorPage() {
   await requireEditorVideo();
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
-  const ws = await getWorkspaceActual();
+  const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   return (
-    // Menos la barra de arriba (`--barra-agencia`: la de «Estás viendo el dashboard de…» o la alerta de la voz caída): la regla
-    // global sólo corrige un alto que EMPIEZA con `height: 100vh`, y éste es un `calc(` (docs/hallazgos-ui.md, 22/10/2026).
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))', display: 'flex', flexDirection: 'column' }}>
-      <TemaOscuroScript />
-      <VideoEditorCliente vista="inicio" ws={ws} />
+    <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
+      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} />
     </Pagina>
   );
 }

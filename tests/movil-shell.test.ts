@@ -223,7 +223,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV). Desde el 20/10/2026 es el lugar
   // del medio de la barra: una raíz de trabajo, que CONSERVA la barra (sin ella no hay salida).
   assert.deepEqual(cabeceraPorRuta('/m/second-brain/mapa').padre, { href: '/m/second-brain', label: 'Ops Center' });
-  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
+  // «Video Generator» desde el 29/10/2026: la fila «Video» abre el editor; /m/video es la lista de lo generado.
+  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video Generator' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Web Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
   // El chat de WhatsApp de un lead: de trabajo desde el server, y vuelve a SU ficha.

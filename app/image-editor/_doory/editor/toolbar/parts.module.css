@@ -98,7 +98,7 @@
   background: var(--cv-color-bg-muted);
 }
 .btn:active:not(:disabled) {
-  background: rgb(57 70 96 / 0.14); /* Canva: botón terciario presionado #39466024 */
+  background: var(--cv-color-press);
 }
 .btn:focus-visible {
   outline: none;
@@ -112,11 +112,11 @@
   flex: none;
 }
 
-/* Elegido (negrita prendida, panel abierto): el violeta suave de Canva. */
+/* Elegido (negrita prendida, panel abierto): el azul claro de Canva. */
 .on,
 .on:hover:not(:disabled) {
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
 }
 
 .danger:hover:not(:disabled) {
@@ -133,7 +133,7 @@
   color: var(--cv-color-brand);
 }
 
-/* «Listo» del recorte: el botón primario violeta de Canva, a la altura de la barra. */
+/* «Listo» del recorte: el botón primario azul de Canva, a la altura de la barra. */
 .primary,
 .primary:hover:not(:disabled) {
   padding: 0 var(--cv-space-3);
@@ -166,7 +166,7 @@
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
 }
 .fontBtn:hover:not(:disabled) {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo en hover #1C213080 */
+  border-color: var(--cv-color-field-hover);
 }
 .fontBtn:focus-visible,
 .fontBtn[aria-expanded='true'] {
@@ -230,7 +230,7 @@
   -moz-appearance: textfield;
 }
 .stepInput:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: #1C213080 */
+  border-color: var(--cv-color-field-hover);
 }
 .stepInput:focus {
   outline: none;
@@ -298,7 +298,7 @@
 }
 .durationSlot button[type='button'][aria-haspopup][aria-expanded='true'] {
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
 }
 .durationSlot svg {
   width: 18px;
@@ -358,7 +358,7 @@
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
 }
 .input:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: #1C213080 */
+  border-color: var(--cv-color-field-hover);
 }
 .input:focus {
   outline: none;
@@ -378,7 +378,7 @@
   width: 100%;
   height: 4px;
   border-radius: 4px;
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
   outline: none;
   cursor: pointer;
   appearance: none;
@@ -458,7 +458,7 @@
   cursor: default;
 }
 .menuItem[aria-checked='true'] {
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
   font-weight: 600;
 }
 .menuIcon {

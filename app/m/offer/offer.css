@@ -390,3 +390,15 @@
   [data-m] .m-offer-doc:active:not(:disabled), [data-m] .m-offer-selector:active:not(:disabled) { transform: none; }
   [data-m] .m-offer-plegable > summary > svg, [data-m] summary.m-offer-dim__fila > svg { transition: none; }
 }
+
+/* «Tu oferta» ARMÁNDOSE (29/10/2026): el documento con lo que MaKo ya sabe, sección por sección (app/offer/documento-vivo.ts,
+   el mismo de escritorio). Sin casillas ni «9/20»: lo que falta no aparece. */
+[data-m] .m-offer-doc { padding: 4px 0 14px; }
+[data-m] .m-offer-doc + .m-offer-doc { border-top: 1px solid var(--border); padding-top: 14px; }
+[data-m] .m-offer-doc__seccion { margin: 0 0 8px; font-size: var(--fs-meta); font-weight: 700; color: var(--primary-strong); text-transform: uppercase; letter-spacing: .05em; }
+[data-m] .m-offer-doc__pieza + .m-offer-doc__pieza { margin-top: 10px; }
+[data-m] .m-offer-doc__titulo { margin: 0 0 2px; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
+[data-m] .m-offer-doc__valor { margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+[data-m] .m-offer-doc__vacio { margin: 8px 0 16px; font-size: var(--fs-md); color: var(--dim); }
+[data-m] .m-offer-franja__ultima { color: var(--dim); font-weight: 500; }
+[data-m] .m-offer-franja__aire { flex: 1; }
