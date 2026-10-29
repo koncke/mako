@@ -134,6 +134,110 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   **filtrar por idioma o acento pide clave** («You must be logged in to use filters»). La muestra
   (`preview_url`) es pública y se escucha sin cuenta ni cuota.
 
+## El preset decide si el avatar HABLA: 9 de 28 lo dejan mudo (29/10/2026)
+
+- **Síntoma posible:** un anuncio a cámara sale con el guion en off y el avatar callado.
+- **El diagnóstico obvio era el equivocado:** «falla el lip-sync».
+- **Causa:** `generarPlanAction` reparte el guion con `ritmoDeClips(puesta)`, y las puestas `voz-en-off` y
+  `trends-virales` tienen `habla: 'nunca'`. Son 9 presets: `calle-promo`, `cafe-un-dia`, `metro`, `cabina-fotos`,
+  `selfie-gran-angular`, `ojo-de-pez`, `camara-seguridad`, `biblioteca` y `niebla`. El primer borrador asignaba justo
+  `calle-promo`, `biblioteca` y `cafe-un-dia` a anuncios a cámara.
+- **Regla:** una plantilla de venta a cámara usa un preset cuya puesta habla, y un test lo fija: `cafe-un-dia` en la
+  plantilla 4 tiene que fallar.
+
+**Vive en:** lib/ai-avatar/plantillas.ts · lib/puestas-data.ts · app/video-generator/actions.ts
+
+## La guarda de cara caza vocabulario de cámara (29/10/2026)
+
+- **Causa:** la regex de tests/ai-avatar.test.ts caza «eye-level» (`\beye\b`), «hair light» y «natural skin texture»,
+  palabras estándar de las guías de cámara. Y describir al sujeto (la edad, la barba, el pelo) es justo lo que rompe el
+  parecido.
+- **Regla:** en los prompts de escena va «a person», con la ropa y la composición, nunca rasgos. El vocabulario de
+  Google (CC BY 4.0) entra sin esas tres palabras.
+
+**Vive en:** tests/ai-avatar.test.ts · lib/ai-avatar/plantillas.ts
+
+## El prompt por toma no tiene dónde ir (29/10/2026)
+
+- **Causa:**
+  - el video es el plan del Video Generator con UN look para todas las tomas (`conAvatar`);
+  - el prompt de cada clip lo escribe el código en español (lib/prompts-video.ts);
+  - `conAcento` borra cualquier acento escrito y pone el del cliente;
+  - los gestos de HeyGen no entran, porque el motor no los recibe.
+- **Lo que no está medido:** la puesta `podcast` declara dos personas, y `conAvatar` fuerza una sola escena: hay que
+  medirlo con un video de 2 tomas antes de ofrecer la plantilla 5.
+- **Regla:** la plantilla fija el guion total, la escena y el detalle, no las tomas.
+
+**Vive en:** lib/prompts-video.ts · app/video-generator/actions.ts
+
+## Cuánto dura un guion: palabras medidas, y los dígitos achican (29/10/2026)
+
+- **La densidad:** la investigación proponía 18 palabras por toma de 8 s (una estimación suya). La casa midió 3
+  palabras por segundo a cámara («menos de 26 en 10 s tartamudea») y 2,1 en The Office. El motor reparte las tomas
+  solo, desde el total (`cabidaDeGuion`).
+- **Los dígitos:** `contarPalabras` cuenta «1,500» y «2027» como una palabra, pero se dicen con 2 o 3. El guion se
+  planifica corto y la voz se apura. Por eso los números van con letras. Está deducido del código, no medido en Flow.
+
+**Vive en:** app/video-generator/actions.ts (`cabidaDeGuion`) · lib/puestas-data.ts
+
+## `sano()` es una lista blanca: un campo nuevo del look desaparece (29/10/2026)
+
+- **Causa:** `sano()` (app/ai-avatar/looks.ts) copia solo los campos que conoce. `guion` o `plantillaVentaId`, si no se
+  agregan ahí, se pierden en la primera lectura, sin error.
+- **Regla:** cada campo nuevo de `Look` se suma a `sano` en el mismo commit, con su test.
+
+**Vive en:** app/ai-avatar/looks.ts
+
+## «Usar el ejemplo» filmaría el guion ficticio con créditos pagados (29/10/2026)
+
+- **Causa:** hoy «Usar el ejemplo» mete `preset.guion` en la caja, y «Generar video» lo filma.
+- **Regla:** la guarda va en el server: `crearVideoAction` rechaza un guion que todavía tiene marcas del ejemplo. El
+  botón de la pantalla no alcanza.
+
+**Vive en:** app/ai-avatar/actions.ts
+
+## Un avatar no testimonia, y no inventa el interior de una propiedad (29/10/2026)
+
+- **El testimonio:** la regla de la FTC de 2024 prohíbe testimonios de personas que no existen, también hechos con IA, y
+  la política de IA generativa de Google prohíbe suplantar sin aviso. «Testimonio en el sillón» salió, y el caso lo
+  cuenta el dueño.
+- **El interior:** generar a la asesora «en el departamento muestra» inventa un interior. La escena es una oficina de
+  ventas neutra, y el departamento entra solo como material oficial, en las tomas en off.
+- **Los retratos del elenco:** son de personas inexistentes, hechos en Flow y con el rótulo «Ejemplo». No se promete la
+  voz de esa persona ni una voz clonada: el video habla con la voz de Flow, en el acento del negocio.
+
+**Vive en:** lib/ai-avatar/plantillas-venta.ts (del plan) · public/ai-avatar/plantillas/
+
+## El voseo depende del acento (29/10/2026)
+
+- **Causa:** `marcasDeVoseo` aplicado siempre rechaza el guion correcto de un negocio rioplatense (el plan ya tiene
+  `acentoEsVoseante`), y sin aplicarlo pasa «tenés» en uno mexicano. Además, la guarda no caza argentinismos (remera,
+  campera, vereda, chomba), y la investigación los usaba.
+- **Regla:** la guarda del guion se aplica según el acento del negocio. Los ejemplos del elenco, neutros, pasan además
+  una lista de argentinismos, que incluye «dar vuelta» por invertir (`\b(dar|da|dé|darla|darlo)\s+vuelta\b`).
+
+**Vive en:** lib/puestas-data.ts · tests/ai-avatar.test.ts
+
+## Con el motor sin un solo look en producción, la tarjeta no puede depender de él (29/10/2026)
+
+- **Contexto:** se integra en la entrada que midió que el motor nunca generó un look en producción.
+- **Regla:**
+  - la tarjeta muestra contenido real sin imagen: el marco con el texto en pantalla y la primera frase;
+  - los loops no se prometen;
+  - hay dos grillas (`NuevaCrear` y la galería del estudio): se separan las plantillas de venta de los presets.
+
+**Vive en:** app/ai-avatar/Estudio.tsx · app/_crear/PantallaCrear.tsx
+
+## Licencias que parecían copiables en AI Avatar (29/10/2026)
+
+- fal-ai-community/skills dice «MIT» en el README, pero no tiene LICENSE (dos 404).
+- El SKILL.md de Higgsfield no declara licencia, y la documentación de HeyGen es propietaria.
+- Las métricas de Arcads no se copian: en un ejemplo ficticio serían inventadas.
+- **Regla:** quedan como idea. Copiables, y con aviso, son motion-creative/skills (MIT, 2025 Motion), marketingskills
+  (MIT) y la guía de Google (CC BY 4.0).
+
+**Vive en:** lib/avisos/ (del plan) · docs/plantillas-reales/avatar.md (sección 4)
+
 ## Lo que quedó SIN hacer
 
 - **El video con la voz elegida o clonada.** El Video Generator anima con la voz que genera Flow, en el
