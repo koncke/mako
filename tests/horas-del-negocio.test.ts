@@ -27,13 +27,15 @@ test('1. la reunión de Francisco: sale a las 17:00 del martes, no a las 20:00 d
   });
   const j = JSON.parse(conHorasDelNegocio(salida, AR));
   const r = j.reuniones[0];
-  assert.equal(r.hora, '2026-10-27 17:00', 'la hora sigue en UTC');
+  assert.equal(r.hora_hora_negocio, '2026-10-27 17:00', 'sin la hora del negocio al lado');
+  assert.equal(r.hora, '2026-10-27T20:00:00.000Z', 'el instante original se pisó (ver el test 6)');
   assert.equal(r.hora_dia_semana, 'martes');
   assert.equal(r.fecha, '2026-10-27', 'la fecha sola no cambia: el modelo la puede pasar a otra herramienta');
   assert.equal(r.fecha_dia_semana, 'martes', 'el 27/10/2026 es martes');
   assert.equal(j.ventana.desde_dia_semana, 'lunes');
   assert.equal(j.zona_horaria, AR);
-  assert.match(j.nota_horas, /No conviertas la hora ni calcules el día/);
+  assert.match(j.nota_horas, /sin convertir ni calcular/);
+  assert.match(j.nota_horas, /cópialo del campo original tal cual, nunca del \*_hora_negocio/, 'la nota no dice qué copiar a otra herramienta');
   assert.equal(r.nombre, 'Francisco Piñeiro Negri', 'lo demás, tal cual');
   assert.equal(r.link, null);
 });
@@ -55,7 +57,7 @@ test('3. lo que no trae fechas, o no es JSON, vuelve igual', () => {
   assert.equal(conHorasDelNegocio(texto, AR), texto);
   // Lo anidado y en listas también.
   const j = JSON.parse(conHorasDelNegocio(JSON.stringify({ cambios: [{ campo: 'Nota', fecha: '2026-10-26T11:22:00Z' }] }), AR));
-  assert.deepEqual(j.cambios[0], { campo: 'Nota', fecha: '2026-10-26 08:22', fecha_dia_semana: 'lunes' });
+  assert.deepEqual(j.cambios[0], { campo: 'Nota', fecha: '2026-10-26T11:22:00Z', fecha_hora_negocio: '2026-10-26 08:22', fecha_dia_semana: 'lunes' });
 });
 
 test('4. pasa por la puerta del MODELO (WhatsApp y la app), y la API HTTP recibe los datos crudos', () => {
@@ -79,4 +81,35 @@ test('5. los totales del período van ARRIBA, ya sumados, con las reuniones 1 y 
   assert.match(md, /- no-shows \(reuniones 1 y 2\): 25\n/, 'el no-show del período, 1 y 2 juntas');
   assert.match(md, /- reuniones sin marcar \(1 y 2\): 13\n/);
   assert.match(md, /- j1_noshow: 22\n/);
+});
+
+test('6. ⚠️ el startIso de Calendly vuelve CARÁCTER POR CARÁCTER: proponer_agendar_reunion lo compara así (verificación de b799f7ed4, ALTA)', () => {
+  // La forma de listar_horarios_reunion (lib/mako-doer-acciones.ts) con el formato real de Calendly (microsegundos y Z).
+  const HUECOS = ['2026-10-30T12:00:00.000000Z', '2026-10-31T12:00:00.000000Z'];
+  const salida = JSON.stringify({ ok: true, cual: 'R1', huecos: HUECOS.map((startIso) => ({ startIso })) });
+  const j = JSON.parse(conHorasDelNegocio(salida, AR));
+  // Lo que hace proponer_agendar_reunion con lo que el modelo copia: `huecos.some((h) => h.startIso === startIso)`.
+  for (const [i, h] of (j.huecos as Array<{ startIso: string; startIso_hora_negocio: string }>).entries()) {
+    assert.ok(HUECOS.some((x) => x === h.startIso), `el hueco ${i}: «${h.startIso}» no es ninguno de Calendly: la reserva falla`);
+  }
+  assert.equal(j.huecos[0].startIso_hora_negocio, '2026-10-30 09:00');
+  assert.equal(j.huecos[1].startIso_dia_semana, 'sábado');
+});
+
+test('7. una clave que dice _utc sigue en UTC; la hora del negocio va en otra (verificación de b799f7ed4, baja)', () => {
+  const j = JSON.parse(conHorasDelNegocio(JSON.stringify({ pendiente: { id: 9, vence_utc: '2026-10-28T16:30:00.123+00:00', creada_utc: '2026-10-28T14:30:00+00:00' } }), AR));
+  assert.equal(j.pendiente.vence_utc, '2026-10-28T16:30:00.123+00:00', 'vence_utc lleva la hora del negocio');
+  assert.equal(j.pendiente.vence_hora_negocio, '2026-10-28 13:30');
+  assert.equal(j.pendiente.vence_dia_semana, 'miércoles');
+  assert.equal(j.pendiente.creada_hora_negocio, '2026-10-28 11:30');
+  assert.equal(j.pendiente.vence_utc_hora_negocio, undefined, 'el campo nuevo arrastra el _utc');
+});
+
+test('8. el «inicio» de un evento de comunidad sigue siendo el instante, al lado de su zona (verificación de b799f7ed4, baja)', () => {
+  // ver_calendario_comunidad: un evento en México de un negocio en Argentina.
+  const ev = { id: 3, zona: 'America/Mexico_City', inicio: '2026-11-03T21:00:00.000Z', local: { fecha: '2026-11-03', hora: '15:00' } };
+  const j = JSON.parse(conHorasDelNegocio(JSON.stringify({ eventos: [ev] }), AR));
+  assert.equal(j.eventos[0].inicio, ev.inicio, 'el inicio quedó en la zona del negocio al lado de la zona del evento');
+  assert.equal(j.eventos[0].inicio_hora_negocio, '2026-11-03 18:00');
+  assert.deepEqual(j.eventos[0].local, { fecha: '2026-11-03', fecha_dia_semana: 'martes', hora: '15:00' });
 });

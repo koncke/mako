@@ -513,10 +513,11 @@ export const BITACORA: Hito[] = [
     titulo: 'MaKo dice las horas del negocio, el día de la semana correcto y los totales ya sumados',
     pedido: 'Cerebro, del diagnóstico de MaKo en WhatsApp: en Código Inmobiliario, MaKo dijo «Horario: 20:00 hs» cuando era a las 17:00, «lunes 27/10» cuando era martes, y para el mismo período dio 25 no-shows y después 28.',
     puntos: [
-      '**Las horas, en la hora del negocio:** todo lo que MaKo lee de sus herramientas le llega con la hora de tu negocio, no la de Londres. La reunión de las 17:00 se dice a las 17:00.',
-      '**Cada fecha con su día:** el martes es martes; MaKo ya no lo calcula.',
+      '**Las horas, en la hora del negocio:** lo que MaKo lee de sus herramientas trae, al lado de cada hora, la de tu negocio, no la de Londres. La reunión de las 17:00 se dice a las 17:00.',
+      '**Reservar sigue andando:** el horario libre que MaKo tiene que devolver tal cual para agendar llega intacto (la verificación encontró que la primera versión lo cambiaba y la reserva fallaba).',
+      '**Cada fecha con su día:** MaKo ya no calcula el día de la semana de lo que lee.',
       '**Los totales, ya sumados:** «¿cuántos no-shows tuve?» sale del total del período, con las reuniones 1 y 2 juntas, y no de sumar los meses a mano.',
-      'Vale para WhatsApp y para el chat de la app. La API para programas sigue igual.',
+      'Vale para WhatsApp y para el chat de la app, en las herramientas nuevas de MaKo (las viejas de la ficha siguen como antes). La API para programas sigue igual.',
     ],
     archivos: [
       'lib/api-mako/horas-del-negocio.ts — la hora del negocio y el día · ejecutar.ts — runnerDelRegistro',

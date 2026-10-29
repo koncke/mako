@@ -2732,9 +2732,15 @@ Son decenas de lecturas en todas las áreas, y las nuevas nacerían con el mismo
 
 **La regla:**
 - Lo que LEE el modelo pasa por UN lugar: `runnerDelRegistro` (ejecutar.ts) → `conHorasDelNegocio` (horas-del-negocio.ts). Un
-  instante con zona sale como «2026-10-27 17:00» en la hora del negocio, y toda fecha o instante suma `<campo>_dia_semana`, con
-  la zona y una nota que le dice al modelo que no convierta. La fecha sola NO cambia: el modelo la pasa tal cual a otra
-  herramienta.
+  instante con zona suma AL LADO `<campo>_hora_negocio` («2026-10-27 17:00», en la hora del negocio), y toda fecha o instante
+  suma `<campo>_dia_semana`, con la zona y una nota: para hablar, la de `_hora_negocio`; para pasarle un instante a otra
+  herramienta, el original tal cual. Una clave `<x>_utc` suma `<x>_hora_negocio`: la que dice UTC sigue diciendo la verdad.
+- ⚠️ **UN CAMPO QUE EL MODELO TIENE QUE COPIAR DE VUELTA NO SE CONVIERTE** (la verificación de b799f7ed4, 28/10/2026,
+  C:/dev/revisiones/2810-verificacion-crm-horas-b799f7ed4.md). La primera versión PISABA el instante con la hora local:
+  `listar_horarios_reunion` daba el startIso de Calendly como «2026-10-30 09:00», `proponer_agendar_reunion` lo compara
+  carácter por carácter (lib/mako-doer-acciones.ts) y la reserva fallaba siempre; si el modelo rearmaba el instante con la
+  hora local y una Z, pasaba la validación y reservaba tres horas antes. El diagnóstico obvio («F3 pidió convertir») era el
+  equivocado: faltaba la hora local AL LADO, no en lugar del instante. Lo fija tests/horas-del-negocio.test.ts (6, 7 y 8).
 - NO en `ejecutarOperacion`: por ahí pasan la API HTTP (un programa, que recibe los datos crudos) y el código que lee el JSON
   (centro-plan, flujo).
 - Un número que el modelo tiene que decir «del período» lo suma el código y va ARRIBA (`totalesDelPeriodo`, metricas-modelo.ts),
