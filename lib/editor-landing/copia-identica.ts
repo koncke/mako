@@ -346,13 +346,18 @@ const RE_FIJO = /\sdata-gm-fijo(?:="[^"]*")?(?=[\s/>])/;
 /** La marca no viaja a la copia: es sólo para partirla. */
 const sinJunto = (h: string): string => h.replace(RE_JUNTO_TODOS, '').replace(new RegExp(RE_FIJO.source, 'g'), '');
 
-/** ¿Todo lo que dibuja la sección es fijo? (cada etiqueta de su primer nivel lleva la marca; el resto, vacío) */
-export function esSeccionFija(html: string): boolean {
+/**
+ * ¿Todo lo que dibuja la sección es fijo? Cada etiqueta de su primer nivel es fija: lleva la marca, o es una caja sin texto
+ * cuyo único contenido es fijo (hasta 6 niveles). Lo que no dibuja nada (`esParteVacia`) no cuenta: el aviso de cookies
+ * de tryholo.ai venía detrás del anunciador vacío de Next (`<div style="position:absolute">`), y por él no se pegaba.
+ */
+export function esSeccionFija(html: string, prof = 0): boolean {
   const nodos = nodosDeNivel(html);
-  const els = nodos.filter((n): n is Extract<NodoNivel, { tipo: 'el' }> => n.tipo === 'el' && !SUELTAS.has(n.tag));
-  if (!els.length) return false;
   if (nodos.some((n) => n.tipo === 'texto' && html.slice(n.inicio, n.fin).trim() !== '')) return false;
-  return els.every((e) => RE_FIJO.test(html.slice(e.inicio, e.aperturaFin)));
+  const els = nodos.filter((n): n is Extract<NodoNivel, { tipo: 'el' }> => n.tipo === 'el' && !SUELTAS.has(n.tag) && !esParteVacia(html.slice(n.inicio, n.fin)));
+  if (!els.length) return false;
+  return els.every((e) => RE_FIJO.test(html.slice(e.inicio, e.aperturaFin))
+    || (prof < 6 && e.cierreInicio > e.aperturaFin && esSeccionFija(html.slice(e.aperturaFin, e.cierreInicio), prof + 1)));
 }
 
 /**

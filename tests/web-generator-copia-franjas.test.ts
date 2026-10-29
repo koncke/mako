@@ -161,6 +161,9 @@ test('5. lo fijo va adentro de la primera sección en flujo: ni un bloque al fin
   assert.equal(esSeccionFija('<header class="nav">Inicio</header>'), false);
   assert.equal(esSeccionFija(`texto suelto ${cookies}`), false);
   assert.equal(esSeccionFija(''), false);
+  assert.equal(esSeccionFija(`<div style="position:absolute"></div>${cookies}`), true, 'el anunciador vacío de Next delante no cuenta (tryholo.ai)');
+  assert.equal(esSeccionFija(`<div class="raiz-cookies">${cookies}</div>`), true, 'una caja cuyo único contenido es fijo');
+  assert.equal(esSeccionFija(`<div class="raiz">${cookies}<p>texto</p></div>`), false, 'con algo en flujo adentro, no');
   const hero = { html: '<section class="hero"><h1>Hola</h1></section>', envoltorios: ['<div data-gm-copia="body">', '<main>'] };
   const otra = { html: '<section class="mas">Más</section>', envoltorios: ['<div data-gm-copia="body">', '<main>'] };
   const juntas = pegarLoFijo([{ html: menu, envoltorios: ['<div data-gm-copia="body">'] }, hero, otra, { html: cookies, envoltorios: ['<div data-gm-copia="body">'] }]);
