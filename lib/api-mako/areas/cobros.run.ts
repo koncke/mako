@@ -60,6 +60,9 @@ import {
   aplicarObligacion, esCampoLeadDeal, esParteObligacion, esSeccionDeal, lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta,
   rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type CambioObligacion, type CambioVenta, type FilaVenta,
 } from '@/lib/pagos-campo';
+import { bajarAdjunto } from '@/lib/chat-mako-adjuntos';
+import { guardarDocumentoFiscal } from '@/lib/deal-fiscal-doc';
+import { aCompletarAhora, propuestaDocumentoFiscal } from '@/lib/deal-fiscal-doc-reglas';
 
 // ── helpers del archivo ───────────────────────────────────────────────────────
 
@@ -385,6 +388,35 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
       invalidarPagos();
       return { ok: true, resumen: r.cambio ? 'Listo: dato del deal guardado.' : 'Ya estaba así: no cambió nada.', datos: { antes: r.antes, despues: r.despues } };
+    }),
+  },
+
+  guardar_documento_fiscal: {
+    // El archivo sale de `ctx.adjuntos` (los de ESTE mensaje, ya guardados) y viaja en la pendiente como `ref`: al confirmar
+    // ya no hay turno. Los datos los pasa el modelo, que leyó el documento; sólo se completa lo VACÍO (lib/deal-fiscal-doc-reglas.ts).
+    preparar: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      return propuestaDocumentoFiscal(lead, ctx.adjuntos, input);
+    },
+    ejecutar: (payload, ctx) => seguro('guardar el documento fiscal', async () => {
+      const leadId = Number(payload.leadId);
+      const archivo = await bajarAdjunto(ctx.ws, payload.ref);
+      if (!archivo) return { ok: false, resumen: 'No se pudo: el archivo ya no está en el chat. Que lo vuelva a adjuntar.' };
+      const g = await guardarDocumentoFiscal({ ws: ctx.ws, leadId, bytes: archivo.bytes, mime: archivo.mime, nombre: s(payload.nombre) ?? archivo.nombre });
+      if (!g.ok) return { ok: false, resumen: `No se pudo: ${g.error}` };
+      const lead = await getLead(leadId).catch(() => null);
+      const completados: string[] = [];
+      for (const [campo, valor] of aCompletarAhora(lead?.deal_fiscal, payload.completar)) {
+        const r = await escribirCampoDeal(leadId, { seccion: 'fiscal', campo, valor } as unknown as CambioCampoDeal, autorDe(ctx));
+        if (r.ok && r.cambio) completados.push(rotuloCampoDeal('fiscal', campo));
+      }
+      invalidarPagos();
+      return {
+        ok: true,
+        resumen: `Listo: «${g.docNombre}» quedó como documento fiscal${completados.length ? ` y completé ${completados.join(', ')}` : ''}.`,
+        datos: { documento: g.docNombre, completados },
+      };
     }),
   },
 

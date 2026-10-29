@@ -106,6 +106,8 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // resuelve la ficha (`pedido`, lead-view/ficha/FichaPorBloques.tsx), con el asistente sólo de respaldo.
   const [pedido, setPedido] = useState<{ id: StepId; n: number } | null>(null);
   const solucionarDato = (id: StepId) => setPedido({ id, n: Date.now() });
+  // El dato que se tocó y que esta ficha no dibuja (`onNoEsta`): el asistente pide ESE (lib/datos-aviso.ts, `loQueSePide`).
+  const [datoPedido, setDatoPedido] = useState<StepId | null>(null);
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -203,7 +205,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
       {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
       <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA}
-        pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} crm={crmEnVista(fichaProd, data)} />
+        pedido={pedido} onNoEsta={(paso) => { setDatoPedido(paso); setMoveTo(currentStage); }} crm={crmEnVista(fichaProd, data)} />
       {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
           que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
           suyo). Es irreversible, así que queda al fondo y con su confirmación
@@ -233,10 +235,11 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           move={{ to: moveTo }}
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           completarDatos={moveTo === currentStage}
-          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar) : undefined}
+          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar, datoPedido) : undefined}
+          datoPedido={moveTo === currentStage ? datoPedido : null}
           equipo={equipo}
-          onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
-          onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
+          onClose={() => { setMoveTo(null); setDatoPedido(null); if (initialSolucionar) router.replace(pathname); }}
+          onDone={() => { setMoveTo(null); setDatoPedido(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
         />
       )}
 

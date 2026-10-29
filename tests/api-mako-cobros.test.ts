@@ -73,8 +73,10 @@ test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus opera
   assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' });
   // ⚠️ Cambiado A PROPÓSITO el 23/10/2026: suma vender_plan_mako (P0-8 de la auditoría), sólo de la plataforma.
   // ⚠️ Y el 25/10/2026 las dos lecturas de Customers (la vista del super admin), también sólo de la plataforma.
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes'].sort());
-  for (const id of [...IDS, ...IDS_PAGOS_CAMPO]) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
+  // ⚠️ Y el 29/10/2026 guardar_documento_fiscal: la constancia que el usuario adjunta en el chat va a la ficha (Leila, lead
+  // Fabi Pedraza; su forma en tests/documento-fiscal-desde-el-chat.test.ts).
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'guardar_documento_fiscal'].sort());
+  for (const id of [...IDS, ...IDS_PAGOS_CAMPO, 'guardar_documento_fiscal']) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 
 test('las lecturas: gratis, por TODOS los canales (http incluido) y con la tab del CRM', () => {

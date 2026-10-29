@@ -35,13 +35,16 @@ import { getPorCobrar, getCuotasPendientes, type CuotaPendiente } from '@/lib/pa
 import { funnelsDelPedido } from '../funnels-del-pedido';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
-import { hoyEnWorkspace, tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { hoyEnWorkspace, tzActual, tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { bloqueACobrar } from '@/lib/pagos-bloque';
 import { sanearBloque } from '@/lib/chat-bloques';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { diasAntes, esFechaValida, lunesDeFecha, ayerEnTijuana } from '@/lib/date-utils';
 import { contarFilas, avisoRecorte } from './metricas.helpers';
 import { VENTA_SIN_COBRO } from '@/lib/venta-tipo';
+import { getTenantDb } from '@/lib/workspace';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
+import { esAsistencia, reunionesPorAsistencia, salidaPorAsistencia, type FilaReunionLead } from '@/lib/reuniones-por-asistencia';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -105,6 +108,23 @@ const finDeMes = (s: string): string => {
 // ── runners ──────────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
+  reuniones_por_asistencia: {
+    leer: async (input) => {
+      // La ventana como metricas_negocio (`rango`: `validarRango`, los mismos 90 días por defecto) y la cuenta con
+      // `estadoDeAsistencia`, la misma de reporteMetricas: si no, la lista y el número difieren.
+      const [{ desde, hasta }, hoy, zona] = await Promise.all([rango(input), hoyEnWorkspace(), tzActual().catch(() => TZ_DEFAULT)]);
+      const filas: FilaReunionLead[] = [];
+      await leerPorPaginas<FilaReunionLead>(
+        await getTenantDb(), 'leads', 'id, nombre, fecha_junta_1, asistio_j1, fecha_junta_2, asistio_j2, closer',
+        (pagina) => { filas.push(...pagina); },
+        { orden: 'id', filtros: (q) => q.or(`and(fecha_junta_1.gte.${desde},fecha_junta_1.lte.${hasta}),and(fecha_junta_2.gte.${desde},fecha_junta_2.lte.${hasta})`) },
+      );
+      const asistencia = esAsistencia(input.asistencia) ? input.asistencia : 'sin_marcar';
+      const reunion = input.reunion === 'R1' || input.reunion === 'R2' ? input.reunion : null;
+      const hora = new Intl.DateTimeFormat('es-AR', { timeZone: zona, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+      return json(salidaPorAsistencia(reunionesPorAsistencia(filas, { desde, hasta, hoy, asistencia, reunion }), { desde, hasta, zona, contadoA: `${hoy} ${hora}`, asistencia }));
+    },
+  },
   metricas_negocio: {
     leer: async (input, ctx) => {
       const formato = (str(input, 'formato') || ctx.formato || 'md').toLowerCase();

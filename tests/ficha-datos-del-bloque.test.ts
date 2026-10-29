@@ -121,8 +121,9 @@ test('lo que no es obligatorio no se pide en ningún lado: ni «Completar datos�
   assert.deepEqual(loQueSePide([...faltan], [{ id: 'telefono' }]).map((f) => f.id), ['telefono', 'asistenciaR1'], 'la asistencia se pide siempre');
   assert.deepEqual(loQueSePide([...faltan], undefined).length, 3, 'sin el partido, lo de siempre');
   const sinComentarios = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
-  assert.match(sinComentarios('app/crm/LeadSheet.tsx'), /faltantes=\{completandoDatos \? loQueSePide\(faltantes, datos\?\.avisar\) : undefined\}/);
-  assert.match(sinComentarios('app/crm/[id]/LeadDetailBody.tsx'), /faltantes=\{moveTo === currentStage \? loQueSePide\(faltantes, datos\?\.avisar\) : undefined\}/);
+  // Salvo el dato que la persona TOCÓ y la ficha no dibuja (`datoPedido`, 29/10/2026): ése lo pidió ella.
+  assert.match(sinComentarios('app/crm/LeadSheet.tsx'), /faltantes=\{completandoDatos \? loQueSePide\(faltantes, datos\?\.avisar, datoPedido\) : undefined\}/);
+  assert.match(sinComentarios('app/crm/[id]/LeadDetailBody.tsx'), /faltantes=\{moveTo === currentStage \? loQueSePide\(faltantes, datos\?\.avisar, datoPedido\) : undefined\}/);
   const acc = sinComentarios('app/crm/actions.ts');
   assert.equal((acc.match(/const pendientes = await pendientesQueAvisan\(after, /g) ?? []).length, 2, 'setLeadStageAction y completeStageMoveAction');
   assert.match(acc, /return apagados \? avisanDelLead\(faltan, lead, apagados\) : faltan;/);

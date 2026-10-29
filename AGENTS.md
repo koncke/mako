@@ -10818,3 +10818,15 @@ MaKo a la izquierda que no se cierra, su «←» a la lista de proyectos, y «Nu
 pestaña (Reels, Carousels, Video Generator) es una PLANTILLA de «Nuevo …» o se retira. El ítem de `nav.ts` NO lleva
 `secciones` y conserva la key de la que era su sección principal (la miran las capas, la API y el teléfono). Diseño e
 inventario: docs/diseno-create.md. Lo fija tests/crear-pantalla.test.ts.
+
+# Un dato pedido no se pierde en el respaldo, un archivo del chat viaja por su `ref`, y un número y su lista cuentan igual (29/10/2026)
+
+- **«Solucionar» un dato que la ficha no dibuja** (la plantilla «Evento» no trae «Datos fiscales»): el respaldo lleva EL
+  DATO (`onNoEsta(paso)` → `datoPedido` → `loQueSePide(faltan, avisan, pedido)`). Un respaldo que abre un asistente genérico
+  pierde lo que la persona tocó: Leila tocó «datos fiscales» y le salieron setter y closer.
+- **Una acción con tarjeta que usa un archivo del chat** lo toma en `preparar` (`ctx.adjuntos`, sólo durante el turno y
+  sólo en la app) y guarda su `ref` en la pendiente; `ejecutar` lo baja con `bajarAdjunto`. El `ref` nunca sale de lo que
+  escribe el modelo.
+- **Un número y la lista de quiénes son usan la MISMA función** (`estadoDeAsistencia`, con la misma ventana): dos cuentas
+  parecidas son dos cifras para lo mismo. Lo fijan tests/documento-fiscal-desde-el-chat.test.ts y
+  tests/reuniones-por-asistencia.test.ts; el porqué, en docs/hallazgos-crm.md y docs/hallazgos-api-mako.md.

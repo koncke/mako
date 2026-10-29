@@ -22,7 +22,7 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace } from './workspace';
 import { BUCKET_ADJUNTOS, getMensajeConBloques, setBloques } from './chart-chats';
 import { registrarDocumentoSinPisar, type RegistroArchivero } from './archivero';
-import { bloqueDeVoz, conArchivero, rutaDeAdjunto, sanearBloques, type BloqueChat, type BloqueVoz, type EstadoArchivero } from './chat-mako-bloques';
+import { bloqueDeVoz, conArchivero, leerRef, rutaDeAdjunto, sanearBloques, type BloqueChat, type BloqueVoz, type EstadoArchivero } from './chat-mako-bloques';
 import type { AdjuntoListo } from './mako-adjuntos';
 import { nombrePegado } from './chat-pegado';
 
@@ -75,6 +75,25 @@ export async function borrarAdjuntos(paths: readonly string[]): Promise<void> {
 export async function urlFirmadaDeAdjunto(path: string): Promise<string | null> {
   const { data } = await bucket().createSignedUrl(path, FIRMA_S);
   return data?.signedUrl ?? null;
+}
+
+/**
+ * El archivo de un adjunto guardado (`ref` = `<id del mensaje>:<n>`), con sus bytes: para una herramienta que lo guarda en
+ * otro lado (el documento fiscal del lead, `guardar_documento_fiscal`). NO mira de quién es la conversación, como sí
+ * `urlDeAdjunto`: el `ref` sale de `ctx.adjuntos` del turno de la persona y viaja en su pendiente; nunca uno que escribió el
+ * modelo. null = el mensaje o el archivo ya no están.
+ */
+export async function bajarAdjunto(ws: number, ref: unknown): Promise<{ bytes: Buffer; nombre: string; mime: string } | null> {
+  const r = leerRef(ref);
+  if (!r) return null;
+  return runWithWorkspace(ws, async () => {
+    const m = await getMensajeConBloques(r.msgId);
+    const b = m ? sanearBloques(ws, m.bloques)[r.i] : undefined;
+    if (!b) return null;
+    const { data, error } = await bucket().download(b.path);
+    if (error || !data) return null;
+    return { bytes: Buffer.from(await data.arrayBuffer()), nombre: b.nombre, mime: b.mime };
+  });
 }
 
 /**
