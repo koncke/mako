@@ -47,7 +47,7 @@ test('Offer: ninguna clase del documento vivo está definida también en la hoja
 
 test('la cabecera de un chat: el botón de plegar SÓLO dentro de una pantalla de Create que lo provee', async () => {
   const { CabeceraDeChat, PlegarChatCtx } = await import('@/app/admin/operaciones/PanelChat');
-  const props = { clave: 'c', titulo: 'MaKo' };
+  const props = { clave: 'c', titulo: 'MaKo', animo: 'despierto' as const };
   const suelta = renderToStaticMarkup(createElement(CabeceraDeChat, props));
   assert.doesNotMatch(suelta, /Plegar el chat/, 'fuera de Create la cabecera no cambia');
   const enCreate = renderToStaticMarkup(createElement(PlegarChatCtx.Provider, { value: () => {} }, createElement(CabeceraDeChat, props)));
