@@ -150,6 +150,12 @@ preguntes: hacé esto en orden.
     Partners y la compra doble a Meta). La guardia de RAM no dejó lanzar la verificación (2,1 GB libres): **SIN LANZAR.**
     El script está en `workflows/scripts/verificar-planes-e6fd6d88d.js` de esta sesión, y el árbol en
     `C:/dev/verif-e6fd6d88d`. Se lanza apenas termine otro workflow.
+  - **22:20, Planes y lo de Teo:** hechos los dos chicos (`0fa4bbe0d`: /planes ya no le promete AI Avatar a Pro, y en
+    Partners dice «Ganar el primer mes…»), y corriendo sus tests-afectados para que vayan con `e6fd6d88d`.
+    - **Decidido por el Cerebro:** un plan a mano que vence NO pausa al negocio mientras el corte general siga apagado
+      (`CORTE_DE_ACCESO_PRENDIDO = false`, decisión de Martín). Avisa a Martín y a la persona. Lo hace Planes.
+    - **Para la PRÓXIMA cuenta:** la comunidad cobrada por mes. Toca Classroom y `app/crm/curso-al-ganar-actions.ts`, y
+      son varias horas. Lo medido está en `docs/relevo/planes-pagos-partners.md` (rama planes-2710).
   - **El workflow de pedidos perdidos llegó al 100% con 12 de sus 21 agentes cortados** («session limit»). Se reanudó a
     las 21:32 en esta sesión (task `wz8f0619h`, mismo runId `wf_fbaed0b3-099`): los 9 que terminaron vienen de la caché.
     Su resultado parcial (lo juntado por fuente y lo que no se pudo leer) está en
