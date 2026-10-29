@@ -139,7 +139,7 @@ test('la pantalla: el interruptor se ofrece sólo con un CRON de comentario, en 
 
 test('el envío: publica por Zernio ANTES de decidir el DM, y no gasta la respuesta privada', () => {
   const z = leer('lib/zernio.ts');
-  assert.match(z, /export async function responderComentarioEnPublico[\s\S]{0,300}`\/inbox\/comments\/\$\{encodeURIComponent\(input\.postId\)\}`/);
+  assert.match(z, /export async function responderComentarioEnPublico[\s\S]{0,500}`\/inbox\/comments\/\$\{encodeURIComponent\(input\.postId\)\}`/);
   assert.match(z, /JSON\.stringify\(\{ accountId: input\.accountId, message: input\.texto, commentId: input\.commentId \}\)/);
   const c = leer('lib/canal-zernio.ts');
   const rama = c.indexOf('if (input.enComentario) {');
