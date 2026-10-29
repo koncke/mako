@@ -1,21 +1,18 @@
 // =============================================================================
-// /ai-avatar/voces — la galería de voces en español y las de tu cuenta
+// /ai-avatar/voces — DEPRECADA el 29/10/2026: redirige al estudio
 // =============================================================================
-// Copiado de la Voice Library de HeyGen: filtros por acento y género, escuchar,
-// sumar a tu cuenta. La cuenta es la de ElevenLabs del cliente (su key).
+// Era «Voices»: la galería pública de ElevenLabs y las voces de tu cuenta; la voz elegida no llegaba al video (una de las cuatro secciones copiadas de HeyGen el 17/10). Martín, 29/10: «replica a higgsfield tal
+// cual» y, para Create, «no quiero otras tabs... prefiero deprecar antes que conservar». AI Avatar es UNA pantalla
+// (../Estudio.tsx); la ruta queda para que un link viejo no dé 404, y lleva su query.
 
+import { redirect } from 'next/navigation';
 import { requireAiAvatar } from '../acceso';
-import { Pagina, PageHeader } from '@/app/_ui';
-import { Voces } from '../AiAvatarCliente';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
-export default async function VocesPage() {
+export default async function VocesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAiAvatar();
-  return (
-    <Pagina>
-      <PageHeader titulo="Voices" proposito="Escucha y elige cómo suena tu avatar." />
-      <Voces />
-    </Pagina>
-  );
+  await searchParams;
+  redirect(await rutaConWs('/ai-avatar'));
 }

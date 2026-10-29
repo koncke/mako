@@ -1,0 +1,246 @@
+/* =============================================================================
+   AI Avatar — el estudio de Higgsfield con los colores de MaKo (./Estudio.tsx)
+   =============================================================================
+   La FORMA es la de Higgsfield (29/10/2026): la barra de prompt que flota abajo con sus pastillas, la ranura del
+   personaje y la tarjeta del preset; las baldosas con el nombre arriba a la izquierda y «Usar preset» al pasar; el
+   título al centro con fotos en abanico. Los COLORES son de MaKo: sólo `var(--token)`, así el claro y el oscuro salen
+   solos (Nord + el azul de acción). El verde lima de su «Generate» es acá el azul de acción (`--primary`).
+   Todo bajo `.hf`: no pisa nada de afuera. */
+
+/* El centro de PantallaCrear (app/_crear/crear.css, `.cr-pieza`): scrollea adentro, y la barra queda pegada abajo. */
+.hf {
+  flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+.hf button { font-family: inherit; }
+.hf :focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* «Ver todos en grilla», al pie de la lista de proyectos de la tarjeta (el «History» de Higgsfield). */
+.hf-pie-todos { border: 0; background: none; padding: 0; color: var(--dim); font: inherit; font-size: 13px; cursor: pointer; }
+.hf-pie-todos:hover { color: var(--ink); text-decoration: underline; }
+/* La flecha de las pastillas (el chevron de la casa apunta abajo: se gira). */
+.hf-flecha { display: inline-flex; transform: rotate(90deg); }
+.hf-flecha--der { transform: rotate(-90deg); }
+
+/* ── El contenido del centro ─────────────────────────────────────────────── */
+.hf-nueva-vista { flex: 1; padding: 28px 32px 24px; }
+.hf-titulo { margin: 0; font-size: var(--fs-page); font-weight: 700; letter-spacing: -.01em; }
+.hf-subtitulo { margin: 0 0 10px; font-size: var(--fs-md); font-weight: 650; }
+.hf-vacio { color: var(--text-dim); font-size: var(--fs-sm); margin: 12px 0; }
+
+/* El título al centro con las fotos en abanico (el «Start creating with…» de Higgsfield). */
+.hf-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 0 26px; }
+.hf-abanico { position: relative; width: 300px; height: 112px; margin-bottom: 16px; }
+.hf-abanico > * {
+  position: absolute; top: 6px; width: 76px; height: 100px; border-radius: 14px; object-fit: cover; display: block;
+  border: 3px solid var(--surface); box-shadow: 0 10px 26px rgba(18, 21, 27, .18);
+}
+.hf-abanico-0 { left: 18px; transform: rotate(-12deg); }
+.hf-abanico-1 { left: 82px; transform: rotate(-4deg); top: 0 !important; }
+.hf-abanico-2 { left: 146px; transform: rotate(4deg); top: 0 !important; }
+.hf-abanico-3 { left: 206px; transform: rotate(12deg); }
+.hf-hero-titulo { margin: 0; font-size: clamp(26px, 3vw, 36px); font-weight: 800; letter-spacing: -.02em; }
+.hf-hero-sub { margin: 8px 0 0; color: var(--text-dim); font-size: var(--fs-md); }
+
+/* Los filtros: chips de categoría y «Buscar presets». */
+.hf-filtros { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; }
+.hf-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.hf-chip {
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-size: var(--fs-sm); font-weight: 500; cursor: pointer;
+}
+.hf-chip:hover { border-color: var(--border-strong); }
+.hf-chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+.hf-buscar {
+  display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--surface);
+  border: 1px solid var(--border); color: var(--text-dim); min-width: 200px;
+}
+.hf-buscar input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); }
+.hf-buscar--ancho { flex: 1; }
+
+/* Las baldosas de los presets. */
+.hf-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; }
+.hf-baldosa { position: relative; border-radius: var(--r-lg); overflow: hidden; background: var(--surface-2); aspect-ratio: 3 / 4; box-shadow: 0 1px 2px rgba(18, 21, 27, .08); }
+.hf-baldosa--elegida { box-shadow: 0 0 0 3px var(--primary); }
+.hf-baldosa-boton { position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; color: #fff; }
+.hf-baldosa-boton > img, .hf-baldosa-fondo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s var(--ease-out, ease); }
+.hf-baldosa-boton:hover > img, .hf-baldosa-boton:hover .hf-baldosa-fondo { transform: scale(1.04); }
+.hf-baldosa-fondo { display: flex; align-items: flex-end; padding: 14px; box-sizing: border-box; text-align: left; }
+.hf-baldosa-fondo > span { font-size: var(--fs-meta); line-height: 1.35; opacity: .85; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.hf-baldosa-boton::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(0, 0, 0, .38), transparent 34%, transparent 62%, rgba(0, 0, 0, .34)); }
+.hf-baldosa-nombre { position: absolute; z-index: 2; top: 10px; left: 12px; right: 12px; text-align: left; font-size: var(--fs-sm); font-weight: 700; text-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+.hf-baldosa--nuevo .hf-baldosa-nombre { right: 66px; }
+.hf-baldosa-nuevo { position: absolute; z-index: 2; top: 10px; right: 10px; padding: 2px 8px; border-radius: 999px; background: var(--mako); color: #1d1d1f; font-size: 11px; font-weight: 700; }
+.hf-baldosa-pie { position: absolute; z-index: 2; left: 12px; bottom: 12px; font-size: var(--fs-meta); opacity: .9; }
+.hf-baldosa-usar {
+  position: absolute; z-index: 2; left: 50%; bottom: 12px; transform: translate(-50%, 6px); opacity: 0;
+  padding: 7px 14px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: var(--fs-sm); font-weight: 650; white-space: nowrap;
+  transition: opacity var(--dur-pop, .18s) var(--ease-out, ease), transform var(--dur-pop, .18s) var(--ease-out, ease);
+}
+.hf-baldosa-boton:hover .hf-baldosa-usar, .hf-baldosa-boton:focus-visible .hf-baldosa-usar, .hf-baldosa--elegida .hf-baldosa-usar { opacity: 1; transform: translate(-50%, 0); }
+@media (hover: none) { .hf-baldosa-usar { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Lo de Higgsfield que todavía no tiene motor: se ve, y dice en una línea que no está. */
+.hf-pronto { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 24px; }
+.hf-pronto-tarjeta { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: var(--r-lg); border: 1px dashed var(--border-strong); background: var(--surface); }
+.hf-pronto-nombre { font-weight: 650; font-size: var(--fs-sm); }
+.hf-pronto-linea { color: var(--text-dim); font-size: var(--fs-meta); }
+
+/* Generando: el brillo que corre (el esqueleto de Higgsfield mientras sale la imagen). */
+.hf-brillo { position: relative; overflow: hidden; }
+.hf-brillo::after {
+  content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .28) 50%, transparent 80%);
+  transform: translateX(-100%); animation: hf-brillo 1.6s infinite;
+}
+@keyframes hf-brillo { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .hf-brillo::after { animation: none; } .hf-baldosa-boton > img, .hf-baldosa-fondo { transition: none; } }
+
+/* ── La barra de prompt: flota abajo, centrada ───────────────────────────── */
+.hf-barra-lugar { position: sticky; bottom: 0; z-index: 5; padding: 10px 24px 14px; background: linear-gradient(180deg, transparent, var(--bg) 30%); }
+.hf-barra {
+  position: relative; display: flex; gap: 12px; align-items: stretch; max-width: 960px; margin: 0 auto; padding: 12px;
+  border-radius: 20px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(18, 21, 27, .14);
+}
+.hf-barra-izq { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.hf-barra-texto {
+  width: 100%; box-sizing: border-box; resize: none; border: 0; outline: 0; background: none; color: var(--text);
+  font: inherit; font-size: var(--fs-md); line-height: 1.45; padding: 4px 6px; min-height: 44px;
+}
+.hf-barra-texto::placeholder { color: var(--text-dim); }
+.hf-barra-fila { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hf-barra-der { display: flex; align-items: stretch; gap: 8px; flex: none; }
+.hf-barra-linea { max-width: 960px; margin: 8px auto 0; text-align: center; font-size: var(--fs-meta); color: var(--text-dim); min-height: 1.3em; }
+.hf-barra-linea--mal { color: var(--bad); }
+
+.hf-pastilla {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 10px; border: 0;
+  background: var(--surface-2); color: var(--text); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.hf-pastilla:hover, .hf-pastilla[aria-expanded="true"] { background: var(--velo-hover); }
+.hf-pastilla small { font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.hf-pastilla--dato { cursor: default; font-weight: 500; color: var(--text-dim); }
+.hf-pastilla--dato:hover { background: var(--surface-2); }
+.hf-formato { display: inline-block; width: 9px; height: 14px; border: 1.6px solid currentColor; border-radius: 2px; }
+
+.hf-icono {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 10px;
+  background: none; color: var(--text-dim); cursor: pointer; flex: none;
+}
+.hf-icono:hover { background: var(--velo-hover); color: var(--text); }
+.hf-icono--borde { border: 1px solid var(--border); color: var(--text); }
+
+/* La ranura PERSONAJE y la tarjeta del PRESET (las dos de la derecha de Higgsfield). */
+.hf-ranura-lugar { position: relative; display: flex; }
+.hf-ranura {
+  position: relative; width: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 14px; border: 1px dashed var(--border-strong); background: var(--surface-2); color: var(--text-dim); cursor: pointer; overflow: hidden; padding: 0;
+}
+.hf-ranura img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hf-ranura-rotulo { position: relative; z-index: 1; margin-top: auto; width: 100%; padding: 3px 0; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--text); }
+.hf-preset {
+  position: relative; width: 96px; border-radius: 14px; border: 0; padding: 0; overflow: hidden; cursor: pointer; color: #fff;
+  background: var(--surface-2); display: flex; flex-direction: column; justify-content: flex-end; text-align: left;
+}
+.hf-preset > img, .hf-preset-fondo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.hf-preset-fondo:not([style]) { background: linear-gradient(160deg, var(--border-strong), var(--surface-2)); }
+.hf-preset::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(0, 0, 0, .1), rgba(0, 0, 0, .55)); }
+.hf-preset-nombre { position: relative; z-index: 2; padding: 0 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.15; }
+.hf-preset-cambiar { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 4px; margin: 4px 8px 8px; font-size: 11px; font-weight: 600; opacity: .9; }
+.hf-generar {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 112px; padding: 0 16px;
+  border: 0; border-radius: 14px; background: var(--primary); color: var(--on-primary); cursor: pointer;
+  font-size: var(--fs-md); font-weight: 750; letter-spacing: .01em;
+}
+.hf-generar small { font-size: 11px; font-weight: 600; opacity: .85; }
+.hf-generar:hover:not(:disabled) { background: var(--primary-strong); }
+.hf-generar:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Los menús de la barra se abren hacia ARRIBA. */
+.hf-menu {
+  position: absolute; bottom: calc(100% + 10px); left: 0; z-index: 20; min-width: 220px; padding: 6px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 18px 44px rgba(18, 21, 27, .2);
+}
+.hf-ranura-lugar .hf-menu { left: auto; right: 0; }
+.hf-menu--ancho { min-width: 280px; }
+.hf-menu-titulo { margin: 4px 8px 8px; font-size: var(--fs-meta); font-weight: 650; color: var(--text-dim); }
+.hf-opcion {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px;
+  background: none; color: var(--text); font-size: var(--fs-sm); text-align: left; cursor: pointer;
+}
+.hf-opcion:hover { background: var(--velo-hover); }
+.hf-opcion-texto { display: flex; flex-direction: column; }
+.hf-opcion small { font-size: var(--fs-meta); color: var(--text-dim); }
+.hf-opcion--apagada { color: var(--text-dim); }
+.hf-fotos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 6px 8px; }
+.hf-foto { aspect-ratio: 3 / 4; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; background: var(--surface-2); cursor: pointer; color: var(--text-dim); display: flex; align-items: center; justify-content: center; }
+.hf-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hf-foto[aria-pressed="true"] { border-color: var(--primary); }
+.hf-foto--subir { border: 1px dashed var(--border-strong); }
+
+/* ── El selector de presets (el modal de Higgsfield) ─────────────────────── */
+.hf-velo { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--scrim); }
+.hf-selector {
+  display: grid; grid-template-columns: 200px minmax(0, 1fr); width: min(1040px, 100%); height: min(760px, 100%);
+  border-radius: 20px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 30px 70px rgba(18, 21, 27, .3); overflow: hidden;
+}
+.hf-selector-cats { display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; border-right: 1px solid var(--border); background: var(--surface); overflow-y: auto; }
+.hf-selector-modelo { margin: 0 0 10px; padding: 9px 12px; border-radius: 10px; background: var(--surface-2); font-size: var(--fs-sm); font-weight: 650; }
+.hf-selector-cat { padding: 8px 12px; border: 0; border-radius: 10px; background: none; color: var(--text-dim); font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.hf-selector-cat:hover { background: var(--velo-hover); color: var(--text); }
+.hf-selector-cat[aria-current="true"] { background: var(--surface-2); color: var(--text); font-weight: 650; }
+.hf-selector-cuerpo { display: flex; flex-direction: column; min-height: 0; }
+.hf-selector-cab { display: flex; align-items: center; gap: 10px; padding: 14px; }
+.hf-grilla--selector { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-content: start; scrollbar-width: thin; }
+
+/* ── Un proyecto ─────────────────────────────────────────────────────────── */
+.hf-proyecto { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.hf-proyecto-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 32px 12px; flex-wrap: wrap; }
+.hf-proyecto-meta { margin: 4px 0 0; color: var(--text-dim); font-size: var(--fs-sm); }
+.hf-proyecto-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hf-boton {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; text-decoration: none;
+}
+.hf-boton:hover:not(:disabled) { border-color: var(--border-strong); }
+.hf-boton:disabled { opacity: .5; cursor: not-allowed; }
+.hf-boton--peligro { border-color: var(--bad); color: var(--bad); }
+.hf-confirmar { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.hf-proyecto-cuerpo { flex: 1; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 28px; padding: 8px 32px 24px; align-items: start; }
+.hf-lienzo { margin: 0; aspect-ratio: 9 / 16; max-height: 64vh; border-radius: 20px; overflow: hidden; background: var(--surface-2); box-shadow: 0 10px 30px rgba(18, 21, 27, .12); }
+.hf-lienzo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hf-lienzo-generando { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; box-sizing: border-box; text-align: center; color: #fff; }
+.hf-lienzo-generando:not([style]) { color: var(--text); }
+.hf-lienzo-generando span { font-weight: 700; font-size: var(--fs-md); }
+.hf-lienzo-generando small { font-size: var(--fs-sm); opacity: .9; }
+.hf-videos { min-width: 0; }
+.hf-video { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin-bottom: 12px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); }
+.hf-video video { width: 100%; max-width: 280px; aspect-ratio: 9 / 16; border-radius: 12px; background: #000; }
+.hf-video-guion { margin: 0; font-size: var(--fs-sm); color: var(--text); line-height: 1.45; }
+.hf-video-sin { font-size: var(--fs-sm); color: var(--text-dim); }
+.hf-video-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.hf-tomas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.hf-toma { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 12px; background: var(--surface-2); font-size: var(--fs-sm); }
+.hf-toma video { max-width: 100%; }
+.hf-toma small { color: var(--text-dim); font-size: var(--fs-meta); }
+.hf-toma--filmando, .hf-toma--a_ciegas { color: var(--primary); }
+.hf-toma--error { color: var(--bad); }
+
+/* ── Más angosto: el proyecto en una columna, y la barra apilada ── */
+@media (max-width: 1100px) {
+  .hf-proyecto-cuerpo { grid-template-columns: minmax(0, 1fr); }
+  .hf-lienzo { max-width: 360px; }
+}
+@media (max-width: 760px) {
+  .hf-nueva-vista, .hf-proyecto-cab, .hf-proyecto-cuerpo { padding-inline: 16px; }
+  .hf-barra { flex-direction: column; }
+  .hf-barra-der { justify-content: space-between; }
+  .hf-barra-lugar { padding-inline: 12px; }
+  .hf-ranura, .hf-preset { height: 72px; }
+  .hf-generar { flex: 1; }
+  .hf-selector { grid-template-columns: minmax(0, 1fr); }
+  .hf-selector-cats { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  .hf-selector-modelo { display: none; }
+}
+.hf-barra-plan { display: flex; justify-content: center; }
+.hf-barra-plan:empty { display: none; }

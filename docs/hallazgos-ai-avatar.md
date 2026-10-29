@@ -9,6 +9,61 @@ punta, «algo como Heygen», investigando clones y alternativas (`github.com/top
 `debpalash/VoiceStudio` para clonar la voz), con una «galería» de ejemplos o temas en imagen, video y voz.
 Investigación con tres agentes de lectura el 17/10; lo que sigue es lo que conviene no volver a buscar.
 
+**29/10/2026: la referencia pasó a ser HIGGSFIELD** («replica a higgsfield tal cual», con el diseño único de Create).
+Las secciones de HeyGen se deprecaron; lo de abajo de HeyGen queda por las licencias y las trampas, que siguen valiendo.
+
+## Higgsfield: qué se copió, de dónde, y el repo que NO sirve (29/10/2026)
+
+- **Higgsfield SÍ se ve sin cuenta** (a diferencia de HeyGen): `higgsfield.ai/ai/image?model=soul` y
+  `higgsfield.ai/ai-influencer-studio` cargan enteras sin login. Lo que se copió de ahí: la barra de prompt que flota
+  abajo (`+`, el texto, Modelo, Formato, Cantidad «1/4», la ranura CHARACTER, la tarjeta del preset con «Change»,
+  GENERATE con su costo), el selector de presets (`?style=all`: categorías a la izquierda, «Search presets», baldosas
+  con el nombre arriba a la izquierda y «Use preset» al pasar) y el estudio AI Influencer (constructor por acordeones a
+  la izquierda, «Motion», «Explore · History»). Capturas en la carpeta de notas del Cerebro, `capturas-ai-avatar-2910/`.
+- **El banner de cookies de Higgsfield tapa la barra**: hay que rechazarlo («Reject Non-Essential Cookies») antes de
+  mirarla. Las baldosas del selector cargan en ~2 s: un `get_page_text` inmediato devuelve los nombres sin imágenes.
+- **El repo abierto que más se le parece NO sirve como base**: `Anil-matcha/Open-Generative-AI` (ex «Open-Higgsfield-AI»,
+  MIT, ~31k estrellas) es un SELECTOR DE MODELOS sobre una API paga (Muapi): no tiene presets, ni personaje, ni
+  historial por proyecto. Su `AiInfluencerStudio.jsx` es un constructor de rasgos (cara, cuerpo, estilo), que choca con
+  la regla de la casa (la cara la pone la foto). Se estudió y no se copió una línea. `wide-trace/open-higgsfield` no
+  tiene licencia: ni se mira el código. La API de GitHub contesta `license: null` para el viejo nombre: hay que ir al
+  repo renombrado.
+- **Sin categoría «Beauty»**: sus presets (maquillaje, cejas, piel) DESCRIBEN la cara, que es justo lo que el prompt de
+  un preset no puede tocar (rompía el parecido, más abajo y en `hallazgos-generativa.md`).
+
+## Trampas del estudio (29/10/2026)
+
+- **Sacar las secciones de una tab de nav.ts cierra la puerta del teléfono SIN error si la page sigue pidiendo la key
+  vieja**: `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS` y, sin el ítem, no deja pasar a nadie. Al dejar
+  AI Avatar como UN ítem ('ai-avatar'), las cuatro pages de `app/m/ai-avatar` pasaron a `navKey: 'ai-avatar'` en el MISMO
+  commit, junto con `lib/funciones-mako.ts`, `lib/plan-esencial-reglas.ts` (las tabs de Pro) y sus tests.
+
+- **El prompt validado de un formato GANA ENTERO sobre la escena del preset.** `promptFinal` (lib/flow-imagen.ts)
+  devuelve `PROMPT_IMAGEN[puestaId]` sin mirar la escena: un preset con `puestaId: 'selfie-movimiento'` sale SIEMPRE en
+  el auto, diga lo que diga su prompt. Sólo «Charla en el auto» puede usarlo (lo fija tests/ai-avatar.test.ts). Al
+  sumar un formato con prompt validado, revisar qué presets lo usan.
+- **Lo que la persona escribe en la barra va AL FINAL del prompt, no adentro ni como `propio`.** Pegado a la escena se
+  perdía en el preset del auto (por la trampa de arriba); como `propio` reemplazaba TODO, identidad incluida («mantén a
+  la persona inalterada»): «con campera roja» generaba a otra persona. Vive en `lib/ai-avatar/prompt-look.ts`.
+- **El motor por interfaz hace UNA imagen vertical por pedido** (`pedidoImagenInterfaz`: un prompt, una cara,
+  `vertical`). «1/4», 3:4, 16:9 y 2K de Higgsfield se VEN y dicen «no disponible todavía»
+  (`SIN_MOTOR`, lib/ai-avatar/estudio.ts). 16:9 la interfaz lo haría, pero el video del avatar se filma vertical: un
+  look horizontal saldría recortado al animarlo.
+- **Los videos de un proyecto no viven en el look**: están en el historial del Video Generator y se cruzan por el
+  `mediaId` de la imagen (`imagenes['1'].elegidaId`, que escribe `conAvatar`). El tope de 10 del historial sigue
+  mordiendo: un proyecto puede «perder» un video viejo sin que nadie lo borre.
+- **El marco es el de Create (app/_crear/PantallaCrear.tsx), y su «Nuevo …» tapaba lo que la plantilla abría.** Usar una
+  plantilla (o escribir en su caja, si la tab lo toma) no cerraba «Nuevo …»: el centro seguía en «¿Qué vas a crear hoy?»
+  con la pieza nueva escondida detrás. Se arregló en la pantalla compartida (`alPlantilla`, 29/10): una plantilla que se
+  usó sin error cierra «Nuevo …», para todas las tabs. En AI Avatar usar un preset ahí NO genera: lo pone en la barra
+  (como «Use preset» de Higgsfield), porque falta la foto y generar es con el botón.
+- **Para VER la pantalla sin `next dev` ni sesión de super admin**: renderizar el componente real con
+  `renderToStaticMarkup` en Node, con `module.registerHooks` (síncrono: cubre `require` y `import`; el `register`
+  asíncrono no ve lo que tsx compila a CommonJS) desviando a stubs sólo lo que habla con el servidor (`./actions`,
+  `./filmar`, MakoEnLaTab, `@/app/_ui/Link`). Se sirve con un `http.server` declarado en `.claude/launch.json` y se
+  mira en el navegador integrado: el Chrome de Claude in Chrome de esta PC NO llega a `localhost` (es otra máquina o
+  una política) ni abre `file://`. Ojo: el navegador cachea el `.css` entre renders; recargar la hoja con `?v=`.
+
 ## La referencia es HeyGen, y se miró por su documentación, no por la app
 
 HeyGen pide cuenta y no había navegador conectado: la estructura se copió de su **documentación
@@ -82,9 +137,16 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   muchos videos de avatar empuja afuera anuncios viejos con el único puntero a sus clips. Los LOOKS no
   tienen ese problema (viven en `ai-avatar.looks`); los videos sí. **Vive en:** `app/ai-avatar/actions.ts`
   (`crearVideoAction`) y `app/video-editor/avatar/actions.ts`.
-- **Las imágenes de ejemplo de la galería.** Sólo «Charla en el auto» y «Presentador en la oficina»
-  tienen un video real (los del Video Generator). Las otras seis muestran el lugar escrito hasta que se
-  genere su imagen en Flow (gratis) con el motor por interfaz, cuando haya un navegador conectado.
-  **Vive en:** `lib/ai-avatar/plantillas.ts` (`ejemplo`).
-- **Verla andando.** Se escribió sin poder abrirla: no había navegador conectado y la máquina no tenía
-  memoria para un build local. La prueba es de Martín en producción, desde el Centro («revisar»).
+- **Las imágenes de ejemplo de los presets** (29/10: 28 presets). Sólo «Charla en el auto» y «Presentador en
+  la oficina» tienen imagen real; los otros 26 muestran el degradado de su categoría y el lugar escrito (y, en
+  cuanto la persona genera uno, SU look pasa a ser la baldosa). Se generan gratis en Flow con el motor por
+  interfaz cuando haya un navegador de super admin conectado. **Vive en:** `lib/ai-avatar/plantillas.ts` (`ejemplo`).
+- **Verla andando en producción con un look real.** El 29/10 se vio renderizada (vista estática de los componentes
+  reales, escritorio y teléfono), pero el único Chrome conectado tenía la sesión de Leandro (ws 10, no super admin):
+  `/ai-avatar` lo manda al Ops Center. La prueba con Flow de verdad es de Martín, desde el Centro («revisar»).
+- **Crear y borrar un look por la API de MaKo.** `ver_avatares` lee (desde el 29/10 también el ajuste escrito y los
+  presets nuevos), pero crear encola en Flow y el área de video es «sólo lecturas» por el veredicto §8
+  (docs/api-mako-diseno.md); borrar es una escritura sin gasto que hoy vive en una action con sesión. Es un hueco de
+  la regla «todo MaKo por la API». **Vive en:** `lib/api-mako/areas/video.def.ts`.
+- **El chat de MaKo no sabe hacer nada de AI Avatar todavía.** Va fijo a la izquierda (la tarjeta de PantallaCrear), pero no tiene herramientas para elegir un preset ni generar, y la
+  pantalla compartida no le pasa lo que se ve (`pantalla`): lo que se le pide lo reparte el Cerebro como cualquier mensaje. **Vive en:** `app/_chat/MakoEnLaTab.tsx` y el registro de la API.

@@ -112,14 +112,23 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y A
   // AI Avatar: escritorio la cierra con `requireAiAvatar` (sólo el super admin), y el teléfono con la misma pregunta.
   assert.ok(leer('app/m/ai-avatar/puerta.ts').includes('veAiAvatar()'));
   const avatar: Record<string, string> = {
-    'app/m/ai-avatar/page.tsx': 'ai-avatar-crear', 'app/m/ai-avatar/avatares/page.tsx': 'ai-avatar-avatares',
-    'app/m/ai-avatar/voces/page.tsx': 'ai-avatar-voces', 'app/m/ai-avatar/plantillas/page.tsx': 'ai-avatar-plantillas',
+    // Una sola key desde el 29/10/2026 (AI Avatar sin secciones): las de las secciones ya no están en nav.ts, y una puerta con
+    // una key que no existe se cierra para todos sin error.
+    'app/m/ai-avatar/page.tsx': 'ai-avatar', 'app/m/ai-avatar/avatares/page.tsx': 'ai-avatar',
+    'app/m/ai-avatar/voces/page.tsx': 'ai-avatar', 'app/m/ai-avatar/plantillas/page.tsx': 'ai-avatar',
   };
   for (const [p, key] of Object.entries(avatar)) {
     const src = leer(p);
     assert.ok(src.includes(`requireMovil({ navKey: '${key}' })`), `${p}: sin su key`);
     assert.ok(src.includes('await requireAiAvatarM()'), `${p}: sin la puerta del super admin`);
-    assert.ok(src.includes("<CabeceraM titulo=\"AI Avatar\" padre={{ href: RUTA_MAS, label: 'More' }} />"), `${p}: sin su cabecera (no tiene fila)`);
+  }
+  // Desde el 29/10/2026 AI Avatar es UNA pantalla (el estudio de Higgsfield): la base dibuja la cabecera, y las tres
+  // secciones de HeyGen redirigen a ella DESPUÉS de su puerta, con `rutaConWs` (un redirect('/m…') pelado no se traduce).
+  assert.ok(leer('app/m/ai-avatar/page.tsx').includes("<CabeceraM titulo=\"AI Avatar\" padre={{ href: RUTA_MAS, label: 'More' }} />"), 'la base sin su cabecera (no tiene fila)');
+  for (const sub of ['avatares', 'voces', 'plantillas']) {
+    const src = leer(`app/m/ai-avatar/${sub}/page.tsx`);
+    assert.match(src, /redirect\(await rutaConWs\([^;]*\/m\/ai-avatar/, `${sub}: no redirige al estudio`);
+    assert.ok(src.indexOf('await requireAiAvatarM()') < src.indexOf('redirect('), `${sub}: redirige antes de la puerta`);
   }
 });
 
@@ -141,7 +150,8 @@ test('la barra de secciones de cada tab: las de escritorio, con la regla del Sid
   assert.deepEqual(keys(seccionesDeTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
   assert.equal(seccionesDeTabM('copywriting', SUPER).find((s) => s.id === 'admin-copywriting')?.href, '/m/admin/copywriting');
   assert.deepEqual(keys(seccionesDeTabM('copywriting', CLIENTE)), ['ads-writer']);
-  assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas']);
+  // AI Avatar, UNA pantalla desde el 29/10/2026: sin barra de secciones ni para el super admin.
+  assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), []);
   assert.deepEqual(keys(seccionesDeTabM('ai-avatar', CLIENTE)), []);
   // Un closer no ve ninguna (son del admin).
   assert.deepEqual(keys(seccionesDeTabM('copywriting', { adminShell: false, rolWs: 'closer', capa: 'completo' })), []);
@@ -194,12 +204,12 @@ test('abrir una pantalla de AI Avatar no gasta nada: ninguna page llama a lo que
   assert.equal(pages.length, 4);
   for (const p of pages) {
     const src = leer(p);
-    for (const fn of ['crearLookAction', 'crearVideoAction', 'generarTomaAction', 'filmarTomas', 'sumarVozAction']) {
+    for (const fn of ['crearLookAction', 'crearVideoAction', 'generarTomaAction', 'filmarTomas', 'borrarLookAction']) {
       assert.ok(!src.includes(fn), `${p} llama a ${fn}: abrir la pantalla no puede encolar ni gastar`);
     }
   }
   // Y lo que filma lo dispara un toque: «Generar video», con su consecuencia pegada arriba.
-  const crear = leer('app/m/ai-avatar/CrearVideoM.tsx');
+  const crear = leer('app/m/ai-avatar/EstudioM.tsx');
   assert.ok(crear.includes('Cada toma gasta créditos de tu cuenta de Flow.'));
   assert.match(crear, /onClick=\{\(\) => void generar\(\)\}/);
 });

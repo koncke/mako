@@ -25,6 +25,12 @@ import { PLANTILLAS_AVATAR, vozSugerida, CATEGORIAS } from '../lib/ai-avatar/pla
 import { VOCES_GALERIA, ACENTOS_GALERIA } from '../lib/ai-avatar/voces-galeria';
 import { puestaPorId } from '../lib/puestas-data';
 import { RUTA_SUBIDA, rutaDeSubida } from '../lib/flow-interfaz';
+import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
+import { promptDelLook, limpiarDetalle, MAX_DETALLE } from '../lib/ai-avatar/prompt-look';
+import { videosDelLook, haceCuanto, segundosDeGuion, mezclarPorId } from '../lib/ai-avatar/proyectos';
+import { SIN_MOTOR, TONO_CATEGORIA } from '../lib/ai-avatar/estudio';
+import { filtrarPresets, plantillaPorId } from '../lib/ai-avatar/plantillas';
+import type { PlanGuardado } from '../app/video-generator/video-datos';
 
 // Sin los \r de Windows: los cortes buscan '\n}\n', y un checkout con autocrlf no los tiene (17/10, chequeo del Cerebro).
 const ACTIONS = readFileSync(join(process.cwd(), 'app/ai-avatar/actions.ts'), 'utf8').replace(/\r\n/g, '\n');
@@ -74,7 +80,7 @@ test('la ruta del look es una que el puente acepta firmar', () => {
 
 test('toda action de la tab pasa por la puerta antes de hacer nada', () => {
   const nombres = [...ACTIONS.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
-  assert.ok(nombres.length >= 6, 'no encontré las actions');
+  assert.ok(nombres.length >= 5, 'no encontré las actions');
   for (const n of nombres) {
     const i = ACTIONS.indexOf(`export async function ${n}(`);
     const cuerpo = ACTIONS.slice(i, ACTIONS.indexOf('\n}\n', i));
@@ -86,4 +92,135 @@ test('los looks no van al historial del Video Generator', () => {
   const i = ACTIONS.indexOf('export async function crearLookAction(');
   const cuerpo = ACTIONS.slice(i, ACTIONS.indexOf('\n}\n', i));
   assert.doesNotMatch(cuerpo, /guardarEnHistorial/, 'un look en el historial empuja afuera anuncios con clips pagados (tope de 10)');
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// El estudio de Higgsfield (29/10/2026): presets, el ajuste escrito, los proyectos y las piezas sin motor
+// ═════════════════════════════════════════════════════════════════════════════
+// Probado rompiéndolo (29/10/2026): cada rotura dio 18 verdes / 1 rojo, el test que la nombra:
+//   · `puestaId: 'selfie-movimiento'` en «Selfie de iPhone» → «sólo el auto…» (ese prompt GANA ENTERO: saldría en un auto).
+//   · lo escrito pegado a la escena (`promptFinal(prompt + detalle)`) → «lo escrito… AL FINAL» (en el auto se perdía).
+//   · lo escrito como `propio` → «lo escrito… AL FINAL» (se iba la identidad: otra persona).
+//   · `videosDelLook` comparando `item.id` → «los videos de un look».
+//   · `normal()` sin sacar las tildes → «el filtro de presets».
+//   · la pastilla de Formato sin `sinMotor('formato')` → «toda pieza… SE VE».
+//   · (tras montarlo en PantallaCrear) el import de otra pantalla → «el diseño de Create» y crear-pantalla (24/2); usar un
+//     preset que llama a `generar(` → «el diseño de Create» (25/1); la page sin ESTILO_PAGINA_CREAR → ídem (25/1).
+//   · `quitarLook` sin chequear que el id estaba → «borrar… en POSITIVO».
+//   · `mezclarPorId` devolviendo sólo lo del server → «refrescar no se traga…».
+//   · `borrarLookAction` sin `puerta()` → «toda action… pasa por la puerta».
+
+
+const fuenteDe = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8').replace(/\r\n/g, '\n');
+
+test('sólo el auto usa el formato con prompt validado: ese prompt GANA ENTERO sobre la escena del preset', () => {
+  const conValidado = PLANTILLAS_AVATAR.filter((p) => typeof PROMPT_IMAGEN[p.puestaId] === 'string').map((p) => p.id);
+  assert.deepEqual(conValidado, ['auto-testimonio'], 'un preset con el formato del auto saldría en el auto');
+});
+
+test('el catálogo: cada categoría tiene presets, hay «Nuevos», y las ocho de HeyGen siguen', () => {
+  for (const c of CATEGORIAS) assert.ok(PLANTILLAS_AVATAR.some((p) => p.categoria === c), `${c} vacía`);
+  assert.ok(PLANTILLAS_AVATAR.some((p) => p.nuevo), 'sin «Nuevos» el filtro queda vacío');
+  assert.ok(PLANTILLAS_AVATAR.length >= 20, 'la galería de Higgsfield no son ocho temas');
+  for (const c of CATEGORIAS) assert.ok(TONO_CATEGORIA[c], `${c} sin su degradado`);
+  // Un `?plantilla=` viejo tiene que seguir abriendo.
+  for (const id of ['auto-testimonio', 'oficina-presentador', 'cocina-producto', 'espejo-resultado', 'podcast-experto', 'escritorio-demo', 'calle-promo', 'cafe-un-dia']) {
+    assert.ok(plantillaPorId(id), `${id} desapareció`);
+  }
+});
+
+test('lo escrito en la barra va AL FINAL: sobrevive al prompt validado y no reemplaza la identidad', () => {
+  const auto = plantillaPorId('auto-testimonio')!;
+  const conAuto = promptDelLook(auto, 'con una campera roja');
+  assert.ok(conAuto.startsWith(PROMPT_IMAGEN['selfie-movimiento'].slice(0, 60)), 'el prompt validado del auto se perdió');
+  assert.match(conAuto, /con una campera roja$/, 'lo escrito se perdió en el preset con prompt validado');
+  const oficina = plantillaPorId('oficina-presentador')!;
+  const conOficina = promptDelLook(oficina, 'de noche');
+  assert.ok(conOficina.includes(oficina.prompt), 'la escena del preset se perdió');
+  assert.match(conOficina, /de noche$/);
+  // La identidad sigue: el bloque de la cara viaja igual con y sin lo escrito.
+  const sin = promptDelLook(oficina, '');
+  assert.ok(conOficina.startsWith(sin), 'lo escrito cambió el prompt de base (¿entró como `propio`?)');
+  assert.ok(sin.length > oficina.prompt.length + 50, 'sin el bloque de identidad, luz y realismo');
+});
+
+test('limpiar lo escrito: sin saltos, sin espacios de más, con tope', () => {
+  assert.equal(limpiarDetalle('  hola\n\n  mundo  '), 'hola mundo');
+  assert.equal(limpiarDetalle(undefined), '');
+  assert.equal(limpiarDetalle('x'.repeat(MAX_DETALLE + 50)).length, MAX_DETALLE);
+});
+
+test('los videos de un look: se cruzan por el mediaId de la imagen, del más nuevo al más viejo', () => {
+  const plan = (id: string, elegidaId: string, at: string, urls: string[]): PlanGuardado => ({
+    id, pedido: `guion ${id}`, at,
+    plan: { clips: urls.map((_, i) => ({ n: i + 1 })) } as unknown as PlanGuardado['plan'],
+    imagenes: { '1': { elegida: 'u', elegidaId, confirmada: true } } as unknown as PlanGuardado['imagenes'],
+    video: Object.fromEntries(urls.map((u, i) => [String(i + 1), u ? { url: u } : {}])) as unknown as PlanGuardado['video'],
+  } as PlanGuardado);
+  const h = [plan('a', 'med-1', '2026-10-28T10:00:00Z', ['v1', '']), plan('b', 'med-2', '2026-10-29T10:00:00Z', ['x']), plan('c', 'med-1', '2026-10-29T12:00:00Z', ['', ''])];
+  const v = videosDelLook(h, 'med-1');
+  assert.deepEqual(v.map((x) => x.planId), ['c', 'a']);
+  assert.deepEqual([v[1].tomas, v[1].listas, v[1].url], [2, 1, 'v1']);
+  assert.deepEqual(videosDelLook(h, ''), [], 'un look sin mediaId no tiene videos');
+});
+
+test('el filtro de presets: categoría, «Nuevos» y buscar sin tildes', () => {
+  assert.ok(filtrarPresets('Cámara', '').every((p) => p.categoria === 'Cámara'));
+  assert.ok(filtrarPresets('Nuevos', '').every((p) => p.nuevo));
+  assert.ok(filtrarPresets(null, 'camara').some((p) => p.categoria === 'Cámara'), 'buscar sin tildes');
+  assert.ok(filtrarPresets(null, 'LLUVIA').some((p) => p.id === 'dia-lluvia'));
+  assert.equal(filtrarPresets(null, '').length, PLANTILLAS_AVATAR.length);
+});
+
+test('los rótulos de los proyectos: hace cuánto y cuánto dura un guion', () => {
+  const ahora = Date.parse('2026-10-29T12:00:00Z');
+  assert.equal(haceCuanto('2026-10-29T11:55:00Z', ahora), 'hace 5 min');
+  assert.equal(haceCuanto('2026-10-29T09:00:00Z', ahora), 'hace 3 h');
+  assert.equal(haceCuanto('2026-10-28T10:00:00Z', ahora), 'ayer');
+  assert.equal(haceCuanto('basura', ahora), '');
+  assert.equal(segundosDeGuion('uno dos tres cuatro'), 2);
+  assert.equal(segundosDeGuion('   '), 0);
+});
+
+test('toda pieza de Higgsfield sin motor SE VE y dice en una línea que no está', () => {
+  for (const [k, t] of Object.entries(SIN_MOTOR)) assert.match(t, /no disponible todavía/, `${k}: «${t}»`);
+  const escritorio = fuenteDe('app/ai-avatar/Estudio.tsx');
+  for (const k of Object.keys(SIN_MOTOR)) {
+    assert.ok(escritorio.includes(`sinMotor('${k}')`) || escritorio.includes(`SIN_MOTOR.${k}`), `escritorio no muestra «${k}»`);
+  }
+  const telefono = fuenteDe('app/m/ai-avatar/EstudioM.tsx');
+  for (const k of ['modelo', 'formato', 'cantidad', 'voz', 'movimiento', 'personaje']) {
+    assert.ok(telefono.includes(`SIN_MOTOR.${k}`) || telefono.includes(`['${k}',`), `el teléfono no muestra «${k}»`);
+  }
+});
+
+test('el diseño de Create: monta la pantalla única (chat de MaKo fijo y proyectos), sin secciones y sin onboarding', () => {
+  const escritorio = fuenteDe('app/ai-avatar/Estudio.tsx');
+  // El marco es el de todas las tabs de Create (app/_crear/PantallaCrear.tsx): no uno propio, ni la estrella que se cierra.
+  assert.match(escritorio, /import \{ PantallaCrear, type PlantillaCrear, type ProyectoCrear \} from '@\/app\/_crear\/PantallaCrear';/);
+  assert.match(escritorio, /<PantallaCrear tab="AI Avatar" nuevo="Nuevo avatar" proyectos=\{proyectos\}/, 'sin la pantalla de Create');
+  assert.doesNotMatch(escritorio, /MakoEnLaTab/, 'un chat propio en vez de la tarjeta de Create');
+  assert.ok(escritorio.includes('¿Qué vas a crear hoy?'), 'el estudio sin su título');
+  // Usar un preset de «Nuevo avatar» lo pone en la barra: NO genera solo (falta la foto, y generar es con el botón).
+  const usar = escritorio.slice(escritorio.indexOf('onPlantilla={'), escritorio.indexOf('ejemplos={EJEMPLOS}'));
+  assert.doesNotMatch(usar, /generar\(|crearLookAction/, 'usar un preset genera sin que nadie apriete Generar');
+  assert.match(fuenteDe('app/ai-avatar/page.tsx'), /style=\{ESTILO_PAGINA_CREAR\}/, 'la página sin el alto de Create');
+  assert.ok(!fuenteDe('app/m/ai-avatar/page.tsx').includes('SeccionesTabM'), 'el teléfono con la barra de secciones');
+  for (const sub of ['avatares', 'voces', 'plantillas']) {
+    assert.match(fuenteDe(`app/ai-avatar/${sub}/page.tsx`), /redirect\(await rutaConWs\(/, `/ai-avatar/${sub} no redirige`);
+  }
+});
+
+test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo si estaba', () => {
+  const looks = fuenteDe('app/ai-avatar/looks.ts');
+  const i = looks.indexOf('export async function quitarLook(');
+  const cuerpo = looks.slice(i, looks.indexOf('\n}\n', i));
+  assert.match(cuerpo, /getSettingEstricto\(KEY_LOOKS\)/, 'lee sin estricto: un error de lectura borraría todo');
+  assert.match(cuerpo, /if \(!id \|\| !actual\.some\(\(l\) => l\.id === id\)\) return false;/, 'escribe sin chequear que el id estaba');
+  assert.match(cuerpo, /actual\.filter\(\(l\) => l\.id !== id\)/);
+});
+
+test('refrescar no se traga lo recién creado: el server gana en cada id y lo nuevo local queda arriba', () => {
+  const r = mezclarPorId([{ id: 'nuevo', v: 1 }, { id: 'a', v: 1 }], [{ id: 'a', v: 2 }, { id: 'b', v: 2 }]);
+  assert.deepEqual(r, [{ id: 'nuevo', v: 1 }, { id: 'a', v: 2 }, { id: 'b', v: 2 }]);
 });
