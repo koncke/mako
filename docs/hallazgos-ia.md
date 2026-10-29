@@ -7324,3 +7324,24 @@ que falte el autor en la memoria.
 - La app y los gráficos siguen con la persona y el núcleo de siempre (lib/mako-turno-app.ts): no se tocó MAKO_NUCLEO.
 - ⚠️ NUCLEO_GRUPO no nombra la marca `[[ya-pedido]]`: todavía no existe, y el modelo la escribiría y le llegaría al cliente.
   Entra con F2b (los tickets del negocio en el system).
+
+## El clasificador del grupo va con Haiku, sin razonamiento en la salida y sin forzar la herramienta (29/10/2026, claude3)
+
+**Vive en:** `lib/mako-intencion-ia.ts` (`SYSTEM_DE_CLASE`, `leerClase`) · `lib/mako-doer-in.ts` (`clasificadorDelGrupo`) ·
+`lib/veto-claude.ts` (`evaluarClaveDelNegocio`)
+
+- **Qué modelo corre:** primero el Claude del negocio, si tiene (`soloSuClaude`); si no, el crédito de los grupos
+  (`cuentaDeLosGrupos`), y el veto le da Haiku 4.5 (`modelos[0]`). Martín, 29/10: «Sigue Haiku. No toques el veto». Lo que se
+  mide en el banco es Haiku.
+- ⚠️ **Sin un campo de razonamiento en la salida.** En la familia 5.x, pedir `reasoning` o `<thinking>` en el texto puede volver
+  como `stop_reason: refusal` con HTTP 200 (categoría `reasoning_extraction`): parece un éxito y no trae clase. El esquema es
+  `{clase, resumen, reenviado, secundaria, negocio}` y el porqué lo arma el código.
+- ⚠️ **Nada de `tool_choice: any`/`tool` para forzar el JSON:** da 400 en Opus 5.5, Sonnet 5.5 y Fable 5.1 (y el prefill, en toda la
+  familia 4.6+). La salida se lee buscando el primer objeto JSON; lo que no se puede leer es null, nunca una clase por default, y
+  mandan las reglas.
+- **Gasto medido en el banco (29/10, 66 llamadas):** ~2.000 tokens de entrada y ~67 de salida por mensaje = US$0,0023 por mensaje
+  clasificado. Con lo que llega hoy a los grupos (49 turnos en 6,9 días, ~7 por día) son ~US$0,02 por día; a 100 mensajes por día,
+  ~US$0,23. El turno que contesta una PREGUNTA o una ACCIÓN es aparte (el de siempre).
+- **Dato para decidir, no se cambió:** Haiku 5.5 (`claude-haiku-5-5`) cuesta US$0,10 / US$0,50 por millón de tokens, diez veces menos
+  que Haiku 4.5 (US$1 / US$5), pero viene con el razonamiento adaptativo prendido (habría que medirlo en el banco antes). Cambiarlo
+  es tocar el veto: es de Martín.

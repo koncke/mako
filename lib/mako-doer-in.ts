@@ -63,13 +63,15 @@ import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { conElReenvio, esReenviado } from '@/lib/doer-reenvio';
 import { clasificarConIA, type LlamarAlClasificador } from '@/lib/mako-intencion-ia';
 import { abrirTicketDelGrupo, respuestaDelTicket } from '@/lib/tickets-del-grupo';
+import { delegaLaAccion, esAccionSimple, negocioLeido, respuestaDeLaDelegacion, respuestaDelDebug } from '@/lib/despacho-grupo';
+import { hechosDelDiagnostico } from '@/lib/diagnostico-negocio';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro, type VeredictoIntencion } from '@/lib/mako-intencion';
-import { aFormatoWhatsapp, conMarcaDeTicket, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, sinMuletillas, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
+import { aFormatoWhatsapp, conMarcaDeTicket, numerosSinFuente, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, sinMuletillas, promesasDe, SANEO_HECHO, SIN_EL_DATO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
@@ -361,6 +363,20 @@ function hoyLegible(tz: string): string {
     return new Date().toISOString();
   }
 }
+
+/**
+ * LA VOZ DE UNA CONSULTA (29/10/2026, la clase PREGUNTA o DEBUG que decidió la IA, lib/mako-intencion-ia.ts): corta, para Haiku. El turno
+ * sólo lee (no viaja ninguna escritura), así que no lleva lo de proponer ni lo de confirmar. Lo que importa de verdad lo chequea el
+ * código al salir (`sanearSalida`, `sinLoQueMaKoNoDice`, `sinMuletillas`, `numerosSinFuente`): una regla sólo en el prompt no es regla.
+ */
+const VOZ_DE_LA_CONSULTA = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo) y te hicieron una PREGUNTA. Ves el HISTORIAL: úsalo.
+
+CÓMO CONTESTAS:
+- Primero MIRA con tus herramientas lo que te preguntan; después contesta con lo que viste. Nada de lo que crees saber.
+- En pocas líneas, en español neutro (tú). Sin saludo, sin «buena pregunta», sin «te voy a ser directo», sin agradecer.
+- Si no lo pudiste ver, dilo en una línea y pon la marca [[no-pude: lo que no pudiste ver]]. ⛔ No inventes números, nombres ni fechas.
+- ⛔ No prometas volver con el dato: tu respuesta es el final del turno.
+- ⛔ No indiques borrar datos, ni afirmes cómo funciona algo de MaKo que no leíste, ni el estado de una integración que no miraste.`;
 
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
@@ -1735,6 +1751,38 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         if (c && !faltasDelTurno.includes(c.key)) faltasDelTurno.push(c.key);
       },
     };
+    // ── EL DEBUG LO DELEGA EL CÓDIGO AL CEREBRO, CON LA EVIDENCIA (29/10/2026, lib/diagnostico-negocio.ts) ────────────────────────
+    // Martín reenvió la consulta de un cliente («pegué el token del pixel… conectar Facebook no me hace nada») y MaKo le contestó a ÉL
+    // un consejo genérico. Ahora: se mira ESE negocio con `diagnosticar_negocio`, el ticket va al Cerebro con lo leído entero, y en el
+    // grupo quedan el número y 2 o 3 hechos. Sin saber de qué negocio es (o con más de uno), se pregunta. Ningún texto del modelo.
+    if (intencion.intencion === 'debug') {
+      const pedidoNegocio = claseDeLaIA?.negocio?.trim() ?? '';
+      let crudo = '';
+      let leido: Record<string, unknown> | null = null;
+      let ticket: number | null | undefined;
+      if (pedidoNegocio) {
+        const run = (await import('@/lib/api-mako/areas/operaciones.run')).RUNNERS[DIAGNOSTICAR_NEGOCIO];
+        const salida = run && 'leer' in run ? await run.leer({ negocio: pedidoNegocio }, ctxApi).catch(() => null) : null;
+        crudo = salida == null ? '' : typeof salida === 'string' ? salida : salida.content;
+        try { leido = JSON.parse(crudo) as Record<string, unknown>; } catch { leido = null; }
+        const nombre = negocioLeido(leido);
+        if (nombre) {
+          const abierto = await abrirTicketDelGrupo({
+            ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+            resumen: claseDeLaIA?.resumen || `Debug de ${nombre}`, pedido: sinPrefijoDeLote(texto),
+            ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
+            clasificacion: { clase: 'DEBUG', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' }, evidencia: crudo,
+          }).catch(() => null);
+          ticket = abierto?.id ?? null;
+        }
+      }
+      const dicho = respuestaDelDebug({ pedido: pedidoNegocio, leido, crudo, hechos: hechosDelDiagnostico(leido), ticket });
+      const env = await enviarAGrupoJid(jid, dicho);
+      if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
+      await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
+      return { engaged: true, reply: dicho };
+    }
     // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
     // Viaja donde viajan las acciones (en una pregunta MaKo ofrece, en `capturar` no), lo decide `herramientasDelTurno`.
     const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS, ...CAPACIDADES_TOOLS];
@@ -1779,7 +1827,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const conFuncion = pideFuncion && !conAgenda.some((t) => t.name === MIS_TICKETS) ? [...conAgenda, ...MIS_TICKETS_TOOLS] : conAgenda;
     // La clase que decidió la IA (29/10/2026): una PREGUNTA o un DEBUG sólo con lecturas, y el DEBUG con la que mira OTRO negocio.
     const soloLeer = intencion.fuente === 'ia' && ['consultar', 'pensar', 'debug'].includes(intencion.intencion);
-    const leidas = soloLeer ? conFuncion.filter((t) => !escribe(t.name)) : conFuncion;
+    // Una ACCIÓN que decidió la IA (lib/despacho-grupo.ts): las lecturas y las escrituras SIMPLES, nada más. Lo otro se delega.
+    const esAccionIA = intencion.fuente === 'ia' && (intencion.intencion === 'actuar' || intencion.intencion === 'capturar');
+    const leidas = soloLeer ? conFuncion.filter((t) => !escribe(t.name))
+      : esAccionIA ? conFuncion.filter((t) => !escribe(t.name) || esAccionSimple(t.name)) : conFuncion;
     const tools = intencion.intencion === 'debug' && !leidas.some((t) => t.name === DIAGNOSTICAR_NEGOCIO) ? [...leidas, ...DIAGNOSTICO_TOOLS] : leidas;
     const { ofrece } = turno;
     const ctxFalla = (reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '')
@@ -1851,7 +1902,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Lo que no existe y lo que no pudo llevan su marca, y el ticket lo abre el código (lib/no-existe.ts, lib/no-pude.ts). Sólo
       // con herramientas: la regla las nombra, y un turno sin tools no puede oír hablar de ellas (DOER_WA_VOZ).
       const reglaDeLasMarcas = tools.length ? `\n\n${REGLA_NO_EXISTE}` : '';
-      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${reglaDeLasMarcas}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxFalla}${conMemoria}`;
+      return `${baseDelSystem}\n\n${soloLeer ? VOZ_DE_LA_CONSULTA : DOER_WA_VOZ}${bloqueTools}${reglaDeLasMarcas}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxFalla}${conMemoria}`;
     };
     const system = armarSystem(tools);
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
@@ -1967,6 +2018,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     let escribioDelTurno = 0;
     /** Si corrió una LECTURA: «Juan ya quedó agendado para el lunes» puede ser lo que leyó, y el saneo del grupo lo deja. */
     let leyoDelTurno = false;
+    /** Lo que devolvieron las herramientas del turno, como texto: con esto (y el system y el mensaje) se chequean los números de una
+     *  consulta (`numerosSinFuente`). */
+    const salidasDelTurno: string[] = [];
+    const anotarSalida = (out: unknown): void => { salidasDelTurno.push(typeof out === 'string' ? out : JSON.stringify(out ?? '')); };
     /**
      * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
      * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
@@ -1991,6 +2046,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
         // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
         anotarLaUltima(name, previo.out);
+        anotarSalida(previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
       const correr = async () => (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
@@ -2002,6 +2058,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // `errorParaTicket`, y la guarda de antes quedaba como «la última» y le comía el ticket al «no pude». Se cuenta como tragada.
       const out = await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadasDelTurno++; throw e; });
       memo.anotar(name, out);
+      anotarSalida(out);
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
@@ -2799,6 +2856,30 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // en la respuesta, lo escribe el código. Ver conLinksDeAccion.
     respuesta = conLinksDeAccion(respuesta, [...linksAccion]);
 
+    // ── LA ACCIÓN QUE MaKo NO HIZO SE DELEGA (29/10/2026, Martín: «se la delega al Ops Center, al cerebro»; lib/despacho-grupo.ts) ──
+    // El turno de una ACCIÓN viaja sólo con las escrituras simples. Si terminó sin proponer ni hacer ninguna, y no está preguntando un
+    // dato que falta, su texto no sale: el pedido va a la Ticketera como «pedido delegado» y el Cerebro elige quién lo hace. Con una
+    // marca de ticket, un error de herramienta o una conexión que falta, no: eso ya tiene su camino (y su línea).
+    let textoFijo = false;
+    if (esAccionIA && respuesta && !avisoDeSistema && !conMarcaDeTicket(respuesta) && !erroresDelTurno.length && !faltasDelTurno.length
+      && delegaLaAccion({
+        propuso: propuestasDelTurno.size > 0 || !!linkBorrador || !!linkLead || linksAccion.size > 0, escribio: escribioDelTurno > 0, respuesta,
+        // Lo que dice HECHO sin respaldo, con la misma red del saneo del grupo (sin contar la lectura como respaldo).
+        leyo: leyoDelTurno, afirmaHecho: (sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, enElGrupo: { respaldado: false, propuesto: false, leyo: false } }).sinRespaldo ?? []).length > 0,
+      })) {
+      const abierto = await abrirTicketDelGrupo({
+        ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+        resumen: claseDeLaIA?.resumen || sinPrefijoDeLote(texto).slice(0, 120), pedido: sinPrefijoDeLote(texto),
+        ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
+        clasificacion: { clase: 'ACCION', porque: intencion.porque, fuente: 'ia' }, delegado: true,
+      }).catch(() => null);
+      if (abierto) {
+        void recordUsage('clase-doer', 'clase:delegada', {}, `ws${wsData} · pedido #${abierto.id} · ${tools.length} tools · ${corridasDelTurno} corridas`.slice(0, 200), 'mako', 1).catch(() => {});
+        respuesta = respuestaDeLaDelegacion(abierto.id, claseDeLaIA?.resumen ?? '');
+        textoFijo = true;
+      }
+    }
+
     /**
      * ⚠️ LO QUE NO SALE AL GRUPO: una promesa que el turno no cumplió y una grosería (lib/doer-salida.ts).
      *
@@ -2809,7 +2890,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * Lo que se saca queda en el Saldo de IA como una fila de US$0 (el molde de `cartel-ia`): es lo que lee el vigía
      * (scripts/vigia-mako-grupos.mts), porque al historial va la respuesta ya saneada.
      */
-    if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
+    if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead && !textoFijo) {
       // `finDeTurno`: con herramientas corridas, lo ÚLTIMO de la respuesta tampoco promete un después («Lo analizo y en
       // breves te digo qué cambiar»): la espera la dice el código, antes y sólo si lleva tiempo (24/10/2026).
       const saneo = sanearSalida(respuesta, {
@@ -2847,9 +2928,20 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         respuesta = sinRelleno.texto ?? '';
         if (!respuesta) return { engaged: true, skip: 'era todo relleno: la reacción alcanza' };
       }
+      // UN NÚMERO QUE NO VIO (29/10/2026; lib/doer-salida.ts, `numerosSinFuente`): una consulta no afirma una cantidad, un monto ni una
+      // fecha que no esté en lo que recibió (el system, el mensaje, el historial, lo que devolvieron sus herramientas). Con una imagen
+      // que el modelo leyó directo no se chequea: sus números no están en ningún texto.
+      if (soloLeer && !mediaBlocks) {
+        const fuentes = [system, texto, leidoDelAdjunto, ...historial.map((r) => (typeof r.content === 'string' ? r.content : '')), ...salidasDelTurno, ...paraLaPersona];
+        const inventados = numerosSinFuente(respuesta, fuentes);
+        if (inventados.length) {
+          void recordUsage('saneo-doer', 'saneo:inventado', {}, `ws${wsData} · ${intencion.intencion} · ${inventados.slice(0, 6).join(', ')}`.slice(0, 200), 'mako', 1).catch(() => {});
+          respuesta = `${SIN_EL_DATO}\n[[no-pude: ${queNoSupo(pedidoDelTicket, 'el dato que pidió')}]]`;
+        }
+      }
     }
     // El mensaje era para alguien del equipo: le tiene que llegar. Sin una marca del modelo, la del código (ver `paraElEquipo`).
-    if (paraElEquipo && respuesta && !avisoDeSistema && !linkBorrador && !linkLead && !conMarcaDeTicket(respuesta)) {
+    if (paraElEquipo && respuesta && !avisoDeSistema && !linkBorrador && !linkLead && !textoFijo && !conMarcaDeTicket(respuesta)) {
       respuesta = `${respuesta}\n[[no-pude: ${queNoSupo(pedidoDelTicket, `lo que le escribió a ${paraElEquipo.nombre}, del equipo de MaKo`)}]]`;
     }
     // WhatsApp no es Markdown (F1): `**x**` llegaba con los asteriscos a la vista (6 respuestas del 21 al 28/10) y los `##`, igual.

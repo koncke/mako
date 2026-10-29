@@ -14,6 +14,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 import { crearTicket, identidadDelActor, sumarAlPedidoDelNegocio } from './tickets-db';
+import { WS_CON_CUIDADO } from './despacho-grupo';
 
 export type TicketDelGrupo = {
   ws: number;
@@ -29,6 +30,11 @@ export type TicketDelGrupo = {
   /** Lo último que dijo MaKo en el grupo: si nombra un ticket, esto es la continuación de ése. */
   ultimoDeMaKo: string | null;
   clasificacion: { clase: string; porque: string; fuente: string };
+  /** Una ACCIÓN que MaKo no hace sola y DELEGA al Cerebro (lib/despacho-grupo.ts): es un «pedido», y el Runner se lo lleva como
+   *  «Pedido delegado #N». */
+  delegado?: boolean;
+  /** Lo que MaKo ya leyó para el DEBUG (`diagnosticar_negocio`): la evidencia, para que el Cerebro no tenga que volver a mirarlo. */
+  evidencia?: string;
 };
 
 export type TicketAbierto = { id: number; sumado: boolean };
@@ -49,7 +55,8 @@ export function respuestaDelTicket(t: TicketAbierto, resumen: string): string {
 
 /** Abre el ticket (o lo suma al que MaKo acaba de nombrar). null si no se pudo: quien llama lo dice, no inventa un número. */
 export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbierto | null> {
-  const previo = ticketQueAcabaDeNombrar(t.ultimoDeMaKo);
+  // Un pedido delegado es otra cosa que el ticket recién nombrado: no se suma.
+  const previo = t.delegado ? null : ticketQueAcabaDeNombrar(t.ultimoDeMaKo);
   if (previo && (await sumarAlPedidoDelNegocio(t.ws, previo, `${t.pedido}\n\n(lo sumó MaKo: ${t.clasificacion.porque})`).catch(() => false))) {
     return { id: previo, sumado: true };
   }
@@ -57,14 +64,18 @@ export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbie
   if (!identidad) return null;
   const titulo = t.resumen.trim() || t.pedido.trim().slice(0, 120);
   const descripcion = [
+    t.delegado ? 'ACCIÓN DELEGADA: la pidieron en el grupo y MaKo no la hace sola (no es una de sus escrituras simples). Elige el jefe, el modelo y el esfuerzo; al terminar, cierra el ticket con la respuesta: qué quedó hecho y el link de MaKo donde verlo (le llega al grupo).' : '',
+    t.ws === WS_CON_CUIDADO ? '⚠️ Es del ws1 (Mauricio): se ejecuta con el cuidado del ws1.' : '',
     `Lo que escribió en el grupo de WhatsApp, tal cual: «${t.pedido.trim().slice(0, 2500)}»`,
     t.ultimoDeMaKo ? `Lo que MaKo había dicho justo antes: «${t.ultimoDeMaKo.trim().slice(0, 800)}»` : '',
-    `Por qué es un ticket: ${t.clasificacion.porque}`,
+    t.evidencia ? `Lo que MaKo ya miró (diagnosticar_negocio):\n${t.evidencia.slice(0, 3000)}` : '',
+    `Por qué ${t.delegado ? 'se delega' : 'es un ticket'}: ${t.clasificacion.porque}`,
   ].filter(Boolean).join('\n\n');
-  const ref = `wa:${t.ws}:${createHash('sha256').update(`${t.jid}|${t.msgId}`).digest('hex').slice(0, 16)}`;
+  // El pedido delegado lleva su propia referencia: el mismo mensaje puede dejar además un ticket (la secundaria TICKET).
+  const ref = `wa:${t.ws}:${createHash('sha256').update(`${t.jid}|${t.msgId}${t.delegado ? '|delegado' : ''}`).digest('hex').slice(0, 16)}`;
   const creado = await crearTicket({
-    identidad, tipo: null, declaradoPor: 'persona', titulo, descripcion, canal: 'whatsapp', ref,
-    contexto: { superficie: 'whatsapp', pedido: t.pedido.slice(0, 1000), clasificacion: t.clasificacion },
+    identidad, tipo: t.delegado ? 'pedido' : null, declaradoPor: 'persona', titulo, descripcion, canal: 'whatsapp', ref,
+    contexto: { superficie: 'whatsapp', pedido: t.pedido.slice(0, 1000), clasificacion: t.clasificacion, ...(t.delegado ? { delegado: true } : {}) },
   }).catch(() => null);
   if (!creado || !creado.ok) return null;
   return { id: creado.id, sumado: false };

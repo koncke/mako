@@ -28,8 +28,12 @@ import { esSoloUnPedidoAMaKo } from '../lib/doer-equipo';
 import { clasificarConIA, type ClaseDelModelo, type EntradaDeClase } from '../lib/mako-intencion-ia';
 
 type Caso = {
-  id: string; ws: number; texto: string; historial: Array<{ rol: 'persona' | 'mako' | 'equipo'; texto: string }>; quien?: string | null;
+  // ⚠️ `ws` viene como TEXTO en el fixture («9»): se compara con `Number(c.ws)`. La primera corrida con Haiku (29/10) lo comparaba con
+  // el número y el grupo de SuperAdmin entraba como el de un cliente (el DEBUG de conv:1710 salía negado).
+  id: string; ws: number | string; texto: string; historial: Array<{ rol: 'persona' | 'mako' | 'equipo'; texto: string }>; quien?: string | null;
   reenviado: boolean; pendiente?: boolean; preguntaDelEquipo?: string | null; clase: string; tambien: string[]; derivado?: boolean; dificil?: boolean;
+  /** Las @menciones de WhatsApp (mentionedJid). Sin el campo, se toman del texto; los @ de Instagram de un informe no lo son. */
+  menciones?: string[];
 };
 const CLASES_ORO = ['PREGUNTA', 'ACCION', 'TICKET', 'DEBUG', 'CHARLA', 'OTRO'] as const;
 
@@ -64,7 +68,10 @@ const ESCRIBE = new Set(['ACCION']);
 let tokensIn = 0;
 let tokensOut = 0;
 let llamadas = 0;
+/** El TOPE: una llamada por caso y por corrida, nunca más (con `max_tokens` 200, la corrida entera de Haiku cuesta centavos). */
+const TOPE_LLAMADAS = casos.length * CORRIDAS;
 async function llamar(system: string, usuario: string): Promise<string> {
+  if (llamadas >= TOPE_LLAMADAS) throw new Error(`tope de ${TOPE_LLAMADAS} llamadas`);
   llamadas++;
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -88,7 +95,7 @@ for (const c of casos) {
   const propio = sinPrefijoDeLote(c.texto);
   const base = { id: c.id, oro: c.clase, tambien: c.tambien ?? [], retenido: retenido(c.id), dificil: !!c.dificil, derivado: !!c.derivado };
   // 1. La capa 0, por código.
-  const otro = noEsParaMaKo({ texto: propio, menciones: [...propio.matchAll(/@(\w+)/g)].map((m) => m[1]), nombraAMaKo: /\bmako\b/i.test(propio), makoPregunto: false, hayPendientes: !!c.pendiente });
+  const otro = noEsParaMaKo({ texto: propio, menciones: c.menciones ?? [...propio.matchAll(/@(\w+)/g)].map((m) => m[1]), nombraAMaKo: /\bmako\b/i.test(propio), makoPregunto: false, hayPendientes: !!c.pendiente });
   if (c.preguntaDelEquipo && !esSoloUnPedidoAMaKo(propio)) { filas.push({ ...base, pred: ['OTRO'], capa: '0', clase: null, reglas: 'respuesta al equipo' }); continue; }
   if (otro === 'a-otro') { filas.push({ ...base, pred: ['OTRO'], capa: '0', clase: null, reglas: 'a-otro' }); continue; }
   if (otro === 'acuse') { filas.push({ ...base, pred: ['CHARLA'], capa: '0', clase: null, reglas: 'acuse' }); continue; }
@@ -97,7 +104,7 @@ for (const c of casos) {
   if (SIN_IA) { filas.push({ ...base, pred: [aOro(reglas)], capa: 'reglas', clase: null, reglas: `${reglas.intencion}${reglas.dudosa ? '?' : ''}` }); continue; }
   // 3. La IA, con el contexto del turno.
   const entrada: EntradaDeClase = {
-    texto, historial: c.historial ?? [], esSuperAdmin: c.ws === 9, escribeElDueno: c.ws === 9, pendiente: !!c.pendiente,
+    texto, historial: c.historial ?? [], esSuperAdmin: Number(c.ws) === 9, escribeElDueno: Number(c.ws) === 9, pendiente: !!c.pendiente,
     preguntaDelEquipo: c.preguntaDelEquipo ?? null, quien: c.quien ?? null,
   };
   const pred: string[] = [];

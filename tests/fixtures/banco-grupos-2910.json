@@ -1647,7 +1647,8 @@
     "afirma_producto",
     "inventa"
    ],
-   "dificil": true
+   "dificil": true,
+   "menciones": []
   },
   {
    "id": "conv:1687",
@@ -1831,7 +1832,8 @@
     "inventa",
     "borrar"
    ],
-   "dificil": true
+   "dificil": true,
+   "menciones": []
   },
   {
    "id": "conv:1701",
@@ -2771,5 +2773,5 @@
    "deDonde": "plataforma"
   }
  ],
- "nota": "Las clases a mano (29/10/2026, el chat MaKo en WhatsApp). dificil: reenviados, varios temas, quejas con carga emocional, lo del equipo, la frontera PREGUNTA/TICKET. derivado: armado desde un hecho real de la semana (deDonde) para medir DEBUG; va aparte del 95 %. Teléfonos y emails, tapados. Lo arma el script del banco (scripts/banco-clases.mts lo lee)."
+ "nota": "Las clases a mano (29/10/2026, el chat MaKo en WhatsApp). dificil: reenviados, varios temas, quejas con carga emocional, lo del equipo, la frontera PREGUNTA/TICKET. derivado: armado desde un hecho real de la semana (deDonde) para medir DEBUG; va aparte del 95 %. Teléfonos y emails, tapados. Lo arma el script del banco (scripts/banco-clases.mts lo lee). menciones: las @menciones de WhatsApp del mensaje (mentionedJid); sin el campo, el banco las toma del texto. En conv:1681 y conv:1699 van vacías a propósito: los @ del texto son cuentas de Instagram de los comentarios de prueba, no menciones (29/10, la primera corrida con Haiku las tomaba por «a otro»)."
 }

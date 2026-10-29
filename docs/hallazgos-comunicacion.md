@@ -11925,3 +11925,56 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
   califican respuestas reales y se mide qué pesa. Se mide con un banco de casos sacado de las conversaciones.
 - **Sin hacer (al 28/10):** todo, por tandas, en el chat «MaKo en WhatsApp». El informe completo, con el banco de casos y los 8
   peores ejemplos, está en C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md.
+
+## MaKo en el grupo pasa a ser un DESPACHANTE: la clase la decide la IA y la respuesta de un ticket la escribe el código (29/10/2026, claude3, el pedido de Martín)
+
+**Vive en:** `lib/mako-intencion-ia.ts` (la clase) · `lib/despacho-grupo.ts` (qué hace sola y qué delega) · `lib/tickets-del-grupo.ts` ·
+`lib/doer-salida.ts` (`numerosSinFuente`, `sinMuletillas`) · `lib/mako-doer-in.ts` (`procesarDoer`) · el banco:
+`tests/fixtures/banco-grupos-2910.json` + `scripts/banco-clases.mts`
+
+- **El síntoma:** Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp… Que sepa cuándo es un ticket,
+  cuándo es una pregunta, o una acción dentro de MaKo». Casos del ws9: un Reel que no leyó (1687), la consulta reenviada de un
+  cliente contestada a Martín con un consejo genérico (1710), y «Corrige todo esto» contestado con relleno («Seamos honestos…»,
+  1712).
+- **Medido:** las reglas de `clasificarIntencion` acertaban 49 de 76 mensajes reales (64 %), y TICKET 0 de 11: un reporte («no me
+  deja editar el monto», «probamos la 680 y no manda el DM») caía en el mismo «capturar» dudoso que un pedido. Con la IA (Haiku 4.5)
+  sobre todo lo que pasa la capa 0: **75 de 76 (99 %)**, el 40 % retenido 31/31, los difíciles 22/24 y TICKET 10/11. Quedan 2
+  escrituras en la clase equivocada: «Corrige todo esto» (conv:1712, salió ACCIÓN+TICKET; en la primera corrida había salido bien)
+  y un derivado.
+- ⚠️ **La primera corrida dio 89 %, y dos de sus ocho errores eran del BANCO, no de MaKo:** el `ws` del fixture es TEXTO («9») y
+  se comparaba con el número, así que el grupo de SuperAdmin entraba como el de un cliente (el DEBUG de 1710 salía negado); y los
+  @ del texto se tomaban como menciones de WhatsApp, cuando en los informes de Leandro son cuentas de Instagram («@aliensfilms»):
+  la capa 0 los tiraba como «a otro» antes de la IA. En producción las menciones salen de `mentionedJid`. **Un error del banco se
+  ve igual que un error del clasificador: antes de tocar el prompt, mirar qué le llegó al modelo.**
+- ⚠️ **El diagnóstico obvio (un prompt mejor) no alcanzaba.** El prompt ya decía «no inventes», «no prometas», «sin muletillas», y
+  el modelo lo hacía igual. Lo que lo frenó fue sacarle la respuesta al modelo donde no hace falta: TICKET, DEBUG y la acción
+  delegada salen con texto FIJO y el número del ticket que escribe el código; CHARLA es sólo el 👍 y NO_REPLY, silencio.
+- **Cómo despacha (decisión de Martín, 29/10):** ACCIÓN simple (una fila o un evento, reversible: la lista cerrada
+  `ACCIONES_SIMPLES`) la hace MaKo con Haiku y la confirmación de siempre; cualquier otra se delega como «pedido delegado» a la
+  Ticketera, el Runner se la lleva al Cerebro con su texto fijo (cartero 1.24.0) y el «listo» vuelve al grupo al cerrarla. En la
+  duda, se delega. PREGUNTA: sólo lecturas, voz corta, y sus números se chequean al salir. DEBUG (sólo el grupo de SuperAdmin):
+  `diagnosticar_negocio` mira ese negocio y el ticket va al Cerebro con lo leído entero.
+- ⚠️ **No existe otra cola para el Ops Center de un negocio cliente** (medido el 29/10): `operaciones_pedidos` exige la firma del
+  dispositivo de Martín, `lib/mako-trabajos.ts` es sólo del navegador y la IA de la PC del cliente piensa dentro del turno. Por eso
+  delegar es la Ticketera.
+- **Trampas del chequeo de números:** la herramienta da la hora en UTC y el modelo la pasa a la zona del negocio («13:00» contra
+  «16:00Z»), reescribe las fechas («29/10» contra «2026-10-29») y formatea los teléfonos («+54 11 2345-6789» contra
+  «5491123456789»: el 9 de WhatsApp). Comparar dígitos a secas marcaba todo eso como inventado: las horas no se chequean, las
+  fechas por sus partes y los teléfonos por los últimos 8 dígitos. Con una imagen que el modelo leyó directo, no se chequea.
+- **Las fuentes (la investigación del Cerebro, C:/dev/revisiones/2910-asistente-whatsapp-referencias.md), reimplementadas, sin
+  copiar código** (por eso no hay THIRD_PARTY_NOTICES): la guía de ticket routing de Anthropic para el prompt del clasificador (la
+  página no declara licencia: sólo el molde); Claude Cookbooks, clasificación (MIT) para la partición 60/40 y la matriz; el
+  `context_used` del customer-support-agent de Anthropic (MIT) para el chequeo de números; `startHitl` del plugin HITL de Botpress
+  (MIT) para el contrato del ticket (título, descripción, los pasos); `toolsBySender` de OpenClaw (MIT) para el DEBUG sólo del
+  dueño, con el deny que gana. **No se copia:** Chatwoot Captain (enterprise, propietaria), wa-agent y askrella/whatsapp-chatgpt
+  (sin licencia), claude-agent-sdk-demos (sin licencia): sólo ideas, o nada.
+- **La regla:** una regla de lo que MaKo no dice tiene su chequeo en el código (AGENTS.md). El clasificador se mide con el banco
+  antes de tocarlo, y sus ejemplos salen sólo del 60 % de ajuste.
+- **Dos decisiones que salieron del banco (casos del 60 % de ajuste):** un TICKET principal con una pregunta adentro es el
+  ticket con texto fijo (conv:1701: contestarlo primero ponía al modelo a explicar cómo anda el producto); y una ACCIÓN que leyó y
+  contestó sin decir «ya quedó» no se delega (conv:1563, «pásame la misma lista con el teléfono», era una lectura).
+- **Sin hacer (al 29/10):** las 2 escrituras en la clase equivocada (la regla propuesta: «cambiar cómo funciona MaKo es TICKET
+  aunque diga corrige», medirla con otra corrida); la consistencia (`--corridas 3`) no se midió; el DEBUG con un negocio que SÍ
+  existe sólo está probado por partes (`respuestaDelDebug` y `hechosDelDiagnostico`), no por la entrada con la base de mentira; un
+  TICKET abierto por el grupo sale con el `tipo` que le pone el triage (`clasificar`, lib/tickets-reglas.ts: «pregunta» en el
+  reporte de la 680 de la escena del test), no «bug».

@@ -542,6 +542,62 @@ export function sinMuletillas(texto: string): SinMuletillas {
   return { texto: (limpio.match(/\p{L}/gu) ?? []).length >= 15 ? limpio : null, muletillas };
 }
 
+// ── NO INVENTAR UN DATO (29/10/2026; la investigación del Cerebro: «una regla sólo en el prompt no es regla») ─────────────────
+// El prompt dice «no te apoyes en lo que crees saber»; esto lo chequea: una consulta que afirma un NÚMERO (una cantidad, un monto, una
+// fecha, una hora) que no está en nada de lo que el modelo recibió —el system con el catálogo y la memoria, el mensaje, lo que
+// devolvieron sus herramientas— no sale. Es el `context_used` del customer-support-agent de Anthropic (MIT), hecho sobre los números:
+// los nombres no se pueden chequear así sin ruido. Las marcas de ticket, los links y la numeración de una lista no cuentan.
+
+const NUMERO = /\d+(?:[.,:/-]\d+)*/g;
+/** El número como se compara: sólo sus dígitos, sin ceros adelante («12,000» = «12000», «09» = «9»). */
+const digitos = (s: string): string => s.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+const partes = (s: string): string[] => s.split(/[.,:/-]/).map((p) => p.replace(/^0+(?=\d)/, '')).filter(Boolean);
+/** Una hora («13:00», «9:30»): la herramienta la da en UTC y el modelo la pasa a la zona del negocio, así que sus dígitos no
+ *  calzan con nada y no se pueden chequear así. Va sin chequear (una hora inventada la ataja el resumen que confirma el dueño). */
+const HORA = /^\d{1,2}:\d{2}$/;
+/** Una fecha corta («29/10», «29/10/2026»): el modelo reescribe la de la herramienta («2026-10-29»), así que se comparan sus partes. */
+const FECHA = /^\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?$/;
+/** Un teléfono, con sus espacios y guiones: se compara por sus dígitos, y vale si uno contiene al otro (el +54 y el 9 de Argentina). */
+const TELEFONO = /\+?\d[\d\s().-]{6,}\d/g;
+/** El mismo número largo: uno contiene al otro, o terminan en los mismos 8 dígitos (el 9 que agrega WhatsApp en Argentina). */
+const mismoNumeroLargo = (a: string, b: string): boolean => a.includes(b) || b.includes(a) || (a.length >= 8 && b.length >= 8 && a.slice(-8) === b.slice(-8));
+
+/** Los números de la respuesta que no aparecen en ninguna de las fuentes. */
+export function numerosSinFuente(respuesta: string, fuentes: readonly string[]): string[] {
+  const conocidos = new Set<string>();
+  const sueltos = new Set<string>();
+  const largos: string[] = [];
+  for (const f of fuentes) {
+    for (const m of (f || '').matchAll(TELEFONO)) { const d = digitos(m[0]); if (d.length >= 7) largos.push(d); }
+    for (const m of (f || '').matchAll(NUMERO)) {
+      const d = digitos(m[0]);
+      conocidos.add(d);
+      if (d.length >= 7) largos.push(d);
+      for (const p of partes(m[0])) sueltos.add(p);
+    }
+  }
+  const propio = (respuesta || '')
+    .replace(/\[\[[^\]]*\]\]/g, ' ')               // las marcas de ticket
+    .replace(/https?:\/\/\S+/g, ' ')                // los links
+    .replace(/\b(?:ticket|pedido)\s+#\d+/gi, ' ')   // la línea del ticket o del pedido (la escribe el código)
+    .replace(/(^|\n)\s*\d+[.)]\s/g, '$1')           // la numeración de una lista
+    .replace(TELEFONO, (t) => { const d = digitos(t); return d.length >= 7 && largos.some((k) => mismoNumeroLargo(k, d)) ? ' ' : t; });
+  const fuera: string[] = [];
+  for (const m of propio.matchAll(NUMERO)) {
+    const n = m[0];
+    if (HORA.test(n)) continue;
+    const d = digitos(n);
+    if (!d || conocidos.has(d)) continue;
+    // Suelto («el 09 de noviembre»), o una fecha corta: vale si sus partes están en alguna fuente («9/11», «2026-11-09»).
+    if ((/^\d+$/.test(n) || FECHA.test(n)) && partes(n).every((p) => sueltos.has(p))) continue;
+    if (!fuera.includes(n)) fuera.push(n);
+  }
+  return fuera;
+}
+
+/** Lo que dice MaKo en vez de un dato que no vio. El ticket lo abre el código (la marca). */
+export const SIN_EL_DATO = 'Ese dato no lo vi en lo que tengo a mano, así que no te lo doy inventado.';
+
 /** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
 export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 

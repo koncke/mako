@@ -2274,6 +2274,20 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   `enviarPartesAJid` anotan lo suyo. Un envío nuevo a un grupo pasa por ahí, o anota su id. Si no, su eco vuelve como un `fromMe`
   que nadie mandó: el doer lo toma por el dueño escribiendo y le contesta a su propio aviso (28/10/2026). Un DM no es un grupo.
 
+## Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla (29/10/2026)
+
+Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp». El prompt del grupo ya decía «no inventes», «no
+prometas», «sin muletillas», y el modelo lo hacía igual. Cada regla de ese tipo tiene DOS capas: la frase en el prompt y un
+chequeo en el código que corre al salir (`sanearSalida`, `sinLoQueMaKoNoDice`, `sinMuletillas`, `numerosSinFuente` en
+lib/doer-salida.ts). Una regla nueva de lo que MaKo no dice llega con su chequeo y su test; si no se puede chequear, se dice así.
+
+- **MaKo en el grupo es un DESPACHANTE (lib/despacho-grupo.ts).** La clase la decide `clasificarConIA` (lib/mako-intencion-ia.ts)
+  y el texto de TICKET, DEBUG y de una acción delegada lo escribe el CÓDIGO, con el número del ticket: el modelo no corre. Una
+  escritura que MaKo hace sola entra a `ACCIONES_SIMPLES` (una fila o un evento, reversible) con su test; lo demás se delega al
+  Cerebro como «pedido delegado» y el «listo» vuelve al grupo al cerrarlo. En la duda, se delega.
+- **El banco de casos reales (tests/fixtures/banco-grupos-2910.json) se corre antes de tocar el clasificador**
+  (`scripts/banco-clases.mts`): los ejemplos del prompt salen sólo del 60 % de ajuste; el 40 % retenido no se mira.
+
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
 Pedido de Martín (17/10/2026, por el Ops Center): «al terminar de solucionar algo que detectaste de un cliente… le

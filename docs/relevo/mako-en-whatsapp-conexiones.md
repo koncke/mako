@@ -2,24 +2,27 @@
 
 **Cuenta:** claude3 (desde el 29/10 03:00; antes claude4). **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los
 merges de main son merge commits, nunca rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le
-devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 14:30 (AR) este archivo está al día.
+devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 ~15:00 (AR) este archivo está al día.
 
-## ⚡ LO QUE ESTÁ EN CURSO (29/10, desde las 13:30): rehacer cómo responde MaKo en WhatsApp
+## ⚡ LO QUE ESTÁ EN CURSO (29/10, desde las 13:30): MaKo en el grupo es un DESPACHANTE
 
-Martín, por el Cerebro: «Es una verdadera desgracia cómo está respondiendo MaKo… elimina toooodo lo presetado… Que sepa cuándo es
-un ticket, cuándo es una pregunta, o una acción dentro de MaKo». El pedido entero (las 4 partes: clasificador explícito PREGUNTA /
-ACCIÓN / TICKET / DEBUG-sólo-ws9 / CHARLA; sin presets ni relleno; Claude del crédito Max, links e imágenes; banco real con ≥ 95%
-y tabla antes/después con el modelo) está en el mensaje del Cerebro de las 13:30. **El Cerebro investiga repos y apps para copiar el
-patrón: NO escribir el clasificador hasta que llegue su respuesta** (y la de con qué clave correr el banco con el modelo).
-- Hecho y commiteado: 953f9610e (merge de `wa-credito-grupos-2810`: el grupo con Claude y el crédito Max), 687bc14d0 (`sinMuletillas`
-  y el lector de links, sin cablear), 61ae98de2 (`diagnosticar_negocio`, sin cablear). En el árbol: la marca de lo REENVIADO
-  (`lib/doer-reenvio.ts`, ya cableada en el suelto y los dos lotes) con su test y la escena `reenvio` del hijo de Leandro.
-- **El banco** (scratchpad de la sesión, `banco/`): `banco.json` = 76 reales + 8 derivados (DEBUG), armado por `armar.cjs` con
-  `etiquetas.json` (a mano) desde `conv7d.json`/`conv30d-ws9.json` (lecturas de sólo lectura con `db/banco7d.mjs`). «Antes» con
-  reglas (`antes-reglas.ts`): 49/76 (64 %), TICKET 0/11. Falta: pasarlo a `tests/fixtures/` y el eval con el modelo.
-- Diseño mandado al Cerebro (10 líneas): capa 0 por código (eco, equipo/otro, acuse, sí+pendiente, reenvío), capa 1 = UNA llamada
-  a Claude con JSON {clase, deQuien, negocio, resumen, porque}, decisión en `recordUsage('clase-doer')`; TICKET sin turno generativo
-  («Abrí el ticket #N: …»); DEBUG con `diagnosticar_negocio`; prompt nuevo corto; red de salida; imágenes del lote como bloques.
+Martín, por el Cerebro: «Es una verdadera desgracia cómo está respondiendo MaKo… Que sepa cuándo es un ticket, cuándo es una
+pregunta, o una acción dentro de MaKo». Decisiones del Cerebro (con Martín): **sigue Haiku, no se toca el veto**; MaKo es un
+despachante: ACCIÓN simple (`ACCIONES_SIMPLES`, lib/despacho-grupo.ts) la hace él; la compleja se DELEGA como «pedido delegado» a la
+Ticketera (el Runner 1.24.0 se la lleva al Cerebro como «Pedido delegado #N»; el «listo» corto vuelve al grupo al cerrarla; uno del
+ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo con lecturas, voz corta y números chequeados; DEBUG
+(sólo ws9) con `diagnosticar_negocio` y el ticket al Cerebro con la evidencia; CHARLA el 👍; NO_REPLY silencio.
+- Commiteado: 953f9610e (el crédito de los grupos), 687bc14d0 (`sinMuletillas`, links), 61ae98de2 (`diagnosticar_negocio`),
+  ffc63aced (REENVIADO + imágenes del lote), fd7b00a45 (el clasificador IA, el TICKET por código, el banco en `tests/fixtures/`).
+- **Lo de esta tanda** (el commit que sigue a fd7b00a45): `lib/despacho-grupo.ts`, el cableado en `procesarDoer` (DEBUG, delegación,
+  `VOZ_DE_LA_CONSULTA`, `numerosSinFuente`), cartero 1.24.0 y los tests que fijan la versión, `textoDelAviso` del delegado, los
+  ejemplos fijos del clasificador (sólo del 60 % de ajuste), `tests/despacho-grupo.test.ts` y las escenas 5–7 de
+  `tests/clase-del-grupo.test.ts`. Roturas: `roturas-despacho.mjs` (D1–D9) en el scratchpad.
+- **El banco:** `node --env-file=<.env.local del clon> --import tsx --conditions=react-server scripts/banco-clases.mts --modelo
+  claude-haiku-4-5 --salida <json>` (con tope: una llamada por caso). Antes con reglas: 49/76 (64 %), TICKET 0/11. Con Haiku, la
+  corrida que vale (la 2ª: la 1ª, 89 %, tenía dos errores del banco): 75/76 (99 %), retenido 31/31, difíciles 22/24, 2 escrituras
+  en la clase equivocada (conv:1712 y derivado:7). Las salidas, en el scratchpad: `banco/haiku-2910*.{txt,json}`.
+- Después del deploy, el Cerebro corre `cartero.mjs instalar` (el Runner a 1.24.0).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
 

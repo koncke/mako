@@ -1,0 +1,140 @@
+// =============================================================================
+// La clase del mensaje del grupo, por la entrada REAL (29/10/2026, Martín: «Que sepa cuándo es un ticket, cuándo es una pregunta, o
+// una acción dentro de MaKo»; tests/_clase-del-grupo-hijo.ts)
+// =============================================================================
+// El clasificador es Claude con el crédito de los grupos (lib/mako-intencion-ia.ts) y el turno el GPT del negocio, los dos de mentira
+// con lo que pone cada escena. Lo que fija este archivo:
+//   1. TICKET: lo abre el código con los pasos y la clase en su contexto, la respuesta es FIJA («Abrí el ticket #N: … Lo toma el
+//      equipo y te aviso por acá cuando esté») y el modelo del turno no corre; lo que sigue a un ticket recién nombrado se SUMA;
+//   2. CHARLA y NO_REPLY: ni una palabra (la charla, el 👍; lo que no es para MaKo, nada), y el turno no corre;
+//   3. PREGUNTA: el turno corre SÓLO con lecturas y con su bloque, y la muletilla no sale; si además reporta algo, se contesta y el
+//      ticket se abre igual; una respuesta que era todo relleno no sale;
+//   4. el clasificador va con el crédito de los grupos (la cuenta 2, Haiku) y, si se cae, mandan las reglas;
+//   5. una PREGUNTA no afirma un número que no está en nada de lo que recibió (`numerosSinFuente`);
+//   6. ACCIÓN (lib/despacho-grupo.ts): sólo las escrituras simples; si no propuso ni hizo nada y no pregunta un dato, se DELEGA como
+//      «pedido» marcado `delegado`, con la respuesta fija;
+//   7. DEBUG: sólo en el grupo de SuperAdmin, lo resuelve el código (sin turno); afuera es una PREGUNTA.
+// =============================================================================
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { ACCIONES_SIMPLES } from '../lib/despacho-grupo';
+
+type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[] }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } } }> };
+let cache: Record<string, Escena> | null = null;
+function escena(k: string): Escena {
+  if (!cache) {
+    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_clase-del-grupo-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 400_000 });
+    const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@CLASE@@'));
+    assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
+    cache = JSON.parse(linea.slice('@@CLASE@@'.length));
+    assert.equal((cache as { error?: string }).error, undefined, String((cache as { error?: string }).error));
+  }
+  assert.ok(cache![k], `no corrió la escena ${k}`);
+  return cache![k];
+}
+const ESCRIBEN = /^(crear|mover|cambiar|editar|borrar|eliminar|agendar|pausar|activar|confirmar|cancelar|levantar|proponer|enviar|mandar|cargar|agregar|guardar|actualizar|marcar)_/;
+const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por acá cuando esté\.$/;
+
+test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que sigue se suma', () => {
+  const e = escena('ticket');
+  assert.equal(e.turno.length, 0, 'el modelo del turno corrió para un ticket');
+  assert.equal(e.salio.length, 1);
+  assert.match(e.salio[0], FIJA);
+  assert.equal(e.tickets.length, 1, 'no quedó el ticket');
+  const t = e.tickets[0];
+  assert.equal(t.titulo, 'Arreglar los dos problemas de la automatización 680');
+  assert.match(t.descripcion, /Lo que escribió en el grupo de WhatsApp, tal cual: «no entiendo eso, solamente soluciona estos problemas porfa»/, 'sin los pasos de la persona');
+  assert.equal(t.contexto.clasificacion?.clase, 'TICKET', 'sin la clase en el contexto del ticket');
+  assert.equal(t.contexto.clasificacion?.fuente, 'ia');
+  assert.equal(String(FIJA.exec(e.salio[0])?.[1]), String(t.id), 'el número lo escribe el código, el del ticket de verdad');
+  const s = escena('sumado');
+  assert.equal(s.turno.length, 0);
+  assert.equal(s.salio[0], `Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale. Lo toma el equipo y te aviso por acá cuando esté.`);
+  assert.equal(s.tickets.length, 1, 'abrió otro en vez de sumarlo');
+});
+
+test('2. CHARLA y NO_REPLY: ni una palabra, y el turno no corre', () => {
+  for (const k of ['charla', 'noReply']) {
+    const e = escena(k);
+    assert.deepEqual([e.salio, e.turno.length], [[], 0], `${k}: ${JSON.stringify(e)}`);
+    assert.equal(e.clasificador.length, 1, `${k}: no pasó por el clasificador`);
+  }
+  assert.equal(escena('charla').r.skip, 'charla: la reacción alcanza');
+  assert.equal(escena('noReply').r.engaged, false);
+});
+
+test('3. PREGUNTA: sólo lecturas, con su bloque y sin la muletilla; con un reporte, el ticket igual; todo relleno, nada', () => {
+  const e = escena('pregunta');
+  assert.equal(e.turno.length, 1, 'el turno no corrió');
+  assert.match(e.turno[0].system, /ESTE MENSAJE ES UNA PREGUNTA\. Contéstala con lo que devuelven tus herramientas de lectura/);
+  assert.deepEqual(e.turno[0].tools.filter((t) => ESCRIBEN.test(t)), [], 'una pregunta recibió herramientas que escriben');
+  assert.match(e.turno[0].system, /te hicieron una PREGUNTA/, 'la consulta no fue con su voz corta');
+  assert.doesNotMatch(e.turno[0].system, /NO PROMETAS LO QUE NO HACES EN ESTE MISMO MENSAJE/, 'la consulta llevó la voz larga de las acciones');
+  assert.deepEqual(e.salio, ['Hoy no entró ningún lead nuevo.']);
+  const t = escena('preguntaYTicket');
+  assert.equal(t.turno.length, 1);
+  assert.match(t.turno[0].system, /el ticket lo abre el código después de tu respuesta/);
+  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #\d+: El botón de pagar no anda\. Lo toma el equipo y te aviso por acá cuando esté\.$/);
+  assert.equal(t.tickets.length, 1);
+  const r = escena('relleno');
+  assert.deepEqual([r.salio, r.r.skip], [[], 'era todo relleno: la reacción alcanza']);
+});
+
+test('4. el clasificador va con el crédito de los grupos y, si se cae, mandan las reglas', () => {
+  const e = escena('ticket');
+  assert.equal(e.clasificador.length, 1);
+  assert.match(e.clasificador[0].clave ?? '', /^sk-ant-api03-credito-cuenta2-/, 'no fue con el crédito de los grupos');
+  assert.equal(e.clasificador[0].modelo, 'claude-haiku-4-5', 'el crédito va con Haiku (la regla de Martín del 22/10)');
+  assert.match(e.clasificador[0].mensaje, /solamente soluciona estos problemas porfa/);
+  const c = escena('caido');
+  assert.ok(c.clasificador.length >= 1, 'no intentó clasificar');
+  assert.equal(c.turno.length, 1, 'con el clasificador caído el turno no corrió');
+  assert.doesNotMatch(c.turno[0].system, /ESTE MENSAJE ES UNA PREGUNTA/, 'con las reglas, el turno de siempre');
+  assert.deepEqual(c.salio, ['Hoy entraron 3 leads.']);
+});
+
+test('5. una PREGUNTA no afirma un número que no vio: va «no lo vi» y su marca, nunca el número', () => {
+  // Rota: sacar el chequeo de `numerosSinFuente` del saneo → sale «Hoy entraron 137 leads».
+  const e = escena('inventado');
+  assert.equal(e.turno.length, 1);
+  assert.equal(e.salio.length, 1, JSON.stringify(e.salio));
+  assert.match(e.salio[0], /^Ese dato no lo vi en lo que tengo a mano, así que no te lo doy inventado\./);
+  assert.doesNotMatch(e.salio[0], /137|\[\[/, 'salió el número inventado o la marca');
+});
+
+test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo que no hizo se DELEGA como pedido', () => {
+  const p = escena('accionPregunta');
+  assert.equal(p.turno.length, 1);
+  const escriben = p.turno[0].tools.filter((t) => ESCRIBEN.test(t));
+  assert.deepEqual(escriben.filter((t) => !ACCIONES_SIMPLES.has(t)), [], 'una ACCIÓN recibió una escritura que no es simple');
+  assert.deepEqual(p.salio, ['¿A qué hora la agendo?']);
+  assert.equal(p.tickets.length, 0, 'delegó una acción que estaba preguntando un dato');
+  // Rota: sacar la delegación → sale «Listo, ya quedó creada…» sin haber hecho nada.
+  const d = escena('accionDelegada');
+  assert.equal(d.turno.length, 1);
+  assert.equal(d.tickets.length, 1, 'no quedó el pedido delegado');
+  const t = d.tickets[0];
+  assert.deepEqual(d.salio, [`Lo pasé al equipo de MaKo (pedido #${t.id}): Crear una automatización de bienvenida para los leads nuevos. Te aviso por acá cuando esté.`]);
+  assert.equal(t.tipo, 'pedido');
+  assert.equal((t.contexto as { delegado?: unknown }).delegado, true, 'sin la marca de delegado: el Runner no lo lleva como «Pedido delegado #N»');
+  assert.equal(t.contexto.clasificacion?.clase, 'ACCION');
+  assert.match(t.descripcion, /^ACCIÓN DELEGADA: /);
+  assert.match(t.descripcion, /«créame una automatización que le dé la bienvenida a los leads nuevos»/);
+});
+
+test('7. DEBUG: lo resuelve el código en el grupo de SuperAdmin, sin turno; afuera es una PREGUNTA', () => {
+  const s = escena('debugSinNegocio');
+  assert.equal(s.turno.length, 0, 'el modelo del turno corrió en un DEBUG');
+  assert.deepEqual(s.salio, ['¿De qué negocio es? Dime su nombre y lo miro.']);
+  const n = escena('debugNegocio');
+  assert.equal(n.turno.length, 0);
+  assert.equal(n.salio.length, 1);
+  // Con la base de mentira no hay negocios: lo dice el código, nunca un consejo genérico del modelo.
+  assert.match(n.salio[0], /^(No encontré un negocio que se llame «Leila»\. ¿Cuál es\?|No pude mirar Leila ahora)/);
+  const a = escena('debugAfuera');
+  assert.equal(a.turno.length, 1, 'afuera del grupo de SuperAdmin, un DEBUG no es un DEBUG');
+  assert.deepEqual(a.turno[0].tools.filter((t) => t === 'diagnosticar_negocio' || ESCRIBEN.test(t)), []);
+});

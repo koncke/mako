@@ -43,9 +43,13 @@ test('2. el veredicto: la clase de la IA, el detalle de las reglas, el deny de D
   assert.deepEqual(t.ticket, { resumen: 'No deja editar el monto' });
   assert.equal(t.fuente, 'ia');
   assert.match(t.porque, /^IA: ticket \(«No deja editar el monto»\) · reglas: consultar$/);
-  // TICKET que además pregunta: primero se contesta (consulta) y el ticket se abre igual.
+  // TICKET principal que además pregunta (el informe de Leandro, conv:1701): el ticket, con el texto fijo; la pregunta va en el ticket.
   const tp = veredictoDeClase({ clase: 'TICKET', resumen: 'r', reenviado: false, secundaria: 'PREGUNTA' }, REGLAS, E);
-  assert.deepEqual([tp.intencion, tp.ticket], ['consultar', { resumen: 'r' }]);
+  assert.deepEqual([tp.intencion, tp.ticket], ['ticket', { resumen: 'r' }]);
+  // Un «Si» suelto sin nada que confirmar, que las reglas leen como charla, no es una acción (g2810:ws15:1).
+  const charla: VeredictoIntencion = { intencion: 'charlar', dudosa: false, porque: 'acuse' };
+  assert.equal(veredictoDeClase({ clase: 'ACCION', resumen: 'r', reenviado: false }, charla, { ...E, texto: 'Si', pendiente: false }).intencion, 'charlar');
+  assert.equal(veredictoDeClase({ clase: 'ACCION', resumen: 'r', reenviado: false }, charla, { ...E, texto: 'Si', pendiente: true }).intencion, 'actuar', 'con una pendiente, el «sí» es la acción');
   // PREGUNTA con secundaria TICKET: la pregunta, con su ticket.
   assert.deepEqual(veredictoDeClase({ clase: 'PREGUNTA', resumen: 'r', reenviado: false, secundaria: 'TICKET' }, REGLAS, E).ticket, { resumen: 'r' });
   // DEBUG: sólo en SuperAdmin y del dueño. Si no, PREGUNTA.

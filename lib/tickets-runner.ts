@@ -22,7 +22,9 @@ const T = 'tickets';
 /** Lo que el Runner entrega: el id del intento (va al acuse), el número del ticket y a qué sesión. */
 /** `regla` (27/10/2026): el nombre de la regla de Martín que lo aprobó («Leandro», «Leila»). El cartero 1.20.0 lo usa SÓLO si
  *  está en su propia lista (scripts/operaciones/cartero.mjs → REGLAS_CONOCIDAS): de MaKo no toma texto para el mensaje. */
-export type TicketParaEntregar = { id: string; numero: number; destino: string; regla?: string };
+export type TicketParaEntregar = { id: string; numero: number; destino: string; regla?: string; delegado?: true };
+/** ¿Es un PEDIDO DELEGADO desde el grupo (lib/despacho-grupo.ts)? Lo dice su contexto; el cartero 1.24.0 lo lleva con su texto. */
+const esDelegado = (contexto: unknown): boolean => !!contexto && typeof contexto === 'object' && (contexto as { delegado?: unknown }).delegado === true;
 
 /**
  * Los bugs del triage que ESTE Runner tiene que entregarle al Cerebro ahora. Sólo si el chat «Cerebro» está abierto en
@@ -37,7 +39,7 @@ export async function ticketsParaElCartero(
   if (!cerebro) return [];
   const db = getSupabaseServer();
   const { data: filas, error } = await db.from(T)
-    .select('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos, triage')
+    .select('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos, triage, contexto')
     .eq('despacho', 'runner').eq('estado', 'en_curso').lt('aviso_intentos', ENTREGA_MAX_INTENTOS)
     .order('created_at', { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
@@ -57,7 +59,7 @@ export async function ticketsParaElCartero(
     const { data, error: eUp } = await q.select('id');
     if (eUp) throw new Error(eUp.message);
     const regla = leerTriage(f.triage)?.regla;
-    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local, ...(regla ? { regla } : {}) });
+    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local, ...(regla ? { regla } : {}), ...(esDelegado(f.contexto) ? { delegado: true as const } : {}) });
     if (out.length >= TICKETS_POR_VUELTA) break;
   }
   return out;
@@ -94,12 +96,12 @@ export async function acusarTicket(a: { id: string; estado: 'entregado' | 'no_en
 // lib/tickets-aviso.ts dice por qué van aparte. El molde es el de arriba: compare-and-set sobre el intento anterior.
 
 /** Lo que el Runner entrega de un ticket nuevo: el id del intento (va al acuse), el número y a qué sesión. Nada más: el texto es fijo. */
-export type TicketNuevoParaEntregar = { id: string; numero: number; destino: string };
+export type TicketNuevoParaEntregar = { id: string; numero: number; destino: string; delegado?: true };
 
 /** Los que esperan a Martín y no le llegaron al Cerebro, los más viejos primero. Sin la migración, tira (la vuelta lo dice). */
 async function nuevosSinEntregar(): Promise<Array<Record<string, unknown>>> {
   const { data, error } = await getSupabaseServer().from(T)
-    .select('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos')
+    .select('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos, contexto')
     .is('despacho', null).in('estado', [...ESTADOS_NUEVOS]).in('cerebro_estado', [...CEREBRO_SIN_ENTREGAR])
     .lt('cerebro_intentos', ENTREGA_MAX_INTENTOS).order('created_at', { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
@@ -131,7 +133,7 @@ export async function ticketsNuevosParaElCartero(
     q = f.cerebro_id ? q.eq('cerebro_id', f.cerebro_id as string) : q.is('cerebro_id', null);
     const { data, error: eUp } = await q.select('id');
     if (eUp) throw new Error(eUp.message);
-    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local });
+    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local, ...(esDelegado(f.contexto) ? { delegado: true as const } : {}) });
     if (out.length >= TICKETS_POR_VUELTA) break;
   }
   return out;

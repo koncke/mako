@@ -108,6 +108,9 @@ export type ContextoTicket = {
   /** El TICKET que abrió el clasificador del grupo (lib/tickets-del-grupo.ts, 29/10/2026): qué clase decidió, por qué y si fue la
    *  IA o las reglas. Para que se vea por qué se abrió. Lo pone el código. */
   clasificacion?: { clase: string; porque: string; fuente: string };
+  /** Una ACCIÓN que MaKo delegó al Cerebro desde el grupo (lib/despacho-grupo.ts): el Runner la lleva como «Pedido delegado #N» y
+   *  el aviso del «listo» dice qué quedó hecho (`textoDelAviso`). */
+  delegado?: boolean;
   /** La hora del dispositivo, su zona, el navegador, la pantalla y el idioma. */
   hora?: string;
   zona?: string;
@@ -149,6 +152,7 @@ export function sanearContexto(x: unknown): ContextoTicket {
     const clase = txt(k.clase, 20);
     if (clase && /^[A-Z_]+$/.test(clase)) c.clasificacion = { clase, porque: txt(k.porque, 300) ?? '', fuente: k.fuente === 'ia' ? 'ia' : 'reglas' };
   }
+  if (o.delegado === true) c.delegado = true;
   const hora = txt(o.hora, 40);
   if (hora && Number.isFinite(Date.parse(hora))) c.hora = new Date(hora).toISOString();
   return c;
@@ -671,12 +675,16 @@ export function pruebaDeProduccion(p: { ticket: number; hito: string; area: stri
   return `ticket #${p.ticket} cerrado porque el deploy ${p.deploy ? `https://${p.deploy}` : '(sin url)'} (commit ${p.commit ? p.commit.slice(0, 9) : '?'}) trae el hito «${p.hito}» del área ${p.area}`.slice(0, 300);
 }
 
-export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null };
+export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null; contexto?: unknown };
 
 /** El texto del aviso: dice QUÉ pasó con SU ticket, con el número y el título, y lo que le escribió el equipo. */
 export function textoDelAviso(t: AvisoCliente): string {
   const cual = `tu ticket #${t.id} («${t.titulo}»)`;
   const r = (t.respuesta ?? '').trim();
+  // El «listo» de un PEDIDO DELEGADO desde el grupo (29/10/2026, lib/despacho-grupo.ts): corto, QUÉ quedó hecho y dónde verlo (lo
+  // escribe el equipo en la respuesta), no «tu ticket está resuelto».
+  const delegado = !!t.contexto && typeof t.contexto === 'object' && (t.contexto as { delegado?: unknown }).delegado === true;
+  if (t.estado === 'resuelto' && delegado) return `Listo: ${r || `ya quedó lo que pediste (pedido #${t.id}).`}`;
   if (t.estado === 'resuelto') return `Listo: ${cual} está resuelto.${r ? ` ${r}` : ''}`;
   if (t.estado === 'esperando_cliente') return `Sobre ${cual}, el equipo te pregunta: ${r}`;
   if (t.estado === 'duplicado') return `Sobre ${cual}: ya lo teníamos en el ticket #${t.duplicado_de}. Te avisamos cuando esté.`;

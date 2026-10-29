@@ -18,10 +18,13 @@
 // =============================================================================
 
 import { areasDelMensaje, type VeredictoIntencion } from './mako-intencion';
+import { esAcusePuro } from './doer-para-quien';
+import { confirmacionPura } from './confirmacion-pura';
 
 export const CLASES = ['PREGUNTA', 'ACCION', 'TICKET', 'DEBUG', 'CHARLA', 'NO_REPLY'] as const;
 export type Clase = (typeof CLASES)[number];
-export type ClaseDelModelo = { clase: Clase; resumen: string; reenviado: boolean; secundaria?: Clase };
+/** `negocio`: el negocio cliente del que se habla, si lo nombra (lo usa el DEBUG para mirarlo con `diagnosticar_negocio`). */
+export type ClaseDelModelo = { clase: Clase; resumen: string; reenviado: boolean; secundaria?: Clase; negocio?: string };
 
 /** Lo que el clasificador sabe del mensaje. El texto es el del turno: con sus marcas (REENVIADO, la cita, el audio, la imagen). */
 export type EntradaDeClase = {
@@ -47,12 +50,12 @@ export const SYSTEM_DE_CLASE = [
   'Clasificas UN mensaje que le escribieron a MaKo (un asistente de marketing y ventas) en un grupo de WhatsApp. No contestas el mensaje: sólo dices de qué clase es.',
   '',
   'Las clases (una lista cerrada):',
-  '- PREGUNTA: pide un dato que MaKo tiene, o cómo funciona algo de MaKo, o por qué algo no aparece o no anda (eso se averigua primero, con datos). Ej.: «¿cuántos leads entraron hoy?», «pásame las reuniones de mañana con su teléfono», «¿puedo cambiar una automatización desde acá?», «quiero saber por qué no aparece un contacto que está en WhatsApp», «¿estás analizando mis llamadas?».',
+  '- PREGUNTA: pide un dato que MaKo tiene, o cómo funciona algo de MaKo, o por qué algo no aparece o no anda (eso se averigua primero, con datos). Ej.: «¿cuántos leads entraron hoy?», «pásame las reuniones de mañana con su teléfono», «¿puedo cambiar una automatización desde acá?», «quiero saber por qué no aparece un contacto que está en WhatsApp», «¿estás analizando mis llamadas?». Pedir que le PASES, mandes o muestres datos («pásame la misma lista pero con el teléfono de cada uno») es PREGUNTA: no cambia nada en su cuenta.',
   '- ACCION: pide que MaKo HAGA algo en su cuenta (agendar, anotar, cargar, mover, crear, mandar), o confirma o corrige lo que MaKo le acaba de proponer. Ej.: «agéndame una reunión el viernes a las 11», «agrégale una nota al lead», «no, agéndalo en el calendario de Google», «sí» (cuando MaKo acaba de pedir confirmación), «anota esta tarea en el plan».',
   '- TICKET: pide ARREGLAR o cambiar algo de MaKo, o reporta que algo de la app falla, para que lo arregle el equipo. Ej.: «corrige esto», «no me deja editar el monto, es un error de la app», «probamos la automatización y no manda el DM», «arreglen que el botón no conecta», «solamente soluciona estos problemas».',
   '- DEBUG: SÓLO en el grupo de SuperAdmin y cuando escribe el dueño: pide investigar qué le pasa a un negocio CLIENTE, o reenvía la consulta de un cliente para que se la resuelvas. Ej.: «fíjate por qué a Leila no le anda el análisis de llamadas», «¿qué tiene conectado Fiesta Music?», (reenviado) «le doy a conectar Facebook y no me hace nada».',
   '- CHARLA: un saludo, un gracias, un acuse, o la respuesta a un recordatorio de MaKo que no pide nada. Ej.: «buen día», «gracias», «ya lo contacté», «excelente», «bien», «perfecto».',
-  '- NO_REPLY: no es para MaKo: le habla a otra persona del grupo, le contesta al equipo, o es una explicación que no pide nada. Ej.: «@Joan ¿esto habla solo?», «sí, después creamos otro grupo» (contestándole a otra persona), la respuesta a la pregunta que hizo el equipo.',
+  '- NO_REPLY: no es para MaKo: le habla a otra persona del grupo, le contesta al equipo, o es una explicación que no pide nada. Ej.: «@Joan ¿esto habla solo?», «sí, después creamos otro grupo» (contestándole a otra persona), la respuesta a la pregunta que hizo el equipo, un aviso al equipo o a otra persona («ya casi listos los guiones, mañana los enviamos»).',
   '',
   'Reglas:',
   '1. UNA clase principal: lo que más pide. Si además pide algo de OTRA clase, ponlo en "secundaria" (sólo una). «¿cuántos leads entraron? y el botón de pagar no anda» es PREGUNTA con secundaria TICKET.',
@@ -64,8 +67,18 @@ export const SYSTEM_DE_CLASE = [
   '7. Un reporte dirigido a alguien del equipo por su nombre («Hola Martín, probamos X y falla Y») es TICKET. Un saludo o un gracias suelto a alguien del equipo es NO_REPLY.',
   '8. Un link o un archivo sin decir para qué es PREGUNTA (hay que ver qué es y preguntarle para qué lo manda).',
   '',
+  // Los ejemplos son del 60 % de AJUSTE del banco (tests/fixtures/banco-grupos-2910.json): el 40 % retenido no se mira al ajustar.
+  'Ejemplos de grupos reales:',
+  '- «Estoy en el lead de Fabi Pedraza y me dice que no tengo los datos fiscales, pero al cargarlos sólo me salen SETTER y CLOSER» → TICKET (describe una falla de la app).',
+  '- «y tú eres el servicio técnico» (MaKo le acababa de dar un consejo sobre esa falla) → TICKET.',
+  '- sólo un link a un reel de Instagram → PREGUNTA.',
+  '- (SuperAdmin, el dueño) «Che Tincho, te hago una consulta… pegué el token del pixel y le doy a conectar Facebook y no me hace nada» → DEBUG (la consulta de un cliente).',
+  '- (SuperAdmin, el dueño, explicando largo cómo funciona algo, sin pedirle nada a MaKo) «te lo resumo por acá: por cada cliente tienes que crearte una API…» → NO_REPLY.',
+  '- (MaKo: «Entró EDEST_OFICIAL, ¿lo contactaron?») «Si ya es la tercera vez q se contacta» → CHARLA.',
+  '- «Esto habla solo ? @joan» → NO_REPLY.',
+  '',
   'Contesta SÓLO con un objeto JSON en una línea, sin texto antes ni después y sin explicar:',
-  '{"clase":"PREGUNTA|ACCION|TICKET|DEBUG|CHARLA|NO_REPLY","resumen":"una oración, en español, de lo que pide","reenviado":true|false,"secundaria":null|"<otra clase>"}',
+  '{"clase":"PREGUNTA|ACCION|TICKET|DEBUG|CHARLA|NO_REPLY","resumen":"una oración, en español, de lo que pide","reenviado":true|false,"secundaria":null|"<otra clase>","negocio":null|"<el negocio cliente o la persona de la que se habla, si se nombra>"}',
 ].join('\n');
 
 /** El mensaje del usuario para el clasificador: el contexto que decide, y el mensaje cercado (es DATO, no instrucciones). */
@@ -112,6 +125,7 @@ export function leerClase(texto: string): ClaseDelModelo | null {
     resumen: typeof o.resumen === 'string' ? recortar(o.resumen, 200) : '',
     reenviado: o.reenviado === true,
     ...(sec && sec !== clase ? { secundaria: sec } : {}),
+    ...(typeof o.negocio === 'string' && o.negocio.trim() ? { negocio: recortar(o.negocio, 80) } : {}),
   };
 }
 
@@ -121,10 +135,10 @@ const INTENCIONES_DE_PREGUNTA = new Set(['consultar', 'pensar']);
 
 /**
  * El veredicto final: la clase de la IA, con el detalle de las reglas cuando están de acuerdo (sus áreas, el «sí» a lo ofrecido, el
- * hilo). Un DEBUG de quien no es el dueño, o fuera del grupo de SuperAdmin, es PREGUNTA (el deny gana). Un TICKET que también pregunta
- * algo se contesta primero y el ticket se abre igual (`ticket`); nunca un ticket EN LUGAR de una respuesta que existe.
+ * hilo). Un DEBUG de quien no es el dueño, o fuera del grupo de SuperAdmin, es PREGUNTA (el deny gana). Una PREGUNTA que también
+ * reporta algo se contesta primero y el ticket se abre igual (`ticket`); un TICKET principal es el ticket, aunque pregunte algo.
  */
-export function veredictoDeClase(c: ClaseDelModelo, reglas: VeredictoIntencion, e: Pick<EntradaDeClase, 'esSuperAdmin' | 'escribeElDueno' | 'texto'>): VeredictoIntencion {
+export function veredictoDeClase(c: ClaseDelModelo, reglas: VeredictoIntencion, e: Pick<EntradaDeClase, 'esSuperAdmin' | 'escribeElDueno' | 'texto'> & { pendiente?: boolean }): VeredictoIntencion {
   const porque = `IA: ${c.clase.toLowerCase()}${c.secundaria ? ` + ${c.secundaria.toLowerCase()}` : ''}${c.resumen ? ` («${c.resumen}»)` : ''} · reglas: ${reglas.intencion}${reglas.dudosa ? '?' : ''}`;
   const ticketSi = (secundaria: Clase | undefined) => (secundaria === 'TICKET' ? { ticket: { resumen: c.resumen } } : {});
   const pregunta = (): VeredictoIntencion => (INTENCIONES_DE_PREGUNTA.has(reglas.intencion)
@@ -136,10 +150,15 @@ export function veredictoDeClase(c: ClaseDelModelo, reglas: VeredictoIntencion, 
     case 'NO_REPLY': return { intencion: 'no_reply', dudosa: false, porque, fuente: 'ia' };
     case 'DEBUG': return { intencion: 'debug', dudosa: false, porque, fuente: 'ia', areas: areasDelMensaje(e.texto), ...ticketSi(c.secundaria) };
     case 'TICKET':
-      // Con una pregunta adentro, primero se contesta (con sus lecturas) y el ticket se abre igual.
-      if (c.secundaria === 'PREGUNTA') return { ...pregunta(), ticket: { resumen: c.resumen } };
+      // TICKET PRINCIPAL, aunque traiga una pregunta adentro: el ticket, con el texto fijo (la pregunta va entera en el ticket y la
+      // contesta el equipo). Medido en el banco (conv:1701, el informe de Leandro con tres puntos y dos preguntas): contestarlo primero
+      // ponía al modelo a explicar cómo anda el producto. La duda de verdad —una PREGUNTA que además reporta— se contesta y abre el
+      // ticket (la secundaria de abajo).
       return { intencion: 'ticket', dudosa: false, porque, fuente: 'ia', ticket: { resumen: c.resumen } };
     case 'ACCION':
+      // Un «sí» o un «ok» suelto sin nada que confirmar no es una acción: no hay qué hacer (g2810:ws15:1, el «Si» al recordatorio
+      // «Llegó un nuevo propietario»). Si las reglas lo leyeron como charla y no hay pendiente, es charla.
+      if (reglas.intencion === 'charlar' && !e.pendiente && (esAcusePuro(e.texto) || confirmacionPura(e.texto))) return { intencion: 'charlar', dudosa: false, porque: `${porque} · un acuse sin nada que confirmar`, fuente: 'ia' };
       return INTENCIONES_DE_ACCION.has(reglas.intencion) && !(reglas.intencion === 'capturar' && reglas.dudosa)
         ? { ...reglas, dudosa: false, porque, fuente: 'ia', ...ticketSi(c.secundaria) }
         : { intencion: 'actuar', dudosa: false, porque, fuente: 'ia', areas: areasDelMensaje(e.texto), ...ticketSi(c.secundaria) };
