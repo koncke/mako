@@ -292,3 +292,30 @@ AL VOLVER (21:30, cuota nueva) — HECHO además:
 FALTA: correr calendario-publicar y organico (estaban en la cola de con-turno), romper-2810.mjs, tsc acotado, tests afectados
 de a uno (api-mako-rest, sin-instagram, calendario, m-calendario, integracion-sin-salir, puente-panel-copy,
 confirmacion-terceros, zernio-*), anotar las roturas en la cabecera de los tests, commit por ruta y VERDE al Cerebro.
+
+## PEDIDO NUEVO (28/10 ~23:40, Martín por el Cerebro): los límites de Zernio, dichos al conectar — DESPUÉS de la verificación
+
+Textual de Martín: «Super importante advertir en la conexión de Zernio las limitaciones, como que hasta 2 redes sociales es
+gratis. Por lo tanto, si quieren conectar más, tal como hacemos en gemini u otros, le habilitamos para que peguen otras API
+KEY de otras cuentas de google, entonces pueden tener más sin incurrir en gastos. Y la misma advertencia cuando estén por
+conectar o "logearse" dentro de mako a su 3ra red social de lo que sea...».
+
+En orden (el Cerebro):
+1. Los límites en la tarjeta y el modal de Zernio, con zernio.com/pricing leído el 28/10 23:40: 2 cuentas gratis (página,
+   Instagram y anuncios cuentan UNA cada una), de la 3.ª a la 10.ª US$6/mes cada una; 10.000 mensajes ENVIADOS gratis por mes
+   (recibidos gratis; sin tarjeta se frenan los envíos hasta el mes siguiente; con tarjeta US$1 cada 10.000); comentarios y
+   reseñas gratis sin contar; 500 anuncios gestionados gratis. ⚠️ La página dice que Analytics viene INCLUIDO y nosotros
+   medimos un 402 que pedía el complemento: VOLVER A MEDIR antes de escribir nada de Analytics (el texto `sin-analytics` de
+   lib/organico-reglas.ts depende de esto).
+2. El aviso antes de la 3.ª red ya existe (`cobro` con «Conectar igual», `avisoDeCobroZernio`/`textoAvisoCobro`): sumarle la
+   salida gratis «Conecta otra cuenta de Zernio (de otro email) y sigue sin pagar».
+3. Varias claves de Zernio en un negocio (como las keys de Gemini): GRANDE. Con la cuenta al 91%: dejarlo DISEÑADO y medido
+   aquí para la próxima cuenta (ver la sección «Varias claves de Zernio en un negocio»: cada clave es otro equipo, con su
+   webhook y su secreto). Los términos de Zernio no se encontraron (zernio.com/terms da 404): si prohíben varias cuentas
+   gratis para lo mismo, avisar al Cerebro ANTES.
+4. El aviso antes del tope de 10.000 enviados (Leandro, audio 19:24: «que no se pare la automatización… y que Maco no me
+   avise nada»): MaKo avisa en el grupo del negocio con tiempo (p. ej. al 80%), una vez por mes. Coordinar con Automations,
+   que tiene el tope social (c6f78deb4 y 0c121ab4b): que no queden dos avisos.
+
+Avisos del token (03/11) y ws21: hechos y mandados al Cerebro (nota zernio-avisos-token-0311-y-ws21.md en la carpeta de
+notas del Cerebro). P2P (ws14) no tiene grupo de WhatsApp: por eso nunca le llegó el aviso del 27/10.
