@@ -22,7 +22,7 @@ import {
   CAPA_FUNCIONES, catalogoCorto, esPreguntaDeProducto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES,
   sinFunciones,
 } from './cerebro-funciones';
-import { bloqueDelSecondBrain, conCapa, PRESUPUESTO_TURNO, sinLaPlata } from './cerebro-union';
+import { bloqueDelSecondBrain, conCapa, preguntaDelTurno, PRESUPUESTO_TURNO, sinLaPlata } from './cerebro-union';
 import { recuperar } from './cerebro-recuperar';
 import { grafoGuardado, guardarGrafo } from './cerebro-cache-chat';
 import type { Cerebro } from './cerebro-modelo';
@@ -60,10 +60,12 @@ export const ESPERA_GRAFO_TURNO_MS = 2_500;
  * lo que nombra la pregunta, sin IA y con su presupuesto (`bloqueDelSecondBrain`). Si la pregunta no nombra nada del grafo,
  * nada (el índice no viaja en cada turno). Con `sinPlata` (un closer o un setter, como `sinNumerosDelNegocio` de
  * lib/mako-context.ts), sin los objetivos, los KPIs ni los clientes del negocio: el grafo en caché es del NEGOCIO, no de la
- * persona. Espera al grafo hasta `ESPERA_GRAFO_TURNO_MS` y nunca tira: sin grafo, el turno sigue como antes.
+ * persona. Espera al grafo hasta `ESPERA_GRAFO_TURNO_MS` y nunca tira: sin grafo, el turno sigue como antes. Busca con las
+ * primeras letras del mensaje (`preguntaDelTurno`): `recuperar` corre DESPUÉS de la espera, sincrónico y sin tope propio.
  */
 export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolean; presupuesto?: number }): Promise<string> {
-  if (!pregunta.trim()) return '';
+  const q = preguntaDelTurno(pregunta);
+  if (!q) return '';
   try {
     const grafo = await Promise.race([
       grafoParaChat(),
@@ -73,8 +75,8 @@ export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolea
     // La capa de las funciones (sólo existe en la plataforma) entra sólo si la pregunta es de producto: «¿cuál es mi meta?» no
     // habla del Ads Manager de Meta.
     const delRol = o.sinPlata ? sinLaPlata(grafo) : grafo;
-    const g = esPreguntaDeProducto(pregunta) ? delRol : sinFunciones(delRol);
-    return bloqueDelSecondBrain(recuperar(g, { pregunta, presupuesto: o.presupuesto ?? PRESUPUESTO_TURNO }));
+    const g = esPreguntaDeProducto(q) ? delRol : sinFunciones(delRol);
+    return bloqueDelSecondBrain(recuperar(g, { pregunta: q, presupuesto: o.presupuesto ?? PRESUPUESTO_TURNO }));
   } catch {
     return '';
   }

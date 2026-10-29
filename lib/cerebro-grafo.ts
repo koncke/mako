@@ -64,7 +64,7 @@ import { listLeads } from './leads';
 import { conteoPorEtapa } from './api-mako/areas/crm.helpers';
 import { quarterActual, listObjectives, listKpis } from './objectives';
 import { listarSesionesOffer } from './offer-sesiones';
-import { agregarLoVivo, LECTURAS_VACIAS, TOPES_VIVOS, type ChatMakoVivo, type ClientesVivos, type ConteoLeads, type FechasDeAlta, type LecturasVivas, type ReunionViva } from './cerebro-vivo';
+import { agregarLoVivo, LECTURAS_VACIAS, nodoDelObjetivo, TOPES_VIVOS, type ChatMakoVivo, type ClientesVivos, type ConteoLeads, type FechasDeAlta, type LecturasVivas, type ReunionViva } from './cerebro-vivo';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Vive en `cerebro-modelo.ts`, SIN `server-only`, porque el componente que dibuja
@@ -889,18 +889,11 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[]; s
   // D1 · EL OBJETIVO EN NÚMEROS. Si faltan los números NO se emite un nodo «pendiente»:
   // lo que falta se dice en la raíz («Todavía sin info»), y uno suelto acá solo infla
   // el conteo sin decir nada.
-  const nCierres = Number(objCierres);
-  const nCash = Number(objCash);
-  if (Number.isFinite(nCierres) && nCierres > 0) {
+  // El nodo sale de lib/cerebro-vivo.ts (`nodoDelObjetivo`, puro): así se prueba con los settings como se guardan.
+  const objetivo = nodoDelObjetivo(objCierres, objCash);
+  if (objetivo) {
     const etapaCierre = funnel.pipeline.find((e) => e.kind === 'cierre') ?? funnel.pipeline[funnel.pipeline.length - 1];
-    const idObj = push({
-      id: 'objetivo',
-      area: 'norte',
-      etiqueta: `${nCierres} ${nCierres === 1 ? 'cierre' : 'cierres'} en 90 días`,
-      detalle: Number.isFinite(nCash) && nCash > 0 ? `Y USD ${nCash.toLocaleString('es')} de facturación.` : '',
-      fuente: 'lo pusiste como objetivo',
-      autoria: 'usuario',
-    });
+    const idObj = push(objetivo);
     if (etapaCierre && enElMapa.has(`etapa:${etapaCierre.key}`)) {
       unir(idObj, `etapa:${etapaCierre.key}`, 'Un cierre se cuenta cuando un lead llega aquí');
     }

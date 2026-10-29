@@ -22,7 +22,7 @@
 // =============================================================================
 
 import {
-  AREAS, CAPA_CONSTRUCCION, CAPA_NEGOCIO, TAXONOMIA_NEGOCIO,
+  AREAS, CAPA_CONSTRUCCION, CAPA_FUNCIONES, CAPA_NEGOCIO, TAXONOMIA_NEGOCIO,
   type AristaCerebro, type Cerebro, type Encuadre, type NodoCerebro, type Punto, type Taxonomia,
 } from './cerebro-modelo';
 import type { EstadoFiltro } from './cerebro-filtro';
@@ -83,19 +83,44 @@ export function conCapa(base: Cerebro<string>, capa: Cerebro<string>, c: { id: s
 }
 
 /**
- * LO QUE NO VE UN CLOSER NI UN SETTER (28/10/2026, como `sinNumerosDelNegocio` de lib/mako-context.ts): los objetivos y los KPIs
- * del negocio (su meta en USD) y sus clientes ganados. Se saca ANTES de recuperar, con sus aristas: el grafo que guarda la
- * caché de los chats es del negocio, no de la persona.
+ * LO QUE SÍ VE UN CLOSER O UN SETTER del grafo (28/10/2026, como `sinNumerosDelNegocio` de lib/mako-context.ts), EN POSITIVO:
+ * la estructura; lo que se vende y a cuánto (oferta, productos, lead magnet, entregables, los campos de la oferta); a quién
+ * (avatares, razones, los campos del cliente ideal); cómo se le habla (voz, persona, glosario, formatos, audios, secuencias,
+ * los campos de la marca); la landing; por dónde pasa un lead (funnels, etapas, cuántos leads hay); los cinco planos del
+ * panorama, y en la plataforma, las funciones de MaKo. Lo demás NO: el Norte (la fase con cuánto invertir, el cuello, el
+ * objetivo «12 cierres en 90 días — Y USD 30.000 de facturación», los OKR, los KPI, los campos del negocio), los clientes
+ * ganados, las reuniones analizadas, los documentos, los chats y cualquier otro plano del panorama. Se saca ANTES de
+ * recuperar, con sus aristas: el grafo que guarda la caché de los chats es del negocio, no de la persona.
+ * ⚠️ Era la lista de lo que se SACABA (okr, kpi, cliente) y el nodo `objetivo` (los settings del onboarding) se coló: un closer
+ * lo recibía en cinco de seis preguntas (la verificación de b2c19c445). En positivo, un tipo de nodo NUEVO no lo ve un closer
+ * hasta que alguien lo sume acá a propósito.
  */
-const DE_LA_PLATA = /^(okr|kpi|cliente):|^clientes$/;
+const VE_SIN_PLATA = new RegExp([
+  '^(?:raiz|leads|voz|vozcom|persona|glosario)$',
+  `^(?:n1|area|fn|${CAPA_FUNCIONES}|oferta|prod|lm|ent|av|raz|fmt|sec|land|audio|etapa|funnel):`,
+  '^campo:(?:oferta|avatar|marca)_',
+  '^pan:(?:IDENTIDAD Y POSICIONAMIENTO|OFERTA Y PRECIOS|AVATAR Y CLIENTE IDEAL|NICHO Y MERCADO|TONO Y VOZ DE MARCA)$',
+].join('|'));
 export function sinLaPlata<C extends Pick<Cerebro<string>, 'nodos' | 'aristas'>>(c: C): C {
-  const fuera = new Set(c.nodos.filter((n) => DE_LA_PLATA.test(n.id)).map((n) => n.id));
+  const fuera = new Set(c.nodos.filter((n) => !VE_SIN_PLATA.test(n.id)).map((n) => n.id));
   if (!fuera.size) return c;
   return { ...c, nodos: c.nodos.filter((n) => !fuera.has(n.id)), aristas: c.aristas.filter((a) => !fuera.has(a.de) && !fuera.has(a.a)) };
 }
 
 /** Los tokens del Second Brain en el system de un turno: la vista local de la pregunta, no el grafo (el default es 1.500). */
 export const PRESUPUESTO_TURNO = 1_200;
+
+/** Las letras del mensaje con las que el turno busca en el grafo: las primeras, cortadas en una palabra. `recuperar` es
+ *  sincrónico y crece con las palabras distintas por los nodos: un texto pegado de 32.000 letras bloqueaba el proceso de 2 a
+ *  6 s, FUERA de la espera acotada del grafo (la verificación de b2c19c445). */
+export const LARGO_PREGUNTA_TURNO = 600;
+export function preguntaDelTurno(texto: string): string {
+  const t = texto.trim();
+  if (t.length <= LARGO_PREGUNTA_TURNO) return t;
+  const corte = t.slice(0, LARGO_PREGUNTA_TURNO);
+  const espacio = corte.lastIndexOf(' ');
+  return (espacio > LARGO_PREGUNTA_TURNO / 2 ? corte.slice(0, espacio) : corte).trim();
+}
 
 /** El bloque del system de un turno con lo que el Second Brain sabe de la pregunta. Sólo con una vista local: el índice
  *  (la pregunta no nombró nada del grafo) no viaja en cada turno. */

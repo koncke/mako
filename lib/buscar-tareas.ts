@@ -101,13 +101,17 @@ const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * «notificacion » tiene que seguir encontrando «notificaciones», que es lo mismo.
  */
 export function coincide(heno: string, q: string): boolean {
-  const h = paraBuscar(heno);
-  const ts = terminos(q);
-  if (!ts.length) return false;
-  return ts.every(({ texto, cerrado }) => {
+  return buscador(q)(paraBuscar(heno));
+}
+
+/** `coincide` en dos pasos: la búsqueda se arma UNA vez y se prueba contra textos ya pasados por `paraBuscar`. Para recorrer
+ *  muchos textos con muchas palabras (lib/cerebro-recuperar.ts → `semillasDe`) sin normalizar ni armar la RegExp en cada par. */
+export function buscador(q: string): (henoNormalizado: string) => boolean {
+  const res = terminos(q).map(({ texto, cerrado }) => {
     const e = escapar(texto);
-    return new RegExp(cerrado ? `(^| )${e}(es|s)?( |$)` : `(^| )${e}`).test(h);
+    return new RegExp(cerrado ? `(^| )${e}(es|s)?( |$)` : `(^| )${e}`);
   });
+  return (h) => res.length > 0 && res.every((r) => r.test(h));
 }
 
 /**

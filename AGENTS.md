@@ -1776,6 +1776,10 @@ código nuevo:
       (lib/cerebro-para-chat.ts), con `sinPlata` para quien no es admin (sin objetivos, KPIs ni clientes del negocio: el grafo
       en caché es del negocio, no de la persona). Como el turno de la app (lib/mako-turno-app.ts). No depende de que el
       modelo pida una herramienta.
+    - **Un tipo de nodo nuevo del grafo NO lo ve un closer ni un setter hasta que se lo suma a `VE_SIN_PLATA`**
+      (lib/cerebro-union.ts, 28/10/2026): lo que ve un rol sin plata va EN POSITIVO. Con la lista de lo que se sacaba, el
+      nodo `objetivo` («Y USD 30.000 de facturación») le llegaba a un closer. Si el nodo nuevo no trae plata, súmalo ahí con
+      su caso en tests/second-brain-turno.test.ts.
     - **Una tab o una capacidad nueva suma o cambia su entrada en lib/funciones-mako.ts en el MISMO commit** (28/10/2026,
       Martín: «que el Second Brain de SuperAdmin tenga conocimiento de todas las funcionalidades»): qué hace, qué no hace
       (lo que todavía no, como «Todavía no: …»), qué reemplaza y cómo le dice la gente. Es lo que un chat lee para no negar
