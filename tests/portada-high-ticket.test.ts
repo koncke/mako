@@ -92,3 +92,12 @@ test('las páginas de cada funcionalidad tampoco dicen «VSL Funnel»', () => {
   }
   assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /<p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta\.<\/p>/);
 });
+
+// ── /vsl/ads vende lo que hay (29/10/2026, el Cerebro): el Media Buyer que propone y aplica, no crear campañas desde MaKo (la
+// réplica del Ads Manager se borró el 25/10). Verificado rompiéndolo: volver «crea tu campaña» al showcase → rojo.
+test('la página de anuncios no vende crear campañas', () => {
+  for (const rel of ['app/vsl/_detalle/features.ts', 'app/vsl/showcase.ts']) {
+    assert.doesNotMatch(leer(rel), /crea(r)? (tu|tus)? ?campañas?|Crear campañas|creas campañas/i, rel);
+  }
+  assert.match(leer('app/vsl/_detalle/features.ts'), /name: "Tu media buyer con IA",/);
+});

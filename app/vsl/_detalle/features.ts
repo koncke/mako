@@ -537,71 +537,42 @@ export const FEATURES: Record<string, Feature> = {
 
   'ads': {
     slug: 'ads',
-    name: "Ads Manager para High Ticket",
+    name: "Tu media buyer con IA",
     icon: ICON["ads"],
-    headline: "Nunca más tres horas peleándote con el Ads Manager — y por fin ves, en la misma fila, cuánto CASH cerró cada anuncio",
-    lead: "Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <strong>mil botones que no necesitas</strong>. MaKo te deja solo lo que una venta High Ticket usa. Pero además arregla el problema de fondo: Meta te dice el CPL y las \\\"conversiones\\\" del pixel, y <em>ninguno de esos números te dice si vendiste</em>. MaKo replica el Ads Manager de Meta dentro del dashboard y le agrega la columna que falta: <strong>los cierres y el cash real de tu CRM, por anuncio</strong>. Pausas por ROAS de caja, no por CPL vanidoso — y cuando quieres escalar, MaKo ya sabe cuál fue tu creativo ganador por ventas y te lo propone replicar, con el árbol completo armado y en PAUSA hasta que tú presiones activar.",
+    headline: "Tu media buyer con IA: mira tus anuncios de Meta cada día y te dice qué subir, pausar o prender, y por qué",
+    lead: "Meta te muestra el CPL; tú vives de los que <strong>cierran</strong>. MaKo mira tu cuenta de Meta una vez por día y deja <strong>decisiones</strong>: subir o bajar un presupuesto, pausar, prender o probar una variación del anuncio ganador. Cada una con su porqué, los números que la dispararon y su deshacer, medida contra lo que pasó en tu CRM.",
     groups: [
       {
-        title: "La tabla que Meta no te da: estado en vivo + rendimiento + CRM en una sola fila",
+        title: "Cada día, decisiones con su porqué",
         bullets: [
-          "Cruza <strong>tres fuentes por anuncio</strong>: estado de entrega en vivo de Meta (activo, en aprendizaje, en revisión, rechazado, pausado), rendimiento del rango (gasto, CPL, CTR, agendas) y <strong>cierres + cash reales del CRM</strong>. El cash cerrado por anuncio no lo muestra ningún Ads Manager nativo.",
-          "El cash no sale de una estimación del pixel: se une por <strong>meta_ad_id</strong> contra los leads que quedaron en 'ganado', sumando el total cobrado. Es plata confirmada, no 'valor de conversión'.",
-          "Jerarquía real <strong>Campañas → Conjuntos → Anuncios</strong>, columnas ordenables y configurables (se guardan en tu navegador), primera columna fija al hacer scroll y multiselección para operar en lote.",
-          "Distingue leads directos de <em>onsite_conversion.lead_grouped</em> para no doble-contar, e ingesta las métricas de retención de video por cuartil (3s, thruplay, p25/p50/p75/p100).",
+          "Tácticas de media buyer probadas: <strong>escalar lo que vende, cortar lo que gasta sin traer, prender de nuevo lo que volvió a andar</strong> y armar variaciones del anuncio ganador.",
+          "Cada decisión trae <strong>qué cambia, por qué y la tabla de números que la disparó</strong>: no es una caja negra.",
+          "Mide contra tu CRM: los leads de cada anuncio que <strong>agendaron y cerraron</strong>, no sólo las conversiones del pixel.",
         ],
       },
       {
-        title: "Escribe de verdad contra Meta, desde la celda",
+        title: "Tú decides cuánto hace solo",
         bullets: [
-          "<strong>Pausar/activar, cambiar presupuesto, renombrar y borrar</strong> directo contra el Graph API — CBO en la campaña, ABO en el conjunto. No es una vista de solo lectura.",
-          "El renombrado se <strong>propaga en el acto</strong> a tus leads y a las métricas diarias, para que no te quede el nombre viejo colgado en ningún reporte.",
-          "Maneja el patrón traicionero de Meta: errores que llegan con <strong>HTTP 200</strong>. MaKo mira el cuerpo de la respuesta, nunca el status, así un fallo no pasa como éxito.",
-          "<strong>Renombrado masivo con IA sobre tu plantilla</strong>: tú defines el formato (ej. '{nnn}. {objetivo} / {ángulo} - {mes} / {año}'), MaKo solo EXTRAE el valor de cada variable mirando nombre, jerarquía y fecha; la plantilla arma el nombre — formato exacto garantizado.",
+          "En <strong>«propone»</strong>, cada decisión espera tu clic. Con el <strong>piloto automático</strong> (MaKo Pro), las tácticas que elijas se aplican solas.",
+          "Los topes los fijas tú: cuánto puede subir un presupuesto por día y el máximo. Un interruptor lo frena todo.",
+          "Todo se puede <strong>deshacer</strong>: el antes y el después, con un botón.",
+          "Nace apagado en cada negocio: lo prendes tú cuando quieras.",
         ],
       },
       {
-        title: "Crear campañas con MaKo: subes el creativo, respondes y sale el árbol publicado, siempre en PAUSA",
+        title: "Pídeselo con tus palabras",
         bullets: [
-          "Sube tu creativo (o usa uno ganador), di cuánto invertir y a quién apuntar. MaKo recibe un brief real de tu negocio —<strong>etapas del funnel, perfil de cliente, CPL/CAC/ROAS de los últimos 30 días, tus anuncios ganadores para replicar y el método de adquisición</strong>— y devuelve un CampaignSpec editable: objetivo, CBO/ABO, targeting, creativos y copy.",
-          "Arma el <strong>árbol completo campaña → conjunto → creativo → anuncio</strong> creado siempre en PAUSED, con rollback best-effort si algo falla a mitad de camino. Nada sale al aire sin que tú lo actives — un clic y sale.",
-          "También <strong>agregas un conjunto o un anuncio a una campaña que ya existe</strong>: hereda el optimization_goal y la conversión (pixel/evento) del conjunto vivo, así el nuevo optimiza por lo mismo sin re-pedirte pixel.",
-          "Cablea lo que Meta necesita para publicar de verdad: <strong>cuenta de Instagram conectada</strong> (si no, solo entrega en Facebook), eventos ACTIVOS del pixel, intereses resueltos a ids reales y soporte de formularios instantáneos (lead ads).",
-        ],
-      },
-      {
-        title: "Ads Writer: dame ganchos nuevos para el VSL sin volver a explicar quién soy",
-        bullets: [
-          "Escribes en lenguaje natural qué quieres promocionar y MaKo devuelve <strong>3 a 5 variantes, cada una con un ángulo psicológico distinto</strong> (dolor, prueba social, urgencia, aspiracional, contraintuitivo). No son reescrituras de la misma idea: cada tarjeta ataca un gatillo diferente.",
-          "Cada variante trae los <strong>4 campos exactos de un anuncio de Meta</strong>: texto principal (gancho en la 1a línea), título, descripción y CTA — listos para pegar, con botón de copiar por campo y 'Copiar todo'.",
-          "A diferencia de ChatGPT, ya conoce tu negocio: cada línea sale anclada en tu <strong>oferta, avatar, funnel y tus 6 anuncios ganadores de los últimos 30 días con sus CPL/CAC reales</strong> (el mismo brief que usa el creador de campañas). Regla del prompt: nada de inventar cifras ni garantías.",
-          "<strong>Modo ajuste iterativo</strong>: pides un cambio en lenguaje natural (más corto, otro ángulo, tono más directo) y MaKo regenera conservando lo que ya funcionaba. El copy sale en español mexicano para tu audiencia; MaKo te dice, en su voz, cuál probar primero.",
-        ],
-      },
-      {
-        title: "Tracking, retargeting y reparación de anuncios sin salir de la app",
-        bullets: [
-          "<strong>UTMs automáticos en cada anuncio nuevo</strong>: se inyectan las macros {{campaign.name}}/{{ad.name}}/{{adset.name}}, así utm_source/medium/campaign/content se rellenan solos en cada clic — y es lo que después empalma la identificación del lead con el funnel.",
-          "<strong>Públicos de retargeting</strong> (engagement de Facebook/Instagram, video o pixel por evento) con ventana de retención configurable, sin ir a Meta.",
-          "Editor de segmentación <strong>no destructivo</strong>: como el POST reemplaza el targeting entero, MaKo trae el objeto crudo de Meta y superpone solo lo que tocas — no te borra geo por ciudad, idiomas, behaviors ni exclusiones.",
-          "<strong>Reparar un anuncio rechazado editando el texto</strong>: en Meta el creativo es inmutable, así que MaKo crea uno nuevo reusando el mismo video/imagen, cambia el copy y re-apunta el anuncio (re-dispara la revisión). No rompe casos delicados: Advantage+, CTA de WhatsApp/Messenger o posts reutilizados los deriva a Meta.",
-        ],
-      },
-      {
-        title: "MaKo mira tus creativos y aprende de ellos",
-        bullets: [
-          "Un cron diario baja el mp4 de cada anuncio y lo <strong>transcribe con Whisper</strong> (guarda transcript, secciones, idioma y duración), o analiza el thumbnail si no hay video. Es lo que alimenta el análisis de creativos y el copy alineado.",
-          "<strong>Análisis visual con gpt-4o</strong>: MaKo mira las miniaturas y devuelve descripción + ángulo de cada una, para preguntarte mejor en el wizard y escribir copy pegado al creativo.",
-          "Snapshotea el <strong>presupuesto diario de cada conjunto</strong>: Meta solo expone el valor actual, sin histórico — el snapshot diario ES la única serie de presupuesto que vas a tener.",
-          "El copy que propone sale en <strong>español mexicano</strong>, listo para el mercado, no un borrador genérico que hay que rehacer.",
+          "«¿En qué te ayudo hoy?»: le pides a MaKo lo que quieres y te arma los cambios por cada producto de tu CRM.",
+          "<strong>Variaciones del anuncio ganador</strong> con la IA de tu negocio, y subes creativos nuevos a un conjunto sin entrar a Meta.",
+          "En MaKo Esencial, 2 recomendaciones por día y tú decides si las aplicas; en MaKo Pro, sin tope y con piloto automático.",
         ],
       },
     ],
-    conecta: ["Meta Ads (Graph API)", "MaKo · Claude", "OpenAI gpt-4o visión", "OpenAI Whisper", "Supabase", "CRM interno"],
+    conecta: ["Meta Ads", "MaKo · tu IA", "CRM interno"],
     quote: "Deja de pausar por CPL. Pausa por la plata que entró.",
-    nota: "Hoy corre sobre la cuenta y página de Meta del dueño del workspace (Fase 1): administrás TUS campañas, todavía no las de cada cliente por separado. La creación de campañas está cableada de punta a punta pero sus permisos de escritura contra cuentas nuevas aún se están validando en vivo.",
-    metaTitle: "Ads Manager para High Ticket | MaKo",
-    metaDesc: "El único Ads Manager que muestra el cash cerrado de tu CRM por cada anuncio. Pausas, activas, cambias presupuesto, creas campañas y escribes copy con MaKo contra Meta — sin salir del dashboard.",
+    nota: "Nace apagado en cada negocio. En «propone», nada cambia en Meta sin tu clic.",
+    metaTitle: "Tu media buyer con IA | MaKo",
+    metaDesc: "Un media buyer con IA que mira tus anuncios de Meta cada día y te propone qué subir, pausar o prender, con su porqué y su deshacer, medido contra los cierres de tu CRM.",
   },
 
   'script': {
