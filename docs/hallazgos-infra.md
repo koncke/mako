@@ -9126,4 +9126,10 @@ perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). 
   sin correr nada. El hook del push espera ese mismo lock: `typecheck-lock` 10 min y `tipos-respaldo-push` otros 10, y
   después sale con 99 «no hubo RAM». Así cayó el primer push de tren-y (04:17), con cuatro tsc de chats en la fila.
   **Regla:** para subir, la pausa NO se prende antes del push. Se apaga, se espera la fila de tipos vacía y se empuja; el
-  push toma el lock y los chats esperan detrás. **Sin hacer:** que `con-turno` espere la pausa ANTES de tomar el lock.
+  push toma el lock y los chats esperan detrás. (04:32: el Cerebro ya hizo que `con-turno` espere la pausa y la RAM ANTES de
+  tomar el turno de tipos; para los `--test`, con-turno sigue sin mirar la pausa.)
+- **Lo que sí subió tren-y (05:46, al tercer intento): tomar los DOS lugares de la fila de tests.** Las barredoras de los chats
+  (2 y 0,9 GB, de a dos por los dos lugares de con-turno) dejaban la PC en 3,7 GB aun con Chrome cerrado. `C:/dev/revisiones/
+  subir-tren.mjs` prende la pausa, toma `mako-tests.lock` y `mako-tests-2.lock` cuando se liberan (con su pid: con-turno ve
+  un dueño vivo y espera), espera la fila de tipos libre y 5,2 GB, empuja y suelta todo. Con eso la PC llegó a 6,3 GB y las
+  tres tandas dieron 0 en ~6 min. Esperar los dos lugares tardó 40 min (una barredora de un chat).
