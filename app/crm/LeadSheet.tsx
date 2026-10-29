@@ -173,7 +173,9 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
   // del worklist (`completeStageMoveAction`), y `faltantes` —calculado en el server— es
   // su lista autoritativa. Lo que lo convierte en «Completar datos» en vez de un
   // movimiento es que `moveTo` apunte a la etapa ACTUAL, igual que en la ruta.
-  const solucionar = () => setMoveTo(stageKey);
+  // El dato que se tocó y que esta ficha no dibuja (`onNoEsta`): el asistente pide ESE (lib/datos-aviso.ts, `loQueSePide`).
+  const [datoPedido, setDatoPedido] = useState<StepId | null>(null);
+  const solucionar = (paso: StepId) => { setDatoPedido(paso); setMoveTo(stageKey); };
   const completandoDatos = moveTo === stageKey;
 
   // ⚠️ «SOLUCIONAR» UN DATO LLEVA AL DATO, NO ABRE EL ASISTENTE (13/10/2026). Martín: «Elimina
@@ -285,14 +287,15 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             // props van juntos y con la misma condición que en `LeadDetailBody`.
             titulo={completandoDatos ? 'Completar datos' : undefined}
             completarDatos={completandoDatos}
-            faltantes={completandoDatos ? loQueSePide(faltantes, datos?.avisar) : undefined}
+            faltantes={completandoDatos ? loQueSePide(faltantes, datos?.avisar, datoPedido) : undefined}
+            datoPedido={completandoDatos ? datoPedido : null}
             equipo={equipo}
-            onClose={() => setMoveTo(null)}
+            onClose={() => { setMoveTo(null); setDatoPedido(null); }}
             // Al completar datos la ficha SE QUEDA: la persona no pidió irse de acá, y
             // cerrarla sería la redirección que este cambio vino a sacar. Mover de
             // etapa sí la cierra — la tarjeta ya no vive en la columna que se estaba
             // mirando.
-            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); router.refresh(); if (quedarse) releer(); else onClose(); }}
+            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); setDatoPedido(null); router.refresh(); if (quedarse) releer(); else onClose(); }}
           />
         </div>
       )}

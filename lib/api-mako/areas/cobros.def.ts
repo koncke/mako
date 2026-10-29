@@ -165,6 +165,23 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
+    // Leila (26/10/2026, Fabi Pedraza): mandó la constancia al chat del lead y MaKo contestó «Desde este chat no puedo
+    // adjuntar ni guardar el documento en su ficha». Sólo la app: es la que guarda el archivo del mensaje (`ctx.adjuntos`).
+    id: 'guardar_documento_fiscal', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Guardar el documento fiscal de un lead',
+    descripcion: 'PROPONE guardar en la ficha de un lead, como su documento fiscal (la constancia de situación fiscal, el RFC, el CUIT…), el archivo que la persona adjuntó en ESTE mensaje, y completar los datos fiscales que estén VACÍOS con lo que leíste en el documento (razon, id_fiscal, domicilio, correo): lo ya cargado no se pisa. Si ya tenía un documento, queda el nuevo. El archivo de un mensaje anterior no sirve: que lo vuelva a adjuntar con el pedido. Para cambiar un dato fiscal ya cargado, editar_dato_deal.',
+    escribe: 'sube el archivo a la ficha del lead (deal_fiscal.doc_path y doc_nombre) y completa los datos fiscales vacíos, cada uno con el antes y el después en el historial',
+    parametros: [
+      leadId('id del lead (de buscar_leads).'),
+      { nombre: 'archivo', rotulo: 'Archivo', tipo: 'string', max: 200, descripcion: 'el nombre del archivo, sólo si adjuntó más de uno.' },
+      { nombre: 'razon', rotulo: 'Razón social', tipo: 'string', max: 2000, descripcion: 'la razón social o el nombre que dice el documento.' },
+      { nombre: 'id_fiscal', rotulo: 'Identificación fiscal', tipo: 'string', max: 2000, descripcion: 'el RFC, CUIT, NIT… tal cual lo dice el documento.' },
+      { nombre: 'domicilio', rotulo: 'Domicilio fiscal', tipo: 'string', max: 2000, descripcion: 'el domicilio fiscal, en una línea.' },
+      { nombre: 'correo', rotulo: 'Correo de facturación', tipo: 'string', max: 2000, descripcion: 'el correo de facturación, si aparece.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: G_TAB,
+  },
+  {
     id: 'editar_obligacion_deal', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Editar una obligación del deal',
     descripcion: 'PROPONE agregar, editar o quitar UN renglón de las obligaciones del trato de un lead: lo que tiene que hacer el cliente o lo que tiene que hacer el prestador. Los demás renglones quedan. Pide renglon (empezando en 1) para editar o quitar; si la lista cambió antes del «sí», no se escribe.',

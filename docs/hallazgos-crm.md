@@ -20,6 +20,34 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Solucionar» un dato que la ficha no dibuja: el asistente no sabía CUÁL (29/10/2026, claude3)
+
+**El síntoma.** Leila (ws11, lead Fabi Pedraza, 26/10): «me dice que no tengo los datos fiscales pero cuando los quiero
+cargar solamente me salen setter y closer», y «no me deja avanzar a los siguientes datos».
+
+**La causa** (medida con sus datos, no vista en pantalla):
+- ws11 tiene el canal «presencial» y su funnel tiene una sola etapa de reunión, así que la ficha es la plantilla
+  **«Evento»** (`elegirPlantilla`, lib/ficha/plantillas.ts). Esa plantilla **no trae el bloque «Datos fiscales» en Pagos** y
+  apaga sus avisos. Tampoco lo traen «Formulario de Meta», «Landing», «Te escriben», «Prospección» ni «Carrito».
+- «Solucionar» no encontraba dónde (`tabDelDato` → null) y caía al asistente con `onNoEsta()`, **sin decir qué dato**. El
+  asistente pedía lo que avisa el funnel (`loQueSePide`), y el dato tocado no avisa: lo sacaba. Y el documento fiscal no se
+  pregunta nunca en el asistente («nadie tiene el papel al mover»), así que tampoco había dónde subirlo.
+
+**El diagnóstico obvio era el equivocado.** La revisión del 27/10 sospechaba del modo «Editar» (los bloques son `inert`
+personalizando), y lo otro obvio era sumar el bloque a las plantillas. Lo primero no explica «setter y closer». Lo segundo le
+cambia la ficha a todos los clientes de seis plantillas, y la que eligió apagar el dato fue la plantilla.
+
+**La regla:** el respaldo de «Solucionar» lleva EL DATO: `onNoEsta(paso)` (FichaPorBloques, los dos caminos: sin bloque, y
+el señalador que no encuentra el campo) → `datoPedido` en LeadSheet y LeadDetailBody → `loQueSePide(faltan, avisan, pedido)`
+devuelve ése aunque el funnel no avise, y StageMoveDialog pregunta el documento fiscal o el comprobante SÓLO si son el dato
+pedido (al mover, nunca). Lo fija tests/documento-fiscal-desde-el-chat.test.ts (15 roturas cazadas).
+
+**Sin hacer:** el bloque «Datos fiscales» sigue sin estar en esas seis plantillas: con el arreglo se carga por el asistente,
+y quien lo quiera en la ficha lo agrega con «Personalizar». No se vio en pantalla (bootear local escribe en producción).
+
+**Vive en:** lib/datos-aviso.ts (`loQueSePide`) · app/crm/lead-view/ficha/FichaPorBloques.tsx (`solucionar`) ·
+app/crm/LeadSheet.tsx · app/crm/[id]/LeadDetailBody.tsx · app/crm/StageMoveDialog.tsx (`datoPedido`).
+
 ## El feedback del 27/10/2026: «ganado» en la columna de Perdido, el contrato, la R1 cargada a mano y el día de UTC
 
 Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, textuales, en la cabecera de

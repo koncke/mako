@@ -3828,4 +3828,24 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
     tickets: [14],
   },
+  {
+    fecha: '29 oct', hora: '05:30', chat: 'CRM y Chats', sesion: 'local_50d3b679-7aa4-4438-a315-993bea9b1e1a', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los datos fiscales se cargan aunque tu ficha no tenga el bloque, MaKo guarda la constancia desde el chat y te dice quiénes quedaron sin marcar',
+    pedido: 'Leila (lead Fabi Pedraza): «Me dice que no tengo los datos fiscales pero cuando los quiero cargar solamente me salen setter y closer», y MaKo le contestó que desde el chat no podía guardar la constancia. Joan (Código Inmobiliario): 25 contra 28 no-shows, y no le dio los nombres de los sin marcar.',
+    puntos: [
+      '**«Solucionar» un dato que tu ficha no muestra:** la ficha de Leila (plantilla «Evento») no tiene el bloque «Datos fiscales». Ahora «Solucionar» abre la pregunta de ESE dato: los datos fiscales, o subir el documento fiscal. Antes abría otras preguntas.',
+      '**La constancia, desde el chat:** le pasas el PDF a MaKo en el chat del lead («este es el doc fiscal») y te propone guardarlo en su ficha y completar el RFC y el domicilio que falten. Lo ya cargado no se toca. Por ahora sólo en el chat de la app, no por WhatsApp.',
+      '**Las cifras de Joan eran ciertas las dos:** a las 16:15 había 25 no-shows y 14 sin marcar; a las 16:19 su equipo marcó 4 reuniones, y a las 16:26 eran 28 y 10.',
+      '**MaKo ya te da los nombres:** «¿quiénes quedaron sin marcar?» o «pásame los no-show» trae la lista con nombre, fecha y closer, con la misma cuenta que los números. Si el número cambió desde la última vez, te dice que se marcaron reuniones en el medio.',
+    ],
+    archivos: [
+      'lib/datos-aviso.ts — loQueSePide con el dato pedido · app/crm/lead-view/ficha/FichaPorBloques.tsx — onNoEsta(paso)',
+      'app/crm/StageMoveDialog.tsx — datoPedido (el documento fiscal) · app/crm/LeadSheet.tsx · app/crm/[id]/LeadDetailBody.tsx',
+      'lib/api-mako/areas/cobros.* — guardar_documento_fiscal · lib/deal-fiscal-doc.ts · lib/mako-intencion-app.ts — la familia documento-fiscal',
+      'lib/api-mako/areas/metricas.* — reuniones_por_asistencia · lib/reuniones-por-asistencia.ts · lib/metricas-modelo.ts',
+      'tests/documento-fiscal-desde-el-chat.test.ts · tests/reuniones-por-asistencia.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+  },
 ];
