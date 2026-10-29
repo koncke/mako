@@ -10,15 +10,27 @@
 //     la forma del template «Guion de Reel» (plantillas.ts) ya llena, debajo de «Reels».
 // Se COPIA: lo original queda donde estaba (la matriz del Ads Writer sigue andando). Lo hace UNA vez por negocio
 // (lib/copywriter/mudanza.ts).
+// ⚠️ CADA PÁGINA MUDADA TIENE UN ID QUE SALE DE SU ORIGEN (`idDeMudanza`: el negocio + la celda + el guion), no al azar.
+// Verificación del Cerebro de 544991179 (ALTA): con ids al azar, una mudanza cortada después de escribir el índice (la
+// marca «hecha» que no llegó, o la respuesta del índice que se perdió) se repetía ENTERA a los 10 minutos: 7 → 14 páginas,
+// dos «Guiones del Ads Writer». Con el id del origen, repetirla encuentra lo que ya está y no lo vuelve a crear.
 // =============================================================================
 
+import { createHash } from 'node:crypto';
 import type { PiezaReel } from '../ig-writer';
 import { CAPTION_VISIBLE } from '../ig-formatos';
 import { tituloDeSeccion } from './doc';
 import { docDeTexto } from './texto';
 import type { JsonNodo, PropsGuion, TipoGuion } from './tipos';
 
-/** Una página por crear: `clave` la nombra para que sus hijas la encuentren (`padreClave`) antes de tener id. */
+/**
+ * El id de una página mudada: el mismo cada vez que se muda lo mismo en el mismo negocio (válido para `esIdPagina`: «g» y
+ * 12 de hex). Con el negocio adentro, dos negocios nunca comparten un id (ni la charla `copywriter:<id>` de esa página).
+ */
+export const idDeMudanza = (ws: number, clave: string): string =>
+  `g${createHash('sha256').update(`copywriter-mudanza:${ws}:${clave}`).digest('hex').slice(0, 12)}`;
+
+/** Una página por crear: `clave` la nombra (su id sale de ahí, `idDeMudanza`) y sus hijas la encuentran por `padreClave`. */
 export type PaginaMudada = {
   clave: string;
   padreClave: string | null;
@@ -47,24 +59,40 @@ function guionDe(raw: unknown): { id: string; texto: string; anguloId: string; a
   return texto ? { id: str(g.id), texto, anguloId: str(g.anguloId), anguloNombre: str(g.anguloNombre), estructuraId: str(g.estructuraId) } : null;
 }
 
+/**
+ * Los guiones de una celda de la matriz. Una celda de ANTES del multi-guion (30/07/2026) tiene un solo string en `guion`:
+ * la matriz la adopta como un guion «General» (lib/razones.ts, normalizarGuiones) y la mudanza también (verificación del
+ * Cerebro de 544991179: se quedaba afuera aunque la matriz la mostrara).
+ */
+function guionesDeCelda(o: Record<string, unknown>): unknown[] {
+  const guiones = Array.isArray(o.guiones) ? o.guiones : [];
+  const legado = str(o.guion);
+  return guiones.length || !legado ? guiones : [{ id: 'general', anguloNombre: 'General', texto: legado }];
+}
+
 /** Los guiones del Ads Writer (el JSON crudo de `mako.razones`) → páginas de Ad debajo de «Guiones del Ads Writer». */
 export function paginasDeAdsWriter(raw: unknown, catalogo: { angulos: ReadonlySet<string>; estructuras: ReadonlySet<string> }): PaginaMudada[] {
   const celdas = Array.isArray(raw) ? raw : [];
   const hijas: PaginaMudada[] = [];
-  for (const c of celdas) {
+  const claves = new Set<string>();
+  celdas.forEach((c, ci) => {
     const o = (c && typeof c === 'object' ? c : {}) as Record<string, unknown>;
     const nombre = str(o.nombre);
-    for (const g of Array.isArray(o.guiones) ? o.guiones : []) {
+    guionesDeCelda(o).forEach((g, gi) => {
       const n = guionDe(g);
-      if (!n) continue;
+      if (!n) return;
       const titulo = [nombre, n.anguloNombre].filter(Boolean).join(' · ') || corto(n.texto.split('\n')[0] ?? 'Guion');
+      // La clave (y con ella el id) sale de la celda y del guion, con su lugar si no traen id; una repetida no se muda dos veces.
+      const clave = `ads:${str(o.id) || `c${ci}`}:${n.id || `g${gi}`}`;
+      if (claves.has(clave)) return;
+      claves.add(clave);
       hijas.push({
-        clave: `ads:${n.id || hijas.length}`, padreClave: 'ads', titulo: corto(titulo), tipo: 'ad', emoji: null,
+        clave, padreClave: 'ads', titulo: corto(titulo), tipo: 'ad', emoji: null,
         props: { angulo: catalogo.angulos.has(n.anguloId) ? n.anguloId : null, estructura: catalogo.estructuras.has(n.estructuraId) ? n.estructuraId : null },
         contenido: docDeTexto(n.texto),
       });
-    }
-  }
+    });
+  });
   if (!hijas.length) return [];
   const padre: PaginaMudada = {
     clave: 'ads', padreClave: null, titulo: 'Guiones del Ads Writer', tipo: 'pagina', emoji: '📣', props: {},
@@ -99,16 +127,19 @@ export function docDeReel(p: Partial<PiezaReel>): JsonNodo {
 export function paginasDeReels(raw: unknown): PaginaMudada[] {
   const lista = Array.isArray(raw) ? raw : [];
   const hijas: PaginaMudada[] = [];
-  for (const e of lista) {
+  const claves = new Set<string>();
+  lista.forEach((e, i) => {
     const o = (e && typeof e === 'object' ? e : {}) as Record<string, unknown>;
     const pieza = (o.pieza && typeof o.pieza === 'object' ? o.pieza : null) as Partial<PiezaReel> | null;
-    if (!pieza) continue;
+    const clave = `reel:${str(o.id) || `i${i}`}`;
+    if (!pieza || claves.has(clave)) return;
+    claves.add(clave);
     const duracion = typeof pieza.duracionEstimadaSeg === 'number' && pieza.duracionEstimadaSeg > 0 ? Math.round(pieza.duracionEstimadaSeg) : null;
     hijas.push({
-      clave: `reel:${str(o.id) || hijas.length}`, padreClave: 'reels', titulo: corto(str(o.pedido) || 'Reel'), tipo: 'reel', emoji: null,
+      clave, padreClave: 'reels', titulo: corto(str(o.pedido) || 'Reel'), tipo: 'reel', emoji: null,
       props: { estructura: 'reel-viral', duracion }, contenido: docDeReel(pieza),
     });
-  }
+  });
   if (!hijas.length) return [];
   const padre: PaginaMudada = {
     clave: 'reels', padreClave: null, titulo: 'Reels', tipo: 'pagina', emoji: '🎬', props: {},

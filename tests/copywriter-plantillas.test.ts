@@ -18,11 +18,13 @@ import { bloquesDelDoc, sanearContenido, textoDelDoc } from '../lib/copywriter/d
 import { aBloques, deBloques } from '../lib/copywriter/notion-bloques';
 import { GRUPOS_PLANTILLA, gruposDePlantillas, plantillaPorId, plantillasDe } from '../lib/copywriter/plantillas';
 import { catalogosLite, conVsl } from '../lib/copywriter/catalogos';
-import { TIPOS_GUION } from '../lib/copywriter/tipos';
+import { esIdPagina, TIPOS_GUION } from '../lib/copywriter/tipos';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ESTRUCTURAS_VSL_DEFAULT } from '../lib/vsl-estructuras';
-import { loQueSeMuda, paginasDeAdsWriter, paginasDeReels, TOPE_MUDANZA } from '../lib/copywriter/mudanza-reglas';
+import { idDeMudanza, loQueSeMuda, paginasDeAdsWriter, paginasDeReels, TOPE_MUDANZA } from '../lib/copywriter/mudanza-reglas';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const catalogos = catalogosLite(ANGULOS_GUION_DEFAULT, conVsl(ESTRUCTURAS_GUION_DEFAULT));
 const plantillas = plantillasDe(catalogos);
@@ -125,6 +127,32 @@ test('la mudanza respeta el tope: el padre va sólo si va alguna hija', () => {
   assert.equal(loQueSeMuda([tres, reels], 5).length, 4);
   assert.equal(loQueSeMuda([muchas, reels], 10_000).length, 51 + 2);
   assert.ok(loQueSeMuda([muchas], 10_000).length <= TOPE_MUDANZA + 1);
+});
+
+test('el id de una página mudada sale de su origen: el mismo cada vez, distinto por negocio y por guion', () => {
+  const ps = paginasDeAdsWriter(RAZONES, CATALOGO);
+  const ids = ps.map((p) => idDeMudanza(7, p.clave));
+  assert.ok(ids.every((id) => esIdPagina(id)), 'un id que la pantalla no acepta abre «No existe»');
+  assert.deepEqual(paginasDeAdsWriter(RAZONES, CATALOGO).map((p) => idDeMudanza(7, p.clave)), ids, 'repetir la mudanza duplicaba');
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(ids.every((id, i) => id !== idDeMudanza(8, ps[i].clave)), 'dos negocios no comparten un id (ni su charla)');
+  // El mismo id de guion en dos celdas son dos páginas; repetido en la misma celda, una.
+  const dos = paginasDeAdsWriter([{ id: 'a', nombre: 'A', guiones: [{ id: 'x', texto: 'Uno' }, { id: 'x', texto: 'Otra vez' }] }, { id: 'b', nombre: 'B', guiones: [{ id: 'x', texto: 'Dos' }] }], CATALOGO);
+  assert.equal(dos.length, 3, 'el padre, una de A y una de B');
+});
+
+test('la celda de antes del multi-guion (sólo `guion`) se muda como «General», como la muestra la matriz', () => {
+  const ps = paginasDeAdsWriter([{ id: 'v', nombre: 'Celda vieja', guion: 'GANCHO\nLo de antes' }], CATALOGO);
+  assert.deepEqual(ps.map((p) => p.titulo), ['Guiones del Ads Writer', 'Celda vieja · General']);
+  assert.deepEqual(secciones(ps[1].contenido), ['GANCHO']);
+});
+
+test('la mudanza pone los Reels PRIMERO: con el tope lleno de guiones, los Reels entran igual', () => {
+  const muchas = paginasDeAdsWriter([{ nombre: 'x', guiones: Array.from({ length: 50 }, (_, i) => ({ id: `g${i}`, texto: `Guion ${i}` })) }], CATALOGO);
+  const reels = paginasDeReels([{ id: 'r', pedido: 'p', pieza: { hook: {}, escenas: [] } }]);
+  assert.ok(loQueSeMuda([reels, muchas], 10).some((p) => p.tipo === 'reel'));
+  const mudanza = readFileSync(join(__dirname, '..', 'lib/copywriter/mudanza.ts'), 'utf8');
+  assert.match(mudanza, /const grupos = \[paginasDeReels\(parse\(reels\)\), paginasDeAdsWriter\(parse\(razones\), catalogo\)\];/);
 });
 
 // Verificado rompiéndolo (29/10/2026, 7 tests): con `TITULO` fuera de CON_TILDE (doc.ts), 1 falla (el «Título»); con el

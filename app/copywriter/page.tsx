@@ -23,6 +23,9 @@ import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// La primera apertura de un negocio grande muda cientos de páginas (lib/copywriter/mudanza.ts): unos segundos. Si se
+// corta, la mudanza se repite sin duplicar, pero mejor que no se corte.
+export const maxDuration = 60;
 
 export default async function CopywriterPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs([], { nav: 'copywriter' });

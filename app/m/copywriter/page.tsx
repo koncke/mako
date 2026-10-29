@@ -18,6 +18,8 @@ import { requireCopywriterM } from './puerta';
 import { ListaGuionesM } from './ListaGuionesM';
 
 export const dynamic = 'force-dynamic';
+// La mudanza de la primera apertura (lib/copywriter/mudanza.ts), como en app/copywriter/page.tsx.
+export const maxDuration = 60;
 
 export default async function CopywriterMovil({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireMovil({ navKey: 'copywriter' });

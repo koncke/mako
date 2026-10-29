@@ -204,42 +204,61 @@ export async function restaurar(id: string) {
 }
 
 /**
- * Crea VARIAS páginas de una vez (la mudanza de lo de antes, D14): cada documento con su compare-and-set (de a 6 a la vez)
- * y el índice en UNA escritura, con las hijas debajo de su padre por `clave`. Si el índice no se pudo escribir, los
- * documentos quedan sin fila (como en `crear`) y se intenta borrarlos.
+ * Crea VARIAS páginas de una vez (la mudanza de lo de antes, D14) con ids ESTABLES que elige quien llama (los de la mudanza
+ * salen del guion de origen, lib/copywriter/mudanza-reglas.ts → `idDeMudanza`). Así, repetirla NO duplica:
+ *   · una página cuyo id ya está en el índice se saltea (ya se creó en una corrida anterior);
+ *   · un documento que ya existe sin su fila es de una corrida cortada: se ADOPTA (nadie lo pudo editar: sin fila no se ve);
+ *   · NO se borra nada si el índice falla. Verificación del Cerebro de 544991179 (ALTA): con la respuesta del índice perdida
+ *     (llegó a la base, el pedido «falló»), borrar los documentos dejaba 6 de 7 páginas abriendo «No existe». El documento
+ *     sin fila queda hasta el reintento, que lo adopta.
+ * Las hijas van debajo de su padre (`padreId`); si el padre no está todavía, la hija espera al reintento (no va a la raíz).
+ * Devuelve cuántas creó y cuántas FALTAN (un documento que no se pudo escribir, o una hija sin su padre): con alguna, quien
+ * llama no da la tanda por terminada. Las que el árbol no acepta (el tope, un padre en la Papelera) no se reintentan.
  */
-export async function crearVarias(ps: readonly (PedidoCrear & { clave: string; padreClave: string | null })[]): Promise<{ ok: true; creadas: number } | Falla> {
-  const listos: { p: (typeof ps)[number]; id: string; valor: string }[] = [];
+export async function crearVarias(ps: readonly (PedidoCrear & { id: string; padreId: string | null })[]): Promise<{ ok: true; creadas: number; faltan: number } | Falla> {
+  let yaEstan: Set<string>;
+  try { yaEstan = new Set((await leerIndiceCrudo()).paginas.map((p) => p.id)); } catch (e) { return falla(500, e instanceof Error ? e.message : 'No pude leer la lista de guiones.'); }
+  const listos: { p: (typeof ps)[number]; valor: string }[] = [];
   for (const p of ps) {
+    if (!esIdPagina(p.id) || yaEstan.has(p.id)) continue;
     const s = sanearContenido(p.contenido ?? docVacio());
-    if (!s.ok) continue;
+    if (!s.ok) { console.warn('[copywriter] una página de la mudanza no pasa el saneo y no se crea:', s.error); continue; }
     const props = sanearProps({ ...propsNuevas(p.tipo), ...(p.props ?? {}), tipo: p.tipo }, p.tipo);
-    listos.push({ p, id: idPaginaNuevo(), valor: JSON.stringify({ version: 1, props, contenido: s.doc } satisfies DocCopy) });
+    listos.push({ p, valor: JSON.stringify({ version: 1, props, contenido: s.doc } satisfies DocCopy) });
   }
+  // El documento primero (de a 6 a la vez). `false` = ya existía: de una corrida cortada, se adopta. Lo que tira no se sabe
+  // si llegó: esa página falta y el reintento la encuentra (escrita, se adopta; si no, se escribe).
   const escritos: typeof listos = [];
+  let noEscritos = 0;
   for (let i = 0; i < listos.length; i += 6) {
     const tanda = listos.slice(i, i + 6);
-    const r = await Promise.allSettled(tanda.map((x) => cambiarSettingSi(claveDoc(x.id), null, x.valor)));
-    r.forEach((y, k) => { if (y.status === 'fulfilled' && y.value) escritos.push(tanda[k]); });
+    const r = await Promise.allSettled(tanda.map((x) => cambiarSettingSi(claveDoc(x.p.id), null, x.valor)));
+    r.forEach((y, k) => { if (y.status === 'fulfilled') escritos.push(tanda[k]); else noEscritos += 1; });
   }
-  const idDe = new Map(escritos.map((x) => [x.p.clave, x.id]));
+  if (noEscritos) console.warn(`[copywriter] la mudanza no pudo escribir ${noEscritos} documento(s): se reintenta en la próxima apertura`);
   const ahora = new Date().toISOString();
+  let agregadas = 0;
+  let sinPadre = 0;
   const r = await cambiarIndice((paginas) => {
-    let actual: ResultadoArbol = { ok: true, paginas };
+    // Pura y repetible: cambiarIndice la vuelve a correr si otra pestaña escribió el índice en el medio.
+    agregadas = 0;
+    sinPadre = 0;
+    let actual = [...paginas];
     for (const x of escritos) {
-      if (!actual.ok) break;
-      const padre = x.p.padreClave ? idDe.get(x.p.padreClave) ?? null : null;
-      actual = agregar(actual.paginas, {
-        id: x.id, titulo: (x.p.titulo ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo) || SIN_TITULO,
+      if (actual.some((q) => q.id === x.p.id)) continue;
+      const padre = x.p.padreId;
+      if (padre && !actual.some((q) => q.id === padre)) { sinPadre += 1; continue; }
+      const a = agregar(actual, {
+        id: x.p.id, titulo: (x.p.titulo ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo) || SIN_TITULO,
         emoji: typeof x.p.emoji === 'string' && x.p.emoji.trim() && x.p.emoji.length <= 16 ? x.p.emoji : null,
         tipo: x.p.tipo, padre, actualizado: ahora,
       }, padre ? undefined : 0);
+      if (!a.ok) continue;
+      actual = a.paginas;
+      agregadas += 1;
     }
-    return actual;
+    return { ok: true, paginas: actual };
   });
-  if (!r.ok) {
-    await Promise.allSettled(escritos.map((x) => borrarSettingSi(claveDoc(x.id), x.valor)));
-    return r;
-  }
-  return { ok: true, creadas: escritos.length };
+  if (!r.ok) return r;
+  return { ok: true, creadas: agregadas, faltan: noEscritos + sinPadre };
 }
