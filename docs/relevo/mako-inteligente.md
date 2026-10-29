@@ -1,6 +1,6 @@
 # Relevo — MaKo inteligente: recomendaciones reales y Second Brain (cuenta claude4)
 
-Rama `mako-inteligente-2710-c4`, worktree `C:/dev/wt-mako-inteligente-c4`. Al día: 28/10/2026, 21:40 (hora de Argentina).
+Rama `mako-inteligente-2710-c4`, worktree `C:/dev/wt-mako-inteligente-c4`. Al día: 28/10/2026, 21:55 (hora de Argentina). La cuenta claude4 pasó el 85 % semanal (87 % a las 21:53).
 Lo que sube a main lo junta y lo sube el Cerebro; cada entrega va por SendMessage como «VERDE <sha>» con la lista de .ts.
 
 ## Lo pedido, con sus palabras
@@ -25,15 +25,17 @@ Lo que sube a main lo junta y lo sube el Cerebro; cada entrega va por SendMessag
 
 ## A medias
 
-- **El ruido de «meta» en el turno de la plataforma:** la capa de funciones sólo en preguntas de producto (en curso).
-- **La medición del turno** (ws 9, datos reales, 28/10): suma 588 tokens de promedio (9 de 9 preguntas traen algo) contra 1.256
-  del grafo entero; «¿qué no hace la bandeja?» trae sólo Chats (373). Ruido: «¿Cuál es mi meta del trimestre?» trae Ads Manager
-  («meta» es también Facebook).
+- **El ruido de «meta» en el turno de la plataforma** (la crítica C3 del relevamiento): la capa de las funciones entra sólo en
+  una pregunta de producto (`esPreguntaDeProducto` y `sinFunciones` en lib/cerebro-funciones.ts, usadas en `paqueteParaElTurno`
+  de lib/cerebro-para-chat.ts). Hecho y sin commitear en el worktree: el test 4 de tests/second-brain-turno.test.ts (7 roturas,
+  las 7 en rojo), la medición (scripts/medir-recuperacion.ts) y la cosecha (docs/hallazgos-second-brain.md). tsc-acotado limpio;
+  falta que termine tests-afectados `--base HEAD --rapido`, commitear por ruta y mandar el VERDE.
+- **La medición del turno** (ws 9, datos reales, 28/10, 21:40): con el filtro suma 359 tokens de promedio (7 de 9 preguntas
+  traen algo; antes 588) contra 1.256 del grafo entero. «¿Cuál es mi meta del trimestre?» ya no trae nada (antes Ads Manager);
+  «¿qué no hace la bandeja?» sigue trayendo sólo Chats (373).
 
 ## Falta verificar
 
-- El ruido de «meta» en el turno de la plataforma: usar la capa de funciones sólo en preguntas de producto (la crítica C3 del
-  relevamiento).
 - Achicar el system fijo por etapas (perfil, funnel y fase cuando el paquete ya los trae; `hechosMako` como nodos).
 
 ## Espera a Martín
