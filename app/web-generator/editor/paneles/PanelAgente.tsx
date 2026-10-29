@@ -99,6 +99,7 @@ import {
   MOTIVO_ANTES_DE_IA, anclasResueltas, diffTarjetas, idDe, planDeAplicacion, resumenDeCambios, tarjetasDelDoc, tocadasDesde,
   type CambioSeccion,
 } from '../diff-tarjetas';
+import { trQuitarYOrdenar } from '../insertar';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
@@ -258,7 +259,24 @@ export type Propuesta = {
   tarjetas: JsonNodo[];
   /** Después de cuál va una nueva si en la respuesta no la precede ninguna existente. */
   anclaNuevas: string | null;
+  /** Lo que cambia de la LISTA (28/10/2026, `EdicionIA`): las que se sacan, el orden nuevo y las copias. */
+  quitar?: string[];
+  orden?: string[];
+  copias?: Record<string, string>;
 };
+
+/** Las opciones de `planDeAplicacion` que salen de una propuesta. */
+export const opcionesDePlan = (p: Propuesta) => ({ anclaNuevas: p.anclaNuevas, quitar: p.quitar, orden: p.orden, copias: p.copias });
+
+/** ¿La respuesta de «editar» propone algo? Además de tarjetas, puede sacar secciones o reordenarlas. */
+export const proponeAlgo = (r: { tarjetas: JsonNodo[]; quitar?: string[]; orden?: string[] }) => r.tarjetas.length > 0 || !!r.quitar?.length || !!r.orden?.length;
+
+/** Lo de la LISTA que trae la respuesta de «editar», para la propuesta. */
+export const listaDeRespuesta = (r: { quitar?: string[]; orden?: string[]; copias?: Record<string, string> }) => ({
+  ...(r.quitar?.length ? { quitar: r.quitar } : {}),
+  ...(r.orden?.length ? { orden: r.orden } : {}),
+  ...(r.copias && Object.keys(r.copias).length ? { copias: r.copias } : {}),
+});
 
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'sin-version' | 'aplicada' | 'descartada' | 'restaurada';
 
@@ -296,7 +314,7 @@ export async function aceptarPropuesta(ctxVivo: () => CtxAceptar, propuesta: Pro
   // Las anclas pendientes de la IA (`#t-formulario`, `#t-seccion-N`) se resuelven contra la página
   // que va a quedar, no contra la sección suelta que se convirtió en el server.
   const tarjetas = anclasResueltas(propuesta.tarjetas, propuesta.enviadas, actuales);
-  const plan = planDeAplicacion(actuales, tarjetas, { anclaNuevas: propuesta.anclaNuevas });
+  const plan = planDeAplicacion(actuales, tarjetas, opcionesDePlan(propuesta));
   // UN paso de deshacer cuando se puede: `reemplazarTarjetas` (EditorLanding.tsx) hace todo en una
   // transacción y pone lo que trae un id desconocido «después de la última reemplazada». Si todas
   // las nuevas van justo ahí, va todo en esa llamada; si no, una llamada por lugar (cada una es su
@@ -311,6 +329,11 @@ export async function aceptarPropuesta(ctxVivo: () => CtxAceptar, propuesta: Pro
     if (plan.reemplazos.length) ctx.reemplazarTarjetas(plan.reemplazos);
     for (const g of plan.inserciones) ctx.insertarTarjetas(g.tarjetas, g.despuesDe);
     pasos = (plan.reemplazos.length ? 1 : 0) + plan.inserciones.length;
+  }
+  // Lo que cambia de la LISTA (sacar, reordenar), con todo lo de arriba ya puesto: un paso más.
+  if (plan.quitadas.length || plan.reordenada) {
+    const tr = trQuitarYOrdenar(editor.state, plan.quitadas, plan.reordenada ? plan.resultado.map(idDe) : null);
+    if (tr) { editor.view.dispatch(tr); pasos++; }
   }
   // Si el documento no cambió, no se aplicó (el armazón no aplica en medio de un cambio de página,
   // o el esquema rechazó una sección): decir «Aplicado» sería mentir.
@@ -356,7 +379,7 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
 }) {
   const { tema, editor, config } = useEditorLanding();
   const [vista, setVista] = useState<'original' | 'modificado'>('modificado');
-  const plan = useMemo(() => planDeAplicacion(propuesta.enviadas, propuesta.tarjetas, { anclaNuevas: propuesta.anclaNuevas }), [propuesta]);
+  const plan = useMemo(() => planDeAplicacion(propuesta.enviadas, propuesta.tarjetas, opcionesDePlan(propuesta)), [propuesta]);
   const diff = useMemo(() => diffTarjetas(propuesta.enviadas, plan.resultado), [propuesta, plan]);
   const antesPorId = useMemo(() => new Map(propuesta.enviadas.map((t) => [idDe(t), t] as const)), [propuesta]);
   const despuesPorId = useMemo(() => new Map(plan.resultado.map((t) => [idDe(t), t] as const)), [plan]);
@@ -587,8 +610,8 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   if (!r.ok) {
     msg = { id: ++ultimoId, de: 'mako', texto: r.error === MUCHO_PARA_EDITAR ? MUCHO_SIN_FOCO : r.error, error: !cortadoPorUsuario(r) };
   } else if ('tarjetas' in r) {
-    msg = r.tarjetas.length
-      ? { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Listo.'), estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas: deUna ? [deUna] : enviadas, tarjetas: r.tarjetas, anclaNuevas: deUna ? idDe(deUna) : null } }
+    msg = proponeAlgo(r)
+      ? { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Listo.'), estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas: deUna ? [deUna] : enviadas, tarjetas: r.tarjetas, anclaNuevas: deUna ? idDe(deUna) : null, ...listaDeRespuesta(r) } }
       : { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Sin cambios.') };
   } else msg = { id: ++ultimoId, de: 'mako', texto: 'Respuesta inválida', error: true };
   terminar(msg, ...burbujas);

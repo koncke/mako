@@ -41,7 +41,7 @@ import { useEditorLanding } from './contexto';
 import { formatoDe, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import {
-  EstilosContenido, EstilosPanelesB, Ico, Miniatura, RevisionPropuesta, aceptarPropuesta, cortadoPorUsuario, pedirIA, tituloVivo,
+  EstilosContenido, EstilosPanelesB, Ico, Miniatura, RevisionPropuesta, aceptarPropuesta, cortadoPorUsuario, listaDeRespuesta, pedirIA, proponeAlgo, tituloVivo,
   type EstadoPropuesta, type Propuesta,
 } from './paneles/PanelAgente';
 import { comoSeccionesNuevas, idDe, tarjetasDelDoc, tituloVisible } from './diff-tarjetas';
@@ -173,10 +173,11 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
     if (!vivo.current) return;
     if (!r.ok) { setFase(cortadoPorUsuario(r) ? { f: 'pedir' } : { f: 'mensaje', texto: r.error, error: true }); return; }
     if (!('tarjetas' in r)) { setFase({ f: 'mensaje', texto: 'Respuesta inválida', error: true }); return; }
-    if (!r.tarjetas.length) { setFase({ f: 'mensaje', texto: r.resumen || 'Sin cambios.', error: false }); return; }
+    // «Agregar» sólo suma secciones; «editar» también puede sacar ésta o duplicarla (`EdicionIA`, 28/10/2026).
+    if (crear ? !r.tarjetas.length : !proponeAlgo(r)) { setFase({ f: 'mensaje', texto: r.resumen || 'Sin cambios.', error: false }); return; }
     const tarjetas = crear ? comoSeccionesNuevas(r.tarjetas, original) : r.tarjetas;
     setTexto('');
-    setFase({ f: 'revisar', estado: 'pendiente', propuesta: { paginaId: ctxRef.current.paginaActual, enviadas: [original], tarjetas, anclaNuevas: idDe(original) } });
+    setFase({ f: 'revisar', estado: 'pendiente', propuesta: { paginaId: ctxRef.current.paginaActual, enviadas: [original], tarjetas, anclaNuevas: idDe(original), ...(crear ? {} : listaDeRespuesta(r)) } });
   };
 
   const correrDisenos = async () => {
