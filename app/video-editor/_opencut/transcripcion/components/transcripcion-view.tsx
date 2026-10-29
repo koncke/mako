@@ -34,6 +34,7 @@ import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { mediaTimeFromSeconds, TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { cancelarGeneracion, generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
+import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { cortarTramosEnEditor } from "@/app/video-editor/_opencut/commands/timeline/element/cortar-tramos";
 import { muletillasDe, palabrasEnOrden, tramosDePalabras, transcripcionDe, type PalabraTx } from "../modelo";
 
@@ -57,6 +58,12 @@ function eliminarPalabras(
 	toast.success(`Se quitaron ${segundos(hecho.quitadoSegundos)}`);
 	if (hecho.sinClip > 0) toast("Una parte no tenía video debajo");
 	return true;
+}
+
+/** «Transcribir»: el trabajo de Subtítulos. Acá no hay texto abajo del botón, así que el motivo va en un aviso. */
+async function transcribir(editor: EditorCore): Promise<void> {
+	const r = await generarSubtitulos(editor);
+	if (!r.ok && r.motivo !== "cancelado") toast.error(textoDeSubtitulos(r.motivo), { duration: 6000 });
 }
 
 export function TranscripcionView() {
@@ -161,7 +168,7 @@ export function TranscripcionView() {
 						</button>
 					</div>
 				) : (
-					<Button type="button" disabled={!hayLinea} onClick={() => void generarSubtitulos(editor)}>
+					<Button type="button" disabled={!hayLinea} onClick={() => void transcribir(editor)}>
 						Transcribir
 					</Button>
 				)}
