@@ -31,22 +31,14 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
 - Ticket 23: el arreglo en `C:/dev/wt-editor-leila` (rama `editor-leila-2810`) — subtitles/resultado.ts (nuevo),
   subtitles/generar.ts, chat/aplicar.ts, transcripcion/components/transcripcion-view.tsx, test 52 de
   tests/video-editor-chat.test.ts, cosecha (docs/hallazgos-video-editor.md, docs/hallazgos.md) y regla en AGENTS.md.
-  **Sin commitear** a propósito (corte al 97 %, 28/10 ~21:25): está en el árbol de `C:/dev/wt-editor-leila`, sin probar.
+  **Commit d867f8bbc** (rama `editor-leila-2810`, sin subir: sube el Cerebro). Tests 53/0, 5 roturas del test 52 (cada
+  una 52/1), tsc acotado sin errores en los 6 archivos (quedan los 5 del entorno: soundtouchjs, EyeDropper, gpu-renderer).
+  VERDE mandado al Cerebro el 28/10; él cierra el ticket con el aviso a Leandro cuando esté desplegado.
 
 ## Lo que quedó a medias
 
-- **Ticket 23, lo que falta, en orden:**
-  1. Correr `node C:/dev/con-turno.mjs node --import tsx --test tests/video-editor-chat.test.ts`. El primer intento salió 99:
-     no consiguió turno en 30 min y NO corrió.
-  2. Las roturas del test 52, de a una y restaurando, anotadas al final del archivo:
-     - correrLarga vuelve a `await generarSubtitulos(editor); return [];`;
-     - un `return;` mudo en generarSubtitulos;
-     - el texto de «descarga» genérico;
-     - Transcribir vuelve a `void generarSubtitulos(`.
-  3. El tsc acotado por con-turno de resultado.ts, generar.ts, aplicar.ts, transcripcion-view.tsx,
-     subtitles/components/assets-view.tsx y el test.
-  4. Commit por ruta (los 8 archivos de `git status`) y el VERDE al Cerebro. Él cierra el ticket con el aviso a Leandro
-     cuando esté desplegado.
+- **Ticket 23:** nada a medias. ⚠️ Para la próxima: el árbol está en CRLF; un script que rompe por texto tiene que usar
+  el fin de línea del archivo, o «no encuentra» y no rompe nada (el `grep` de Git Bash no ve el CR).
 - **Motion (frenado por cuota hasta que el Cerebro diga):** el typecheck dio dos cosas del WIP, no de main:
   - tests/editores-por-prompt.test.ts:383, TS2352: `(op as { op: never }).op` después de `assert.ok(op.ok)` → usar `op.op`.
   - app/image-editor/editor/Estudio.tsx y estudio.ts conviven: en Windows tsc los confunde (TS1149/TS1261). En Linux
