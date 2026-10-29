@@ -9014,3 +9014,14 @@ tabnews.com.br (el dato de 80 MB por instancia).
 - **No medido:** que la entrada de un PreToolUse dentro de un subagente traiga `agent_id` en esta versión de la app. Si no
   lo trae, los subagentes reciben la orden de corte y devuelven lo que tienen: se degrada a «resultado parcial», no a
   nada. Se mira la próxima vez que una cuenta cruce el 97% con un workflow corriendo (`guardia.log` no lo registra hoy).
+- **28/10 ~21:30 — el primer corte real, y lo que costó la excepción de los subagentes.** A las 21:15 el Cerebro cruzó el
+  97% de la ventana de 5 h. El hook negó un Bash, anotó la sesión en `relevos-cuenta/claude4.tsv`, y los chats cortaron con
+  su relevo commiteado. **Pero el workflow que corría siguió, y la cuenta llegó al 100% igual**: 12 de sus 21 agentes
+  murieron con «You've hit your session limit». No se perdió nada, porque dejar terminar lo que corre fue la decisión de
+  Martín: los 9 que terminaron quedaron en el journal, y al renovarse la ventana el MISMO chat lo reanudó desde la caché.
+  Desde otra cuenta, eso no se puede reanudar; se leería el journal. Si llega a importar el 3% de margen, la palanca es no
+  lanzar un workflow grande pasado el 90%, no cortarle los agentes.
+- **La fila de tests de `C:/dev/con-turno.mjs`, con dos lugares (28/10, 21:33).** Con uno, siete chats hacían fila para
+  barridos de 30-60 min y el que esperaba 30 min salía con 99 y relanzaba: «no se liberó» se leyó como un cuelgue y no lo
+  era. Un barrido pesa ~600 MB y `tests-afectados` ya espera RAM por su cuenta. Ahora son dos lugares, con 90 min de
+  espera; los tsc siguen de a uno con 30. Un con-turno que ya estaba esperando corre el código viejo (un lugar).

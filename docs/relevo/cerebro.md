@@ -117,12 +117,17 @@ preguntes: hacé esto en orden.
 - **Cuota a las 20:42 ART:** 5 h al 87% (se renueva 21:30 ART), semanal al 80% (se renueva el 3/11 17:00 ART).
 - **21:15 ART: el corte del 97% saltó en el Cerebro (ventana de 5 h), el primero real después de prenderlo.** Negó un
   Bash y anotó la sesión en `~/.claude/relevos-cuenta/claude4.tsv`: anda. Lo que quedó a medias en ese momento:
-  - **La fila de tests de `C:/dev/con-turno.mjs` es un cuello de botella, no un cuelgue.** Siete chats hacen fila de a uno
-    para barridos de 30 a 60 min; quien espera 30 min sale con 99 y relanza (Automations, Planes). Un barrido pesa ~600 MB
-    (dos workers de 300) y `tests-afectados` ya tiene su propia guardia de RAM. Lo que iba a hacer: DOS lugares en la
-    fila de tests (`mako-tests.lock` y `mako-tests-2.lock`, con la espera en 90 min) y la de tipos de a uno. Sin tocar.
-  - **Dos mensajes SIN MANDAR** (tope de 10 por mensaje de Martín): al CRM, los defectos de las horas (arriba); y a
-    Automations, que el pid 140112 no está colgado (tomó la fila de tests a las 21:09, es cola).
+  - **21:33, HECHO: la fila de tests de `C:/dev/con-turno.mjs` tiene DOS lugares** (`mako-tests.lock` y
+    `mako-tests-2.lock`) y espera hasta 90 min; la de tipos sigue de a uno con 30 min. Era cola, no un cuelgue: siete
+    chats para un lugar, y el que esperaba 30 min salía con 99. Probado con tres trabajos (dos a la vez, el tercero espera)
+    y dos de tipos (de a uno). Respaldo: `C:/dev/con-turno.mjs.antes-2-lugares`.
+  - **21:35, después de la renovación:** los nueve chats recibieron «seguí desde tu relevo» con lo suyo. El CRM recibió
+    los defectos de las horas y Automations la explicación de la cola.
+  - **El workflow de pedidos perdidos llegó al 100% con 12 de sus 21 agentes cortados** («session limit»). Se reanudó a
+    las 21:32 en esta sesión (task `wz8f0619h`, mismo runId `wf_fbaed0b3-099`): los 9 que terminaron vienen de la caché.
+    Su resultado parcial (lo juntado por fuente y lo que no se pudo leer) está en
+    `C:\Users\marti\AppData\Local\Temp\claude\C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main\6ea62e88-206b-49e4-b5fe-e446feb70ded\tasks\wu4kb7spy.output`
+    y en su journal.
   - **Los VERDEs en camino**, todos esperando turno de tests:
     - MaKo inteligente `b2c19c445`: 65 tests, roturas y tipos ok;
     - Planes `1e6bd27e8`: tipos ok;
