@@ -17,6 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(28/10/2026) Un link ya puede ESCRIBIR en un negocio** (un guion del Copywriter, sin cuenta): `puedeEditar` no lo usaba nadie (el de Classroom es otra función con el mismo nombre), lo que la función del server le contesta al dueño no se reenvía a un link, y el editor del link nunca guarda por la ruta de la tab → [Un guion del Copywriter se EDITA por link](#un-guion-del-copywriter-se-edita-por-link-la-primera-ruta-pública-que-escribe-en-un-negocio-28102026).
 - **(21/10/2026) Los CSV que exporta la app se abrían como FÓRMULA en Excel y en Sheets**: cinco exportadores tenían cada uno su escape, cuatro sin defensa, y la más expuesta era la de leads del CRM (nombres que vienen de formularios públicos: un lead llamado «=HYPERLINK(…)»). Ahora hay UN helper (`lib/csv-celda.ts`) y un test que rompe Actions si una exportación arma el suyo → [Inyección de fórmulas en los CSV](#inyección-de-fórmulas-en-los-csv-que-exporta-la-app-cinco-exportadores-cinco-escapes-y-cuatro-sin-defensa-21102026).
 - **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
 - **(14/10/2026) Con la clave PÚBLICA de Supabase se ejecutaban dos funciones SECURITY DEFINER** de la cola de Flow: se leían y saboteaban los trabajos de todos los clientes. `revoke ... from public` no saca el EXECUTE DIRECTO que Supabase le da a anon. Cerrado con la 0280 → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
@@ -1884,6 +1885,33 @@ leer la tabla vacía.
 
 _11/10/2026 — chat «Graphics», agente COMPARTIR + integración; verificado en Chrome sobre ws9 (crear,
 abrir sin sesión, detalle 403, revocar, link revocado 404)._
+
+## Un guion del Copywriter se EDITA por link: la primera ruta pública que escribe en un negocio (28/10/2026)
+
+**Vive en:** `app/api/compartido/guion/route.ts` · `lib/copywriter/compartir-reglas.ts` (`guionDelShare`) ·
+`lib/copywriter/compartir.ts` · `app/compartido/[token]/GuionCompartido.tsx` · `lib/shares.ts` (`puedeEditar`,
+`administraShare`) · `lib/rutas-publicas.ts` · docs/diseno-copywriter.md (D9)
+
+«Tu cliente entra y edita lo que le presentás» (Martín a Teo). El informe del Dashboard (la entrada de arriba) LEE con
+un link; esto ESCRIBE en los datos de un negocio sin sesión. Lo que no se ve leyendo el código:
+
+- **El diagnóstico obvio era el equivocado: `puedeEditar` de lib/shares.ts no lo usaba NADIE.** Se creía que lo usaba el
+  curso de Classroom, y un `grep puedeEditar` lo «confirma»: es OTRA función con el mismo nombre
+  (`app/customer-success/curso/puerta-curso.ts`). El permiso `editar` de la mig 0126 estaba en la tabla y en el
+  `crearShare`, sin ninguna ruta que lo pidiera. Antes de reusar una puerta, buscar quién la IMPORTA de ese módulo, no
+  quién se llama igual.
+- **Lo que una función del server le contesta al dueño no se reenvía a un link.** `renombrar` (lib/copywriter/server.ts)
+  devuelve el ÍNDICE ENTERO del negocio (para redibujar el árbol de la tab): reenviado tal cual, cualquiera con el link
+  de UN guion leía el título de todos. La ruta pública contesta `{ ok }`; y la página manda, de la biblioteca de MaKo,
+  sólo el ángulo y la estructura de ese guion (`loQueViajaConElLink`).
+- **El editor del link NUNCA guarda por la ruta de la tab.** Quien abre el link puede tener SU sesión de MaKo (el super
+  admin probándolo, un cliente con cuenta): /api/copywriter escribiría con esa sesión, en el workspace de esa pestaña.
+  El guardar se le PASA al editor (`compartido.guardar`), y un test fija que el componente del link no nombre la ruta de
+  la tab. Es la misma razón que `soloLectura` del informe.
+- **El id del guion sale de la FILA, nunca del pedido**, y todo corre en `runWithWorkspace(<el del link>)`. El cuerpo
+  no puede mandar `id` ni propiedades; un guion en la Papelera es 404 igual que un token malo.
+- **Un nombre escrito por quien abre el link no está verificado**: la marca dice «Ana con el link». El de un invitado
+  sale de su invitación (su link personal).
 
 ## Auditoría end-to-end del 14/10/2026
 

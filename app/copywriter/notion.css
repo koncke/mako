@@ -1,0 +1,246 @@
+/* =============================================================================
+   Copywriter — la hoja del editor, copiada de Notion (medidas) con los colores de la casa (tokens)
+   =============================================================================
+   Diseño: docs/diseno-copywriter.md (D2). Lo de Notion son las MEDIDAS y la estructura: la página de 708 px con 96 px de
+   aire a los costados, el ícono de 78 px, el título de 40 px en 700, el cuerpo de 16 px con 1,5 de interlínea, los
+   encabezados 1,875 / 1,5 / 1,25 em, los bloques con 3 px arriba y abajo, el asa ⋮⋮ en el margen, la columna del árbol
+   en gris con renglones de 28 px, el menú «/» con su cuadrito de 46 px y su descripción gris. Los COLORES son los de la
+   casa (AGENTS.md, «NINGUNA pantalla se diseña de cero»: los colores, la tipografía y los íconos son los de la casa), así
+   que el oscuro sale solo: los tokens de app/globals.css ya cambian bajo [data-tema="oscuro"].
+   Todo limitado a `.nt` (Next deja la hoja cargada al salir de la ruta). Los menús flotantes se montan adentro de la raíz
+   `.nt` (AGENTS.md, «Un tema limitado a una clase no llega a los PORTALES»).
+   ============================================================================= */
+
+.nt {
+  --nt-texto: var(--ink);
+  --nt-tenue: var(--dim);
+  --nt-suave: var(--faint);
+  --nt-fondo: var(--surface);
+  --nt-gris: var(--surface-2);
+  --nt-hover: var(--velo-hover);
+  --nt-linea: var(--border);
+  --nt-linea-fuerte: var(--border-strong);
+  --nt-azul: var(--primary);
+  --nt-azul-fondo: var(--primary-bg);
+  --nt-sombra: 0 0 0 1px rgba(15, 15, 15, .05), 0 3px 6px rgba(15, 15, 15, .1), 0 9px 24px rgba(15, 15, 15, .2);
+  --nt-letra: 'Geist', ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* ⚠️ El alto es un NÚMERO que DESCUENTA la barra de la agencia (el molde de .gma-app, app/web-generator/gamma.css: con
+     100dvh entero la barra «Estás viendo el dashboard de…» tapaba la de arriba del editor). Los hijos estiran con flex. */
+  display: flex;
+  height: calc(100vh - var(--barra-agencia, 0px));
+  height: calc(100dvh - var(--barra-agencia, 0px));
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--nt-fondo);
+  color: var(--nt-texto);
+  font-family: var(--nt-letra);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── La columna de MaKo (el chat): la del Web Generator ───────────────────── */
+.nt-mako { display: flex; flex-direction: column; width: 360px; flex: none; min-height: 0; border-right: 1px solid var(--nt-linea); background: var(--nt-fondo); }
+.nt-mako > .co-panel { flex: 1; min-height: 0; background: transparent; }
+.nt-mako .co-cab { min-height: 48px; padding: 0 8px 0 12px; gap: 8px; }
+.nt-mako .co-hilo { padding: 8px 12px 12px; }
+.nt-mako .co-caja-wrap { padding: 0; }
+.nt-mako-pie { display: grid; gap: 8px; padding: 8px 12px 12px; }
+.nt-mako-bienvenida { align-self: flex-start; max-width: 100%; padding: 10px 14px; border-radius: 14px; background: var(--nt-gris); font-size: 13.5px; line-height: 1.5; }
+.nt-mako-pildoras { display: flex; flex-wrap: wrap; gap: 6px; }
+.nt-mako-pildora { padding: 6px 12px; border: 0; border-radius: 999px; background: var(--nt-azul-fondo); color: var(--nt-texto); font: inherit; font-size: 12.5px; font-weight: 500; text-align: left; cursor: pointer; }
+.nt-mako-pildora:hover:not(:disabled) { background: var(--nt-hover); }
+.nt-mako-pildora:disabled { opacity: .5; cursor: default; }
+.nt-mako-error { padding: 10px 14px; border-radius: 14px; background: var(--nt-gris); color: var(--nt-texto); font-size: 13.5px; }
+.nt-mako-estado { font-size: 12px; color: var(--nt-suave); }
+
+/* ── El árbol (la barra de Notion) ─────────────────────────────────────────── */
+.nt-arbol { display: flex; flex-direction: column; width: 240px; flex: none; min-height: 0; background: var(--nt-gris); border-right: 1px solid var(--nt-linea); user-select: none; }
+.nt-arbol[data-plegado] { width: 0; border-right: 0; overflow: hidden; }
+.nt-arbol-cab { display: flex; align-items: center; gap: 4px; height: 45px; padding: 0 8px 0 14px; flex: none; }
+.nt-arbol-titulo { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--nt-texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-arbol-lista { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 4px 12px; }
+.nt-arbol-seccion { padding: 10px 10px 4px; font-size: 12px; font-weight: 500; color: var(--nt-suave); }
+.nt-fila { position: relative; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px; border-radius: 6px; color: var(--nt-tenue); font-size: 14px; cursor: pointer; }
+.nt-fila:hover { background: var(--nt-hover); }
+.nt-fila[data-abierta] { background: var(--nt-hover); color: var(--nt-texto); font-weight: 500; }
+.nt-fila[data-soltar="dentro"] { box-shadow: inset 0 0 0 2px var(--nt-azul); background: var(--nt-azul-fondo); }
+.nt-fila[data-soltar="antes"]::before, .nt-fila[data-soltar="despues"]::after { content: ''; position: absolute; left: 6px; right: 6px; height: 2px; border-radius: 1px; background: var(--nt-azul); }
+.nt-fila[data-soltar="antes"]::before { top: -1px; }
+.nt-fila[data-soltar="despues"]::after { bottom: -1px; }
+.nt-fila-flecha { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; border: 0; border-radius: 4px; background: transparent; color: var(--nt-suave); font-size: 10px; cursor: pointer; transition: transform .12s ease; }
+.nt-fila-flecha:hover { background: var(--nt-hover); }
+.nt-fila-flecha[data-abierta] { transform: rotate(90deg); }
+.nt-fila-flecha[data-vacia] { visibility: hidden; }
+.nt-fila-emoji { width: 22px; flex: none; text-align: center; font-size: 15px; line-height: 1; }
+.nt-fila-nombre { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-fila-acciones { display: none; align-items: center; gap: 2px; flex: none; }
+.nt-fila:hover .nt-fila-acciones, .nt-fila:focus-within .nt-fila-acciones, .nt-fila[data-menu] .nt-fila-acciones { display: inline-flex; }
+.nt-boton-ico { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: none; border: 0; border-radius: 5px; background: transparent; color: var(--nt-suave); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.nt-boton-ico:hover, .nt-boton-ico[aria-expanded="true"] { background: var(--nt-hover); color: var(--nt-texto); }
+.nt-arbol-pie { flex: none; padding: 6px 4px 10px; border-top: 1px solid var(--nt-linea); }
+.nt-arbol-nuevo { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--nt-tenue); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.nt-arbol-nuevo:hover { background: var(--nt-hover); color: var(--nt-texto); }
+.nt-renombrar { flex: 1; min-width: 0; height: 24px; padding: 0 6px; border: 1px solid var(--nt-azul); border-radius: 4px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; font-size: 14px; outline: none; }
+
+/* ── El documento ──────────────────────────────────────────────────────────── */
+.nt-doc { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.nt-barra { display: flex; align-items: center; gap: 6px; height: 45px; padding: 0 12px; flex: none; }
+.nt-migas { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; font-size: 14px; color: var(--nt-tenue); }
+.nt-miga { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 220px; height: 26px; padding: 0 6px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.nt-miga:hover { background: var(--nt-hover); color: var(--nt-texto); }
+.nt-miga > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-miga-sep { color: var(--nt-suave); }
+.nt-guardado { flex: none; font-size: 13px; color: var(--nt-suave); white-space: nowrap; }
+.nt-guardado[data-error] { color: var(--nt-texto); }
+.nt-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; }
+/* Los 96 px de aire de Notion en una ventana ancha; en una angosta se achican (Notion hace lo mismo), nunca menos de 24. */
+.nt-pagina { position: relative; width: 100%; max-width: calc(708px + 192px); margin: 0 auto; padding: 0 clamp(24px, 8%, 96px) 30vh; box-sizing: border-box; }
+.nt-portada { height: 80px; }
+.nt-icono { display: inline-flex; align-items: center; justify-content: center; width: 78px; height: 78px; margin: 0 0 4px -4px; border: 0; border-radius: 6px; background: transparent; font-size: 70px; line-height: 1; cursor: pointer; }
+.nt-icono:hover { background: var(--nt-hover); }
+.nt-titulo { display: block; width: 100%; margin: 0; padding: 3px 2px; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: var(--nt-texto); font: inherit; font-size: 40px; font-weight: 700; line-height: 1.2; field-sizing: content; }
+.nt-titulo::placeholder { color: var(--nt-suave); opacity: .55; }
+/* `minmax(0, 1fr)`: un item de grilla no se achica por debajo de su contenido sin esto, y un valor largo empujaba la fila. */
+.nt-props { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 10px 0 0; }
+.nt-prop { display: flex; align-items: center; min-height: 34px; font-size: 14px; }
+.nt-prop-nombre { display: flex; align-items: center; gap: 8px; width: 160px; flex: none; padding: 0 6px; color: var(--nt-tenue); }
+.nt-prop-nombre > span:first-child { width: 16px; text-align: center; color: var(--nt-suave); }
+/* Un valor largo («PAS (Problema → Agitación → Solución)») se corta con «…»: nunca empuja la página de costado. */
+.nt-prop-valor { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.nt-prop-valor select { min-width: 0; text-overflow: ellipsis; }
+.nt-prop-valor select, .nt-prop-valor input { max-width: 100%; height: 30px; padding: 0 6px; border: 0; border-radius: 4px; background: transparent; color: var(--nt-texto); font: inherit; font-size: 14px; cursor: pointer; }
+.nt-prop-valor select:hover, .nt-prop-valor input:hover, .nt-prop-valor select:focus-visible, .nt-prop-valor input:focus-visible { background: var(--nt-hover); outline: none; }
+.nt-prop-valor input { width: 90px; cursor: text; }
+.nt-prop-vacio { color: var(--nt-suave); }
+.nt-separador-props { height: 1px; margin: 12px 0 8px; background: var(--nt-linea); }
+
+/* El cuerpo (ProseMirror). Los bloques respiran como en Notion: 3 px arriba y abajo, 2 px a los lados. */
+.nt-cuerpo .ProseMirror { outline: none; font-size: 16px; line-height: 1.5; caret-color: var(--nt-texto); white-space: pre-wrap; word-break: break-word; }
+.nt-cuerpo .ProseMirror > * { margin: 2px 0; padding: 3px 2px; }
+.nt-cuerpo .ProseMirror p { min-height: 1.5em; }
+.nt-cuerpo .ProseMirror h1, .nt-cuerpo .ProseMirror h2, .nt-cuerpo .ProseMirror h3 { font-weight: 600; line-height: 1.3; }
+.nt-cuerpo .ProseMirror h1 { margin-top: 1.4em; font-size: 1.875em; }
+.nt-cuerpo .ProseMirror h2 { margin-top: 1.1em; font-size: 1.5em; }
+.nt-cuerpo .ProseMirror h3 { margin-top: .8em; font-size: 1.25em; }
+.nt-cuerpo .ProseMirror h2[data-seccion]::before { content: attr(data-seccion); display: block; margin-bottom: 2px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--nt-suave); }
+.nt-cuerpo .ProseMirror ul, .nt-cuerpo .ProseMirror ol { padding-left: 1.7em; }
+.nt-cuerpo .ProseMirror li > p { margin: 0; }
+.nt-cuerpo .ProseMirror ul[data-type="taskList"] { padding-left: 2px; list-style: none; }
+.nt-cuerpo .ProseMirror ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
+.nt-cuerpo .ProseMirror ul[data-type="taskList"] li > label { flex: none; margin-top: 4px; }
+.nt-cuerpo .ProseMirror ul[data-type="taskList"] li > label input { width: 16px; height: 16px; accent-color: var(--nt-azul); cursor: pointer; }
+.nt-cuerpo .ProseMirror ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.nt-cuerpo .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--nt-suave); text-decoration: line-through; }
+.nt-cuerpo .ProseMirror blockquote { padding-left: 14px; border-left: 3px solid currentColor; font-size: 1.2em; }
+.nt-cuerpo .ProseMirror hr { height: 1px; margin: 12px 0; padding: 0; border: 0; background: var(--nt-linea); }
+.nt-cuerpo .ProseMirror hr.ProseMirror-selectednode { outline: 2px solid var(--nt-azul-fondo); }
+.nt-cuerpo .ProseMirror a { color: inherit; text-decoration: underline; text-decoration-color: var(--nt-linea-fuerte); }
+.nt-cuerpo .ProseMirror code { padding: .2em .4em; border-radius: 4px; background: var(--nt-gris); color: var(--bad); font-size: 85%; }
+.nt-cuerpo .ProseMirror table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.nt-cuerpo .ProseMirror td, .nt-cuerpo .ProseMirror th { min-width: 80px; padding: 6px 8px; border: 1px solid var(--nt-linea); vertical-align: top; text-align: left; }
+.nt-cuerpo .ProseMirror th { background: var(--nt-gris); font-weight: 600; }
+.nt-cuerpo .ProseMirror td > p, .nt-cuerpo .ProseMirror th > p { margin: 0; }
+.nt-cuerpo .ProseMirror .selectedCell { background: var(--nt-azul-fondo); }
+.nt-cuerpo .ProseMirror .is-empty::before { content: attr(data-placeholder); float: left; height: 0; color: var(--nt-suave); opacity: .7; pointer-events: none; }
+.nt-destacado { display: flex; gap: 10px; padding: 16px 16px 16px 12px !important; border-radius: 4px; background: var(--nt-gris); }
+.nt-destacado-emoji { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; line-height: 24px; cursor: pointer; }
+.nt-destacado-emoji:hover { background: var(--nt-hover); }
+.nt-destacado-cuerpo { flex: 1; min-width: 0; }
+.nt-destacado-cuerpo > p { margin: 0; }
+.nt-desplegable { display: flex; gap: 2px; }
+.nt-desplegable-flecha { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--nt-texto); font-size: 12px; cursor: pointer; transition: transform .12s ease; }
+.nt-desplegable-flecha:hover { background: var(--nt-hover); }
+.nt-desplegable[data-abierto="true"] > .nt-desplegable-flecha { transform: rotate(90deg); }
+.nt-desplegable-cuerpo { flex: 1; min-width: 0; }
+.nt-desplegable-cuerpo > * { margin: 0; padding: 1px 0; }
+.nt-desplegable[data-abierto="false"] > .nt-desplegable-cuerpo > :not(:first-child) { display: none; }
+
+/* El asa del margen (+ y ⋮⋮), a la izquierda del bloque. */
+.nt-asa { position: absolute; display: flex; align-items: center; gap: 0; z-index: 3; transition: opacity .1s; }
+.nt-asa-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--nt-suave); font-size: 16px; line-height: 1; cursor: pointer; }
+.nt-asa-btn:hover, .nt-asa-btn[aria-expanded="true"] { background: var(--nt-hover); color: var(--nt-tenue); }
+.nt-asa-arrastre { width: 18px; cursor: grab; letter-spacing: -2px; }
+.nt-asa-arrastre:active { cursor: grabbing; }
+
+/* Los menús flotantes (el «/» y el del asa): la tarjeta de Notion. */
+.nt-menu { position: fixed; z-index: 60; width: 324px; max-height: min(40vh, 380px); overflow-y: auto; padding: 6px 0; border-radius: 10px; background: var(--nt-fondo); box-shadow: var(--nt-sombra); color: var(--nt-texto); font-size: 14px; }
+.nt-menu[data-chico] { width: 240px; }
+.nt-menu-grupo { padding: 8px 14px 4px; font-size: 12px; font-weight: 500; color: var(--nt-suave); }
+.nt-menu-fila { display: flex; align-items: center; gap: 10px; width: calc(100% - 8px); margin: 0 4px; min-height: 30px; padding: 4px 10px 4px 6px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.nt-menu-fila[data-activa], .nt-menu-fila:hover { background: var(--nt-hover); }
+.nt-menu-fila[data-peligro] { color: var(--bad); }
+.nt-menu-cuadro { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; flex: none; border: 1px solid var(--nt-linea); border-radius: 4px; background: var(--nt-fondo); font-size: 16px; font-weight: 600; }
+.nt-menu[data-chico] .nt-menu-cuadro { width: 22px; height: 22px; border: 0; background: transparent; font-size: 14px; }
+.nt-menu-textos { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.nt-menu-nombre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-menu-desc { font-size: 12px; color: var(--nt-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-menu-atajo { flex: none; font-size: 12px; color: var(--nt-suave); }
+.nt-menu-vacio { padding: 8px 14px; color: var(--nt-suave); }
+.nt-menu-sep { height: 1px; margin: 4px 0; background: var(--nt-linea); }
+.nt-emojis { display: grid; grid-template-columns: repeat(8, 32px); gap: 2px; padding: 8px; }
+.nt-emojis button { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; cursor: pointer; }
+.nt-emojis button:hover { background: var(--nt-hover); }
+
+/* La propuesta de MaKo en el documento (Notion AI la marca hasta que se acepta): el fondo del azul de la casa, suave.
+   Y en el chat, su tarjeta: Aceptar (el botón azul) · Descartar · Reintentar. */
+.nt-cuerpo .ProseMirror > .nt-propuesta { background: var(--nt-azul-fondo); border-radius: 4px; box-shadow: -3px 0 0 var(--nt-azul); transition: background .2s ease; }
+.nt-propuesta-tarjeta { display: grid; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--nt-linea); border-radius: 12px; background: var(--nt-fondo); }
+.nt-propuesta-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nt-propuesta-aviso { font-size: 12.5px; color: var(--warn, var(--nt-tenue)); }
+.nt-boton-primario { height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--nt-azul); color: var(--on-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.nt-boton-texto { height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--nt-tenue); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.nt-boton-texto:hover { background: var(--nt-hover); color: var(--nt-texto); }
+
+/* El «@» de la caja (mila.gg): la lista arriba de la caja y lo citado como chips. */
+.nt-mako .nt-ref-menu { position: static; width: auto; max-height: 260px; margin-bottom: 6px; }
+.nt-ref-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.nt-ref-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border-radius: 999px; background: var(--nt-azul-fondo); color: var(--nt-texto); font-size: 12.5px; font-weight: 500; }
+.nt-ref-chip button { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--nt-tenue); font-size: 14px; line-height: 1; cursor: pointer; }
+.nt-ref-chip button:hover { background: var(--nt-hover); }
+
+/* El vacío: la caja grande del inicio de mila. */
+.nt-inicio { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.nt-inicio-caja { width: min(640px, 100%); display: grid; gap: 18px; text-align: center; }
+.nt-inicio-titulo { margin: 0; font-size: 34px; font-weight: 700; line-height: 1.2; color: var(--nt-texto); }
+.nt-inicio-campo { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 20px; border-radius: 16px; background: var(--nt-fondo); box-shadow: 0 0 0 1px var(--nt-linea), 0 8px 24px rgba(15, 15, 15, .08); }
+.nt-inicio-campo input { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; color: var(--nt-texto); font: inherit; font-size: 17px; }
+.nt-inicio-ir { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--nt-azul); color: var(--on-primary); font-size: 18px; cursor: pointer; }
+.nt-inicio-ir:disabled { opacity: .45; cursor: default; }
+.nt-tipos { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.nt-tipo { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--nt-linea); border-radius: 999px; background: var(--nt-fondo); color: var(--nt-tenue); font: inherit; font-size: 14px; cursor: pointer; }
+.nt-tipo[aria-pressed="true"] { border-color: var(--nt-azul); background: var(--nt-azul-fondo); color: var(--nt-texto); }
+.nt-aviso { margin: 0 auto; max-width: 708px; padding: 10px 14px; border-radius: 8px; background: var(--nt-gris); font-size: 14px; }
+
+/* El teléfono: un paso por pantalla. Sin asa (no hay cursor), con la página a lo ancho. */
+.nt[data-movil] { height: auto; min-height: 0; flex-direction: column; }
+.nt[data-movil] .nt-pagina { padding: 0 16px 40vh; }
+.nt[data-movil] .nt-portada { height: 12px; }
+.nt[data-movil] .nt-icono { width: 52px; height: 52px; font-size: 44px; }
+/* Más fuerte que el 16 px de los campos del teléfono (app/m/m.css, para que iOS no haga zoom): el título es un título.
+   ⚠️ Aquella regla es `[data-m] :is(input:not(…):not(…):not(…), textarea, select)`, y un `:is()` pesa lo que su argumento
+   MÁS fuerte, (0,4,1): con `.nt[data-movil] textarea.nt-titulo` (0,3,1) el título seguía en 16 px (medido en la maqueta). */
+.nt.nt[data-movil] .nt-pagina textarea.nt-titulo { font-size: 30px; }
+.nt[data-movil] .nt-prop-nombre { width: 110px; }
+.nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
+.nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
+.nt[data-movil] .nt-cuerpo .ProseMirror input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
+
+/* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
+   alguien de afuera, el dueño lo ve en azul. */
+.nt-prop-fija { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 30px; }
+.nt-prop-valor[data-afuera] { color: var(--nt-azul); font-weight: 500; }
+
+/* Un guion abierto con un link para EDITAR (/compartido/<token>, D9): la franja del link arriba y la página abajo. */
+.nt.nt-compartido { flex-direction: column; }
+.nt-compartido-barra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; flex: none; padding: 8px 16px; border-bottom: 1px solid var(--nt-linea); background: var(--nt-gris); font-size: 13px; color: var(--nt-tenue); }
+.nt-compartido-que { font-weight: 600; color: var(--nt-texto); }
+.nt-compartido-quien { margin-left: auto; }
+.nt-compartido-nombre { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.nt-compartido-nombre input { width: min(240px, 56vw); height: 30px; padding: 0 10px; border: 1px solid var(--nt-linea-fuerte); border-radius: 6px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; font-size: 14px; }
+.nt-compartido-nombre input:focus { outline: none; border-color: var(--nt-azul); }
+.nt[data-movil] .nt-compartido-nombre { margin-left: 0; width: 100%; }
+.nt[data-movil] .nt-compartido-nombre input { flex: 1; width: auto; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nt *, .nt *::before, .nt *::after { transition: none !important; animation: none !important; }
+}

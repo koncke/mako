@@ -15,6 +15,8 @@ import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { veCopywriter } from '@/lib/copywriter/puerta';
+import { esCharlaDelCopywriter } from '@/lib/chart-chats-reglas';
 import { toolsDelRegistro, REGISTRO, type Vista } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
@@ -65,16 +67,17 @@ Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo t
  * del workspace (como siempre); los de un closer o setter son SUYOS (`mako-doer:u<id>`), como los del
  * teléfono, y no abre ningún otro.
  */
-async function quienPide(): Promise<{ admin: boolean; clave: string }> {
-  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+async function quienPide(): Promise<{ admin: boolean; clave: string; veCopywriter: boolean }> {
+  const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);
   const admin = rolWs === 'admin';
-  return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}` };
+  return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}`, veCopywriter: copy };
 }
 
-/** ¿Este id es un chat que quien pide puede abrir? Un admin, cualquiera (salvo los del teléfono, aparte). */
-async function puedeAbrir(sessionId: number, q: { admin: boolean; clave: string }): Promise<boolean> {
-  if (q.admin) return true;
+/** ¿Este id es un chat que quien pide puede abrir? Un admin, cualquiera (salvo los del teléfono, aparte, y la charla de un
+ *  guion del Copywriter si no pasa su puerta: 28/10/2026). */
+async function puedeAbrir(sessionId: number, q: { admin: boolean; clave: string; veCopywriter: boolean }): Promise<boolean> {
   const s = Number.isInteger(sessionId) && sessionId > 0 ? await getSession(sessionId) : null;
+  if (q.admin) return !s || !esCharlaDelCopywriter(s.chart_key) || q.veCopywriter;
   return !!s && s.chart_key === q.clave;
 }
 
@@ -190,7 +193,7 @@ export async function GET(req: NextRequest) {
   try {
     const q = await quienPide();
     // Un closer o setter sólo ve los SUYOS: ni la lista de todos ni los chats de otro.
-    if (sp.get('all')) return Response.json({ sessions: q.admin ? await listAllSessions(arch) : await listSessions(q.clave, arch) });
+    if (sp.get('all')) return Response.json({ sessions: q.admin ? (await listAllSessions(arch)).filter((s) => !esCharlaDelCopywriter(s.chart_key) || q.veCopywriter) : await listSessions(q.clave, arch) });
     const sessionId = sp.get('sessionId');
     // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta (por workspace) no se abre
     // (lib/chart-chats.ts, `esSesionDelTelefono`).

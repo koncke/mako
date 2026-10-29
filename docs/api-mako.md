@@ -39,7 +39,7 @@
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
-- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
+- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
@@ -13638,7 +13638,7 @@ curl -L \
 
 ## Content Machine — `contenido`
 
-Tab **Ads Writer** (`/ads-writer`). 12 lecturas · 5 acciones.
+Tab **Ads Writer** (`/ads-writer`). 15 lecturas · 13 acciones.
 
 ### `GET /api/v1/contenido/anuncios` — Anuncios planteados del negocio
 
@@ -14083,6 +14083,319 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/contenido/anuncios/CELDA_ID/guiones/GUION_ID" \
   -d '{"huella":"9f86d081884c7d65"}'
+```
+
+### `GET /api/v1/contenido/documentos` — Documentos del Copywriter
+
+Los documentos del Copywriter del negocio (un documento por guion de ad, reel, story o YouTube): id, título, tipo, de qué documento cuelga y cuándo se tocó. Úsalo para encontrar el documentoId antes de leer o escribir en uno. Los de la Papelera no vienen salvo que se pidan.
+
+- **Ruta por operación:** `GET /api/v1/contenido/listar_documentos_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (ad \\| reel \\| story \\| youtube) | no | Sólo los de ese tipo (ad, reel, story, youtube). |
+| `conPapelera` | boolean | no | true incluye los de la Papelera (marcados). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos"
+```
+
+### `GET /api/v1/contenido/documentos/{documentoId}` — Leer un documento del Copywriter
+
+Un documento del Copywriter entero: título, propiedades (tipo, ángulo, estructura, duración), su versión, el texto con las etiquetas de sección y cada bloque con su id. La versión se copia tal cual para reemplazar_documento_copywriter.
+
+- **Ruta por operación:** `GET /api/v1/contenido/leer_documento_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID"
+```
+
+### `POST /api/v1/contenido/documentos` — Crear un documento en el Copywriter
+
+Crea un documento nuevo en el Copywriter: un guion de ad, reel, story o YouTube, con su título y, si se pasa, el texto ya escrito o la estructura de la biblioteca (que arma sus secciones vacías). Puede colgar de otro documento. Devuelve su id. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/crear_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un documento al Copywriter (app_settings mako.copywriter.indice y mako.copywriter.doc.<id>)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `titulo` | string | sí | El título del documento. |
+| `tipo` | string (ad \\| reel \\| story \\| youtube) | sí | ad, reel, story o youtube. |
+| `estructuraId` | string | no | id de una estructura de la biblioteca (catalogo_estructuras_guion): arma sus secciones vacías si no viene texto. |
+| `texto` | string | no | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
+| `padreId` | string | no | documentoId del documento del que cuelga (opcional). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos" \
+  -d '{"titulo":"TITULO","tipo":"ad","texto":"GANCHO\nSi cada lunes arrancas sin saber de dónde sale tu próximo cliente…\nCTA\nToca el botón y agenda."}'
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/bloques` — Agregar al documento del Copywriter
+
+Agrega texto AL FINAL de un documento del Copywriter, sin tocar lo que ya tiene (las etiquetas de sección en MAYÚSCULA abren secciones nuevas). Para cambiar lo escrito, reemplazar_documento_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/agregar_al_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega bloques al final del documento (app_settings mako.copywriter.doc.<id>)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `texto` | string | sí | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/bloques" \
+  -d '{"texto":"GANCHO\nSi cada lunes arrancas sin saber de dónde sale tu próximo cliente…\nCTA\nToca el botón y agenda."}'
+```
+
+### `PUT /api/v1/contenido/documentos/{documentoId}/contenido` — Reemplazar un documento del Copywriter
+
+Reemplaza TODO el texto de un documento del Copywriter por el que se pasa. La versión anterior se pierde. Exige la versión que se leyó (leer_documento_copywriter): si el documento cambió desde entonces, no se aplica. Deja un link para revisar y confirmar.
+
+- **Ruta por operación:** `POST /api/v1/contenido/reemplazar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** reemplaza el contenido del documento (app_settings mako.copywriter.doc.<id>)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `version` | number | sí | La versión del documento tal como se leyó (leer_documento_copywriter). |
+| `texto` | string | sí | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/contenido" \
+  -d '{"version":1,"texto":"GANCHO\nSi cada lunes arrancas sin saber de dónde sale tu próximo cliente…\nCTA\nToca el botón y agenda."}'
+```
+
+### `PATCH /api/v1/contenido/documentos/{documentoId}` — Renombrar un documento del Copywriter
+
+Le cambia el título a un documento del Copywriter. Se puede volver a cambiar. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/renombrar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el título en el índice del Copywriter (app_settings mako.copywriter.indice)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `titulo` | string | sí | El título nuevo. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID" \
+  -d '{"titulo":"TITULO"}'
+```
+
+### `DELETE /api/v1/contenido/documentos/{documentoId}` — Documento del Copywriter a Papelera
+
+Manda un documento del Copywriter a la Papelera (con lo que cuelga de él, que deja de verse). No se borra: vuelve con restaurar_documento_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/papelera_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca el documento como en la Papelera en el índice del Copywriter
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID"
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/restauracion` — Restaurar un documento del Copywriter
+
+Saca un documento del Copywriter de la Papelera: vuelve a su lugar, o al principio si el documento del que colgaba ya no está. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/restaurar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca la marca de Papelera en el índice del Copywriter
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/restauracion"
+```
+
+### `GET /api/v1/contenido/documentos/{documentoId}/enlaces` — Links para editar un documento
+
+Los links que dejan EDITAR un documento del Copywriter sin cuenta: id del link, si es abierto o de invitados (con sus emails), cuántas veces se abrió y la última, y si está revocado. El link en sí no se puede volver a leer: se ve en la pantalla («Compartir para editar») o se crea otro.
+
+- **Ruta por operación:** `GET /api/v1/contenido/enlaces_documento_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/enlaces"
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/enlaces` — Compartir un documento para editar
+
+Crea un link que deja EDITAR un documento del Copywriter sin cuenta (el cliente entra y lo corrige): cualquiera con el link escribe en el documento, y lo que guarda queda marcado con su nombre en «Última edición». Devuelve el link. Se corta con revocar_enlace_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/compartir_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea un link para editar el documento (tabla shares, recurso copywriter, permiso editar)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/enlaces"
+```
+
+### `DELETE /api/v1/contenido/enlaces/{enlaceId}` — Revocar un link del Copywriter
+
+Corta un link para editar un documento del Copywriter (el id sale de enlaces_documento_copywriter): deja de abrir al instante, también para quien ya lo tenía abierto. No se puede deshacer; para volver a compartir se crea otro. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/revocar_enlace_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca el link como revocado (tabla shares)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `enlaceId` | number | sí | id del link (de enlaces_documento_copywriter). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/enlaces/ENLACE_ID"
 ```
 
 ## Video Generator — `video`

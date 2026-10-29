@@ -1,0 +1,253 @@
+// =============================================================================
+// copywriter/ia — MaKo en el Copywriter: lo que habla con la IA (server-only)
+// =============================================================================
+// Diseño: docs/diseno-copywriter.md (D5). Lo puro (prompts, cómo se lee el guion, el catálogo de lo que puede hacer en
+// el documento) vive en ./ia-reglas.ts.
+//
+// Cómo se llama a la IA (las reglas de la casa, con el molde del Web Generator, lib/editor-landing/ia.ts):
+//   · `chatClaude(system, mensajes, { feature, motivo, maxTokens, hastaMs })` con la feature `copywriter-ia`: Gemini por
+//     defecto (lib/model-catalogo.ts) y respeta /modelos-ia. Claude está vetado (sin fila en CLAUDE_PERMITIDO). Quien
+//     paga es el negocio, con SU IA: la cascada usa las claves del workspace de la pestaña.
+//   · cada pedido va acotado con `hastaMs`: si el plazo no alcanza, falla — nunca paga para ganar tiempo;
+//   · los errores van por `errorDeCascada` (lib/ai-cheap.ts): «no hay IA» y «hay IA y falló» son dos frases;
+//   · lo que no existe en MaKo se dice y sale a la Ticketera (REGLA_NO_EXISTE + `conPedidoDeNoExisteDeLaSesion`).
+//   · el negocio entra por el Second Brain, sólo lo que hace falta (./contexto.ts, con su punto de enganche).
+// =============================================================================
+
+import 'server-only';
+import { chatClaude } from '../anthropic';
+import { chatCheapCascade, errorDeCascada } from '../ai-cheap';
+import { renderPrompt, contenidoNoConfiable } from '../prompt-render';
+import { brandSystem } from '../landing-writer';
+import { REGLA_NO_EXISTE } from '../no-existe';
+import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
+import { resolverAcento } from '../acento-workspace';
+import { tzDeWorkspace } from '../timezone';
+import { getWorkspaceActual } from '../workspace';
+import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
+import { contextoDelNegocio } from './contexto';
+import { PROMPTS_COPY, TOPES_IA, bloqueIdiomaCopy, charlaParaIA, guionParaIA, propsParaIA } from './ia-reglas';
+import { sanearContenido } from './doc';
+import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
+import { catalogosDelCopywriter } from './catalogos-server';
+import { getAngulosGuion } from '../guion-angulos-store';
+import { getEstructurasTodas } from '../guion-estructuras-store';
+import { ANGULOS_GUION_DEFAULT, instruccionesTexto } from '../guion-angulos';
+import { ESTRUCTURAS_GUION_DEFAULT } from '../guion-estructuras';
+import { catalogosLite, estructurasDelTipo } from './catalogos';
+import { metodologiaDe } from '../ig-formatos';
+import { parseJsonObject } from '../json-del-modelo';
+import { marcasDeVoseo } from '../puestas-data';
+import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../editor-landing/ia-reglas';
+import { FORMATO_EDITAR, PROMPTS_EDITAR, bibliotecaParaIA, estructuraParaIA } from './ia-editar';
+import { sanearOperaciones, aplicarTodo, type Descartada, type OperacionIA } from './operaciones';
+import { leerReferencias } from './referencias';
+import type { Referencia } from './referencias-reglas';
+import { textoDeNodo } from './doc';
+
+/** La feature de la IA del Copywriter (lib/model-catalogo.ts). */
+export const FEATURE_COPY = 'copywriter-ia';
+
+export type ResultadoIA<T> = ({ ok: true } & T) | { ok: false; error: string; status: 400 | 502 };
+const invalido = (error: string) => ({ ok: false as const, error, status: 400 as const });
+const sinResultado = (error: string) => ({ ok: false as const, error, status: 502 as const });
+
+const PLAZOS = { discutir: 60_000, editar: 110_000 } as const;
+
+/** El mensaje de una falla para la persona (lo técnico, al log). Ver `falloIA` en lib/editor-landing/ia.ts. */
+async function falloIA(e: unknown, tema: string): Promise<string> {
+  if (e instanceof SalidaInvalida) {
+    console.error(`[copywriter] ${tema}: ${e.message}`, e.crudo.slice(0, 1_500));
+    return 'MaKo respondió pero no se pudo leer. Vuelve a intentar.';
+  }
+  const msg = e instanceof Error ? e.message : String(e);
+  console.error(`[copywriter] ${tema}: ${msg}`);
+  return errorDeCascada(/Claude vetado/i.test(msg) ? [] : [msg], tema);
+}
+
+/** El acento del negocio (el del Video Generator: lo declarado, o la zona horaria, o el neutro). Nunca tira. */
+async function acentoDelNegocio(): Promise<string | null> {
+  return (await acentoConId())?.prompt ?? null;
+}
+async function acentoConId(): Promise<{ id: string; prompt: string } | null> {
+  try {
+    const ws = await getWorkspaceActual().catch(() => null);
+    const voz = await getVozCliente().catch((): VozCliente => ({ acento: '', muletillas: [], muestras: [] }));
+    const zona = ws != null ? await tzDeWorkspace(ws).catch(() => null) : null;
+    const a = resolverAcento(voz.acento, zona, voz.muletillas, voz.acentoOrigen);
+    return { id: a.id, prompt: a.prompt };
+  } catch {
+    return null;
+  }
+}
+
+/** Los acentos que hablan de «vos»: en ellos, las formas voseantes del guion no son un error. */
+const VOSEAN: ReadonlySet<string> = new Set(['ar', 'uy', 'py']);
+
+/** Lo citado con «@», como datos. */
+function bloqueReferencias(textos: readonly { nombre: string; texto: string }[]): string {
+  if (!textos.length) return '';
+  const cuerpo = textos.map((t) => `— ${t.nombre}:\n${t.texto}`).join('\n\n');
+  return `LO QUE CITÓ LA PERSONA CON «@»:\n${contenidoNoConfiable(cuerpo, 'referencias')}\n\n`;
+}
+
+/** Lo que llega de la pantalla sobre el guion abierto (el documento vivo, sin guardar todavía). */
+export type GuionDelPedido = { titulo?: unknown; props?: unknown; contenido?: unknown };
+
+/** El guion del pedido, saneado como lo guardaría el server. */
+function guionDe(g: GuionDelPedido) {
+  const s = sanearContenido(g.contenido);
+  const props = sanearProps(g.props);
+  const titulo = typeof g.titulo === 'string' && g.titulo.trim() ? g.titulo.trim().slice(0, 200) : SIN_TITULO;
+  return { doc: s.ok ? s.doc : ({ type: 'doc', content: [] } as JsonNodo), props, titulo };
+}
+
+/** Los nombres del ángulo y la estructura elegidos (para que el modelo lea «Dolor», no «dolor»). */
+async function nombres(props: ReturnType<typeof sanearProps>) {
+  const c = await catalogosDelCopywriter();
+  return {
+    angulo: props.angulo ? c.angulos.find((a) => a.id === props.angulo)?.nombre ?? null : null,
+    estructura: props.estructura ? c.estructuras.find((e) => e.id === props.estructura)?.nombre ?? null : null,
+  };
+}
+
+/** Lo leído de los archivos del mensaje, como datos. */
+function bloqueAdjuntos(lecturas: readonly { nombre: string; texto: string }[]): string {
+  if (!lecturas.length) return '';
+  const cuerpo = lecturas.map((l) => `— ${l.nombre}:\n${l.texto.slice(0, 12_000)}`).join('\n\n');
+  return `\n\nLOS ARCHIVOS QUE ADJUNTÓ LA PERSONA:\n${contenidoNoConfiable(cuerpo, 'archivos')}`;
+}
+
+/**
+ * «Discutir»: MaKo contesta sobre el guion sin tocarlo. Devuelve el texto (sin la marca de «no existe», que sale a la
+ * Ticketera sola, con su línea).
+ */
+export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; charla?: unknown; lecturas?: readonly { nombre: string; texto: string }[]; referencias?: readonly Referencia[] }): Promise<ResultadoIA<{ respuesta: string; noLeidas: string[] }>> {
+  const t0 = Date.now();
+  const pregunta = typeof p.pregunta === 'string' ? p.pregunta.trim().slice(0, TOPES_IA.pregunta) : '';
+  if (!pregunta) return invalido('Escribe qué quieres pensar.');
+  const g = guionDe(p.guion);
+  try {
+    const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(p.referencias ?? [])]);
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(acento) })}\n\n${REGLA_NO_EXISTE}`);
+    const charla = charlaParaIA(p.charla);
+    const user = await renderPrompt(PROMPTS_COPY.discutirUser.key, PROMPTS_COPY.discutirUser.tpl, {
+      pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
+      titulo: g.titulo.replace(/[«»]/g, ''),
+      props: propsParaIA(g.props, n),
+      guion: contenidoNoConfiable(guionParaIA(g.doc), 'guion'),
+      charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
+      referencias: bloqueReferencias(refs.textos),
+      negocio: bloqueNegocio(negocio),
+      adjuntos: bloqueAdjuntos(p.lecturas ?? []),
+    });
+    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+      feature: FEATURE_COPY,
+      motivo: 'Discutir un guion (Copywriter)',
+      maxTokens: 1_200,
+      thinking: false,
+      hastaMs: t0 + PLAZOS.discutir,
+    });
+    const limpio = String(salida ?? '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
+    const ne = await conPedidoDeNoExisteDeLaSesion(limpio, { chat: 'copywriter (Discutir)', ruta: '/copywriter', pedido: pregunta });
+    const respuesta = [ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n');
+    if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
+    return { ok: true, respuesta, noLeidas: refs.noLeidas };
+  } catch (err) {
+    return { ok: false, error: await falloIA(err, 'contestar'), status: 502 };
+  }
+}
+
+/** El negocio del Second Brain, como datos (o que no hay). */
+const bloqueNegocio = (negocio: string) => `EL NEGOCIO (del Second Brain, sólo lo que hace falta):\n${negocio ? contenidoNoConfiable(negocio, 'negocio') : '(no hay datos del negocio cargados)'}`;
+
+/** El paso de reparación: UN pedido a la cascada barata que copia la salida como JSON válido (el de lib/editor-landing/ia.ts). */
+function reparador(hastaMs: number) {
+  return async (crudo: string): Promise<string> => chatCheapCascade({
+    system: SYSTEM_REPARAR_JSON,
+    user: crudo,
+    json: true,
+    maxTokens: 8_000,
+    temperature: 0,
+    feature: FEATURE_COPY,
+    motivo: 'reparar el JSON (Copywriter, Editar)',
+    erroresOut: [],
+    hastaMs: Math.max(hastaMs, Date.now() + 10_000),
+    validar: (t: string) => { try { parseJsonObject(t); return true; } catch { return false; } },
+  }).catch(() => '');
+}
+
+/** Lo que vuelve de «Editar»: el renglón para la persona, las herramientas validadas contra el guion y lo descartado. */
+export type ResultadoEditar = {
+  respuesta: string;
+  operaciones: OperacionIA[];
+  descartadas: Descartada[];
+  /** Lo que la tarjeta avisa sobre lo escrito (la voz: voseo en un negocio que no habla así). */
+  avisos: string[];
+  /** Lo citado con «@» que no se pudo leer. */
+  noLeidas: string[];
+};
+
+/**
+ * «Editar»: MaKo escribe EN el guion con sus herramientas (lib/copywriter/operaciones.ts). Devuelve las operaciones ya
+ * validadas contra el guion que mandó la pantalla; la pantalla las vuelve a validar contra lo de AHORA, las construye a
+ * la vista y la persona acepta, descarta o reintenta (docs/diseno-copywriter.md, D5). Nada se guarda acá.
+ */
+export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; charla?: unknown; lecturas?: readonly { nombre: string; texto: string }[]; referencias?: readonly Referencia[] }): Promise<ResultadoIA<ResultadoEditar>> {
+  const t0 = Date.now();
+  const instruccion = typeof p.instruccion === 'string' ? p.instruccion.trim().slice(0, TOPES_IA.pregunta) : '';
+  if (!instruccion) return invalido('Escribe qué quieres que escriba o cambie.');
+  const g = guionDe(p.guion);
+  try {
+    const [acento, negocio, angulos, estructuras, refs] = await Promise.all([
+      acentoConId(), contextoDelNegocio(instruccion),
+      getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT),
+      leerReferencias(p.referencias ?? []),
+    ]);
+    const lite = catalogosLite(angulos, estructuras);
+    const angulo = g.props.angulo ? angulos.find((a) => a.id === g.props.angulo && a.activo) ?? null : null;
+    const estructura = g.props.estructura ? estructuras.find((e) => e.id === g.props.estructura && e.activo) ?? null : null;
+    // Sin estructura elegida, la primera de su tipo (si la biblioteca tiene alguna de ese tipo).
+    const idSugerida = estructura ? null : estructurasDelTipo(lite, g.props.tipo).propias ? estructurasDelTipo(lite, g.props.tipo).estructuras[0]?.id ?? null : null;
+    const sugerida = idSugerida ? estructuras.find((e) => e.id === idSugerida) ?? null : null;
+    const metodologia = g.props.tipo === 'reel' || g.props.tipo === 'story' ? metodologiaDe(g.props.tipo) : '';
+    const n = { angulo: angulo?.nombre ?? null, estructura: estructura?.nombre ?? null };
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null), formato: FORMATO_EDITAR })}\n\n${REGLA_NO_EXISTE}`);
+    const charla = charlaParaIA(p.charla);
+    const user = await renderPrompt(PROMPTS_EDITAR.editarUser.key, PROMPTS_EDITAR.editarUser.tpl, {
+      instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
+      titulo: g.titulo.replace(/[«»]/g, ''),
+      props: propsParaIA(g.props, n),
+      guion: contenidoNoConfiable(guionParaIA(g.doc), 'guion'),
+      estructura: estructuraParaIA(estructura ?? sugerida, !estructura),
+      angulo: angulo ? `EL ÁNGULO: ${angulo.nombre}\n${instruccionesTexto(angulo)}\n\n` : '',
+      metodologia: metodologia ? `LA METODOLOGÍA (${g.props.tipo === 'reel' ? 'reels' : 'stories'}):\n${metodologia}\n\n` : '',
+      biblioteca: bibliotecaParaIA(lite),
+      charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
+      referencias: bloqueReferencias(refs.textos),
+      negocio: bloqueNegocio(negocio),
+      adjuntos: bloqueAdjuntos(p.lecturas ?? []),
+    });
+    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+      feature: FEATURE_COPY,
+      motivo: 'Escribir en un guion (Copywriter)',
+      maxTokens: 6_000,
+      thinking: false,
+      hastaMs: t0 + PLAZOS.editar,
+    });
+    const raw = await objetoConUnaReparacion(String(salida ?? ''), reparador(t0 + PLAZOS.editar));
+    const ne = await conPedidoDeNoExisteDeLaSesion(typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '', { chat: 'copywriter (Editar)', ruta: '/copywriter', pedido: instruccion });
+    const catalogo = { angulos: new Set(lite.angulos.map((a) => a.id)), estructuras: new Set(lite.estructuras.map((e) => e.id)) };
+    const s = sanearOperaciones(raw.operaciones, g.doc, catalogo);
+    // La voz (capa 2 de la regla del idioma): lo escrito por MaKo con formas de «vos» en un negocio que no habla así.
+    const r = aplicarTodo(g.doc, s.ops);
+    const nuevos = new Set(r.nuevos);
+    const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');
+    const voseo = acento && VOSEAN.has(acento.id) ? [] : marcasDeVoseo(escrito);
+    const avisos = voseo.length ? [`Tiene voseo (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que lo cambie.`] : [];
+    const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
+    return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
+  } catch (err) {
+    return { ok: false, error: await falloIA(err, 'escribir'), status: 502 };
+  }
+}

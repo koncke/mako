@@ -10,6 +10,7 @@ import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { getSchema, getAnswers } from '@/lib/onboarding';
 import { OnboardingStories } from './OnboardingStories';
 import { StoriesApp } from './StoriesApp';
+import { veCopywriter } from '../copywriter/acceso';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -34,5 +35,5 @@ export default async function StoriesPage() {
   if (await onboardingTabPendiente('stories')) {
     return <OnboardingStories gruposListos={gruposListos} gruposFaltan={gruposFaltan} />;
   }
-  return <StoriesApp />;
+  return <StoriesApp conCopywriter={await veCopywriter()} />;
 }

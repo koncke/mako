@@ -20,6 +20,7 @@ import { claveGuardada, personaDeSesion, type QuienChatea } from '@/lib/chart-ch
 import { TOPE_FILAS_LEIDAS, claveDeTab, filasValidas, tituloValido } from '@/lib/hilo-de-tab-reglas';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { veCopywriter } from '@/lib/copywriter/puerta';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,12 +28,13 @@ const SIN_SESION = () => Response.json({ error: 'Tu sesión venció.' }, { statu
 const CLAVE_MALA = () => Response.json({ error: 'clave inválida' }, { status: 400 });
 const NO_EXISTE = () => Response.json({ error: 'no existe' }, { status: 404 });
 
-/** Quién pide: admin o no, y su persona (la regla de /api/chart-insights). null = sin sesión. */
+/** Quién pide: admin o no, su persona (la regla de /api/chart-insights) y si pasa la puerta del Copywriter (la charla de
+ *  un guion: `claveGuardada` la cierra a quien no). null = sin sesión. */
 async function quienPide(): Promise<QuienChatea | null> {
-  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+  const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);
   if (!rolWs || !sesion) return null;
   const persona = personaDeSesion(sesion);
-  return persona ? { admin: rolWs === 'admin', persona } : null;
+  return persona ? { admin: rolWs === 'admin', persona, veCopywriter: copy } : null;
 }
 
 export async function GET(req: NextRequest) {

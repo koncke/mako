@@ -265,14 +265,15 @@ const DOER = 'app/api/mako-doer/route.ts';
 
 test('/api/mako-doer: el chat de un closer o setter es SUYO (`mako-doer:u<id>`), el de un admin el del workspace', () => {
   const src = fuente(DOER);
+  // 28/10/2026: además, si pasa la puerta del Copywriter (la charla de un guion no la abre el admin de un negocio).
   assert.deepEqual(primeras(cuerpo(src, 'async function quienPide(', 'quienPide'), 3), [
-    'const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);',
+    'const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);',
     "const admin = rolWs === 'admin';",
-    "return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}` };",
+    "return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}`, veCopywriter: copy };",
   ]);
   assert.deepEqual(primeras(cuerpo(src, 'async function puedeAbrir(', 'puedeAbrir'), 3), [
-    'if (q.admin) return true;',
     'const s = Number.isInteger(sessionId) && sessionId > 0 ? await getSession(sessionId) : null;',
+    'if (q.admin) return !s || !esCharlaDelCopywriter(s.chart_key) || q.veCopywriter;',
     'return !!s && s.chart_key === q.clave;',
   ], 'puedeAbrir dejó de exigir que el chat sea de quien pide');
   // Crear y listar usan la clave de quien pide; la clave del workspace pelada ya no lista ni crea.
@@ -283,7 +284,7 @@ test('/api/mako-doer: el chat de un closer o setter es SUYO (`mako-doer:u<id>`),
 
 test('/api/mako-doer GET: `?all`, `?sessionId` y `?chartKey` no abren el chat de otro', () => {
   const get = cuerpo(fuente(DOER), 'export async function GET(', 'el GET');
-  assert.match(get, /if \(sp\.get\('all'\)\) return Response\.json\(\{ sessions: q\.admin \? await listAllSessions\(arch\) : await listSessions\(q\.clave, arch\) \}\);/,
+  assert.match(get, /if \(sp\.get\('all'\)\) return Response\.json\(\{ sessions: q\.admin \? \(await listAllSessions\(arch\)\)\.filter\(\(s\) => !esCharlaDelCopywriter\(s\.chart_key\) \|\| q\.veCopywriter\) : await listSessions\(q\.clave, arch\) \}\);/,
     '?all le devuelve a un closer la lista de todos');
   const leer = pos(get, 'await getSessionMessages(Number(sessionId))', 'la lectura de mensajes');
   assert.ok(pos(get, 'if (!(await puedeAbrir(Number(sessionId), q))) return', 'el corte de ?sessionId') < leer,

@@ -30,8 +30,10 @@ const EXCEPCIONES: Record<string, string> = {
   'app/m/mako/page.tsx': 'sólo redirige al Second Brain (16/10/2026): no dibuja nada',
   'app/m/experimentos/page.tsx': 'Experiments se retiró (17/10/2026): sólo redirige al Dashboard, no dibuja nada',
 };
-/** Las que montan PantallaM con `refrescable={false}`, y por qué. Hoy ninguna. */
-const APAGADO: Record<string, string> = {};
+/** Las que montan PantallaM con `refrescable={false}`, y por qué. */
+const APAGADO: Record<string, string> = {
+  'app/m/copywriter/[id]/page.tsx': 'un guion abierto (28/10/2026): adentro se escribe y se scrollea un documento, y tirar hacia abajo recargaría la página encima de lo que se está escribiendo',
+};
 
 function paginas(dir: string): string[] {
   const out: string[] = [];

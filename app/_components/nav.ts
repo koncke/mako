@@ -419,8 +419,11 @@ export const FAMILIAS: NavFamilia[] = [
         },
         {
           key: 'copywriting', label: 'Copywriting', href: '/ads-writer', icon: 'escribir',
-          match: (p) => starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p) || starts('/admin/guiones')(p),
+          match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p) || starts('/admin/guiones')(p),
           secciones: [
+            // El Copywriter (28/10/2026, docs/diseno-copywriter.md): mila.gg + Notion, un documento por guion con MaKo al costado.
+            // Sólo el super admin hasta que Martín lo valide: `adminOnly` acá y la PUERTA en app/copywriter/acceso.ts.
+            { key: 'copywriter', adminOnly: true, label: 'Copywriter', href: '/copywriter', icon: 'escribir', match: starts('/copywriter') },
             { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
             // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: su propio código ya declara /content-machine como
             // destino. Cuando aterrice, esto es cambiar el href.
