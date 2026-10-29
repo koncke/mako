@@ -2,7 +2,7 @@
 
 **Cuenta:** claude4. **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los merges de main son merge commits, nunca
 rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le devuelve igual, con la lista de .ts).
-Las puntas las sube el Cerebro. Al 28/10 22:05 (AR) este archivo está al día. **Desde el 28/10 21:40, la tanda A va en otro
+Las puntas las sube el Cerebro. Al 28/10 22:30 (AR) este archivo está al día. **Desde el 28/10 21:40, la tanda A va en otro
 worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fallas-2710` adentro, sin tocar esa rama).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
@@ -37,6 +37,17 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
 1. **A:** hecha la parte de N cuentas. **Falta el banco de casos de nivel 2** (con modelo): correr los casos del diagnóstico
    (C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md) por el turno real con Claude y calificarlos. Gasta crédito: con el
    Cerebro. Y la claude5: su línea en `CUENTAS_DEL_CREDITO` si es Max 20x (lo sabe Martín).
+1b. **Los pedidos perdidos** (el Cerebro, 28/10 22:30; `docs/relevo/pedidos-perdidos-2810.md` de la rama `tren-w`, «Lo
+   urgente»). Van DESPUÉS de la tanda A y antes que todo lo demás; cada uno, si es código, con su test probado rompiéndolo:
+   1. Mauricio (ws1): ni un mensaje en `mako_doer_buffer` ni en `mako_doer_conv` desde el 04/10. Medir si no escribe o si la
+      entrada está rota (es el cliente más activo).
+   2. Joan (ws13): nombre y apellido de las llamadas sin marcar (las cifras se contradicen: 25 contra 28 no-shows, 14 contra 10
+      sin marcar; buffer 292, conv 1583-1584) y los links de las llamadas de la semana pasada (buffer 288). Armar los datos
+      correctos y mandárselos al Cerebro: la respuesta la manda él.
+   3. Un link con dominio inventado a Código Inmobiliario («hola-malo.com/crm/2761», conv 1502): el saneo de la salida al grupo.
+   4. Leila (ws11): el panel de Vida Poderosa dice que Ana Gómez no tiene datos de Fathom (buffer 293), y el Closing tiene
+      168-193 análisis en error por el crédito de Claude (buffer 301).
+   5. Los tres audios de Leandro sin transcribir (buffer 316, 318 y 327): transcribirlos con Groq y decirle al Cerebro qué piden.
 2. **F4** completo. **G3:** lo que llega durante un turno queda huérfano hasta el cron. **F5** y **F6**.
 3. **La cola de Teo:** video, imagen o PDF dentro de un lote; .doc/.xls/.ppt/.zip; audio fuera del grupo; `generarVariantes`;
    el aviso WhatsApp oficial vs QR.
