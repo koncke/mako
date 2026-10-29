@@ -72,8 +72,9 @@ preguntes: hacé esto en orden.
   2. **Zernio y Planes: mandarle a cada chat su parte del informe de `wf_2f472ad6-193`** (los dos NO, arriba), y
      verificar lo que devuelvan. Planes trae la venta externa de Stripe (`5a27268bc`). Desplegada esa, escribirle a Mauricio en su grupo (el +…8122 ES él) para que conecte su Stripe. Prender
      `cobros.ventas_externas` en ws1 pide el sí de Martín EN EL CHAT.
-  3. **La tienda de Chrome** (sigue en 0.39.1): la sube MARTÍN a mano (29/10 ~01:20 se le dejaron el zip y los textos).
-     Después: medir con `node scripts/version-en-tienda.mjs` y, aprobada, mezclar `tienda-cws-2710`. Ver
+  3. **La tienda de Chrome: la 0.74.3 está EN REVISIÓN** (29/10 ~01:35, subida por el Cerebro con un Chrome aparte por
+     CDP; ver docs/hallazgos-extension.md). Cuando Google apruebe: `node scripts/version-en-tienda.mjs` y mezclar
+     `tienda-cws-2710`. Volver a crear la credencial de la API para que la próxima sea un comando. Ver
      docs/hallazgos-extension.md («La subida por API murió sin avisar»).
   4. **La fila de verificación** (más abajo): CRM `cc47d841d`, Copywriter `7eef753da`, WhatsApp, Automations, el plan a
      mano de Planes y las tres ramas `nube/*`.
@@ -426,8 +427,7 @@ preguntes: hacé esto en orden.
 
 ## Trabado esperando a Martín
 
-- **Del 29/10:** subir él la extensión en el panel de la tienda (Claude no puede: Chrome bloquea a las extensiones ahí;
-   ya tiene el zip y ficha-y-permisos.md abiertos), y archivar desde la barra los cinco chats de la nube: la herramienta
+- **Del 29/10:** archivar desde la barra los cinco chats de la nube: la herramienta
    de archivar no los encuentra, ni por nombre ni por id. **P2P es un cliente FANTASMA** (Martín, 29/10): no se le manda
    nada.
 0. **Del 28/10:** quién paga la cuenta de Zernio de la plataforma; las migraciones 0342 (Calendar), 0346 (sin conexión) y la de la papelera del CRM; las decisiones de la revisión de Teo.

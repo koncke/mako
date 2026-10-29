@@ -346,22 +346,30 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
   diagnóstico obvio («vencido el refresh token, se canjea otro») es el equivocado: sin cliente no hay qué canjear; hay que
   crear la credencial de nuevo (pasos 1 a 4 de `--ayuda`). Mientras tanto, el camino es el panel del desarrollador. Y la
   API nunca cambia la ficha (descripción, capturas): eso es siempre desde el panel.
-- **Claude no puede manejar el panel de la tienda, ni con la sesión abierta** (medido el 29/10): en
-  chrome.google.com/webstore Chrome le niega a TODA extensión leer, tocar y hasta sacar captura («The extensions gallery
-  cannot be scripted»), así que Claude in Chrome no sirve ahí. El navegador de la app tampoco la abre («only works in a
-  full browser»). Subir el paquete y cambiar la ficha es de Martín, a mano, hasta que vuelva la API (y la ficha, siempre).
-  Otra trampa: la sesión de Google que importa es la del PERFIL de Chrome conectado a Claude. Martín entró en el suyo y el
-  panel seguía pidiendo verificar en el otro; `switch_browser` cambia de perfil.
+- **El panel de la tienda se maneja con un Chrome APARTE por CDP, no con Claude in Chrome** (29/10, así se subió la
+  0.74.3). En chrome.google.com/webstore Chrome le niega a toda EXTENSIÓN leer, tocar o capturar («The extensions gallery
+  cannot be scripted»), y el navegador de la app no la abre. Un cliente CDP de afuera sí puede:
+  `chrome.exe --user-data-dir=C:devchrome-tiendaperfil --remote-debugging-port=9334 <devconsole>` (Chrome 136+
+  ignora el puerto sobre el perfil por defecto). Martín entra UNA vez con martinkoncke@gmail.com (la sesión queda en ese
+  perfil) y el resto es `Runtime.evaluate`, `DOM.setFileInputFiles` (el zip y las imágenes) y clics.
+  - **Trampa: un valor puesto por JS no siempre se guarda.** La descripción sí (el contador cambió); la pestaña de
+    Privacidad decía «Item saved.» y al recargar volvía al texto viejo. Se guardó recién con la ventana adelante
+    (`Page.bringToFront` + `Emulation.setFocusEmulationEnabled`), clic real en el campo, Ctrl+A y `Input.insertText`.
+    Después de guardar, se RECARGA y se relee: el «Item saved.» no prueba nada.
+  - **Trampa: «Remove image» abre un diálogo de confirmación**, y varios clics por JS apilan diálogos que después borran
+    lo que no era (se llevó el ícono NUEVO). De a uno y mirando.
+  - **Trampa: tras borrar el ícono y el mosaico, las subidas a esos lugares dieron 503 varios minutos** (las capturas sí
+    subían). A los ~2 min volvió a andar. Y la sesión de Google que importa es la del PERFIL que maneja Claude.
 - **El `.env.local` de las credenciales es el del clon principal** (dashboard-marketing/), no el del worktree del tren, y
   `public/mako-puente.zip` no se versiona: en el tren no existe. Para subir desde el tren hay que cargar las `CWS_*` en el
   entorno (dotenv no pisa lo que ya está) y poner el zip; el de la tienda está en feedback/chrome-web-store/.
 
 ## Sin hacer
 
-- **Subir la 0.74.3 a la tienda, con la ficha nueva** (desde el panel del desarrollador en el Chrome de Martín, con
-  feedback/chrome-web-store/). La cuenta dueña es **martinkoncke@gmail.com** (el contacto de la ficha pública), que en el
-  perfil de Chrome de Claude es `authuser=1`: el panel abre por defecto con tejadomartin@, que NO es. El 29/10 el panel pidió
-  volver a poner la contraseña de esa cuenta («Verify it's you», pasa siempre al entrar): eso es de Martín. Cuando Google apruebe: medir con `node scripts/version-en-tienda.mjs` y recién ahí mezclar `tienda-cws-2710`.
+- **La 0.74.3 está EN REVISIÓN desde el 29/10 ~01:35 ART** (paquete, descripción, 5 capturas, ícono, mosaico chico y
+  privacidad nuevos; «publicar solo al aprobarse» tildado). Quedó el mosaico GRANDE viejo (1400x560, «Tus anuncios… Google
+  Flow»): opcional, reemplazarlo en la próxima versión. Cuando Google apruebe: medir con `node scripts/version-en-tienda.mjs`
+  y recién ahí mezclar `tienda-cws-2710`.
 - **Volver a crear la credencial de la API de la tienda** (`--ayuda`, pasos 1 a 4; la autorización es de Martín), para que
   cada versión nueva se suba con un comando.
 
