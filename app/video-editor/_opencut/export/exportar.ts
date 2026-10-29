@@ -38,7 +38,8 @@ import { guardarArchivo, nombreArchivo } from "./destino";
 import { EXPORT_MIME_TYPES } from "./mime-types";
 
 export type ResultadoExportar =
-	| { estado: "listo"; archivos: string[] }
+	// `video`: el archivo de video que salió (para «Publicar», app/calendario/publicar-desde-crear.ts), o null si no hubo.
+	| { estado: "listo"; archivos: string[]; video: { blob: Blob; nombre: string } | null }
 	| { estado: "cancelado" }
 	| { estado: "error"; mensaje: string };
 
@@ -65,6 +66,8 @@ export class Exportacion {
 		private editor: EditorCore,
 		private opciones: OpcionesExportar,
 		private soporte: Partial<Record<CodecId, SoporteCodec>>,
+		// `guardar: false` (para «Publicar», 29/10/2026): el video sale en memoria y va al Calendario, no a la carpeta.
+		private opc: { guardar?: boolean } = {},
 	) {}
 
 	cancelar(): void {
@@ -195,9 +198,10 @@ export class Exportacion {
 			}
 
 			if (archivos.length === 0) return { estado: "error", mensaje: "No hay nada para exportar." };
-			for (const archivo of archivos) await guardarArchivo(archivo);
+			if (this.opc.guardar !== false) for (const archivo of archivos) await guardarArchivo(archivo);
 			onProgreso(1);
-			return { estado: "listo", archivos: archivos.map((a) => a.nombre) };
+			const video = archivos.find((a) => a.blob.type.startsWith("video/")) ?? null;
+			return { estado: "listo", archivos: archivos.map((a) => a.nombre), video };
 		} catch (error) {
 			console.error("[exportar] falló", error);
 			// El crudo ya quedó en la consola (arriba): acá va la frase para la persona.

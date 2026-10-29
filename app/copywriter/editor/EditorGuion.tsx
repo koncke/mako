@@ -39,6 +39,8 @@ import { quienYCuando } from '@/lib/copywriter/editado';
 import { pedirGuardar, type GuardarGuion } from '../cliente';
 import dynamic from 'next/dynamic';
 import { useCerrarAfuera } from './cerrar-afuera';
+import { useRouter } from '@/app/_ui/Link';
+import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear';
 import type { DocVivo } from './propuesta';
 
 // BlockNote es sólo del navegador (usa el DOM al crearse): en Next se carga sin SSR, como pide su documentación. El
@@ -247,6 +249,24 @@ export function EditorGuion(p: PropsEditorGuion) {
     try { await navigator.clipboard.writeText(t); p.avisar('Texto copiado'); } catch { p.avisar('No se pudo copiar'); }
   };
 
+  // «Publicar en redes» (29/10/2026, Martín: «que con las funcionalidades que ya creamos puedan publicar en Facebook, TikTok,
+  // LinkedIn…»): el texto de la página va al Calendario como el texto de una Publicación (el título, como su título). Ahí se eligen
+  // la red, el día, la hora y la imagen o el video. Nunca desde el editor COMPARTIDO: quien edita por un link no tiene Calendario.
+  const router = useRouter();
+  const [publicando, setPublicando] = useState(false);
+  const publicarTexto = async () => {
+    setMenuPagina(false);
+    if (!doc || publicando) return;
+    setPublicando(true);
+    try {
+      const r = await llevarAlCalendario({ origen: 'texto', titulo: titulo.trim() || null, texto: textoDelDoc(doc.leer()) });
+      if (r.ok) router.push(r.url);
+      else p.avisar(r.error);
+    } finally {
+      setPublicando(false);
+    }
+  };
+
   const ruta = rutaDe(p.paginas, id);
   const emojiPagina = guion.pagina.emoji ?? INFO_TIPO[props.tipo].emoji;
   const enError = estado === 'error' || estado === 'conflicto' || estado === 'roto';
@@ -278,6 +298,11 @@ export function EditorGuion(p: PropsEditorGuion) {
                 <button type="button" role="menuitem" className="nt-menu-fila" onClick={() => void copiarTexto()}>
                   <span className="nt-menu-cuadro" aria-hidden>⧉</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Copiar el texto</span></span>
                 </button>
+                {!compartido && (
+                  <button type="button" role="menuitem" className="nt-menu-fila" data-publicar-texto="" disabled={publicando} onClick={() => void publicarTexto()}>
+                    <span className="nt-menu-cuadro" aria-hidden>↑</span><span className="nt-menu-textos"><span className="nt-menu-nombre">{publicando ? 'Llevándolo al Calendario…' : 'Publicar en redes'}</span></span>
+                  </button>
+                )}
                 {p.onCompartir && !compartido && (
                   <button type="button" role="menuitem" className="nt-menu-fila" onClick={() => { setMenuPagina(false); p.onCompartir?.(); }}>
                     <span className="nt-menu-cuadro" aria-hidden>↗</span><span className="nt-menu-textos"><span className="nt-menu-nombre">Compartir para editar</span></span>
