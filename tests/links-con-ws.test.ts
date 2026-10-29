@@ -66,5 +66,5 @@ test('el turno real: lo que sale al grupo y lo que queda en la memoria llevan el
 
 // ── Probado rompiéndolo (28/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   D1 `conElDominioDeMaKo` sin la distancia (no corrige nada)                          → fallan el 4 y el 5
-//   D2 la distancia sin tope (corrige mako.com y google.com)                             → falla el 4
+//   D2 la distancia sin tope (corrige mako.com y google.com)                             → fallan el 4 y el 5
 //   D3 el doer sin `conElDominioDeMaKo` en `partes`                                      → falla el 5

@@ -2,7 +2,7 @@
 
 **Cuenta:** claude4. **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los merges de main son merge commits, nunca
 rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le devuelve igual, con la lista de .ts).
-Las puntas las sube el Cerebro. Al 28/10 23:20 (AR) este archivo está al día (cuenta al 91 %). **Desde el 28/10 21:40, la tanda A va en otro
+Las puntas las sube el Cerebro. Al 28/10 23:40 (AR) este archivo está al día (cuenta al 92 %). **Desde el 28/10 21:40, la tanda A va en otro
 worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fallas-2710` adentro, sin tocar esa rama).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
@@ -62,7 +62,8 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
    - BAJAS (la de las re-entregas y la del ya-pedido, ✅): citar el mensaje de un cliente que pegó la firma calla a MaKo; si falla la lectura estricta de las re-entregas, la
      respuesta se pierde; `[[ya-pedido]]` con raya (—, –) o con un solo corchete todavía sale.
 
-1. **A:** hecha la parte de N cuentas. **Falta el banco de casos de nivel 2** (con modelo): correr los casos del diagnóstico
+1. **A:** VERDE mandado (9b5fc9ad4, 6723 tests; ⚠️ la rama lleva c358fd0c4 adentro por el merge 98c18d4a4: entra después de los
+   arreglos de c358, o sus commits sueltos). Hecha la parte de N cuentas. **Falta el banco de casos de nivel 2** (con modelo): correr los casos del diagnóstico
    (C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md) por el turno real con Claude y calificarlos. Gasta crédito: con el
    Cerebro. Y la claude5: su línea en `CUENTAS_DEL_CREDITO` si es Max 20x (lo sabe Martín).
 1b. **Los pedidos perdidos** (el Cerebro, 28/10 22:30; `docs/relevo/pedidos-perdidos-2810.md` de la rama `tren-w`, «Lo
@@ -75,8 +76,8 @@ worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fal
       «los sin marcar con nombre» terminó en «no se lista nominalmente» (conv 1584): la herramienta da el total, no la lista.
       Script: el scratchpad de claude4, `joan2.mjs` y `joan4.mjs`.
    3. ✅ (código, en `wa-credito-grupos-2810`) El link con dominio inventado («hola-malo.com/crm/2761», conv 1502):
-      `conElDominioDeMaKo` (lib/links-con-ws.ts) en `partes` del doer; tests/links-con-ws.test.ts 4 y 5. **Faltan sus roturas
-      D1-D3** (el script: el scratchpad de claude4, `roturas-dominio.mjs`; se cortó para no pisar el barrido) y su VERDE.
+      `conElDominioDeMaKo` (lib/links-con-ws.ts) en `partes` del doer; tests/links-con-ws.test.ts 4 y 5; roturas D1-D3. Va en
+      el VERDE de la tanda A (9b5fc9ad4, mandado el 28/10 23:35).
    4. Leila (ws11): el panel de Vida Poderosa dice que Ana Gómez no tiene datos de Fathom (buffer 293), y el Closing tiene
       168-193 análisis en error por el crédito de Claude (buffer 301).
    5. ✅ Los tres audios de Leandro (buffer 316, 318 y 327), transcritos con Groq el 28/10 22:55 y mandados al Cerebro: 316 y
