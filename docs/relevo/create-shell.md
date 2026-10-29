@@ -44,3 +44,5 @@ del Cerebro `banco-create-qa/`; capturas antes/después a 1920/1440/1366/390 en 
 - Image: la barra de abajo cede por `@container`. Placeholders «Escribe a MaKo» (Offer y Video).
 - Doory: el crédito visible se borró (Martín, a su riesgo); el test 2 de image-editor-integracion exige que no vuelva.
 - Falta: el editor de Video no carga en el banco (queda «Cargando…», docs/hallazgos-video-editor.md); AI Avatar es de su chat.
+- VERDE (punta 5031af55a): 70 tests dirigidos 613/613; las roturas R1–R9 y la R2 de Doory dan 1 rojo cada una.
+  tsc-acotado sin errores en las tres tandas (12, 8 y 9 archivos). Con `--heap=4096`: con 3000, sale con 134.
