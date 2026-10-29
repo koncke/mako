@@ -65,17 +65,18 @@ test('la pantalla vuelve a sanear contra lo de AHORA, pausa antes de construir y
 });
 
 test('la API: las del Copywriter al FINAL de `contenido`, con sus palabras, y la puerta en cada runner', () => {
+  // 8 de la tanda 2 y 3 de «Compartir para editar» (tanda 4: enlaces, compartir y revocar_enlace_copywriter).
   const contenido = REGISTRO.filter((d) => d.area === 'contenido').map((d) => d.id);
   const copy = contenido.filter((id) => id.endsWith('_copywriter'));
-  assert.equal(copy.length, 8);
-  assert.deepEqual(contenido.slice(-8), copy, 'van al final del área');
+  assert.equal(copy.length, 11);
+  assert.deepEqual(contenido.slice(-11), copy, 'van al final del área');
   for (const d of REGISTRO.filter((x) => x.id.endsWith('_copywriter'))) {
     assert.ok(!/guion de anuncio/i.test(`${d.titulo} ${d.descripcion}`), `${d.id} usa las palabras del Ads Writer`);
     assert.equal(d.gating?.tab, 'copywriter');
   }
   const run = leer('lib/api-mako/areas/copywriter.run.ts');
   const runners = [...run.matchAll(/^ {2}([a-z_]+_copywriter): \{/gm)].map((m) => m[1]);
-  assert.equal(runners.length, 8);
-  // Cada runner pregunta la puerta: 2 lecturas (leer) y 6 acciones (preparar).
-  assert.equal((run.match(/if \(await cerrada\(ctx\)\) return/g) ?? []).length, 8);
+  assert.equal(runners.length, 11);
+  // Cada runner pregunta la puerta: 3 lecturas (leer) y 8 acciones (preparar).
+  assert.equal((run.match(/if \(await cerrada\(ctx\)\) return/g) ?? []).length, 11);
 });

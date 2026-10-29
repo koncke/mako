@@ -439,7 +439,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
             <div className="nt-mako-bienvenida">
               {!id ? 'Elige un guion, o escribe en la caja grande cuál quieres crear.'
                 : intencion === 'discutir' ? 'Pregúntame lo que quieras de este guion: te digo qué cambiaría, sin tocar nada.'
-                  : 'Pídeme que escriba o cambie el guion: lo escribo acá al lado y tú decides si queda.'}
+                  : 'Pídeme que escriba o cambie el guion: lo escribo aquí al lado y tú decides si queda.'}
               {id && ' Con @ citas otro guion, la oferta o un archivo.'}
             </div>
             {id && (

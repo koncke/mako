@@ -182,7 +182,7 @@ export type ResultadoEditar = {
   respuesta: string;
   operaciones: OperacionIA[];
   descartadas: Descartada[];
-  /** Lo que la tarjeta avisa sobre lo escrito (la voz: formas con «vos» en un negocio que no habla así). */
+  /** Lo que la tarjeta avisa sobre lo escrito (la voz: voseo en un negocio que no habla así). */
   avisos: string[];
   /** Lo citado con «@» que no se pudo leer. */
   noLeidas: string[];
@@ -244,7 +244,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const nuevos = new Set(r.nuevos);
     const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');
     const voseo = acento && VOSEAN.has(acento.id) ? [] : marcasDeVoseo(escrito);
-    const avisos = voseo.length ? [`Tiene formas con «vos» (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que las cambie.`] : [];
+    const avisos = voseo.length ? [`Tiene voseo (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que lo cambie.`] : [];
     const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {
