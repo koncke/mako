@@ -12,11 +12,12 @@ const SESION = 'local_54b66516-3407-49c7-8bd9-ee08d420db69';
 
 /** Las fases del área y en qué anda cada una. */
 export const PARTES: Parte[] = [
-  { titulo: 'La tab con las cuatro secciones de HeyGen', detalle: 'Crear video, Avatares, Voces y Plantillas, copiadas de HeyGen por su documentación; la ve sólo el super admin', estado: 'hecha' },
+  { titulo: 'La tab con las cuatro secciones de HeyGen', detalle: 'Crear video, Avatares, Voces y Plantillas, copiadas de HeyGen por su documentación. Reemplazadas el 29/10 por el estudio de Higgsfield (sus rutas redirigen)', estado: 'hecha' },
+  { titulo: 'El estudio de Higgsfield, con el diseño de Create', detalle: 'Una sola pantalla: el chat de MaKo fijo a la izquierda, los proyectos (cada look con sus videos) al costado, «Nueva» con 28 presets por categoría, la barra de prompt y el selector de presets; en la computadora y en el teléfono', estado: 'hecha' },
   { titulo: 'Looks: tu foto en una escena', detalle: 'Una imagen de Flow con la cara de la persona y la composición de una plantilla; gratis en créditos', estado: 'hecha' },
   { titulo: 'Video del avatar', detalle: 'El plan del Video Generator con el look como escenario de todas las tomas, filmadas en serie; se edita y exporta en el Video Editor', estado: 'hecha' },
-  { titulo: 'Galería de voces en español', detalle: '25 voces públicas de ElevenLabs para escuchar, y sumarlas a la cuenta del cliente con su key', estado: 'hecha' },
-  { titulo: 'Imágenes de ejemplo de la galería', detalle: 'Generar en Flow (gratis) una imagen por plantilla; hoy sólo dos plantillas tienen video real', estado: 'sigue' },
+  { titulo: 'Galería de voces en español', detalle: '25 voces públicas de ElevenLabs. La pantalla se deprecó el 29/10: la voz elegida no llegaba al video; la galería queda como dato', estado: 'hecha' },
+  { titulo: 'Imágenes de ejemplo de los presets', detalle: 'Generar en Flow (gratis) una imagen por preset; hoy sólo dos tienen imagen real y el resto muestra el degradado de su categoría', estado: 'sigue' },
   { titulo: 'El video con la voz elegida o clonada', detalle: 'Reemplazar la voz de Flow por la de ElevenLabs (STS) y remuxar en el navegador con mediabunny', estado: 'cola' },
   { titulo: 'Guion largo con labios guiados por audio', detalle: 'Donde HeyGen gana: un motor de retrato + audio (InfiniteTalk o StableAvatar). Es gasto de medios: lo decide Martín', estado: 'cola' },
 ];
@@ -58,5 +59,26 @@ export const BITACORA: Hito[] = [
       'lib/flow-cara.ts — la cara de una foto en Flow, compartida con el Video Generator',
     ],
     revisar: '/ai-avatar/avatares',
+  },
+  {
+    fecha: '29 oct', hora: '01:56', chat: 'Cerebro', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'AI Avatar = Higgsfield tal cual, con el diseño único de Create',
+    pedido: 'Lo mismo para AI Avatar... En ese caso replica a higgsfield tal cual, busca un repo o algo y replícalo...',
+    puntos: [
+      '«Lo mismo» es el diseño de Create: el chat de MaKo siempre abierto a la izquierda, los proyectos al costado con la flecha y «Nueva», «Nueva» con templates bajo «¿Qué vas a crear hoy?», sin tabs internas y sin onboarding.',
+      'El motor sigue siendo Google Flow por la interfaz; lo de Higgsfield que no tenga motor se ve y dice en una línea que no está.',
+    ],
+  },
+  {
+    fecha: '29 oct', hora: '05:40', chat: 'AI Avatar = Higgsfield', sesion: 'local_33825c6f-c9c1-47aa-9819-ca9159f3de04', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El estudio de Higgsfield con el motor de MaKo',
+    puntos: [
+      'Higgsfield se relevó en su sitio (AI Influencer, la barra de prompt de Image, el selector de presets). El repo abierto que más se le parece (Open-Generative-AI, MIT) se estudió y no se copió: es un selector de modelos por API paga, sin presets ni personaje.',
+      'Una pantalla: proyectos a la izquierda (cada look con sus videos), «Nueva» con 28 presets en seis categorías y «Nuevos», la barra de prompt (Modelo, Formato, Cantidad, Personaje, Preset, Generar) y cada proyecto con su imagen, «Recrear», «Descargar», «Eliminar» y la barra para animarlo.',
+      'Lo que se escribe en la barra ajusta la escena: va al final del prompt del preset, nunca lo reemplaza (si no, se perdía en el auto o se iba la cara).',
+      'Sin motor y a la vista con su línea: otros modelos, 3:4 y 16:9, más de una imagen, 2K, la voz clonada, Motion y diseñar un personaje sin foto.',
+      'Se deprecaron las cuatro secciones de HeyGen (sus rutas redirigen) y la pantalla de Voces: la voz elegida no llegaba al video.',
+    ],
+    revisar: '/ai-avatar',
   },
 ];

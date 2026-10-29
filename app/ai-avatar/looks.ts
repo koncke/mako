@@ -32,6 +32,8 @@ export type Look = {
   url: string;
   /** Por qué no salió, en una frase para la persona. */
   error: string;
+  /** Lo que la persona escribió en la barra encima del preset (29/10/2026): «Recrear» lo vuelve a mandar igual. */
+  detalle: string;
   creadoEn: string;
 };
 
@@ -48,6 +50,7 @@ function sano(v: unknown): Look | null {
     mediaId: s(o.mediaId),
     url: s(o.url),
     error: s(o.error),
+    detalle: s(o.detalle),
     creadoEn: s(o.creadoEn),
   };
 }
@@ -82,4 +85,16 @@ export async function guardarLook(look: Look): Promise<void> {
     ? actual.map((l) => (l.id === look.id ? look : l))
     : [look, ...resto];
   await setSetting(KEY_LOOKS, JSON.stringify(lista.slice(0, MAX_LOOKS)));
+}
+
+/**
+ * Saca UN look de la lista (el «Eliminar» de su proyecto). Lee estricto, como `guardarLook`: con la lectura caída tira, y
+ * no se escribe encima de la lista real. ⚠️ En POSITIVO: se escribe la lista SIN ese id, y sólo si ese id estaba. La
+ * imagen sigue en el Flow de la persona y en Storage: esto saca el proyecto de MaKo, no borra su archivo.
+ */
+export async function quitarLook(id: string): Promise<boolean> {
+  const actual = parsear(await getSettingEstricto(KEY_LOOKS));
+  if (!id || !actual.some((l) => l.id === id)) return false;
+  await setSetting(KEY_LOOKS, JSON.stringify(actual.filter((l) => l.id !== id)));
+  return true;
 }

@@ -117,7 +117,14 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y A
     const src = leer(p);
     assert.ok(src.includes(`requireMovil({ navKey: '${key}' })`), `${p}: sin su key`);
     assert.ok(src.includes('await requireAiAvatarM()'), `${p}: sin la puerta del super admin`);
-    assert.ok(src.includes("<CabeceraM titulo=\"AI Avatar\" padre={{ href: RUTA_MAS, label: 'More' }} />"), `${p}: sin su cabecera (no tiene fila)`);
+  }
+  // Desde el 29/10/2026 AI Avatar es UNA pantalla (el estudio de Higgsfield): la base dibuja la cabecera, y las tres
+  // secciones de HeyGen redirigen a ella DESPUÉS de su puerta, con `rutaConWs` (un redirect('/m…') pelado no se traduce).
+  assert.ok(leer('app/m/ai-avatar/page.tsx').includes("<CabeceraM titulo=\"AI Avatar\" padre={{ href: RUTA_MAS, label: 'More' }} />"), 'la base sin su cabecera (no tiene fila)');
+  for (const sub of ['avatares', 'voces', 'plantillas']) {
+    const src = leer(`app/m/ai-avatar/${sub}/page.tsx`);
+    assert.match(src, /redirect\(await rutaConWs\([^;]*\/m\/ai-avatar/, `${sub}: no redirige al estudio`);
+    assert.ok(src.indexOf('await requireAiAvatarM()') < src.indexOf('redirect('), `${sub}: redirige antes de la puerta`);
   }
 });
 
@@ -194,12 +201,12 @@ test('abrir una pantalla de AI Avatar no gasta nada: ninguna page llama a lo que
   assert.equal(pages.length, 4);
   for (const p of pages) {
     const src = leer(p);
-    for (const fn of ['crearLookAction', 'crearVideoAction', 'generarTomaAction', 'filmarTomas', 'sumarVozAction']) {
+    for (const fn of ['crearLookAction', 'crearVideoAction', 'generarTomaAction', 'filmarTomas', 'borrarLookAction']) {
       assert.ok(!src.includes(fn), `${p} llama a ${fn}: abrir la pantalla no puede encolar ni gastar`);
     }
   }
   // Y lo que filma lo dispara un toque: «Generar video», con su consecuencia pegada arriba.
-  const crear = leer('app/m/ai-avatar/CrearVideoM.tsx');
+  const crear = leer('app/m/ai-avatar/EstudioM.tsx');
   assert.ok(crear.includes('Cada toma gasta créditos de tu cuenta de Flow.'));
   assert.match(crear, /onClick=\{\(\) => void generar\(\)\}/);
 });

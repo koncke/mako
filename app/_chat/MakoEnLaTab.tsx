@@ -78,7 +78,21 @@ function useBordeDeLaBarra(visible = false): number {
   return borde;
 }
 
-export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, pantalla = null, encimaDeModales = false }: {
+/** ¿Va fijo ahora? Sólo si la tab lo pide y la pantalla es más ancha que el corte donde el panel tapa la tab (./chat.css). */
+function useFijoEnAncha(fijo: boolean): boolean {
+  const [ancha, setAncha] = useState(false);
+  useEffect(() => {
+    if (!fijo || typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(min-width: 761px)');
+    const ver = () => setAncha(mq.matches);
+    ver();
+    mq.addEventListener('change', ver);
+    return () => mq.removeEventListener('change', ver);
+  }, [fijo]);
+  return fijo && ancha;
+}
+
+export function MakoEnLaTab({ tab, fijo = false, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, pantalla = null, encimaDeModales = false }: {
   /** El nombre de la tab («CRM», «Automations»): el `aria-label` y desde dónde va lo que se escribe al Cerebro, que reparte. */
   tab: string;
   /** Lo que la pantalla tiene abierto (OC6, lib/chat-desde.ts): el lead de la ficha, la automatización del lienzo. El turno lo
@@ -104,8 +118,14 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
    *  (si no, el fondo del modal la tapa y «cerrala» con la tarjeta abierta no se puede pedir), y el panel entra a la pila como
    *  capa `anidada`: la tarjeta de abajo se sigue viendo y el Escape cierra sólo el panel. Sin esto, lo de siempre (z 55). */
   encimaDeModales?: boolean;
+  /** Las tabs de CREATE (29/10/2026, Martín: «la barra lateral del chat de MaKo SIEMPRE abierto a la izquierda»): abierto
+   *  desde que entra y sin «×» ni Escape, en una pantalla ANCHA. En una angosta (≤ 760 px) el panel tapa la tab entera
+   *  (./chat.css), así que ahí vuelve a ser la estrella de siempre: fijo, no dejaría usar la pantalla. */
+  fijo?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const fijoAhora = useFijoEnAncha(fijo);
+  useEffect(() => { if (fijoAhora) setAbierto(true); }, [fijoAhora]);
   // ¿Se abrió con un modal de la tab abierto? Se decide al abrir y queda mientras está abierto (el panel ya está en la pila).
   const [sobre, setSobre] = useState(false);
   const abrir = useCallback(() => { setSobre(encimaDeModales && profundidadModales() > 0); setAbierto(true); }, [encimaDeModales]);
@@ -136,7 +156,7 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
     return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
   return abierto
-    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} />
+    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} fijo={fijoAhora} />
     : (
       <button type="button" className="ch-tab-mako" style={{ left: bordeVisible + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
         title="MaKo" onClick={abrir}>
@@ -146,12 +166,14 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center. */
-function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, pantalla, onCerrar, sobre }: {
+function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, pantalla, onCerrar, sobre, fijo }: {
   tab: string; izquierda: number; arriba: ReactNode; trabajos: readonly TrabajoTerminado[]; preguntas: readonly PreguntaDeLaTab[] | null;
   pedido: { texto: string; vez: number } | null; onMandado: () => void;
   entidad: EntidadChat | null; modo: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla: string | null; onCerrar: () => void;
   /** Abierto encima de un modal de la tab: es una capa más de la pila (anidada: la de abajo se sigue viendo). */
   sobre: boolean;
+  /** Siempre abierto (las tabs de Create, en pantalla ancha): sin «×» ni Escape. */
+  fijo: boolean;
 }) {
   const capa = useCapaModal(sobre, { anidada: true });
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
@@ -173,11 +195,13 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
   // Escape lo cierra, como un panel de la casa (si no hay un menú o un modal arriba).
   const { menuWA, infoWA, conectando } = k;
   useEffect(() => {
+    // Fijo (las tabs de Create), Escape no lo cierra: no hay cómo volver a abrirlo.
+    if (fijo) return;
     // Encima de un modal, sólo si el panel es la capa de arriba: si no, una tecla cerraba el panel Y la tarjeta de abajo.
     const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuWA && !infoWA && !conectando && (!sobre || capa.esElDeArriba())) onCerrar(); };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [menuWA, infoWA, conectando, onCerrar, sobre, capa]);
+  }, [menuWA, infoWA, conectando, onCerrar, sobre, capa, fijo]);
   // Como un chat: abre en lo último y baja con lo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
@@ -209,7 +233,7 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} />
         </PanelDeChat>
-        <button type="button" className="ch-tab-panel__cerrar" aria-label="Cerrar MaKo" title="Cerrar (Esc)" onClick={onCerrar}>×</button>
+        {!fijo && <button type="button" className="ch-tab-panel__cerrar" aria-label="Cerrar MaKo" title="Cerrar (Esc)" onClick={onCerrar}>×</button>}
       </div>
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>

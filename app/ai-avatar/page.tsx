@@ -1,17 +1,20 @@
 // =============================================================================
-// /ai-avatar — Crear video: elegir el avatar, escribir el guion, generar
+// /ai-avatar — el estudio de Higgsfield: proyectos, presets y la barra de prompt
 // =============================================================================
-// La tab tipo HeyGen (pedido de Martín, 17/10/2026). Estructura copiada de HeyGen
-// por su documentación (ver docs/hallazgos-ai-avatar.md); la generación es la del
-// Video Generator. Hoy la ve sólo el super admin (./acceso.ts).
+// 29/10/2026, Martín: «Lo mismo para AI Avatar... replica a higgsfield tal cual». Una sola pantalla, con el diseño
+// único de Create (el chat de MaKo fijo a la izquierda, los proyectos al costado y «Nueva» con los presets bajo «¿Qué
+// vas a crear hoy?»), sin tabs internas y sin onboarding: la tab ES la herramienta y su vacío ES «Nueva». La pantalla
+// y lo que copia de Higgsfield: ./Estudio.tsx. Las rutas de las cuatro secciones de HeyGen (17/10) redirigen acá.
+// Hoy la ve sólo el super admin (./acceso.ts).
 //
-// Onboarding: la tab ES la herramienta, así que su onboarding es su estado vacío
-// («Primero crea tu avatar»), sin entrada en el catálogo — la regla del 05/10 que
-// ya siguen el Video Editor, /api-mako y el Dashboard.
+// La query: `?plantilla=<preset>` abre «Nueva» con ese preset elegido; `?avatar=<proyecto o mediaId>` abre ese proyecto.
 
+import './estudio.css';
 import { requireAiAvatar } from './acceso';
-import { Pagina, PageHeader } from '@/app/_ui';
-import { CrearVideo } from './AiAvatarCliente';
+import { Pagina } from '@/app/_ui';
+import { ErrorState } from '@/app/_ui/Estados';
+import { EstudioAvatar } from './Estudio';
+import { inicioAvatarAction } from './actions';
 import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
@@ -20,11 +23,14 @@ export default async function AiAvatarPage({ searchParams }: { searchParams: Pro
   await requireAiAvatar();
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v.slice(0, 120) : undefined);
+  const inicio = await inicioAvatarAction();
   return (
-    <Pagina>
-      <PageHeader titulo="Create video" proposito="Tu avatar dice tu guion." />
-      <FranjaPrueba cosas={['prueba.avatares', 'prueba.tomas']} />
-      <CrearVideo avatarInicial={uno(sp.avatar)} plantillaInicial={uno(sp.plantilla)} />
+    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0 }}>
+      {/* Las tres cosas con tope que se hacen acá: el look (imagen), el video con avatar y sus tomas. */}
+      <FranjaPrueba cosas={['prueba.imagenes', 'prueba.avatares', 'prueba.tomas']} />
+      {inicio.ok
+        ? <EstudioAvatar inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} />
+        : <ErrorState titulo="No se pudo abrir AI Avatar" detalle={inicio.error} />}
     </Pagina>
   );
 }
