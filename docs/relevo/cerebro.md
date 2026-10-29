@@ -102,6 +102,9 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **01:25 — EN PRODUCCIÓN (verificado):** el Web Generator en blanco (`7f63046be`; deploy de `ed8c965d1` Ready a las
+    23:58). Martín tiene que probarlo entrando por el menú. **MaKo inteligente** (`7f36fa9c6`, merge de `935e3c574`),
+    subido a las 00:00 y con el deploy en curso. **main = `7f36fa9c6`.** La rama del próximo tren sale de ahí.
   - **01:10, el Web Generator en blanco (el P0 de Martín):** `11a0e8211` ACEPTADO (el Cerebro revisó que los controles de
     acceso corren antes del corte en los cuatro layouts) y mergeado en tren-x (`7f63046be`). Push en curso (task
     `bum9dxj9y`, log `push-blanco.log`). Cuando esté Ready, avisarle a Martín que lo pruebe entrando por el menú.
