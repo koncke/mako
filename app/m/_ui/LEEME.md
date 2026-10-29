@@ -87,9 +87,12 @@ nueva (`registrarApertura` cierra la anterior). Una capa propia a pantalla compl
 `data-m-sin-pull`, o tirar hacia abajo refresca la página de atrás. Lo que un toast llama más tarde (el
 Deshacer) lee el estado de un `useRef`, no del render que lo creó. (docs/hallazgos-mobile.md, «Tanda 2».)
 
-Abrir o cerrar una hoja toca el historial, y Next puede descartar lo que el router tiene en la cola en ese mismo tick
-(leído, no medido): el `router.refresh()` después de abrir una hoja va diferido (400 ms, como /m/cuenta y Ads Writer),
-y para navegar con una hoja abierta se la deja desmontarse con la página nueva (Comunidad), sin cerrarla por código. Una
+Abrir o cerrar una hoja toca el historial, y Next descarta lo que el router tiene en la cola en ese mismo tick: el
+`replaceState` de cerrar por código es un ACTION_RESTORE, y un RESTORE descarta la navegación en curso (ticket #27: en
+el CRM, elegir otro funnel en la hoja «no hacía nada», siempre). El `router.refresh()` después de abrir una hoja va
+diferido (400 ms, como /m/cuenta y Ads Writer). Para CERRAR Y NAVEGAR en el mismo toque: `setAbierta(false);
+navegarAlCerrar(() => router.push(url))` (./hoja-historial.ts), nunca el `router.push` pelado; o se deja la hoja
+desmontarse con la página nueva (Comunidad), sin cerrarla por código. Una
 URL que se escribe desde el cliente parte de `new URL(window.location.href)`: la barra tiene la ruta de ESCRITORIO.
 Copiar al portapapeles devuelve si copió (`copiarTexto`, app/m/copywriting/api.ts). (docs/hallazgos-mobile.md, «Tanda 3».)
 
