@@ -79,6 +79,16 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **00:05 (29/10), el push de tren-w está EN CURSO** (task `bca7muwun`, log en el scratchpad: `push-tren-w.log`), con
+    la pausa prendida. Sube: las cajas de chat, las horas del CRM (`f13f8bbad`, verificado por el Cerebro con el script del
+    refutador y mergeado en `c17134274`), el corte del 97%, la pausa, tsc-acotado con lock y `cambiarSettingSi`.
+    - **Para el tren siguiente:** el editor, ticket 23 (`d867f8bbc`, editor-leila-2810): leí el diff y está aceptado.
+      Falta mergearlo y correr tests/video-editor-chat sobre el árbol mezclado. Al desplegarse, se cierra el ticket de
+      Leandro con su aviso.
+    - **Planes:** el cobro doble está arreglado en `be95f7555` (verificado con el script del refutador: una cuota y
+      ya_pagado). Pero la rama trae el plan a mano con vencimiento (`55542d446`) SIN verificar: necesita su workflow, y
+      queda para cuando haya RAM o para la próxima cuenta.
+    - **Motion:** no arranca (cuenta al 91%). Los dos rojos del typecheck C/D están en el relevo del editor.
   - **23:45, Zernio:**
     - **Pedido de Martín:** advertir los límites en la conexión, y varias claves de Zernio por negocio, como en Gemini,
       para conectar más redes sin pagar. Va con el aviso antes de la 3.ª red. Pasado al chat Zernio: los límites y el
