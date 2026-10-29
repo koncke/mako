@@ -208,7 +208,7 @@ test('la misma difusión, una vez: la clave del pedido, la marca y retomar la qu
   const i = (x: string) => { const n = crear.indexOf(x); assert.ok(n > 0, `falta: ${x}`); return n; };
   assert.ok(i('const previo = await getSettingEstricto(key);') < i("if (repetida.es === 'en_curso') return { ok: false, error: EN_CURSO };"));
   assert.ok(i("if (repetida.es === 'retomar') {") < i('if (!(await cambiarSettingSi(key, previo, reclamo))) return { ok: false, error: EN_CURSO };'));
-  assert.match(crear, /if \(repetida\.es === 'retomar'\) \{\s*const r = await retomarDifusion\(repetida\.secuenciaId, vista, p\.autor\);\s*if \(r\) return r;\s*\}/, 'el mismo pedido retoma la que creó');
+  assert.match(crear, /if \(repetida\.es === 'retomar'\) \{\s*const r = await retomarDifusion\(ws, repetida\.secuenciaId, vista, p\.autor\);\s*if \(r\) return r;\s*\}/, 'el mismo pedido retoma la que creó');
   assert.ok(i('if (!(await cambiarSettingSi(key, previo, reclamo)))') < i('const fila = await crearSecuenciaVacia(nombre'), 'reclama ANTES de crear');
   assert.ok(i('await borrarSettingSi(key, reclamo)') < i('const marca = JSON.stringify('), 'lo que no se creó suelta el pedido');
   assert.ok(i('await cambiarSettingSi(key, reclamo, marca)') < i('await inscribirEnDifusion(fila.id, vista.alcance.ids)'), 'la marca apunta a la difusión antes de inscribir');
@@ -216,6 +216,11 @@ test('la misma difusión, una vez: la clave del pedido, la marca y retomar la qu
   const retomar = s.slice(s.indexOf('async function retomarDifusion('), s.indexOf('export async function crearDifusion('));
   assert.match(retomar, /if \(!fila \|\| fila\.archivada_at\) return null;/, 'si la borraron o la archivaron, va como nueva');
   assert.match(retomar, /const r = await inscribirEnDifusion\(fila\.id, vista\.alcance\.ids\);/);
+  // ⚠️ La pausada (la terminó la corrida de la hora, o la pausó alguien) se vuelve a prender por la puerta de siempre, ANTES de
+  // sumar a los que faltan: decir «préndela ahí» no los sumaba (la reverificación de Integración, 29/10/2026).
+  assert.match(retomar, /if \(!fila\.activa\) \{\s*try \{\s*const \{ setSecuenciaActiva \} = await import\('\.\/nutricion'\);\s*await setSecuenciaActiva\(fila\.id, true, \{ aunqueDuplique: true, ws \}\);/);
+  assert.ok(retomar.indexOf('await setSecuenciaActiva(fila.id, true') < retomar.indexOf('await inscribirEnDifusion(fila.id'), 'la prende antes de inscribir');
+  assert.doesNotMatch(retomar, /préndela ahí/);
 });
 
 // [media] Por el grupo de WhatsApp el rol es siempre 'admin' (lib/mako-doer-in.ts): un setter lanzaba una difusión. Y [baja] la

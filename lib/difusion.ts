@@ -146,14 +146,24 @@ async function inscribirEnDifusion(secuenciaId: number, ids: readonly number[]):
 /**
  * EL MISMO PEDIDO OTRA VEZ: retoma la difusión que creó y suma sólo a los que faltan (los de una tanda que falló, o los que
  * llegaron a la columna después). null = esa automatización ya no está (la borraron o la archivaron): el pedido va como nuevo.
+ * ⚠️ Y SI ESTÁ PAUSADA, LA PRENDE (la reverificación de Integración, 29/10/2026): la corrida de la hora pausa la que terminó
+ * (`pausarDifusionesTerminadas`), y el mismo pedido decía «préndela ahí», pero prenderla no sumaba a los que faltaban. Pedirla
+ * de nuevo ES pedir que salga: se prende por la puerta de siempre (`setSecuenciaActiva`: el tope del plan, el medio conectado).
  */
-async function retomarDifusion(secuenciaId: number, vista: VistaDifusion, autor: string): Promise<ResultadoDifusion | null> {
+async function retomarDifusion(ws: number, secuenciaId: number, vista: VistaDifusion, autor: string): Promise<ResultadoDifusion | null> {
   const db = await getTenantDb();
   const { data: sec, error } = await db.from('nutricion_secuencias').select('id, nombre, activa, archivada_at').eq('id', secuenciaId).maybeSingle();
   if (error) return { ok: false, error: `No pude leer la difusión que ya se había creado (${error.message}). Vuelve a intentarlo.` };
   const fila = sec as { id: number; nombre: string; activa: boolean | null; archivada_at: string | null } | null;
   if (!fila || fila.archivada_at) return null;
-  if (!fila.activa) return { ok: false, error: `Esta misma difusión ya está creada, «${fila.nombre}», y está pausada en Automations: préndela ahí para que siga.` };
+  if (!fila.activa) {
+    try {
+      const { setSecuenciaActiva } = await import('./nutricion');
+      await setSecuenciaActiva(fila.id, true, { aunqueDuplique: true, ws });
+    } catch (e) {
+      return { ok: false, error: `Esta misma difusión ya está creada, «${fila.nombre}», y no la pude volver a prender: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  }
   const r = await inscribirEnDifusion(fila.id, vista.alcance.ids);
   if (r.error) return { ok: false, error: `Esta misma difusión ya estaba, «${fila.nombre}», y no pude sumar a los que faltaban (${r.error}). Vuelve a intentarlo.` };
   console.log(`[difusion] «${fila.nombre}» (#${fila.id}) era el mismo pedido: sumé ${r.nuevos}, ya estaban ${vista.alcance.ids.length - r.nuevos} — ${autor}`);
@@ -183,7 +193,7 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
   const repetida = decidirRepetida(leerMarcaDifusion(previo), Date.now());
   if (repetida.es === 'en_curso') return { ok: false, error: EN_CURSO };
   if (repetida.es === 'retomar') {
-    const r = await retomarDifusion(repetida.secuenciaId, vista, p.autor);
+    const r = await retomarDifusion(ws, repetida.secuenciaId, vista, p.autor);
     if (r) return r;
   }
   const reclamo = JSON.stringify({ at: new Date().toISOString(), secuenciaId: null });
