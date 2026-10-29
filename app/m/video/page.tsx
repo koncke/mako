@@ -15,9 +15,8 @@
 import './video.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { ComputadoraM, PantallaM, VacioM } from '@/app/m/_ui';
-import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-// La barra de secciones de la tab Video (Editor · Create with AI · Reels), como en escritorio (17/10/2026).
-import { vistaDe } from '../_creacion/secciones';
+// Sin la barra de secciones de la tab Video desde el 29/10/2026 («para todas las secciones de "create" no quiero otras tabs»):
+// el Video Generator es la plantilla «Generar con IA» de «Nuevo video».
 import { leerVideos } from './datos';
 import { VideosM } from './VideosM';
 
@@ -26,14 +25,12 @@ export const dynamic = 'force-dynamic';
 const COMPU = 'Crear anuncios y filmar tomas';
 
 export default async function VideoPagina() {
-  const ctx = await requireMovil({ navKey: 'video-generator' });
+  await requireMovil({ navKey: 'video-generator' });
   const { enCurso, terminados } = await leerVideos();
-  const barra = <SeccionesTabM tab="video" activa="video-generator" vista={vistaDe(ctx)} />;
 
   if (!enCurso.length && !terminados.length) {
     return (
       <PantallaM>
-        {barra}
         <VacioM frase="Todavía no hay anuncios." />
         <ComputadoraM que={COMPU} />
       </PantallaM>
@@ -42,7 +39,6 @@ export default async function VideoPagina() {
 
   return (
     <PantallaM>
-      {barra}
       <VideosM enCurso={enCurso} terminados={terminados} />
       <ComputadoraM que={COMPU} />
     </PantallaM>

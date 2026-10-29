@@ -22,16 +22,16 @@
 import type { DefSeccionMas } from './movil-rutas';
 
 /** Las pantallas de creación del teléfono con fila en SECCIONES_MAS (OCULTA, menos «image», que es fila de More). */
-export type IdCreacion = 'image' | 'video-editor' | 'reels' | 'stories' | 'carousels' | 'admin-copywriting';
+export type IdCreacion = 'image' | 'video-generator' | 'stories' | 'admin-copywriting';
 
 /**
  * Las filas OCULTAS de More (`oculta: true`): no son filas ni suben a la barra, pero le dan a cada pantalla su
  * cabecera (el nombre, «‹ More»), el título de la pestaña y la puerta de su `page.tsx` (`requireMovil({ navKey })`
  * con la key EXACTA de nav.ts que pide su página de escritorio). En el orden de la sidebar de escritorio.
  *
- * Por qué ninguna es fila de More: Video Editor y Reels son secciones de la tab Video (la fila «Video» de More),
- * Carousels de la fila «Image», y Stories de «Copywriting»; se alcanzan desde la barra de secciones de arriba de su
- * tab (app/m/_ui/SeccionesTabM.tsx), como en escritorio.
+ * Por qué ninguna es fila de More: el Video Generator es una plantilla de Video (la fila «Video» de More) y Stories una sección de
+ * «Copywriting», que se alcanza desde la barra de secciones de arriba de su tab (app/m/_ui/SeccionesTabM.tsx). Reels y
+ * Carousels se retiraron el 29/10/2026 (sus rutas redirigen: al Copywriter y a Image).
  *
  * ⚠️ AI AVATAR NO TIENE FILA ACÁ, A PROPÓSITO: es `adminOnly` (sólo el super admin) y `puedeVerKey` no mira eso. More
  * (`masCompleto`, lib/movil-rutas.ts) le arma su fila desde la sidebar con la regla de la sidebar, por su ruta
@@ -42,11 +42,9 @@ export type IdCreacion = 'image' | 'video-editor' | 'reels' | 'stories' | 'carou
  * de «Mobile 2» (/m/pronto/<key>), que se deriva de nav.ts, y la barra de secciones las lleva ahí.
  */
 export const SECCIONES_CREACION: readonly DefSeccionMas[] = [
-  // Video (tab unificada): Editor · Create with AI (la fila «Video», /m/video) · Reels.
-  { id: 'video-editor', label: 'Video Editor', href: '/m/video-editor', icon: 'tijera', navKey: 'video-editor', familia: null, oculta: true },
-  { id: 'reels', label: 'Reels', href: '/m/reels', icon: 'videogen', navKey: 'reels', familia: null, oculta: true },
-  // Image (tab unificada; su Editor es la fila «Image» de More): Carousels.
-  { id: 'carousels', label: 'Carousels', href: '/m/carousels', icon: 'carousel', navKey: 'carousels', familia: null, oculta: true },
+  // Video es la fila «Video» de More desde el 29/10/2026 (abre el editor, /m/video-editor). El Video Generator (/m/video) es
+  // su plantilla «Generar con IA»: fila oculta, para su cabecera y su puerta.
+  { id: 'video-generator', label: 'Video Generator', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: null, oculta: true },
   // Copywriting (tab unificada; su Ads Writer es la fila «Copywriting»): Stories.
   { id: 'stories', label: 'Stories', href: '/m/stories', icon: 'stories', navKey: 'stories', familia: null, oculta: true },
   // Copy Method (Copywriting › Method): una herramienta del SUPER ADMIN (nav.ts → HERRAMIENTAS.copywriting). `superAdmin`,
@@ -79,9 +77,8 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   { base: '/image-editor', sub: '*', noSub: ['presentador'] },
   // app/ai-avatar/page.tsx lee `avatar` y `plantilla`; avatares/page.tsx, `plantilla`.
   { base: '/ai-avatar', query: ['avatar', 'plantilla'], sub: ['avatares', 'voces', 'plantillas'], querySub: { avatares: ['plantilla'] } },
-  { base: '/reels' },
+  // /reels y /carousels se retiraron el 29/10/2026 (redirigen: al Copywriter y a Image); sus /m también.
   { base: '/stories' },
-  { base: '/carousels' },
   // Copy Method (Copywriting › Method), la herramienta del super admin: su carpeta es app/m/admin/copywriting.
   { base: '/admin/copywriting' },
 ];

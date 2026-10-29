@@ -29,7 +29,8 @@ export const INFO_TIPO: Record<TipoCreacion, { titulo: string; singular: string;
   automatizacion: { titulo: 'Automatizaciones', singular: 'automatización', feature: 'Automations', ruta: '/automations', nav: 'setting' },
   dashboard: { titulo: 'Dashboards', singular: 'dashboard', feature: 'Dashboard', ruta: '/dashboard', nav: 'graphics' },
   formato_video: { titulo: 'Formatos de video', singular: 'formato de video', feature: 'Video Generator', ruta: '/video-generator', nav: 'video-generator' },
-  formato_imagen: { titulo: 'Formatos de imagen', singular: 'formato de imagen', feature: 'Image Generator', ruta: '/image-generator', nav: 'image-generator' },
+  // El Image Generator se retiró el 29/10/2026 sin pasar de «pronto»: los formatos de imagen son del Image Editor.
+  formato_imagen: { titulo: 'Formatos de imagen', singular: 'formato de imagen', feature: 'Image', ruta: '/image-editor', nav: 'image-editor' },
 };
 
 /**

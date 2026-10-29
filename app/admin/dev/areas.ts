@@ -728,8 +728,8 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'image-generator', titulo: 'Image Generator', familia: 'Content Machine', grupo: 'Ads',
-    estado: 'por-construir', verEnApp: '/image-generator',
-    alcance: 'Generar la imagen del anuncio. ComingSoon; sus dos insumos ya existen (Brand Persona con las fotos y el formato de imagen elegido en el Ad Detail), falta el generador.',
+    estado: 'por-construir', verEnApp: '/image-editor',
+    alcance: 'RETIRADA el 29/10/2026 sin pasar de «pronto» (Martín: «para todas las secciones de "create" no quiero otras tabs… prefiero deprecar antes que conservar»): /image-generator redirige a Image. Generar la imagen del anuncio, si vuelve, es una plantilla de «Nuevo diseño» en Image (app/_crear/PantallaCrear.tsx), no una pestaña.',
     vive: ['app/image-generator/page.tsx', 'lib/persona.ts', 'app/admin/dev/ads-writer/bitacora.ts'],
     proyectos: ['Feature: Image Generator'],
   },
@@ -778,8 +778,8 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'parcial', verEnApp: '/reels',
-    alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',
+    estado: 'parcial', verEnApp: '/copywriter?nuevo=reel',
+    alcance: 'RETIRADA como tab el 29/10/2026 (Martín: «"Reels" literalmente es de guiones... estará en "Copywriting" pero no como tab, sino como template»): /reels y /m/reels redirigen al Copywriter (`?nuevo=reel`); la pantalla se borró y el motor (lib/ig-writer.ts) sigue para la API. Lo de antes: el GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',
     // ⚠️ Este `vive` declaraba DOS rutas y una de ellas era app/_components/nav.ts,
     // que es de las más calientes del repo: el Change History derivado se queda con
     // los últimos 12 commits, así que nav.ts se los comía TODOS. Medido el 17/08 en
@@ -787,8 +787,7 @@ export const AREAS: AreaDev[] = [
     // `carousels`, y ninguno habla de ninguna de las dos tabs. Un archivo compartido
     // adentro de un `vive` no suma historia: DESPLAZA la propia.
     vive: [
-      'app/reels/page.tsx', 'app/reels/ReelsApp.tsx', 'app/reels/actions.ts',
-      'app/reels/reel-pedido.ts', 'app/reels/reels-datos.ts',
+      'app/reels/page.tsx',
       'lib/ig-writer.ts', 'lib/ig-formatos.ts',
       'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
     ],
@@ -798,15 +797,14 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'carousels', titulo: 'Carousels', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'parcial', verEnApp: '/carousels',
-    alcance: 'El carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → «Copiar el carrusel». El borrador en /instagram salió el 06/10/2026 con esa tab. El historial se pierde al recargar y los prompts todavía no son editables.',
+    estado: 'parcial', verEnApp: '/image-editor',
+    alcance: 'RETIRADA como tab el 29/10/2026 («prefiero deprecar antes que conservar»): /carousels y /m/carousels redirigen a Image, donde «Carrusel de Instagram» es una plantilla de «Nuevo diseño»; la pantalla se borró y el motor (lib/ig-writer.ts) sigue para la API. Lo de antes: el carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → «Copiar el carrusel». El borrador en /instagram salió el 06/10/2026 con esa tab. El historial se pierde al recargar y los prompts todavía no son editables.',
     // ⚠️ Mismo caso que reels: el `vive` declaraba DOS rutas, una de ellas
     // app/_components/nav.ts, y el Change History derivado (últimos 12 commits) se
     // llenaba con commits de la barra. Medido el 17/08: el bloque `"carousels"` de
     // _historial.generado.ts es idéntico al de `"reels"` y no habla de ninguna tab.
     vive: [
-      'app/carousels/page.tsx', 'app/carousels/CarouselsApp.tsx',
-      'app/carousels/OnboardingCarousels.tsx', 'app/carousels/actions.ts',
+      'app/carousels/page.tsx',
       'lib/ig-writer.ts', 'lib/ig-formatos.ts',
       'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
     ],
@@ -840,8 +838,8 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'thumbnails', titulo: 'Thumbnails', familia: 'Content Machine', grupo: 'YouTube',
-    estado: 'por-construir', verEnApp: '/thumbnails',
-    alcance: 'Generar las miniaturas del video. ComingSoon sin backend: la ruta son 8 líneas. Lo único decidido es el lugar (Content Machine · YouTube) y la economía — US$0,068 las 2 variantes, 160 MT, cobrado por INTENTO (app/admin/dev/pricing/modelo.ts). Los 12 thumbnails/mes del Growth son un supuesto sin medir.',
+    estado: 'por-construir', verEnApp: '/image-editor',
+    alcance: 'RETIRADA el 29/10/2026 sin pasar de «pronto»: /thumbnails redirige a Image (una miniatura de YouTube es un tamaño de «Nuevo diseño»). Lo de antes: generar las miniaturas del video. ComingSoon sin backend: la ruta son 8 líneas. Lo único decidido es el lugar (Content Machine · YouTube) y la economía — US$0,068 las 2 variantes, 160 MT, cobrado por INTENTO (app/admin/dev/pricing/modelo.ts). Los 12 thumbnails/mes del Growth son un supuesto sin medir.',
     // ⚠️ El área NO tiene código propio más allá del ComingSoon, así que su Change
     // History automático se llena de commits de `nav.ts` que no son suyos (12 medidos,
     // ninguno del área). Lo que sí es suyo está en su bitácora escrita a mano — por eso

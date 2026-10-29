@@ -215,8 +215,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     keys: ['video-editor'],
-    que: 'Un editor de video copiado de CapCut: línea de tiempo, cortes, keyframes y exportar, con MaKo para pedirle cambios.',
-    hace: ['Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Exportar el video'],
+    que: 'Video: un editor copiado de CapCut, con MaKo siempre a la izquierda para pedirle cambios; «Nuevo video» trae los formatos, las plantillas y «Generar con IA» (el Video Generator).',
+    hace: ['Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Exportar el video'],
     noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)'],
     reemplaza: 'CapCut',
     alias: ['video editor', 'editar video', 'edicion de video', 'capcut'],
@@ -225,7 +225,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     keys: ['video-generator'],
-    que: 'El anuncio en video de punta a punta: de los guiones a las tomas y el montaje, generados con Google Flow, y de ahí al editor.',
+    que: 'El anuncio en video de punta a punta: de los guiones a las tomas y el montaje, generados con Google Flow, y de ahí al editor. Se abre desde Video › «Nuevo video» › «Generar con IA» (no es una tab).',
     hace: ['Tomas y montaje a partir de tus guiones', 'Generar con Google Flow', 'Mandar el anuncio al Video Editor y descargarlo'],
     alias: ['video generator', 'generar video', 'anuncio en video', 'flow', 'google flow'],
     conecta: [{ a: 'ads-writer', motivo: 'Usa los guiones de Ads Writer' }, { a: 'video-editor', motivo: 'Lo terminas en el Video Editor' }],
@@ -234,27 +234,12 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['image-editor'],
     que: 'Un editor de diseño copiado de Canva: diseños de varias páginas con texto, formas, imágenes, marcos y capas, y descargas en PNG, JPG, PDF o SVG.',
-    hace: ['Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo'],
+    hace: ['Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo'],
     noHace: ['Todavía no: guardar los diseños en la nube (quedan en tu navegador)'],
     reemplaza: 'Canva',
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva'],
+    // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels'],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
-  },
-  {
-    keys: ['carousels'],
-    que: 'El carrusel de Instagram lámina por lámina: le das el tema y el tipo, y MaKo escribe cada lámina y el caption.',
-    hace: ['Láminas con el texto y la escena de cada una', 'El caption', 'Copiar el carrusel'],
-    noHace: ['No lo publica en Instagram', 'Todavía no: guardar el historial'],
-    alias: ['carousels', 'carrusel', 'carruseles', 'instagram'],
-    estado: 'parcial', slugDev: 'carousels', fuentes: [AREAS],
-  },
-  {
-    keys: ['reels'],
-    que: 'El guion del reel de Instagram: gancho, escenas con locución, moraleja, CTA y caption.',
-    hace: ['El guion con gancho, escenas y CTA', 'El caption', 'Copiar el guion'],
-    noHace: ['No lo publica en Instagram'],
-    alias: ['reels', 'reel', 'guion de reel'],
-    estado: 'parcial', slugDev: 'reels', fuentes: [AREAS],
   },
   {
     keys: ['stories'],
@@ -268,7 +253,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     keys: ['ads-writer'],
     que: 'La fábrica de guiones de anuncios (Content Machine): cada anuncio sale de un avatar y una razón de compra, y MaKo elige el ángulo y la estructura.',
     hace: ['Escribir el próximo guion de anuncio', 'Ver qué combinaciones de avatar y razón faltan', 'Seguir cada guion de borrador a publicado', 'Valorar un guion nuevo antes de grabarlo'],
-    alias: ['ads writer', 'content machine', 'guiones', 'copy', 'copywriting', 'anuncios'],
+    // Reels se retiró el 29/10/2026 («no como tab, sino como template»): el guion de un reel es una plantilla del Copywriter.
+    noHace: ['Todavía no para todos: el guion de un reel, que es una plantilla del Copywriter (en validación)'],
+    alias: ['ads writer', 'content machine', 'guiones', 'copy', 'copywriting', 'anuncios', 'reel', 'reels', 'guion de reel'],
     conecta: [{ a: 'ads-manager', motivo: 'Los anuncios se publican en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
     estado: 'lista', slugDev: 'ads-writer', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
   },
