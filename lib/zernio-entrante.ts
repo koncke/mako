@@ -103,11 +103,14 @@ export async function contestarDisparoSocial(
 /**
  * La respuesta por Instagram o Messenger de alguien que ya es un lead: anota que contestó y, si una
  * automatización suya tiene un AI Step de ese medio, le contesta por ahí (ver la cabecera). `texto`: lo que
- * escribió; `cuenta`: la cuenta de Zernio que lo recibió. Devuelve cuántas inscripciones anotó.
+ * escribió; `cuenta`: la cuenta de Zernio que lo recibió. Devuelve cuántas inscripciones anotó y si ESTE mensaje
+ * ya tuvo su respuesta (`contestada`: un AI Step o la charla abierta le contestó o le dejó el borrador).
  */
-export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial, extra: { texto?: string | null; cuenta?: string | null } = {}): Promise<number> {
+export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial, extra: { texto?: string | null; cuenta?: string | null } = {}): Promise<{ pausadas: number; contestada: boolean }> {
   const { pausarPorRespuesta } = await import('./nutricion');
-  return pausarPorRespuesta(leadId, { origen: canal, texto: extra.texto ?? undefined, cuenta: extra.cuenta ?? null });
+  const atencion = { contestada: false };
+  const pausadas = await pausarPorRespuesta(leadId, { origen: canal, texto: extra.texto ?? undefined, cuenta: extra.cuenta ?? null, atencion });
+  return { pausadas, contestada: atencion.contestada };
 }
 
 /**

@@ -71,7 +71,9 @@ tests/difusion.test.ts.
 - **Cada difusión quedaba prendida para siempre** y ocupaba un lugar del tope del Esencial (3 activas). Ahora nace con la
   clave `difusion-…` (la clave no cambia nunca; el nombre sí) y la corrida de la hora la pausa cuando no le queda nadie
   en curso (`pausarDifusionesTerminadas`), con 15 min de gracia porque se prende ANTES de inscribir. Las de antes de
-  este cambio tienen la clave `automatizacion-…`: ésas siguen apagándose a mano.
+  este cambio tienen la clave `automatizacion-…`: ésas siguen apagándose a mano. **⚠️ Y las dos reglas se pisaban** (la
+  reverificación de Integración, 29/10): pausada la que terminó, el mismo pedido dentro de las 24 h contestaba «préndela ahí»
+  y prenderla no sumaba a los que faltaban. Ahora `retomarDifusion` la vuelve a prender por `setSecuenciaActiva` y suma.
 
 **Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);
 no se probó mandando de verdad (sería escribirle a leads reales). Un lead que tiene Instagram Y otro canal y no alcanza
@@ -118,8 +120,17 @@ de HOY del lead, no necesariamente la que mandó.
 **⚠️ Y contestaba DOS veces (la verificación del Cerebro sobre 69b49a31c, 29/10):** un lead con una charla abierta (la 680)
 y otra automatización «envía un mensaje» con el AI Step primero: el webhook marca pausar Y disparar para el mismo DM, y
 contestaban `pausarRespuestaSocial` (la charla abierta) y `contestarDisparoSocial` (la nueva). Ahora la nueva contesta sólo si
-ninguna charla tomó el mensaje (`tomadas === 0`, app/api/webhooks/zernio/route.ts). **La regla:** dos caminos que contestan el
+nadie contestó ese mensaje (`contestada`, app/api/webhooks/zernio/route.ts). **La regla:** dos caminos que contestan el
 mismo evento se excluyen en el lugar donde se juntan, no cada uno por su lado.
+
+**⚠️ El primer arreglo abrió el hueco contrario (la reverificación de Integración sobre 0265924c6, 29/10):** el freno usaba lo
+que DEVUELVE `pausarPorRespuesta`, que es cuántas inscripciones pasaron a 'respondio': cualquier automatización activa del
+lead, también una SIN AI Step (comentario → m1 → Esperar 1 día → m2, el flujo de Leandro). El primer DM no lo contestaba nadie
+y el dueño no se enteraba. Ahora `pausarPorRespuesta` llena `atencion.contestada` con lo que un AI Step o la charla abierta
+contestaron o dejaron para aprobar (`seguirCharla` devuelve eso; el aviso «Contéstale tú» no cuenta). **La regla:** «cuántos
+se pausaron» no es «a cuántos se les contestó»; una exclusión mira el hecho que excluye. **Y la trampa del arnés:** sin la
+zona del negocio, el arnés cae en Tijuana y de madrugada el AI Step deja BORRADOR en vez de mandar: el doble no se veía. El
+arnés de Integración pone Asia/Dubai (C:/dev/revisiones/scratch-0265/ig-refuta/_hijo.mts, `ZONA_HIJO`).
 
 **El síntoma** (Teo, la llamada del 28/10): «la primera DM no la contesta el AI Step». Una automatización cuyo CRON es «envía
 un mensaje» y cuya primera tarjeta es el AI Step no tiene SALIDA (`raizSalida` null: la flecha CRON → AI Step es implícita,

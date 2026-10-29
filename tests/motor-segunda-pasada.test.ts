@@ -65,7 +65,8 @@ test('el webhook: una respuesta de un lead PAUSA y después dispara, en el mismo
   assert.match(ent, /const ES_RESPUESTA: ReadonlySet<EventoSocial\['subtipo'\]> = new Set\(\['mensaje', 'historia'\]\);/);
   // Un lead NUEVO no tiene nada que pausar.
   assert.match(proc, /return \{ accion: `\$\{accion\}_sin_automatizacion`, leadId: null, disparar: false, pausar: false \};/);
-  assert.match(ent, /return pausarPorRespuesta\(leadId, \{ origen: canal, texto: extra\.texto \?\? undefined, cuenta: extra\.cuenta \?\? null \}\);/);
+  // (29/10/2026, la reverificación de Integración: además de pausar, dice si ESE mensaje ya tuvo respuesta, `atencion`.)
+  assert.match(ent, /const pausadas = await pausarPorRespuesta\(leadId, \{ origen: canal, texto: extra\.texto \?\? undefined, cuenta: extra\.cuenta \?\? null, atencion \}\);/);
   const ruta = sinComentarios(leer('app/api/webhooks/zernio/route.ts'));
   const despues = bloque(ruta, 'after(async () => {', '\n        });');
   const iPausa = despues.indexOf('pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId })');

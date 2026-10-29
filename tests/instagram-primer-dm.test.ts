@@ -54,12 +54,39 @@ test('el webhook: DESPUÉS de inscribir, y sólo si inscribió a alguien', () =>
   const iDisparo = ruta.indexOf('dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto)');
   const iContesta = ruta.indexOf('contestarDisparoSocial(leadId, canal, subtipo, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId, fecha: ev.evento.fecha })');
   assert.ok(iDisparo > 0 && iContesta > iDisparo, 'contestar antes de inscribir no encuentra la inscripción');
-  // ⚠️ Y sólo si ninguna charla abierta del lead tomó ESE mensaje (la revisión del Cerebro, 29/10/2026): con la pausa contestando
-  // y la automatización nueva también, el mismo DM recibía DOS respuestas del AI Step.
-  assert.match(ruta.slice(iDisparo, iContesta), /if \(n > 0 && tomadas === 0\) \{/);
+  // ⚠️ Y sólo si nadie le CONTESTÓ ya ese mensaje (la revisión del Cerebro, 29/10/2026): con la pausa contestando y la
+  // automatización nueva también, el mismo DM recibía DOS respuestas del AI Step.
+  assert.match(ruta.slice(iDisparo, iContesta), /if \(n > 0 && !contestada\) \{/);
   const iPausa = ruta.indexOf('pausarRespuestaSocial(leadId, canal,');
   assert.ok(iPausa > 0 && iPausa < iDisparo, 'la pausa va antes del disparo');
-  assert.match(ruta.slice(iPausa, iDisparo), /tomadas = n;/);
+  assert.match(ruta.slice(iPausa, iDisparo), /contestada = p\.contestada;/);
+});
+
+// ⚠️ «CONTESTADA» NO ES «PAUSADAS» (la reverificación de Integración sobre 0265924c6, 29/10/2026): el freno de arriba usaba la
+// cantidad de inscripciones que `pausarPorRespuesta` pasó a 'respondio', y ahí cae CUALQUIER automatización activa del lead,
+// también una sin AI Step (comentario → m1 → Esperar 1 día → m2). Ana comentaba, y su primer DM no lo contestaba nadie: ni la
+// de comentario (no tiene AI Step) ni la «envía un mensaje» (la frenaba el número). El flujo de Leandro. Ahora cuenta sólo lo
+// que un AI Step o la charla abierta contestaron (o dejaron para aprobar).
+test('el freno mira si ESE mensaje ya tuvo respuesta, no cuántas automatizaciones se pausaron', () => {
+  const ruta = leer('app/api/webhooks/zernio/route.ts');
+  assert.doesNotMatch(ruta, /tomadas/, 'la cantidad de pausadas no decide si se contesta');
+  const ze = leer('lib/zernio-entrante.ts');
+  const pausar = funcion(ze, 'export async function pausarRespuestaSocial(');
+  assert.match(pausar, /Promise<\{ pausadas: number; contestada: boolean \}>/);
+  assert.match(pausar, /const atencion = \{ contestada: false \};\s*const pausadas = await pausarPorRespuesta\(leadId, \{ origen: canal, texto: extra\.texto \?\? undefined, cuenta: extra\.cuenta \?\? null, atencion \}\);\s*return \{ pausadas, contestada: atencion\.contestada \};/);
+  const nutri = leer('lib/nutricion.ts');
+  const ppr = funcion(nutri, 'export async function pausarPorRespuesta(');
+  // `atendida`: lo que contestó el AI Step de la respuesta, o si no, la charla abierta. Y eso es lo que se devuelve.
+  const iSigue = ppr.indexOf('if (!atendida) atendida = await seguirCharla(leadId, charla,');
+  const iMarca = ppr.indexOf('if (opts?.atencion) opts.atencion.contestada = atendida;');
+  assert.ok(iSigue > 0 && iMarca > iSigue, 'la marca va después de la charla');
+  assert.ok(ppr.indexOf('atendida = await asistirRespuesta(') < iSigue);
+  // La charla devuelve si contestó: lo que dice `asistirRespuesta`; el aviso «Contéstale tú» no es contestar.
+  const charla = funcion(nutri, 'async function seguirCharla(');
+  assert.match(charla, /\): Promise<boolean> \{/);
+  assert.match(charla, /if \(v\.abierta\) \{\s*return asistirRespuesta\(leadId, \[v\.insc\.secuencia_id\], texto, linea,/);
+  assert.doesNotMatch(charla, /return;/, 'ningún camino devuelve «no sé»');
+  assert.match(charla.slice(charla.indexOf("emitirDelCatalogo('wa-mensaje-entrante'")), /\}\);\s*return false;\s*$/);
 });
 
 test('sólo un mensaje privado que la persona escribió: un comentario no (es público, su respuesta es la privada)', () => {

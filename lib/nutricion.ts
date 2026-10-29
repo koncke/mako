@@ -5858,7 +5858,7 @@ async function avisarTopesSociales(ws: number | null, topes: readonly TopeDeLaCo
  * AI Step), una fila con hilos en paralelo (la guarda igual le corta los mensajes) ni el carril del recordatorio.
  * Exportada para el arnés del ws3. Nunca tira: el lead ya quedó marcado, que es lo crítico.
  */
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null }): Promise<number> {
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null; atencion?: { contestada: boolean } }): Promise<number> {
   const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
   const medio: MedioAIStep = social ?? 'whatsapp';
   const supabase = (await getTenantDb());
@@ -5983,7 +5983,11 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
       atendida = await asistirRespuesta(leadId, atendibles.map((i) => i.secuencia_id), opts?.texto, opts?.linea ?? null, { medio, cuenta: opts?.cuenta ?? null, audio: opts?.audio ?? null, recibidoAt: opts?.recibidoAt ?? null });
     }
     // DEL SEGUNDO MENSAJE EN ADELANTE no hay inscripción activa: la charla se busca (#788).
-    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
+    if (!atendida) atendida = await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
+    // ⚠️ SI ESTE MENSAJE YA TUVO SU RESPUESTA (`atencion`, la reverificación de Integración, 29/10/2026): el webhook de Zernio lo
+    // pregunta para no contestarlo dos veces. NO es la cantidad de inscripciones pausadas (lo que devuelve esta función): una
+    // automatización sin AI Step también pasa a 'respondio', no contesta nada, y con ese número el primer DM quedaba sin respuesta.
+    if (opts?.atencion) opts.atencion.contestada = atendida;
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
 }
@@ -6238,8 +6242,9 @@ async function seguirCharla(
   leadId: number, charla: { inscs: InscCharla[]; nombre: string | null },
   texto: string | undefined, linea: string | null, origen: 'no_oficial' | 'oficial' | CanalSocial,
   cuenta: string | null = null, audio: AudioDelLead | null = null, recibidoAt: string | null = null,
-): Promise<void> {
-  if (!charla.inscs.length) return;
+): Promise<boolean> {
+  // Devuelve si le CONTESTÓ (o le dejó la respuesta para aprobar): el aviso «Contéstale tú» no cuenta.
+  if (!charla.inscs.length) return false;
   const social = esCanalSocial(origen) ? origen : null;
   // Los días que la charla sigue abierta son del negocio (Configuraciones › Límites, décima tanda). Sin
   // poder leerlos, los de fábrica: abierta, el setter sólo deja un BORRADOR (que salga solo se decide aparte,
@@ -6247,17 +6252,16 @@ async function seguirCharla(
   const lim = await limitesDeEnvio();
   const v = conversacionAbierta(charla.inscs, Date.now(), lim === 'ilegible' ? undefined : lim.mako.diasCharla);
   if (v.abierta) {
-    await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea, { medio: social ?? 'whatsapp', cuenta, audio, recibidoAt });
-    return;
+    return asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea, { medio: social ?? 'whatsapp', cuenta, audio, recibidoAt });
   }
-  if (!v.motivo) return;
+  if (!v.motivo) return false;
   // El borrador del setter es del WhatsApp: por Instagram o Messenger no hay ninguno que descartar.
   if (!social) {
     const { descartarBorradorSetter } = await import('@/lib/evolution-envio');
     await descartarBorradorSetter(leadId).catch((e) => console.error(`[nutricion] descartar el borrador del lead ${leadId}:`, e));
   }
   // Por el oficial, Chatwoot avisaba cada mensaje por su cuenta; por el no oficial y por las redes, éste es el único aviso.
-  if (origen === 'oficial') return;
+  if (origen === 'oficial') return false;
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = charla.nombre?.trim() || `lead ${leadId}`;
   await emitirDelCatalogo('wa-mensaje-entrante', {
@@ -6270,6 +6274,7 @@ async function seguirCharla(
     dedupTtlMin: 60 * 12,
     texto: `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
   });
+  return false;
 }
 
 /**
