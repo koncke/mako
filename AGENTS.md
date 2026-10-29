@@ -10808,3 +10808,12 @@ para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{
 `return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
 molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
 el porqué, en docs/hallazgos-video-editor.md.
+
+# En el teléfono, cerrar una hoja y navegar en el mismo toque va con `navegarAlCerrar` (29/10/2026)
+
+Cerrar un `<SheetM>` por código saca su `?sheet=` con `replaceState`, y Next 16 lo despacha como ACTION_RESTORE, que
+DESCARTA la navegación en curso: `setAbierta(false); router.push(url)` no navega nunca (ticket #27: elegir otro funnel
+en el CRM del teléfono «no hacía nada»). **Regla para código nuevo:** `setAbierta(false); navegarAlCerrar(() =>
+router.push(url))` (app/m/_ui/hoja-historial.ts, exportado por `app/m/_ui`), o dejar que la hoja se desmonte con la
+página nueva sin cerrarla. Lo fija tests/m-hoja-navegar-al-cerrar.test.ts, que barre app/m; el porqué, en
+docs/hallazgos-mobile.md.

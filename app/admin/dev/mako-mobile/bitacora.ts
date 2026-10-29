@@ -234,4 +234,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/m/hoy',
   },
+  {
+    fecha: '29 oct', hora: '11:35', chat: 'CRM y Chats', sesion: 'local_50d3b679-7aa4-4438-a315-993bea9b1e1a', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En el teléfono, elegir otro funnel en el CRM ya cambia el tablero',
+    puntos: [
+      'Ticket #27: en el CRM del celular, tocar otro funnel en la lista (por ejemplo «Venta Props») cerraba la lista y no cambiaba nada. Pasaba siempre.',
+      'La lista se cerraba y en el mismo toque pedía el otro funnel, y el cierre pisaba el pedido. Ahora el pedido sale después de cerrar.',
+      'El mismo arreglo vale para cuatro lugares que fallaban igual: «Abrir ficha» desde «Ver info», abrir la ficha de un lead recién creado, el «Lead» de una decisión en la Bandeja y, en el Calendario, ir a la semana de un evento recién guardado.',
+    ],
+    archivos: [
+      'app/m/_ui/hoja-historial.ts — navegarAlCerrar: la navegación espera a que la hoja suelte su URL',
+      'app/m/crm/TableroCrm.tsx · app/m/inbox/InboxM.tsx · app/m/calendario/CalendarioM.tsx — los lugares que cerraban y navegaban',
+      'tests/m-hoja-navegar-al-cerrar.test.ts — el toque en «Venta Props», probado rompiéndolo',
+    ],
+    revisar: '/m/crm',
+    tickets: [27],
+  },
 ];
