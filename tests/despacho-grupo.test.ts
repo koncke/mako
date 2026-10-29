@@ -13,7 +13,9 @@
 // Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base verde; restaurado con .rotura-bak): la delegación sin
 // mirar si pregunta un dato → 2 · la delegación sin la red de la lectura → 2 · los teléfonos sin los últimos 8 dígitos → 4 · el
 // «listo» del delegado como el de un ticket → 5 · el cartero sin reconocer su aviso de delegado → 5 · (el #30) `SIN_HACER` sin mirar
-// `noLoPuedeHacer` → 7 · el bloque de pedidos sin lo que salió en producción → 8.
+// `noLoPuedeHacer` → 7 · el bloque de pedidos sin lo que salió en producción → 8 · (la llamada con Thiago) replicar_landing fuera
+// de las simples → 9 · el presupuesto sin su pantalla → 9 · el WhatsApp a un lead con un «sí» → 10 · `faltaAlgunaParte` con `<=` →
+// 11 · las partes sin leer → 11 · el aviso de demora sin mirar a quién ya se avisó → 12.
 // =============================================================================
 
 import test from 'node:test';

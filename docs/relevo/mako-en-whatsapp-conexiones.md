@@ -14,6 +14,17 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
 (sólo ws9) con `diagnosticar_negocio` y el ticket al Cerebro con la evidencia; CHARLA el 👍; NO_REPLY silencio.
 - Commiteado: 953f9610e (el crédito de los grupos), 687bc14d0 (`sinMuletillas`, links), 61ae98de2 (`diagnosticar_negocio`),
   ffc63aced (REENVIADO + imágenes del lote), fd7b00a45 (el clasificador IA, el TICKET por código, el banco en `tests/fixtures/`).
+- **La llamada con Thiago (29/10 ~19:00, decidido por el Cerebro): db1c0fd1e.** Directo desde el grupo: replicar/analizar landing,
+  pausar/prender campaña o anuncio; presupuesto por pantalla; WhatsApp a un lead se aprueba en la app (`SE_APRUEBAN_EN_LA_APP`);
+  pedido compuesto delega lo que no hizo; delegado sin tomar en 30 min avisa (cron de tickets). Banco con el prompt nuevo: 75/77,
+  0 escrituras en la clase equivocada. La lista: `git show promesas-thiago-2910:docs/promesas/2910-llamada-thiago.md`.
+- **LA TANDA SIGUIENTE (pedida por el Cerebro, todavía sin empezar):** «subime este anuncio» con un Drive, o un video o una imagen
+  mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
+  `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
+  token), el camino de Zernio apagado por `ZERNIO_ANUNCIOS_PROBADO = false` (lib/zernio-ads-cuerpo.ts; la prueba es
+  scripts/prueba-zernio-anuncio.mts y el clic es de Martín), y lib/drive-acceso.ts para Drive. Falta: una operación que baje el
+  archivo y lo suba (por Zernio, detrás de la bandera), que el doer acepte `videoMessage` además de `imageMessage` (hoy
+  `adjuntoDe` es imagen o PDF), y que el despachante la PROPONGA (no la delegue). Con la bandera apagada: decir que falta la prueba.
 - **El ticket #30 de Leandro (29/10 ~17:30, pedido del Cerebro): 9ac30e8c8.** «pídemelo otra vez y lo hago» ya no sale ante lo que
   MaKo no puede (`noLoPuedeHacer`, lib/doer-salida.ts); el turno ve lo que salió en producción para cada pedido resuelto
   (`hitosDesplegados`); el hito de mako-doer lleva `tickets: [30]`; el caso al banco (conv:1728, retenido): PREGUNTA con Haiku.
