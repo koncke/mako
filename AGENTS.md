@@ -10875,3 +10875,12 @@ le habría llegado también a los de los otros funnels. **Regla para código nue
 con `funnelActivo ?? funnels.find((f) => f.esDefault)?.id` (en CrmBoard, `funnelDeDifusion`; el mismo que «Vincular evento»),
 y si no hay id, manda los ids que se ven (`seleccionDeDifusion`, app/crm/seleccion-difusion.ts). Lo fija
 tests/crm-difusion-columna.test.ts; el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la papelera»).
+
+# En el teléfono, cerrar una hoja y navegar en el mismo toque va con `navegarAlCerrar` (29/10/2026)
+
+Cerrar un `<SheetM>` por código saca su `?sheet=` con `replaceState`, y Next 16 lo despacha como ACTION_RESTORE, que
+DESCARTA la navegación en curso: `setAbierta(false); router.push(url)` no navega nunca (ticket #27: elegir otro funnel
+en el CRM del teléfono «no hacía nada»). **Regla para código nuevo:** `setAbierta(false); navegarAlCerrar(() =>
+router.push(url))` (app/m/_ui/hoja-historial.ts, exportado por `app/m/_ui`), o dejar que la hoja se desmonte con la
+página nueva sin cerrarla. Lo fija tests/m-hoja-navegar-al-cerrar.test.ts, que barre app/m; el porqué, en
+docs/hallazgos-mobile.md.

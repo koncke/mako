@@ -1911,3 +1911,32 @@ clientes» (claude5).*
   en silencio.
 
 **Vive en:** lib/movil-rutas.ts (`SECCIONES_MAS`) · lib/movil-creacion.ts · tests/m-creacion.test.ts
+
+## Cerrar una hoja y navegar en el mismo toque perdía la navegación, siempre (ticket #27, 29/10/2026)
+
+- **Síntoma:** Joan (ws13, una agencia) en el CRM del teléfono de su cliente Natalia: «toco ahí en "Venta Props" para
+  cambiar, y no hace nada». La hoja «Funnel» se cerraba y el tablero seguía en «Funnel principal». Siempre.
+- **El diagnóstico obvio era el equivocado, dos veces.** (1) «Natalia» no es un lead: es el chip del negocio que mira la
+  agencia (ws19). En ws13 no hay ningún «Venta Props»; está en ws19 (funnel 41, activo, 5 leads). Medir sobre el ws del
+  ticket no lo encontraba. (2) El `?funnel=` NO se pierde en el reescrito de `/crm` a `/m/crm`: `rutaMovil('/crm?…')`
+  devuelve `/m/crm` pelado, pero el proxy arma la URL interna con la query ORIGINAL entera (`urlReescrita`).
+- **Causa:** el renglón hacía `setElegirFunnel(false); router.push(url)`. El push queda en curso (pide la página al
+  server). Cuando React dibuja la hoja cerrada, SheetM saca su `?sheet=` con `replaceState`. Next 16 parcha
+  `window.history` (app-router.js): un `replaceState`/`pushState` sin `__NA` se despacha como **ACTION_RESTORE**, y un
+  RESTORE **descarta** la navegación en curso (app-router-instance.js: «Navigations (including back/forward) take
+  priority over any pending actions»). El comentario de SheetM («replaceState y NO back()») salvaba del `back()`
+  asíncrono, no de esto, y el del renglón decía «es seguro». Lo mismo rompía «Abrir ficha» desde «Ver info», la ficha
+  de un lead recién creado (onCreado y onAgregado), el «Lead» de una decisión de la Bandeja y el Calendario (guardar un
+  evento fuera de lo leído cerraba la hoja y navegaba: el evento se creaba y no se veía). Al Calendario lo encontró el
+  barrido del test, no la lectura.
+- **Regla:** cerrar una hoja y navegar en el mismo toque va con
+  `setAbierta(false); navegarAlCerrar(() => router.push(url))` (app/m/_ui/hoja-historial.ts): la navegación espera a
+  que ESA hoja suelte su URL y sale después del RESTORE (una navegación nueva gana, no al revés). Sin hoja abierta,
+  navega ya; un gesto la tira (su `back()` la desharía igual); al desmontarse la hoja, sale; una apertura nueva tira la
+  que quedó. Un test barre app/m para que nadie vuelva a escribir `set…(false); router.push(` pelado.
+- **No medido en un teléfono:** leído en Next 16.2.6 y reproducido con el historial real de las hojas contra la regla de
+  la cola (tests/m-hoja-navegar-al-cerrar.test.ts, que también lee la regla de node_modules). No se pudo abrir la app
+  local (escribe en producción). Cuando suba: elegir «Venta Props» en el CRM del teléfono de ws19.
+
+**Vive en:** app/m/_ui/hoja-historial.ts (salió de SheetM.tsx tal cual) · app/m/crm/TableroCrm.tsx ·
+app/m/inbox/InboxM.tsx · app/m/calendario/CalendarioM.tsx · *29/10/2026, chat «CRM y Chats» (claude3), hotfix `hotfix-ticket27-2910`.*
