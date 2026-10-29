@@ -46,11 +46,20 @@ preguntes: hacé esto en orden.
 - **La rama `tren-x` de `C:/dev/wt-push-q` = main + sólo docs** (este relevo y hallazgos). **NO entraron a main:** el
   pre-push no tuvo RAM para los tipos (3,0 GB con el workflow corriendo; «no es un error de tipos»). Copia en origin, en la
   rama `relevo-cerebro-claude4`. Entran con el próximo tren: no hace falta otro push sólo para esto.
-- **Corriendo al cortar: `wf_2f472ad6-193`** (task `w1bp45jj0`), la verificación de Zernio `254856316` y Planes
-  `ddfa645d4`. Su journal está en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/
-  6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl` (si murió, los `agent-*.jsonl`
-  de al lado). Árboles: `C:/dev/verif-254856316` y `C:/dev/verif-ddfa645d4`; sacar el junction de node_modules con
-  `cmd /c rmdir` antes de borrarlos. Si sale limpio: se mezclan los dos juntos en el tren y se suben.
+- **TERMINÓ al cortar: `wf_2f472ad6-193`, la verificación de Zernio `254856316` y Planes `ddfa645d4`. Los DOS: NO.**
+  Informe entero, con los scripts que reproducen cada caso: `C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md`.
+  **SIN MANDAR a sus chats** (la cuenta cortó al 95 %): mandárselo es lo primero del punto 2.
+  - **Zernio:** la privacidad quedó arreglada (ninguna puerta a otro negocio) y el orgánico y los tests, bien. Sobrevive
+    una MEDIA: «Reintentar» repite el x-request-id fuera de la ventana de ~5 min y deja DOS posts públicos (los 4 min
+    se cuentan desde la última anotación, no desde el primer envío; `lib/calendario-publicar.ts`). Y tres bajas: un 4xx
+    en el reintento borra la duda, dos estados sin salida y la carrera G al revés. El refutador tiró la de «Deshacer».
+  - **Planes:** `be95f7555` sí cierra el voucher doble. Sobreviven TRES ALTAS: una suscripción con SEPA arma una
+    segunda y nunca cancela la primera (dos veces); y el plan a mano, si el negocio paga por /planes con el email de su
+    cuenta, queda `ya_tenia_cuenta` sin `alta_ws`. Además dos medias (el aviso de vencimiento le llega a quien ya paga, y
+    se repite si el mail a Martín da 429) y dos bajas. La venta externa de Stripe (MAU-10) viene en esta rama: no entra
+    hasta que Planes pase.
+  - Árboles: `C:/dev/verif-254856316` y `C:/dev/verif-ddfa645d4`; los scripts del informe corren ahí. Sacar el junction
+    de node_modules con `cmd /c rmdir` antes de borrarlos. Journal: `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/6ea62e88-206b-49e4-b5fe-e446feb70ded/subagents/workflows/wf_2f472ad6-193/journal.jsonl`.
 - **LO QUE SIGUE, en este orden:**
   1. **P0, el ticket de Martín: «Replicar» no saca la foto de la página.** SIN EMPEZAR (el chat cortó al 95 %). Todo está
      en la sección 0 de `docs/relevo/web-generator-replicar.md`, en `C:/dev/wt-replica-editable` (rama
@@ -60,8 +69,8 @@ preguntes: hacé esto en orden.
      usuario». Su ticket guardó pantalla, error y hora, pero no la URL que pegó. «Reportar a Soporte» (y el ticket que
      MaKo abre solo) tiene que llevar los pasos: qué tocó, qué escribió o pegó, en qué orden. Dueño: el chat de soporte
      y tickets (MaKo en WhatsApp). Regla en la memoria `ticketera-usuarios`.
-  2. **Zernio y Planes**, con el resultado de `wf_2f472ad6-193`. Planes trae la venta externa de Stripe (`5a27268bc`).
-     Desplegada esa, escribirle a Mauricio en su grupo (el +…8122 ES él) para que conecte su Stripe. Prender
+  2. **Zernio y Planes: mandarle a cada chat su parte del informe de `wf_2f472ad6-193`** (los dos NO, arriba), y
+     verificar lo que devuelvan. Planes trae la venta externa de Stripe (`5a27268bc`). Desplegada esa, escribirle a Mauricio en su grupo (el +…8122 ES él) para que conecte su Stripe. Prender
      `cobros.ventas_externas` en ws1 pide el sí de Martín EN EL CHAT.
   3. **La tienda de Chrome** (sigue en 0.39.1): Martín pone su contraseña de martinkoncke@gmail.com en la pestaña del
      panel y escribe «listo». Después se sube todo de `feedback/chrome-web-store/` y se manda a revisión. Ver
