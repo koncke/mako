@@ -99,7 +99,7 @@ test('3. un cartero de antes no los recibe ni los cuenta; sin la migración, la 
 test('6. el texto fijo de un ticket nuevo es el MISMO en el cartero y en el servidor, y no se sube como lo que dijo un chat', async () => {
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   assert.ok(versionAlMenos(cartero.VERSION, VERSION_CARTERO_TICKETS_NUEVOS), `el cartero ${cartero.VERSION} no llega a ${VERSION_CARTERO_TICKETS_NUEVOS}`);
-  for (const [n, repo] of [[1, '/repo'], [15, 'C:\\dev\\clon'], [987654, '/r']] as const) {
+  for (const [n, repo] of [[1, '/repo'], [15, '/dev/clon con espacio'], [987654, '/r']] as const) {
     assert.equal(cartero.mensajeTicketNuevo(n, repo), mensajeTicketNuevo(n, repo), `el texto del #${n} difiere entre los dos lados`);
     assert.ok(cartero.esAvisoDeTicketNuevo(mensajeTicketNuevo(n, repo)), 'la PC no reconoce su propio texto');
   }
@@ -148,13 +148,15 @@ test('4. la PC (cartero.mjs ciclo, de verdad) valida lo de MaKo, arma ELLA el te
   const sesion = (pid: number, nombre: string, n: number | null) => {
     mkdirSync(join(cfg, 'sessions'), { recursive: true });
     writeFileSync(join(cfg, 'sessions', `${pid}.json`), JSON.stringify({
-      pid, sessionId: n == null ? `0000000${pid % 10}-2222-4333-8444-555555555555` : sid(n), cwd: 'C:\\dev\\x',
+      pid, sessionId: n == null ? `0000000${pid % 10}-2222-4333-8444-555555555555` : sid(n), cwd: '/dev/x',
       entrypoint: 'cli', kind: 'interactive', status: 'idle', name: nombre, messagingSocketPath: `\\\\.\\pipe\\LOCAL\\cc-msg-${nombre}`,
     }));
   };
-  const repo = 'C:\\dev\\clon';
+  // Rutas POSIX a propósito: `enCwds` y el texto del aviso las tratan como texto, y una ruta de Windows en un test no corre en
+  // Linux (tests/rutas-windows-en-tests.test.ts).
+  const repo = '/dev/clon';
   writeFileSync(join(dir, 'config.json'), JSON.stringify({
-    url, token: 'mkop_' + 'x'.repeat(30), cwds: ['C:\\dev\\'], carpetas: {}, repo, carteros: { claude3: { fuentes: [{ fuente: 'cli', configDir: cfg }] } },
+    url, token: 'mkop_' + 'x'.repeat(30), cwds: ['/dev/'], carpetas: {}, repo, carteros: { claude3: { fuentes: [{ fuente: 'cli', configDir: cfg }] } },
   }));
   const correr = (args: string[]) => new Promise<Record<string, any>>((ok, mal) => execFile(process.execPath, [CARTERO, ...args], // eslint-disable-line @typescript-eslint/no-explicit-any
     { env: { ...process.env, CARTERO_DIR: dir, CARTERO_APP_DIR: join(dir, 'app'), CARTERO_CONFIG_DIR: cfg, CLAUDE_PID: String(runner) } },

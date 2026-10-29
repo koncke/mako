@@ -35,7 +35,9 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
   hijo: `globalThis.AsyncLocalStorage = AsyncLocalStorage` ANTES de cargar lib/operaciones (import dinámico), y la vuelta
   adentro de `workAsyncStorage.run({ afterContext: { after } })`. Molde: tests/_tickets-al-cerebro-hijo.ts.
 - **En el arnés del cartero (`cartero.mjs ciclo` de verdad), un chat de la CLI es `cli_<sessionId>`, no `local_…`:** un destino
-  `local_` cae en «El Cerebro se cerró antes de avisarle» y la entrega da vacía sin otro error.
+  `local_` cae en «El Cerebro se cerró antes de avisarle» y la entrega da vacía sin otro error. Y las carpetas del arnés van en
+  POSIX (`/dev/x`, `cwds: ['/dev/']`): `enCwds` compara texto, y un `C:\…` en un test frena en `tests/rutas-windows-en-tests.test.ts`
+  (en Linux es una ruta relativa). El molde (tests/cartero-carpetas.test.ts) usa Windows porque está en su lista blanca.
 - **El PostgREST de mentira no entendía el `or` de `ticketsSinEntregar`** (`in.(…)` y `and(…)` anidado): tiraba «filtro sin mock».
   Ahora existe `orCompleto`, opt-in: el `or` del candado sigue tirando sin `candado`, y de eso dependen otros hijos.
 - **Probado rompiéndolo:** la tabla al pie de tests/tickets-al-cerebro.test.ts. Lo que falta, en «Lo que quedó sin hacer».
