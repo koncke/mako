@@ -526,6 +526,53 @@ layout repite en esa ruta.
 
 *25/10/2026, chat «Ops Center» (claude5).*
 
+## El Web Generator en blanco entrando por el menú: el `redirect()` de un LAYOUT, navegando, queda guardado en el router (28/10/2026)
+
+**Síntoma (Martín):** «Cada vez que entro a web generator, hay un bug que aparece todo en blanco, le tengo que dar a refresh
+para que me cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier dispositivo».
+
+**La causa (reproducida con el build de producción 23b329b5e, `next start` + Chrome sin ventana, sesión admin en el ws9):**
+el layout de /web-generator redirige a la última landing (lo subió ahí el #310 de arriba). En una CARGA es un 307 y anda.
+Entrando por el MENÚ, el `redirect()` de un layout no es un 307: viaja adentro del RSC, en el nodo del layout
+(`NEXT_REDIRECT;replace;/web-generator/72?ws=9;307;`), y el router GUARDA ese nodo. Al llegar a /web-generator/72, que cuelga
+del MISMO layout, lo reusa, el redirect se vuelve a tirar, y el router renavega a la misma URL cada ~1 s para siempre: en
+blanco (sólo el banner de impersonación) y `/web-generator/72?ws=9&_rsc=…` en la red una y otra vez. El refresh es una carga:
+307 real, el editor. «Sólo el super admin»: el redirect sale sólo si hay landings, y el negocio con landings es el de la
+plataforma (el 9).
+
+**Lo que despistaba:** parecía otra vez el #310 (loader + redirect) o una respuesta pesada que se cortaba (vi «64 KB» y era mi
+propio recorte al imprimir: el RSC llega entero). Y la cura del #310 —subir el redirect al layout para que salga antes del
+loader— es justo lo que lo provoca navegando: las dos reglas valen juntas.
+
+**La regla:** un LAYOUT que redirige a una ruta DEBAJO de sí mismo lo hace sólo en la CARGA del documento; navegando, redirige
+la PÁGINA, cuyo segmento se reemplaza. `esNavegacionDelCliente()` (lib/pedido-actual.ts): `headers()` no deja ver el `RSC: 1`
+(Next saca los `FLIGHT_HEADERS`), pero sí llegan `Next-Url` (lo manda el router) y `Sec-Fetch-Dest` (`empty` en un fetch;
+`document`/`iframe` en una carga; sin ninguno, carga, como siempre). Aplicado en /web-generator, /plan (/plan ↔ /plan/agencia),
+/m/second-brain (→ /mapa, lo encontró el recorrido del test) y el resumen de /crm (al mismo resumen con el `?ws=` del
+negocio del lead; el destino no es literal y el test lo fija aparte). tests/redirige-navegando.test.ts recorre todo `app/`; probado
+rompiéndolo (9 roturas, 9 atrapadas).
+
+**Verificado:** con el build del arreglo (mismo `next start`, misma sesión): desde el menú 5/5 el editor (antes 5/5 en blanco con 4-15
+pedidos `_rsc` repetidos; ahora 0-2); `router.push` a #68, #69 y #70 llega a cada una (antes las tres terminaban en
+/72, en blanco: el redirect guardado secuestra cualquier navegación debajo del layout); directo, el editor, como antes.
+Datos: C:/dev/revisiones/web-generator-blanco/{prueba3,arreglo2}/informe.json.
+
+**Sin hacer:** sin medir en producción ni en el teléfono (después del deploy: entrar a /web-generator desde el menú, con el
+ws9). Los otros layouts con destino calculado se miraron a mano y no caen debajo de sí mismos: /dashboard (→ /plan o /crm)
+y /admin/operaciones (→ /inicio o /second-brain). Un layout NUEVO con destino calculado no lo ve el recorrido del test.
+
+**Para reproducirlo en local (Windows), tres trampas:** `next build --debug-build-paths` (Next 16.2.6) NO compila ninguna ruta de
+`app/` y sale 0: `applyDebugFilter` (node_modules/next/dist/build/route-discovery.js) compara `/x/page.tsx` con `\x\page.tsx`.
+Y los CORCHETES de una ruta son un patrón: `app/web-generator/[id]/page.tsx` no compila esa página (va `?id?`).
+Y `next start` sirve el `.next` VIEJO sin quejarse: las dos primeras corridas midieron un build de otra hora. Parche local en
+ese node_modules (normalizar `\` → `/`), `rm -rf .next` antes de cada build y mirar que el build.log liste las rutas. Además el
+vigía mata el build parcial en zona roja: esperar ≥3 GB libres y compilar sólo las páginas que se miden.
+
+Vive en: lib/pedido-actual.ts · lib/pedido-actual-reglas.ts · app/web-generator/layout.tsx · app/plan/layout.tsx ·
+app/m/second-brain/layout.tsx · app/crm/layout.tsx · tests/redirige-navegando.test.ts.
+
+*28/10/2026, chat «Web Generator: replicar landings» (claude4).*
+
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
 **Síntoma (Martín):** «Al abrir Automations tarda mucho… Debería ser más rápido todo». Medido en producción

@@ -22,7 +22,7 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { rutaConWs } from '@/lib/workspace';
-import { pedidoActual } from '@/lib/pedido-actual';
+import { esNavegacionDelCliente, pedidoActual } from '@/lib/pedido-actual';
 import { listar } from '@/lib/editor-landing/server';
 import { destinoAnalizar, destinoCrear, landingMasReciente, redireccionDelLayout } from './panel-reglas';
 import { TooltipsFlotantes } from './editor/TooltipsFlotantes';
@@ -31,8 +31,13 @@ export default async function WebGeneratorLayout({ children }: { children: React
   // La puerta de la tab, la misma de las páginas y antes que nada: el destino no se calcula para quien no la tiene.
   await requireRolWs([], { nav: 'landing-writer' });
   const { ruta, query } = await pedidoActual();
+  // ⚠️ Sólo en la CARGA del documento (28/10/2026, Martín: «Cada vez que entro a web generator, hay un bug que aparece
+  // todo en blanco, le tengo que dar a refresh»). Entrando por el menú, este redirect viajaba en el nodo del layout, el
+  // router lo guardaba y lo volvía a tirar al llegar a /web-generator/<id> (el MISMO layout): renavegaba a la misma URL
+  // para siempre, en blanco. Navegando, redirige la página (./page.tsx), cuyo segmento se reemplaza. Regla:
+  // lib/pedido-actual.ts, `esNavegacionDelCliente`.
   const cual = redireccionDelLayout(ruta, query);
-  if (cual) {
+  if (cual && !(await esNavegacionDelCliente())) {
     if (cual === 'analizar') redirect(await rutaConWs(destinoAnalizar(query)));
     if (cual === 'crear') redirect(await rutaConWs(destinoCrear(query)));
     // La pelada: la última landing tocada. Una lista que no se pudo leer no salta: la página dice el error.

@@ -19,7 +19,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { rutaConWs } from '@/lib/workspace';
 import { RUTA_CENTRO_M, RUTA_OPS_CENTER_M } from '@/lib/movil-rutas';
-import { pedidoMovilActual } from '@/lib/pedido-actual';
+import { esNavegacionDelCliente, pedidoMovilActual } from '@/lib/pedido-actual';
 
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -32,6 +32,9 @@ export default async function SecondBrainMLayout({ children }: { children: React
     if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area))) {
       const q = new URLSearchParams();
       for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }
+      // /m/second-brain/mapa es ESTE layout: navegando, el redirect quedaba guardado en su nodo y el router renavegaba para
+      // siempre, en blanco (el Web Generator, 28/10/2026: lib/pedido-actual.ts). Navegando, salta la página.
+      if (await esNavegacionDelCliente()) return children;
       redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));
     }
     if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));
