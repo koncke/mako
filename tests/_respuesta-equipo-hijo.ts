@@ -84,6 +84,10 @@ async function main() {
   await paso('audioCitado', () => de(LEILA, 'Leila', 'LE-6', 'No me respondiste lo de este audio', { stanzaId: 'AUD-1', quotedMessage: { audioMessage: { seconds: 94 } } }));
   // 10. Un «gracias» con la pregunta todavía abierta: es un acuse (👍, sin turno), no una respuesta al equipo.
   await paso('gracias', () => de(LEILA, 'Leila', 'LE-7', 'gracias'));
+  // 10b. El aviso de ARREGLO cita el título del ticket, que es una pregunta (la verificación de c358fd0c4): no abre la ventana.
+  //      Con la pregunta a Leila (EQ-4) todavía viva, lo que escribe OTRA persona es para MaKo.
+  await equipo('EQ-5', 'Listo: lo de «¿Se pueden responder comentarios como ManyChat?» ya quedó. Pruébalo y me cuentas.');
+  await paso('avisoArreglo', () => de(SOFI, 'Sofi', 'SO-2', 'Tal cual como lo hace manychat'));
   // 11. De control: MaKo habló DESPUÉS de la pregunta; un mensaje sin nombrarla es para MaKo.
   pg.db.mako_doer_conv.push({ id: ++n, workspace_id: WS, grupo_jid: JID, role: 'assistant', content: 'Hoy entraron 4 leads.', created_at: new Date(Date.now() + 1000).toISOString() });
   await paso('makoHablo', () => de(LEILA, 'Leila', 'LE-8', 'es el de pruebafm, sí'));

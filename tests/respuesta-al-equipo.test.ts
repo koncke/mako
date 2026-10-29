@@ -48,7 +48,7 @@ test('1. por la entrada real (forma v2): al equipo sólo lo de quien fue pregunt
     assert.deepEqual([r[k].entro, r[k].reacciones, r[k].superAdmin], [false, 0, 1], `${k}: ${JSON.stringify(r[k])}`);
   }
   // A MaKo: entra a la cola (con su 👍, salvo el acuse) y sin aviso al equipo.
-  for (const k of ['otraPersona', 'despues', 'link', 'audioCitado', 'makoHablo']) {
+  for (const k of ['otraPersona', 'despues', 'link', 'audioCitado', 'avisoArreglo', 'makoHablo']) {
     assert.equal(r[k].entro, true, `${k}: MaKo calla de más (${JSON.stringify(r[k])})`);
     assert.equal(r[k].reacciones, 1, `${k}: sin 👍`);
     assert.equal(r[k].superAdmin, 0, `${k}: se tomó por respuesta al equipo`);
@@ -60,7 +60,7 @@ test('1. por la entrada real (forma v2): al equipo sólo lo de quien fue pregunt
   assert.deepEqual(r.reentrega.r, { engaged: false, skip: 'respuesta al equipo (re-entrega)' });
   assert.deepEqual([r.reentrega.entro, r.reentrega.superAdmin], [false, 0]);
   // El anillo: las preguntas contestadas, cerradas; a quién le hablaba cada una.
-  assert.deepEqual(r.anillo.map((d: { id: string; respondida: boolean }) => [d.id, d.respondida]), [['EQ-1', true], ['EQ-2', true], ['EQ-3', false], ['EQ-4', false]]);
+  assert.deepEqual(r.anillo.map((d: { id: string; respondida: boolean }) => [d.id, d.respondida]), [['EQ-1', true], ['EQ-2', true], ['EQ-3', false], ['EQ-4', false], ['EQ-5', false]]);
   assert.deepEqual(r.anillo[0].para, { nombre: 'leila' });
   assert.equal(r.anillo[2].para, null);
 });
@@ -98,6 +98,8 @@ test('3. las piezas: la cita en la forma v2, qué es pregunta, a quién le habla
   assert.equal(esPreguntaDelEquipo({ texto: 'Ya está. ¿Dudas? Responde aquí.' }), true);
   assert.equal(esPreguntaDelEquipo({ texto: 'Sobre tu ticket #4 («x»), el equipo te pregunta: ¿cuál?', ticket: 4 }), true);
   assert.equal(esPreguntaDelEquipo({ texto: 'Cerramos tu ticket #4 («¿se puede?»).', ticket: 4 }), false);
+  assert.equal(esPreguntaDelEquipo({ texto: `${FIRMA_DESARROLLADOR}\nListo: lo de «¿Se pueden responder comentarios como ManyChat?» ya quedó.` }), false, 'el título citado de un aviso de arreglo abrió la ventana');
+  assert.equal(esPreguntaDelEquipo({ texto: 'Lo de “¿se puede?” ya está. ¿Lo pruebas?' }), true, 'una pregunta de verdad al lado de una cita');
   assert.deepEqual(paraDelEquipo(`${FIRMA_DESARROLLADOR}\nLeila, ¿cuántas?`, []), { nombre: 'leila' });
   assert.equal(paraDelEquipo(`${FIRMA_DESARROLLADOR}\nHola, ¿cómo va?`, []), undefined, 'un saludo se tomó por un nombre');
   assert.deepEqual(paraDelEquipo('¿cuántas?', ['5215500000000@s.whatsapp.net']), { jids: ['5215500000000@s.whatsapp.net'] });
@@ -149,3 +151,4 @@ test('4. el cableado: antes del 👍 y de la cola; la re-entrega; el cierre; lo 
 //   V7 un acuse se toma por respuesta al equipo                                          → falla el 1 y el 4
 //   V8 `anotarLoDelEquipo` lee sin estricto (una lectura que falla pisa el anillo)        → falla el 4
 //   V9 la pregunta sin a quién le habla                                                  → falla el 1 y el 3
+//   X1 el «?» citado entre «…» cuenta (el aviso de arreglo abre la ventana)              → falla el 1 y el 3

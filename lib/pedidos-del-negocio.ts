@@ -38,8 +38,9 @@ export function bloqueDePedidos(pedidos: readonly PedidoDelNegocio[], ahora: Dat
   ].join('\n');
 }
 
-// Con guion, espacio o guion bajo («ya pedido», «ya_pedido»): la variante también le llegaba al cliente (la verificación de 5b7a1917d).
-const MARCA_YA_PEDIDO = /\[\[\s*ya[\s_-]*pedido\s*:?\s*#?\s*(\d{1,9})?[^\]]*\]\]/gi;
+// Con guion, raya, espacio o guion bajo («ya pedido», «ya_pedido», «ya—pedido»), y con un solo corchete: la variante también le
+// llegaba al cliente (las verificaciones de 5b7a1917d y c358fd0c4).
+const MARCA_YA_PEDIDO = /\[{1,2}\s*ya[\s_\-–—]*pedido\s*:?\s*#?\s*(\d{1,9})?[^\]]*\]{1,2}/gi;
 
 /**
  * Saca las marcas `[[ya-pedido: #N]]` de la respuesta. `ids`: los números que SON de un pedido abierto de este negocio (los

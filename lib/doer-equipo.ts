@@ -70,7 +70,10 @@ export function paraDelEquipo(texto: string, menciones: readonly string[]): DelE
  */
 export function esPreguntaDelEquipo(d: Pick<DelEquipo, 'texto' | 'ticket'>): boolean {
   if (d.ticket) return /el equipo te pregunta/i.test(d.texto);
-  const sinLinks = d.texto.replace(/https?:\/\/\S+/g, ' ').replace(/\b[\w.-]+\.(?:com|app|io|ar|mx)\/\S*/g, ' ');
+  // Ni el «?» de un link, ni el de algo CITADO entre «…» o “…”: el aviso de arreglo cita el título del ticket («¿Se pueden
+  // responder comentarios como ManyChat?») y abría la ventana para cualquiera (la verificación de c358fd0c4).
+  const sinLinks = d.texto.replace(/https?:\/\/\S+/g, ' ').replace(/\b[\w.-]+\.(?:com|app|io|ar|mx)\/\S*/g, ' ')
+    .replace(/«[^»]*»/g, ' ').replace(/“[^”]*”/g, ' ');
   return /[¿?]/.test(sinLinks);
 }
 
