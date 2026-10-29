@@ -9,9 +9,10 @@ import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
-  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CLAVES_CREDITO_DE_LOS_GRUPOS, CREDITO_HABILITADO_PARA, FEATURE_DE_LOS_GRUPOS, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
+  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, FEATURE_DE_LOS_GRUPOS, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
+import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import type { ProvName } from './ai-cheap';
 import { PROVS_SU_IA, conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
 

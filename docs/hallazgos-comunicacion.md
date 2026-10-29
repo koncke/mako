@@ -329,10 +329,14 @@ a «Tal cual como lo hace manychat», y a un audio de 31 s le puso 👍 y nada m
   esperan que Martín pegue la suya en SuperAdmin › Uso › API (`ANTHROPIC_CREDITO_CUENTA3`/`4`); la claude5 no tiene lugar en
   `CUENTAS_DEL_CREDITO` (lib/credito-api.ts). La cuenta 1 es la org de Mauricio y la 2 la de Leandro (medido el 22/10, ver
   `CUENTAS_DEL_CREDITO`): ahora también pagan los grupos de los demás negocios.
+- **Para N cuentas (28/10, la tanda A): eran DOS listas.** Los grupos tenían su copia de cuatro nombres en lib/veto-claude.ts, y
+  el Uso la suya (`CUENTAS_DEL_CREDITO`): una quinta en el Uso no pagaba turnos, y una quinta en la copia los pagaba sin verse.
+  Ahora `CLAVES_CREDITO_DE_LOS_GRUPOS` sale de `CUENTAS_DEL_CREDITO` (lib/credito-api.ts): una cuenta nueva es UNA línea ahí y
+  su clave, y el reparto, la puerta 2 y el Uso la toman solos. Una clave con el mismo prefijo que el Uso no conoce no paga.
 
 **Sin hacer:**
-- **El crédito de los grupos:** la claude5 necesita su lugar en `CUENTAS_DEL_CREDITO` y en `CLAVES_CREDITO_DE_LOS_GRUPOS`
-  (lib/veto-claude.ts; tests/credito-api.test.ts fija cuatro). No hay interruptor en la pantalla de SuperAdmin para
+- **El crédito de los grupos:** la claude5 necesita su línea en `CUENTAS_DEL_CREDITO` (lib/credito-api.ts; ya alcanza con eso,
+  si es un Max 20x: lo sabe Martín), y su clave. No hay interruptor en la pantalla de SuperAdmin para
   `ia.credito_grupos`: sin fila está prendido, y apagarlo hoy es escribir la fila. En el grupo, los documentos y las fotos
   (`archivoATexto`, lib/mako-doer-in.ts) todavía pasan por Gemini.
 - **En la línea del DUEÑO, el anillo es la única defensa del eco, y un error al leerlo lo vacía**: `idsEnviados` lee con

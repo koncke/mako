@@ -46,6 +46,15 @@ export const CUENTAS_DEL_CREDITO: readonly CuentaDelCredito[] = [
   { cuenta: 'claude4', clave: 'ANTHROPIC_CREDITO_CUENTA4', suscripta: '2026-10-16' },
 ];
 
+/**
+ * Las claves del crédito de los GRUPOS de WhatsApp (lib/credito-negocio.ts, `cuentasDelCreditoDeLosGrupos`; Martín, 28/10/2026:
+ * «todas las cuentas de planes 200»): las MISMAS cuentas que el Uso, para N cuentas. Una cuenta nueva es UNA línea arriba (y su
+ * clave, que la carga Martín): el reparto entre las cuentas, la puerta 2 y el Uso la toman solos. Antes era una copia con cuatro
+ * nombres en lib/veto-claude.ts, y una quinta habría pagado turnos que el Uso no mostraba. Sólo estos nombres: una clave
+ * `ANTHROPIC_CREDITO_CUENTA9` que no está acá no paga nada.
+ */
+export const CLAVES_CREDITO_DE_LOS_GRUPOS: readonly string[] = CUENTAS_DEL_CREDITO.map((c) => c.clave);
+
 /** Una fila de `anthropic_usage`, lo justo para saber qué crédito la pagó. */
 export type FilaGasto = {
   workspace_id: number; created_at: string; motivo: string | null; cuenta: number | null;

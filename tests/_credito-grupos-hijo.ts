@@ -15,7 +15,7 @@ import { crearPostgrest } from './_postgrest-de-mentira';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para-el-test';
-for (const k of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'ANTHROPIC_CREDITO_CUENTA1', 'ANTHROPIC_CREDITO_CUENTA2', 'ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4']) delete process.env[k];
+for (const k of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'ANTHROPIC_CREDITO_CUENTA1', 'ANTHROPIC_CREDITO_CUENTA2', 'ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4', 'ANTHROPIC_CREDITO_CUENTA9']) delete process.env[k];
 
 let n = 0;
 const pg = crearPostgrest({
@@ -27,6 +27,8 @@ const CLAUDE_MAKO = `sk-ant-api03-plataforma-${'p'.repeat(40)}`;
 const CREDITO1 = `sk-ant-api03-credito-cuenta1-${'c'.repeat(40)}`;
 const CREDITO2 = `sk-ant-api03-credito-cuenta2-${'d'.repeat(40)}`;
 const CREDITO3 = `sk-ant-api03-credito-cuenta3-${'e'.repeat(40)}`;
+const CREDITO4 = `sk-ant-api03-credito-cuenta4-${'f'.repeat(40)}`;
+const CREDITO9 = `sk-ant-api03-credito-cuenta9-${'g'.repeat(40)}`;
 const PROPIA = `sk-ant-api03-propia-del-ws13-${'m'.repeat(40)}`;
 
 let anthropic: Array<{ clave: string; modelo: string }> = [];
@@ -57,7 +59,7 @@ async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
   const { setSetting } = await import('../lib/settings');
   const { permisoDeLaClaveDelNegocio, chatClaudeTools } = await import('../lib/anthropic');
-  const { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } = await import('../lib/credito-negocio');
+  const { claveDeLaCuentaDeLosGrupos, cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } = await import('../lib/credito-negocio');
   const { creditoQuePago } = await import('../lib/credito-api');
   pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, { id: 1, capa: 'completo', nombre: 'Mauricio' }, { id: 10, capa: 'cliente', nombre: 'Leandro' }, { id: 13, capa: 'cliente', nombre: 'ws13' });
   const poner = (ws: number, clave: string, valor: string) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(valor, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
@@ -122,6 +124,17 @@ async function main() {
   out.apagadoPermisoSigue = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA2');
   await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_grupos', 'prendido'));
   out.prendido = await cuentasDelCreditoDeLosGrupos();
+
+  // ── N cuentas: con las cuatro del Uso cargadas (la 1 sigue agotada), el reparto recorre las TRES que quedan; una clave con el
+  //    mismo prefijo que el Uso no conoce (la 9) no paga nada ─────────────────────────────────────────────────────────────
+  process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
+  process.env.ANTHROPIC_CREDITO_CUENTA9 = CREDITO9;
+  poner(PLATAFORMA, 'ANTHROPIC_CREDITO_CUENTA4', CREDITO4);
+  out.nCuentas = [await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos()];
+  out.laNueve = await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA9');
+  out.ws10Cuenta4 = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA4');
+  delete process.env.ANTHROPIC_CREDITO_CUENTA3;
+  delete process.env.ANTHROPIC_CREDITO_CUENTA9;
 
   // ── Sin ninguna clave cargada: ninguna ─────────────────────────────────────────────────────────────────────────────
   pg.db.credenciales = pg.db.credenciales.filter((f) => !String(f.clave).startsWith('ANTHROPIC_CREDITO_'));

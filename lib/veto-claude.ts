@@ -381,9 +381,9 @@ export const claveDelInterruptorDeCredito = (ws: number): string => `ia.credito_
  * crédito de las cuentas Max que tienen clave, repartido entre ellas (lib/credito-negocio.ts, `cuentasDelCreditoDeLosGrupos`). Entra
  * por la puerta 2 como el crédito asignado: el modelo barato (Haiku), nunca el Plan, y su gasto con la marca del crédito. Su Claude
  * propio, si lo conecta, gana. Se apaga con la fila `CLAVE_INTERRUPTOR_CREDITO_GRUPOS` («apagado») de la plataforma.
+ * Las cuentas son las del Uso (`CLAVES_CREDITO_DE_LOS_GRUPOS`, lib/credito-api.ts, de `CUENTAS_DEL_CREDITO`): N, no cuatro fijas.
  */
 export const FEATURE_DE_LOS_GRUPOS = 'mako-doer-in';
-export const CLAVES_CREDITO_DE_LOS_GRUPOS = ['ANTHROPIC_CREDITO_CUENTA1', 'ANTHROPIC_CREDITO_CUENTA2', 'ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4'] as const;
 export const CLAVE_INTERRUPTOR_CREDITO_GRUPOS = 'ia.credito_grupos';
 export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
 

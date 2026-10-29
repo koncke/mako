@@ -11,7 +11,8 @@
 // =============================================================================
 
 import 'server-only';
-import { CLAVE_INTERRUPTOR_CREDITO_GRUPOS, CLAVES_CREDITO_DE_LOS_GRUPOS, CREDITO_DE_UN_NEGOCIO, claveDelInterruptorDeCredito, esInterruptorPrendido, type CreditoDeUnNegocio } from './veto-claude';
+import { CLAVE_INTERRUPTOR_CREDITO_GRUPOS, CREDITO_DE_UN_NEGOCIO, claveDelInterruptorDeCredito, esInterruptorPrendido, type CreditoDeUnNegocio } from './veto-claude';
+import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import { credWsEstricta } from './credenciales';
 import { getSettingEstricto, setSetting } from './settings';
 import { getWorkspaceActual, runWithWorkspace, wsSuperAdmin } from './workspace';
@@ -78,7 +79,7 @@ export async function cuentasDelCreditoDeLosGrupos(): Promise<string[]> {
  * o el interruptor está apagado o no se pudo leer: la puerta 2 lo mira también, no sólo quien elige la cuenta.
  */
 export async function claveDeLaCuentaDeLosGrupos(nombre: string): Promise<string | null> {
-  if (!(CLAVES_CREDITO_DE_LOS_GRUPOS as readonly string[]).includes(nombre)) return null;
+  if (!CLAVES_CREDITO_DE_LOS_GRUPOS.includes(nombre)) return null;
   try {
     const wsSA = await wsSuperAdmin();
     if (!esInterruptorPrendido(await runWithWorkspace(wsSA, () => getSettingEstricto(CLAVE_INTERRUPTOR_CREDITO_GRUPOS)))) return null;

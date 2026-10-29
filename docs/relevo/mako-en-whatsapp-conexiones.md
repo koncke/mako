@@ -2,7 +2,8 @@
 
 **Cuenta:** claude4. **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los merges de main son merge commits, nunca
 rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le devuelve igual, con la lista de .ts).
-Las puntas las sube el Cerebro. Al 28/10 20:15 (AR) este archivo está al día.
+Las puntas las sube el Cerebro. Al 28/10 22:05 (AR) este archivo está al día. **Desde el 28/10 21:40, la tanda A va en otro
+worktree:** `C:/dev/wt-credito-2810`, rama `wa-credito-grupos-2810` (con `wa-fallas-2710` adentro, sin tocar esa rama).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
 
@@ -26,12 +27,16 @@ Las puntas las sube el Cerebro. Al 28/10 20:15 (AR) este archivo está al día.
   - 20d3d6806 la respuesta al EQUIPO no es para MaKo (Leila, ws11); 62876b064 la nota de voz CITADA se escucha (Leandro, ws10);
   - 694f36f74 el banco de casos del «sí» a una pendiente; 43ac63cc3 los pendientes de robustez, escritos;
   - 5b7a1917d el barrido; c465a407b el merge de main; c1b3d3a2a F2c (el catálogo de funciones de MaKo inteligente en el system);
-  - **c358fd0c4 la verificación de 5b7a1917d** (ALTAS 1-4, MEDIA, BAJAS): VERDE en curso al 28/10 20:15.
+  - **c358fd0c4 la verificación de 5b7a1917d** (ALTAS 1-4, MEDIA, BAJAS): VERDE mandado; el Cerebro la verifica con
+    refutador (28/10 21:40). Si da defectos, se arreglan en `wa-fallas-2710`.
+- **En `wa-credito-grupos-2810`, SIN subir:** 80a4bccd4 (el texto del grupo con Claude y el crédito de los planes 200),
+  98c18d4a4 (merge de `wa-fallas-2710`), y la tanda A: las cuentas del crédito para N (una sola lista, la del Uso).
 
 ## Lo que falta, en orden (el plan del Cerebro)
 
-1. **A:** Claude PRIMERO con el crédito Max, desde la rama `wa-credito-grupos-2810`, «armalo para N cuentas»; el banco de
-   casos de nivel 2 (con modelo) va en esa tanda.
+1. **A:** hecha la parte de N cuentas. **Falta el banco de casos de nivel 2** (con modelo): correr los casos del diagnóstico
+   (C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md) por el turno real con Claude y calificarlos. Gasta crédito: con el
+   Cerebro. Y la claude5: su línea en `CUENTAS_DEL_CREDITO` si es Max 20x (lo sabe Martín).
 2. **F4** completo. **G3:** lo que llega durante un turno queda huérfano hasta el cron. **F5** y **F6**.
 3. **La cola de Teo:** video, imagen o PDF dentro de un lote; .doc/.xls/.ppt/.zip; audio fuera del grupo; `generarVariantes`;
    el aviso WhatsApp oficial vs QR.
