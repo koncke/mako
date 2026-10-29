@@ -74,6 +74,11 @@ Este archivo reemplaza a docs/relevo/planes-nube-2710.md (el relevo de la nube d
   · la compra a Meta sale dos veces si el reintento de Stripe llega pasados 10 min con el cron corriendo, o con dos crons a la
     vez (lib/cobros-externos-meta.ts: hace falta un reclamo antes de mandar).
 - Falta medir: una suscripción común con SEPA cuya primera factura falla, que armaría una SEGUNDA suscripción.
+- be95f7555 (28/10, ~23:20): el Cerebro confirmó la alta con su script. tests-afectados de la punta: VERDE, 4376 tests de 415
+  archivos. tsc acotado: el de be95f7555 lo cortó el vigía de RAM (salida 99, sin resultado); el de 55542d446 (los mismos 71
+  archivos, una línea antes) dio sólo los 14 de `_opencut`.
+- **Espera revisión del Cerebro (no entra al tren de hoy): 5905eeb7d (lo chico de Teo) y 55542d446 (el plan a mano con
+  vencimiento).** Si la cuenta corta antes, queda para la próxima.
 
 ## Sin hacer (con el archivo donde vive)
 - La compra a Meta: si la línea del historial no se escribe NUNCA, cada vuelta del cron la vuelve a mandar (lib/cobros-externos-meta.ts, de Zernio).
