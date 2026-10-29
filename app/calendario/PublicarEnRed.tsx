@@ -24,9 +24,11 @@ import { useConfirm } from '@/app/_ui/Confirm';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import {
-  cancelarPublicacionAction, guardarPublicacionAction, noQuedoProgramadaAction, programarAction, publicacionAction, resolverEnZernioAction,
-  subidaArchivoAction,
+  cancelarPublicacionAction, guardarPublicacionAction, guardarRepeticionAction, noQuedoProgramadaAction, programarAction, publicacionAction,
+  repeticionAction, resolverEnZernioAction, subidaArchivoAction,
 } from './actions';
+import { PRESETS } from '@/lib/plan-recurrentes';
+import { reglaDePublicacion, textoDeRegla } from '@/lib/calendario-recurrentes-reglas';
 import { MIMES_PUBLICAR, ROTULO_RED, topeDeTexto, type DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 import type { CuentaParaPublicar } from '@/lib/calendario-publicar';
 
@@ -49,6 +51,17 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
   const [subida, setSubida] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { confirm, confirmNode } = useConfirm();
+  // «Se repite» (29/10/2026, la llamada con Thiago: «podés programarte publicaciones recurrentes»): la regla de esta Publicación.
+  // `activa: false` = la base todavía no la tiene (mig 0349): el control no se muestra.
+  const [repeticion, setRepeticion] = useState<{ regla: string | null; activa: boolean } | null>(null);
+  useEffect(() => { void repeticionAction(id).then(setRepeticion).catch(() => setRepeticion(null)); }, [id]);
+  const cambiarRepeticion = async (valor: string) => {
+    setError(null);
+    const r = await guardarRepeticionAction(id, valor || null);
+    if (!r.ok) { setError(r.error); return; }
+    setRepeticion({ regla: valor ? reglaDePublicacion(valor) : null, activa: true });
+    onCambio();
+  };
   const cargarRef = useRef<() => void>(() => {});
   const integracion = useConectarIntegracion({ onConectado: () => cargarRef.current() });
 
@@ -229,6 +242,22 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
           {sinGuardar && <span style={DIM}>Guarda los cambios de la fecha y la hora antes de programarla.</span>}
           <Button variant="primary" size="sm" loading={ocupado} disabled={sinGuardar || !d.cuenta_red || !d.archivo || subida != null}
             onClick={() => void programar()}>Programar</Button>
+        </>
+      )}
+      {repeticion?.activa && (
+        <>
+          <Select label="Repetir" value={repeticion.regla ?? ''} disabled={ocupado}
+            onChange={(v) => void cambiarRepeticion(v)}
+            options={[
+              { value: '', label: 'No se repite' },
+              ...PRESETS.map((p) => ({ value: reglaDePublicacion(p.rrule) ?? p.rrule, label: p.label })),
+              // Una regla que no es un preset (la puso la API o MaKo): se muestra como es.
+              ...(repeticion.regla && !PRESETS.some((p) => reglaDePublicacion(p.rrule) === repeticion.regla)
+                ? [{ value: repeticion.regla, label: textoDeRegla(repeticion.regla) ?? repeticion.regla }] : []),
+            ]} />
+          {repeticion.regla && (
+            <span style={DIM}>Cada vez nace una publicación igual, a esta hora, con la misma cuenta, el archivo y el texto, y se programa sola en la red. Las próximas se ven en «Se repite».</span>
+          )}
         </>
       )}
       {error && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}

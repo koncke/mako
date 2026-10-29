@@ -192,6 +192,17 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
         </span>
       )}
 
+      {/* Los leads de los formularios (29/10/2026): si no le llegan a MaKo, se dice por qué y qué hacer (`leadsEnElWebhook`). */}
+      {conectada && estado.leads === 'sin-permiso' && (
+        <span role="alert" data-leads-zernio="sin-permiso" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--warn)' }}>
+          Los leads de tus formularios no le llegan a MaKo: tu cuenta de Zernio necesita su complemento de anuncios. Actívalo en zernio.com y vuelve a conectar.
+        </span>
+      )}
+      {conectada && estado.leads === 'sin-webhook' && (
+        <span role="alert" data-leads-zernio="sin-webhook" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--warn)' }}>
+          MaKo todavía no recibe los leads de tus formularios: toca «Volver a conectar».
+        </span>
+      )}
       {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
       <EstadoConexion z={z} />
       {z.modal}

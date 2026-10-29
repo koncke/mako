@@ -3,6 +3,20 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 29/10/2026 noche, segunda tanda (cuenta `claude3`) — las promesas de la llamada con la agencia
+
+Rama `zernio-token-2910` (main ff908e645 mezclado en `77cf7a90b`). Pedido del Cerebro, en este orden:
+1. El 2.º Instagram que se cobraba sin aviso: `claveConLugar(…, { otra: true })` y el aviso lo dice.
+2. Los leads de Meta por Zernio: el barrido (`lib/zernio-leads-barrido.ts`, dentro del cron de leads), el aviso en «Anuncios de Meta»
+   (`leadsEnElWebhook` con la clave de la conexión) y `asegurarWebhook` en la pasada diaria. Cómo probar un lead real: en
+   docs/hallazgos-integraciones.md (lo hace Martín: es un login de Facebook).
+3. Publicaciones que se repiten: mig 0349 (escrita, SIN aplicar: el sí de Martín lo pide el Cerebro), «Repetir» en «Publicar en la red»,
+   el cron `/api/cron/calendario-recurrentes` (cada 6 horas) y las próximas en la capa «Se repite».
+
+**Sin hacer:** «Personalizado…» en el Repetir; avisar en el Calendario un molde incompleto; el hueco de la papelera en el poll de Meta
+(de Ads/CRM); la prueba de un lead real. Las promesas de la llamada que tocan el Calendario y no se pidieron acá ([19:12] el anuncio
+y el email programados; [19:29] el Calendario para closers y setters) quedan para el Cerebro.
+
 ## ESTADO 29/10/2026 noche (cuenta `claude3`) — «Publicar» desde el Video Editor, el Image Editor y el Copywriter
 
 Rama `zernio-token-2910` (con origin/main 1cf06eba9 mezclado en `939b9b1ef`: trae el shell de Create y el Copywriter). Nada

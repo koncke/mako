@@ -404,3 +404,32 @@ la hora. Un solo camino de publicación».
 - **Sin hacer:** un carrusel (varias imágenes en una publicación); publicar un texto SOLO (el Calendario pide un archivo para
   programar: el texto del Copywriter llega sin archivo y ahí se sube la imagen o el video). **Sin verificar en el navegador:** no se
   levanta `next dev` local; las capturas las saca el Cerebro en producción, en el ws3, después del deploy.
+
+## Publicaciones que se repiten: un molde, una regla, y el cron que crea y programa cada vez (29/10/2026)
+
+La llamada de Martín con una agencia de 27 clientes (29/10, [19:25]): «podés programarte publicaciones recurrentes». El Cerebro: un
+«Repetir» en el evento, la regla en `calendario_eventos` (mig 0349), un cron que cree y programe por Zernio, y que el Calendario dibuje
+las próximas.
+
+**Vive en:** `lib/calendario-recurrentes-reglas.ts` (puro) · `lib/calendario-recurrentes.ts` (`guardarRepeticion`, `seriesParaDibujar`,
+`generarRecurrentes`) · `app/api/cron/calendario-recurrentes` (cada 6 horas) · `app/calendario/PublicarEnRed.tsx` («Repetir») ·
+mig 0349 · tests/calendario-recurrentes.test.ts.
+
+- **La regla es la del Plan** (RRULE, `lib/plan-recurrentes.ts`: la frase en español, los presets, `ocurrenciasEntre` con su ancla), no
+  una nueva. La Publicación con la regla es el MOLDE y la primera vez; cada vez nace igual (la hora, la cuenta, el texto) y se
+  programa por `programarPublicaciones`, el mismo «Programar» con los límites de cada red. Ninguna otra puerta a la red.
+- ⚠️ **El archivo se COPIA, no se comparte:** `rutaValida` exige `<ws>/calendario/<evento>/…`, así que el archivo del molde no
+  pasaba para otra fila, y compartirlo dejaba que borrar una vez se llevara el del molde. Cada vez nace con su copia (Storage `copy`).
+- **Nada hacia atrás y dos días adelante:** con el cron caído, la vez que pasó no se publica tarde; la de hoy cuya hora pasó, tampoco.
+  Cada 6 horas (no una vez por día): una vez que falló se reintenta en el día, y como crea dos días adelante ninguna llega justa.
+- **Una vez es una vez:** índice único (`workspace_id, serie_de, inicio`). Dos pasadas a la vez: la segunda choca, borra su copia y no
+  programa (lo prueba el test con una escritura en el medio).
+- ⚠️ **Lo que se dibuja es desde AHORA:** la primera versión dibujaba como «próximas» las veces de la semana que ya habían pasado sin
+  nacer, que no iban a salir nunca. Las próximas van en la capa «Se repite», de SÓLO LECTURA (`fuente: 'plan'`, como las recurrentes
+  del Plan), y llevan al molde con `?evento=`.
+- ⚠️ **Sin la mig 0349 el Calendario sigue andando:** la regla se lee y se escribe APARTE (`COLS` no la nombra; un test lo fija). Si
+  la lectura principal pidiera `repetir`, PostgREST rechazaba la consulta ENTERA y el Calendario quedaba vacío hasta la migración.
+- **Sin hacer:** «Personalizado…» (sólo los presets del Plan: todos los días, cada semana, cada mes, cada año, días laborables; una
+  regla puesta por la API se muestra igual); cambiar UNA vez sin tocar el molde (cada vez es una Publicación normal: se edita como
+  cualquiera); avisar en el Calendario que un molde está incompleto (hoy sólo lo cuenta el log del cron). **La mig 0349 está escrita,
+  NO aplicada** (la pide el Cerebro). No se vio en un navegador.

@@ -2347,3 +2347,56 @@ tests/zernio-varias-claves.test.ts y tests/zernio-todas-las-redes.test.ts.
   que esta noche no hay. Se sacan en producción, en el ws3, después del deploy. Tampoco se midió con una cuenta real el cuerpo del
   post de LinkedIn, X, Threads ni Google Business. El consumo de mensajes (`usoZernioDelCiclo`) cuenta lo que manda el negocio
   entero contra el ciclo y el tope de la clave 1: con varias claves avisa antes de tiempo (cada clave tiene sus 10.000).
+
+## El 2.º Instagram que se cobraba sin aviso, y los leads de Meta por Zernio: el barrido, el aviso y cómo probar uno real (29/10/2026)
+
+La llamada de Martín con una agencia de 27 clientes (29/10, docs/promesas/2910-llamada-thiago.md en `promesas-thiago-2910`): «le
+entran acá los leads» de los formularios de Meta [15:12]. Y el Cerebro: un 2.º Instagram puede cobrarle US$6 por mes al cliente sin aviso.
+
+**Vive en:** `lib/zernio-redes.ts` (`avisoDeCobroZernio` con `otra`, `claveConLugar`, `textoAvisoCobro` con `otraDe`) ·
+`lib/zernio-conectar.ts` (`claveParaConectar`) · `lib/zernio-lead.ts` (`leerLeadDelRest`, `tocaBarrerZernio`) ·
+`lib/zernio-leads-barrido.ts` · `app/api/cron/meta-leads-poll/route.ts` · `lib/zernio.ts` (`leadsEnElWebhook` con la cuenta de anuncios) ·
+`lib/meta-conexion-zernio.ts` (`leads`) · `app/integraciones/ConectarMetaZernio.tsx` · tests/zernio-varias-claves.test.ts y
+tests/zernio-leads-barrido.test.ts.
+
+- ⚠️ **El 2.º Instagram: el atajo «ya tiene esa red = volver a entrar» era el hueco.** `avisoDeCobroZernio` no avisaba si la red ya tenía
+  una cuenta activa (volver a entrar con la MISMA cuenta no suma: Zernio conserva su id). Pero «Conectar otra» sobre un Instagram ya
+  conectado es OTRA cuenta: con la clave en 2, la 3.ª se cobraba sin decir nada (y con varias claves, el atajo además la mandaba
+  derecho a la clave que ya tenía esa red). **Regla:** sin `reconectarId` (eso ya vuelve antes), conectar una red que la clave tiene
+  es «otra» (`claveConLugar(…, { otra: true })`), y el aviso lo dice: «Otra cuenta de Instagram cuenta como una red más».
+- **El barrido de leads (`barrerLeadsDeZernio`), dentro del cron de leads que ya corre cada 10 minutos** (cada 30 y en la pasada diaria:
+  `tocaBarrerZernio`). Lee `GET /v1/ads/leads` (OpenAPI v1.416, medida el 29/10) y carga lo que falta por la MISMA puerta del webhook.
+  ⚠️ **Lo que el REST realmente es:** la CACHÉ de Zernio, que se llena con el `leadgen` de Meta y que Zernio mismo relee de cada página
+  cada 15 minutos para recuperar lo que su webhook perdió (`meta.lastCheckedAt`). El barrido recupera un `lead.received` que Zernio NO
+  le entregó a MaKo; un lead que Meta no le entregó a Zernio lo recupera Zernio. Pedir más seguido que cada 15 minutos no trae nada.
+  ⚠️ Trae `fieldData` CRUDO de Meta (la forma del webhook de Meta) y la fecha es `createdTime` (no `createdAt` como el webhook).
+- ⚠️ **Lo que ya está NO se toca:** `upsertLeadFromMeta` también ACTUALIZA un lead existente (los nombres de campaña quedan en null,
+  punto 4 de «Los leads de Meta por Zernio»). Se carga sólo el `meta_lead_id` que no está en `leads` NI en la papelera (mig 0340: la
+  papelera guarda la FOTO y BORRA el lead, así que un lead borrado «no está» y el barrido lo resucitaba con su primer mensaje). ⚠️ **El
+  poll de Meta de siempre (`pollMetaLeads`) tiene el mismo hueco de la papelera y NO se tocó:** es de Ads/CRM.
+- ⚠️ **Con la clave de la PLATAFORMA (`byok: false`), sólo las cuentas del negocio** (`accountIds` de su perfil): sin el filtro,
+  `GET /v1/ads/leads` lista TODO el equipo y un negocio vería los leads de otro. Con su propia clave, todo el equipo es suyo.
+- **Un lead de menos de 5 minutos es del webhook** (`esDelWebhookTodavia`, la regla del poll de Meta), uno que falla no tumba a los
+  demás (la clave única GLOBAL de `meta_lead_id`), y un 403 (sin el complemento de anuncios) se dice y se sigue con la otra clave.
+- **El aviso** (en «Anuncios de Meta» del modal de Zernio): `leadsEnElWebhook(ws, conexión)` mira el webhook de la CLAVE de la conexión
+  de anuncios (con varias claves, la 1 no es la que recibe). `false` → falta el complemento de anuncios de Zernio; `null` → MaKo no tiene
+  su webhook ahí («Volver a conectar» lo registra). **En la pasada diaria del cron**, `asegurarWebhook` corre en cada negocio con Zernio
+  cuyo webhook no escucha los leads: uno registrado antes de que MaKo escuchara `lead.received` lo empieza a escuchar sin tocar nada.
+
+### Cómo probar un lead REAL por Zernio (nunca llegó uno)
+
+1. Un negocio de prueba con su clave de Zernio, «Anuncios de Meta» conectado y una página con un formulario instantáneo (Martín conecta
+   con su Facebook: es un login). ⚠️ **Un lead de prueba de Meta ES un lead para MaKo:** entra al CRM y dispara el aviso, los flujos y
+   las automatizaciones (el WhatsApp de bienvenida al teléfono del formulario). Usar un negocio sin automatizaciones de lead nuevo, o
+   un teléfono propio en el formulario de prueba.
+2. Crear el lead de prueba: `POST /v1/ads/lead-forms/{formId}/test-leads` con `{ accountId, fieldData: [{ name, values }] }` (la
+   conexión de Facebook o de anuncios; OpenAPI v1.416), o la «Lead Ads Testing Tool» de Meta sobre esa página. Meta deja UNO por
+   formulario: para otro, `DELETE /v1/ads/lead-forms/{formId}/test-leads?accountId&leadId`.
+3. Mirar, en orden: el log del webhook de Zernio (`[webhook:zernio]` con `lead.received`), el lead en el CRM con origen `instant_form` y
+   `meta_lead_id` = el `leadgenId`, y su historial. Si en 30 minutos no está, el barrido debería traerlo (`[cron:meta-leads-poll] zernio`).
+4. Lo que esa prueba mide y hoy no se sabe: si `lead.fields` trae las claves de Meta (`full_name`) o los rótulos, si `leadgenId` es el id
+   de Graph (de eso depende que un lead que entra por las dos puertas sea UNO) y si `lead.received` llega sin el complemento de anuncios.
+5. Borrar el lead de prueba del CRM (y el de Meta, con el `DELETE` de arriba).
+
+- **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. El hueco de la papelera
+  en el poll de Meta.

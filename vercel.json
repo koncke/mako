@@ -159,6 +159,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/calendario-recurrentes",
+      "schedule": "15 */6 * * *"
+    },
+    {
       "path": "/api/cron/plan-recurvar",
       "schedule": "10 9 * * *"
     },
