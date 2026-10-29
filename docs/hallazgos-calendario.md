@@ -365,3 +365,42 @@ listas» (en serie) · la operación `programar_publicacion` · mig 0342 · test
 `lib/plan-recurrentes-fechas.ts` · `lib/agenda-link.ts` · `lib/calcom.ts` (`linkDeReservaCalcom`) · `app/calendario/`
 (`AgendarLlamada.tsx`, `PlantillasSemana.tsx`) · `lib/api-mako/areas/calendario.*` · `lib/tab-onboarding-catalogo.ts` ·
 `tests/calendario.test.ts`. *13-14/10/2026, claude2.*
+
+## «Publicar» desde el Video Editor, el Image Editor y el Copywriter: un solo camino, el del Calendario (29/10/2026)
+
+Martín, por el Cerebro: «que con las funcionalidades que ya creamos puedan publicar en Facebook, TikTok, LinkedIn…». El Cerebro:
+«El botón lleva lo exportado (el video, la imagen o el texto) al Calendario con el evento ya armado, para elegir la red, el día y
+la hora. Un solo camino de publicación».
+
+**Vive en:** `lib/calendario-desde-crear.ts` (puro: qué evento se arma, qué archivo vale, el link) · `publicacionDesdeCrearAction`
+(app/calendario/actions.ts) · `llevarAlCalendario` (app/calendario/publicar-desde-crear.ts, lo comparten los tres) · `?evento=`
+(app/calendario/page.tsx → CalendarioApp) · el Video Editor (`PublicarButton`, `DialogoExportar publicar`, `Exportacion { guardar }`)
+· el Image Editor (DownloadDialog, «Publicar en redes») · el Copywriter (EditorGuion, el menú «⋯») · tests/publicar-desde-crear.test.ts.
+
+- **La regla: ningún editor habla con la red.** Arman una Publicación «planeada» para MAÑANA a las 10:00 (video → reel; imagen y
+  texto → post), suben el archivo con la MISMA subida firmada del Calendario (`subidaDelArchivo` + `subirConProgreso`) y abren
+  ese evento (`/calendario?…&evento=<id>`). La red, la cuenta, el día, la hora y «Programar» son del Calendario, con los límites de
+  cada red (`motivoParaNoProgramar`). Un test barre los tres editores: ninguno importa Zernio ni `programarAction`.
+- ⚠️ **El video exportado no volvía:** `Exportacion` lo escribía en la carpeta de «Exportar a» y devolvía sólo los NOMBRES. Ahora
+  devuelve el blob del video, y con `{ guardar: false }` (el modo «Publicar») no deja un archivo en la carpeta de la persona. El
+  modo publicar exporta SÓLO el video y en MP4 (lo que aceptan todas las redes), con el codec que el navegador puede; ya
+  exportado en MP4 o MOV, «Publicar en redes» lleva el mismo video sin volver a exportar.
+- ⚠️ **Los ids de evento no son uuid** (`ev` + base 36, `nuevoId` de lib/calendario.ts): la primera validación del `?evento=` los
+  rechazaba todos. El patrón lo fija el test contra `nuevoId`.
+- ⚠️ **`toLocaleString('es')` no separa los miles de un número de 4 cifras** («2200», no «2.200»: la regla de la RAE que trae
+  ICU). Para un texto de pantalla, a mano.
+- **Un texto de más de 2.200 no se corta en silencio:** el pie queda vacío y el texto entero va a las notas del evento, con el aviso
+  arriba («recórtalo y pégalo en «Texto de la publicación»»). Los topes de cada red (X 280, Threads 500) los dice el Calendario al
+  elegir la red.
+- **El Image Editor publica UNA página en JPG, PNG o WEBP:** una Publicación del Calendario lleva un archivo. El botón dice por qué
+  está apagado. **El Copywriter nunca publica desde el editor compartido** (quien edita por un link no tiene Calendario).
+- ⚠️ **Doory (el Image Editor) no marca «use client»:** su diálogo no puede importar un VALOR de app/_ui/Link.tsx
+  (tests/frontera-use-client.test.ts: falla al usarlo, en runtime). Ahí se navega con `conWs` + `wsDeBusqueda` de lib/ws-tab.ts
+  (el mismo `?ws=` que pondría el router). Lo vio la barredora, no el test propio.
+- ⚠️ **Una corrida de tests-afectados con la RAM al límite (0,1 GB libre) da «112 rojos» que corrieron 0 tests:** el grupo
+  compartido se murió entero. No son fallas: se repiten en tandas de 14 por con-turno (ahí apareció el único rojo de verdad).
+- **Si la subida falla, la Publicación ya existe:** las dos salidas con error devuelven su link («quedó en el Calendario sin el
+  archivo: súbelo ahí»), para que reintentar no arme otra.
+- **Sin hacer:** un carrusel (varias imágenes en una publicación); publicar un texto SOLO (el Calendario pide un archivo para
+  programar: el texto del Copywriter llega sin archivo y ahí se sube la imagen o el video). **Sin verificar en el navegador:** no se
+  levanta `next dev` local; las capturas las saca el Cerebro en producción, en el ws3, después del deploy.

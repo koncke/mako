@@ -23,7 +23,7 @@ import { type PrintSettings, describeSizes, loadPrintSettings, savePrintSettings
 import printStyles from './print/print.module.css'
 import styles from './dialogs.module.css'
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useRouter } from '@/app/_ui/Link'
+import { conWs, wsDeBusqueda } from '@/lib/ws-tab'
 import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear'
 import { tipoDeArchivo } from '@/lib/calendario-publicar-reglas'
 
@@ -167,7 +167,9 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
   // «Publicar en redes» (29/10/2026, Martín: «que con las funcionalidades que ya creamos puedan publicar en Facebook, TikTok,
   // LinkedIn…»): la MISMA exportación, y la imagen va al Calendario como una Publicación (ahí se eligen la red, el día y la hora).
   // Una página y en JPG, PNG o WEBP: una publicación del Calendario lleva UN archivo (un carrusel todavía no).
-  const router = useRouter()
+  // Sin el `useRouter` de app/_ui/Link: este archivo no es «use client» y no puede importar un VALOR de uno
+  // (tests/frontera-use-client.test.ts). Va al Calendario con el `?ws=` de la pestaña, como haría ese router.
+  const irAlCalendario = (url: string): void => window.location.assign(conWs(url, wsDeBusqueda(window.location.search)))
   const [publicando, setPublicando] = useState(false)
   const sePuedePublicar = !!format && tipoDeArchivo(format.mime) === 'image' && chosenPages.length === 1
   const publicar = async (): Promise<void> => {
@@ -183,12 +185,12 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
         editor.toast(r.error)
         if (r.url) {
           editor.closeDialog()
-          router.push(r.url)
+          irAlCalendario(r.url)
         }
         return
       }
       editor.closeDialog()
-      router.push(r.url)
+      irAlCalendario(r.url)
     } catch (err) {
       fail(err)
     } finally {
