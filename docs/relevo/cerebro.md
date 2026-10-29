@@ -102,6 +102,13 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **01:10, el Web Generator en blanco (el P0 de Martín):** `11a0e8211` ACEPTADO (el Cerebro revisó que los controles de
+    acceso corren antes del corte en los cuatro layouts) y mergeado en tren-x (`7f63046be`). Push en curso (task
+    `bum9dxj9y`, log `push-blanco.log`). Cuando esté Ready, avisarle a Martín que lo pruebe entrando por el menú.
+  - **01:12: VERDE de MaKo inteligente `dfbd0e922`** (b2c19c445 + cfab5c33a + dfbd0e922, mako-inteligente-2710-c4). La
+    ALTA (el objetivo de facturación a un closer) se arregló con `VE_SIN_PLATA` en positivo. **Para verificarlo:** volver a
+    correr `C:/dev/revisiones/scratch-b2c1/mi-refuta/r1-objetivo.ts` apuntado a `C:/dev/wt-mako-inteligente-c4`, y leer
+    `sinLaPlata`.
   - **01:00: VERDE del CRM `cc47d841d`** (crm-lote-2810, sobre `23b329b5e`): las acciones en bloque del tablero, los
     tickets de Leila (eliminar → PAPELERA de 30 días, pasar a otro funnel, descalificar o perder en bloque, la columna
     entera sin el corte de 1.000) y 5 operaciones de la API.
