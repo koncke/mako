@@ -45,7 +45,7 @@ test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca 
 });
 
 test('2. las tabs de Pro son claves que existen en la barra; Closing Analyst va aparte', () => {
-  // Se lee del archivo: AI Avatar (sólo del super admin por ahora) no está en las listas de los negocios.
+  // Se lee del archivo: cada tab de Pro es una clave de la barra (AI Avatar ya no: es de los tres planes desde el 29/10/2026).
   const nav = leer('app/_components/nav.ts');
   for (const k of NAV_SOLO_PRO) assert.ok(nav.includes(`key: '${k}'`), `«${k}» no es una clave de app/_components/nav.ts`);
   for (const t of TABS_SOLO_PRO) assert.ok(NAV_SOLO_PRO.has(t) || SOLO_PRO_FUERA_DE_LA_BARRA.has(t), `«${t}» de TABS_SOLO_PRO sin candado`);

@@ -78,9 +78,10 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
 // Roto 17/10/2026: la fila de Reels con navKey 'reel' (no existe en nav.ts) → 5/1; la page del teléfono de Stories con
 // `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1; la de Voices sin su <CabeceraM> → 5/1;
 // la de Copy Method sin `getSesionAdmin()` → 5/1.
-test('la puerta del teléfono es la de escritorio: la misma key, que existe, y AI Avatar sólo para el super admin', () => {
-  // AI Avatar NO tiene fila (lib/movil-creacion.ts: una fila oculta le borraría su fila en More, `masCompleto`).
-  assert.ok(!SECCIONES_MAS.some((x) => x.navKey.startsWith('ai-avatar')), 'AI Avatar no va en SECCIONES_MAS');
+test('la puerta del teléfono es la de escritorio: la misma key, que existe, y la de AI Avatar', () => {
+  // AI Avatar tiene su fila VISIBLE en More desde que es de Pro (29/10/2026), como Video: la cabecera y la puerta salen de ahí.
+  const filaAvatar = SECCIONES_MAS.find((x) => x.navKey === 'ai-avatar');
+  assert.ok(filaAvatar && !filaAvatar.oculta && filaAvatar.href === '/m/ai-avatar', 'AI Avatar sin su fila de More');
   for (const s of SECCIONES_CREACION) {
     assert.equal(s.oculta, true, `${s.id}: es una fila oculta (lib/movil-creacion.ts dice por qué)`);
     const pagina = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;
@@ -109,7 +110,7 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y A
   for (const p of ['app/m/video-editor/[proyecto]/page.tsx', 'app/m/image-editor/[diseno]/page.tsx']) {
     assert.match(leer(p), /requireMovil\(\{ navKey: '(video|image)-editor' \}\)/, p);
   }
-  // AI Avatar: escritorio la cierra con `requireAiAvatar` (sólo el super admin), y el teléfono con la misma pregunta.
+  // AI Avatar: escritorio la cierra con `requireAiAvatar` (la puerta de Pro), y el teléfono con la misma pregunta.
   assert.ok(leer('app/m/ai-avatar/puerta.ts').includes('veAiAvatar()'));
   const avatar: Record<string, string> = {
     // Una sola key desde el 29/10/2026 (AI Avatar sin secciones): las de las secciones ya no están en nav.ts, y una puerta con
@@ -122,9 +123,9 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y A
     assert.ok(src.includes(`requireMovil({ navKey: '${key}' })`), `${p}: sin su key`);
     assert.ok(src.includes('await requireAiAvatarM()'), `${p}: sin la puerta del super admin`);
   }
-  // Desde el 29/10/2026 AI Avatar es UNA pantalla (el estudio de Higgsfield): la base dibuja la cabecera, y las tres
-  // secciones de HeyGen redirigen a ella DESPUÉS de su puerta, con `rutaConWs` (un redirect('/m…') pelado no se traduce).
-  assert.ok(leer('app/m/ai-avatar/page.tsx').includes("<CabeceraM titulo=\"AI Avatar\" padre={{ href: RUTA_MAS, label: 'More' }} />"), 'la base sin su cabecera (no tiene fila)');
+  // Desde el 29/10/2026 AI Avatar es UNA pantalla (el estudio de Higgsfield), con su fila de More (la cabecera la pone el shell),
+  // y las tres secciones de HeyGen redirigen a ella DESPUÉS de su puerta, con `rutaConWs` (un redirect('/m…') pelado no se traduce).
+  assert.ok(!leer('app/m/ai-avatar/page.tsx').includes('<CabeceraM'), 'la base dibuja su cabecera Y la del shell (tiene fila)');
   for (const sub of ['avatares', 'voces', 'plantillas']) {
     const src = leer(`app/m/ai-avatar/${sub}/page.tsx`);
     assert.match(src, /redirect\(await rutaConWs\([^;]*\/m\/ai-avatar/, `${sub}: no redirige al estudio`);

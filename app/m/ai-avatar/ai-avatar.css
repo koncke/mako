@@ -130,6 +130,15 @@
 }
 .m-ai-avatar-toma__n { font-size: var(--fs-meta); color: var(--dim); }
 
+/* «Antes de generar»: los pasos de la persona, con su marca (hecho / número). */
+.m-ai-avatar-pasos { list-style: none; margin: 0 0 6px; padding: 0 4px; display: flex; flex-direction: column; gap: 10px; }
+.m-ai-avatar-paso { display: flex; gap: 10px; align-items: flex-start; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); }
+.m-ai-avatar-paso small { color: var(--dim); font-size: var(--fs-meta); }
+.m-ai-avatar-paso__marca { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border-strong); font-size: 12px; font-weight: 700; color: var(--dim); }
+.m-ai-avatar-paso--hecho { color: var(--dim); }
+.m-ai-avatar-paso--hecho b { font-weight: 500; text-decoration: line-through; }
+.m-ai-avatar-paso--hecho .m-ai-avatar-paso__marca { border-color: var(--good); background: var(--good); color: #fff; }
+
 /* Generando: el brillo que corre. */
 .m-ai-avatar-brillo { position: relative; overflow: hidden; }
 .m-ai-avatar-brillo::after {

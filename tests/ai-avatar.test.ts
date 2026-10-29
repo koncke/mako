@@ -29,6 +29,7 @@ import { PROMPT_IMAGEN } from '../lib/prompts-imagen';
 import { promptDelLook, limpiarDetalle, MAX_DETALLE } from '../lib/ai-avatar/prompt-look';
 import { videosDelLook, haceCuanto, segundosDeGuion, mezclarPorId } from '../lib/ai-avatar/proyectos';
 import { SIN_MOTOR, TONO_CATEGORIA } from '../lib/ai-avatar/estudio';
+import { CREDITOS, RUTA_INSTALAR, requisitosAvatar, type PuenteVisto } from '../lib/ai-avatar/requisitos';
 import { filtrarPresets, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import type { PlanGuardado } from '../app/video-generator/video-datos';
 
@@ -106,7 +107,12 @@ test('los looks no van al historial del Video Generator', () => {
 //   · la pastilla de Formato sin `sinMotor('formato')` → «toda pieza… SE VE».
 //   · (tras montarlo en PantallaCrear) el import de otra pantalla → «el diseño de Create» y crear-pantalla (24/2); usar un
 //     preset que llama a `generar(` → «el diseño de Create» (25/1); la page sin ESTILO_PAGINA_CREAR → ídem (25/1).
-//   · sacar el «Cómo conectarla» de la barra del video → «sin el puente, la barra dice CÓMO conectarlo» (19/1).
+//   · (para todos y el paso a paso, 29/10; cada rotura 38/1): «Conectar» dado por hecho → «antes de Generar… paso a paso»;
+//     sin <Requisitos> en la barra del video, o el teléfono con el ComputadoraM de antes → «el paso a paso se ve ARRIBA…»;
+//     'ai-avatar' otra vez en NAV_SOLO_PRO → «la puerta es la de toda tab, en los TRES planes»; la fila de /planes con
+//     `soloPro` → el de planes-tres-bloques.
+//   · (la apertura a Pro) `veAiAvatar` sin el chequeo del Esencial → «la puerta es la de Pro» (37/1); la capa de la plataforma
+//     sin 'ai-avatar' → ídem (37/1); TABS_TODAVIA_CERRADAS con 'ai-avatar' otra vez → el de /planes (37/1).
 //   · `quitarLook` sin chequear que el id estaba → «borrar… en POSITIVO».
 //   · `mezclarPorId` devolviendo sólo lo del server → «refrescar no se traga…».
 //   · `borrarLookAction` sin `puerta()` → «toda action… pasa por la puerta».
@@ -212,10 +218,59 @@ test('el diseño de Create: monta la pantalla única (chat de MaKo fijo y proyec
   }
 });
 
-test('sin el puente, la barra dice CÓMO conectarlo (no sólo que falta), en el look y en el video', () => {
+test('antes de «Generar», lo que es de la persona va paso a paso y en orden: extensión, conectar, Flow, foto', () => {
+  const puente = (estado: PuenteVisto['estado'], vivo = true, actualizada = true): PuenteVisto => ({ estado, vivo, actualizada });
+  const r = (pu: PuenteVisto, instalada: string | false | null, fotos = 1, para: 'avatar' | 'video' = 'avatar', enTelefono = false) =>
+    requisitosAvatar({ puente: pu, instalada, enTelefono, fotos, para });
+  const ids = (x: ReturnType<typeof r>) => x.pasos.map((p) => `${p.id}:${p.hecho ? 'si' : 'no'}`);
+  // Nada hecho: falta lo primero, instalarla, con el link a los pasos.
+  const nada = r(puente('sin_conectar'), false, 0);
+  assert.deepEqual(ids(nada), ['extension:no', 'conectar:no', 'flow:no', 'foto:no']);
+  assert.equal(nada.falta?.id, 'extension');
+  assert.equal(nada.falta?.enlace?.href, RUTA_INSTALAR);
+  // Instalada en este Chrome pero sin conectar: falta conectar.
+  assert.equal(r(puente('sin_conectar'), '0.74.3').falta?.id, 'conectar');
+  // Conectada con una versión vieja: aparece «Actualiza» y es lo que falta (no sabe poner la cara).
+  assert.equal(r(puente('listo', true, false), null).falta?.id, 'actualizar');
+  // Sin sesión de Google Flow: falta abrir Flow; marcada: lo dice; lista pero sin latir: lo dice.
+  assert.equal(r(puente('sin_sesion'), null).falta?.id, 'flow');
+  assert.match(r(puente('marcada'), null).falta!.ayuda, /Google pausó tu sesión de Flow/);
+  assert.match(r(puente('listo', false), null).falta!.ayuda, /dejó de responder/);
+  // Todo listo menos la foto: falta la foto. Todo listo: nada falta.
+  assert.equal(r(puente('listo'), null, 0).falta?.id, 'foto');
+  const listo = r(puente('listo'), null, 2);
+  assert.deepEqual([listo.listo, listo.falta], [true, null]);
+  // Para el video, la foto ya está en el avatar: no se pide. En el teléfono, se dice que es en la computadora.
+  assert.ok(!r(puente('listo'), null, 0, 'video').pasos.some((p) => p.id === 'foto'));
+  assert.match(r(puente('sin_conectar'), null, 0, 'avatar', true).pasos[0].titulo, /^En tu computadora/);
+  // Lo que cuesta, dicho antes: el avatar gratis, cada toma con créditos de SU Flow.
+  assert.match(CREDITOS, /no gasta créditos[\s\S]*créditos de tu cuenta de Google Flow/);
+});
+
+test('el paso a paso se ve ARRIBA de las dos barras (avatar y video), en la computadora y en el teléfono', () => {
   const escritorio = fuenteDe('app/ai-avatar/Estudio.tsx');
-  assert.match(escritorio, /href="\/extension\/instalar"/, 'sin el link a los pasos de la extensión');
-  assert.equal((escritorio.match(/\.puede && <EnlaceConectar \/>/g) ?? []).length, 2, 'el link en las dos barras (look y video)');
+  assert.match(escritorio, /\{!req\.listo && <Requisitos pasos=\{req\.pasos\} \/>\}/, 'la barra del avatar sin el paso a paso');
+  assert.match(escritorio, /\{p\.estado === 'listo' && !req\.listo && <Requisitos pasos=\{req\.pasos\} \/>\}/, 'la barra del video sin el paso a paso');
+  assert.match(escritorio, /`Antes de generar: \$\{req\.falta\.titulo\}\.`/, 'la línea de la barra no dice qué falta');
+  assert.match(escritorio, /requisitosAvatar\(\{ puente, instalada, enTelefono: false/, 'sin mirar si la extensión está en este Chrome');
+  const telefono = fuenteDe('app/m/ai-avatar/EstudioM.tsx');
+  assert.equal((telefono.match(/<RequisitosM pasos=/g) ?? []).length, 2, 'el teléfono sin el paso a paso en las dos pantallas');
+  assert.doesNotMatch(telefono, /ComputadoraM/, 'el teléfono volvió al aviso suelto');
+  // El servidor le da a la pantalla lo que necesita para decidir los pasos.
+  assert.match(fuenteDe('app/ai-avatar/actions.ts'), /export type EstadoPuenteAvatar = PuenteVisto & \{ puede: boolean; motivo: string \};/);
+});
+
+test('la puerta es la de toda tab, en los TRES planes: admin y la tab en su capa; la plataforma la conserva', () => {
+  const acceso = fuenteDe('app/ai-avatar/acceso.ts');
+  assert.doesNotMatch(acceso, /getSesionAdmin/, 'sigue cerrada al super admin');
+  // Martín, 29/10/2026: «haz que AI-Avatar esté disponible para todos». Ni en la lista de Pro ni con su candado.
+  assert.doesNotMatch(acceso, /esEsencialDeLaSesion|esNavSoloPro/, 'AI Avatar volvió a tener el candado de Pro');
+  assert.doesNotMatch(fuenteDe('lib/plan-esencial-reglas.ts'), /'ai-avatar'/, 'AI Avatar volvió a NAV_SOLO_PRO');
+  assert.doesNotMatch(fuenteDe('lib/topes-plan.ts').match(/export const TABS_SOLO_PRO = \[[^\]]*\]/)![0], /ai-avatar/, 'AI Avatar volvió a TABS_SOLO_PRO');
+  assert.match(acceso, /await requireRolWs\(\[\], \{ nav: 'ai-avatar' \}\);/, 'las pantallas sin la puerta de toda tab');
+  assert.match(acceso, /\(await getRolWsEfectivo\(\)\) !== 'admin'\) return false;/, 'las actions dejan pasar a quien no es admin');
+  // La capa de la plataforma tiene keys explícitas: sin la de AI Avatar, el super admin la perdía en su propio workspace.
+  assert.match(fuenteDe('lib/capas.ts'), /navKeys: \[[^\]]*'ai-avatar'[^\]]*\]/, 'la capa de la plataforma sin AI Avatar');
 });
 
 test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo si estaba', () => {

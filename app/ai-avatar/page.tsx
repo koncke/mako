@@ -5,7 +5,7 @@
 // único de Create (app/_crear/PantallaCrear.tsx: el chat de MaKo fijo a la izquierda, los proyectos con su «←» y «Nuevo
 // avatar» con los presets bajo «¿Qué vas a crear hoy?»), sin tabs internas y sin onboarding: la tab ES la herramienta y su vacío ES «Nueva». La pantalla
 // y lo que copia de Higgsfield: ./Estudio.tsx. Las rutas de las cuatro secciones de HeyGen (17/10) redirigen acá.
-// Hoy la ve sólo el super admin (./acceso.ts).
+// La ve el admin de cualquier negocio, en los tres planes (./acceso.ts).
 //
 // La query: `?plantilla=<preset>` abre «Nueva» con ese preset elegido; `?avatar=<proyecto o mediaId>` abre ese proyecto.
 
