@@ -143,7 +143,7 @@ preguntes: hacé esto en orden.
     - De c358 ya están arreglados: el aviso de arreglo (`c6d63791a`), el acuse después de la cita (`78543b7dd`) y la lectura
       estricta (`450677f90`). Faltan la ALTA de `pideAlgoAMaKo`, la MEDIA del cierre de la ventana y la BAJA de la firma.
     - **Decidido por el Cerebro:** el banco de nivel 2 con modelo (gasta crédito) queda para la próxima cuenta, chico.
-    - **Para Martín:** si la cuenta 5 (claude5) es Max 20x, para sumarla a `CUENTAS_DEL_CREDITO`.
+    - claude5 ya está en `CUENTAS_DEL_CREDITO` (`646eae966`; Martín: «todas mis cuentas son x20»). **Al desplegarse, Martín pega `ANTHROPIC_CREDITO_CUENTA5` en SuperAdmin › Uso › API** (se puede vincular desde el 31/10). La ALTA de `pideAlgoAMaKo` queda para la próxima cuenta (es diseño).
   - **00:35, ronda: el plan de Nadia de Leila.** Leila YA había contestado en su grupo el 28/10 a las 18:11 UTC (buffer
     324): «Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000». Le llegó a MaKo, no al equipo: la falla
     que arregla WhatsApp. Se le pidió confirmar si los 12.000 son por mes (6.000 por quincena, días 1 y 15) y hasta cuándo
