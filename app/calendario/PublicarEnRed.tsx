@@ -22,6 +22,7 @@ import { Select } from '@/app/_ui/Select';
 import { TextField } from '@/app/_ui/Field';
 import { useConfirm } from '@/app/_ui/Confirm';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import {
   cancelarPublicacionAction, guardarPublicacionAction, noQuedoProgramadaAction, programarAction, publicacionAction, resolverEnZernioAction,
   subidaArchivoAction,
@@ -190,7 +191,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
       {d.publicacion === 'dudosa' && (
         <>
           {/* Zernio no contestó: puede haberla creado. Reprogramar la duplicaría (la verificación del 28/10): primero se aclara. */}
-          <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{d.publicacion_motivo}</span>
+          <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{d.publicacion_motivo}<ReportarASoporte /></span>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="secondary" size="sm" loading={ocupado} onClick={() => void reintentar()}>Reintentar</Button>
             <Button variant="tertiary" size="sm" disabled={ocupado} onClick={() => void noQuedo()}>No quedó programada</Button>
@@ -200,7 +201,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
       )}
       {!bloqueada && d.publicacion !== 'publicada' && d.publicacion !== 'dudosa' && (
         <>
-          {d.publicacion === 'fallo' && d.publicacion_motivo && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No salió: {d.publicacion_motivo}</span>}
+          {d.publicacion === 'fallo' && d.publicacion_motivo && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No salió: {d.publicacion_motivo}<ReportarASoporte /></span>}
           {d.publicacion === null && d.publicacion_motivo && <span style={DIM}>{d.publicacion_motivo}</span>}
           {cuentas && !cuentas.ok ? (
             <span style={{ ...DIM, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -230,7 +231,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
             onClick={() => void programar()}>Programar</Button>
         </>
       )}
-      {error && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}</span>}
+      {error && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
       {confirmNode}
       {integracion.modal}
     </div>

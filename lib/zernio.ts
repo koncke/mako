@@ -416,13 +416,7 @@ const TIMEOUT_SEGUIMIENTO_MS = 8_000;
  * null = el negocio no tiene Zernio, y nadie se sabe.
  */
 async function keyDeSeguimiento(ws: number): Promise<string | null> {
-  // La MISMA key que todo el canal (`cfg`): la propia, o la de la plataforma si la presta (28/10/2026). Sin ninguna, null.
-  try {
-    return (await cfg(ws)).apiKey;
-  } catch (e) {
-    if (e instanceof ZernioError && e.status === 0 && e.message === 'Zernio no está configurado') return null;
-    throw e;
-  }
+  return credDelClienteEstricta('ZERNIO_API_KEY', ws);
 }
 
 /** Un GET /accounts/{id}/follow-status/{igsid}, sin pasar por alto la caché de Zernio (`refresh=false`). */
