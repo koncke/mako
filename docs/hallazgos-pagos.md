@@ -1554,7 +1554,8 @@ tests/api-mako-plan-tramos.test.ts, con su entrada.
   prometía los US$800 y el «sí» no creaba nada. En la ficha el campo dice «Cobrado» y no se edita: sólo pasaba por la API.
 - **Una diferencia hereda la moneda de su cuota (N3, mig 0347).** `cobrar_cuota_con_resto` (0318, 0323) insertaba la diferencia
   sólo en dólares: MXN 6.000 de una cuota de 12.000 quedaban «US$ 300», y el recordatorio, el link y «Marcar pagada» le pedían
-  dólares a quien paga en pesos. La 0347 redefine el cuerpo con la misma firma (sin orden de despliegue): lee la moneda pactada
+  dólares a quien paga en pesos. La 0347 (APLICADA el 29/10/2026 por el Cerebro, con el sí de Martín) redefine el cuerpo con la
+  misma firma (sin orden de despliegue): lee la moneda pactada
   ANTES de la toma, que la pisa con la del cobro.
 - B6: dos «sí» a la vez no duplican (el índice único frena el segundo), pero el segundo contestaba el error crudo de la base;
   ahora lo dice en palabras. B7: «Las cuota del plan…» → «La cuota del plan ya está cobrada».
@@ -1565,8 +1566,6 @@ tests/api-mako-plan-tramos.test.ts, con su entrada.
   tareas del Plan. Antes de entregar una operación del chat, se corren también los tests de presupuesto de las frases de otros.
 
 **Sin hacer:**
-- La 0347 NO está aplicada: va al Cerebro, y se aplica con el sí de Martín. Hasta entonces la diferencia sigue naciendo en dólares
-  (el código no cambia, así que no hay orden de despliegue).
 - `faltaParaConfirmar` lee y después `ejecutar` escribe: un cambio en ese instante lo frena recién `guardarPlanPorTramos`, que ya
   consumió la pendiente.
 
