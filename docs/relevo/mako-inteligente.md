@@ -1,6 +1,6 @@
 # Relevo — MaKo inteligente: recomendaciones reales y Second Brain (cuenta claude4)
 
-Rama `mako-inteligente-2710-c4`, worktree `C:/dev/wt-mako-inteligente-c4`. Al día: 28/10/2026, 21:55 (hora de Argentina). La cuenta claude4 pasó el 85 % semanal (87 % a las 21:53).
+Rama `mako-inteligente-2710-c4`, worktree `C:/dev/wt-mako-inteligente-c4`. Al día: 28/10/2026, 22:25 (hora de Argentina). La cuenta claude4 pasó el 85 % semanal (89 % a las 22:20).
 Lo que sube a main lo junta y lo sube el Cerebro; cada entrega va por SendMessage como «VERDE <sha>» con la lista de .ts.
 
 ## Lo pedido, con sus palabras
@@ -22,14 +22,11 @@ Lo que sube a main lo junta y lo sube el Cerebro; cada entrega va por SendMessag
 | El catálogo de las funciones (lib/funciones-mako.ts), su capa del grafo y `grafoParaChat` | c272b97dd, 5402e7043, 0c80dd3ce | en main (tren-v) |
 | La verificación de 0c80dd3ce (lo del super admin, la caché) y el Web Generator con la función que vende | 220a80af6, 3d73a2ea0, c659dc0f4 | en main (tren-v, 23b329b5e) |
 | El turno de MaKo trae del Second Brain lo que nombra la pregunta, sin la plata para closers y setters | 809887ac9 … b2c19c445 | VERDE enviado al Cerebro (28/10, 21:35): falta su verificación |
+| En la plataforma, las funciones entran al turno sólo en una pregunta de producto («meta» ya no trae Ads Manager; 588 → 359 tokens) | cfab5c33a | VERDE enviado al Cerebro (28/10, 22:25): falta su verificación |
 
 ## A medias
 
-- **El ruido de «meta» en el turno de la plataforma** (la crítica C3 del relevamiento): la capa de las funciones entra sólo en
-  una pregunta de producto (`esPreguntaDeProducto` y `sinFunciones` en lib/cerebro-funciones.ts, usadas en `paqueteParaElTurno`
-  de lib/cerebro-para-chat.ts). Hecho y sin commitear en el worktree: el test 4 de tests/second-brain-turno.test.ts (7 roturas,
-  las 7 en rojo), la medición (scripts/medir-recuperacion.ts) y la cosecha (docs/hallazgos-second-brain.md). tsc-acotado limpio;
-  falta que termine tests-afectados `--base HEAD --rapido`, commitear por ruta y mandar el VERDE.
+- Nada: lo último (cfab5c33a) está commiteado y entregado.
 - **La medición del turno** (ws 9, datos reales, 28/10, 21:40): con el filtro suma 359 tokens de promedio (7 de 9 preguntas
   traen algo; antes 588) contra 1.256 del grafo entero. «¿Cuál es mi meta del trimestre?» ya no trae nada (antes Ads Manager);
   «¿qué no hace la bandeja?» sigue trayendo sólo Chats (373).
