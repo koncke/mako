@@ -120,7 +120,10 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
   const out: Revision = { revisados: 0, cortados: [], reabiertos: [], soltados: [], postergados: [], noCortados: [], errores: 0, enSeco, pasos: [] };
-  if (!CORTE_DE_ACCESO_PRENDIDO) return out; // apagado (lib/plan-acceso-reglas.ts): no lee ni escribe nada
+  // Apagado (lib/plan-acceso-reglas.ts): no corta a nadie. Sólo mira las cuentas que su agencia dio de baja (el corte
+  // `sin-agencia`, que vale igual: lib/workspace.ts → negocioPausado), para reabrirlas cuando pagan su propio plan.
+  const sinAgencia = CORTE_DE_ACCESO_PRENDIDO ? null : await cuentasSinAgencia(opts.soloWs);
+  if (sinAgencia && !sinAgencia.size) return out;
 
   const cobros = await cobrosDeLugares(plataforma, opts.soloWs);
   const porWs = new Map<number, FilaCobroLugar[]>();
@@ -128,6 +131,7 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
     const ws = Number(c.alta_ws ?? c.cliente_ws);
     if (!Number.isFinite(ws) || ws === plataforma) continue;
     if (opts.soloWs != null && ws !== opts.soloWs) continue;
+    if (sinAgencia && !sinAgencia.has(ws)) continue;
     porWs.set(ws, [...(porWs.get(ws) ?? []), c]);
   }
   if (!porWs.size) return out;
@@ -150,11 +154,16 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
     const estado = estados.get(ws);
     if (estado !== 'activo' && estado !== 'pausado') continue; // borrado, o un estado que no es de esto
     out.revisados++;
-    const v = vigenciaDelLugar(suyos, pagos, ahoraMs, pausas.get(ws) ?? []);
     const corte = cortes.get(ws) ?? null;
+    // Con SUS cobros (29/10/2026, revisión de plata, hallazgos 1 y 9): la cuenta que una agencia soltó, o el ex cliente que ya
+    // paga su plan, no queda cubierta por lo que pagó la agencia (`cliente_ws`), ni medida con las reglas de agencia.
+    const propios = suyos.filter((c) => Number(c.alta_ws) === ws && c.cliente_ws == null);
+    const deEl = corte?.motivo === 'sin-agencia' || propios.some((c) => c.tipo === 'suscripcion') ? propios : suyos;
+    const v = vigenciaDelLugar(deEl, pagos, ahoraMs, pausas.get(ws) ?? []);
     const paso = pasoDeAcceso(v, estado, corte);
     out.pasos.push({ ws, paso: paso.tipo, vigencia: describir(v) });
     if (paso.tipo === 'nada') continue;
+    if (sinAgencia && paso.tipo === 'cortar') continue; // apagado: el cobro no corta a nadie
     if (paso.tipo === 'cortar' && out.cortados.length >= TOPE_POR_CORRIDA) { out.postergados.push(ws); continue; }
     // ⚠️ ANTES DE PAUSAR POR IMPAGO, la pasarela (un aviso de renovación perdido no deja afuera a quien pagó).
     if (paso.tipo === 'cortar' && paso.corte.motivo === 'impago') {
@@ -218,6 +227,20 @@ async function reabrir(ws: number, c: CorteGuardado): Promise<boolean> {
   await guardarCorte(ws, { ...c, vigente: false });
   if (data?.length) console.log(`[plan-acceso] ws=${ws} REABIERTO: volvió a estar al día (el corte era del cobro ${c.cobroId})`);
   return !!data?.length;
+}
+
+/** Las cuentas con el corte `sin-agencia` vigente (lib/agencia-baja.ts): lo único que se revisa con el corte general apagado. */
+async function cuentasSinAgencia(soloWs?: number): Promise<Set<number>> {
+  let q = getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', CLAVE_CORTE);
+  if (soloWs != null) q = q.eq('workspace_id', soloWs);
+  const { data, error } = await q.limit(5000);
+  if (error) throw new Error(`No pude leer los cortes guardados: ${error.message}`);
+  const out = new Set<number>();
+  for (const r of (data ?? []) as Array<{ workspace_id: number; value: string }>) {
+    const c = leerCorte(r.value);
+    if (c?.motivo === 'sin-agencia' && c.vigente) out.add(Number(r.workspace_id));
+  }
+  return out;
 }
 
 /** El corte guardado de un negocio (para la pantalla de /cuenta-pausada). null si no hay, o si no se pudo leer. */

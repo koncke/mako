@@ -376,3 +376,24 @@ cookie de un código muerto en /r todavía tapa el link del partner vigente (pre
 app/m/partners/ReferidosM.tsx · lib/partners-reglas.ts (`codigoNuevoValido`) · lib/partners-programa.ts
 (`cambiarCodigoPartner`, `codigoVigente`) · app/r/[codigo]/route.ts · supabase/migrations/0341_partner_codigo_editable.sql ·
 lib/api-mako/areas/negocio.* · tests/partners-recursos.test.ts · tests/partners-codigo-editable.test.ts.
+
+## Cualquier plan es partner, el cliente de una agencia no lo ve, y el código en la venta a mano (29/10/2026)
+
+La llamada con Thiago (docs/promesas/2910-llamada-thiago.md, *(Planes y Partners)*). Chat «Suscripción y Partners», cuenta 3.
+
+- **Lo publicado y el código decían cosas distintas.** Desde el 27/10 hacerse partner era sólo de MaKo Pro, pero las
+  landings dicen «gratis» y «cualquier plan». Gana lo publicado: `FUNCIONES_SOLO_PRO` queda en `['scraper-whatsapp']`, sin
+  candado en `hacermePartner`, `hacerme_partner` (API) ni /partners, y /planes lo muestra en las dos columnas. Quien ya era
+  partner no cambia.
+- **El cliente de una agencia no ve el programa** (Thiago: «yo no me meto con ese cliente»). No aparece en la barra (la marca
+  `noParaClienteDeAgencia`; el dato lo da /api/auth/me desde `agenciaDeCliente`, nunca la URL). /partners y /m/partners
+  vuelven al inicio, y «Tu plan» no muestra «Recomienda MaKo». Tampoco se hace partner por la API: `hacermePartner` lo
+  rechaza (revisión de plata, hallazgo 13: sólo estaba escondido en pantalla). En el teléfono la entrada ya estaba `oculta`.
+- **El código en la venta a mano** (/admin/cobros «Vender un plan» y `vender_plan_mako`, el parámetro `codigoPartner`): se
+  limpia como el de /r/<código> (`codigoRefLimpio`) y tiene que ser de un partner (`esCodigoDePartner`, el mismo que el
+  carrito: vale un código que el partner dejó y no vale la plataforma). Se pregunta ANTES de devolver un link que ya existía,
+  y ese link lo recibe si no tenía uno; sin poder guardarlo, el link nuevo se anula y se dice.
+- **Trampa: el partner ganaba lo COBRADO, no el precio de lista** (revisión de plata, hallazgo 6). `precioDeListaPorMes`
+  usa `plan_mako`, y la venta a mano nunca lo escribía: caía a `monto_usd / meses`, así que un pago único de US$1.500 o un
+  precio especial se acreditaba entero. Ahora la venta anota el plan del catálogo (`planVendido`): el de esa capa con ese
+  precio por mes y, si no coincide ninguno, el más barato de la capa, para que un partner nunca gane más que la lista.

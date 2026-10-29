@@ -31,6 +31,7 @@ import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
 import { ModalNuevoCliente } from './NuevoCliente';
 import { PlantillaDeModelo } from './PlantillaDeModelo';
 import { DarDeBaja } from './DarDeBaja';
+import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
 import { cambiarPlanClienteAction } from './actions';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
@@ -112,7 +113,10 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
 
   const cerrarFicha = useCallback(() => setAbiertaWs(null), []);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // Con confirmación (29/10/2026, revisión de plata): subir con tarjeta cobra la diferencia hoy, y el plan se cambia una vez cada 30 días.
+  const [planAConfirmar, setPlanAConfirmar] = useState<{ ws: number; plan: 'esencial' | 'pro'; nombre: string } | null>(null);
   const cambiarPlan = async (ws: number, plan: 'esencial' | 'pro') => {
+    setPlanAConfirmar(null);
     setCambiandoPlan(true);
     const r = await cambiarPlanClienteAction(ws, plan).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
     setCambiandoPlan(false);
@@ -242,6 +246,15 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
         </>
       )}
 
+      {planAConfirmar && (
+        <ConfirmDialog titulo={`¿Pasar ${planAConfirmar.nombre} a MaKo ${planAConfirmar.plan === 'pro' ? 'Pro' : 'Esencial'}?`}
+          detalle={planAConfirmar.plan === 'pro'
+            ? 'Tiene Pro en el acto. Con tarjeta se cobra hoy la diferencia de este mes; con Mercado Pago, el precio de Pro corre desde el próximo cobro. El plan se puede volver a cambiar en 30 días.'
+            : 'Pasa a Esencial en el acto, con sus topes, y desde el próximo cobro se cobra el precio de Esencial. El plan se puede volver a cambiar en 30 días.'}
+          confirmLabel={planAConfirmar.plan === 'pro' ? 'Pasar a Pro' : 'Pasar a Esencial'}
+          onCancel={() => setPlanAConfirmar(null)} onConfirm={() => void cambiarPlan(planAConfirmar.ws, planAConfirmar.plan)} />
+      )}
+
       {abierta && (
         <Modal titulo={abierta.nombre} encabezado="Cuenta de MaKo" ancho={620} onCerrar={cerrarFicha}
           pie={<span className="ad-fila-acc">{accionDe(abierta)}</span>}>
@@ -254,7 +267,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                 {/* Cambiar el plan (29/10/2026, lib/agencia-plan.ts): la agencia, con la cuenta no dada de baja. */}
                 {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && (
                   <button type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
-                    onClick={() => void cambiarPlan(abierta.ws, abierta.planId === 'pro' ? 'esencial' : 'pro')}>
+                    onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: abierta.planId === 'pro' ? 'esencial' : 'pro', nombre: abierta.nombre })}>
                     {cambiandoPlan ? 'Cambiando…' : abierta.planId === 'pro' ? 'Pasar a Esencial' : 'Pasar a Pro'}
                   </button>
                 )}

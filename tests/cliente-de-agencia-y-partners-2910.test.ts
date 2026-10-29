@@ -79,9 +79,10 @@ test('la venta a mano: el código de partner se limpia, uno mal escrito se frena
 test('la venta a mano: el código tiene que ser de un partner, y queda en el cobro (pantalla y API)', () => {
   const v = fuente('lib/vender-plan.ts');
   const chequeo = v.indexOf('if (venta.refCodigo && !(await esCodigoDePartner(venta.refCodigo))) return { ok: false');
+  const abierto = v.indexOf('const abierto = await cobroAbiertoDelPlan(');
   const cobro = v.indexOf('const r = await crearCobro(ws, {');
-  const guarda = v.indexOf(".from('cobros').update({ ref_codigo: venta.refCodigo }).eq('id', r.cobro.id).eq('workspace_id', ws)");
-  assert.ok(chequeo > 0 && cobro > chequeo, 'se pregunta ANTES de crear el cobro');
+  const guarda = v.indexOf('...(venta.refCodigo ? { ref_codigo: venta.refCodigo } : {})', cobro);
+  assert.ok(chequeo > 0 && abierto > chequeo && cobro > abierto, 'se pregunta ANTES del link que ya existe y de crear el cobro');
   assert.ok(guarda > cobro, 'y se guarda en el cobro que se creó');
   assert.match(fuente('app/admin/cobros/VenderPlan.tsx'), /refCodigo: refCodigo\.trim\(\) \|\| null/);
   assert.match(fuente('lib/api-mako/areas/cobros.def.ts'), /nombre: 'codigoPartner', rotulo: 'Código de partner', tipo: 'string'/);

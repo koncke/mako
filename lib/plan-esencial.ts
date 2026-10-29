@@ -32,7 +32,15 @@ export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promi
       .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)
       .order('pagado_at', { ascending: false, nullsFirst: false }).order('id', { ascending: false }).limit(1).maybeSingle();
     if (error) throw new Error(error.message);
-    const capaVendida = (data as { alta_capa?: string | null } | null)?.alta_capa ?? null;
+    let capaVendida = (data as { alta_capa?: string | null } | null)?.alta_capa ?? null;
+    // LA CUENTA DE UNA AGENCIA (29/10/2026, revisión de plata, hallazgo 4): la paga su agencia, no tiene suscripción propia, y
+    // su plan ES su capa (lib/agencia-cobro-reglas.ts, `CAPA_DE_PLAN`). Sin esto, el Esencial de US$47 tenía las tabs de Pro,
+    // las automatizaciones sin tope, el piloto automático y el scraper. La misma cartera que `aplicanTopes` (lib/topes-plan-server.ts).
+    if (!capaVendida) {
+      const { data: cart, error: eCart } = await getSupabaseServer().from('agencia_clientes').select('cliente_ws').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
+      if (eCart) throw new Error(eCart.message);
+      if (cart?.length) capaVendida = capa ?? null;
+    }
     return esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida });
   } catch (e) {
     console.warn(`[plan-esencial] no pude leer el plan del negocio ${ws}; sin candado:`, e instanceof Error ? e.message : String(e));

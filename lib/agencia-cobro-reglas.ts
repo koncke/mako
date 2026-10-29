@@ -168,3 +168,59 @@ export const DIAS_ANTES_RENOVACION_STRIPE = 5;
 
 /** ¿Ya se abre la renovación por Stripe? (MP la crea al terminar el onboarding con su `start_date`.) */
 export const abreRenovacionStripe = (inicioIso: string, ahoraMs: number): boolean => ahoraMs >= Date.parse(inicioIso) - DIAS_ANTES_RENOVACION_STRIPE * 86_400_000;
+
+// =============================================================================
+// DAR DE BAJA (29/10/2026, lib/agencia-baja.ts): qué se hace con cada cobro, y hasta cuándo pagó el cliente
+// =============================================================================
+
+export type CobroEnLaBaja = { tipo: 'unico' | 'suscripcion'; estado: string; suscripcion_estado: string | null; pagado_at: string | null };
+
+/**
+ * Qué se hace con un cobro de la cuenta al darla de baja:
+ *   · `cancelar`: una suscripción VIVA en la pasarela (`suscripcion_estado: 'activa'`), pagada, autorizada sin cobrar, fallida o
+ *     con el primer pago devuelto. Todas siguen cobrando (revisión de plata, hallazgo 3: el filtro viejo salteaba la devuelta, y
+ *     la autorizada iba por `anularCobro`, que se traga el error de la pasarela).
+ *   · `pasar`: la misma, si la paga el CLIENTE: es su tarjeta y su plan; pasa a ser suyo (`alta_ws`) en vez de cortarse
+ *     (hallazgo 5: se le cancelaba lo que ya había pagado).
+ *   · `anular`: un link que todavía no se pagó ni se autorizó.
+ *   · null: lo cobrado y lo cerrado, que no se toca.
+ */
+export function queHacerEnLaBaja(c: CobroEnLaBaja, pagaCliente: boolean): 'cancelar' | 'pasar' | 'anular' | null {
+  if (c.tipo === 'suscripcion' && c.suscripcion_estado === 'activa') return pagaCliente ? 'pasar' : 'cancelar';
+  if ((c.estado === 'pendiente' || c.estado === 'fallido') && c.suscripcion_estado !== 'cancelada') return 'anular';
+  return null;
+}
+
+/**
+ * Hasta cuándo usa la cuenta quien la pagaba él mismo y se queda sin la agencia (hallazgo 5): el fin del último mes que pagó.
+ * El primer mes corre desde que terminó el onboarding (`desdeDelMes`), como la renovación; lo demás, desde el pago. null =
+ * no pagó nada.
+ */
+export function finDeLoQuePago(cobros: readonly CobroEnLaBaja[], onboardingCompletoAt: string | null): string | null {
+  let fin: string | null = null;
+  for (const c of cobros) {
+    if (c.estado !== 'pagado' || !c.pagado_at) continue;
+    const desde = c.tipo === 'unico' ? desdeDelMes({ onboardingCompletoAt, pagadoAt: c.pagado_at }) ?? c.pagado_at : c.pagado_at;
+    const hasta = unMesDespues(desde);
+    if (!fin || hasta > fin) fin = hasta;
+  }
+  return fin;
+}
+
+// =============================================================================
+// CAMBIAR EL PLAN (29/10/2026, lib/agencia-plan.ts): un cambio cada 30 días
+// =============================================================================
+// Mercado Pago no prorratea: pasar a Pro da el acceso en el acto y el precio corre desde el próximo cobro. Sin un intervalo,
+// ir a Pro después de cada cobro y volver a Esencial antes del siguiente usaba Pro pagando Esencial (revisión de plata,
+// hallazgo 2a). Se guarda en la cuenta del CLIENTE, como quién paga.
+
+export const KEY_PLAN_CAMBIADO = 'agency.plan_cambiado';
+export const DIAS_ENTRE_CAMBIOS_DE_PLAN = 30;
+
+/** Desde cuándo se puede volver a cambiar el plan, o null si ya se puede (nunca se cambió, o pasaron los 30 días). */
+export function proximoCambioDePlan(ultimoAt: string | null | undefined, ahoraMs: number): string | null {
+  const t = ultimoAt ? Date.parse(ultimoAt) : NaN;
+  if (!Number.isFinite(t)) return null;
+  const desde = t + DIAS_ENTRE_CAMBIOS_DE_PLAN * 24 * 3600_000;
+  return ahoraMs < desde ? new Date(desde).toISOString() : null;
+}

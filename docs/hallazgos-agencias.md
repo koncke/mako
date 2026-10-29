@@ -62,6 +62,7 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 - **«MaKo no les intentará hacer upsells» a los clientes de una agencia:** /agency ya no se les muestra, pero siguen
   viendo los avisos de tope con «Pasar a Pro» (`lib/topes-plan.ts`, `app/crm/PasarAPro.tsx` y los demás que usan
   `textoTope`), la fila de MaKo Partners y el cartel de la prueba. Falta un `esClienteDeAgencia` que los apague.
+  → 29/10: MaKo Partners, «Recomienda MaKo», «Tu plan» y los candados de la barra ya no; los carteles de tope siguen (abajo).
 - **Cambiar quién paga una cuenta ya abierta:** hoy se elige sólo al abrirla.
 - **Código muerto de Partners** (lo limpia Planes, que reescribió /partners y /m/partners): `PartnersApp` (la parte de
   la agencia), `LlevarAPartners.tsx` y `app/m/partners/PartnersM.tsx`. Ojo: `app/partners/EquipoDeCuenta.tsx` NO está
@@ -117,3 +118,73 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
   archivó no se le revive (`conHojaDeModelo`).
 - **Lo que pidió Joan y queda afuera de la plantilla:** el WhatsApp único al inmobiliario cuando entra un formulario (es
   una automatización) y el filtro por creativo.
+
+## Lo prometido a Thiago: dar de baja, el plan de cada cuenta y el cobro por país (29/10/2026)
+
+La llamada con Thiago (agencia de España, 27 clientes; reunión del 5/11): docs/promesas/2910-llamada-thiago.md, lo marcado
+*(Agency)* y *(Planes y Partners)*. Chat «Suscripción y Partners», cuenta 3. Pasó una revisión adversarial de plata (un
+revisor sobre el commit 33c131f6b, 13 hallazgos); lo que se arregló lo fija tests/revision-plata-agency-2910.test.ts.
+
+- **«Dar de baja» no borra nada ni deja la cuenta gratis** (`darDeBajaClienteDeAgencia`, lib/agencia-baja.ts). Primero la
+  plata: se cancela en la pasarela TODA suscripción viva de esa cuenta (`suscripcion_estado: 'activa'`: la pagada, la
+  autorizada sin cobrar, la fallida y la del primer pago devuelto) y se anula lo que todavía se podía pagar. Si algo falla,
+  se frena ahí. Después se revoca la cartera (eso corta «Inspeccionar»: `puedeEntrar` sólo mira `aprobado`), se pausa la
+  cuenta y se avisa. La regla, pura: `queHacerEnLaBaja` (lib/agencia-cobro-reglas.ts).
+- **El diagnóstico obvio era el equivocado: «la baja pausa la cuenta».** La baja escribía `workspaces.estado = 'pausado'`,
+  pero con el corte por pago APAGADO (`CORTE_DE_ACCESO_PRENDIDO = false`) `negocioPausado` no mira ese estado: toda cuenta
+  dada de baja seguía usando MaKo gratis, completa y ahora sin topes. El corte `sin-agencia` vale aunque el general esté
+  apagado (lib/workspace.ts), y con el general apagado el cron sólo mira esas cuentas, para reabrirlas (lib/plan-acceso.ts).
+- **Trampa: la cuenta soltada se reabría con el mes que había pagado la agencia.** La vigencia se mide con TODOS los cobros
+  del lugar, y los de la agencia (`cliente_ws`) la daban al día hasta fin de mes. El primer arreglo («`sin-agencia` sólo se
+  levanta con la vigencia al día») no alcanzaba: estaba al día por la agencia. Ahora la vigencia de esa cuenta (y la de un ex
+  cliente que ya paga su plan) sale sólo de SUS cobros (`alta_ws` y sin `cliente_ws`).
+- **Si la cuenta la pagaba el CLIENTE, la baja no le corta su plan.** Su suscripción viva pasa a ser suya (`alta_ws`, sin
+  `agencia_ws` ni `cliente_ws`) y la cuenta sigue abierta. Si sólo había pagado el primer mes, el corte vale recién al fin de
+  ese mes (`finDeLoQuePago`; el `desde` del corte lo respeta `negocioPausado`). Antes se le cancelaba lo que había pagado y
+  se le cobraba otro mes entero desde ese día.
+- **Reactivar no tenía de dónde partir:** `reactivarPlan` arma el cobro sobre el último plan del negocio, y el cliente de
+  una agencia nunca tuvo uno. `primerPlanPropio` (lib/compra-plan.ts) le arma la suscripción con el plan de su capa, con la
+  pasarela de SU país (`pasarelasDelPais`), y SÓLO si ya no tiene agencia: con la agencia pagando, MaKo cobraba dos veces.
+- **El plan de cada cuenta ES su capa** (`CAPA_DE_PLAN`: Esencial → `completo`, Pro → `agencia`). Cambiarlo
+  (`cambiarPlanDeCliente`, lib/agencia-plan.ts) toca la pasarela primero y la capa al final.
+- **Trampa: «se puede tener Pro pagando Esencial».** Con el precio nuevo desde el próximo cobro, pasar a Pro después de cada
+  cobro y volver antes del siguiente pagaba siempre 47. En Stripe, subir cobra la diferencia en el acto (`subirPlanStripe`,
+  `error_if_incomplete`). Mercado Pago no prorratea: un cambio cada 30 días (`proximoCambioDePlan`, en la cuenta del cliente).
+  El link del primer mes sin pagar se rehace con el precio nuevo (`rehacerPrimerMes`: primero el nuevo, después se anula el
+  viejo). Y el plan tiene que tener precio en la moneda de la cuenta ANTES de tocar nada (`precioDelPlanEn`): la renovación
+  caía al monto del primer mes, que era el del plan viejo.
+- **Trampa de la pasarela: la misma clave de idempotencia devuelve la respuesta GUARDADA.** `mako-plan-agencia-<cobro>-<plan>`
+  se repetía al ir y volver en 24 h, y Stripe contestaba el «→Pro» anterior sin aplicarlo, con la base diciendo 97. La clave
+  lleva el día.
+- **El diagnóstico obvio era el equivocado: «los topes ya corren, son los del plan».** Todos los topes, y los candados de
+  Pro (`esEsencialDe`: las tabs de Pro, las automatizaciones, el piloto automático, el scraper), preguntaban por la suscripción
+  PROPIA, y la cuenta de una agencia no tiene. El Esencial de US$47 tenía todo Pro. Ahora `aplicanTopes`
+  (lib/topes-plan-server.ts) y `esEsencialDe` (lib/plan-esencial.ts) miran también la cartera no revocada. El candado del
+  cliente de una agencia dice «De MaKo Pro», sin «Pasar a Pro».
+- **Cobro por país** (`cobroDeLaCuenta`, lib/agencia-cobro-reglas.ts): para España no salía ningún link (sólo cobraba Mercado
+  Pago en pesos). Mercado Pago, sólo en el país de su cuenta; afuera, Stripe, en EUR en la zona euro si el plan tiene precio en
+  EUR y si no en USD; sin país, Stripe primero.
+- **Trampa: la zona por defecto inventa el país.** Sin encabezado (la API), el país salía de la zona del negocio, y
+  `zonaDelNegocio` nunca falla: sin zona guardada devuelve America/Tijuana, que es México. Sólo cuenta la zona GUARDADA
+  (`zonaDelNegocioDetalle().guardada`).
+- **Trampa de Stripe: no deja diferir el primer cobro sin un trial**, y el trial da una factura de US$ 0 que se asentaría como
+  un cobro. Mercado Pago sí difiere (`start_date`). La renovación de Stripe se ABRE 5 días antes del vencimiento
+  (`DIAS_ANTES_RENOVACION_STRIPE`) con su `inicio_at`; si no se puede anotar, se anula (sin él nunca cortaba). El cron relee
+  la cartera antes de crear cada renovación, y sin poder leer las dadas de baja no renueva a nadie.
+
+### Lo que quedó SIN hacer (29/10)
+
+- **Los carteles de tope dicen «Pasa a MaKo Pro» y llevan un link «Pasar a Pro» también al cliente de una agencia**, que
+  ahora tiene topes. Viven en pantallas de otras áreas: app/crm/PasarAPro.tsx (CRM: tablero, barra y alta a mano),
+  app/crm/TraerDeGrupoWA.tsx (el candado del scraper), app/whatsapp/EvolutionConnect.tsx, app/equipo/EquipoView.tsx,
+  app/m/configuraciones/equipo/EquipoM.tsx, app/web-generator/editor/dialogos/DialogoPublicar.tsx y
+  app/integraciones/CuentasDePago.tsx. Adonde llevan («Tu plan») ya dice «Lo maneja tu agencia». Propuesta: el dato ya está
+  en /api/auth/me (`clienteDeAgencia`). Con él se esconde el link y el texto pasa a «pídele a tu agencia que te pase a Pro».
+- **La renovación de Stripe abierta 5 días antes** (revisión, hallazgo 10): si la agencia la paga apenas se abre, paga esos
+  5 días dos veces; si la paga tarde, el ancla de Stripe se corre y esos días quedan regalados. Es el costo del diseño sin trial.
+- **Con Mercado Pago, subir a Pro regala el resto del mes en curso** (el precio corre desde el próximo cobro). Los 30 días
+  entre cambios lo limitan a una vez cada dos meses, como mucho.
+- **PLAUSIBLE, no seguido:** si la agencia tiene gente suya dada de alta en el equipo de la cuenta del cliente, esa gente
+  sigue entrando cuando la cuenta queda abierta (la que pagaba el cliente).
+- El teléfono abre la cuenta sin elegir plan (queda en Esencial) y no lo cambia. La API tampoco tiene «cambiar el plan».
+- El precio en EUR no tiene pantalla: /admin/cobros edita sólo la moneda de Mercado Pago, y sin él España paga en USD.

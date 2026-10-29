@@ -334,7 +334,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
  * nueva atada a SU negocio (`alta_ws`, sin `alta_capa`: no crea otra cuenta). Con deuda, primero la deuda
  * (lib/plan-deuda.ts): quien llama lo decide con `pagarDeuda`.
  */
-export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null }): Promise<ResultadoCompra> {
+export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null; pais?: string | null }): Promise<ResultadoCompra> {
   const plataforma = await wsSuperAdmin();
   if (ws === plataforma) return { ok: false, status: 400, error: 'La cuenta de MaKo no tiene plan.' };
   const db = getSupabaseServer();
@@ -401,9 +401,14 @@ export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | '
  * no Esencial), con la pasarela con que la cobraba su agencia si sigue conectada y tiene precio en esa moneda (si no, la que
  * sirva). El cobro es de SU ficha en el CRM de MaKo (por su email, nunca la de la agencia) y nace atado a su negocio.
  */
-async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null }, propios: readonly Cobro[]): Promise<ResultadoCompra> {
+async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, propios: readonly Cobro[]): Promise<ResultadoCompra> {
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
+  // Sólo la cuenta que ya NO tiene agencia (revisión de plata, hallazgo 7): con la agencia pagándola, un plan propio la
+  // cobraba dos veces (la renovación de la agencia seguía). La agencia la suelta con «Dar de baja» (lib/agencia-baja.ts).
+  const { data: cart, error: eCart } = await db.from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
+  if (eCart) return { ok: false, status: 503, error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' };
+  if (cart?.length) return { ok: false, status: 409, error: 'Tu cuenta la maneja tu agencia: tu plan lo cambia ella.' };
   const desde = new Date(Date.now() - 23 * 3600_000).toISOString();
   const vivo = propios.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pendiente' || c.estado === 'fallido') && c.created_at >= desde && c.creado_por === `reactivar:${ws}`);
   if (vivo) return { ok: true, link: linkDelCobro(vivo.token) };
@@ -414,8 +419,9 @@ async function primerPlanPropio(ws: number, p: { email: string; nombre: string |
   const capa = (w as { capa?: string } | null)?.capa;
   const plan = (await planesMako()).find((x) => x.id === (capa === 'agencia' ? 'pro' : 'esencial'));
   if (!plan) return { ok: false, status: 404, error: 'No encontramos tu plan: escríbenos y lo activamos.' };
-  const opciones = (await monedasDeLaPlataforma(plataforma)).filter((m) => !m.prueba).map((m) => ({ ...m, monto: precioEn(plan, m.moneda) }))
-    .filter((x): x is { pasarela: Pasarela; moneda: string; prueba: boolean; monto: number } => x.monto != null);
+  // Con la pasarela de SU país (hallazgo 7): la de la agencia era de otro país, y Mercado Pago rechaza a quien no es del suyo.
+  const opciones = pasarelasDelPais(p.pais ?? null, (await monedasDeLaPlataforma(plataforma)).filter((m) => !m.prueba).map((m) => ({ ...m, monto: precioEn(plan, m.moneda) }))
+    .filter((x): x is { pasarela: Pasarela; moneda: string; prueba: boolean; monto: number } => x.monto != null));
   const antes = (deAgencia as { proveedor?: string } | null)?.proveedor;
   const via = opciones.find((o) => o.pasarela === antes) ?? opciones.find((o) => o.pasarela === 'stripe') ?? opciones[0];
   if (!via) return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };

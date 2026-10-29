@@ -10621,9 +10621,11 @@ Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
 
 ## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
 
-Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio por la pasarela
-(`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos
-a mano también son `completo`. Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
+Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio: `aplicanTopes(ws)`
+(lib/topes-plan-server.ts: su suscripción por la pasarela O la cuenta de un cliente de agencia, que la paga su agencia), y
+nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos a mano también son `completo`. ⚠️ No preguntes
+`suscripcionDeMakoDe(ws) != null` solo (29/10/2026): deja sin topes ni candados de Pro a toda cuenta de agencia (el
+Esencial de US$47 tenía todo Pro). Los candados de las tabs de Pro, igual: `esEsencialDe` (lib/plan-esencial.ts). Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
 true })`), y nunca corta lo que ya existe. Si no se puede leer el plan, deja pasar. El molde es `topeParaLineaNueva`
 (lib/tope-lineas.ts, puro); el cartel es `textoTope(n)` con «Pasar a Pro». Lo hace cumplir tests/tope-lineas.test.ts; el
 porqué, docs/hallazgos-planes-y-cobro.md.
@@ -10697,7 +10699,8 @@ hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-
 - **El freno va en el alta A MANO, nunca en la función que también llaman los webhooks.** Lo que entra solo (un anuncio,
   una reserva, un mensaje) no se pierde por un tope: entra, y la pantalla avisa. En el CRM, `createLead` la usan los
   webhooks: el freno está en `altaDeLead`, la de WhatsApp, importar y MaKo (docs/hallazgos-crm.md, «Los topes del plan»).
-- **Primero `suscripcionDeMakoDe(ws) != null`**: el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
+- **Primero `aplicanTopes(ws)`** (lib/topes-plan-server.ts; antes del 29/10 era `suscripcionDeMakoDe(ws) != null`, que dejaba
+  afuera a las cuentas de agencia): el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
   Si la lectura falla, no hay tope.
 - Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.
 

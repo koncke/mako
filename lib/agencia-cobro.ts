@@ -25,7 +25,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, setSetting } from './settings';
-import { anotarAutorizacionMp, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
+import { anotarAutorizacionMp, anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
@@ -108,16 +108,65 @@ export async function linkPrimerMes(p: { agenciaWs: number; clienteWs: number; n
   }
 }
 
+/**
+ * El link del primer mes SIN PAGAR, rehecho con otro plan (revisión de plata, hallazgo 2c): el link guarda su monto, y
+ * cambiar sólo el plan anotado cobraba el Esencial por un mes de Pro (o al revés). La misma pasarela, moneda, ficha y email.
+ * PRIMERO el nuevo y después se anula el viejo: al revés, una falla dejaba la cuenta sin ningún link para pagar. Si el viejo
+ * no se deja anular, se anula el nuevo (nunca quedan dos vivos). La pantalla de la agencia y el cartel del cliente leen el
+ * link vivo, así que ven el nuevo.
+ */
+export async function rehacerPrimerMes(cobroId: number, plan: PlanMako, autor: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const plataforma = await wsSuperAdmin();
+  const db = getSupabaseServer();
+  const { data, error } = await db.from('cobros').select('id, lead_id, agencia_ws, cliente_ws, email, concepto, proveedor, moneda, estado, tipo, creado_por')
+    .eq('id', cobroId).eq('workspace_id', plataforma).maybeSingle();
+  if (error || !data) return { ok: false, error: 'No pude leer su primer mes.' };
+  const c = data as { lead_id: number | null; agencia_ws: number; cliente_ws: number; email: string | null; concepto: string; proveedor: Pasarela; moneda: string; estado: string; tipo: string; creado_por: string | null };
+  if (c.tipo !== 'unico' || (c.estado !== 'pendiente' && c.estado !== 'fallido') || !c.lead_id) return { ok: false, error: 'Su primer mes ya no se puede rehacer.' };
+  const monto = await precioDelPlanEn(plan, c.moneda);
+  if (monto == null) return { ok: false, error: `${plan.nombre} no tiene precio en ${c.moneda}.` };
+  const r = await crearCobro(plataforma, {
+    leadId: c.lead_id, pasarela: c.proveedor, tipo: 'unico', monto, moneda: c.moneda, montoUsd: plan.precioUsd,
+    concepto: c.concepto.replace(/^MaKo [A-Za-zé ]+ · /, `${conceptoDelPlan(plan).replace(/ · mensual$/, '')} · `).slice(0, 200),
+    email: c.email, paraCliente: { agenciaWs: Number(c.agencia_ws), clienteWs: Number(c.cliente_ws) }, creadoPor: c.creado_por ?? autor,
+  });
+  if (!r.ok) return { ok: false, error: `No pude crear su link nuevo: ${r.error}` };
+  const anulado = await anularCobro(plataforma, cobroId, autor);
+  if (!anulado.ok) {
+    await anularCobro(plataforma, r.cobro.id, autor).catch(() => {});
+    return { ok: false, error: `No pude anular su link de antes: ${anulado.error ?? 'sin detalle'}` };
+  }
+  await db.from('cobros').update({ plan_mako: plan.id }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
+  return { ok: true };
+}
+
 type FilaPrimerMes = {
   id: number; lead_id: number | null; agencia_ws: number; cliente_ws: number; email: string | null; pagado_at: string | null; concepto: string;
   proveedor: Pasarela; moneda: string; monto: number; monto_usd: number | null; plan_mako: string | null;
 };
 
-/** El precio del mes que sigue, en la MISMA moneda del primero: el de su plan; sin plan (las cuentas de antes), el mismo monto. */
-async function precioDeRenovacion(f: FilaPrimerMes): Promise<{ monto: number; montoUsd: number | null }> {
-  const plan = f.plan_mako ? await planDe(f.plan_mako === 'pro' ? 'pro' : 'esencial') : null;
-  const monto = (plan ? precioEn(plan, f.moneda) : null) ?? Number(f.monto);
-  return { monto, montoUsd: plan?.precioUsd ?? (f.monto_usd != null ? Number(f.monto_usd) : null) };
+/**
+ * El precio de un plan en una moneda: el del plan; el Esencial en la moneda de Mercado Pago, si el plan no la tiene, el del
+ * setting viejo del cliente de agencia (como el primer mes, `cobroParaCuenta`). null = ese plan no se cobra en esa moneda.
+ */
+export async function precioDelPlanEn(plan: PlanMako, moneda: string): Promise<number | null> {
+  const propio = precioEn(plan, moneda);
+  if (propio != null) return propio;
+  if (plan.id !== 'esencial') return null;
+  const viejo = await precioClienteDeAgencia().catch(() => null);
+  return viejo?.mp && viejo.mp.moneda.toUpperCase() === moneda.toUpperCase() ? viejo.mp.monto : null;
+}
+
+/**
+ * El precio del mes que sigue, en la MISMA moneda del primero: el de su plan; sin plan (las cuentas de antes), el mismo monto.
+ * ⚠️ Con plan y sin precio en esa moneda, null (revisión de plata, hallazgo 2d): caer al monto del primer mes cobraba el Pro
+ * a precio de Esencial (o al revés) cuando la agencia cambió el plan antes de la renovación.
+ */
+async function precioDeRenovacion(f: FilaPrimerMes): Promise<{ monto: number; montoUsd: number | null } | null> {
+  if (!f.plan_mako) return { monto: Number(f.monto), montoUsd: f.monto_usd != null ? Number(f.monto_usd) : null };
+  const plan = await planDe(f.plan_mako === 'pro' ? 'pro' : 'esencial');
+  const monto = plan ? await precioDelPlanEn(plan, f.moneda) : null;
+  return plan && monto != null ? { monto, montoUsd: plan.precioUsd } : null;
 }
 
 /**
@@ -134,14 +183,17 @@ export async function renovacionesDeAgencia(): Promise<{ creadas: number; autori
       .eq('workspace_id', plataforma).eq('tipo', 'unico').eq('estado', 'pagado').not('cliente_ws', 'is', null).limit(200),
     db.from('cobros').select(`${COLS_COBRO}, cliente_ws`)
       .eq('workspace_id', plataforma).eq('tipo', 'suscripcion').not('cliente_ws', 'is', null)
-      .in('estado', ['pendiente', 'fallido', 'pagado']).limit(500),
+      // `reembolsado` también (revisión de plata, hallazgo 3a): devolver el primer pago no cancela la suscripción, que sigue cobrando.
+      .in('estado', ['pendiente', 'fallido', 'pagado', 'reembolsado']).limit(500),
   ]);
   if (primeros.error) throw new Error(`No pude leer los primeros meses de los clientes de agencia: ${primeros.error.message}`);
   if (renov.error) throw new Error(`No pude leer las renovaciones de los clientes de agencia: ${renov.error.message}`);
   const renovaciones = (renov.data ?? []).map((x) => ({ cobro: cobroDeFila(x as Record<string, unknown>), clienteWs: Number((x as { cliente_ws: number }).cliente_ws) }));
   const conRenovacion = new Set(renovaciones.filter((r) => r.cobro.suscripcion_estado !== 'cancelada').map((r) => r.clienteWs));
   // Una cuenta que la agencia dio de baja (cartera revocada, lib/agencia-baja.ts) no renueva más.
-  const { data: revocadas } = await db.from('agencia_clientes').select('cliente_ws').eq('estado', 'revocado').limit(1000);
+  // Sin poder leerlas, no se renueva a nadie (revisión de plata, hallazgo 11): se renovaba a las dadas de baja.
+  const { data: revocadas, error: eRev } = await db.from('agencia_clientes').select('cliente_ws').eq('estado', 'revocado').limit(1000);
+  if (eRev) throw new Error(`No pude leer las cuentas dadas de baja: ${eRev.message}`);
   const deBaja = new Set(((revocadas ?? []) as Array<{ cliente_ws: number }>).map((r) => Number(r.cliente_ws)));
   const conectadas = await pasarelasConectadas(plataforma);
 
@@ -164,6 +216,11 @@ export async function renovacionesDeAgencia(): Promise<{ creadas: number; autori
       // Stripe cobra al pagarla: se abre recién unos días antes de que tenga que empezar a cobrar.
       if (f.proveedor === 'stripe' && !abreRenovacionStripe(unMesDespues(desde), Date.now())) continue;
       const precio = await precioDeRenovacion(f);
+      if (!precio) { errores++; console.error(`[agencia-cobro] el cliente ${clienteWs}: su plan (${f.plan_mako}) no tiene precio en ${f.moneda}: sin renovación`); continue; }
+      // Releída justo antes de crearla (hallazgo 11): una baja que corrió mientras tanto no recibe una renovación nueva.
+      const { data: cart, error: eCart } = await db.from('agencia_clientes').select('estado').eq('agencia_ws', Number(f.agencia_ws)).eq('cliente_ws', clienteWs).maybeSingle();
+      if (eCart) throw new Error(eCart.message);
+      if (!cart || (cart as { estado: string }).estado === 'revocado') continue;
       const r = await crearCobro(plataforma, {
         leadId: f.lead_id, pasarela: f.proveedor, tipo: 'suscripcion',
         monto: precio.monto, moneda: f.moneda, montoUsd: precio.montoUsd,
@@ -176,8 +233,14 @@ export async function renovacionesDeAgencia(): Promise<{ creadas: number; autori
           creadas++;
           // El plan, y en Stripe cuándo tenía que empezar a cobrar: sin pagarla para ese día, la cuenta se corta como una de MP
           // sin autorizar (lib/plan-acceso-reglas.ts, `renovacion-sin-autorizar`).
-          await db.from('cobros').update({ ...(f.plan_mako ? { plan_mako: f.plan_mako } : {}), ...(f.proveedor === 'stripe' ? { inicio_at: unMesDespues(desde) } : {}) })
+          const { error: eAnotar } = await db.from('cobros').update({ ...(f.plan_mako ? { plan_mako: f.plan_mako } : {}), ...(f.proveedor === 'stripe' ? { inicio_at: unMesDespues(desde) } : {}) })
             .eq('id', r.cobro.id).eq('workspace_id', plataforma);
+          // Sin `inicio_at` una renovación de Stripe nunca corta (revisión de plata, hallazgo 10): se anula y la próxima vuelta la rehace.
+          if (eAnotar && f.proveedor === 'stripe') {
+            errores++;
+            console.error(`[agencia-cobro] el cliente ${clienteWs}: no pude anotar la renovación ${r.cobro.id} (${eAnotar.message}); la anulo`);
+            await anularCobro(plataforma, r.cobro.id, 'MaKo (no se pudo anotar la renovación)').catch(() => {});
+          }
         }
       } else { errores++; console.error(`[agencia-cobro] no pude crear la renovación del cliente ${clienteWs}: ${r.error}`); }
     } catch (e) {

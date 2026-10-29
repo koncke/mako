@@ -26,7 +26,7 @@ import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, tabEnCapa, type CapaId } from './capas';
 import { CORTE_POR_PLAN_PRENDIDO, HEADER_RUTA, tabDeRutaApi } from './api-tab';
-import { CORTE_DE_ACCESO_PRENDIDO } from './plan-acceso-reglas';
+import { CLAVE_CORTE, CORTE_DE_ACCESO_PRENDIDO, leerCorte } from './plan-acceso-reglas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 import { WS_HEADER, conWs, parseWs } from './ws-tab';
 import { contextoDeAgencia } from './agencia';
@@ -334,7 +334,24 @@ const wsPropioDeLaSesion = cache(async (): Promise<number | null> => {
  * pausado — un error pasajero no puede dejar a todos los clientes afuera (el mismo criterio que getUsuarioActual).
  */
 // Con el corte de acceso APAGADO (lib/plan-acceso-reglas.ts) ningún negocio cuenta como pausado: se abre como siempre.
-export const negocioPausado = cache(async (ws: number): Promise<boolean> => CORTE_DE_ACCESO_PRENDIDO && (await filaDelNegocio(ws))?.estado === 'pausado');
+// SALVO la cuenta que su agencia dio de baja (29/10/2026, el corte `sin-agencia` de lib/agencia-baja.ts): desde ese día no la
+// paga nadie, y sin esto seguía usando MaKo gratis (revisión de plata, hallazgo 1). Vale desde su `desde`: la que pagaba el
+// cliente sigue abierta hasta el fin de lo que pagó.
+export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
+  if ((await filaDelNegocio(ws))?.estado !== 'pausado') return false;
+  const corte = await corteDelNegocio(ws);
+  if (corte?.motivo === 'sin-agencia' && corte.vigente) return !(Date.parse(corte.desde) > Date.now());
+  return CORTE_DE_ACCESO_PRENDIDO;
+});
+
+/** El corte guardado del negocio (`plan.corte_por_pago`), por request; null si no hay o si la base no contestó (fail-open). */
+const corteDelNegocio = cache(async (ws: number) => {
+  try {
+    const { data, error } = await getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_CORTE).maybeSingle();
+    if (error) return null;
+    return leerCorte((data as { value?: string } | null)?.value ?? null);
+  } catch { return null; }
+});
 
 /** El estado y la capa de un negocio, por request; null si la base no contestó (quien lo usa decide fail-open). */
 const filaDelNegocio = cache(async (ws: number): Promise<{ estado: string | null; capa: string | null } | null> => {

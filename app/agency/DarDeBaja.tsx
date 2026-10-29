@@ -25,7 +25,7 @@ export function DarDeBaja({ clienteWs, nombre, onListo, onError, className }: {
       </button>
       {preguntar && (
         <ConfirmDialog titulo={`¿Dar de baja a ${nombre}?`}
-          detalle="Se cancela su cobro, dejas de entrar a su cuenta y le avisamos. Sus datos quedan guardados: si quiere seguir, elige su plan y lo paga él."
+          detalle="Dejas de entrar a su cuenta y le avisamos; sus datos quedan guardados. Si la pagas tú, se cancela su cobro y, si quiere seguir, paga él su plan. Si la paga él, su plan sigue."
           confirmLabel="Dar de baja" danger onCancel={() => setPreguntar(false)} onConfirm={confirmar} />
       )}
     </>

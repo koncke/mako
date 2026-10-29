@@ -30,10 +30,10 @@ import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { createLead } from './leads';
 import { LeadDuplicadoError } from './leads-duplicados';
-import { crearCobro, linkDelCobro, listarCobros, pasarelasConectadas } from './cobros';
+import { anularCobro, crearCobro, linkDelCobro, listarCobros, pasarelasConectadas } from './cobros';
 import { decidirCobro, montoUsdDelCobro } from './cobros-reglas';
 import { NOMBRE_PASARELA, type Cobro, type Pasarela } from './cobros-tipos';
-import { monedaDeMercadoPagoDeMako } from './compra-plan';
+import { monedaDeMercadoPagoDeMako, planesMako } from './compra-plan';
 import { leadPorEmail } from './editor-landing/pago-pedido';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
@@ -141,34 +141,57 @@ export async function venderPlan(v: Partial<VentaPlan> | null | undefined, cread
     if (!p.ok) return p;
     const lead = await runWithWorkspace(ws, () => leadDelComprador(venta.email, venta.nombre));
     if (!lead.ok) return lead;
+    // El código de partner, si vino, tiene que ser de un partner (como el que se escribe en el carrito de /planes): uno
+    // tipeado mal no acredita a nadie, y se frena acá en vez de guardarse y no contar nunca. ANTES del link que ya existe.
+    if (venta.refCodigo && !(await esCodigoDePartner(venta.refCodigo))) return { ok: false, error: `No hay ningún partner con el código «${venta.refCodigo}».` };
     const abierto = await cobroAbiertoDelPlan(ws, lead.id, venta.capa);
     if (abierto && 'pendiente' in abierto) {
       const c = abierto.pendiente;
       // El MISMO pedido (monto, moneda, tipo y pasarela): es el link que ya existe. Otro precio no pisa el de antes.
       if (mismoCentavo(c.monto, p.previa.monto) && c.moneda === p.previa.moneda && c.tipo === venta.tipo && c.proveedor === p.previa.pasarela) {
+        // El código que ahora sí vino queda en ese link, si no tenía uno (revisión de plata, hallazgo 12: se perdía sin avisar).
+        if (venta.refCodigo) {
+          const { error: eRef } = await getSupabaseServer().from('cobros').update({ ref_codigo: venta.refCodigo }).eq('id', c.id).eq('workspace_id', ws).is('ref_codigo', null);
+          if (eRef) return { ok: false, error: `El link ya existía y no pude sumarle el código del partner: ${eRef.message}` };
+        }
         return { ok: true, link: linkDelCobro(c.token), cobroId: c.id, monto: c.monto, moneda: c.moneda, yaEstaba: true };
       }
       return { ok: false, error: `Ya tiene un link pendiente de ese plan por otro monto (cobro #${c.id}): anúlalo primero para crear otro.` };
     }
     if (abierto) return { ok: false, error: `Ya pagó el plan ${capaDef(venta.capa).nombre} (cobro #${abierto.pagado.id}) y su cuenta todavía no quedó dada de alta: se revisa en Cobros.` };
-    // El código de partner, si vino, tiene que ser de un partner (como el que se escribe en el carrito de /planes): uno
-    // tipeado mal no acredita a nadie, y se frena acá en vez de guardarse y no contar nunca.
-    if (venta.refCodigo && !(await esCodigoDePartner(venta.refCodigo))) return { ok: false, error: `No hay ningún partner con el código «${venta.refCodigo}».` };
     const r = await crearCobro(ws, {
       leadId: lead.id, altaCapa: venta.capa, monto: p.previa.monto, moneda: p.previa.moneda, montoUsd: p.previa.montoUsd,
       tipo: venta.tipo, email: venta.email, nombre: venta.nombre, pasarela: p.previa.pasarela, creadoPor,
     });
     if (!r.ok) return { ok: false, error: r.error };
-    // El partner que lo trajo (29/10/2026): en el cobro, como el de /r/<código> (lib/partners-programa.ts lo acredita).
-    if (venta.refCodigo) {
-      const { error: e } = await getSupabaseServer().from('cobros').update({ ref_codigo: venta.refCodigo }).eq('id', r.cobro.id).eq('workspace_id', ws);
-      if (e) console.error(`[vender-plan] el cobro #${r.cobro.id} quedó sin el código ${venta.refCodigo}: ${e.message}`);
+    // El plan vendido y el partner que lo trajo (29/10/2026), en el cobro. MaKo Partners acredita el precio de LISTA del plan
+    // (`plan_mako`, lib/partners-reglas.ts → precioDeListaPorMes); sin él acreditaba lo cobrado (revisión de plata, hallazgo 6:
+    // un pago único o un precio especial). Sin el código guardado, el link no sirve: se anula y se dice (hallazgo 12).
+    const planMako = await planVendido(venta.capa, p.previa.montoUsd).catch(() => null);
+    if (planMako || venta.refCodigo) {
+      const { error: e } = await getSupabaseServer().from('cobros').update({ ...(planMako ? { plan_mako: planMako } : {}), ...(venta.refCodigo ? { ref_codigo: venta.refCodigo } : {}) })
+        .eq('id', r.cobro.id).eq('workspace_id', ws);
+      if (e && venta.refCodigo) {
+        await anularCobro(ws, r.cobro.id, 'MaKo (no se pudo guardar el código del partner)').catch(() => {});
+        return { ok: false, error: `No pude guardar el código del partner (${e.message}): no creé el link. Prueba otra vez.` };
+      }
+      if (e) console.error(`[vender-plan] el cobro #${r.cobro.id} quedó sin su plan: ${e.message}`);
     }
     // El monto y la moneda COMO QUEDARON en el cobro.
     return { ok: true, link: r.link, cobroId: r.cobro.id, monto: r.cobro.monto, moneda: r.cobro.moneda };
   } catch (e) {
     return { ok: false, error: e instanceof Error && e.message ? e.message : 'No pude crear el link.' };
   }
+}
+
+/**
+ * El plan del catálogo que se vendió (lib/planes-mako.ts): el de esa capa con ese precio por mes; si no coincide ninguno (un
+ * precio especial, un anual, un pago único), el MÁS BARATO de la capa, para que un partner nunca gane más que la lista.
+ */
+async function planVendido(capa: string, montoUsd: number | null): Promise<string | null> {
+  const deLaCapa = (await planesMako()).filter((x) => x.capa === capa).sort((a, b) => a.precioUsd - b.precioUsd);
+  if (!deLaCapa.length) return null;
+  return (montoUsd != null ? deLaCapa.find((x) => Math.abs(x.precioUsd - montoUsd) < 0.01) : undefined)?.id ?? deLaCapa[0].id;
 }
 
 /**

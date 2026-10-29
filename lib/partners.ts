@@ -26,7 +26,7 @@ import { clientesAprobados, ESTADOS_CARTERA, type EstadoCartera } from './agenci
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
 import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia } from './agencia-cobro';
 import { CAPA_DE_PLAN, paisDeZona, planCuentaDe, planDeCapa, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
-import { zonaDelNegocio } from './timezone';
+import { zonaDelNegocioDetalle } from './timezone';
 import { caraDeUsuario } from './gravatar';
 import { guardarQuienPaga, quienPagaDeClientes } from './agency';
 import { quienPagaDe, type QuienPaga } from './agency-reglas';
@@ -211,7 +211,10 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
 
   const plan = planCuentaDe(p.plan);
   // El país decide la pasarela: el de quien la abre, o el de la zona horaria de la agencia (la API no trae encabezado).
-  const pais = p.pais ?? paisDeZona(await zonaDelNegocio(p.agenciaWs).catch(() => null));
+  // Sin encabezado (la API), el de la zona del negocio, SÓLO si la guardó (revisión de plata, hallazgo 8): la de por defecto
+  // es America/Tijuana y le cobraba como a México a una agencia de cualquier país. Sin país, Stripe primero.
+  const zona = p.pais ? null : await zonaDelNegocioDetalle(p.agenciaWs).catch(() => null);
+  const pais = p.pais ?? (zona?.guardada ? paisDeZona(zona.tz) : null);
   const ws = await crearWorkspace(nombre, CAPA_DE_PLAN[plan]);
   const { error: eCartera } = await getSupabaseServer()
     .from('agencia_clientes').insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' });
