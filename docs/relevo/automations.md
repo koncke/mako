@@ -45,11 +45,14 @@ mandó, verificado contra el código, está en las notas compartidas: leandro-re
   Exponer a un token lo que cambia a quién le escribe es decisión del Cerebro (el comentario de `cambiar_crons_secuencia`).
 
 **Sigue: el aviso antes de los 10.000 mensajes gratis de Zernio** (audio 327 de Leandro; coordinado el 29/10 con el chat de
-Zernio, `local_4a831c28`). Zernio arma `usoZernioDelCiclo(ws)` en lib/zernio-redes.ts, en la rama zernio-2510: el ciclo sale
+Zernio, `local_4a831c28`). Zernio armó `usoZernioDelCiclo(ws)` en lib/zernio-uso.ts ('server-only'), en zernio-2510 (7397880e7): el ciclo sale
 de GET /v1/billing y lo enviado desde MaKo se cuenta en MaKo (`nutricion_envios` social, más `ig_mensajes` saliente sin la
 pública). Automations lo consume cuando esa rama esté en main: en `avisarTopesSociales`, sólo en la corrida de la hora, al
 80 %, una vez por ciclo (`reclamarEspaciado`, clave `zernio-gratis:<desde>`). Va con el mismo evento `social_tope` y un
 tercer estado «gratis» en la plantilla y en `datosTopeSocial`. Hoy MaKo no mandó nada por redes desde el 01/09: no apura.
+Devuelve `{ enviados, gratis, desde, hasta, deLaCasa } | null` (`hasta` excluido; `deLaCasa`: la clave es la de MaKo, el ws1 →
+avisarle a Martín, no al grupo). Es APROXIMADO: una fila de `nutricion_envios` cuenta 1 aunque salgan varias partes, y la
+pública (gratis para Zernio) cuenta. Para que sea exacto, el motor tiene que guardar las partes y marcar la pública.
 
 **Verificación:** ver el VERDE al Cerebro (tsc-acotado y tests-afectados sobre la punta con main mezclado).
 
