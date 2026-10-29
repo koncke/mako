@@ -32,15 +32,15 @@ type Molde = {
 };
 const COLS_MOLDE = 'id, titulo, formato, inicio, dia_completo, repetir, red, cuenta_red, archivo, archivo_tipo, texto';
 
-/** La regla de un evento (null = no se repite, o la base todavía no la tiene). */
-export async function repeticionDelEvento(id: string): Promise<{ regla: string | null; activa: boolean }> {
+/** La regla de un evento (null = no se repite). `disponible: false` = la base todavía no la tiene (mig 0349). */
+export async function repeticionDelEvento(id: string): Promise<{ regla: string | null; disponible: boolean }> {
   const db = await getTenantDb();
   const { data, error } = await db.from('calendario_eventos').select('repetir').eq('id', id).maybeSingle();
   if (error) {
-    if (esSinMigracion(error.message) || /repetir/.test(error.message)) return { regla: null, activa: false };
+    if (esSinMigracion(error.message) || /repetir/.test(error.message)) return { regla: null, disponible: false };
     throw new Error(`No pude leer la repetición: ${error.message}`);
   }
-  return { regla: (data as { repetir?: string | null } | null)?.repetir ?? null, activa: true };
+  return { regla: (data as { repetir?: string | null } | null)?.repetir ?? null, disponible: true };
 }
 
 /** Pone (o saca, con null) la regla de una Publicación. Lo que ya nació y está programado, queda. */

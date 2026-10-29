@@ -2382,6 +2382,9 @@ tests/zernio-leads-barrido.test.ts.
   de anuncios (con varias claves, la 1 no es la que recibe). `false` → falta el complemento de anuncios de Zernio; `null` → MaKo no tiene
   su webhook ahí («Volver a conectar» lo registra). **En la pasada diaria del cron**, `asegurarWebhook` corre en cada negocio con Zernio
   cuyo webhook no escucha los leads: uno registrado antes de que MaKo escuchara `lead.received` lo empieza a escuchar sin tocar nada.
+- ⚠️ **La trampa de siempre, otra vez:** `ConectarMetaZernio.tsx` tiene su PROPIO tipo `EstadoMetaZernio` (copia del de
+  lib/meta-conexion-zernio.ts) y el campo nuevo (`leads`) no estaba ahí: los tests por texto pasaban y lo vio el tsc acotado (TS2339).
+  Es lo mismo que el 24/10 («Conectada ✓» con el webhook sin registrar). Un campo nuevo del estado se suma en los DOS tipos.
 
 ### Cómo probar un lead REAL por Zernio (nunca llegó uno)
 

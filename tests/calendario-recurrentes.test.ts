@@ -99,7 +99,7 @@ test('la regla: sólo en una Publicación, válida, y se saca; sin la mig 0349 s
 
 test('el «Repetir» del evento, sus acciones con el guard, y el cron registrado', () => {
   const p = leer('app/calendario/PublicarEnRed.tsx');
-  assert.match(p, /\{repeticion\?\.activa && \(/, 'sin la mig 0349 el control no se muestra');
+  assert.match(p, /\{repeticion\?\.disponible && \(/, 'sin la mig 0349 el control no se muestra');
   assert.match(p, /<Select label="Repetir" value=\{repeticion\.regla \?\? ''\}/);
   assert.match(p, /\{ value: '', label: 'No se repite' \},\n\s+\.\.\.PRESETS\.map/);
   const a = leer('app/calendario/actions.ts');

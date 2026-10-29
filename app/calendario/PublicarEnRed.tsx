@@ -52,14 +52,14 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
   const [error, setError] = useState<string | null>(null);
   const { confirm, confirmNode } = useConfirm();
   // «Se repite» (29/10/2026, la llamada con Thiago: «podés programarte publicaciones recurrentes»): la regla de esta Publicación.
-  // `activa: false` = la base todavía no la tiene (mig 0349): el control no se muestra.
-  const [repeticion, setRepeticion] = useState<{ regla: string | null; activa: boolean } | null>(null);
+  // `disponible: false` = la base todavía no la tiene (mig 0349): el control no se muestra.
+  const [repeticion, setRepeticion] = useState<{ regla: string | null; disponible: boolean } | null>(null);
   useEffect(() => { void repeticionAction(id).then(setRepeticion).catch(() => setRepeticion(null)); }, [id]);
   const cambiarRepeticion = async (valor: string) => {
     setError(null);
     const r = await guardarRepeticionAction(id, valor || null);
     if (!r.ok) { setError(r.error); return; }
-    setRepeticion({ regla: valor ? reglaDePublicacion(valor) : null, activa: true });
+    setRepeticion({ regla: valor ? reglaDePublicacion(valor) : null, disponible: true });
     onCambio();
   };
   const cargarRef = useRef<() => void>(() => {});
@@ -244,7 +244,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
             onClick={() => void programar()}>Programar</Button>
         </>
       )}
-      {repeticion?.activa && (
+      {repeticion?.disponible && (
         <>
           <Select label="Repetir" value={repeticion.regla ?? ''} disabled={ocupado}
             onChange={(v) => void cambiarRepeticion(v)}
