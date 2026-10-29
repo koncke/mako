@@ -69,7 +69,9 @@ test('la respuesta de Zernio: el id de META del anuncio, o un error; el subcode 
 
 test('la clave es la del NEGOCIO: la de la plataforma sólo en el negocio de la plataforma', () => {
   const src = leer('../lib/zernio-ads.ts');
-  assert.match(src, /if \(ws === \(await wsSuperAdmin\(\)\.catch\(\(\) => null\)\)\) return envCred\('ZERNIO_API_KEY'\);\n\s*return credDelCliente\('ZERNIO_API_KEY', ws\);/);
+  assert.match(src, /if \(ws === \(await wsSuperAdmin\(\)\.catch\(\(\) => null\)\)\) return envCred\('ZERNIO_API_KEY'\);\n\s*const base = await credDelCliente\('ZERNIO_API_KEY', ws\);\n\s*if \(!base\) return null;/);
+  // Con varias claves (29/10/2026), la dueña de la conexión de anuncios, SÓLO entre las del negocio (`cfgDeCuenta`); si no, la suya.
+  assert.match(src, /return \(await cfgDeCuenta\(ws, conexion\)\.catch\(\(\) => null\)\)\?\.apiKey \?\? base;/);
   // Nada más en el archivo resuelve claves: ni `credWs` (cae a la del dueño) ni `cfg` del canal (cae a la plataforma).
   assert.doesNotMatch(src, /\bcredWs\(|from '\.\/zernio'.*\bcfg\b/);
   // Se publica sólo en la cuenta publicitaria EXACTA del negocio.

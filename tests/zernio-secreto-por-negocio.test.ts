@@ -115,7 +115,11 @@ test('de punta a punta: lo que se registra en una cuenta propia sólo firma even
 });
 
 test('asegurarWebhook registra lo que dice webhookDeLaCuenta, y a Zernio nunca le manda el maestro suelto', () => {
-  const f = funcion(sinComentarios(leer('../lib/zernio.ts')), 'export async function asegurarWebhook(');
+  // Una vez por clave del negocio (varias claves, 29/10/2026): `asegurarWebhookEn` es lo que registra en cada una.
+  const todas = funcion(sinComentarios(leer('../lib/zernio.ts')), 'export async function asegurarWebhook(');
+  assert.match(todas, /const r = await asegurarWebhookEn\(ws, principal, maestro\);/);
+  assert.match(todas, /for \(const k of extra\) \{\n\s+await asegurarWebhookEn\(ws, k, maestro\)/);
+  const f = funcion(sinComentarios(leer('../lib/zernio.ts')), 'async function asegurarWebhookEn(');
   assert.match(f, /const \{ ruta, secret \} = webhookDeLaCuenta\(maestro, ws, c\.byok\);/);
   assert.match(f, /const url = linkApp\(ruta, null\);/);
   const envios = f.match(/JSON\.stringify\(\{[^}]*\}\)/g) ?? [];

@@ -57,6 +57,7 @@ export type Integracion = {
 // El catálogo y la regla de visibilidad viven aparte, sin `server-only`, para poder
 // testearlos. Se re-exportan para no romper a quien los importaba desde acá.
 import { DEFS, defsVisibles, META_SE_CONECTA_EN_ZERNIO, type Def } from './integraciones-catalogo';
+import { estadoDeRed, REDES, redDeTarjeta, SIN_USO_TODAVIA, type ConexionZernio, type RedConTarjeta } from './zernio-redes';
 import { servicioMetodo } from './metodo-catalogo';
 export { DEFS_TEST, defsVisibles } from './integraciones-catalogo';
 export type { Def } from './integraciones-catalogo';
@@ -222,6 +223,9 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
       estado: 'falta', detalle: texto, soloServidor: true, sinConexion: { texto, chip: grabador.chip ?? 'Próximamente' },
     };
   }
+  // Una red social (29/10/2026): conectada o no según sus cuentas en Zernio.
+  const red = redDeTarjeta(d.key);
+  if (red) return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoDeRedZernio(red)) };
   // Servicios de plataforma: se evalúan contra el env global (agencia).
   // Per-cliente: contra las credenciales del workspace actual.
   const faltan: string[] = [];
@@ -286,6 +290,52 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     tieneDetalle: d.tieneDetalle,
     ...delMetodo(d.key),
   };
+}
+
+/**
+ * Las cuentas de Zernio del negocio, UNA lectura por carga de la grilla (las tarjetas de red se arman en paralelo y cada una
+ * preguntaría). Con tope de tiempo: Zernio lento no frena /integraciones. `sin-clave` = no hay clave; null = no se pudo leer.
+ */
+const redesCache = new Map<number, { p: Promise<ConexionZernio[] | 'sin-clave' | null>; vence: number }>();
+const TOPE_REDES_MS = 5_000;
+async function redesDelNegocio(): Promise<ConexionZernio[] | 'sin-clave' | null> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return null;
+  const hit = redesCache.get(ws);
+  if (hit && hit.vence > Date.now()) return hit.p;
+  const p = (async () => {
+    const { conexionesViaZernio } = await import('./zernio-conectar');
+    let tope: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        conexionesViaZernio(ws),
+        new Promise<null>((ok) => { tope = setTimeout(() => ok(null), TOPE_REDES_MS); }),
+      ]);
+    } catch (e) {
+      return (e as { motivo?: string }).motivo === 'sin-clave' ? 'sin-clave' : null;
+    } finally {
+      clearTimeout(tope);
+    }
+  })();
+  redesCache.set(ws, { p, vence: Date.now() + 15_000 });
+  return p;
+}
+
+/**
+ * El estado de la tarjeta de una red (29/10/2026): conectada si tiene una cuenta activa en Zernio. Sin clave, lo que falta se dice
+ * en orden (primero la clave, después el login); una que todavía no se usa en MaKo lo dice y no es un pendiente (`sinConexion`).
+ */
+async function estadoDeRedZernio(red: RedConTarjeta): Promise<Pick<Integracion, 'estado' | 'detalle' | 'soloServidor' | 'sinConexion'>> {
+  const sinUso = SIN_USO_TODAVIA[red];
+  if (sinUso) return { estado: 'falta', detalle: sinUso, soloServidor: true, sinConexion: { texto: sinUso, chip: 'Próximamente' } };
+  const nombre = REDES[red].etiqueta;
+  const lista = await redesDelNegocio();
+  if (lista === 'sin-clave') return { estado: 'falta', detalle: `Se conecta con tu cuenta de Zernio: primero tu API key, después el login de ${nombre}.`, soloServidor: true };
+  if (lista == null) return { estado: 'falta', detalle: 'No pude leer tus redes en Zernio. Prueba de nuevo en un rato.', soloServidor: true };
+  const e = estadoDeRed(red, lista);
+  if (e.estado === 'conectada') return { estado: 'conectada', detalle: 'Conectada y operativa.', soloServidor: true };
+  if (e.estado === 'vencida') return { estado: 'falta', detalle: `Zernio pide volver a conectar tu ${nombre}.`, soloServidor: true };
+  return { estado: 'falta', detalle: `Se conecta en la tarjeta de Zernio, con el login de ${nombre}.`, soloServidor: true };
 }
 
 /** Las IA de la cascada barata: las que MaKo usa con las keys del negocio (`provsDe`, lib/ai-cheap.ts). */

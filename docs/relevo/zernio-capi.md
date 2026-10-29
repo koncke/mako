@@ -3,6 +3,28 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 29/10/2026 tarde (cuenta `claude3`) — varias claves de Zernio y todas las redes
+
+Rama `zernio-token-2910`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
+
+**Lo pedido (el Cerebro, con el audio de Martín del 29/10):** varias claves de Zernio por negocio (cada una de una cuenta del
+cliente), el aviso de la 3.ª red con [Agregar otra clave] [Conectar igual], Zernio primero en todo «Conectar…», todas las redes de
+Zernio en Integraciones y publicables desde lo que ya existe, un tutorial claro con capturas reales, un paso por pantalla.
+
+**Lo hecho:**
+- `27d7f63ce` — varias claves (la red atada a su clave, conectar en la primera con lugar, el aviso, el webhook en cada clave).
+- `2518c96fc` — todas las redes (LinkedIn, X, Threads, Google Business en el paso 2 y en el Calendario; una tarjeta por red;
+  Pinterest y Reddit se ven sin conectarse), el «sigue» después del paso 1, el tutorial un paso por pantalla, la mig 0348 y la
+  cosecha (docs/hallazgos-integraciones.md).
+
+**A medias / sin hacer:**
+- Capturas: el paso 2 del tutorial (panel de API keys de Zernio, pide una sesión) y las de MaKo (pestaña antes/después, aviso de la
+  3.ª red, pasos 3 y 4): sin `next dev` local. Se sacan en producción, en el ws3, después del deploy.
+- La mig 0348 (escrita, NO aplicada): sin ella el Calendario dice «todavía no está activo» para LinkedIn, X, Threads y Google
+  Business.
+- El cuerpo del post de las cuatro redes nuevas no se midió con una cuenta real. `usoZernioDelCiclo` mira el ciclo de la clave 1.
+- El «Publicar» de los editores de Video e Imagen y del Copywriter no existe (sólo exportan).
+
 ## ESTADO DE LA CUENTA `claude4` (28/10/2026, noche) — para seguir con un «Continua»
 
 Rama `zernio-2510`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
@@ -405,3 +427,16 @@ Rama `zernio-token-2910` (desde origin/main 3648cedb8, en C:/dev/wt-zernio-2510)
 - El corte sigue el 03/11 y leer con el token sigue después (lo prometió el aviso). El token guardado no se borra.
 - Lo de MaKo diciendo «ya tomé nota para barrer…» sin ticket es del chat de MaKo en WhatsApp: no se tocó.
 - Detalle y trampas: docs/hallazgos-integraciones.md («Una sola pestaña, la de Zernio…»).
+
+## EN CURSO (29/10 ~14:00, claude3): varias claves de Zernio y todas las redes (pedido de Martín, da vuelta el «NO» de la mañana)
+
+Martín, audio en SuperAdmin (29/10 16:40 UTC): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con otra
+cuenta de Gmail del cliente... y ya tendrías cuatro redes... si vas a conectar la tercera cuenta te advierte». El Cerebro le dice
+lo de los términos (suspensión por «abuso»). El plan, en este orden, cada pieza con su commit:
+1. Varias claves: `ZERNIO_API_KEY_2…_5` (slot + email, como las IA). La 1 sigue siendo `cfg(ws)` (nada cambia con una sola).
+   Lo que opera sobre UNA cuenta usa la clave dueña (`cfgDeCuenta`); conectar elige la primera clave con lugar; el webhook y el
+   ruteo se registran en cada clave (el secreto es por negocio: la misma URL `?w=` sirve).
+2. El aviso de la 3.ª red, por clave, con [Agregar otra clave] y [Conectar igual].
+3. Zernio primero en todo «Conectar» sin clave.
+4. Todas las redes de Zernio (las de login: LinkedIn, X, Threads, Reddit, Pinterest, Google Business) en Integraciones y al publicar.
+5. El tutorial con capturas.

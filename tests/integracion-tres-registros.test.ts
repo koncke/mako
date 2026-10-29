@@ -57,7 +57,7 @@ test('toda tarjeta del catálogo tiene su LOGO propio, no el de otra marca', () 
   // El mapa `ICON`: entradas `key: { … }` hasta el cierre del objeto.
   const mapa = visual.slice(visual.indexOf('export const ICON'), visual.indexOf('export const iconFor'));
   const sinLogo = DEFS_TEST
-    .filter((d) => !new RegExp(`^\\s{2}${d.key}:\\s*\\{`, 'm').test(mapa))
+    .filter((d) => !new RegExp(`^\\s{2}(${d.key}|'${d.key}'):\\s*\\{`, 'm').test(mapa))
     .map((d) => d.key);
   assert.deepEqual(
     sinLogo, [],

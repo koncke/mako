@@ -319,6 +319,8 @@ test('zernio: GET follow-status con refresh=false (true sólo si es fresco), tie
   const lote = bloque(src, 'export async function estadosDeSeguimiento(', '\n}\n', 1_500);
   assert.match(lote, /await conTope\(pedidos, CONCURRENCIA_SEGUIMIENTO,/);
   assert.match(lote, /if \(!\(e instanceof ZernioError\) \|\| !seguimientoNoSe\(e\.status\)\) throw e;/);
-  assert.match(lote, /if \(e\.status === 401 \|\| e\.status === 402\) cuentaCaida = true;/);
+  // Una clave caída (401/402) apaga las cuentas de ESA clave (varias claves, 29/10/2026): el resto queda «no se sabe».
+  assert.match(lote, /if \(e\.status === 401 \|\| e\.status === 402\) caidas\.add\(key\);/);
+  assert.match(lote, /if \(caidas\.has\(key\)\) \{ out\.set\(p\.leadId, null\); return; \}/);
   assert.match(src, /signal: AbortSignal\.timeout\(timeoutMs\)/);
 });

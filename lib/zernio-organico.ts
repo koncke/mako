@@ -16,7 +16,7 @@
 // =============================================================================
 
 import 'server-only';
-import { cfg, zFetch, ZernioError } from './zernio';
+import { cfgDeCuenta, zFetch, ZernioError } from './zernio';
 import { conexionesViaZernio, ZernioConectarError } from './zernio-conectar';
 import {
   motivoDeStatus, noEntregadasDe, publicacionesDe, seguidoresDe, textoOrganico, TEXTO_MOTIVO_ORGANICO, totalesDeInsights, type MotivoOrganico,
@@ -62,7 +62,8 @@ export async function rendimientoInstagram(ws: number, p: { desde: string; hasta
     return { error: 'sin-cuenta', texto: `@${quiero} no está conectada en Zernio. Las de Instagram conectadas: ${conectadas}.` };
   }
 
-  const c = await cfg(ws);
+  // La clave DUEÑA de esa cuenta de Instagram (varias claves, 29/10/2026); con una sola, la de siempre.
+  const c = await cfgDeCuenta(ws, cuenta.accountId);
   const deLaCasa = !c.byok;
   const q = (o: Record<string, string>) => new URLSearchParams(o).toString();
   const rango = { fromDate: p.desde, toDate: p.hasta };

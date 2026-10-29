@@ -16,7 +16,8 @@
 import 'server-only';
 import { credDelCliente, envCred } from './credenciales';
 import { wsSuperAdmin } from './workspace';
-import { ZernioError, type ZernioErrorBody } from './zernio';
+import { cfgDeCuenta, ZernioError, type ZernioErrorBody } from './zernio';
+import { ENV_CUENTA_ZERNIO } from './zernio-meta-cuerpo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { cuerpoCambiarTextos, idsDelAnuncioCreado, subcodeDeZernio, type ConexionAnunciosZernio } from './zernio-ads-cuerpo';
 
@@ -25,7 +26,13 @@ const ZERNIO_BASE = 'https://zernio.com/api/v1';
 /** La clave de Zernio con la que este negocio publica, o null. Nunca la de la plataforma para un cliente. */
 export async function claveZernioAnuncios(ws: number): Promise<string | null> {
   if (ws === (await wsSuperAdmin().catch(() => null))) return envCred('ZERNIO_API_KEY');
-  return credDelCliente('ZERNIO_API_KEY', ws);
+  const base = await credDelCliente('ZERNIO_API_KEY', ws);
+  if (!base) return null;
+  // Con varias claves (29/10/2026), la DUEÑA de la conexión de anuncios (`META_ZERNIO_CUENTA`): «Anuncios de Meta» pudo quedar en la
+  // clave 2. Sin conexión todavía, o si no se puede averiguar, la 1 (lo de siempre).
+  const conexion = await credDelCliente(ENV_CUENTA_ZERNIO, ws).catch(() => null);
+  if (!conexion) return base;
+  return (await cfgDeCuenta(ws, conexion).catch(() => null))?.apiKey ?? base;
 }
 
 async function zAds<T>(clave: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 90_000): Promise<T> {
