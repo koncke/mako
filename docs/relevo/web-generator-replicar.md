@@ -11,8 +11,9 @@ cerrados.**
 
 ## 0. P0 (29/10 00:40) — «No pude sacar la foto de la página. Vuelve a intentar.» — ARREGLADO (claude3, 29/10 ~03:00)
 
-**Rama `web-generator-foto-2910` (desde origin/main 7f36fa9c6), worktree `C:/dev/wt-foto-2910`: 601e6777d (arreglo + test)
-· a24437bb3 (cosecha: hallazgos-editor-landing, hallazgos-infra, índice).** Sin pushear (sube el Cerebro).
+**Rama `web-generator-foto-2910` (desde origin/main 7f36fa9c6), worktree `C:/dev/wt-foto-2910`, punta 22b4b75c4:
+601e6777d (arreglo + test) · a24437bb3 (cosecha) · 409b62839 (el regex de editor-landing-estilo) · 22b4b75c4 (cosecha: la
+trampa de tests-afectados con los `todo`).** VERDE mandado al Cerebro (29/10 ~05:55). Sin pushear (sube el Cerebro).
 - La URL: https://100ads.ai/ (log de función de Vercel, 03:38:21 UTC). NO era el tope: la ventana falló en < 5 s.
 - Causa: en la ventana AISLADA, `sinRastreadores` sacaba dos pedazos `self.__next_f.push` del árbol de la app de Next
   (nombran a Facebook/Clarity) → React la borraba (#423) → foto con cuerpo vacío → el saneo la tiraba en silencio.
@@ -21,7 +22,9 @@ cerrados.**
   en una caída, y la pantalla dice un texto por motivo.
 - Medido con la ventana de verdad (`C:/dev/revisiones/web-generator-foto/ventana-repro.mts`): antes 0 palabras y foto
   vacía; ahora 684 palabras y la foto de 115 KB, 12 de 12. tests/web-generator-foto.test.ts 8/8, romper 18/18; los 3
-  tests vecinos 56/56. tsc-acotado y tests-afectados: ver `C:/dev/revisiones/web-generator-foto/{tipos,tests-afectados}.log`.
+  tests vecinos 56/56. tsc-acotado 0 propios (los 14 conocidos de _opencut). tests-afectados (5552 de 540 archivos): el único
+rojo de verdad fue editor-landing-estilo (fija la forma del final; arreglado en 409b62839, 15/15); los otros dos que
+nombró son `todo` de main (ver hallazgos-infra). Logs en `C:/dev/revisiones/web-generator-foto/`.
 - SIN HACER: el Diagnóstico y la copia fiel siguen sacando los datos (una app de Next ahí probablemente en blanco, sin medir).
 - Lo de abajo es el pedido original, de historia.
 
