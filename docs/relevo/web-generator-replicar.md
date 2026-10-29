@@ -1,9 +1,34 @@
-# Relevo: «Web Generator: replicar landings» (claude4) — corte al 97 %, 28/10/2026 ~21:20
+# Relevo: «Web Generator: replicar landings» (claude4) — CIERRE al 95 % semanal, 29/10/2026 ~00:45
 
 Pegar en un chat nuevo: `Leé docs/relevo/web-generator-replicar.md y seguimos desde ahí.` Las órdenes llegan del Cerebro
 (`local_797d5445-2365-464d-ae3d-1d71aa7baa8c`). Nada de esto está pusheado (sube el Cerebro). Notas largas en la carpeta
 compartida (`…/side-session-notes/local_797d5445-…/desktop-offline-2810.md`, `replicar-landings-2810.md`). Scripts en el
-scratchpad de la sesión 05be9946 (`…/Temp/claude/…/05be9946-…/scratchpad/scripts/`).
+scratchpad de la sesión 05be9946 (`C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-
+marketing-main/05be9946-3313-4db7-ab72-196361b6fa78/scratchpad/scripts/`). Resultados en `C:/dev/revisiones/`.
+
+**Orden: 0 (P0 nuevo, SIN EMPEZAR) → 2 (la réplica editable). El 1 y el 3 están cerrados.**
+
+## 0. P0 NUEVO (29/10 00:40, del Cerebro) — «No pude sacar la foto de la página. Vuelve a intentar.» — SIN EMPEZAR
+
+Llegó con la cuenta al 95 %: por la regla de cierre no se arrancó. Va ANTES que la réplica editable. Lo que mandó el
+Cerebro (los números de línea son de origin/main, sin verificar acá):
+- Ticket abierto de Martín (ws9, botón «Reportar a Soporte»): pantalla /web-generator/68, acción «Replicar», 29/10 00:38
+  ART (03:38 UTC), Chrome 156 en 1536x730. NO trae la URL: buscarla en los logs de Vercel de
+  `/api/landing-generator/replicar/leer` cerca de las 03:38 UTC, o lo que haya guardado el 68. **No preguntarle a Martín.**
+- El mensaje sale de `app/web-generator/crear/Replicar.tsx:215`: `leerEnNavegador` da ok:true SIN `foto`, y «Vuelve a
+  intentar» no dice por qué.
+- `lib/editor-landing/lector-script.ts`, dos caminos que dejan `foto = null` en silencio:
+  1. (primera sospecha) el temporizador de seguridad de `arrancar()` llama a `terminar(true)` a los TOPE+500 ms (TOPE =
+     40 000 con foto); la bajada es de hasta 90 pasos × 250 ms + el «quieto» (hasta 10 s) + animaciones + `esperarQuieto`:
+     en una página larga o lenta el tope llega ANTES de la línea ~1001 que saca la foto, y `terminar` manda el fin sin foto.
+  2. `try { foto = (JS_INSTANTANEA)(); } catch (e) { foto = null; }` (~1001): si la instantánea de
+     `copia-identica-script.ts` revienta, el motivo se pierde.
+- **Hecho =** si el tope llega con foto pedida y sin foto, la saca igual antes de terminar (parcial, pero con foto); sin
+  foto, el lector manda el MOTIVO (tope, la excepción, la página que no cargó) y la pantalla lo dice con palabras de Martín
+  (regla del AGENTS.md: lo que corre el chat de un editor devuelve su motivo; «Vuelve a intentar» sólo si reintentar
+  sirve); reproducido con la URL real (o una landing larga); test rojo→verde probado rompiéndolo; tsc-acotado sin errores
+  propios (con `--heap=4096` si aborta con 134); commits chicos y VERDE con el sha al Cerebro (él verifica, sube y cierra
+  el ticket con el aviso a Martín). Rama sugerida: desde origin/main, `web-generator-foto-2910`.
 
 ## 1. P0 — el Web Generator en blanco: CERRADO (28/10 ~23:45)
 
