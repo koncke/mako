@@ -20,7 +20,17 @@ test) · 4bfbf85db (cosecha).** Medido DOM contra DOM (`C:/dev/revisiones/clonad
 - **Lo próximo (en HtmlEditableVista.tsx, con el editor REAL para verificarlo):** (1) lo fijo/pegajoso (menú de
   respond y de holo) como en la original, encima de lo que sigue (hoy corre la página 40–280 px); (2) dibujar la copia al
   ancho de la original y escalarla al lienzo (~980 px hoy elige el diseño de tableta); (3) replicar de nuevo #68–#72.
-- tsc-acotado: esperaba la pausa del Cerebro (tren-y); ver `C:/dev/revisiones/clonadas-2910/tipos.log`.
+- tsc-acotado de d413ad03b: salió 99 (NO se chequeó: el vigía o el turno); repetir por `con-turno`.
+- **29/10 ~04:50, el Cerebro aprobó la dirección y pidió 4 cosas** (clics escalados medidos con un clic real sobre «30+
+  posts a month»; lo fijo y el aviso de cookies sin bloque al final, en editor y publicada; las 5 del ws9 + 100ads antes y
+  después a 1440/390/980 con la tabla de distancias por ancla; no pisar las copias viejas). Hecho SIN COMMITEAR en
+  `C:/dev/wt-foto-2910` (esperaba el turno de tests): `escalaDeCopia` + `ANCHO_COPIA_ESCRITORIO` (html-editable.ts), la
+  vista escalada (HtmlEditableVista.tsx: iframe a 1440 con `scale`, clic reenviado y capas vivas × escala), lo fijo
+  (`data-gm-fijo` en la foto, `pegarLoFijo`/`esSeccionFija` en copia-identica.ts), tests 5/6/6b en
+  web-generator-copia-franjas.test.ts. Clic real (arnés `clic-escalado.mts`, CDP Input.dispatchMouseEvent a escala
+  0,6806): 4/4 anclas reciben el mousedown en su punto exacto (±1 px). Cadena de medición: `scratchpad/scripts/
+  cadena-final.sh` → `C:/dev/revisiones/clonadas-2910/final/` (antes = worktree `C:/dev/verif-clonadas-antes`, origin/main).
+- Reglas de la noche (Cerebro): todo lo pesado por `node C:/dev/con-turno.mjs`, un Chrome por vez, commits seguidos.
 
 ## 0. P0 (29/10 00:40) — «No pude sacar la foto de la página. Vuelve a intentar.» — ARREGLADO (claude3, 29/10 ~03:00)
 
