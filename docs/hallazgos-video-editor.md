@@ -1870,6 +1870,11 @@ WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configura
   interno. Por probabilidad: la bajada del modelo (la primera vez) o un clip sin voz. El próximo reporte ya trae el motivo.
 - **Lo que NO entra:** transcribir en el servidor (con el Groq de la plataforma) para no bajar el modelo al navegador. Es
   decisión de producto, no este arreglo (Cerebro, 28/10).
+- ⚠️ **Trampa al probar rompiendo: el árbol de trabajo está en CRLF (autocrlf) y el `grep` de Git Bash no ve el `\r`.**
+  Un script que rompe reemplazando un texto de varias líneas escrito con `\n` no lo encuentra; si no lo avisa, corre la
+  base sin romper nada y da un verde falso. El script tiene que usar el fin de línea del archivo
+  (`original.includes('\r\n')`) y decir «no encontré» cuando el texto no aparece exactamente una vez. Y `node --test` sin
+  terminal no escribe `# pass`: hay que pedir `--test-reporter=tap` para leer los conteos.
 
 **Vive en:** `subtitles/resultado.ts` (puro, lo carga el test) · `subtitles/generar.ts` · `chat/aplicar.ts` (`correrLarga`) ·
 `transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
