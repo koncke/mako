@@ -63,9 +63,21 @@ async function main() {
     db.cobros.push({ id: 77, workspace_id: WS_A, lead_id: 303, pago_id: 33, estado: 'pendiente', monto: 500, moneda: 'USD' });
     // Mía: una cuota de un tramo en pesos, MXN 12.000 = US$600.
     db.pagos.push({ id: 41, workspace_id: WS_A, lead_id: 304, numero: 1, monto_usd: 600, fecha_esperada: '2026-11-01', pagado: false, nacio_cobrada: false, resto_de: null, moneda: 'MXN', monto_original: 12000 });
+    // (revisión de 805afb460) Ana: el anticipo #0 ya cobrado (N4). Gus: la #1 cobrada, la #2 y la #3 con un link sin pagar (N2).
+    db.leads.push({ id: 305, workspace_id: WS_A, nombre: 'Ana', estado_lead: 'ganado', venta_tipo: 'unico', monto_cierre_usd: 2000, cobro_inicial_usd: 1000, funnel_id: null, created_at: ahoraIso() });
+    db.pagos.push({ id: 50, workspace_id: WS_A, lead_id: 305, numero: 0, monto_usd: 1000, fecha_esperada: '2026-10-01', pagado: true, fecha_pago: '2026-10-01', nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null });
+    db.leads.push({ id: 306, workspace_id: WS_A, nombre: 'Gus', estado_lead: 'ganado', venta_tipo: 'unico', monto_cierre_usd: 1500, cobro_inicial_usd: null, funnel_id: null, created_at: ahoraIso() });
+    for (const [id, numero, fecha, pagado] of [[61, 1, '2026-11-10', true], [62, 2, '2026-12-10', false], [63, 3, '2027-01-10', false]] as const) {
+      db.pagos.push({ id, workspace_id: WS_A, lead_id: 306, numero, monto_usd: 500, fecha_esperada: fecha, pagado, fecha_pago: pagado ? fecha : null, nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null });
+    }
+    db.cobros.push({ id: 78, workspace_id: WS_A, lead_id: 306, pago_id: 63, estado: 'pendiente', monto: 500, moneda: 'USD' });
   };
   const ctx = (ws: number) => ({ ws, canal: 'app' as const, canalKey: 'app:prueba', alcance: 'proponer' as const, rol: 'admin' as const, actor: 'Mauricio' });
-  type R = { preparar: (i: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<Record<string, unknown>>; ejecutar: (p: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<Record<string, unknown>> };
+  type R = {
+    preparar: (i: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<Record<string, unknown>>;
+    ejecutar: (p: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<Record<string, unknown>>;
+    faltaParaConfirmar?: (p: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<string | null>;
+  };
   const armar = cobros.armar_plan_por_tramos as unknown as R;
   const marcar = crm.marcar_pago_cobrado as unknown as R;
   const enA = <T,>(fn: () => Promise<T>) => runWithWorkspace(WS_A, fn);
@@ -121,6 +133,37 @@ async function main() {
     out.cobranzaMia = cobranza;
     const r = await proponerYConfirmar(marcar, { pagoId: 41, leadId: 304, pagado: true, fechaPago: '2026-10-29', moneda: 'MXN', montoOriginal: 6000 });
     out.aMedias = { prep: r.prep, ejec: r.ejec, pagos: pagosDe(304) };
+  }
+  // 7) N1: MaKo propone el plan de Fernando (sin cuotas); antes del «sí», alguien arma en la ficha 6 × US$1.000. Y la variante: en
+  //    Leo, se cobra la #2 entre la propuesta y el «sí». El «sí» no pisa nada y lo dice; sin cambios, pasa.
+  {
+    reset();
+    const prep = await enA(() => armar.preparar(FERNANDO, ctx(WS_A)));
+    const payload = prep.payload as Record<string, unknown>;
+    const sinCambios = await enA(() => armar.faltaParaConfirmar?.(payload, ctx(WS_A)) ?? Promise.resolve('sin faltaParaConfirmar'));
+    for (let i = 0; i < 6; i++) db.pagos.push({ id: 501 + i, workspace_id: WS_A, lead_id: 301, numero: i + 1, monto_usd: 1000, fecha_esperada: `2026-1${1 + Math.min(i, 1)}-0${1 + i}`, pagado: false, nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null });
+    const falta = await enA(() => armar.faltaParaConfirmar?.(payload, ctx(WS_A)) ?? Promise.resolve(null));
+    const ejec = await enA(() => armar.ejecutar(payload, ctx(WS_A)));
+    const leo = await enA(() => armar.preparar({ leadId: 303, primeraCuota: '2026-11-10', tramos: [{ monto: 600, cuotas: 3, dia: 10 }] }, ctx(WS_A)));
+    const c32 = db.pagos.find((p) => p.id === 32) as Fila;
+    Object.assign(c32, { pagado: true, fecha_pago: '2026-10-29' });
+    const faltaLeo = await enA(() => armar.faltaParaConfirmar?.(leo.payload as Record<string, unknown>, ctx(WS_A)) ?? Promise.resolve(null));
+    out.siViejo = { vistas: payload.vistas ?? null, sinCambios, falta, ejec, pagos: pagosDe(301), faltaLeo };
+  }
+  // 8) N2: Gus tiene la #1 cobrada (US$500) y la #3 con un link sin pagar; se pide 3 × US$700. La propuesta dice lo que QUEDA.
+  {
+    reset();
+    const r = await proponerYConfirmar(armar, { leadId: 306, primeraCuota: '2026-11-10', tramos: [{ monto: 700, cuotas: 3, dia: 10 }] });
+    out.queda = { prep: r.prep, ejec: r.ejec, pagos: pagosDe(306) };
+  }
+  // 9) N4: Ana tiene el anticipo cobrado; pedir otro no se promete. B6: dos «sí» a la vez sobre Fernando.
+  {
+    reset();
+    const ana = await enA(() => armar.preparar({ leadId: 305, primeraCuota: '2026-11-10', tramos: [{ monto: 500, cuotas: 2, dia: 10 }], anticipo: 800 }, ctx(WS_A)));
+    const prep = await enA(() => armar.preparar(FERNANDO, ctx(WS_A)));
+    const dos = await Promise.all([1, 2].map(() => enA(() => armar.ejecutar(prep.payload as Record<string, unknown>, ctx(WS_A)))));
+    out.anticipoCobrado = ana;
+    out.dosSi = { dos, pagos: pagosDe(301) };
   }
   out.red = red;
   process.stdout.write(JSON.stringify(out));
