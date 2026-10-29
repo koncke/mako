@@ -35,7 +35,8 @@ export type PropsHojaDifusion = {
   seleccion: SeleccionHojaDifusion;
   onCerrar: () => void;
   /** Cuando se mandó: la automatización que quedó (para el aviso «Ver en Automations», /automations?sec=ID). */
-  onCreada?: (r: { secuenciaId: number; nombre: string; leads: number }) => void;
+  /** `yaEstaban`: era el MISMO pedido y retomó la difusión que ya existía (lib/difusion.ts): no la mandó dos veces. */
+  onCreada?: (r: { secuenciaId: number; nombre: string; leads: number; yaEstaban?: number }) => void;
 };
 
 /** El aviso del QR (el mismo riesgo que dice la ficha del lead: «nunca en masa»). */
@@ -56,6 +57,8 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
   const [goteo, setGoteo] = useState<{ minutos: number; dia: number }>({ ...GOTEO_DIFUSION_INICIAL });
   const [confirmando, setConfirmando] = useState(false);
   const [mandando, setMandando] = useState(false);
+  // Cuándo se leyó a quién le llega: desde ahí se cuentan los turnos del goteo de Instagram contra la ventana de cada uno.
+  const [leidaAt, setLeidaAt] = useState(0);
   const clave = JSON.stringify(seleccion);
 
   // Al abrir: a quién le llega. Arranca con los canales por los que le llega a alguien (sin WhatsApp si no hay QR).
@@ -66,7 +69,7 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
     prepararDifusionAction(JSON.parse(clave)).then((r) => {
       if (!vivo) return;
       if (!r.ok) { setError(r.error); return; }
-      setVista(r.vista);
+      setVista(r.vista); setLeidaAt(Date.now());
       setCanales(r.vista.alcance.porCanal.filter((c) => c.llegan > 0).map((c) => c.canal));
     }).catch(() => { if (vivo) setError('No pude leer a quién le llega.'); });
     return () => { vivo = false; };
@@ -80,16 +83,18 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
     return () => window.removeEventListener('keydown', tecla);
   }, [abierta, confirmando, onCerrar]);
 
-  const alcance = useMemo(() => (vista ? alcanceDeMotivos(vista.porLead, canales) : null), [vista, canales]);
+  const [mMin, mMax] = RANGOS_GOTEO.minutos;
+  const [dMin, dMax] = RANGOS_GOTEO.dia;
+  const goteoOk = goteo.minutos >= mMin && goteo.minutos <= mMax && goteo.dia >= dMin && goteo.dia <= dMax;
+  // Con el goteo, Instagram promete sólo a los que alcanza antes de que se les cierre la ventana (`alcanceDeMotivos`).
+  const ritmo = useMemo(() => (goteoOk && leidaAt ? { goteo, ahoraMs: leidaAt } : undefined), [goteoOk, goteo, leidaAt]);
+  const alcance = useMemo(() => (vista ? alcanceDeMotivos(vista.porLead, canales, ritmo) : null), [vista, canales, ritmo]);
   const mensajes: MensajesDifusion = useMemo(() => ({
     ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: String(wa.cuerpo ?? ''), ...(Array.isArray((wa as { partes?: unknown[] }).partes) ? { partes: (wa as { partes?: unknown[] }).partes } : {}) } } : {}),
     ...(canales.includes('email') ? { email } : {}),
     ...(canales.includes('instagram') ? { instagram: { cuerpo: String(ig.cuerpo ?? ''), ...(Array.isArray((ig as { partes?: unknown[] }).partes) ? { partes: (ig as { partes?: unknown[] }).partes } : {}) } } : {}),
   }), [canales, wa, ig, email]);
   const falta = alcance ? problemaDeDifusion({ canales, mensajes, alcance }) : null;
-  const [mMin, mMax] = RANGOS_GOTEO.minutos;
-  const [dMin, dMax] = RANGOS_GOTEO.dia;
-  const goteoOk = goteo.minutos >= mMin && goteo.minutos <= mMax && goteo.dia >= dMin && goteo.dia <= dMax;
 
   const alternar = (c: CanalDifusion) => setCanales((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
 
@@ -97,7 +102,7 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
     setMandando(true); setError(null);
     try {
       const r = await crearDifusionAction({ seleccion: JSON.parse(clave), canales, mensajes, goteo });
-      if (r.ok) { onCreada?.({ secuenciaId: r.secuenciaId, nombre: r.nombre, leads: r.leads }); onCerrar(); }
+      if (r.ok) { onCreada?.({ secuenciaId: r.secuenciaId, nombre: r.nombre, leads: r.leads, ...(r.yaEstaban != null ? { yaEstaban: r.yaEstaban } : {}) }); onCerrar(); }
       else setError(r.error);
     } catch { setError('No se pudo mandar. Vuelve a intentarlo.'); }
     setMandando(false); setConfirmando(false);
@@ -127,7 +132,7 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
             <section aria-label="Canales" style={{ display: 'grid', gap: 8 }}>
               <div style={TITULO}>Por dónde</div>
               {CANALES_DIFUSION.map((c) => {
-                const fila = alcanceDeMotivos(vista.porLead, [c]).porCanal[0];
+                const fila = alcanceDeMotivos(vista.porLead, [c], ritmo).porCanal[0];
                 const sinQr = c === 'whatsapp' && !vista.whatsappQr;
                 const on = canales.includes(c) && !sinQr;
                 return (

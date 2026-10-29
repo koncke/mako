@@ -15,8 +15,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   alcanceDe, alcanceDeMotivos, motivosDe, pasosDeDifusion, problemaDeDifusion, nombreDeDifusion, textoDeDuracion, goteoValido,
+  demoraDelTurno, claveDeDifusion, leerMarcaDifusion, decidirRepetida, ESPERA_DIFUSION_EN_CURSO_MIN, VENTANA_DIFUSION_REPETIDA_MIN,
   type LeadDifusion,
 } from '../lib/difusion-reglas';
+import { decidirSalida, salidaHastaMs } from '../lib/canal-social';
+import { RANGOS_GOTEO } from '../lib/config-automatizacion';
+import { porId } from '../lib/api-mako/registro';
 import { validarGrafo, normalizar, type PasoGrafo } from '../lib/flujo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -113,9 +117,10 @@ test('el server y la hoja (leyendo el fuente)', () => {
   assert.match(s, /await setSecuenciaReentrada\(fila\.id, 'una_vez'\);/);
   assert.match(s, /await setSecuenciaActiva\(fila\.id, true, \{ aunqueDuplique: true, ws \}\);/, 'la prende por la puerta de siempre (el tope del plan)');
   assert.match(s, /\} catch \(e\) \{\s*await db\.from\('nutricion_secuencias'\)\.delete\(\)\.eq\('id', fila\.id\)/, 'lo que falla antes de inscribir no deja una fila a medias');
-  assert.ok(s.indexOf("from('nutricion_inscripciones').insert(") > s.indexOf('setSecuenciaActiva(fila.id'), 'inscribe DESPUÉS de prenderla');
-  assert.match(s, /const vista = await prepararDifusion\(ws, p\.seleccion, canales\);/, 'vuelve a leer a quién le llega: no confía en la hoja');
-  assert.match(s, /return \{ etapa, cortado, whatsappQr, alcance: alcanceDeMotivos\(porLead, usables\), porLead \};/, 'a la hoja no le viajan teléfonos ni emails');
+  const crear = s.slice(s.indexOf('export async function crearDifusion('));
+  assert.ok(crear.indexOf('await inscribirEnDifusion(fila.id, vista.alcance.ids)') > crear.indexOf('setSecuenciaActiva(fila.id'), 'inscribe DESPUÉS de prenderla');
+  assert.match(s, /const vista = await prepararDifusion\(ws, p\.seleccion, canales, goteo\);/, 'vuelve a leer a quién le llega (con SU goteo): no confía en la hoja');
+  assert.match(s, /return \{ etapa, cortado, whatsappQr, alcance: alcanceDeMotivos\(porLead, usables, \{ goteo, ahoraMs: ahora \}\), porLead \};/, 'a la hoja no le viajan teléfonos ni emails');
   const a = sinComentarios(leer('app/automations/difusion/actions.ts'));
   assert.equal((a.match(/if \(rol !== 'admin'\) return \{ ok: false/g) ?? []).length, 2, 'las dos puertas, sólo el admin');
   const h = sinComentarios(leer('app/automations/difusion/HojaDifusion.tsx'));
@@ -124,4 +129,105 @@ test('el server y la hoja (leyendo el fuente)', () => {
   assert.match(h, /<EditorEmailGmail /);
   assert.match(h, /<EditorMensajeSocial paso=\{ig\} canal="instagram"/);
   assert.match(h, /\{AVISO_QR\}/, 'el aviso del QR');
+});
+
+// =============================================================================
+// La verificación del Cerebro sobre 69b49a31c (29/10/2026): tres medias y una baja de la difusión.
+// =============================================================================
+
+test('salidaHastaMs es decidirSalida en el tiempo: hay vía si y sólo si es antes de ese instante', () => {
+  const casos = [
+    IG(), IG({ ventanaExpiraAt: hace(5) }), IG({ conversacionId: null }), IG({ cuentaId: null }),
+    IG({ ventanaExpiraAt: hace(60), comentarioId: 'k1', comentarioPostId: 'p1', comentarioAt: hace(60) }),
+    IG({ ventanaExpiraAt: new Date(AHORA + 9 * 86_400_000).toISOString(), comentarioId: 'k1', comentarioPostId: 'p1', comentarioAt: hace(60) }),
+    IG({ comentarioId: 'k1', comentarioPostId: 'p1', comentarioAt: hace(60), comentarioRespondidoAt: hace(30) }),
+    IG({ comentarioId: 'k1', comentarioPostId: null, comentarioAt: hace(60) }),
+    null,
+  ];
+  for (const [i, c] of casos.entries()) {
+    const hasta = salidaHastaMs(c);
+    for (const dt of [-86_400_000, 0, 1, 3600_000, 86_400_000, 6.9 * 86_400_000, 7 * 86_400_000, 10 * 86_400_000]) {
+      const t = AHORA + dt;
+      assert.equal(decidirSalida(c, t).via !== null, hasta != null && t < hasta, `caso ${i}, +${dt / 3600_000} h`);
+    }
+  }
+});
+
+// [media] La hoja prometía «le llega a 100» por Instagram con 40 por día, y a los 60 de después se les cerraba la ventana de
+// 24 h antes de su turno (el envío los daba por fallo). Reproducción del verificador: ventanas que vencen parejo en 24 h.
+test('Instagram con goteo: promete sólo a los que el goteo alcanza antes de su ventana; el que sólo tenía Instagram no se inscribe', () => {
+  const DIA = 86_400_000;
+  const leads = Array.from({ length: 100 }, (_, i) => L(i + 1, { telefono: null, email: null, instagram: IG({ ventanaExpiraAt: new Date(AHORA + (i + 1) * DIA / 100).toISOString() }) }));
+  const ig = (g: { minutos: number; dia: number }) => alcanceDe(leads, ['instagram'], AHORA, g);
+  const con40 = ig({ minutos: 3, dia: 40 });
+  assert.equal(con40.porCanal[0].llegan, 40, 'los 40 del primer día');
+  assert.deepEqual(con40.porCanal[0].afuera, [{ motivo: 'instagram_turno', cuantos: 60 }]);
+  assert.deepEqual(con40.ids, leads.slice(0, 40).map((l) => l.id), 'a los otros 60 sólo les llegaba Instagram: no se inscriben para fallar');
+  assert.equal(ig({ minutos: 3, dia: 500 }).porCanal[0].llegan, 100, 'con el tope arriba les llega a todos');
+  assert.equal(alcanceDe(leads, ['instagram'], AHORA).porCanal[0].llegan, 100, 'sin goteo, como antes (la ventana de ahora)');
+  // Con otro canal, sigue inscripto: le llega por ése.
+  const conWa = leads.map((l) => ({ ...l, telefono: '+5491122334455' }));
+  assert.equal(alcanceDe(conWa, ['whatsapp', 'instagram'], AHORA, { minutos: 3, dia: 40 }).ids.length, 100);
+  // Por comentario (la respuesta privada, 7 días), los 200 entran con 40 por día: el último sale el 5º día.
+  const comentaron = Array.from({ length: 200 }, (_, i) => L(i + 1, { telefono: null, email: null, instagram: IG({ conversacionId: null, ventanaExpiraAt: null, comentarioId: `k${i}`, comentarioPostId: 'p', comentarioAt: hace(60) }) }));
+  assert.equal(alcanceDe(comentaron, ['instagram'], AHORA, { minutos: 3, dia: 40 }).porCanal[0].llegan, 200);
+  // El turno: de a uno cada `minutos`, y cumplido el tope del día, 24 h después del primero (`frenoDeGoteo`).
+  assert.equal(demoraDelTurno(0, { minutos: 3, dia: 40 }), 0);
+  assert.equal(demoraDelTurno(39, { minutos: 3, dia: 40 }), 117 * 60_000);
+  assert.equal(demoraDelTurno(40, { minutos: 3, dia: 40 }), DIA);
+  // La hoja lo cuenta con SU goteo, desde que leyó; MaKo y el server, con el pedido.
+  const h = sinComentarios(leer('app/automations/difusion/HojaDifusion.tsx'));
+  assert.match(h, /const ritmo = useMemo\(\(\) => \(goteoOk && leidaAt \? \{ goteo, ahoraMs: leidaAt \} : undefined\), \[goteoOk, goteo, leidaAt\]\);/);
+  assert.match(h, /alcanceDeMotivos\(vista\.porLead, canales, ritmo\)/);
+  assert.match(h, /alcanceDeMotivos\(vista\.porLead, \[c\], ritmo\)/);
+  assert.match(sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts')), /const v = await prepararDifusion\(ctx\.ws, pedido\.seleccion, pedido\.canales, goteo\);/);
+});
+
+// [media] La misma difusión salía dos veces: el server no tenía idempotencia (un reintento, dos pestañas, MaKo otra vez
+// después de una tanda que falló: 450 inscripciones para 250 leads).
+test('la misma difusión, una vez: la clave del pedido, la marca y retomar la que ya se creó', () => {
+  const p = { seleccion: { leadIds: [3, 1, 2, 2] }, canales: ['instagram', 'whatsapp'] as Array<'instagram' | 'whatsapp'>, mensajes: { whatsapp: { cuerpo: 'Hola' }, instagram: { cuerpo: 'Hola' } }, goteo: { minutos: 3, dia: 40 } };
+  const k = claveDeDifusion(p);
+  assert.equal(claveDeDifusion({ ...p, seleccion: { leadIds: [1, 2, 3] }, canales: ['whatsapp', 'instagram'] }), k, 'el mismo pedido, en otro orden, es el mismo');
+  assert.notEqual(claveDeDifusion({ ...p, mensajes: { ...p.mensajes, whatsapp: { cuerpo: 'Chau' } } }), k, 'otro mensaje es otra difusión');
+  assert.notEqual(claveDeDifusion({ ...p, goteo: { minutos: 3, dia: 41 } }), k);
+  assert.notEqual(claveDeDifusion({ ...p, seleccion: { leadIds: [1, 2] } }), k);
+  assert.equal(claveDeDifusion({ ...p, seleccion: { etapa: ' contacto_nuevo ', funnelId: null } }), claveDeDifusion({ ...p, seleccion: { etapa: 'contacto_nuevo', funnelId: null } }));
+  const at = (min: number) => new Date(AHORA - min * 60_000).toISOString();
+  assert.deepEqual(decidirRepetida(null, AHORA), { es: 'nueva' });
+  assert.deepEqual(decidirRepetida(leerMarcaDifusion('basura'), AHORA), { es: 'nueva' });
+  assert.deepEqual(decidirRepetida(leerMarcaDifusion(JSON.stringify({ at: at(1), secuenciaId: null })), AHORA), { es: 'en_curso' }, 'otro la está creando');
+  assert.deepEqual(decidirRepetida(leerMarcaDifusion(JSON.stringify({ at: at(ESPERA_DIFUSION_EN_CURSO_MIN + 1), secuenciaId: null })), AHORA), { es: 'nueva' }, 'quien la creaba se cayó');
+  assert.deepEqual(decidirRepetida(leerMarcaDifusion(JSON.stringify({ at: at(30), secuenciaId: 1201 })), AHORA), { es: 'retomar', secuenciaId: 1201 });
+  assert.deepEqual(decidirRepetida(leerMarcaDifusion(JSON.stringify({ at: at(VENTANA_DIFUSION_REPETIDA_MIN + 1), secuenciaId: 1201 })), AHORA), { es: 'nueva' }, 'pasado el día, mandarla igual es a propósito');
+  // El server: la marca se lee ESTRICTO, se reclama con compare-and-set ANTES de crear nada, apunta a la automatización antes
+  // de inscribir, se suelta si no se creó nada, y el mismo pedido retoma en vez de crear otra.
+  const s = sinComentarios(leer('lib/difusion.ts'));
+  const crear = s.slice(s.indexOf('export async function crearDifusion('));
+  const i = (x: string) => { const n = crear.indexOf(x); assert.ok(n > 0, `falta: ${x}`); return n; };
+  assert.ok(i('const previo = await getSettingEstricto(key);') < i("if (repetida.es === 'en_curso') return { ok: false, error: EN_CURSO };"));
+  assert.ok(i("if (repetida.es === 'retomar') {") < i('if (!(await cambiarSettingSi(key, previo, reclamo))) return { ok: false, error: EN_CURSO };'));
+  assert.match(crear, /if \(repetida\.es === 'retomar'\) \{\s*const r = await retomarDifusion\(repetida\.secuenciaId, vista, p\.autor\);\s*if \(r\) return r;\s*\}/, 'el mismo pedido retoma la que creó');
+  assert.ok(i('if (!(await cambiarSettingSi(key, previo, reclamo)))') < i('const fila = await crearSecuenciaVacia(nombre);'), 'reclama ANTES de crear');
+  assert.ok(i('await borrarSettingSi(key, reclamo)') < i('const marca = JSON.stringify('), 'lo que no se creó suelta el pedido');
+  assert.ok(i('await cambiarSettingSi(key, reclamo, marca)') < i('await inscribirEnDifusion(fila.id, vista.alcance.ids)'), 'la marca apunta a la difusión antes de inscribir');
+  assert.match(s, /\.upsert\(\s*tanda\.map\(\(leadId\) => \(\{ lead_id: leadId, secuencia_id: secuenciaId, paso_actual: 0, estado: 'activa', proximo_envio_at: ahora \}\)\),\s*\{ onConflict: 'lead_id,secuencia_id', ignoreDuplicates: true \},\s*\)\.select\('id'\);/, 'el que ya está no entra dos veces');
+  const retomar = s.slice(s.indexOf('async function retomarDifusion('), s.indexOf('export async function crearDifusion('));
+  assert.match(retomar, /if \(!fila \|\| fila\.archivada_at\) return null;/, 'si la borraron o la archivaron, va como nueva');
+  assert.match(retomar, /const r = await inscribirEnDifusion\(fila\.id, vista\.alcance\.ids\);/);
+});
+
+// [media] Por el grupo de WhatsApp el rol es siempre 'admin' (lib/mako-doer-in.ts): un setter lanzaba una difusión. Y [baja] la
+// API proponía un goteo fuera de rango y fallaba recién después del «sí».
+test('MaKo: la difusión sólo en la app, y el goteo fuera de rango se dice antes del «sí»', () => {
+  const op = porId('difundir_a_leads')!;
+  assert.deepEqual([...op.canales], ['app'], 'por WhatsApp el rol es siempre admin (AGENTS.md, «Traer leads de a muchos…»)');
+  assert.equal(op.gating?.rolMinimo, 'admin');
+  const porDia = op.parametros.find((x) => x.nombre === 'porDia') as { maximo?: number } | undefined;
+  assert.equal(porDia?.maximo, RANGOS_GOTEO.dia[1], 'el tope del parámetro es el del goteo');
+  const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
+  const desde = run.indexOf('difundir_a_leads: {');
+  const preparar = run.slice(desde, run.indexOf('ejecutar: async (payload, ctx) => {', desde));
+  const g = preparar.indexOf('const goteo = goteoValido(pedido.goteo);');
+  assert.ok(g > 0 && g < preparar.indexOf('await prepararDifusion('), 'se valida antes de proponer');
 });

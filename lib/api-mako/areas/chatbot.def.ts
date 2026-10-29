@@ -445,10 +445,13 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'mensaje', tipo: 'string', obligatorio: true, descripcion: 'el texto, TAL CUAL lo pidió la persona ({{nombre}} es el nombre del lead). Va en WhatsApp, en Instagram y como cuerpo del email.' },
       { nombre: 'asunto', tipo: 'string', descripcion: 'el asunto del email (obligatorio si va por email).' },
       { nombre: 'minutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'minutos entre un mensaje y el siguiente, en cada canal. Sin esto, 3.' },
-      { nombre: 'porDia', tipo: 'number', entero: true, minimo: 1, descripcion: 'tope de mensajes por día en cada canal. Sin esto, 40 (el de una línea de WhatsApp).' },
+      { nombre: 'porDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'tope de mensajes por día en cada canal (hasta 500). Sin esto, 40 (el de una línea de WhatsApp).' },
     ],
     reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    // ⚠️ SÓLO EN LA APP (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): por el grupo de WhatsApp el doer arma el rol
+    // como 'admin' para cualquiera que escriba (lib/mako-doer-in.ts), y un setter o un closer lanzaba una difusión a toda una
+    // columna. Es la regla de AGENTS.md «Traer leads de a muchos…»: lo que toca números de terceros en lote, sólo en la app.
+    canales: ['app'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // «Volver a probar» (28/10/2026, ticket #19 de Leandro): «un lead no vuelve a entrar a una secuencia en la que ya estuvo»,
   // ¿cómo prueba el negocio de nuevo con su cuenta? La ficha del lead tiene su botón (lib/automatizaciones-del-lead.ts). No

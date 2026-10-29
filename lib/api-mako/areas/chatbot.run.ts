@@ -1070,8 +1070,14 @@ export const RUNNERS: Runners = {
       const pedido = pedidoDeDifusion(input);
       if ('error' in pedido) return { error: pedido.error };
       const { prepararDifusion } = await import('@/lib/difusion');
-      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracion } = await import('@/lib/difusion-reglas');
-      const v = await prepararDifusion(ctx.ws, pedido.seleccion, pedido.canales);
+      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracion, goteoValido } = await import('@/lib/difusion-reglas');
+      // El goteo fuera de rango se dice ANTES del «sí» (la verificación de 69b49a31c: fallaba recién al confirmar).
+      const goteo = goteoValido(pedido.goteo);
+      if (!goteo) {
+        const { RANGOS_GOTEO } = await import('@/lib/config-automatizacion');
+        return { error: `El goteo va de ${RANGOS_GOTEO.minutos[0]} a ${RANGOS_GOTEO.minutos[1]} minutos y de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]} por día.` };
+      }
+      const v = await prepararDifusion(ctx.ws, pedido.seleccion, pedido.canales, goteo);
       if (pedido.canales.includes('whatsapp') && !v.whatsappQr) return { error: 'No hay un WhatsApp por QR conectado: el oficial hoy no manda. Sácalo de los canales o conecta uno.' };
       const falta = problemaDeDifusion({ canales: pedido.canales, mensajes: pedido.mensajes, alcance: v.alcance });
       if (falta) return { error: `${falta}.` };
@@ -1088,8 +1094,12 @@ export const RUNNERS: Runners = {
       try {
         const { crearDifusion } = await import('@/lib/difusion');
         const r = await crearDifusion(ctx.ws, { seleccion: pedido.seleccion, canales: pedido.canales, mensajes: pedido.mensajes, goteo: pedido.goteo, autor: ctx.actor?.trim() || 'MaKo' });
+        // El MISMO pedido otra vez retoma la difusión que ya existía (lib/difusion.ts): se dice, para que no parezca otra.
+        const yaEstaba = r.ok && r.yaEstaban != null
+          ? `Esa misma difusión ya estaba: «${r.nombre}». ${r.leads - r.yaEstaban ? `Sumé a los ${r.leads - r.yaEstaban} que faltaban; ` : 'No la mandé dos veces; '}le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}. Está en Automations.`
+          : null;
         return r.ok
-          ? { ok: true, resumen: `Listo: «${r.nombre}» le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}, con su goteo. Está en Automations.`, datos: { secuenciaId: r.secuenciaId, leads: r.leads } }
+          ? { ok: true, resumen: yaEstaba ?? `Listo: «${r.nombre}» le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}, con su goteo. Está en Automations.`, datos: { secuenciaId: r.secuenciaId, leads: r.leads } }
           : { ok: false, resumen: r.error };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

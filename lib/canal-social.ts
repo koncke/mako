@@ -102,6 +102,23 @@ export function decidirSalida(c: ConversacionSocial | null, ahoraMs: number, can
 }
 
 /**
+ * HASTA CUÁNDO PUEDE SALIR un mensaje al lead (`decidirSalida` en el tiempo): `decidirSalida(c, t)` da una vía si y sólo si
+ * `t < salidaHastaMs(c)`. null = no sale nunca. Lo usa la difusión (lib/difusion-reglas.ts) para no prometer por Instagram a
+ * quien el goteo no alcanza antes de que se cierre su ventana (la verificación del Cerebro sobre 69b49a31c, 29/10/2026).
+ */
+export function salidaHastaMs(c: ConversacionSocial | null): number | null {
+  if (!c || !(c.cuentaId ?? '').trim()) return null;
+  let hasta = -Infinity;
+  const ventana = ms(c.ventanaExpiraAt);
+  if ((c.conversacionId ?? '').trim() && Number.isFinite(ventana)) hasta = ventana;
+  const cuando = ms(c.comentarioAt);
+  if ((c.comentarioId ?? '').trim() && (c.comentarioPostId ?? '').trim() && !c.comentarioRespondidoAt && Number.isFinite(cuando)) {
+    hasta = Math.max(hasta, cuando + VENTANA_COMENTARIO_MS);
+  }
+  return Number.isFinite(hasta) ? hasta : null;
+}
+
+/**
  * LA RESPUESTA PÚBLICA AL COMENTARIO (ticket #17 de Leandro, 28/10/2026: «no hay forma de responder EN PÚBLICO el
  * comentario»). Una tarjeta con `en_comentario: true` no manda un DM: publica su texto como respuesta debajo del
  * comentario que la persona dejó (POST /v1/inbox/comments/{postId} con `commentId`, lib/zernio.ts). Pura y con test.

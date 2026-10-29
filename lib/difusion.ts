@@ -9,14 +9,17 @@
 //
 // ⚠️ LA INSCRIPCIÓN EN LOTE ES ACÁ Y SÓLO ACÁ (la barra de lote del CRM la dejó afuera a propósito: «necesita su pantalla con el
 // ritmo a la vista», app/crm/AccionesLoteLeads.tsx). La hoja muestra el goteo antes de confirmar; la API de MaKo también lo
-// dice en la propuesta. Un insert por tanda: la automatización es nueva, no hay filas viejas que reusar.
+// dice en la propuesta. Una tanda por vez, sin pisar: el mismo pedido otra vez retoma ESTA automatización y suma a los que faltan.
 // =============================================================================
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { getTenantDb } from './workspace';
 import {
   alcanceDeMotivos, motivosDe, problemaDeDifusion, pasosDeDifusion, nombreDeDifusion, goteoValido, TOPE_DIFUSION, esCanalDifusion,
+  claveDeDifusion, leerMarcaDifusion, decidirRepetida, GOTEO_DIFUSION_INICIAL,
   type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion,
 } from './difusion-reglas';
+import { getSettingEstricto, cambiarSettingSi, borrarSettingSi } from './settings';
 import { conversacionDeFila } from './canal-social';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 import { RANGOS_GOTEO } from './config-automatizacion';
@@ -81,14 +84,20 @@ async function hayWhatsAppQr(ws: number): Promise<boolean> {
   return lineas.some((l) => String(l.estado ?? '').toLowerCase() === 'conectado');
 }
 
-/** LO QUE LA HOJA MUESTRA ANTES DE MANDAR: a cuántos les llega por cada canal y quién queda afuera. No escribe nada. */
-export async function prepararDifusion(ws: number, sel: SeleccionDifusion, canales: readonly CanalDifusion[] = ['whatsapp', 'email', 'instagram']): Promise<VistaDifusion> {
+/**
+ * LO QUE LA HOJA MUESTRA ANTES DE MANDAR: a cuántos les llega por cada canal y quién queda afuera. No escribe nada. Con el
+ * `goteo`, Instagram cuenta sólo a los que alcanza antes de que se les cierre la ventana (`alcanceDeMotivos`).
+ */
+export async function prepararDifusion(
+  ws: number, sel: SeleccionDifusion, canales: readonly CanalDifusion[] = ['whatsapp', 'email', 'instagram'],
+  goteo: { minutos: number; dia: number } = GOTEO_DIFUSION_INICIAL,
+): Promise<VistaDifusion> {
   const { ids, etapa, cortado } = await idsDe(sel);
   const [leads, whatsappQr] = await Promise.all([leadsDe(ids), hayWhatsAppQr(ws)]);
   const usables = canales.filter((c) => c !== 'whatsapp' || whatsappQr);
   const ahora = Date.now();
   const porLead = leads.map((l) => motivosDe(l, ahora));
-  return { etapa, cortado, whatsappQr, alcance: alcanceDeMotivos(porLead, usables), porLead };
+  return { etapa, cortado, whatsappQr, alcance: alcanceDeMotivos(porLead, usables, { goteo, ahoraMs: ahora }), porLead };
 }
 
 export type PedidoDifusion = {
@@ -101,22 +110,83 @@ export type PedidoDifusion = {
 };
 
 export type ResultadoDifusion =
-  | { ok: true; secuenciaId: number; nombre: string; leads: number; alcance: Alcance }
+  | {
+    ok: true; secuenciaId: number; nombre: string; leads: number; alcance: Alcance;
+    /** Era el MISMO pedido y retomó la difusión que ya había creado: cuántos ya estaban (los de `leads` menos los sumados). */
+    yaEstaban?: number;
+  }
   | { ok: false; error: string };
+
+/** La marca del pedido en app_settings (`claveDeDifusion`, hasheada: el pedido entero no es una clave). */
+const keyDeDifusion = (clave: string): string => `difusion.pedido:${createHash('sha1').update(clave).digest('base64url').slice(0, 16)}`;
+
+const EN_CURSO = 'Esta misma difusión se está creando ahora (en otra pestaña o con MaKo): espera un minuto y mírala en Automations.';
+
+/**
+ * INSCRIBE a los que faltan en la difusión, en tandas: todas vencidas ahora; el goteo de ESTA automatización las ordena (de a
+ * una cada N minutos, con su tope por día) y el anti-ban de la línea también. Sin pisar (`unique (lead_id, secuencia_id)`): el
+ * que ya está en ESTA difusión no entra dos veces, y `nuevos` cuenta sólo los que entraron ahora.
+ */
+async function inscribirEnDifusion(secuenciaId: number, ids: readonly number[]): Promise<{ nuevos: number; error: string | null }> {
+  const db = await getTenantDb();
+  const ahora = new Date().toISOString();
+  let nuevos = 0;
+  for (const tanda of enTandas(ids, 200)) {
+    const { data, error } = await db.from('nutricion_inscripciones').upsert(
+      tanda.map((leadId) => ({ lead_id: leadId, secuencia_id: secuenciaId, paso_actual: 0, estado: 'activa', proximo_envio_at: ahora })),
+      { onConflict: 'lead_id,secuencia_id', ignoreDuplicates: true },
+    ).select('id');
+    if (error) return { nuevos, error: error.message };
+    nuevos += (data ?? []).length;
+  }
+  return { nuevos, error: null };
+}
+
+/**
+ * EL MISMO PEDIDO OTRA VEZ: retoma la difusión que creó y suma sólo a los que faltan (los de una tanda que falló, o los que
+ * llegaron a la columna después). null = esa automatización ya no está (la borraron o la archivaron): el pedido va como nuevo.
+ */
+async function retomarDifusion(secuenciaId: number, vista: VistaDifusion, autor: string): Promise<ResultadoDifusion | null> {
+  const db = await getTenantDb();
+  const { data: sec, error } = await db.from('nutricion_secuencias').select('id, nombre, activa, archivada_at').eq('id', secuenciaId).maybeSingle();
+  if (error) return { ok: false, error: `No pude leer la difusión que ya se había creado (${error.message}). Vuelve a intentarlo.` };
+  const fila = sec as { id: number; nombre: string; activa: boolean | null; archivada_at: string | null } | null;
+  if (!fila || fila.archivada_at) return null;
+  if (!fila.activa) return { ok: false, error: `Esta misma difusión ya está creada, «${fila.nombre}», y está pausada en Automations: préndela ahí para que siga.` };
+  const r = await inscribirEnDifusion(fila.id, vista.alcance.ids);
+  if (r.error) return { ok: false, error: `Esta misma difusión ya estaba, «${fila.nombre}», y no pude sumar a los que faltaban (${r.error}). Vuelve a intentarlo.` };
+  console.log(`[difusion] «${fila.nombre}» (#${fila.id}) era el mismo pedido: sumé ${r.nuevos}, ya estaban ${vista.alcance.ids.length - r.nuevos} — ${autor}`);
+  return { ok: true, secuenciaId: fila.id, nombre: fila.nombre, leads: vista.alcance.ids.length, alcance: vista.alcance, yaEstaban: vista.alcance.ids.length - r.nuevos };
+}
 
 /**
  * CREA LA DIFUSIÓN Y LA MANDA (con su goteo). Vuelve a leer a quién le llega (no confía en lo que vio la hoja), crea la
  * automatización, la prende e inscribe. Lo que falla ANTES de inscribir borra la fila nueva (como Crear con IA): no queda una
  * automatización a medias con el nombre de la difusión.
+ *
+ * ⚠️ UNA VEZ POR PEDIDO (la verificación del Cerebro sobre 69b49a31c): la marca del pedido se reclama con compare-and-set ANTES
+ * de crear nada; el mismo pedido otra vez retoma la difusión que ya creó (`retomarDifusion`) en vez de crear otra.
  */
 export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<ResultadoDifusion> {
   const canales = [...new Set(p.canales.filter(esCanalDifusion))];
   const goteo = goteoValido(p.goteo);
   if (!goteo) return { ok: false, error: `El goteo va de ${RANGOS_GOTEO.minutos[0]} a ${RANGOS_GOTEO.minutos[1]} minutos y de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]} por día.` };
-  const vista = await prepararDifusion(ws, p.seleccion, canales);
+  const vista = await prepararDifusion(ws, p.seleccion, canales, goteo);
   if (canales.includes('whatsapp') && !vista.whatsappQr) return { ok: false, error: 'No hay un WhatsApp por QR conectado: conéctalo o saca WhatsApp de la difusión.' };
   const falta = problemaDeDifusion({ canales, mensajes: p.mensajes, alcance: vista.alcance });
   if (falta) return { ok: false, error: `${falta}.` };
+
+  // EL MISMO PEDIDO: si no se puede leer la marca, no se manda (mandar dos veces es peor que pedir que lo intente de nuevo).
+  const key = keyDeDifusion(claveDeDifusion({ seleccion: p.seleccion, canales, mensajes: p.mensajes, goteo }));
+  const previo = await getSettingEstricto(key);
+  const repetida = decidirRepetida(leerMarcaDifusion(previo), Date.now());
+  if (repetida.es === 'en_curso') return { ok: false, error: EN_CURSO };
+  if (repetida.es === 'retomar') {
+    const r = await retomarDifusion(repetida.secuenciaId, vista, p.autor);
+    if (r) return r;
+  }
+  const reclamo = JSON.stringify({ at: new Date().toISOString(), secuenciaId: null });
+  if (!(await cambiarSettingSi(key, previo, reclamo))) return { ok: false, error: EN_CURSO };
 
   const { crearSecuenciaVacia } = await import('./setting-secuencias');
   const { setSecuenciaPasos, setSecuenciaActiva, setSecuenciaReentrada } = await import('./nutricion');
@@ -137,22 +207,21 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
     await db.from('nutricion_secuencias').delete().eq('id', fila.id).then(({ error }) => {
       if (error) console.error(`[difusion] no pude borrar la automatización ${fila.id} que quedó a medias: ${error.message}`);
     });
+    // No se creó nada: el pedido queda libre para intentarlo de nuevo.
+    await borrarSettingSi(key, reclamo).catch((err) => console.error(`[difusion] no pude soltar la marca del pedido: ${err instanceof Error ? err.message : String(err)}`));
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+  // La marca apunta a ESTA automatización: el mismo pedido otra vez la retoma. Si no se pudiera escribir, la marca «se está
+  // creando» vence en `ESPERA_DIFUSION_EN_CURSO_MIN` y un pedido igual crearía otra: se dice en el log.
+  const marca = JSON.stringify({ ...(JSON.parse(reclamo) as object), secuenciaId: fila.id });
+  if (!(await cambiarSettingSi(key, reclamo, marca).catch(() => false))) console.error(`[difusion] automatización ${fila.id}: no pude dejarle la marca del pedido`);
 
-  // LA INSCRIPCIÓN, EN TANDAS: todas vencidas ahora; el goteo de ESTA automatización las ordena (de a una cada N minutos, con
-  // su tope por día) y el anti-ban de la línea también. Una tanda que falla se dice: las de antes ya entraron.
-  const ahora = new Date().toISOString();
-  let inscriptos = 0;
-  for (const tanda of enTandas(vista.alcance.ids, 200)) {
-    const { error } = await db.from('nutricion_inscripciones').insert(
-      tanda.map((leadId) => ({ lead_id: leadId, secuencia_id: fila.id, paso_actual: 0, estado: 'activa', proximo_envio_at: ahora })),
-    );
-    if (error) {
-      console.error(`[difusion] automatización ${fila.id}: inscribí ${inscriptos} y la tanda siguiente falló: ${error.message}`);
-      return { ok: false, error: `Entraron ${inscriptos} de ${vista.alcance.llegan}: la siguiente tanda falló (${error.message}). La automatización «${nombre}» quedó prendida con ésos.` };
-    }
-    inscriptos += tanda.length;
+  // LA INSCRIPCIÓN (`inscribirEnDifusion`). Una tanda que falla se dice: las de antes ya entraron, y el mismo pedido otra vez
+  // suma sólo a los que faltan.
+  const { nuevos: inscriptos, error } = await inscribirEnDifusion(fila.id, vista.alcance.ids);
+  if (error) {
+    console.error(`[difusion] automatización ${fila.id}: inscribí ${inscriptos} y la tanda siguiente falló: ${error}`);
+    return { ok: false, error: `Entraron ${inscriptos} de ${vista.alcance.llegan}: la siguiente tanda falló (${error}). La automatización «${nombre}» quedó prendida con ésos: si la vuelves a mandar igual, sumo sólo a los que faltan.` };
   }
   console.log(`[difusion] ws=${ws} «${nombre}» (#${fila.id}) por ${canales.join(', ')}: ${inscriptos} leads, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día — ${p.autor}`);
   return { ok: true, secuenciaId: fila.id, nombre, leads: inscriptos, alcance: vista.alcance };

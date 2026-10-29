@@ -53,9 +53,26 @@ columna de cerrados o perdidos vuelve vacía); el tick de cada minuto mira lo ve
 goteo pasa a su turno). A la hoja no le viajan teléfonos ni emails: sólo por qué canal le llega a cada uno (`motivosDe`). Y las conversaciones de Instagram se leen POR EL CANAL (`conversacionesDeLeads`, lib/canal-zernio.ts): leer `ig_conversaciones` desde otro módulo lo frena tests/sin-instagram; y un camino nuevo que prende automatizaciones o escribe pasos va con su porqué en tests/automations-activar-todos-los-caminos (las listas `CREAN_A_MANO` y `SISTEMA`).
 tests/difusion.test.ts.
 
+**⚠️ Lo que la verificación del Cerebro encontró sobre 69b49a31c (29/10) y cómo quedó:**
+- **La misma difusión salía dos veces.** El camino real era MaKo: 250 leads, la 2ª tanda del insert falla, MaKo vuelve a
+  proponer «a 250 de 250» y con el «sí» quedaban 450 inscripciones en DOS automatizaciones. Ahora cada pedido tiene su clave
+  (`claveDeDifusion`: a quién, por dónde, qué y con qué goteo) y su marca en app_settings, reclamada con compare-and-set
+  ANTES de crear nada; el mismo pedido dentro de 24 h RETOMA la automatización que creó y suma sólo a los que faltan
+  (`upsert` sin pisar sobre `unique (lead_id, secuencia_id)`). **La trampa:** el «sí» de MaKo ya era de un solo uso
+  (`reclamarPendiente`); el doble venía de una PROPUESTA nueva, que es otro «sí». La idempotencia va donde se escribe.
+- **Instagram con goteo prometía de más.** Con 40 por día, a los que pasaban del tope se les cerraba la ventana de 24 h antes
+  de su turno y el envío los daba por fallo. `salidaHastaMs` (lib/canal-social.ts) es `decidirSalida` en el tiempo, y
+  `alcanceDeMotivos` con el `ritmo` cuenta el turno de cada uno (`demoraDelTurno`, el orden del motor: `proximo_envio_at, id`):
+  el que no llega queda afuera (`instagram_turno`) y, si Instagram era su único canal, no se inscribe. Por comentario (7 días)
+  sí entran: el último de 200 sale el 5º día.
+- **Por el grupo de WhatsApp, un setter lanzaba una difusión** (el doer arma el rol como 'admin' para todos). `difundir_a_leads`
+  pasa a `canales: ['app']`, la regla de AGENTS.md para lo que toca números de terceros en lote.
+- **El goteo fuera de rango fallaba después del «sí»:** `preparar` llama a `goteoValido` y `porDia` tiene su máximo.
+
 **Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);
-no se probó mandando de verdad (sería escribirle a leads reales); una difusión cuenta como automatización activa para el
-tope del plan Esencial (3) hasta que se pause.
+no se probó mandando de verdad (sería escribirle a leads reales). Un lead que tiene Instagram Y otro canal y no alcanza
+su turno de Instagram sigue inscripto (le llega por el otro) y su hilo de Instagram termina en fallo: la hoja ya no se
+lo promete, pero la métrica lo cuenta. La marca de cada pedido (`difusion.pedido:<hash>`) queda en app_settings.
 
 ## Un tope de Meta CERRABA el hilo: el mensaje se perdía en vez de esperar (28/10/2026, Leandro)
 
