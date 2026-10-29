@@ -46,6 +46,7 @@ import { CATEGORIAS, PLANTILLAS_AVATAR, filtrarPresets, plantillaPorId, type Cat
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
 import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -399,6 +400,7 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
       </div>
       <p className={error ? 'hf-barra-linea hf-barra-linea--mal' : 'hf-barra-linea'} role={error ? 'alert' : undefined}>
         {error || linea || falta || 'Cada avatar sale de tu Google Flow con tu cara. Las imágenes no gastan créditos.'}
+        <ReportarASoporte />
       </p>
       {/* Si el error es el tope de la prueba gratis, el botón para empezar el plan (lib/topes-plan.ts). */}
       <div className="hf-barra-plan"><EmpezarPlanYa texto={error || null} /></div>
@@ -583,7 +585,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
             : <button type="button" className="hf-icono" onClick={() => setConfirmarBorrar(true)} aria-label="Eliminar el proyecto" title="Eliminar"><Icon name="trash" size={16} /></button>}
         </div>
       </header>
-      {error && <p className="hf-barra-linea hf-barra-linea--mal" role="alert">{error}</p>}
+      {error && <p className="hf-barra-linea hf-barra-linea--mal" role="alert">{error}<ReportarASoporte /></p>}
 
       <div className="hf-proyecto-cuerpo">
         <figure className="hf-lienzo">
@@ -599,6 +601,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
               <span>No salió.</span>
               <small>{p.error}</small>
               <button type="button" className="hf-boton" onClick={onRecrear} disabled={enviando || !inicio.puente.puede}>Volver a intentar</button>
+              <ReportarASoporte />
             </div>
           )}
         </figure>
@@ -663,6 +666,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
         </div>
         <p className={errorVideo ? 'hf-barra-linea hf-barra-linea--mal' : 'hf-barra-linea'} role={errorVideo ? 'alert' : undefined}>
           {errorVideo || linea || faltaVideo || 'Cada toma gasta créditos de tu cuenta de Flow. Se filma toma por toma y nada se repite solo.'}
+          <ReportarASoporte />
         </p>
         <div className="hf-barra-plan"><EmpezarPlanYa texto={errorVideo || null} /></div>
       </div>
