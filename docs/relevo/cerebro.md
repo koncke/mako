@@ -47,14 +47,23 @@ claude3 es `local_428051c1`. Lo que sigue vale por encima del estado de claude4 
   `4e9a099d9`) + Web Generator `c3c6849bc` (las copias idénticas en el editor, merge `d45a0665f`).** Choques sólo de docs;
   `docs/api-mako.md` regenerado. Los guiones del refutador de Planes sobre `4b6acf1c0` (salidas en
   `C:/dev/revisiones/scratch-4b6a/`): en todos los casos de SEPA, tarjeta y segundo voucher queda UNA cuota, y sub_A se cancela
-  antes de armar B. Faltan los tests del tren; se sube con `node C:/dev/revisiones/subir-tren.mjs <log>`.
-- **Automations `0265924c6`: NO entra (re-verificación del 29/10, `C:/dev/revisiones/2910-reverificacion-automations-0265924c6.md`).**
-  Los 11 arreglos aguantan, pero el del ALTA abre una regresión. `tomadas` (app/api/webhooks/zernio/route.ts:238) cuenta
-  CUALQUIER inscripción pausada, así que el primer DM de quien ya está en una automatización de comentario sin AI Step queda
-  sin respuesta y sin aviso. Es el flujo de Leandro. Devuelto al chat, con dos bajas más. Se sacó de tren-z (reset local de un
-  merge sin subir).
-- **Pagos por tramos: VERDE `9fc4030dd`** (pagos-tramos-2910, `C:/dev/wt-pagos-tramos`; ticket #13 de Leila). Toca plata:
-  va con revisión adversarial después de tren-z.
+  antes de armar B.
+  - **Más Automations `f8a13def3`** (merge `ff8ec04b6`; lo de Leandro). La primera re-verificación de `0265924c6`
+    (`C:/dev/revisiones/2910-reverificacion-automations-0265924c6.md`) halló una regresión: el primer DM de quien ya estaba en
+    una automatización de comentario quedaba sin respuesta (`tomadas` contaba cualquier inscripción pausada). La arregló
+    `b3d734055`, que pasa a `contestada`. Con el mismo arnés (`C:/dev/revisiones/scratch-f8a1/`), el primer DM se contesta, el
+    doble sigue cerrado y «Volver a probar» sale entero.
+  - **Rojos del chequeo, arreglados en el tren.** Tres tests del editor que fijaban el JSX sin la escala: los arregló el Web
+    Generator (`9e73cfb2b`). Dos de Zernio los hizo Integración (`2f9f2ab98`), porque su chat estaba ARCHIVADO: los avisos de
+    publicar con «Reportar a Soporte», y `keyDeSeguimiento` otra vez con la key PROPIA. `tests/zernio-sin-respaldo.test.ts` de
+    la rama pedía `cfg(ws)` y `tests/condiciones-instagram.test.ts` pedía la propia: se contradecían. Ganó la decisión de
+    Martín del 28/10 («NO a la cuenta de MaKo»), en `75a6ff630`.
+  - **Chequeo final: 9351 tests de 961 archivos en verde**, con la referencia de la API al día.
+- **Pagos por tramos `9fc4030dd`: NO entra.** Verificación adversarial en
+  `C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md` (guiones en `scratch-9fc4/`). Dos ALTAS de plata. A1: una
+  cuota en pesos que se cobra a medias y se deja vacío «en dólares» queda pagada entera. A2: el anticipo quitado o devuelto
+  vuelve al guardar sin tocar nada. Además tres medias y cinco bajas. No hay cruces de negocio. Devuelto al chat
+  (`local_9b34bb88`).
 - **WhatsApp `450677f90` (wa-fallas-2710): NO trae lo de Leandro.** Sus 6 fallas están en `152cfcd27`, sin VERDE, y la
   ALTA 2 de su verificación sigue abierta: `pideAlgoAMaKo` calla los pedidos reales mientras hay una pregunta del equipo
   viva, una REGRESIÓN contra producción. Se le preguntó al Cerebro si entra igual o espera a `152cfcd27`.
