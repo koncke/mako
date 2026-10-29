@@ -59,7 +59,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - AI Avatar para todos los planes: `ai-avatar-todos-2910` en `4d66a5703`, que trae mergeada la landing hasta
       `abfe143ed`.
     - El Web Generator: `landing-high-ticket-2910` en `7511f5f14`, que suma sólo un comentario.
-    - Zernio, «Publicar» desde el Video Editor, el Image Editor y el Copywriter: `zernio-token-2910` en `b0a8e44b5`
+    - Zernio, «Publicar» desde el Video Editor, el Image Editor y el Copywriter: `zernio-token-2910` en `77cf7a90b` (merge de main `ff908e645`)
       (`C:/dev/wt-zernio-2510`). Va por el camino del Calendario y ningún editor importa Zernio. Toca archivos de los
       editores y del Copywriter. Queda pendiente el tsc del Image Editor, que lo avisa Zernio.
   - Toca los planes (`planes-mako`, `topes-plan`, `planes-comparacion`), así que antes de subir pasa por una revisión
