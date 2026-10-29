@@ -92,7 +92,7 @@ test('la escritura, la action, el botón de la ficha y la API', () => {
   assert.match(leer('app/crm/lead-view/ficha/resumen/automatizaciones-datos.ts'), /return volverAProbarEnAutomatizacionAction\(leadId, secuenciaId\);/);
   // Lo ofrece el detalle: terminada (o contestó), sin archivar, sin una persona, y no dos veces.
   assert.match(sinComentarios(leer('lib/automatizaciones-del-lead-reglas.ts')),
-    /volverAProbar: s\.archivada_at == null && f\.estado !== 'handoff' && puedeVolverAProbar\(f\) && f\.desenlace !== DESENLACE_VOLVER_A_PROBAR/);
+    /\.\.\.\(s\.archivada_at == null && f\.estado !== 'handoff' && puedeVolverAProbar\(f\) && f\.desenlace !== DESENLACE_VOLVER_A_PROBAR \? \{ volverAProbar: true \} : \{\}\)/);
   // La API: propone y espera el «sí», del admin, sin HTTP; no le escribe a nadie.
   const op = porId('volver_a_probar_lead_secuencia')!;
   assert.ok(op, 'la operación existe');

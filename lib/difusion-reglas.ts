@@ -11,8 +11,8 @@
 // entera: el email de después no salía nunca. Con la tarjeta de inicio y un hilo en paralelo por canal (el patrón de «Un
 // Lead Agendó Llamada»), cada hilo mira primero si el lead tiene ESE canal; si no, ese hilo termina y los otros siguen.
 //
-// ⚠️ WHATSAPP SÓLO POR QR (no oficial): el oficial no tiene quién lo mande hoy (Chatwoot se fue: `SIN_CANAL_OFICIAL`,
-// lib/nutricion.ts), y mandar en masa por QR es el riesgo de baneo: por eso el goteo y el tope del día van en la misma hoja.
+// ⚠️ WHATSAPP SÓLO POR QR (no oficial): el oficial no tiene quién lo mande hoy (`SIN_CANAL_OFICIAL`, lib/nutricion.ts), y
+// mandar en masa por QR es el riesgo de baneo: por eso el goteo y el tope del día van en la misma hoja.
 //
 // Puro y sin `server-only`: lo usan la hoja (app/automations/difusion/HojaDifusion.tsx), el server (lib/difusion.ts), la API
 // de MaKo (`difundir_a_leads`) y el test.

@@ -399,7 +399,8 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar(texto, coincidencia); } }}
         aria-invalid={noSeLee ? true : undefined}
         style={{ ...BOTON_CAMPO_CRON, width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: 13, padding: '0 10px', cursor: 'text', ...(noSeLee ? { borderColor: 'var(--warn)' } : {}) } as CSSProperties} />
-      {noSeLee && <div role="alert" style={{ gridColumn: '2', fontFamily: SANS, fontSize: 12.5, color: 'var(--warn)' }}>{noSeLee}</div>}
+      {/* Un aviso de lo que se escribió, no un error de la app: `status` (un `alert` lleva «Reportar a Soporte»). */}
+      {noSeLee && <div role="status" aria-live="polite" style={{ gridColumn: '2', fontFamily: SANS, fontSize: 12.5, color: 'var(--warn)' }}>{noSeLee}</div>}
     </div>
   );
 }

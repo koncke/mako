@@ -50,7 +50,7 @@ app/automations/difusion/HojaDifusion.tsx, la API `difundir_a_leads`). Lo que ma
 **Trampas para quien siga:** el CRON «A mano» no tiene cohorte (sólo entran los que se inscriben a mano); la columna entera
 se resuelve con `leadsDeCohorte('etapa_actual', …, { sinVentana: true })`, que lee SÓLO `estado_lead = 'abierto'` (una
 columna de cerrados o perdidos vuelve vacía); el tick de cada minuto mira lo vencido hace menos de 10 min (lo frenado por el
-goteo pasa a su turno). A la hoja no le viajan teléfonos ni emails: sólo por qué canal le llega a cada uno (`motivosDe`).
+goteo pasa a su turno). A la hoja no le viajan teléfonos ni emails: sólo por qué canal le llega a cada uno (`motivosDe`). Y las conversaciones de Instagram se leen POR EL CANAL (`conversacionesDeLeads`, lib/canal-zernio.ts): leer `ig_conversaciones` desde otro módulo lo frena tests/sin-instagram; y un camino nuevo que prende automatizaciones o escribe pasos va con su porqué en tests/automations-activar-todos-los-caminos (las listas `CREAN_A_MANO` y `SISTEMA`).
 tests/difusion.test.ts.
 
 **Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);

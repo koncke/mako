@@ -147,7 +147,7 @@ test('⚠️ una palabra que NO SE LEE («?», «...») no se tira callada: la p
   // La pantalla: lo dice y NO guarda (guardar la lista vacía era «cualquier comentario»).
   const ed = leer('app/automations/EditorDisparadores.tsx');
   assert.match(ed, /const problema = problemaDePalabras\(t\.split\(','\)\);\s*setNoSeLee\(problema\);\s*if \(problema\) return;/);
-  assert.match(ed, /\{noSeLee && <div role="alert"/);
+  assert.match(ed, /\{noSeLee && <div role="status"/);
   // El resumen que se confirma por WhatsApp nombra las palabras («fiesta» y ninguna ya no se leen igual).
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   const tc = run.slice(run.indexOf('function textoDeUnCron('), run.indexOf('function textoDeUnCron(') + 1200);

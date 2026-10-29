@@ -58,6 +58,12 @@ const PRENDEN = ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuenci
  */
 const SCRIPTS_DE_EVENTOS = ['scripts/mudanza-avisos-plataforma.mts', 'scripts/mudanza-nuevo-agendado.mts'];
 /**
+ * LA DIFUSIÓN (28/10/2026, lib/difusion.ts): crea una automatización A MANO (sin cohorte) y la prende para inscribirle ELLA
+ * los leads elegidos. No le escribe a nadie más, y `duplicadaDeLaActivacion` de una A mano no tiene con quién chocar: no hay
+ * «… igual» que preguntar. Si un día prende otra cosa, que la maneje como `PRENDEN`.
+ */
+const CREAN_A_MANO = ['lib/difusion.ts'];
+/**
  * LOS ARNESES DE PUNTA A PUNTA DEL WS3 (23/10/2026, P0 de #289): crean una automatización de prueba (nace PAUSADA), le
  * escriben sus pasos y su CRON, la prenden con la misma escritura de `setSecuenciaActiva` sin la guarda de la línea (el ws3
  * no tiene número vinculado: no sale nada a nadie), mueven leads de prueba con teléfonos que no existen y la pausan o la
@@ -93,7 +99,12 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
       prenden.push(f);
     }
   }
-  assert.deepEqual([...new Set(prenden)].sort(), [...PRENDEN, ...SCRIPTS_DE_EVENTOS].sort(), 'un camino nuevo prende automatizaciones: que pregunte por la duplicada y súmalo acá');
+  assert.deepEqual([...new Set(prenden)].sort(), [...PRENDEN, ...SCRIPTS_DE_EVENTOS, ...CREAN_A_MANO].sort(), 'un camino nuevo prende automatizaciones: que pregunte por la duplicada y súmalo acá');
+  for (const f of CREAN_A_MANO) {
+    const src = FUENTE.get(f)!;
+    const crea = src.indexOf('const fila = await crearSecuenciaVacia(');
+    assert.ok(crea >= 0 && crea < src.indexOf('await setSecuenciaActiva(fila.id, true'), `${f} prende una que no creó A mano`);
+  }
   for (const f of SCRIPTS_DE_EVENTOS) {
     const src = FUENTE.get(f)!;
     assert.match(src, /TRIGGER_AVISO_MAKO/, `${f} ya no prende sólo eventos de MaKo`);
@@ -228,6 +239,9 @@ const SISTEMA = [
   // El arnés del chat de MaKo (23/10/2026): guarda lo que el chat dejó en el borrador de la automatización de prueba que él
   // mismo creó en el ws3, PAUSADA (no la prende ni toca sus CRON), como lo guarda crear. Sólo corre en el ws3.
   'scripts/probar-chats/automations.mts',
+  // La difusión (28/10/2026): escribe los pasos de SU automatización recién creada, A mano y sin nadie inscripto, antes de
+  // prenderla; la persona ya los vio y confirmó en la hoja (o en la propuesta de MaKo).
+  'lib/difusion.ts',
 ];
 
 test('(d) quién escribe lo publicado: cada uno pregunta (`publicarPasos`) o está en la lista del sistema con su motivo', () => {

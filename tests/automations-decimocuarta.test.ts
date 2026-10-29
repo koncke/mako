@@ -141,7 +141,8 @@ test('punto 5: el paso guarda SU cuenta y el motor manda sólo por ella (sin con
   assert.match(nutri, /cuenta: cuentaDelPaso\(paso\),/);
   assert.match(nutri, /\.\.\.cuentaAlGuardar\(p, antes\.find\(\(q, j\) => idDe\(q, j\) === idDe\(flujo, i\)\)\),/);
   const envio = fuente('lib/canal-zernio.ts');
-  assert.match(envio, /if \(fila === null && cuenta\) return \{ ok: false, .*, terminal: true, backoffHoras: 24 \};/);
+  // (28/10/2026: la respuesta pública en el comentario se OMITE en vez de cerrar; el DM sigue terminal, como siempre.)
+  assert.match(envio, /if \(fila === null && cuenta\) \{[\s\S]{0,400}: \{ ok: false, salieron: desde, textos: \[\], destino: null, error, terminal: true, backoffHoras: 24 \};/);
 });
 
 test('puntos 6 a 8: la cabecera del panel es la de WhatsApp (logo, desplegable, ✦) y la fila de adentro se fue', () => {

@@ -334,8 +334,9 @@ export function detalleDe(o: {
           };
         }),
       // «Volver a probar» (ticket #19): en una que terminó (o en la que contestó), aunque esté en pausa: la marca espera.
+      // (Sólo cuando se puede: ausente = no, como `porQueNo`.)
       puede: { frenar: vive, empezarDeNuevo: usable && reabre, ...(porQueNo ? { porQueNo } : {}),
-        volverAProbar: s.archivada_at == null && f.estado !== 'handoff' && puedeVolverAProbar(f) && f.desenlace !== DESENLACE_VOLVER_A_PROBAR },
+        ...(s.archivada_at == null && f.estado !== 'handoff' && puedeVolverAProbar(f) && f.desenlace !== DESENLACE_VOLVER_A_PROBAR ? { volverAProbar: true } : {}) },
       ...(f.desenlace === DESENLACE_VOLVER_A_PROBAR ? { listaParaProbar: true } : {}),
       // Sólo la de esta pasada: una línea de antes de que entrara (otra vez) habla de otra vuelta.
       contesto: (() => {

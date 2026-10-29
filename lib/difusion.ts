@@ -17,7 +17,7 @@ import {
   alcanceDeMotivos, motivosDe, problemaDeDifusion, pasosDeDifusion, nombreDeDifusion, goteoValido, TOPE_DIFUSION, esCanalDifusion,
   type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion,
 } from './difusion-reglas';
-import { COLS_CONVERSACION_SOCIAL, conversacionQueCuenta, conversacionDeFila, type FilaConversacionSocial } from './canal-social';
+import { conversacionDeFila } from './canal-social';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 import { RANGOS_GOTEO } from './config-automatizacion';
 
@@ -54,24 +54,20 @@ async function idsDe(sel: SeleccionDifusion): Promise<{ ids: number[]; etapa: st
   return { ids: ids.slice(0, TOPE_DIFUSION), etapa, cortado: ids.length > TOPE_DIFUSION };
 }
 
-/** Lo que se lee de cada lead (sus datos de contacto y su conversación de Instagram), en tandas. */
+/**
+ * Lo que se lee de cada lead (sus datos de contacto y su conversación de Instagram), en tandas. Las conversaciones, POR EL
+ * CANAL (`conversacionesDeLeads`, lib/canal-zernio.ts: Instagram se cablea sólo por ahí, tests/sin-instagram).
+ */
 async function leadsDe(ids: readonly number[]): Promise<LeadDifusion[]> {
   const db = await getTenantDb();
+  const { conversacionesDeLeads } = await import('./canal-zernio');
+  const convs = await conversacionesDeLeads(ids);
   const out: LeadDifusion[] = [];
   for (const tanda of enTandas(ids, 200)) {
-    const [leads, convs] = await Promise.all([
-      db.from('leads').select('id, nombre, telefono, email, email_opt_out').in('id', tanda),
-      db.from('ig_conversaciones').select(COLS_CONVERSACION_SOCIAL).eq('plataforma', 'instagram').in('lead_id', tanda),
-    ]);
+    const leads = await db.from('leads').select('id, nombre, telefono, email, email_opt_out').in('id', tanda);
     if (leads.error) throw new Error(`difusión (leads): ${leads.error.message}`);
-    if (convs.error) throw new Error(`difusión (Instagram): ${convs.error.message}`);
-    const porLead = new Map<number, FilaConversacionSocial[]>();
-    for (const c of (convs.data ?? []) as unknown as FilaConversacionSocial[]) {
-      const k = Number(c.lead_id);
-      porLead.set(k, [...(porLead.get(k) ?? []), c]);
-    }
     for (const l of (leads.data ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; email: string | null; email_opt_out: boolean | null }>) {
-      const conv = conversacionQueCuenta(porLead.get(Number(l.id)) ?? []);
+      const conv = convs.get(Number(l.id))?.instagram;
       out.push({ id: Number(l.id), nombre: l.nombre, telefono: l.telefono, email: l.email, emailBaja: l.email_opt_out === true, instagram: conv ? conversacionDeFila(conv) : null });
     }
   }
