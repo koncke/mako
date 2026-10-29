@@ -33,6 +33,17 @@ app/crm/AccionesLoteLeads.tsx y app/crm/seleccion-difusion.ts) está en la rama 
 Cuando entre, el CRM (CrmBoard) monta `<HojaDifusion abierta seleccion={sel} onCerrar={…} onCreada={(r) => …} />` con la
 selección que le pasa `onMandarMensaje`; `onCreada` trae `yaEstaban` cuando era el mismo pedido.
 
+**Lo que Leandro pidió y TODAVÍA NO EXISTE** (tickets #20 y #25, `mako_doer_conv` ws10 1681/1699/1701; el texto que se le
+mandó, verificado contra el código, está en las notas compartidas: leandro-respuesta-automations-29-10.md):
+- elegir la publicación o el Reel en el CRON de comentario (el webhook ya trae `comentario_post_id`);
+- pedir un dato en el DM y guardarlo en un campo de la ficha (no hay tarjeta que guarde la respuesta; hoy queda en Chats);
+- webhook de SALIDA (lead nuevo, cambio de etapa, etiqueta): no hay nada en Integraciones;
+- que el lead comparta el post y saber si lo hizo;
+- por la API con token (rest.ts): las palabras del CRON (`cambiar_crons_secuencia` es SIN_HTTP), «Volver a probar»
+  (SIN_HTTP), abrir un ticket (`levantar_ticket`: app y WhatsApp), las tarjetas «Etiqueta» y «Acción» (PUT /pasos sólo
+  WhatsApp y email sin ramas), y sacar la flecha directa de un DM para que espere el botón. Y /docs al día con el lienzo.
+  Exponer a un token lo que cambia a quién le escribe es decisión del Cerebro (el comentario de `cambiar_crons_secuencia`).
+
 **Sigue: el aviso antes de los 10.000 mensajes gratis de Zernio** (audio 327 de Leandro; coordinado el 29/10 con el chat de
 Zernio, `local_4a831c28`). Zernio arma `usoZernioDelCiclo(ws)` en lib/zernio-redes.ts, en la rama zernio-2510: el ciclo sale
 de GET /v1/billing y lo enviado desde MaKo se cuenta en MaKo (`nutricion_envios` social, más `ig_mensajes` saliente sin la
