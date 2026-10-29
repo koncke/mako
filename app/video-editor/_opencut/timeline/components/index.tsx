@@ -661,7 +661,7 @@ export function Timeline() {
 						{ejeVisible && (
 							<div
 								aria-hidden
-								className="pointer-events-none absolute top-0 bottom-0 w-px bg-white/45"
+								className="pointer-events-none absolute top-0 bottom-0 w-px bg-(--cc-playhead)/45"
 								style={{ left: xEje, zIndex: TIMELINE_LAYERS.playhead - 1 }}
 							/>
 						)}

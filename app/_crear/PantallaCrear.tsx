@@ -33,6 +33,7 @@ import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ConversacionCerebro } from '@/app/_chat/MakoEnLaTab';
 import { CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/web-generator/CajaPedido';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import type { EntidadChat } from '@/lib/chat-desde';
 import {
   SIN_NOMBRE, centroDe, haceCuanto, marcoDe, proyectosVisibles,
@@ -40,7 +41,9 @@ import {
 } from './reglas';
 
 export type { AccionProyecto, PlantillaCrear, ProyectoCrear } from './reglas';
-export { ESTILO_PAGINA_CREAR } from './reglas';
+// ⚠️ `ESTILO_PAGINA_CREAR` NO se re-exporta desde acá: lo usan las <Pagina> de los server components, y un VALOR de un módulo
+//    'use client' llega al server como una referencia de cliente, no como el objeto (AGENTS.md, «'use client' es una frontera
+//    de DATOS»). Se importa de './reglas'.
 
 export type PropsPantallaCrear = {
   /** El nombre de la tab en la barra («Video», «Image»): el interruptor del teléfono y desde dónde le escribe a MaKo. */
@@ -66,8 +69,11 @@ export type PropsPantallaCrear = {
   tituloPlantillas?: string;
   /** Los ejemplos que se escriben solos en la caja («Un reel de 30 s sobre…»). */
   ejemplos: readonly string[];
-  /** Lo escrito en la caja. Sin esto, va al chat de MaKo (al Cerebro, que crea) y la tarjeta vuelve al chat. */
-  onPedido?: (texto: string) => void;
+  /** Lo escrito en la caja. Sin esto, va al chat de MaKo (al Cerebro, que crea) y la tarjeta vuelve al chat. Si devuelve un
+   *  texto, es un error y se muestra debajo de la caja; si no, «Nuevo …» se cierra como al usar una plantilla. */
+  onPedido?: (texto: string) => void | string | null | Promise<void | string | null>;
+  /** En el teléfono, qué se ve después de crear: la pieza (un editor) o el chat (Offer, donde MaKo pregunta). */
+  trasCrear?: VistaMovil;
   /** Un chat propio en vez del Cerebro (el del Video Editor, que edita lo abierto): recibe la «←» para su cabecera. */
   chat?: (volver: ReactNode) => ReactNode;
   /** Lo que la pantalla tiene abierto, para el Cerebro (el chip «desde Video › Mi reel»). */
@@ -95,26 +101,39 @@ export function PantallaCrear(p: PropsPantallaCrear) {
   // Lo escrito en «¿Qué vas a crear hoy?» sale al Cerebro UNA vez por `vez` (el mismo contrato que `MakoEnLaTab`).
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
   const centro = centroDe(hayPieza, creando);
+  // Otro proyecto abierto (un renglón, un link, «Generar con IA» que vuelve): «Nuevo …» se cierra. Sólo al CAMBIAR: un
+  // `creandoInicial` no se pisa al montar.
+  const actualAntes = useRef(p.actual ?? null);
+  useEffect(() => {
+    if (actualAntes.current === (p.actual ?? null)) return;
+    actualAntes.current = p.actual ?? null;
+    setCreando(false);
+  }, [p.actual]);
 
   // Volver al chat es volver a la pieza abierta: «Nuevo …» se cierra (el mismo gesto que el Web Generator).
   const alChat = useCallback(() => { setCara('chat'); if (hayPieza) setCreando(false); }, [hayPieza]);
   const alNuevo = useCallback(() => { setCreando(true); setMovil('pieza'); }, []);
-  const { onPedido, onPlantilla } = p;
-  const alPedido = useCallback((texto: string) => {
-    // La tab lo toma (AI Avatar lo pone en su barra): el centro vuelve a la pieza, que ya lo tiene.
-    if (onPedido) { onPedido(texto); setCreando(false); return; }
+  const { onPedido, trasCrear = 'pieza' } = p;
+  /** Creado (con una plantilla o con lo escrito): «Nuevo …» se cierra y la tarjeta vuelve al chat, el del proyecto nuevo. */
+  const alCreado = useCallback(() => { setCreando(false); setCara('chat'); setMovil(trasCrear); }, [trasCrear]);
+  const alPedido = useCallback(async (texto: string): Promise<string | null> => {
+    if (onPedido) {
+      const r = await onPedido(texto);
+      if (typeof r === 'string' && r) return r;
+      alCreado();
+      return null;
+    }
     // Sin prefijo: el Cerebro ya sabe desde qué tab se le escribe (`desde`, el chip del mensaje).
     setPedido({ texto, vez: Date.now() });
     setCara('chat');
     setMovil('mako');
-  }, [onPedido]);
-  // Una plantilla que se usó sin error ya abrió lo suyo (un proyecto nuevo, o el preset en la barra de AI Avatar): «Nuevo …»
-  // se cierra. Sin esto, el centro seguía en «¿Qué vas a crear hoy?» con la pieza nueva escondida detrás (29/10/2026).
-  const alPlantilla = useCallback(async (pl: PlantillaCrear) => {
-    const r = await onPlantilla(pl);
-    if (!(typeof r === 'string' && r)) setCreando(false);
-    return r;
-  }, [onPlantilla]);
+    return null;
+  }, [onPedido, alCreado]);
+
+  // ¿Quién está en la tarjeta? El chat propio de la tab habla de lo ABIERTO (el Video Editor edita el proyecto): mientras se
+  // crea algo nuevo y la tab no toma lo escrito (`onPedido`), la tarjeta es el Cerebro, que crea y reparte. Si no, lo escrito
+  // en «¿Qué vas a crear hoy?» se perdía (iba a un Cerebro que no estaba montado) o editaba lo abierto.
+  const conCerebro = !p.chat || (centro === 'nueva' && !onPedido);
 
   const volver = (
     <button type="button" className="cr-volver" onClick={() => setCara('lista')} title={`Ver tus proyectos de ${tab}`} aria-label={`Ver tus proyectos de ${tab}`}>←</button>
@@ -135,7 +154,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
         {cara === 'lista' ? (
           <ListaDeProyectos {...p} creando={centro === 'nueva'} onNuevo={alNuevo} onChat={alChat}
             onElegido={() => { setCreando(false); setCara('chat'); setMovil('pieza'); }} />
-        ) : p.chat ? p.chat(volver) : (
+        ) : !conCerebro && p.chat ? p.chat(volver) : (
           <ConversacionCerebro tab={tab} antes={volver} entidad={p.entidad ?? null} pedido={pedido} onMandado={() => setPedido(null)} />
         )}
       </section>
@@ -143,7 +162,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
       <div className="cr-centro">
         {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
         {centro === 'nueva' && (
-          <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={alPlantilla} titulo={p.tituloPlantillas} ejemplos={p.ejemplos} onPedido={alPedido} />
+          <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} />
         )}
       </div>
     </div>
@@ -247,13 +266,19 @@ function MenuProyecto({ nombre, acciones }: { nombre: string; acciones: readonly
 }
 
 /** «¿Qué vas a crear hoy?»: la caja de siempre (`CajaPedido`, la del Web Generator, Automations y el Dashboard) y las plantillas. */
-export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', ejemplos, onPedido }: {
+export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', ejemplos, onPedido, onCreado }: {
   tab: string; plantillas: readonly PlantillaCrear[]; onPlantilla: PropsPantallaCrear['onPlantilla']; titulo?: string;
-  ejemplos: readonly string[]; onPedido: (texto: string) => void;
+  ejemplos: readonly string[];
+  /** Lo escrito en la caja; un texto de vuelta es un error. */
+  onPedido: (texto: string) => Promise<string | null>;
+  /** Una plantilla creó bien: quien monta cierra «Nuevo …». */
+  onCreado?: () => void;
 }) {
   const [valor, setValor] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [usando, setUsando] = useState<string | null>(null);
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): la caja, quieta.
+  const appEscritorio = useAppDeEscritorio();
   useEffect(() => { setError(null); }, [plantillas]);
   const usar = async (pl: PlantillaCrear) => {
     if (usando) return;
@@ -262,6 +287,7 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
     try {
       const r = await onPlantilla(pl);
       if (typeof r === 'string' && r) setError(r);
+      else onCreado?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -274,8 +300,14 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
         <div className="gp cp-casa">
           <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
           <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 1 }} valor={valor} onValor={setValor}
-            onEnviar={() => { const t = valor.trim(); if (!t) return; onPedido(t); setValor(''); }}
-            ejemplos={ejemplos} animar placeholderQuieto="Pídeselo a MaKo" etiqueta={`Qué quieres crear en ${tab}`} onError={setError} />
+            onEnviar={() => {
+              const t = valor.trim();
+              if (!t) return;
+              setError(null);
+              void onPedido(t).then((e) => { if (e) setError(e); else setValor(''); });
+            }}
+            ejemplos={ejemplos} animar placeholderQuieto="Pídeselo a MaKo" etiqueta={`Qué quieres crear en ${tab}`} onError={setError}
+            bloqueo={appEscritorio.bloqueo} />
         </div>
         {error && <p className="cr-error" role="alert">{error}<ReportarASoporte /></p>}
         {plantillas.length > 0 && (

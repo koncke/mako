@@ -14,7 +14,8 @@ import { requireAiAvatar } from './acceso';
 import { Pagina } from '@/app/_ui';
 import { ErrorState } from '@/app/_ui/Estados';
 import { EstudioAvatar } from './Estudio';
-import { ESTILO_PAGINA_CREAR } from '@/app/_crear/PantallaCrear';
+// De reglas.ts y NO de PantallaCrear: un valor de un módulo 'use client' llega al server como referencia y rompe el style.
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { inicioAvatarAction } from './actions';
 import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 

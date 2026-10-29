@@ -22,6 +22,8 @@ import { arbolOffer, leerSesion } from '@/lib/offer-sesiones';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import type { ArbolOffer, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp } from './OfferApp';
+import { getSesionAdmin } from '@/lib/auth';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { ARBOL_VACIO, arbolSeguro, entradaDelLink, idDeParametro, todasLasSesiones } from './arbol';
 import { masReciente } from './ayudas';
 
@@ -30,6 +32,9 @@ export const dynamic = 'force-dynamic';
 export default async function Page({ searchParams }: { searchParams: Promise<{ oferta?: string | string[]; funnel?: string | string[]; sesion?: string | string[] }> }) {
   await requireRolWs([], { nav: 'offer' });
   const q = await searchParams;
+  // Strategy y Offer Playbook ya no son pestañas (29/10/2026, «sin otras tabs, incluso en SuperAdmin»): van al pie de la
+  // lista de ofertas, sólo para el super admin.
+  const superAdmin = (await getSesionAdmin()) != null;
 
   const leido = await arbolOffer().then(
     (v): { ok: true; arbol: ArbolOffer } => ({ ok: true, arbol: arbolSeguro(v) }),
@@ -56,24 +61,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   }
 
   return (
-    // ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES (molde: app/dashboard/page.tsx).
-    // Pagina trae `flex: 1`, que en la columna del layout anula el `height`: el <main> crecería con
-    // la conversación y el que scrollearía sería el documento, con la barra de escribir yéndose para
-    // abajo. Con esto scrollea el hilo y la barra queda pegada abajo. `dvh` y no `vh`: en el celular,
-    // 100vh incluye la barra del navegador y la de escribir quedaría debajo de ella.
-    // Menos la barra de secciones (app/_components/SeccionesTab.tsx): el super admin la ve desde el 17/10/2026 (Strategy y
-    // Playbook son secciones de Offer).
-    // Y menos la barra de ARRIBA (`--barra-agencia`: la de «Estás viendo el dashboard de…», 50 px, o la alerta de la voz de MaKo
-    // caída, 64 px, que ve también un cliente). La regla global de app/globals.css sólo corrige un estilo que EMPIEZA con
-    // `height: 100dvh`, y éste empieza con `calc(`: medido el 22/10/2026 (caso de uso de OF4), la página quedaba 50 px más
-    // alta que la ventana y la caja de escribir, debajo del borde.
-    <Pagina densidad="compacta" style={{ flex: 'none', height: 'calc(100dvh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))', overflow: 'hidden', display: 'flex', flexDirection: 'column', paddingBottom: 14 }}>
+    // La pantalla de Create (29/10/2026, app/_crear/PantallaCrear.tsx): de borde a borde y del alto de la ventana.
+    // `ESTILO_PAGINA_CREAR` trae lo que esta página medía desde el 22/10 (`flex: 'none'` + el alto + `overflow: hidden`, los
+    // tres; `dvh`; menos `--barra-agencia`). Sin barra de secciones: Offer no tiene pestañas.
+    <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
       <OfferApp
         arbolInicial={leido.arbol}
         sesionInicial={sesion}
         arbolFallo={!leido.ok}
         opcionArmar={OPCION_ARMAR}
         analizarAlAbrir={pedido?.tipo === 'nueva' ? { funnelId: pedido.funnelId, ofertaBaseId: pedido.ofertaBaseId } : null}
+        superAdmin={superAdmin}
       />
     </Pagina>
   );

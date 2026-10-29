@@ -100,7 +100,7 @@ test('Create: Video e Image llevan la key que miran las capas y la API', () => {
 
 /** Las páginas de Create y si ya montan la pantalla. Las que faltan, con su chat. Sólo se achica. */
 const PAGINAS_CREATE: Readonly<Record<string, string | null>> = {
-  'app/video-editor/VideoEditorCliente.tsx': 'chat «Create: un solo diseño» (create-shell-2910)',
+  'app/video-editor/VideoEditorCliente.tsx': null,
   'app/image-editor/ImageEditorCliente.tsx': 'chat «Create: un solo diseño» (create-shell-2910)',
   // AI Avatar (29/10/2026, el estudio de Higgsfield): AiAvatarCliente.tsx se fue y la pantalla es Estudio.tsx.
   'app/ai-avatar/Estudio.tsx': null,

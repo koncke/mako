@@ -240,7 +240,7 @@ export function BotonAgregar({
 			aria-label={ROTULO_AGREGAR}
 			title={ROTULO_AGREGAR}
 			className={cn(
-				"absolute right-1 bottom-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-white shadow-md transition-opacity hover:brightness-110",
+				"absolute right-1 bottom-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-opacity hover:brightness-110",
 				className,
 			)}
 			onClick={(event) => {

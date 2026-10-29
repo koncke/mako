@@ -46,7 +46,7 @@ export function ExportButton() {
 				disabled={!hayProyecto}
 				onClick={() => setAbierto(true)}
 				className={cn(
-					"flex h-[27px] min-w-[80px] items-center justify-center gap-1.5 rounded-[4px] bg-primary px-3 text-[13px] font-medium text-white",
+					"flex h-[27px] min-w-[80px] items-center justify-center gap-1.5 rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground",
 					hayProyecto ? "cursor-pointer hover:brightness-110" : "cursor-not-allowed opacity-50",
 				)}
 			>
