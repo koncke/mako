@@ -1553,3 +1553,16 @@ teléfono). Verlo en un navegador.
 
 **Vive en:** app/offer/OfferApp.tsx (el `if (!arranque)`) · app/offer/DocumentoVivo.tsx · app/offer/documento-vivo.ts ·
 app/offer/arbol.ts (`renglonesDeOffer`, `plantillasDeOffer`, `funnelParaPedido`) · app/m/offer/HojasOfferM.tsx · tests/offer-en-create.test.ts
+
+## La oferta en una columna de 340 px con media pantalla vacía: no era el ancho, era una CLASE repetida (29/10/2026, claude3)
+
+Martín, en su pantalla: el chat ~430 px, el documento ~380 px angosto y el resto vacío, con los textos en renglones de 4-5
+palabras. **Lo obvio era el equivocado**: no faltaba un `flex: 1` ni un `max-width` del documento (su hoja medía 760).
+`DocumentoVivo` nombró su contenedor `.of-doc`, y `.of-doc` ya era la tarjeta del PDF en app/offer/estilos.ts
+(`max-width: 340px; display: flex; align-items: center`). Las dos hojas se aplicaban a la vez y ganaba la de la tarjeta.
+Medido en el banco (las pantallas reales a 1920/1440/1366/390): el contenedor 340 y la hoja 342, en un centro de 1504.
+Y en el teléfono también: topeado en 340 dentro de 390.
+
+**Regla:** antes de nombrar una clase en el `<style>` de un componente, `grep` del prefijo en la hoja de la tab. Ahora es
+`.of-vivo*`, y tests/crear-qa-pantallas.test.ts cruza las clases que DEFINEN las dos hojas (falla si se repite una).
+(«430 px» en su captura son 340 de CSS: su pantalla de 1920 está al 125 %.)

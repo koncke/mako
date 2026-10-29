@@ -34,7 +34,6 @@ import { mudarLocales } from '../mako/mudanza';
 import { crearDiseno, leerDiseno } from '../mako/nube';
 import { PanelMakoIA } from '../mako/chat/PanelMakoIA';
 import { RUTA_INICIO, rutaDiseno } from '../ruta';
-import { CreditoDoory } from './CreditoDoory';
 import styles from './pantalla.module.css';
 
 type Abierto = { id: string; titulo: string; doc: DoryDocument; version: number };
@@ -180,7 +179,6 @@ export function PantallaEditor({ disenoId, ws, senales = null, ranuraChat = null
           dentro={ranuraChat ? createPortal(<PanelMakoIA />, ranuraChat) : null}
         />
       </div>
-      <CreditoDoory />
     </div>
   );
 }

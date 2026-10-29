@@ -14,12 +14,36 @@
   box-shadow: 0 1px 2px rgba(18, 21, 27, .06), 0 0 0 1px var(--border);
 }
 .cr-tarjeta > .co-panel { flex: 1; min-height: 0; }
+/* El hilo y la caja a la medida de la TARJETA (29/10/2026): centro.css les da `clamp(16px, 4vw, 56px)`, que mira la
+   VENTANA; en 340 px dejaba 218 a la conversación y las burbujas de Offer salían de 3 o 4 palabras por renglón. Los mismos
+   márgenes que el panel de MaKo en Automations (app/automations/ChatMakoVista.tsx, CSS_COLUMNA). */
+.cr-tarjeta .co-hilo { padding-inline: 14px; }
+.cr-tarjeta .co-caja-wrap { padding-inline: 12px; }
 .cr-volver {
   display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; padding: 0;
   border: 0; border-radius: 6px; background: transparent; color: var(--dim); cursor: pointer; font-size: 16px; line-height: 1;
 }
 .cr-volver:hover { background: var(--velo-hover); color: var(--ink); }
 .cr-volver:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Plegada (29/10/2026): en un editor (Video, Image) la tarjeta se vuelve una barra fina y el editor toma el ancho. El
+   chat queda montado (`hidden`): el hilo y lo escrito siguen ahí al abrirla. La barra entera es UN botón que la abre. ── */
+.cr-tarjeta[hidden] { display: none; }
+.cr-riel {
+  flex: none; width: 52px; margin: 8px 0 8px 8px; padding: 12px 0; display: flex; flex-direction: column; align-items: center;
+  gap: 10px; border: 0; border-radius: var(--r-xl, 18px); background: var(--surface); color: var(--dim); font: inherit; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .06), 0 0 0 1px var(--border);
+}
+.cr-riel:hover { color: var(--ink); box-shadow: 0 1px 2px rgba(18, 21, 27, .06), 0 0 0 1px var(--border-strong); }
+.cr-riel:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cr-riel__rotulo { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12.5px; font-weight: 600; letter-spacing: .02em; }
+/* El botón de plegar va en la cabecera del chat (PanelChat.tsx, `PlegarChatCtx`), a la derecha. */
+.cr-plegar {
+  flex: none; margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: 7px; background: transparent; color: var(--dim); cursor: pointer;
+}
+.cr-plegar:hover { background: var(--velo-hover); color: var(--ink); }
+.cr-plegar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ── La lista (la otra cara de la tarjeta): buscar, la estrella para volver al chat, «Nuevo …» y los proyectos ── */
 .cr-lista { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -134,6 +158,9 @@
   }
   .cr-movil__boton[aria-pressed="true"] { background: var(--primary-bg); color: var(--primary-strong); }
   .cr-tarjeta { width: auto; flex: 1; margin: 8px 12px 12px; }
+  /* En el teléfono no se pliega: ya se ve una cosa por vez («MaKo | <la tab>»). */
+  .cr-tarjeta[hidden] { display: flex; }
+  .cr-riel, .cr-plegar { display: none; }
   .cr[data-movil="pieza"] .cr-tarjeta { display: none; }
   .cr[data-movil="mako"] .cr-centro { display: none; }
   .cr-nueva__col { padding: 24px 16px 32px; }

@@ -2003,3 +2003,21 @@ La declaración existe en el repo y no estaba en la lista: tsc-acotado sólo ve 
 `types/soundtouchjs.d.ts`, `types/eyedropper.d.ts` y `export/gifenc.d.ts`. Sin ellas, también salen `soundtouchjs`, `gifenc`
 (TS7016) y `EyeDropper` (TS2304). Con las cuatro: 42 archivos de Video y 43 de Image sin errores.
 Y una corrida de ~200 archivos juntos murió con código 134 (memoria): en tandas de ~40 con `--heap=3000`, por con-turno.
+
+## «Transicio…» y «Multimed…» no eran por el chat: cada pestaña medía 58 px FIJOS (29/10/2026, claude3)
+
+Martín: «el chat a la izquierda le come lugar al editor: la barra corta "Transicio…" y "Multimed…"». El chat le quita
+ancho al editor (ahora se pliega: `plegable` en PantallaCrear), pero **los rótulos se cortaban a cualquier ancho de
+pantalla**: `tabbar.tsx` daba `w-[58px]` a cada pestaña y `truncate` al rótulo, y a 11 px «Transiciones» pide ~66.
+Ahora `min-w-[58px]` + el rótulo entero (`whitespace-nowrap`); lo que no entra lo siguen corriendo las flechas ‹ ›.
+Captura comparada (main y ahora, a 300/360/460 de panel): C:/dev/revisiones/create-qa-2910/despues-barras-1440.png.
+
+## SIN RESOLVER: el editor no carga en un Chrome sin ventana (el banco), se queda en «Cargando…» (29/10/2026)
+
+Para el QA visual se armó un banco (las pantallas reales compiladas con esbuild, sin `next dev`). El editor de Video crea el
+proyecto y navega, pero `EditorProvider` no sale de «Cargando…» ni en 75 s, con o sin recargar. **Descartado, medido:**
+ningún `fetch` pendiente; WebGPU da adaptador y `requestDevice` contesta; OPFS e IndexedDB abren; el hilo de la página no
+está trabado (un `setTimeout` cada 1 s corre); con la GPU real (`--ignore-gpu-blocklist`) tampoco. La espera está adentro
+de `initializeGpuRenderer()` o de `project.loadProject` (migraciones, medios, fuentes): falta poner marcas ahí para saber
+cuál. Hasta entonces el editor de Video se mira en producción, o por partes (la barra se probó suelta).
+Vive en: components/providers/editor-provider.tsx (`loadProject`), core/managers/project-manager.ts.

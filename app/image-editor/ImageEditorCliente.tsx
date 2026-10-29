@@ -163,6 +163,8 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       chat={abierto && carga !== 'falla'
         ? (volver) => <ChatDelEditor disenoId={abierto} volver={volver} carga={carga} onRanura={setRanura} />
         : undefined}
+      // El lienzo necesita el ancho, como el Video Editor (29/10/2026): el chat se pliega a una barra fina.
+      plegable
     >
       {abierto ? (
         <div className="cv" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

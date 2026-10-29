@@ -166,6 +166,8 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
         onPlantilla={usarPlantilla}
         ejemplos={EJEMPLOS_NUEVO_VIDEO}
         chat={editor ? (volver) => <PanelChat volver={volver} /> : undefined}
+        // El editor necesita el ancho (29/10/2026: la barra cortaba «Transicio…» y el reproductor quedaba chico): el chat se pliega.
+        plegable
       >
         {pieza}
       </PantallaCrear>
