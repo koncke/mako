@@ -57,7 +57,24 @@ todo... Sino, no tendrá sentido replicarla, seria como hacer una captura... Deb
 - **29/10 ~00:15 (93 %): COMMITEADO a medias en a72620aa3** (rama `replica-editable-2810`, worktree
   `C:/dev/wt-replica-editable`, árbol limpio, sin pushear: NO es VERDE). tsc-acotado sin errores propios (hace falta
   `--heap=4096`: con 2560 aborta con código 134; corregidos dos getters sin tipo en el DOM de mentira del test); tests
-  48/48. Corriendo la matriz + capturas (`pipeline-replica-2.sh`, salida en `C:/dev/revisiones/replica-editable/`). Tests `tests/replica-editable.test.ts` 20/20; romper 40/40 (`scratchpad/romper_replica.py`).
+  48/48.
+- **MATRIZ MEDIDA (29/10 00:20, `C:/dev/revisiones/replica-editable/matriz.json`; el script `scratchpad/scripts/
+  matriz-editable.mts` tenía un bug propio —`elementosDeHtmlEditable` devuelve una lista con `tipo`—, ya corregido):**
+  - Por «Contenido» se llega a TODO texto, imagen y botón del censo en las 5 (#68 247/128/178 · #69 218/93/245 ·
+    #70 504/169/55 · #71 99/57/13 · #72 145/0/15). Con clic directo, bastante menos (lo oculto sólo por la lista).
+  - Duplicar, mover, quitar, fuente, botón (destino) e imagen: OK en todas las secciones; persiste tras el saneo.
+  - ❌ #68 sección 10: `ponerColor` texto y fondo no cambian el color calculado (sospecha: `-webkit-text-fill-color` /
+    `background-clip:text` o un `!important` de la hoja de la página; mirar el CSS de esa sección).
+  - ❌ #69 sección 13: `ponerImagenDeFondo` no se ve (sospecha: el fondo está en un `::before` o en un `background` con
+    `!important`).
+  - ⚠️ El chat ve sólo 60 botones por sección (`TOPE_ELEMENTOS_DISENO`, ia-bloques.ts:118): #68 secc 0 tiene 91 y #69
+    secc 1 tiene 71 (menús). Por «Contenido» sí se llega.
+  - SIN MEDIR: si «Contenido» lista íconos (12/158/89/32/14), videos (1/1/22/0/0) y fondos (3/2/0/0/0); la matriz no los
+    cuenta en la lista. Y la matriz por PROMPT del chat en #70–#72 (`chat-e2e-2`).
+  - Capturas 1440/390 copia vs editada de las 5 en `C:/dev/revisiones/replica-editable/capturas/` (sin mirar todavía).
+- **Lo próximo, en este orden:** los dos ❌ (con su test, rompiéndolo) → íconos/videos/fondos en la matriz → mirar las
+  capturas → chat-e2e en #70–#72 → `tests-afectados --base 23b329b5e` → cosecha (borrador `scratchpad/cosecha-replica-
+  editable.md`, con lo medido de arriba) + índice + bitácora → VERDE → recién ahí las copias #68–#72 a la papelera. Tests `tests/replica-editable.test.ts` 20/20; romper 40/40 (`scratchpad/romper_replica.py`).
 - Hecho en el worktree: «Elemento» (el de afuera, duplicar, mover, quitar, colores, fondo e imagen de fondo, fuente,
   «Agregar» texto/botón/imagen) y «Contenido» (TODO lo de la sección, también lo OCULTO) en `HtmlEditableVista.tsx`,
   `PanelContenidoDiseno.tsx`, `lib/editor-landing/diseno-elemento-acciones.ts`, `diseno-contenido.ts`. El chat: sacar,
