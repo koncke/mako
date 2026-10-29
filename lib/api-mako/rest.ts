@@ -114,6 +114,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/cobro-ganado/vinculos', 'vincular_cobro_etapa'],
   ['PUT', '/crm/cobro-ganado/vinculos/{vinculoId}/cuentas', 'cuentas_cobro_etapa'],
   ['DELETE', '/crm/cobro-ganado/vinculos/{vinculoId}', 'desvincular_cobro_etapa'],
+  // EN BLOQUE (28/10/2026, tickets #21 y #22): POST porque cada uno es UNA orden sobre muchos (la columna o los ids van en
+  // el cuerpo). La papelera: GET la lista, POST manda, y recuperar es una «recuperación» nueva.
+  ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
+  ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
+  ['GET', '/crm/papelera', 'ver_papelera_crm'],
+  ['POST', '/crm/papelera', 'mandar_en_bloque_a_papelera'],
+  ['POST', '/crm/papelera/recuperaciones', 'recuperar_de_papelera_crm'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
   ['GET', '/crm/campanas', 'ver_campanas_funnels'],
   // «Invitar al curso al ganar» (23/10/2026): el CRM va por `embudoId` (opcional), como /crm/automatizaciones/estado.

@@ -27,6 +27,7 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { deleteLeadAction, type LeadFullData } from '../actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt } from '@/lib/pipeline';
 import type { FathomLink } from '@/lib/leads';
@@ -152,7 +153,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       // quedarse mirando un lead borrado no es una opción. (El modal usa la versión
       // que no redirige, porque ahí la pantalla de atrás sigue viva.)
       try { await deleteLeadAction(lead.id); }
-      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo borrar. Reintenta.'); }
+      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
     });
   };
 
@@ -215,10 +216,11 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       </div>
 
       {confirmDelete && (
+        // A la PAPELERA desde el 28/10/2026 (mig 0340): la misma pregunta que la barra y la tarjeta.
         <ConfirmDialog
-          title="Borrar lead"
-          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
-          confirmLabel="Borrar definitivamente"
+          title={preguntaDePapelera(1, nombre).titulo}
+          message={preguntaDePapelera(1, nombre).mensaje}
+          confirmLabel="Mandar a la papelera"
           onConfirm={borrar}
           onCancel={() => setConfirmDelete(false)}
           zIndex={130}

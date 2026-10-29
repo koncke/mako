@@ -22,7 +22,13 @@ import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DI
 import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
-import { editarEtapa, conteosDelEmbudo } from '@/lib/etapas-crm-server';
+import { editarEtapa, conteosDelEmbudo, idsDeColumna } from '@/lib/etapas-crm-server';
+import { pasarEnBloqueAColumna } from '@/lib/crm-bloque-server';
+import { previaDePasar, pasarLoteAOtroFunnel } from '@/lib/lead-funnel';
+import { aPasar, avisosDePasar, etapaSugerida, etapasElegibles } from '@/lib/pasar-funnel-reglas';
+import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads } from '@/lib/leads-papelera';
+import { DIAS_PAPELERA_LEADS, diasQuedan, textoQuedan } from '@/lib/leads-papelera-reglas';
+import { pideMotivo } from '@/app/crm/motivos-salida';
 import { porQueNoSeElimina, pipelineReordenado } from '@/lib/etapas-crm-reglas';
 import { avisoAlQuitarEtapa } from '@/app/crm/aviso-quitar-etapa';
 import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
@@ -477,6 +483,57 @@ const comoReunion = ' Por su nombre quedó marcada como Reunión: se cambia con 
 async function leadsEnEtapa(funnelId: number | null, key: string): Promise<number | null> {
   try { return (await conteosDelEmbudo(funnelId)).conteos[key] ?? null; } catch { return null; }
 }
+
+// ── EN BLOQUE (28/10/2026, tickets #21 y #22) ────────────────────────────────────────
+/** Cuánto se da `ejecutar` en bloque: WhatsApp, el chat y la bandeja tienen 420 s; `/api/v1`, 60. Lo que no llega, se dice. */
+const plazoEnBloque = (ctx: Ctx): number => Date.now() + (ctx.canal === 'http' ? 45_000 : 300_000);
+const idsDe = (v: unknown): number[] =>
+  [...new Set((Array.isArray(v) ? v : []).map((x) => Number(x)).filter((x) => Number.isInteger(x) && x > 0))];
+/** Los nombres de los primeros, para que el «sí» confirme a quiénes (no «N leads»). */
+async function quienesSon(ids: readonly number[]): Promise<string> {
+  const primeros = ids.slice(0, 12);
+  const { data } = await (await getTenantDb()).from('leads').select('id, nombre, telefono').in('id', primeros);
+  const por = new Map(((data ?? []) as Array<{ id: number | string; nombre: string | null; telefono: string | null }>)
+    .map((l) => [Number(l.id), l.nombre?.trim() || l.telefono || `#${l.id}`]));
+  const nombres = primeros.map((id) => por.get(id) ?? `#${id}`);
+  return nombres.join(', ') + (ids.length > primeros.length ? ` y ${ids.length - primeros.length} más` : '');
+}
+/**
+ * A quiénes toca un pedido EN BLOQUE: la columna ENTERA (`columna`, paginada: «más de 1000 no se trunca») o los `leadIds`
+ * que son de este negocio. Congela los ids: lo que se confirma es lo que se lee en el resumen.
+ */
+async function seleccionEnBloque(input: Record<string, unknown>): Promise<
+  { ids: number[]; funnelId: number | null; donde: string; cfg: FunnelLeido; deCual: string; origen: Stage | null }
+  | { error: string; disponibles?: unknown; faltan?: string[]; yaEstaba?: true; falla?: true }
+> {
+  const c = await crmDeEtapas(input);
+  if ('error' in c) return c;
+  const buscada = s(input.columna);
+  if (buscada) {
+    const col = columnaDe(c.cfg.stages, buscada);
+    if (!col) return sinEsaEtapa(c.cfg, buscada);
+    let ids: number[];
+    try { ids = await idsDeColumna(c.funnelId, col.key); } catch { return { error: 'No pude leer esa columna. Intenta de nuevo.', falla: true }; }
+    if (!ids.length) return { error: `«${col.label}» está vacía${c.donde}.`, yaEstaba: true };
+    return { ids, funnelId: c.funnelId, donde: c.donde, cfg: c.cfg, deCual: `los ${ids.length} de «${col.label}»${c.donde}`, origen: col };
+  }
+  const pedidos = idsDe(input.leadIds);
+  if (!pedidos.length) return { error: 'Dime la columna entera (columna) o los leads (leadIds).', faltan: ['columna'] };
+  const db = await getTenantDb();
+  const existen: number[] = [];
+  for (let i = 0; i < pedidos.length; i += 200) {
+    const { data, error } = await db.from('leads').select('id').in('id', pedidos.slice(i, i + 200));
+    if (error) return { error: 'No pude leer esos leads. Intenta de nuevo.', falla: true };
+    existen.push(...((data ?? []) as Array<{ id: number | string }>).map((l) => Number(l.id)));
+  }
+  if (!existen.length) return { error: 'Ninguno de esos leads es de este negocio (búscalos con buscar_leads).' };
+  const fuera = pedidos.length - existen.length;
+  return {
+    ids: existen, funnelId: c.funnelId, donde: c.donde, cfg: c.cfg, origen: null,
+    deCual: `${existen.length} ${existen.length === 1 ? 'lead' : 'leads'}${fuera ? ` (${fuera} de los que nombraste no están en este negocio)` : ''}`,
+  };
+}
+const quedan = (pendientes: readonly number[]) => (pendientes.length ? ` Quedan ${pendientes.length} que no llegué a tocar: pídemelo de nuevo y sigo con ésos.` : '');
 
 // ── los runners ───────────────────────────────────────────────────────────────
 
@@ -1350,6 +1407,124 @@ export const RUNNERS: Runners = {
   },
   // «¿Qué vas a crear hoy?» de una tab (16/10/2026): MaKo la arma ANTES de proponerla, como la pantalla
   // (app/api/crm/ficha/armar) y como crear_hoja_dashboard con pedido. Lo que se confirma es lo que se guarda.
+  // ── EN BLOQUE (28/10/2026, tickets #21 y #22): UNA confirmación para todos ─────────────────────────────────
+  pasar_en_bloque_otra_columna: {
+    preparar: async (input) => {
+      const sel = await seleccionEnBloque(input);
+      if ('error' in sel) return sel;
+      const buscada = s(input.destino) ?? '';
+      const destino = columnaDe(sel.cfg.stages, buscada);
+      if (!destino) return sinEsaEtapa(sel.cfg, buscada);
+      const ids = sel.origen?.key === destino.key ? [] : sel.ids;
+      if (!ids.length) return { error: `Ya están en «${destino.label}».`, yaEstaba: true };
+      const motivo = pideMotivo(destino.key) ? (s(input.motivo) ?? '').slice(0, 300) : '';
+      const sinMotivo = pideMotivo(destino.key) && !motivo ? ' Sin motivo: queda pendiente en cada ficha.' : '';
+      return {
+        payload: { ids, funnelId: sel.funnelId, key: destino.key, label: destino.label, ...(motivo ? { motivo } : {}) },
+        resumen: `Pasar ${sel.deCual} a «${destino.label}»${motivo ? `, por «${motivo}»` : ''}: ${await quienesSon(ids)}.${sinMotivo} No se le escribe a nadie.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('pasar los leads de columna', async () => {
+      const r = await pasarEnBloqueAColumna(idsDe(payload.ids), funnelDelPayload(payload), String(payload.key), {
+        motivo: typeof payload.motivo === 'string' ? payload.motivo : null, autor: autorDe(ctx), hasta: plazoEnBloque(ctx),
+      });
+      invalidar('leads');
+      const mal = r.fallaron ? ` ${r.fallaron} no se pudieron (${r.motivos.slice(0, 2).join(' · ')}).` : '';
+      return { ok: r.movidos > 0, resumen: `Listo: ${r.movidos} en «${String(payload.label)}».${mal}${quedan(r.pendientes)}` };
+    }),
+  },
+  pasar_en_bloque_otro_funnel: {
+    preparar: async (input) => {
+      const sel = await seleccionEnBloque(input);
+      if ('error' in sel) return sel;
+      const crms = await productosCrm().catch(() => null);
+      if (!crms) return { error: NO_LEI_PRODUCTOS, falla: true };
+      const hacia = crms.find((p) => p.embudoId === n(input.haciaEmbudoId));
+      if (!hacia) return { error: `El CRM #${String(input.haciaEmbudoId)} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+      const desde = sel.funnelId ?? (await idDelFunnelDefault());
+      if (desde == null) return { error: 'Este negocio todavía no tiene un funnel.' };
+      if (desde === hacia.embudoId) return { error: `Ya están en «${hacia.nombre}».`, yaEstaba: true };
+      let previa;
+      try { previa = await previaDePasar(sel.ids, desde, hacia.embudoId); } catch { return { error: 'No pude leer a esos leads. Intenta de nuevo.', falla: true }; }
+      const buscada = s(input.destino);
+      const etapa = buscada
+        ? etapasElegibles(previa.etapas).find((st) => st.key === buscada || sinTildes(st.label) === sinTildes(buscada))
+        : etapasElegibles(previa.etapas).find((st) => st.key === etapaSugerida(sel.origen?.key ?? null, previa.etapas).key);
+      if (!etapa) return { error: `«${hacia.nombre}» no tiene la columna «${buscada ?? ''}».`, disponibles: etapasElegibles(previa.etapas).map((st) => ({ key: st.key, nombre: st.label })) };
+      const lista = aPasar(sel.ids, previa, b(input.incluirAgendados) === true);
+      const origenNombre = crms.find((p) => p.embudoId === desde)?.nombre ?? 'el CRM de origen';
+      const avisos = avisosDePasar(previa, sel.ids, origenNombre, hacia.nombre);
+      if (!lista.length) return { error: `No queda ninguno para pasar: ${avisos.join(' ')}`, yaEstaba: true };
+      const afuera = sel.ids.length - lista.length;
+      return {
+        payload: { ids: lista, desde, hacia: hacia.embudoId, etapa: etapa.key, destino: hacia.nombre, label: etapa.label },
+        resumen: `Pasar ${lista.length} de ${sel.deCual} a «${hacia.nombre}» · «${etapa.label}»: ${await quienesSon(lista)}.`
+          + (avisos.length ? ` ${avisos.join(' ')}` : '') + (afuera ? ` Quedan afuera ${afuera}.` : '') + ' No se le escribe a nadie.',
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('pasar los leads de funnel', async () => {
+      const r = await pasarLoteAOtroFunnel(idsDe(payload.ids), Number(payload.desde), Number(payload.hacia), String(payload.etapa), {
+        autor: autorDe(ctx), hasta: plazoEnBloque(ctx),
+      });
+      invalidar('leads');
+      const ya = r.yaEstaban ? ` (${r.yaEstaban} ya estaban ahí)` : '';
+      const mal = r.fallaron ? ` ${r.fallaron} no se pudieron (${r.motivos.slice(0, 2).join(' · ')}).` : '';
+      return { ok: r.pasados.length > 0, resumen: `Listo: ${r.pasados.length} a «${String(payload.destino)}» · «${String(payload.label)}»${ya}.${mal}${quedan(r.pendientes)}` };
+    }),
+  },
+  mandar_en_bloque_a_papelera: {
+    preparar: async (input) => {
+      const sel = await seleccionEnBloque(input);
+      if ('error' in sel) return sel;
+      return {
+        payload: { ids: sel.ids },
+        resumen: `Mandar a la papelera ${sel.deCual}: ${await quienesSon(sel.ids)}. Salen del CRM con su historial y sus pagos, y nadie recibe ningún mensaje; durante ${DIAS_PAPELERA_LEADS} días se recuperan tal cual, después se borran para siempre.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('mandar los leads a la papelera', async () => {
+      const r = await mandarLeadsAPapelera(idsDe(payload.ids), { por: autorDe(ctx), hasta: plazoEnBloque(ctx) });
+      invalidar('leads');
+      const mal = r.fallaron ? ` ${r.fallaron} no se pudieron (${r.motivos.slice(0, 2).join(' · ')}).` : '';
+      return { ok: r.hechos.length > 0, resumen: `Listo: ${r.hechos.length} a la papelera (se recuperan con recuperar_de_papelera_crm).${mal}${quedan(r.pendientes)}` };
+    }),
+  },
+  ver_papelera_crm: {
+    leer: async (input) => {
+      const r = await listarPapeleraDeLeads();
+      if (r.falta) return fallo('La papelera del CRM todavía no está lista en este negocio.');
+      const q = sinTildes(s(input.buscar) ?? '');
+      const ahora = Date.now();
+      const filas = r.filas
+        .filter((f) => !q || [f.nombre, f.telefono, f.email].some((x) => sinTildes(x ?? '').includes(q)))
+        .map((f) => ({ leadId: f.lead_id, nombre: f.nombre, telefono: f.telefono, embudoId: f.funnel_id, columna: f.etapa, eliminoPor: f.por, eliminado: f.eliminado_at, quedan: textoQuedan(diasQuedan(f.purgar_at, ahora)) }));
+      return json({ total: filas.length, leads: filas.slice(0, 200), ...(filas.length > 200 ? { omitidos: filas.length - 200 } : {}) });
+    },
+  },
+  recuperar_de_papelera_crm: {
+    preparar: async (input) => {
+      const r = await listarPapeleraDeLeads().catch(() => null);
+      if (!r) return { error: 'No pude leer la papelera. Intenta de nuevo.', falla: true };
+      if (r.falta) return { error: 'La papelera del CRM todavía no está lista en este negocio.' };
+      const enPapelera = new Map(r.filas.map((f) => [f.lead_id, f]));
+      const pedidos = b(input.todos) === true ? [...enPapelera.keys()] : idsDe(input.leadIds);
+      if (!pedidos.length) return { error: b(input.todos) ? 'La papelera está vacía.' : 'Dime cuáles (leadIds, de ver_papelera_crm) o todos=true.', faltan: b(input.todos) ? undefined : ['leadIds'] };
+      const ids = pedidos.filter((id) => enPapelera.has(id));
+      if (!ids.length) return { error: 'Ninguno de esos está en la papelera (mira ver_papelera_crm).' };
+      const fuera = pedidos.length - ids.length;
+      const nombres = ids.slice(0, 12).map((id) => enPapelera.get(id)?.nombre?.trim() || enPapelera.get(id)?.telefono || `#${id}`).join(', ')
+        + (ids.length > 12 ? ` y ${ids.length - 12} más` : '');
+      return {
+        payload: { ids },
+        resumen: `Recuperar de la papelera ${ids.length} ${ids.length === 1 ? 'lead' : 'leads'}: ${nombres}. Vuelven tal cual estaban.${fuera ? ` ${fuera} de los que nombraste no están en la papelera.` : ''}`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('recuperar los leads de la papelera', async () => {
+      const r = await recuperarLeadsDePapelera(idsDe(payload.ids), { por: autorDe(ctx), hasta: plazoEnBloque(ctx) });
+      invalidar('leads');
+      const mal = r.fallaron ? ` ${r.fallaron} siguen en la papelera (${r.motivos.slice(0, 2).join(' · ')}).` : '';
+      return { ok: r.hechos.length > 0, resumen: `Listo: ${r.hechos.length} de vuelta en el CRM.${mal}${quedan(r.pendientes)}` };
+    }),
+  },
   armar_tab_ficha: {
     preparar: async (input, ctx) => {
       const f = await fichaDelCrm(input.embudoId);

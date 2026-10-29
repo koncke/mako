@@ -15,6 +15,7 @@ import { deriveStageKey, stageMeta, type Stage } from '@/lib/pipeline';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import type { StepId } from '@/lib/stage-requirements';
 import { deleteLeadInlineAction, getLeadFullAction, type LeadFullData } from './actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
@@ -155,7 +156,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
     setConfirmDelete(false);
     startTransition(async () => {
       try { await deleteLeadInlineAction(lead.id); router.refresh(); onClose(); }
-      catch { setDelErr('No se pudo borrar. Reintenta.'); }
+      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
     });
   };
 
@@ -314,10 +315,11 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
       )}
 
       {confirmDelete && (
+        // A la PAPELERA desde el 28/10/2026 (mig 0340): la misma pregunta que la barra y la tarjeta.
         <ConfirmDialog
-          title="Borrar lead"
-          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{lead.nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
-          confirmLabel="Borrar definitivamente"
+          title={preguntaDePapelera(1, lead.nombre).titulo}
+          message={preguntaDePapelera(1, lead.nombre).mensaje}
+          confirmLabel="Mandar a la papelera"
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(false)}
           zIndex={120}

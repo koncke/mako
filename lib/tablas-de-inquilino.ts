@@ -89,6 +89,9 @@ export const TABLAS_DE_INQUILINO = [
   'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'insistencias', 'kpi_registros', 'kpis',
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
+  // La papelera del CRM (mig 0340). ⚠️ La 0340 va ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla
+  // que no existe da error.
+  'leads_papelera',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
   // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en

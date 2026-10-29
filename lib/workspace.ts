@@ -150,6 +150,9 @@ const TENANT_TABLES = new Set<string>([
   // Los productos de un lead ADEMÁS de su casa (mig 0207). Sin esta línea getTenantDb no acota
   // por cliente y el tablero de un producto dibujaría los agregados de TODOS los workspaces.
   'lead_funnel',
+  // La PAPELERA del CRM (mig 0340): la foto de cada lead eliminado, 30 días. Sin esta línea la pantalla de la papelera
+  // listaría los eliminados de TODOS los negocios (la foto trae sus pagos y sus mensajes).
+  'leads_papelera',
   // Los eventos de la agenda (Calendly, Cal.com) vinculados a una etapa de reunión (mig 0293). Sin esta
   // línea, el webhook leería los vínculos de TODOS los negocios y una reserva podría caer en el embudo
   // de otro (el ruteo puro igual los filtra por workspace: lib/agenda-evento-etapa.ts).

@@ -62,6 +62,12 @@ operación nueva puede dejar afuera a otra), el rojo-verde, tests-afectados, tsc
 app/admin/dev/crm/bitacora.ts con `tickets: [21, 22]`, el commit y el VERDE con el SQL de la 0340.
 
 ## La cola (orden del Cerebro, después de lo de arriba)
+0. (28/10 22:30, del relevamiento de pedidos perdidos: docs/relevo/pedidos-perdidos-2810.md en tren-w, sección CRM) DESPUÉS
+   de los defectos de las horas: (a) Leila, lead Fabi Pedraza: faltan los datos fiscales y al cargarlos sólo salen SETTER y
+   CLOSER; y adjuntar la constancia fiscal a la ficha desde el chat (doer_buffer 302-303, C:/dev/revisiones/2710-leila-leila.md
+   :95-101). (b) Las cifras de llamadas de Joan (ws13) se contradicen (25 contra 28 no-shows, 14 contra 10 sin marcar): medir
+   cuál es la verdad (los totales de b799f7ed4 son la mitad del arreglo). Para después: la lentitud de «Qué escribir», el R1
+   obligatorio de Calendly, los emojis en las iniciales.
 2. Unir dos fichas que ya son clientes (toca plata: con la revisión de pagos; lib/leads-unificar.ts ya existe).
 3. Qué datos muestran los bloques de Pagos. 4. Las 8 decisiones de los requisitos de etapa (docs/pedidos-crm.md).
 5. De dónde vino cada lead en varios funnels. 6. Los «Producto» que quedan → «Funnel». 7. Google Calendar en «Asignar

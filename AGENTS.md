@@ -10727,3 +10727,15 @@ dos) o por `updateLead` (si el estado cambia y la columna lo contradice, la suel
 Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pagos.ts) mira lo mismo y suelta la columna; quien
 escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
 docs/hallazgos-crm.md («El feedback del 27/10/2026»).
+
+# «Eliminar» un lead es mandarlo a la PAPELERA; borrar para siempre es interno (28/10/2026)
+
+Desde la mig 0340, todo «Eliminar» que ve una persona o pide MaKo (la barra en bloque, la tarjeta, la ficha, la API) va por
+`mandarLeadsAPapelera` (lib/leads-papelera.ts): la base saca la FOTO del lead y de todo lo que se lleva en cascada (las FKs se leen
+de `pg_constraint`, no de una lista) y lo borra, en una transacción por lead; durante 30 días vuelve igual, con sus mismos ids.
+**Regla para código nuevo:** un camino nuevo de «eliminar un lead» llama a la papelera, nunca a `deleteLead`; `deleteLead` queda
+para lo interno (unificar fichas, el lead que perdió la carrera de Instagram, el reset de un negocio). Sin la migración, la
+papelera NO cae al borrado de antes: lo dice y no borra. Una tabla nueva con FK al lead entra sola a la foto; una FK de VARIAS
+columnas en cascada la frena entera (no la sabe guardar). Lo fijan tests/crm-acciones-bloque.test.ts y
+scripts/probar-0340-pglite.mjs (contra un Postgres de verdad); el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la
+papelera»).

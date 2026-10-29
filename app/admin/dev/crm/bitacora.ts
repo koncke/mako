@@ -3828,4 +3828,26 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
     tickets: [14],
   },
+  {
+    fecha: '28 oct', hora: '22:30', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: acciones en bloque en el CRM — pasar una columna entera a otro funnel, descalificar y la papelera de 30 días',
+    pedido: 'Leila, tickets #21 y #22: «Quiero limpiar la casilla de contacto nuevo de lidermente y pasarlo a Funnel general» y «Los podemos borrar de ahí».',
+    puntos: [
+      '**Una columna entera:** la casilla de la columna tilda a todos, también a los que no se ven, y la barra dice «Los 394 de Contacto nuevo». Con más de 1.000 ya no se cortan.',
+      '**Pasar a otro funnel:** en «Funnel», «Pasar a otro funnel…». Eliges el funnel y la etapa (si la tuya no existe allá, se dice), y antes de pasar te avisa cuántos ya agendaron (sólo pasan si lo marcas) y cuántos ya pagaron (ésos se quedan: sus pagos son de ese funnel). Con «Deshacer».',
+      '**Descalificar o perder en bloque:** eliges la etapa y un motivo para todos.',
+      '**Eliminar ya no es para siempre:** va a la Papelera (en el menú de funnels). Durante 30 días los recuperas tal cual, con su historial y sus pagos; después se borran solos. Vale para la barra, la tarjeta y la ficha.',
+      '**MaKo también:** le puedes pedir «pasa todos los de Contacto nuevo a Funnel general» o «manda a la papelera esa columna», y lo hace con UNA confirmación, no una por lead.',
+    ],
+    archivos: [
+      'supabase/migrations/0340_leads_papelera.sql — la papelera (la foto de cada lead, una transacción por lead)',
+      'lib/leads-papelera.ts · app/crm/PapeleraLeads.tsx · app/api/cron/leads-papelera — mandar, recuperar, la pantalla y la purga',
+      'lib/lead-funnel.ts — pasarAOtroFunnel · app/crm/PasarAOtroFunnel.tsx — la pregunta',
+      'app/crm/AccionesLoteLeads.tsx — la barra · lib/api-mako/areas/crm.def.ts — las 5 operaciones en bloque',
+      'tests/crm-acciones-bloque.test.ts · scripts/probar-0340-pglite.mjs',
+    ],
+    revisar: '/crm?ws=3',
+    tickets: [21, 22],
+  },
 ];
