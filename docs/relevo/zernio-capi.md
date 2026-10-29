@@ -319,3 +319,16 @@ En orden (el Cerebro):
 
 Avisos del token (03/11) y ws21: hechos y mandados al Cerebro (nota zernio-avisos-token-0311-y-ws21.md en la carpeta de
 notas del Cerebro). P2P (ws14) no tiene grupo de WhatsApp: por eso nunca le llegó el aviso del 27/10.
+
+### Estado 28/10 ~23:20 (claude4, 92%)
+- Roturas: <scratchpad>/romper-2810.mjs, 19 roturas y 19 ROJO; base publicar 25/0, orgánico 21/0, REST 8/0. Están anotadas
+  en las cabeceras de tests/calendario-publicar.test.ts y tests/organico.test.ts.
+- tsc acotado: la única falla propia era lib/calendario.ts (TS2589 en `conCondicion<T>`). Arreglada con un cast estructural.
+  Lo demás son los 14 de _opencut (ruido conocido).
+- app/m/calendario/CalendarioM.tsx: el teléfono tomaba el `{ error }` de tildar o borrar como un éxito. Arreglado: muestra el
+  motivo y la tarjeta vuelve.
+- Corriendo: el tsc de nuevo y los 28 tests afectados (<scratchpad>/afectados-2810.mjs). Después: commit por ruta y VERDE.
+- 23:40: 28 tests afectados de a uno: 320 pases. Los únicos rojos eran puente-panel-copy (lib/cobros-webhook.ts:95 «Mirá»,
+  que es de Planes: a5f61f0c8 entró con el merge 042e10323, NO está en origin/main y Planes lo corrigió en su rama; no se
+  toca) y zernio-conectar-redes, que fijaba `motivoDeError(e, ws === OWNER_WS)`: ahora fija `esDeLaCasa` y da 24/0.
+  tsc acotado: 0 propios (sólo los 14 de _opencut). Commiteado en el commit «verificación del 28/10» de esta rama.

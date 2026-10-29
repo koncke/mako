@@ -191,16 +191,20 @@ export const RUNNERS: Runners = {
       if (rev === 'sin-migracion') return { error: FALTA_MIGRACION_PUBLICAR };
       if (!rev.listas.length) return { error: `No se puede programar ninguna: ${rev.no.map((n) => `«${n.titulo || n.id}»: ${n.motivo}`).join(' · ')}`.slice(0, 900) };
       const linea = (l: RevisionProgramar['listas'][number]) =>
-        `${l.formato ? ROTULO_FORMATO[l.formato] : 'Post'} «${l.titulo}» en ${ROTULO_RED[l.red]}, ${diaDe(l.inicio, tz)} ${horaDe(l.inicio, tz)}`;
+        `${l.formato ? ROTULO_FORMATO[l.formato] : 'Post'} «${l.titulo}» en ${ROTULO_RED[l.red]} (${l.cuenta}), ${diaDe(l.inicio, tz)} ${horaDe(l.inicio, tz)}`;
       const no = rev.no.length ? ` No van: ${rev.no.map((n) => `«${n.titulo || n.id}» (${n.motivo})`).join(', ')}.` : '';
       return {
-        payload: { eventos: rev.listas.map((l) => l.id) },
+        // Con la HUELLA de cada una (la hora, la cuenta, el archivo, el texto): el «sí» puede llegar hasta 2 h después, y si el
+        // evento cambió en el medio no se programa lo nuevo con el resumen viejo (la verificación del 28/10).
+        payload: { eventos: rev.listas.map((l) => l.id), huellas: Object.fromEntries(rev.listas.map((l) => [l.id, l.huella])) },
         resumen: `Programar ${rev.listas.length === 1 ? 'una publicación' : `${rev.listas.length} publicaciones`} (salen solas a esa hora): ${rev.listas.map(linea).join('; ')}.${no}`.slice(0, 1500),
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       const ids = Array.isArray(payload.eventos) ? payload.eventos.filter((x): x is string => typeof x === 'string') : [];
-      const r = await programarPublicaciones(ids);
+      const h = payload.huellas && typeof payload.huellas === 'object' ? (payload.huellas as Record<string, unknown>) : {};
+      const huellas = Object.fromEntries(ids.map((id) => [id, typeof h[id] === 'string' ? (h[id] as string) : '']));
+      const r = await programarPublicaciones(ids, Date.now(), { huellas });
       if ('error' in r) return { ok: false, resumen: r.error };
       try { revalidatePath('/calendario'); } catch { /* fuera de un request: vence sola */ }
       const no = r.fallidas.length ? ` No se programaron: ${r.fallidas.map((f) => `«${f.titulo || f.id}» (${f.motivo})`).join(', ')}.` : '';

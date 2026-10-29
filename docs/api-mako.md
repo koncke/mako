@@ -14114,10 +14114,11 @@ curl -L \
   -d '{"huella":"9f86d081884c7d65"}'
 ```
 
-### `GET /api/v1/contenido/ver_rendimiento_redes` — Cómo vienen las publicaciones de Instagram
+### `GET /api/v1/contenido/rendimiento-redes` — Cómo vienen las publicaciones de Instagram
 
 El rendimiento orgánico de la cuenta de Instagram del negocio (conectada en Zernio) entre dos fechas: los seguidores (cuántos hay, ganados y perdidos), la cuenta (alcance, vistas, cuentas que interactuaron, interacciones, me gusta, comentarios, guardados, compartidos, visitas al perfil) y las últimas publicaciones (reels, historias, posts) con su link y sus números. Lo que no se pudo leer viene en «faltan» y es null, nunca 0. Necesita el complemento de Analytics de Zernio. Úsala para «¿cómo vienen las últimas publicaciones?» o «¿cuántos seguidores gané este mes?».
 
+- **Ruta por operación:** `GET /api/v1/contenido/ver_rendimiento_redes`
 - **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -14132,7 +14133,11 @@ El rendimiento orgánico de la cuenta de Instagram del negocio (conectada en Zer
 | `limite` | number | no | Cuántas publicaciones traer, de la más nueva a la más vieja. Si se omite, 10. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/rendimiento-redes?desde=2026-10-01&hasta=2026-10-28"
 ```
 
 ## Video Generator — `video`
@@ -18522,10 +18527,11 @@ curl -L \
   "https://hola-mako.com/api/v1/calendario/recurrentes?desde=2026-10-12&hasta=2026-10-18"
 ```
 
-### `POST /api/v1/calendario/programar_publicacion` — Programar publicaciones en las redes
+### `POST /api/v1/calendario/publicaciones/programaciones` — Programar publicaciones en las redes
 
 Propone programar en Instagram, Facebook, TikTok o YouTube las publicaciones del Calendario que ya tienen su cuenta, su archivo y su hora: las que se nombran por id, o todas las que están listas entre dos fechas (en serie). Salen solas a la hora del Calendario y le llegan a los seguidores de esa cuenta. No sube archivos ni elige la cuenta: eso se arma en el Calendario. Úsala cuando pidan «programa los reels de esta semana».
 
+- **Ruta por operación:** `POST /api/v1/calendario/programar_publicacion`
 - **Token detallado:** permiso `calendario=write` (Lectura y escritura en «Calendario»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -18543,7 +18549,14 @@ Propone programar en Instagram, Facebook, TikTok o YouTube las publicaciones del
 | `hasta` | string | no | Fin, inclusive, YYYY-MM-DD. Si se omite, 7 días después de «desde». Máximo 62 días. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/calendario/publicaciones/programaciones" \
+  -d '{"desde":"2026-11-03","hasta":"2026-11-09"}'
 ```
 
 ## Creaciones de la comunidad (estrellas) — `creaciones`

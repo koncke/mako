@@ -9,7 +9,10 @@
 //   2. «NO PUDE LEER» NO ES «CERO»: lo que falta es null y va dicho en `faltan`; una lectura que falla no tumba a las otras.
 //   3. EL COMPLEMENTO DE ANALYTICS (pago, de Zernio): sin él, se dice en palabras y no se inventa nada.
 //   4. SIN INSTAGRAM CONECTADO, se dice; un rango de más de 89 días se corta ANTES de llamar a Zernio.
-//   5. CON VARIAS CUENTAS, la que se nombra.
+//   5. CON VARIAS CUENTAS, la que se nombra; una nombrada que no está es un error con las conectadas (no los números de otra).
+//   6. EL DÍA DE CADA POST, en la zona del negocio (Zernio lo manda en UTC).
+//   7. MIENTRAS ZERNIO SINCRONIZA manda 0: ese post va sin números y dicho. Lo que Zernio dice que no entregó, también dicho.
+//   8. CON LA CLAVE DE LA CUENTA DE MaKo (el ws 1, o la prestada), ni «tu cuenta» ni quién paga; tampoco en Conectar.
 //
 // Probado ROMPIÉNDOLO (28/10/2026), una rotura por vez y restaurando, con este test y tests/organico-reglas.test.ts (11 pases
 // y 0 fallos con el código como está). Rota:
@@ -20,6 +23,15 @@
 //   · tres fallas iguales como tres líneas sueltas                         → 10 / 1
 //   · una lectura que falla tumba a las otras (Promise.all)                → 7 / 4
 //   · con varias cuentas, siempre la primera                               → 10 / 1
+//
+// ROTO 28/10 noche (los arreglos de la verificación, con este test y el de reglas: 21 pases y 0 fallos como está):
+//   · la fecha del post cortada en UTC                                     → 20 / 1
+//   · un post sin sincronizar con sus ceros                                → 19 / 2
+//   · lo no entregado sin decirlo                                          → 20 / 1
+//   · una cuenta nombrada que no está cae a la primera                     → 20 / 1
+//   · con la clave de MaKo, los textos del negocio                         → 20 / 1
+//   · Conectar: la cuenta prestada no es «de la casa» (lib/zernio-conectar) → 20 / 1
+// Y sin la ruta REST de programar_publicacion, tests/api-mako-rest.test.ts da 6 / 2.
 //
 // Correr: node --import tsx --test tests/organico.test.ts
 
@@ -87,4 +99,47 @@ test('sin Instagram conectado se dice, y un rango de más de 89 días no llama a
 test('con varias cuentas, la que se nombra', () => {
   assert.equal(R.g.r.cuenta, '@otra.cuenta');
   assert.ok((R.g.pedidos as string[]).every((x) => x.includes('accountId=acc_ig_2')));
+});
+
+// ── La verificación del 28/10 (C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md) ──────────────────────────────────────
+
+test('la fecha de cada post es el día en la zona del negocio: lo publicado de noche no cae al día siguiente', () => {
+  assert.deepEqual(R.h.publicaciones.map((p: { fecha: string }) => p.fecha), ['2026-10-28', '2026-10-27', '2026-10-27']);
+});
+
+test('un post que Zernio todavía no sincronizó va sin números y DICHO; un 0 sincronizado queda en 0', () => {
+  const ps = R.i.publicaciones as Array<{ alcance: number | null; vistas: number | null; sin_metricas?: string }>;
+  assert.deepEqual(ps.map((p) => p.alcance), [null, 0, null, null]);
+  assert.equal(ps[0].vistas, null);
+  assert.match(ps[0].sin_metricas ?? '', /todavía no las trajo/);
+  assert.equal(ps[1].sin_metricas, undefined);
+  assert.match(ps[2].sin_metricas ?? '', /Instagram no las entrega/);
+  assert.ok((R.i.faltan as string[]).some((f) => /2 todavía no tienen métricas en Zernio/.test(f)), JSON.stringify(R.i.faltan));
+  assert.ok((R.i.faltan as string[]).some((f) => /de una, Instagram no entrega métricas/.test(f)));
+});
+
+test('lo que Zernio dice que no entregó va null y DICHO, con su motivo', () => {
+  assert.deepEqual(R.j.seguidores, { actual: null, ganados: null, perdidos: null });
+  assert.ok((R.j.faltan as string[]).includes('Los seguidores: el total de seguidores no vino de Instagram (motivo de Zernio: not_enrolled).'), JSON.stringify(R.j.faltan));
+});
+
+test('una cuenta nombrada que no está no contesta con los números de otra', () => {
+  assert.equal(R.k.r.motivo, 'sin-cuenta');
+  assert.match(R.k.r.error, /@otra\.cuentaa no está conectada/);
+  assert.match(R.k.r.error, /@negocio\.prueba, @otra\.cuenta\./);
+  assert.equal(R.k.pedidos, 0);
+});
+
+test('con la clave de la cuenta de MaKo (el ws 1, o la cuenta prestada) el 402 no le habla de «tu cuenta» ni de quién paga', () => {
+  for (const r of [R.l.ws1, R.l.prestada]) {
+    assert.equal(r.motivo, 'sin-analytics', JSON.stringify(r));
+    assert.match(r.error, /Lo resuelve el equipo de MaKo/);
+    assert.doesNotMatch(r.error, /tu cuenta|lo paga el negocio/);
+  }
+  assert.deepEqual(R.l.clavesPrestada, ['sk_zernio_de_la_plataforma']);
+});
+
+test('Conectar: con la cuenta prestada, un 402 es un error genérico y sin el link de pago de MaKo; con la propia, su cuenta pausada', () => {
+  assert.deepEqual(R.m.conectarPrestada, { motivo: 'error', pagoUrl: null });
+  assert.equal(R.m.conectarPropia?.motivo, 'pausada');
 });

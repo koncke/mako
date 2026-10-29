@@ -21,7 +21,7 @@ import { TextField } from '@/app/_ui/Field';
 import { useConfirm } from '@/app/_ui/Confirm';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import {
-  cancelarPublicacionAction, guardarPublicacionAction, programarAction, publicacionAction, subidaArchivoAction,
+  cancelarPublicacionAction, guardarPublicacionAction, noQuedoProgramadaAction, programarAction, publicacionAction, subidaArchivoAction,
 } from './actions';
 import { MIMES_PUBLICAR, ROTULO_RED, TOPE_TEXTO, type DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 import type { CuentaParaPublicar } from '@/lib/calendario-publicar';
@@ -53,7 +53,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
     setDatos(r.datos);
     setCuentas(r.cuentas);
     setTexto(r.datos?.texto ?? '');
-    onProgramada(r.datos?.publicacion === 'programada' || r.datos?.publicacion === 'programando');
+    onProgramada(r.datos?.publicacion === 'programada' || r.datos?.publicacion === 'programando' || r.datos?.publicacion === 'dudosa');
   }, [id, onProgramada]);
   useEffect(() => { void cargar(); }, [cargar]);
   useEffect(() => { cargarRef.current = () => { void cargar(); }; }, [cargar]);
@@ -97,6 +97,34 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
     }
   };
 
+  // Una en duda: reintentar repite el MISMO pedido a Zernio si fue hace unos minutos (el server decide); si no, lo dice.
+  const reintentar = async () => {
+    setOcupado(true);
+    setError(null);
+    try {
+      const r = await programarAction([id]);
+      if ('error' in r) setError(r.error);
+      else if (r.fallidas.length) setError(r.fallidas[0].motivo);
+      await cargar();
+      onCambio();
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  const noQuedo = async () => {
+    if (!(await confirm('Revisaste en Zernio y la publicación NO está programada. Vuelve a quedar lista para programarla.', { title: 'No quedó programada', confirmLabel: 'No quedó programada', danger: false }))) return;
+    setOcupado(true);
+    try {
+      const r = await noQuedoProgramadaAction(id);
+      if (!r.ok) setError(r.error);
+      await cargar();
+      onCambio();
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const cancelar = async () => {
     if (!(await confirm('Se saca de la red antes de que salga. El evento queda en el Calendario.', { title: 'Cancelar la programación', confirmLabel: 'Cancelar la programación' }))) return;
     setOcupado(true);
@@ -131,7 +159,17 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
           <Button variant="secondary" size="sm" loading={ocupado} disabled={d.publicacion !== 'programada'} onClick={() => void cancelar()}>Cancelar la programación</Button>
         </>
       )}
-      {!bloqueada && d.publicacion !== 'publicada' && (
+      {d.publicacion === 'dudosa' && (
+        <>
+          {/* Zernio no contestó: puede haberla creado. Reprogramar la duplicaría (la verificación del 28/10): primero se aclara. */}
+          <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{d.publicacion_motivo}</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button variant="secondary" size="sm" loading={ocupado} onClick={() => void reintentar()}>Reintentar</Button>
+            <Button variant="tertiary" size="sm" disabled={ocupado} onClick={() => void noQuedo()}>No quedó programada</Button>
+          </div>
+        </>
+      )}
+      {!bloqueada && d.publicacion !== 'publicada' && d.publicacion !== 'dudosa' && (
         <>
           {d.publicacion === 'fallo' && d.publicacion_motivo && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>No salió: {d.publicacion_motivo}</span>}
           {cuentas && !cuentas.ok ? (
@@ -156,6 +194,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
           </label>
           <TextField label="Texto de la publicación" multiline value={texto} maxLength={TOPE_TEXTO} disabled={ocupado}
             onChange={(e) => setTexto(e.target.value)} onBlur={() => { if (texto !== d.texto) void guardar({ texto }); }} />
+          {d.red === 'youtube' && <span style={DIM}>En YouTube, el título del evento sale como título del video (hasta 100 caracteres).</span>}
           {sinGuardar && <span style={DIM}>Guarda los cambios de la fecha y la hora antes de programarla.</span>}
           <Button variant="primary" size="sm" loading={ocupado} disabled={sinGuardar || !d.cuenta_red || !d.archivo || subida != null}
             onClick={() => void programar()}>Programar</Button>

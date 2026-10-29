@@ -270,14 +270,37 @@ listas» (en serie) · la operación `programar_publicacion` · mig 0342 · test
   corta (la de 12 h de `wa-media`) muere antes. Bucket privado `ig-media` (mig 0136, ya en el Reset), ruta
   `<ws>/calendario/<evento>/<al azar>` armada por el server y validada por segmentos.
 - **Una vez:** el evento se reclama (`programando`, compare-and-set) antes de pedirle a Zernio, con `x-request-id`; un 409
-  de Zernio (el mismo contenido en 24 h) es el post que ya estaba, no un error.
+  de Zernio con `existingPostId` es el post que ya estaba, no un error.
+- ⚠️ **El diagnóstico obvio era el equivocado: «si Zernio falla, `fallo` y se reprograma»** (la verificación del 28/10,
+  `C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md`). Si la conexión se corta o Zernio da 5xx, el post PUEDE haber
+  quedado creado; reprogramar con un `x-request-id` nuevo lo duplica en la red (y el 409 no salva: no está documentado que
+  cubra un pedido nuevo con el mismo contenido; la línea vieja «el 409 de las 24 h» no se sostenía). La regla: sin respuesta
+  (no `ZernioError`, o status 0 o ≥500) → `dudosa`, con el `x-request-id` guardado en `publicacion_intento`. Dentro de 4
+  minutos se reintenta el MISMO pedido (la idempotencia de Zernio devuelve el que había creado); después NO se reprograma:
+  alguien mira en Zernio y, si no está, «No quedó programada» la pasa a `fallo`. Un `programando` de más de 10 minutos (la
+  función murió en el medio) pasa a `dudosa` en la relectura. Una `dudosa` no se mueve, no se borra ni se cancela.
+- ⚠️ **La cuenta es del NEGOCIO, no la que manda el navegador.** `guardarPublicacion` y `programarPublicaciones` validan la
+  cuenta contra `conexionesViaZernio(ws)` (filtradas por el perfil del negocio) y la red sale de la cuenta. Antes se guardaba
+  cualquier `acc_…` que llegara: con la cuenta prestada de la plataforma (un perfil por negocio en la MISMA cuenta de Zernio)
+  eso publicaba en la cuenta de otro negocio. Si las cuentas no se pueden leer, no se programa a ciegas. El «Deshacer» de un
+  borrado devuelve el archivo y el texto, NUNCA la cuenta.
+- ⚠️ **Un 404 de Zernio con OTRA clave no es «no está».** Un post es de la cuenta de Zernio con cuya clave se creó; si el
+  negocio cambia de clave (pasa: el ws 11 cambió de cuenta, el ws 1 va a dejar la de la plataforma), el post viejo da 404 y
+  sigue programado allá. Se guarda la huella de la clave (`publicacion_clave`, sha256 corto, nunca la clave): con otra clave,
+  cancelar da error y la relectura no la da por perdida.
+- ⚠️ **La condición «no espera a Zernio» va EN la escritura**, no en una lectura antes (`sinPublicacionEnCurso` en
+  `lib/calendario.ts`, dos pasos: `is null` y `in (publicada, fallo)`, porque el PostgREST de los tests no entiende un `or`
+  con `in`). Leer «libre» y escribir sin condición movía o borraba una recién programada por otro pedido.
+- **El «sí» de la API lleva la HUELLA** de lo que se resumió (la hora, la cuenta, el archivo, el texto): el «sí» puede llegar
+  horas después; uno que cambió no se programa con el resumen viejo. El resumen dice la cuenta (`@usuario`), no sólo la red.
 - **No medido:** el cuerpo para TikTok y YouTube (`platformSpecificData`, el `title`) sale del código viejo y de la
-  documentación, sin una cuenta real. La primera publicación real la confirma el Cerebro antes (es producción).
+  documentación, sin una cuenta real. En YouTube el título del evento es el título público (tope 100). La primera publicación
+  real la confirma el Cerebro antes (es producción). Tampoco está medido con una cuenta real que el `x-request-id` de Zernio
+  devuelva el mismo post al repetir el pedido (lo dice su documentación; el test lo supone).
 - **Sin hacer:** el webhook `post.published`/`post.failed` (hoy no se suscribe: el estado se relee sólo cuando alguien abre el
-  Calendario); la media que queda en `ig-media` al borrar un evento (el «Deshacer» la necesita; falta barrerla); un evento que
-  quedó `programando` porque el server murió entre Zernio y la base (si se reprograma dentro de 24 h, el 409 devuelve el mismo
-  post); por WhatsApp no se sube el archivo (la operación programa lo que ya está armado). La clave es la del negocio (`cfg`):
-  conectar sin clave de Zernio es el punto 3 del pedido.
+  Calendario); la media que queda en `ig-media` al borrar un evento (el «Deshacer» la necesita; falta barrerla); por WhatsApp
+  no se sube el archivo (la operación programa lo que ya está armado). La mig 0342 (con `publicacion_intento`,
+  `publicacion_clave` y el estado `dudosa`) NO está aplicada: la pide el Cerebro.
 
 ## Lo que quedó SIN hacer
 

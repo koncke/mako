@@ -10,23 +10,33 @@
 // =============================================================================
 
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { cfg, zFetch, ZernioError } from './zernio';
 import type { CuerpoPost, PostZernio } from './calendario-publicar-reglas';
 
-/** Programa un post. Devuelve su id en Zernio. */
-export async function crearPostZernio(ws: number, cuerpo: CuerpoPost, requestId: string): Promise<string> {
+/** La huella de una clave (nunca la clave): con ella se sabe si el post se programó con la clave de HOY (la verificación del 28/10). */
+const huellaDe = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 16);
+
+/** La huella de la clave con la que el negocio habla HOY con Zernio. */
+export async function huellaClaveActual(ws: number): Promise<string> {
+  return huellaDe((await cfg(ws)).apiKey);
+}
+
+/** Programa un post. Devuelve su id en Zernio y la huella de la clave con la que se programó. */
+export async function crearPostZernio(ws: number, cuerpo: CuerpoPost, requestId: string): Promise<{ id: string; clave: string }> {
   const c = await cfg(ws);
+  const clave = huellaDe(c.apiKey);
   try {
     const r = await zFetch<{ post?: { _id?: string } }>(c.apiKey, '/posts', {
       method: 'POST', headers: { 'x-request-id': requestId }, body: JSON.stringify(cuerpo),
     });
     const id = r.post?._id;
     if (!id) throw new ZernioError('Zernio no devolvió el post programado.', 502, null);
-    return id;
+    return { id, clave };
   } catch (e) {
     // El mismo contenido en 24 h: Zernio devuelve el que ya estaba. Es ESE post (no se programa otro).
     const existente = e instanceof ZernioError && e.status === 409 ? idExistente(e) : null;
-    if (existente) return existente;
+    if (existente) return { id: existente, clave };
     throw e;
   }
 }

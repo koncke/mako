@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  motivoDeStatus, publicacionesDe, rangoOrganico, seguidoresDe, TEXTO_MOTIVO_ORGANICO, totalesDeInsights,
+  diaLocal, motivoDeStatus, noEntregadasDe, publicacionesDe, rangoOrganico, seguidoresDe, textoOrganico, TEXTO_MOTIVO_ORGANICO, totalesDeInsights,
 } from '../lib/organico-reglas';
 
 test('la cuenta: los totales que vinieron; lo que no vino es null, nunca 0', () => {
@@ -77,4 +77,47 @@ test('el rango: por defecto los últimos 30 días; Zernio corta en 89', () => {
   assert.ok('error' in rangoOrganico('2026-10-28', '2026-10-01', '2026-10-28'), 'al revés');
   assert.ok('error' in rangoOrganico('28/10/2026', null, '2026-10-28'));
   assert.deepEqual(rangoOrganico('2026-10-20', null, '2026-10-28'), { desde: '2026-10-20', hasta: '2026-10-28' });
+});
+
+// ── La verificación del 28/10 (2810-verificacion-zernio-bef5bfcd3.md) ───────────────────────────────────────────────────────
+
+test('el día de un post es el de la zona del negocio: lo publicado de noche no cae al día siguiente', () => {
+  const BA = 'America/Argentina/Buenos_Aires';
+  assert.equal(diaLocal('2026-10-28T01:30:00Z', BA), '2026-10-27', '22:30 del 27 en Buenos Aires');
+  assert.equal(diaLocal('2026-10-28T02:59:00Z', BA), '2026-10-27', '23:59 del 27');
+  assert.equal(diaLocal('2026-10-28T03:00:00Z', BA), '2026-10-28', 'medianoche del 28');
+  assert.equal(diaLocal('2026-10-27', BA), '2026-10-27', 'un día suelto queda como vino');
+  assert.equal(diaLocal(null, BA), null);
+  assert.equal(diaLocal('ayer', BA), null);
+});
+
+test('un post que Zernio todavía no sincronizó va sin números (no en cero); uno sincronizado con 0 queda en 0', () => {
+  const r = publicacionesDe({ posts: [
+    { postId: 's1', publishedAt: '2026-10-28T14:00:00Z', syncStatus: 'pending', analytics: { reach: 0, views: 0, likes: 0, lastUpdated: null } },
+    { postId: 's2', publishedAt: '2026-10-27T14:00:00Z', syncStatus: 'synced', analytics: { reach: 0, views: 0, lastUpdated: '2026-10-28T10:00:00Z' } },
+    { postId: 's3', publishedAt: '2026-10-26T14:00:00Z', syncStatus: 'partial', platformAnalytics: [{ platform: 'instagram', syncStatus: 'unavailable' }], analytics: { reach: 0 } },
+    { postId: 's4', publishedAt: '2026-10-25T14:00:00Z', analytics: { reach: 0, lastUpdated: null } },
+    { postId: 's5', publishedAt: '2026-10-24T14:00:00Z', analytics: { reach: 7 } },
+  ] })!;
+  assert.deepEqual(r.map((p) => [p.id, p.alcance, p.sinMetricas]), [
+    ['s1', null, 'pendiente'], ['s2', 0, null], ['s3', null, 'no-disponible'], ['s4', null, 'pendiente'], ['s5', 7, null],
+  ]);
+  assert.equal(r[0].vistas, null);
+  assert.equal(r[0].meGusta, null);
+});
+
+test('lo que Zernio dice que no entregó queda dicho, con su motivo', () => {
+  assert.deepEqual(noEntregadasDe({ metrics: {}, unavailableMetrics: [{ metric: 'follower_count', reason: 'not_enrolled' }, { metric: 'raro' }] }),
+    ['el total de seguidores no vino de Instagram (motivo de Zernio: not_enrolled)', 'raro no vino de Instagram']);
+  assert.deepEqual(noEntregadasDe({ metrics: {} }), []);
+  assert.deepEqual(noEntregadasDe(null), []);
+});
+
+test('con la clave de la cuenta de MaKo, el 402 no le habla al negocio de «tu cuenta» ni de quién paga', () => {
+  assert.match(textoOrganico('sin-analytics', false), /tu cuenta de Zernio.*lo paga el negocio/);
+  const casa = textoOrganico('sin-analytics', true);
+  assert.match(casa, /Analytics/);
+  assert.doesNotMatch(casa, /tu cuenta|lo paga el negocio/);
+  assert.doesNotMatch(textoOrganico('clave-mala', true), /del negocio/);
+  assert.equal(textoOrganico('sin-cuenta', true), TEXTO_MOTIVO_ORGANICO['sin-cuenta'], 'lo demás no cambia');
 });

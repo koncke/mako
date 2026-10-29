@@ -286,6 +286,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     const id = it.id.replace(/^propio:/, '');
     setGuardando(true);
     void borrarEventoAction(id).then((b) => {
+      // Uno programado en la red no se borra: el motivo llega a la persona (antes, «No se pudo borrar» y nada más).
+      if (b && 'error' in b) { show(b.error, undefined, 'bad'); return; }
       setAbierto(null);
       show('Evento borrado', b ? () => { void restaurarEventoAction(b).then(() => router.refresh()).catch(() => show('No se pudo deshacer', undefined, 'bad')); } : undefined);
       router.refresh();
@@ -294,7 +296,10 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
 
   const marcar = (it: ItemCalendario, hecho: boolean) => {
     void marcarEventoAction(it.id.replace(/^propio:/, ''), hecho)
-      .then(() => { setAbierto(null); show(hecho ? 'Hecho' : 'Pendiente'); router.refresh(); })
+      .then((r) => {
+        if (r && typeof r === 'object') { show(r.error, undefined, 'bad'); return; }
+        setAbierto(null); show(hecho ? 'Hecho' : 'Pendiente'); router.refresh();
+      })
       .catch(() => show('No se pudo guardar', undefined, 'bad'));
   };
 

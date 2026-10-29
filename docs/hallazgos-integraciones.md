@@ -2158,9 +2158,27 @@ ninguna fuente de redes orgánicas. Chat «Zernio y CAPI», pedido del Cerebro (
 - ⚠️ **«No pude leer» no es «cero»:** una métrica que no vino, o una respuesta con otra forma, es null y va dicha en `faltan`;
   las tres lecturas van a la vez y una que falla no tumba a las otras. La forma de la LISTA de `/v1/analytics` no está en su
   documentación (sólo el ejemplo de un post): se acepta `posts`, `data` o `items`, y sin ninguna es «no sé leer», no «no hay».
-- **El id de la operación no nombra la red:** tests/sin-instagram.test.ts prohíbe `/instagram|zernio/` en los ids.
+- **El id de la operación no nombra la red:** tests/sin-instagram.test.ts prohíbe `/instagram|zernio/` en los ids. Y cada
+  operación que sale por HTTP necesita su ruta en `RUTAS_REST` (lib/api-mako/rest.ts): sin ella, tests/api-mako-rest.test.ts
+  da rojo y frena el tren (pasó con ésta y con `programar_publicacion`).
+- ⚠️ **`publishedAt` viene en UTC (con Z): el día se saca en la zona del negocio** (`diaLocal`). Cortarlo a 10 caracteres corría
+  al día siguiente todo lo publicado entre las 21:00 y las 23:59 de Buenos Aires, la franja fuerte de Instagram (la
+  verificación del 28/10). **No medido:** en qué zona filtra Zernio `fromDate`/`toDate` (su documentación dice sólo
+  «YYYY-MM-DD»); si es UTC, de noche «hasta hoy» deja afuera lo de después de las 21:00.
+- ⚠️ **Mientras sincroniza, Zernio manda 0, no null.** `syncStatus` (synced | pending | partial | unavailable, y por red en
+  `platformAnalytics[].syncStatus`) y `analytics.lastUpdated` null dicen que todavía no hay métricas: ese post va con sus
+  números en null, marcado (`sin_metricas`) y contado en `faltan`. Si no, el reel recién publicado (justo el que se pregunta
+  por WhatsApp) decía que nadie lo vio. Un post `synced` con 0 sigue en 0.
+- **Lo que Zernio dice que no entregó** (`unavailableMetrics: [{ metric, reason }]`, documentado en follower-history) va dicho
+  en `faltan` con su motivo, no sólo en null.
+- **Una cuenta nombrada que no está** (un error al tipear el usuario) es un error con las conectadas, no los números de la primera.
+- ⚠️ **Con la clave de la CUENTA DE MaKo** (el ws1, o un negocio con la cuenta prestada: `cfg(ws).byok` false) los textos no le
+  hablan al negocio de «tu cuenta» ni de quién paga (`textoOrganico(m, deLaCasa)`). La misma regla en Conectar: `motivoDeError`
+  miraba sólo `ws === OWNER_WS`, y a un negocio con la cuenta prestada un 402 le decía «Tu cuenta de Zernio está pausada» con el
+  link de pago de MaKo; ahora `esDeLaCasa(ws, cfg)` (lib/zernio-conectar.ts) cuenta también la prestada.
 - **Sin hacer:** las plantillas de Instagram del Dashboard (Reels, Historias, DMs) y el reporte de agencia sobre esta fuente; los
-  DMs (Zernio no los da como métrica); medir la forma real con una cuenta que tenga el complemento.
+  DMs (Zernio no los da como métrica); medir la forma real con una cuenta que tenga el complemento (y si Zernio rechaza la falta
+  del complemento con otro status que el 402 documentado: un 403 hoy se dice «clave-mala»).
 
 ## Conectar Instagram y Facebook sin pegar una clave de Zernio: la cuenta de la plataforma, detrás de un interruptor (28/10/2026)
 

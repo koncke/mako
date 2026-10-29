@@ -6,6 +6,9 @@
 // chat) y, después, el Dashboard y los reportes de agencia. Las decisiones puras: lib/organico-reglas.ts.
 //
 //   · La cuenta de Instagram es una de las conectadas en Zernio (`conexionesViaZernio`); con varias, la que se nombra o la primera.
+//     Una cuenta NOMBRADA que no está es un error con las conectadas (no los números de otra: la verificación del 28/10).
+//   · Lo que Zernio dice que no entregó (`unavailableMetrics`) y los posts que todavía no sincronizó van en `faltan`: null y dicho.
+//   · Con la clave de la CUENTA DE MaKo (`byok` false) los textos no le hablan al negocio de «tu cuenta» ni de quién paga.
 //   · Las tres lecturas van a la vez y una que falla no tumba a las otras: lo que no se pudo leer se dice (`faltan`).
 //   · ⚠️ El complemento de Analytics de Zernio es PAGO y aparte: sin él contesta 402, y eso se dice en palabras.
 //
@@ -16,7 +19,8 @@ import 'server-only';
 import { cfg, zFetch, ZernioError } from './zernio';
 import { conexionesViaZernio, ZernioConectarError } from './zernio-conectar';
 import {
-  motivoDeStatus, publicacionesDe, seguidoresDe, TEXTO_MOTIVO_ORGANICO, totalesDeInsights, type MotivoOrganico, type PublicacionOrganica,
+  motivoDeStatus, noEntregadasDe, publicacionesDe, seguidoresDe, textoOrganico, TEXTO_MOTIVO_ORGANICO, totalesDeInsights, type MotivoOrganico,
+  type PublicacionOrganica,
 } from './organico-reglas';
 
 /** Las métricas de la cuenta que se piden (todas «total_value»: sólo `reach` tiene serie). */
@@ -51,10 +55,15 @@ export async function rendimientoInstagram(ws: number, p: { desde: string; hasta
     return { error: m, texto: TEXTO_MOTIVO_ORGANICO[m] };
   }
   const quiero = (p.usuario ?? '').replace(/^@/, '').trim().toLowerCase();
-  const cuenta = (quiero ? cuentas.find((c) => c.usuario.toLowerCase() === quiero) : null) ?? cuentas[0];
-  if (!cuenta) return { error: 'sin-cuenta', texto: TEXTO_MOTIVO_ORGANICO['sin-cuenta'] };
+  if (!cuentas.length) return { error: 'sin-cuenta', texto: TEXTO_MOTIVO_ORGANICO['sin-cuenta'] };
+  const cuenta = quiero ? cuentas.find((c) => c.usuario.toLowerCase() === quiero) : cuentas[0];
+  if (!cuenta) {
+    const conectadas = cuentas.map((c) => (c.usuario ? `@${c.usuario}` : c.nombre)).join(', ');
+    return { error: 'sin-cuenta', texto: `@${quiero} no está conectada en Zernio. Las de Instagram conectadas: ${conectadas}.` };
+  }
 
   const c = await cfg(ws);
+  const deLaCasa = !c.byok;
   const q = (o: Record<string, string>) => new URLSearchParams(o).toString();
   const rango = { fromDate: p.desde, toDate: p.hasta };
   const limite = String(Math.min(50, Math.max(1, Math.round(p.limite ?? 10))));
@@ -70,20 +79,26 @@ export async function rendimientoInstagram(ws: number, p: { desde: string; hasta
     if (r.status === 'rejected') {
       const m = motivoDe(r.reason);
       motivos.push(m);
-      faltan.push(`${que}: ${TEXTO_MOTIVO_ORGANICO[m]}`);
+      faltan.push(`${que}: ${textoOrganico(m, deLaCasa)}`);
       return null;
     }
     const v = parsear(r.value);
     if (v == null) { motivos.push('respuesta'); faltan.push(`${que}: ${TEXTO_MOTIVO_ORGANICO.respuesta}`); }
+    else for (const n of noEntregadasDe(r.value)) faltan.push(`${que}: ${n}.`);
     return v;
   };
   const cuentaMetricas = leer(ins, 'La cuenta', (b) => totalesDeInsights(b, METRICAS_CUENTA));
   const seguidores = leer(seg, 'Los seguidores', seguidoresDe);
   const publicaciones = leer(pubs, 'Las publicaciones', publicacionesDe);
   // Las tres fallaron por LO MISMO (el complemento de Analytics, la clave): eso es la respuesta, no tres líneas iguales.
-  if (motivos.length === 3 && motivos.every((m) => m === motivos[0])) return { error: motivos[0], texto: TEXTO_MOTIVO_ORGANICO[motivos[0]] };
+  if (motivos.length === 3 && motivos.every((m) => m === motivos[0])) return { error: motivos[0], texto: textoOrganico(motivos[0], deLaCasa) };
+  const lista = publicaciones?.slice(0, Number(limite)) ?? null;
+  const pendientes = lista?.filter((x) => x.sinMetricas === 'pendiente').length ?? 0;
+  const noDisponibles = lista?.filter((x) => x.sinMetricas === 'no-disponible').length ?? 0;
+  if (pendientes) faltan.push(`Las publicaciones: ${pendientes === 1 ? 'una todavía no tiene' : `${pendientes} todavía no tienen`} métricas en Zernio (las trae en hasta 48 h); sus números van vacíos, no en cero.`);
+  if (noDisponibles) faltan.push(`Las publicaciones: ${noDisponibles === 1 ? 'de una, Instagram no entrega' : `de ${noDisponibles}, Instagram no entrega`} métricas; sus números van vacíos.`);
   return {
     cuenta: { accountId: cuenta.accountId, usuario: cuenta.usuario, nombre: cuenta.nombre },
-    desde: p.desde, hasta: p.hasta, cuentaMetricas, seguidores, publicaciones: publicaciones?.slice(0, Number(limite)) ?? null, faltan,
+    desde: p.desde, hasta: p.hasta, cuentaMetricas, seguidores, publicaciones: lista, faltan,
   };
 }

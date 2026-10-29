@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { requireRolWs } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import {
-  crearEventos, cambiarEvento, marcarEvento, borrarEvento, restaurarEvento, zonaDelCalendario, type EventoBorrado,
+  crearEventos, cambiarEvento, marcarEvento, borrarEvento, restaurarEvento, zonaDelCalendario, PROGRAMADA_BORRAR, PROGRAMADA_TILDAR, type EventoBorrado,
 } from '@/lib/calendario';
 import type { EntradaEvento } from '@/lib/calendario-modelo';
 import { crearEventoGoogle, cambiarEventoGoogle, borrarEventoGoogle, restaurarEventoGoogle, type ResultadoEscrituraGoogle } from '@/lib/calendario-google';
@@ -20,8 +20,8 @@ import type { EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { linkDeAgenda, type LinkDeAgenda } from '@/lib/agenda-link';
 import {
-  cancelarPublicacion, cuentasParaPublicar, FALTA_MIGRACION_PUBLICAR, guardarPublicacion, leerPublicaciones, listasParaProgramar, programarPublicaciones,
-  releerPublicaciones, subidaDelArchivo, type ResultadoProgramar,
+  cancelarPublicacion, cuentasParaPublicar, FALTA_MIGRACION_PUBLICAR, guardarPublicacion, leerPublicaciones, listasParaProgramar, noQuedoProgramada,
+  programarPublicaciones, releerPublicaciones, subidaDelArchivo, type ResultadoProgramar,
 } from '@/lib/calendario-publicar';
 import type { DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 
@@ -61,19 +61,27 @@ export async function cambiarEventoAction(id: string, entrada: EntradaEvento): P
   }
 }
 
-export async function marcarEventoAction(id: string, hecho: boolean): Promise<boolean> {
+export async function marcarEventoAction(id: string, hecho: boolean): Promise<boolean | { error: string }> {
   await guard();
   const ok = await marcarEvento(String(id), !!hecho);
+  // Uno programado en la red se tilda solo cuando sale (la verificación del 28/10): se dice, no se traga.
+  if (ok === 'programada') return { error: PROGRAMADA_TILDAR };
   if (ok) revalidatePath('/calendario');
   return ok;
 }
 
 /** Borra y devuelve lo que borró: el «Deshacer» del toast lo vuelve a poner con el MISMO id. */
-export async function borrarEventoAction(id: string): Promise<EventoBorrado | null> {
+export async function borrarEventoAction(id: string): Promise<EventoBorrado | null | { error: string }> {
   await guard();
-  const b = await borrarEvento(String(id));
-  revalidatePath('/calendario');
-  return b;
+  try {
+    const b = await borrarEvento(String(id));
+    revalidatePath('/calendario');
+    return b;
+  } catch (e) {
+    // El motivo de uno programado llega a la persona (antes el toast decía «No se pudo borrar» y nada más).
+    if (e instanceof Error && e.message === PROGRAMADA_BORRAR) return { error: PROGRAMADA_BORRAR };
+    throw e;
+  }
 }
 
 export async function restaurarEventoAction(b: EventoBorrado): Promise<void> {
@@ -211,6 +219,14 @@ export async function cancelarPublicacionAction(id: string): Promise<{ ok: true 
     console.error('[calendario] cancelar publicación:', e instanceof Error ? e.message : e);
     return { ok: false, error: 'No se pudo cancelar.' };
   }
+}
+
+/** «No quedó programada»: la persona revisó en Zernio una publicación en duda y no está. Vuelve a poder programarse. */
+export async function noQuedoProgramadaAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await guard();
+  const r = await noQuedoProgramada(idDe(id));
+  if (r.ok) revalidatePath('/calendario');
+  return r;
 }
 
 /** Relee en Zernio lo programado cuya hora ya pasó (al abrir el Calendario). Devuelve cuántas cambiaron. */

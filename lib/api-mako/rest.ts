@@ -42,6 +42,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/calendario/links-agenda', 'link_agenda_llamada'],
   ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
   ['GET', '/calendario/anticipacion', 'anticipacion_agenda'],
+  ['POST', '/calendario/publicaciones/programaciones', 'programar_publicacion'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
@@ -604,6 +605,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/guiones', 'listar_guiones_anuncio'],
   ['GET', '/contenido/guiones/cobertura', 'cobertura_guiones_anuncio'],
   ['GET', '/contenido/limites-instagram/{formato}', 'limites_formato_instagram'],
+  ['GET', '/contenido/rendimiento-redes', 'ver_rendimiento_redes'],
   ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
   ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
   // ── video ─────────────────────────────────────────────────────────────────

@@ -11,7 +11,8 @@
 --     imagen o video. Zernio lee la media por una URL firmada que vive hasta 7 días después de publicar.
 --   · `texto`: lo que va en la publicación (2.200, el tope de Instagram). Las `notas` siguen siendo notas internas.
 --   · `post_id`, `publicacion`, `publicacion_motivo`, `publicacion_url`: el post en Zernio y su estado
---     (programando | programada | publicada | fallo; null = no se programó). ⚠️ Es APARTE de `estado` (planeado | hecho),
+--     (programando | programada | dudosa | publicada | fallo; null = no se programó). «dudosa»: Zernio no contestó y puede haberla
+--     programado igual; no se reprograma ni se mueve hasta que alguien diga que no quedó (si no, se duplicaba un post público). ⚠️ Es APARTE de `estado` (planeado | hecho),
 --     que no se toca: cuando Zernio dice «publicada», el evento además pasa a `hecho`.
 --
 -- ORDEN: puede ir ANTES o DESPUÉS del deploy. El código lee estas columnas aparte y tolera que no existan (el Calendario
@@ -30,6 +31,10 @@ alter table calendario_eventos add column if not exists post_id text;
 alter table calendario_eventos add column if not exists publicacion text;
 alter table calendario_eventos add column if not exists publicacion_motivo text;
 alter table calendario_eventos add column if not exists publicacion_url text;
+-- (la verificación del 28/10) El x-request-id del último intento (para no duplicar un post si Zernio no contestó) y la huella
+-- de la clave con que se programó (si la clave cambió, un 404 de Zernio no es «ya cancelado»).
+alter table calendario_eventos add column if not exists publicacion_intento text;
+alter table calendario_eventos add column if not exists publicacion_clave text;
 
 do $$
 begin
@@ -58,11 +63,19 @@ begin
   end if;
   if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_publicacion_ok') then
     alter table calendario_eventos add constraint calendario_eventos_publicacion_ok
-      check (publicacion is null or publicacion in ('programando', 'programada', 'publicada', 'fallo'));
+      check (publicacion is null or publicacion in ('programando', 'programada', 'dudosa', 'publicada', 'fallo'));
   end if;
   if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_publicacion_motivo_ok') then
     alter table calendario_eventos add constraint calendario_eventos_publicacion_motivo_ok
       check (publicacion_motivo is null or char_length(publicacion_motivo) <= 300);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_publicacion_intento_ok') then
+    alter table calendario_eventos add constraint calendario_eventos_publicacion_intento_ok
+      check (publicacion_intento is null or char_length(publicacion_intento) between 1 and 80);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_publicacion_clave_ok') then
+    alter table calendario_eventos add constraint calendario_eventos_publicacion_clave_ok
+      check (publicacion_clave is null or char_length(publicacion_clave) between 1 and 40);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_publicacion_url_ok') then
     alter table calendario_eventos add constraint calendario_eventos_publicacion_url_ok
@@ -72,7 +85,7 @@ end $$;
 
 -- Las que esperan a Zernio (para releerlas al abrir el Calendario).
 create index if not exists idx_calendario_eventos_publicacion on calendario_eventos (workspace_id, publicacion)
-  where publicacion in ('programando', 'programada');
+  where publicacion in ('programando', 'programada', 'dudosa');
 
 comment on column calendario_eventos.publicacion is
   'El post en la red, por Zernio: programando | programada | publicada | fallo (null = no se programó). Aparte de estado (mig 0342).';

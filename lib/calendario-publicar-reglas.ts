@@ -16,7 +16,7 @@ export type RedPublicar = (typeof REDES_PUBLICAR)[number];
 export const ROTULO_RED: Record<RedPublicar, string> = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube' };
 export const esRedPublicar = (x: unknown): x is RedPublicar => typeof x === 'string' && (REDES_PUBLICAR as readonly string[]).includes(x);
 
-export const ESTADOS_PUBLICACION = ['programando', 'programada', 'publicada', 'fallo'] as const;
+export const ESTADOS_PUBLICACION = ['programando', 'programada', 'dudosa', 'publicada', 'fallo'] as const;
 export type EstadoPublicacion = (typeof ESTADOS_PUBLICACION)[number];
 
 /** El tope del texto de una publicación: el de Instagram (también el CHECK de la mig 0342). */
@@ -50,6 +50,8 @@ export const formatosDeRed = (red: RedPublicar): FormatoPublicacion[] => Object.
 export type DatosPublicacion = {
   red: RedPublicar | null; cuenta_red: string | null; archivo: string | null; archivo_tipo: TipoArchivo | null; texto: string;
   post_id: string | null; publicacion: EstadoPublicacion | null; publicacion_motivo: string | null; publicacion_url: string | null;
+  /** El x-request-id del último intento (se repite si Zernio no contestó) y la huella de la clave con que se programó. */
+  publicacion_intento?: string | null; publicacion_clave?: string | null;
 };
 export type EventoParaPublicar = {
   id: string; tipo: string; formato: FormatoPublicacion | null; titulo: string; inicio: string; dia_completo: boolean; estado: 'planeado' | 'hecho';
@@ -57,11 +59,28 @@ export type EventoParaPublicar = {
 
 /** ¿Está esperando a Zernio? Mientras tanto no se mueve ni se borra: primero se cancela. */
 export const estaProgramada = (p: { publicacion: EstadoPublicacion | null } | null | undefined): boolean =>
-  p?.publicacion === 'programando' || p?.publicacion === 'programada';
+  p?.publicacion === 'programando' || p?.publicacion === 'programada' || p?.publicacion === 'dudosa';
+
+/** El título de un video de YouTube es PÚBLICO (sale del título del evento) y YouTube corta en 100. */
+export const TOPE_TITULO_YOUTUBE = 100;
+
+/**
+ * ¿Zernio pudo haber creado el post aunque falló? (la verificación del 28/10). Sin respuesta (la red, el tope de tiempo: status 0)
+ * o un error suyo (5xx): no se sabe, y reprogramar duplicaba un post PÚBLICO. Un 4xx es un «no» de Zernio: no creó nada.
+ */
+export const esFallaDudosa = (status: number): boolean => status === 0 || status >= 500;
+
+/** La huella de lo que se confirma (la hora, la cuenta, el archivo, el formato, el texto): si cambió, el «sí» no vale. */
+export function huellaParaConfirmar(ev: { inicio: string; red: string | null; cuenta_red: string | null; archivo: string | null; formato: string | null; texto: string; titulo: string }): string {
+  let h = 0;
+  for (const c of [ev.inicio, ev.red, ev.cuenta_red, ev.archivo, ev.formato, ev.texto, ev.titulo].map((x) => String(x ?? '')).join('|')) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
+  return `${new Date(ev.inicio).toISOString()}|${ev.cuenta_red ?? ''}|${(h >>> 0).toString(36)}`;
+}
 
 /** Por qué este evento NO se puede programar todavía, en palabras de la pantalla; null si se puede. */
 export function motivoParaNoProgramar(ev: EventoParaPublicar, ahora: number): string | null {
   if (ev.tipo !== 'publicacion') return 'Sólo una Publicación se programa en una red.';
+  if (ev.publicacion === 'dudosa') return 'Zernio no contestó cuando se programó: revisa en Zernio si quedó programada. Si no quedó, márcala con «No quedó programada».';
   if (estaProgramada(ev)) return 'Ya está programada.';
   if (ev.publicacion === 'publicada') return 'Ya se publicó.';
   if (ev.estado === 'hecho') return 'Está marcada como publicada: quita la marca para programarla.';
@@ -76,6 +95,7 @@ export function motivoParaNoProgramar(ev: EventoParaPublicar, ahora: number): st
   if (!archivos) return `En ${ROTULO_RED[ev.red]} no se publica un formato «${formato}».`;
   if (!archivos.includes(ev.archivo_tipo)) return `Un ${formato} en ${ROTULO_RED[ev.red]} lleva un video.`;
   if ((ev.texto ?? '').length > TOPE_TEXTO) return `El texto tiene más de ${TOPE_TEXTO} caracteres.`;
+  if (ev.red === 'youtube' && ev.titulo.length > TOPE_TITULO_YOUTUBE) return `En YouTube el título del evento es el título público del video: hasta ${TOPE_TITULO_YOUTUBE} caracteres.`;
   return null;
 }
 
