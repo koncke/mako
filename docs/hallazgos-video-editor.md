@@ -1906,3 +1906,16 @@ home y la paleta de CapCut.
 
 **Vive en:** app/video-editor/capcut-theme.css · app/video-editor/plantillas-crear.ts · app/video-editor/proyectos.ts ·
 app/video-editor/VideoEditorCliente.tsx (PantallaCrear) · tests/video-editor-tema.test.ts · tests/video-editor-nuevo-video.test.ts
+
+## «Module opencut has no exported member FrameRate»: no es el wasm instalado, es la LISTA de tsc-acotado (29/10/2026, claude3)
+
+Un `tsc-acotado` con archivos que llegan a `_opencut` (Video, y también Image, que importa piezas compartidas) dio 14 errores
+en `_opencut/wasm/*` (`FrameRate`, `parseTimecode`, `TICKS_PER_SECOND`… «no exported member», y TS7016 sobre
+`opencut-wasm/opencut_wasm_bg.js`). **Lo obvio era el equivocado:** `opencut-wasm` instalado es el 0.2.10 que pide
+package.json y su `.d.ts` sí trae `FrameRate`. El TS7016 deja el módulo en `any`, y el re-export se queda sin miembros.
+La declaración existe en el repo y no estaba en la lista: tsc-acotado sólo ve los `.d.ts` que le pasás.
+
+**Regla:** una lista que toque `_opencut` lleva sus cuatro declaraciones: `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`,
+`types/soundtouchjs.d.ts`, `types/eyedropper.d.ts` y `export/gifenc.d.ts`. Sin ellas, también salen `soundtouchjs`, `gifenc`
+(TS7016) y `EyeDropper` (TS2304). Con las cuatro: 42 archivos de Video y 43 de Image sin errores.
+Y una corrida de ~200 archivos juntos murió con código 134 (memoria): en tandas de ~40 con `--heap=3000`, por con-turno.

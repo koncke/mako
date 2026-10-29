@@ -18,11 +18,16 @@ Copywriter). Y después: Offer con el mismo sistema, la oferta armándose al cos
 - 72be0210c — Image en el shell con los colores de MaKo (agente): «Nuevo diseño» con «Carrusel de Instagram», la home de
   Canva borrada; arreglos del shell («MaKo» en la tarjeta, rótulo de plantillas, «aquí»).
 - 49cd15779 — la misma cabecera en las tres tarjetas («MaKo» con la estrella), «Escribe a MaKo», cosecha de Image.
+- 16f9abc73 — «MaKo» en la tarjeta renombrando en el origen de `k` (los tests del Ops Center fijan `k.nombre` y `k={k}`).
+- a15f8ed63 — los 5 rojos de tests-afectados (fijaban la barra vieja): Strategy y Offer Playbook al pie de Offer, el
+  teléfono (Video abre el editor; Video Generator oculta), y el alto de Create descuenta `--alto-secciones`.
 
 ## Lo que falta
-- **tsc-acotado** de toda la rama y después **tests-afectados --base origin/main --rapido**: lanzados en UN proceso por
-  con-turno (uno detrás del otro). Salidas en el scratchpad: `tsc-mio.txt` y `afectados.txt`. Si el chat se corta, se
-  relanzan igual: `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs $(git diff --name-only 7f36fa9c6 HEAD -- '*.ts' '*.tsx')`.
+- **tsc-acotado: VERDE** en tres tandas por con-turno (`--heap=3000`): 46 archivos (shell, Offer, nav, tests), 42 (Video) y
+  43 (Image), sin errores. Listas en el scratchpad (`t1.txt`…`t3.txt`). Una lista que toque `_opencut` lleva sus cuatro
+  `.d.ts` (docs/hallazgos-video-editor.md, 29/10).
+- **tests-afectados --base origin/main --rapido**: 3513 tests de 349 archivos, 5 rojos, arreglados en a15f8ed63 (72/72
+  solos, y probados rompiéndolos). Falta repetirla entera por con-turno después de los tipos.
 - **Capturas**: las del banco (sin dev server) de Image están en `C:/dev/revisiones/create-shell-2910/` (antes de los
   últimos arreglos de cabecera). Las de producción, antes y después, faltan: Claude in Chrome desconectado; el navegador
   integrado cae en el login. Video y Offer no se vieron en un navegador.
