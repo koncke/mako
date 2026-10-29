@@ -258,7 +258,7 @@ export const FEATURES: Record<string, Feature> = {
     hook: "Editás una fila y el resto se escribe solo.",
     icon: ICON["funnel"],
     headline: "Editás una fila. El resto del embudo se escribe solo.",
-    lead: "El embudo real de un VSL Funnel no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las nutriciones de No-Show por reunión, la de No-Paga y la reactivación de fríos — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. Aquí editas solo la fila del pipeline activo y el resto <em>se deriva solo</em>.",
+    lead: "El embudo real de una venta High Ticket no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las nutriciones de No-Show por reunión, la de No-Paga y la reactivación de fríos — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. Aquí editas solo la fila del pipeline activo y el resto <em>se deriva solo</em>.",
     groups: [
       {
         title: "Editás una banda, el sistema deriva las otras dos",
@@ -309,7 +309,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Onboarding del cliente (wizard)",
     icon: ICON["onboarding"],
     headline: "Tu primer login ya conoce tu negocio",
-    lead: "<strong>La mayoría de las herramientas te reciben con una pantalla en blanco:</strong> conectas todo, importas a mano, y recién a la semana empiezas a ver algo. Tú vendes High Ticket con VSL Funnel — <em>no tienes una semana para configurar un dashboard</em>. Con MaKo conectas Meta, contestas 3 preguntas, y <strong>mientras tanto la herramienta te lee 365 días de ads, transcribe tus creativos, analiza tus guiones y tus llamadas de Fathom, y te entrega una primera Retro que te dice dónde se te va la plata.</strong> Cero pantalla en blanco el día uno.",
+    lead: "<strong>La mayoría de las herramientas te reciben con una pantalla en blanco:</strong> conectas todo, importas a mano, y recién a la semana empiezas a ver algo. Tú vendes High Ticket — <em>no tienes una semana para configurar un dashboard</em>. Con MaKo conectas Meta, contestas 3 preguntas, y <strong>mientras tanto la herramienta te lee 365 días de ads, transcribe tus creativos, analiza tus guiones y tus llamadas de Fathom, y te entrega una primera Retro que te dice dónde se te va la plata.</strong> Cero pantalla en blanco el día uno.",
     groups: [
       {
         title: "No es un tour vacío: es tu histórico real cargándose solo",
@@ -420,7 +420,7 @@ export const FEATURES: Record<string, Feature> = {
     quote: "Otros te pintan la barra. Graphics te dice qué hacer con ella.",
     nota: "MaKo en Graphics es lectura y recomendación, no ejecución: analiza y te dice qué hacer, pero no pausa anuncios ni mueve presupuesto desde aquí (eso vive en Ads Manager). Dos detalles honestos: la sección 'Tendencia' de Marketing se renderiza server-side, así que muestra la métrica por defecto sin selector ni hover —la versión interactiva vive en Comercial— y el mapa de México de los breakdowns por anuncio depende de u…",
     metaTitle: "Graphics de MaKo: reportes visuales con un analista de IA en cada gráfico",
-    metaDesc: "Tu embudo real de Meta —Impresión→Click→Landing→VSL→cierre→cobro— con tasas de paso, KPIs de spend/CAC/ROAS y un botón MaKo sobre cada gráfico que analiza tus números exactos y te dice si apagar o escalar. Para vendedores de High Ticket con VSL Funnel.",
+    metaDesc: "Tu embudo real de Meta —Impresión→Click→Landing→VSL→cierre→cobro— con tasas de paso, KPIs de spend/CAC/ROAS y un botón MaKo sobre cada gráfico que analiza tus números exactos y te dice si apagar o escalar. Para vendedores de High Ticket.",
   },
 
   'crm': {
@@ -458,7 +458,7 @@ export const FEATURES: Record<string, Feature> = {
           "Antes de la reunión te pasa la <strong>ficha del lead lista</strong>, para que llegues sabiendo con quién vas a hablar.",
           "Tú respondes con un <em>«adelante»</em>. El resto ya está hecho.",
         ],
-        cierre: "«Ya tengo mi CRM.» Claro. Y también tienes que perder el tiempo llenándolo. <strong>No existe un CRM pensado para un VSL funnel.</strong> El tuyo no necesita más disciplina: <strong>necesita llenarse solo</strong>.",
+        cierre: "«Ya tengo mi CRM.» Claro. Y también tienes que perder el tiempo llenándolo. <strong>No existe un CRM pensado para vender High Ticket.</strong> El tuyo no necesita más disciplina: <strong>necesita llenarse solo</strong>.",
         verMas: { texto: "Descubrí cómo MaKo trabaja tu WhatsApp", href: "/vsl/whatsapp", label: "WhatsApp" },
       },
     ],
@@ -537,10 +537,10 @@ export const FEATURES: Record<string, Feature> = {
 
   'ads': {
     slug: 'ads',
-    name: "Ads Manager para VSL Funnel",
+    name: "Ads Manager para High Ticket",
     icon: ICON["ads"],
     headline: "Nunca más tres horas peleándote con el Ads Manager — y por fin ves, en la misma fila, cuánto CASH cerró cada anuncio",
-    lead: "Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <strong>mil botones que no necesitas</strong>. MaKo te deja solo lo que un VSL Funnel usa. Pero además arregla el problema de fondo: Meta te dice el CPL y las \\\"conversiones\\\" del pixel, y <em>ninguno de esos números te dice si vendiste</em>. MaKo replica el Ads Manager de Meta dentro del dashboard y le agrega la columna que falta: <strong>los cierres y el cash real de tu CRM, por anuncio</strong>. Pausas por ROAS de caja, no por CPL vanidoso — y cuando quieres escalar, MaKo ya sabe cuál fue tu creativo ganador por ventas y te lo propone replicar, con el árbol completo armado y en PAUSA hasta que tú presiones activar.",
+    lead: "Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <strong>mil botones que no necesitas</strong>. MaKo te deja solo lo que una venta High Ticket usa. Pero además arregla el problema de fondo: Meta te dice el CPL y las \\\"conversiones\\\" del pixel, y <em>ninguno de esos números te dice si vendiste</em>. MaKo replica el Ads Manager de Meta dentro del dashboard y le agrega la columna que falta: <strong>los cierres y el cash real de tu CRM, por anuncio</strong>. Pausas por ROAS de caja, no por CPL vanidoso — y cuando quieres escalar, MaKo ya sabe cuál fue tu creativo ganador por ventas y te lo propone replicar, con el árbol completo armado y en PAUSA hasta que tú presiones activar.",
     groups: [
       {
         title: "La tabla que Meta no te da: estado en vivo + rendimiento + CRM en una sola fila",
@@ -600,7 +600,7 @@ export const FEATURES: Record<string, Feature> = {
     conecta: ["Meta Ads (Graph API)", "MaKo · Claude", "OpenAI gpt-4o visión", "OpenAI Whisper", "Supabase", "CRM interno"],
     quote: "Deja de pausar por CPL. Pausa por la plata que entró.",
     nota: "Hoy corre sobre la cuenta y página de Meta del dueño del workspace (Fase 1): administrás TUS campañas, todavía no las de cada cliente por separado. La creación de campañas está cableada de punta a punta pero sus permisos de escritura contra cuentas nuevas aún se están validando en vivo.",
-    metaTitle: "Ads Manager para VSL Funnel | MaKo",
+    metaTitle: "Ads Manager para High Ticket | MaKo",
     metaDesc: "El único Ads Manager que muestra el cash cerrado de tu CRM por cada anuncio. Pausas, activas, cambias presupuesto, creas campañas y escribes copy con MaKo contra Meta — sin salir del dashboard.",
   },
 
@@ -1177,7 +1177,7 @@ export const FEATURES: Record<string, Feature> = {
           "No es un test genérico de 'en qué nivel estás': cada fase clava UN cuello — Fase 0 Visibilidad, Fase 1 Conversión, Fase 2 Sistemas, Fase 3 Delegación, Fase 4 Foco.",
           "Cada fase trae rango de facturación, síntomas, acciones ordenadas con 1-2 marcadas como CLAVE, un 'no hagas esto todavía' y la condición exacta para avanzar.",
           "Los síntomas y las acciones están escritos en tu idioma, no en abstracto: retención del VSL, show de la R1, no-show, setter y closer, evergreen, escalar la pauta.",
-          "Está adaptado del Análisis de Negocio de Andrea Estratega (Fórmula 100k), pero re-mapeado de Instagram orgánico a VSL Funnel + pauta: 'seguidores' pasa a leads/mes y 'sistema de captación' pasa a tu funnel.",
+          "Está adaptado del Análisis de Negocio de Andrea Estratega (Fórmula 100k), pero re-mapeado de Instagram orgánico a venta High Ticket + pauta: 'seguidores' pasa a leads/mes y 'sistema de captación' pasa a tu funnel.",
         ],
       },
       {
@@ -1208,11 +1208,11 @@ export const FEATURES: Record<string, Feature> = {
         ],
       },
     ],
-    conecta: ["MaKo", "VSL Funnel", "Onboarding", "Andrea Estratega / Fórmula 100k", "Supabase"],
+    conecta: ["MaKo", "Venta High Ticket", "Onboarding", "Andrea Estratega / Fórmula 100k", "Supabase"],
     quote: "Tu Norte no vive en una pantalla: vive adentro de MaKo, frenándote antes de que escales un embudo pinchado.",
     nota: "Hoy el único consumidor real del diagnóstico es el system prompt de MaKo: el Perro Guardián y la Retro todavía no leen tu fase. El diagnóstico se hace una vez, dentro del wizard de onboarding — no hay página /fase para re-hacerlo o editarlo suelto (si vuelves al paso, se prefillean tus respuestas previas y puedes re-votar).",
     metaTitle: "Fase / Norte / Diagnóstico — MaKo ubica tu negocio y prioriza tu cuello real",
-    metaDesc: "Diagnóstico de 6 preguntas que ubica tu negocio high-ticket en una de 5 fases con su cuello de botella pre-mapeado al VSL Funnel. El resultado se vuelve el Norte que gobierna cada respuesta de MaKo, así la IA nunca te dice 'escalá la pauta' antes de tiempo.",
+    metaDesc: "Diagnóstico de 6 preguntas que ubica tu negocio high-ticket en una de 5 fases con su cuello de botella pre-mapeado a tu venta High Ticket. El resultado se vuelve el Norte que gobierna cada respuesta de MaKo, así la IA nunca te dice 'escalá la pauta' antes de tiempo.",
   },
 
   'whatsapp': {
@@ -1220,7 +1220,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "WhatsApp",
     icon: ICON["whatsapp"],
     headline: "No es un WhatsApp más: es un WhatsApp que sabe qué responder — con el reloj de las 24h a la vista",
-    lead: "Estás conversando con un lead que se está por caer y no sabes qué contestar para no espantarlo. Mientras charlas, MaKo lee su historial y su etapa del funnel y te sugiere, <strong>en vivo, qué responder</strong> para acercarte al cierre: no improvisas, mandas <em>lo que de verdad cierra</em>. Porque en High Ticket con VSL Funnel la plata está en los que <strong>vieron el video o agendaron y se enfriaron</strong> — y contestan por WhatsApp, no por mail. El problema es que WhatsApp tiene reglas: <em>fuera de la ventana de 24h de Meta solo pasan plantillas aprobadas</em>, y si quieres un segundo número para el toque caliente arriesgas el baneo. Esta bandeja resuelve las dos cosas con <strong>dos vías en una</strong>: la API oficial para tus envíos de nutrición (sin arriesgar el número) y la no oficial para tus conversaciones uno a uno con quien está por cerrar. Te muestra <strong>al minuto cuánto te queda para escribir gratis</strong>, arriba del hilo vive MaKo con 2-3 mensajes de reactivación listos para <em>Usar</em>, y las plantillas las armas con MaKo <strong>para pasar la aprobación de Meta a la primera</strong>.",
+    lead: "Estás conversando con un lead que se está por caer y no sabes qué contestar para no espantarlo. Mientras charlas, MaKo lee su historial y su etapa del funnel y te sugiere, <strong>en vivo, qué responder</strong> para acercarte al cierre: no improvisas, mandas <em>lo que de verdad cierra</em>. Porque en High Ticket la plata está en los que <strong>vieron el video o agendaron y se enfriaron</strong> — y contestan por WhatsApp, no por mail. El problema es que WhatsApp tiene reglas: <em>fuera de la ventana de 24h de Meta solo pasan plantillas aprobadas</em>, y si quieres un segundo número para el toque caliente arriesgas el baneo. Esta bandeja resuelve las dos cosas con <strong>dos vías en una</strong>: la API oficial para tus envíos de nutrición (sin arriesgar el número) y la no oficial para tus conversaciones uno a uno con quien está por cerrar. Te muestra <strong>al minuto cuánto te queda para escribir gratis</strong>, arriba del hilo vive MaKo con 2-3 mensajes de reactivación listos para <em>Usar</em>, y las plantillas las armas con MaKo <strong>para pasar la aprobación de Meta a la primera</strong>.",
     groups: [
       {
         title: "Dos números en una sola bandeja: el oficial y el de empresa",
@@ -1280,7 +1280,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Email Marketing",
     icon: ICON["email"],
     headline: "Todo tu email marketing, sin salir de MaKo",
-    lead: "Listas, segmentos, secuencias y reportes: todo lo que esperas de una herramienta de email, <em>con una diferencia</em>. Aquí cada correo está <strong>conectado a tu funnel</strong>, así que sabes cuál te trajo ventas, no solo aperturas. Vendes High Ticket con VSL Funnel y hay plata quedándose sobre la mesa: el que vio el VSL y no agendó, el que confirmó y no pagó, el que faltó a la reunión. <strong>MaKo Email Marketing</strong> los mete en secuencias automáticas por su estado exacto en el CRM y te deja disparar broadcasts a segmentos que son etapas reales de tu embudo. Armas campañas y secuencias en un editor simple, <strong>con MaKo redactando en tu voz</strong> y el link de agenda ya puesto adentro; mides aperturas, clics y <strong>ventas reales atribuidas a tu pipeline</strong> de punta a punta, <em>sin salir del tablero ni contratar un Mailchimp aparte</em>.",
+    lead: "Listas, segmentos, secuencias y reportes: todo lo que esperas de una herramienta de email, <em>con una diferencia</em>. Aquí cada correo está <strong>conectado a tu funnel</strong>, así que sabes cuál te trajo ventas, no solo aperturas. Vendes High Ticket y hay plata quedándose sobre la mesa: el que vio el VSL y no agendó, el que confirmó y no pagó, el que faltó a la reunión. <strong>MaKo Email Marketing</strong> los mete en secuencias automáticas por su estado exacto en el CRM y te deja disparar broadcasts a segmentos que son etapas reales de tu embudo. Armas campañas y secuencias en un editor simple, <strong>con MaKo redactando en tu voz</strong> y el link de agenda ya puesto adentro; mides aperturas, clics y <strong>ventas reales atribuidas a tu pipeline</strong> de punta a punta, <em>sin salir del tablero ni contratar un Mailchimp aparte</em>.",
     groups: [
       {
         title: "Email nativo del embudo, no un ESP pegado con cinta",
@@ -1322,7 +1322,7 @@ export const FEATURES: Record<string, Feature> = {
     conecta: ["Resend", "Claude (MaKo)", "Motor de nutrición", "Calendly", "Cron de Vercel", "Webhook Svix", "CRM / Funnel"],
     quote: "El copy lo escribe MaKo en tu voz, con el link de agenda adentro, y el email sale firmado por tu negocio.",
     nota: "El envío real viene APAGADO por defecto en cada workspace (toggle \"Envío real\"): mientras está off, todo se registra como simulado y no sale nada — lo prendés cuando estás listo. Para entregar a terceros primero verificás tu dominio (DKIM/SPF) desde la misma tab; con el remitente sandbox no llegan.",
-    metaTitle: "Email Marketing para High Ticket VSL Funnel | MaKo",
+    metaTitle: "Email Marketing para High Ticket | MaKo",
     metaDesc: "Secuencias de email que se disparan solas por el estado del lead en tu CRM y broadcasts a segmentos reales del funnel. El copy lo escribe MaKo, sale desde tu dominio con supresión de rebotes y baja One-Click. Sobre Resend.",
   },
 
@@ -1454,7 +1454,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Integraciones + BYOK + Saldo de IA",
     icon: ICON["integraciones"],
     headline: "Tus llaves, tu embudo, tu saldo. Ninguna caja negra en el medio.",
-    lead: "<strong>Tu VSL Funnel vive repartido en diez herramientas</strong> — Meta Ads, WhatsApp, Fathom, Calendly, el player del VSL, el pixel de la landing — y cada software nuevo te pide pegar tus API keys en un panel ajeno que se las queda para siempre. Terminas sin saber quién guarda qué, ni cuánto te cuesta cada cosa que \"hace la IA\". <strong>MaKo lo da vuelta:</strong> conectas las diez piezas desde <em>una sola pantalla</em>, con tus llaves cifradas y aisladas por workspace — trae las tuyas, no un black-box que las retiene — y ves <em>en dólares exactos</em> qué te sale cada proceso de IA, por proveedor. BYOK de verdad más transparencia total del gasto.",
+    lead: "<strong>Tu venta High Ticket vive repartida en diez herramientas</strong> — Meta Ads, WhatsApp, Fathom, Calendly, el player del VSL, el pixel de la landing — y cada software nuevo te pide pegar tus API keys en un panel ajeno que se las queda para siempre. Terminas sin saber quién guarda qué, ni cuánto te cuesta cada cosa que \"hace la IA\". <strong>MaKo lo da vuelta:</strong> conectas las diez piezas desde <em>una sola pantalla</em>, con tus llaves cifradas y aisladas por workspace — trae las tuyas, no un black-box que las retiene — y ves <em>en dólares exactos</em> qué te sale cada proceso de IA, por proveedor. BYOK de verdad más transparencia total del gasto.",
     groups: [
       {
         title: "Una pantalla, las diez piezas de tu embudo",
@@ -1497,7 +1497,7 @@ export const FEATURES: Record<string, Feature> = {
     quote: "Trae tus propias llaves y mira el gasto de IA al centavo. MaKo conecta tu embudo; no te secuestra las credenciales.",
     nota: "Dos honestidades: (1) El saldo de IA es MANUAL — la API de Anthropic no expone el saldo prepago, así que lo tecleas tú leyéndolo de la consola; el 'restante' es una derivación (cargado − gastado), no un dato en vivo del proveedor. (2) BYOK no aplica a las keys de IA: Anthropic, OpenAI y Groq son servicio de plataforma de la agencia.",
     metaTitle: "Integraciones + BYOK + Saldo de IA | MaKo",
-    metaDesc: "Conecta las diez piezas de tu VSL Funnel desde una pantalla, con tus API keys cifradas y aisladas por workspace, y mira en dólares exactos qué te cuesta cada proceso de IA. BYOK real, sin caja negra.",
+    metaDesc: "Conecta las diez piezas de tu venta High Ticket desde una pantalla, con tus API keys cifradas y aisladas por workspace, y mira en dólares exactos qué te cuesta cada proceso de IA. BYOK real, sin caja negra.",
   },
 
   'equipo': {

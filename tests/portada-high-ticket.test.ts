@@ -83,3 +83,12 @@ test('el bloque del Acelerador es grafito, no azul', () => {
   assert.match(regla, /#101319/, 'el Acelerador no tiene el fondo grafito de la app');
   assert.doesNotMatch(regla, /#142B66|#0B1735|122,162,255/, 'el Acelerador volvió al fondo azul');
 });
+
+// ── Que toda la venta diga lo mismo (29/10/2026, el Cerebro): las páginas de cada funcionalidad (/vsl/<slug>) también apuntan a
+// High Ticket. Verificado rompiéndolo: volver una frase de features.ts → rojo.
+test('las páginas de cada funcionalidad tampoco dicen «VSL Funnel»', () => {
+  for (const rel of ['app/vsl/_detalle/features.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/showcase.ts']) {
+    assert.doesNotMatch(leer(rel), /VSL Funnel/i, rel);
+  }
+  assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /<p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta\.<\/p>/);
+});

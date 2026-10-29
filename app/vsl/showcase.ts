@@ -114,14 +114,14 @@ export const SHOWCASE: ShowcaseFeature[] = [
   },
   {
     slug: 'ads',
-    name: 'Ads Manager para VSL Funnel',
+    name: 'Ads Manager para High Ticket',
     icon: [
       'M18 8a3 3 0 0 1 0 6',
       'M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5',
       'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8',
     ],
     hook: 'Nunca más tres horas peleándote con el Ads Manager.',
-    intro: 'Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <em>mil botones que no necesitas</em>. MaKo te deja solo lo que un VSL Funnel usa, y <strong>crea tu campaña en 5 preguntas simples</strong>.',
+    intro: 'Meta está hecho para todos: quien vende productos, servicios, catálogos, mensajes... por eso son <em>mil botones que no necesitas</em>. MaKo te deja solo lo que una venta High Ticket usa, y <strong>crea tu campaña en 5 preguntas simples</strong>.',
     points: [
       'Sube tu creativo (o usa uno ganador), di cuánto invertir y a quién apuntar. MaKo <strong>arma la estructura y escribe los textos</strong> por ti.',
       'Publica todo <strong>en pausa, listo para revisar</strong>. Un clic y sale. Pausar y escalar, también desde aquí.',
