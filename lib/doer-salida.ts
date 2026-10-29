@@ -400,6 +400,83 @@ export const NOTA_SIN_HACER = 'Esto no lo hice en este mensaje: si lo necesitas,
 /** Lo que va cuando la respuesta entera era grosera. */
 export const SIN_GROSERIA = 'Perdón, me expresé mal. ¿Seguimos?';
 
+// ── LO QUE MaKo NO DICE EN EL GRUPO (29/10/2026, Leandro, ws10) ──────────────────────────────────────────────────────────
+// Tres cosas que MaKo le dijo a un cliente sin saberlas, en una charla de un día:
+//   · «entra a la ficha de cada uno en el CRM y borra el registro de la inscripción anterior» (y antes, «darles de baja o
+//     reetiquetarlos manualmente»): un procedimiento INVENTADO, y destructivo. La vía real («Volver a probar», en Automations) ni
+//     estaba subida. MaKo NUNCA indica borrar datos: si no sabe cómo se hace algo, lo dice y queda el ticket.
+//   · «son limitaciones reales actuales del motor… que ya están escaladas al equipo», con dos de las tres hechas en una rama:
+//     cómo está el producto y qué tiene el equipo lo dice el equipo (su ticket), no el modelo.
+//   · «en este mensaje no puedo escuchar audios ni tengo la transcripción del tuyo»: MaKo escucha notas de voz (Groq).
+// El prompt lo pide (lib/nucleo-grupo.ts) y esto lo mira al salir, como lo demás de este archivo: saca la ORACIÓN y dice la verdad
+// en una línea. Lo de borrar y lo del producto dejan además su ticket: el doer agrega la marca `[[no-pude: …]]` si el modelo no
+// puso ninguna, porque «lo tiene que ver el equipo» sin ticket sería la misma mentira. Sobre el texto SIN tildes (`norm`).
+
+/** Lo que se le INDICA borrar: «borra», «bórralo», «borrá», «borrar», «elimina», «vaciar», «dales de baja», «dar de baja».
+ *  Sin «borré»/«borre» (sin tildes son iguales: el pretérito es un HECHO, lo mira `afirmacionesDeHecho`) ni «borrador». */
+const VERBO_BORRAR = String.raw`(?:(?:borr(?:a|ar|ando)|elimin(?:a|ar|ando)|vaci(?:a|ar))(?:l[oa]s?|les?|selos?|selas?)?|d(?:a|ar|ando)(?:l[oa]s?|les?)?\s+de\s+baja)`;
+const INDICA_BORRAR = new RegExp(String.raw`\b${VERBO_BORRAR}\b`);
+/** Lo que dice que NO se borre («no hace falta borrar nada», «sin eliminar la ficha»): es lo contrario. */
+const NO_BORRES = new RegExp(String.raw`\b(?:no|nunca|sin|ni)\s+(?:[^\s,.;:]+\s+){0,3}${VERBO_BORRAR}\b`);
+/** El consejo de seguridad de borrar del grupo el MENSAJE con una clave no es borrar datos del negocio. */
+const MENSAJE_CON_CLAVE = /\bmensaje\b.*\b(?:clave|key|token|contrasena)\b|\b(?:clave|key|token|contrasena)\b.*\bmensaje\b/;
+/** Cómo está el producto o qué tiene el equipo, dicho por el modelo: «ya están escaladas al equipo», «lo reporté al equipo»,
+ *  «queda el registro técnico», «el equipo ya lo está viendo», «limitaciones reales actuales del motor». */
+const AFIRMA_DEL_PRODUCTO = /\b(?:escal(?:ad[oa]s?|e|ando)|(?:report|deriv|pas)(?:e|ad[oa]s?)\s+(?:al|con\s+el)\s+equipo|registro\s+tecnico|el\s+equipo\s+ya\s+(?:l[oa]s?\s+)?(?:tiene|sabe|esta\s+(?:viendo|revisando|trabajando))|limitacion(?:es)?\s+(?:reales?|actuales?|conocidas?|del\s+(?:motor|sistema|panel|producto|plataforma|lienzo)))\b/;
+/** Que no escucha audios: «no puedo escuchar audios», «no tengo la transcripción», «no pude escuchar tu nota de voz». */
+const NIEGA_AUDIOS = /\bno\s+(?:puedo|pude|logro|alcanzo\s+a|tengo\s+forma\s+de)\s+(?:escuchar|oir|reproducir|abrir)\s+(?:(?:tu|tus|el|los|ese|este|esa|esta|la|las|un|una)\s+)?(?:audios?|notas?\s+de\s+voz|grabacion(?:es)?|mensajes?\s+de\s+voz)\b|\bno\s+(?:tengo|me\s+llego|me\s+llegaron)\s+(?:la|las)\s+transcripcion|\bno\s+escucho\s+(?:audios|notas)\b/;
+
+/** Que le escriba lo que dijo en el audio: «Mándame el texto exacto de lo que dijiste». Sólo sale si el turno YA lo escuchó. */
+const PIDE_EL_TEXTO_DEL_AUDIO = /\b(?:mandame|pegame|escribeme|pasame|enviame)\s+(?:el\s+texto|la\s+transcripcion|lo\s+que\s+dijiste)\b/;
+
+/** Una marca del sistema (`[[no-pude: …]]`, `[[ya-pedido: …]]`) no se toca: la saca el doer. */
+const esMarca = (o: string): boolean => o.includes('[[');
+export const indicaBorrar = (o: string): boolean => { const n = norm(o); return !esMarca(o) && INDICA_BORRAR.test(n) && !NO_BORRES.test(n) && !MENSAJE_CON_CLAVE.test(n); };
+export const afirmaDelProducto = (o: string): boolean => !esMarca(o) && AFIRMA_DEL_PRODUCTO.test(norm(o));
+export const niegaAudios = (o: string): boolean => !esMarca(o) && NIEGA_AUDIOS.test(norm(o));
+
+export const SIN_BORRAR = 'Borrar datos no es la forma de resolver esto, y cómo se hace no lo sé con certeza: lo tiene que ver el equipo de MaKo.';
+export const SIN_SABER_DEL_PRODUCTO = 'Cómo está eso hoy en MaKo no lo sé con certeza: lo confirma el equipo de MaKo.';
+export const ESCUCHO_AUDIOS = 'Las notas de voz las escucho: si alguna no te la contesté, reenvíamela y te respondo.';
+
+/** ¿La respuesta trae ya una marca de ticket del modelo (`[[no-pude: …]]`, `[[no-existe: …]]`, `[[ya-pedido: #N]]`)? */
+export const conMarcaDeTicket = (t: string): boolean => /\[\[\s*(?:no[\s-]*pude|no[\s-]*existe|ya[\s-]*pedido)\s*:/iu.test(t);
+
+/**
+ * Lo que va en la marca que pone el CÓDIGO: lo que escribió la persona, en una línea (sus palabras primero: la clave del ticket
+ * sale de las dos primeras, lib/no-pude.ts, `refDeNoPude`), y qué faltó. Sin «]» ni saltos: la marca no los admite.
+ */
+export function queNoSupo(pedido: string, falta: string): string {
+  const suyo = (pedido || '').replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  return `${suyo.length > 120 ? `${suyo.slice(0, 119).trimEnd()}…` : suyo} (${falta})`;
+}
+
+/** Lo que se sacó de la respuesta, por qué, y si deja ticket (`ticket`: lo de borrar o lo del producto). */
+export type LoQueNoDice = { texto: string; borrar: string[]; producto: string[]; audios: string[]; ticket: boolean };
+
+/**
+ * La respuesta del modelo en el grupo sin lo que MaKo no dice, con la verdad en una línea por cada cosa. `escuchoUnAudio`: el turno
+ * trae una nota de voz ya transcrita; entonces tampoco sale el «mándame el texto de lo que dijiste».
+ */
+export function sinLoQueMaKoNoDice(texto: string, { escuchoUnAudio = false }: { escuchoUnAudio?: boolean } = {}): LoQueNoDice {
+  const todas = oraciones(texto).flat();
+  const niega = (o: string): boolean => niegaAudios(o) || (escuchoUnAudio && !esMarca(o) && PIDE_EL_TEXTO_DEL_AUDIO.test(norm(o)));
+  const borrar = todas.filter(indicaBorrar);
+  const producto = todas.filter((o) => !indicaBorrar(o) && afirmaDelProducto(o));
+  const audios = todas.filter((o) => !indicaBorrar(o) && !afirmaDelProducto(o) && niega(o));
+  if (!borrar.length && !producto.length && !audios.length) return { texto, borrar, producto, audios, ticket: false };
+  // El número de un punto de una lista es su propia «oración» («1.»): sin la oración que numeraba, se va con ella.
+  const sinNumeros = (s: string | null): string | null => {
+    if (!s) return s;
+    const t = s.split('\n').filter((l) => !/^\s*(?:\d+[.)]|[-*•])\s*$/.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    return (t.match(/\p{L}/gu) ?? []).length >= 15 ? t : null;
+  };
+  const queda = sinNumeros(sinOraciones(texto, (o) => indicaBorrar(o) || afirmaDelProducto(o) || niega(o)));
+  // Lo de borrar ya dice que lo ve el equipo: una sola línea de «no lo sé».
+  const verdades = [borrar.length ? SIN_BORRAR : producto.length ? SIN_SABER_DEL_PRODUCTO : '', audios.length ? ESCUCHO_AUDIOS : ''].filter(Boolean);
+  return { texto: [queda, ...verdades].filter(Boolean).join('\n\n'), borrar, producto, audios, ticket: borrar.length + producto.length > 0 };
+}
+
 /** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
 export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 

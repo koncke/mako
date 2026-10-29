@@ -40,6 +40,18 @@ export function conElAudioCitado(texto: string, transcripcion: string, segundos:
   return `${texto.trim()}\n\n(cita una nota de voz${dur}; la escuchaste y dice: «${transcripcion.trim()}»)`.trim();
 }
 
+/** ¿El texto del turno trae una nota de voz citada que se escuchó (`conElAudioCitado`)? */
+export const conUnAudioCitadoEscuchado = (texto: string): boolean => /\(cita una nota de voz(?: de \d+ s)?; la escuchaste y dice: «/.test(texto);
+
+/**
+ * EL AUDIO DEL LOTE QUE NO SE ESCUCHÓ (29/10/2026, Leandro, ws10). Mandó una nota de voz y enseguida «Tal cual como lo hace
+ * manychat»; el audio no se escuchó, no entró al turno (un `continue`), y el modelo contestó el «tal cual» solo, como si
+ * supiera de qué hablaba: «Mira… no es arrancar por los flujos locos…». El aviso del audio sale aparte (`avisarElAudioDelLote`);
+ * el turno lleva esta marca EN EL LUGAR del audio, para que lo que sigue no se conteste a ciegas. Un lote que sólo tiene esto
+ * no corre turno: el aviso ya lo dijo.
+ */
+export const AUDIO_DEL_LOTE_SIN_ESCUCHAR = '(aquí mandó una nota de voz que no pudiste escuchar; el aviso ya salió aparte: no lo repitas. Lo que sigue puede referirse a ese audio: si no se entiende solo, dilo en una línea y pide que lo escriba; no adivines)';
+
 /**
  * La nota de voz citada que NO entra al turno, con la marca de por qué (la verificación de 5b7a1917d): el resto del mensaje
  * sigue. Antes, la que no se podía bajar tiraba el mensaje entero (en el lote) o lo cambiaba por un cartel que culpaba a la IA

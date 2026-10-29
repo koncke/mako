@@ -720,6 +720,9 @@ const esLista = (s: string): boolean => (s.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\
 
 /** ¿Trae links? Un mensaje que es material + links es material para guardar. */
 const cuentaLinks = (s: string): number => (s.match(/https?:\/\/\S+/g) ?? []).length;
+/** Cuántas preguntas trae: los «?» fuera de un link y de lo citado entre «…» o “…” (`?abrir=` no pregunta nada). */
+const cuantasPreguntas = (s: string): number =>
+  (s.replace(/https?:\/\/\S+/g, ' ').replace(/«[^»]*»/g, ' ').replace(/“[^”]*”/g, ' ').match(/\?+/g) ?? []).length;
 
 // ⚠️ EL CORTE ES `(?![a-záéíóúñ])`, NO `\b`. En JavaScript `\b` se calcula con
 // `\w`, que NO incluye las vocales acentuadas: después de una «í» no hay
@@ -737,8 +740,11 @@ const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|clar
  * necesitan que tome «no, movela al viernes» (docs/hallazgos-comunicacion.md)— y no se toca: las reglas 1 y 9-bis la miran
  * con esto al lado. Medido: limitar la 9-bis a una confirmación «pelada» mandaba a capturar «no, mejor el martes» y «No,
  * gracias, eso es todo»; esto sólo saca las quejas.
+ * Y el RECLAMO de que MaKo no contestó (29/10/2026, Leandro, ws10): «No me respondiste lo de este audio» era `charlar` sin
+ * herramientas («confirmación sin nada pendiente») y MaKo le contestó que no podía escuchar audios. Va al default del grupo,
+ * que sigue el hilo.
  */
-const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo|funciona|anda|sale|aparece|carga|abre|guarda|toma)\b/i;
+const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo|funciona|anda|sale|aparece|carga|abre|guarda|toma)\b|(?:respondiste|contestaste|respondi[oó]|contest[oó]|llega|lleg[oó])(?![a-záéíóúñ]))/i;
 /**
  * La queja con OBJETO de la app, la única que no contesta una propuesta pendiente (la revisión del 28/10/2026): «no puedo a esa
  * hora», «no puedo» o «No consigo turno» con una reunión propuesta SON un «no» (la regla 1 los toma y viaja cancelar_accion;
@@ -1291,6 +1297,15 @@ export function clasificarIntencion(
   const dictado = INFINITIVO_TITULO.test(t) || ENCABEZADO_VOLCADO.test(t) || esLista(t);
   const pedido = IMPERATIVO.test(t);
   const links = cuentaLinks(t);
+
+  // 3-quinquies) UN VOLCADO QUE PREGUNTA NO ES UN VOLCADO (29/10/2026, Leandro, ws10). «sumo tres cosas al mensaje de recién:
+  //   1. … 2. … 3. …» con seis preguntas adentro («¿Se puede, y en qué campo queda?», «¿Lo hace la tarjeta «Acción»?», «¿Hay
+  //   algo pensado?»): la lista lo hacía dictado (regla 4), capturar, y MaKo le contestó «Listo, te armé el borrador» con un
+  //   link a /plan/revisar. Una pregunta nunca es una carga de tareas: con dos o más, es una consulta. Con una sola, el dictado
+  //   sigue («Ideas: webinar, reels, ¿y un podcast?» es un volcado). Lo explícito («anotá esto: …», regla 2) ya ganó arriba.
+  if (dictado && cuantasPreguntas(t) >= 2) {
+    return { intencion: 'consultar', dudosa: false, porque: 'trae preguntas: una pregunta no es una carga de tareas', ...deLaApp };
+  }
 
   // 4) Dictado SIN imperativo → captura. Es el caso del bug, y es el 90% de lo
   //    que el dueño manda al grupo: un volcado de ideas para revisar después.

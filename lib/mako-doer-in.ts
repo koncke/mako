@@ -48,7 +48,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
@@ -59,12 +59,12 @@ import { conElNegocio } from '@/lib/nucleo-grupo';
 import { bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esGraciasOSaludo, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
 import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
 import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
-import { audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar } from '@/lib/audio-citado';
+import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
-import { aFormatoWhatsapp, sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
+import { aFormatoWhatsapp, conMarcaDeTicket, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
@@ -1028,7 +1028,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // VARIOS → un solo turno con todo junto. Los audios se transcriben ahora (uno por
     // uno) y el texto se arma numerado, para que el modelo entienda que fueron mensajes
     // separados y que el último puede corregir al primero.
-    const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn }> = [];
+    const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn; marca?: true }> = [];
     const pideUnSi = pideUnSiEn(wsData, jid);
     let avisoDelAudio: string | null = null;
     for (const m of cola) {
@@ -1036,8 +1036,13 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       let t = m.texto.trim();
       if (!t && audioDe(p)) {
         const oido = await transcribirDeMensaje(instance, p);
-        // El audio que no se escuchó lo dice MaKo (una vez por lote) y no entra al turno: antes desaparecía sin aviso.
-        if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido); continue; }
+        // El audio que no se escuchó lo dice MaKo (una vez por lote): antes desaparecía sin aviso. En el turno queda su MARCA en su
+        // lugar (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`): sin ella, el «tal cual» que seguía se contestaba a ciegas (29/10/2026).
+        if (!('texto' in oido)) {
+          avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido);
+          textos.push({ texto: AUDIO_DEL_LOTE_SIN_ESCUCHAR, para: 'mako', autor: p.key?.participant ?? null, leHabla: false, payload: p, marca: true });
+          continue;
+        }
         t = oido.texto;
       }
       // La nota de voz que CITA (Leandro, 28/10/2026): con lo que dice; si no se pudo, como un audio que no se escuchó.
@@ -1053,7 +1058,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       t = conLaMarcaDelAdjunto(p, t);
       if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instance, p, t), payload: p });
     }
-    if (!textos.length) {
+    // Sólo marcas de audios que no se escucharon: el aviso ya lo dijo, no hay turno.
+    if (!textos.some((x) => !x.marca)) {
       await marcarProcesados(cola.map((m) => m.id));
       return avisoDelAudio ? { engaged: true, reply: avisoDelAudio } : { engaged: false, skip: 'nada legible en el lote' };
     }
@@ -1496,6 +1502,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       ? leidos.datos.map((t) => ({ id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at }))
       : [];
     const ctxPedidos = bloqueDePedidos(pedidosDelNegocio, new Date(), tzGrupo);
+    // EL MENSAJE PARA ALGUIEN DEL EQUIPO (29/10/2026, Leandro, ws10; lib/doer-para-quien.ts): «Hola Martin, …». MaKo no contesta
+    // como si fuera él: dice lo que sabe con datos y lo demás queda para el equipo, con su ticket (abajo, después del saneo).
+    const paraElEquipo = paraAlguienDelEquipo(sinPrefijoDeLote(texto));
+    const ctxParaElEquipo = paraElEquipo ? bloqueParaElEquipo(paraElEquipo.nombre) : '';
+    /** Lo que pidió, sin el saludo a esa persona: con «Hola Martin» delante, todos sus tickets tendrían la misma clave. */
+    const pedidoDelTicket = paraElEquipo?.resto || sinPrefijoDeLote(texto);
     const ctxYaSeHablo = bloqueYaSeHablo(
       memoria.antes,
       await accionesDelGrupo(wsData, jid, DIAS_DE_HECHOS).catch(() => []),
@@ -1693,7 +1705,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
       // Quién escribe (su nombre de WhatsApp: a la persona de un negocio la llamó «Martín», 27/10/2026), también sólo en el system
       // del turno: la red de la plataforma corre sin datos de clientes.
-      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxEquipo, ctxPedidos, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
+      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxParaElEquipo, ctxContacto, ctxEquipo, ctxPedidos, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
       // Lo que no existe y lo que no pudo llevan su marca, y el ticket lo abre el código (lib/no-existe.ts, lib/no-pude.ts). Sólo
       // con herramientas: la regla las nombra, y un turno sin tools no puede oír hablar de ellas (DOER_WA_VOZ).
       const reglaDeLasMarcas = tools.length ? `\n\n${REGLA_NO_EXISTE}` : '';
@@ -2633,6 +2645,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         void recordUsage('saneo-doer', sinRespaldo.length ? SANEO_HECHO : saneo.promesas.length ? 'saneo:promesa' : 'saneo:voz', {}, `ws${wsData} · ${intencion.intencion} · ${tools.length} tools · ${corridasDelTurno} corridas · ${que}`.slice(0, 200), 'mako', 1).catch(() => {});
         respuesta = saneo.texto;
       }
+      // ── LO QUE MaKo NO DICE EN EL GRUPO (29/10/2026, Leandro, ws10; lib/doer-salida.ts) ───────────────────────────────────────
+      // Indicar borrar datos, afirmar cómo está el producto o que algo «ya está escalado», decir que no escucha audios: la oración
+      // sale y va la verdad en una línea. Lo de borrar y lo del producto dejan su ticket: si el modelo no puso ninguna marca, la pone
+      // el código (`[[no-pude: …]]`), y la línea «Quedó el ticket #N» la escribe `conTicketsDeMaKo`, abajo.
+      // Con la nota de voz del mensaje o la citada ya transcritas, «mándame el texto de lo que dijiste» tampoco sale.
+      const noDice = sinLoQueMaKoNoDice(respuesta, { escuchoUnAudio: !!audio || conUnAudioCitadoEscuchado(texto) });
+      if (noDice.borrar.length || noDice.producto.length || noDice.audios.length) {
+        const que = [noDice.borrar.length ? `borrar: «${noDice.borrar.join('», «')}»` : '', noDice.producto.length ? `del producto: «${noDice.producto.join('», «')}»` : '', noDice.audios.length ? `audios: «${noDice.audios.join('», «')}»` : ''].filter(Boolean).join(' · ');
+        console.error(`[mako-doer-in] ws=${wsData} SANEADA (lo que MaKo no dice: ${que}) · ${intencion.intencion} · ruta «${ruta.motivo}»`);
+        void recordUsage('saneo-doer', 'saneo:no-dice', {}, `ws${wsData} · ${intencion.intencion} · ${que}`.slice(0, 200), 'mako', 1).catch(() => {});
+        respuesta = noDice.texto;
+        if (noDice.ticket && !conMarcaDeTicket(respuesta)) respuesta = `${respuesta}\n[[no-pude: ${queNoSupo(pedidoDelTicket, noDice.borrar.length ? 'cómo se hace sin borrar datos' : 'cómo está eso hoy en MaKo')}]]`;
+      }
+    }
+    // El mensaje era para alguien del equipo: le tiene que llegar. Sin una marca del modelo, la del código (ver `paraElEquipo`).
+    if (paraElEquipo && respuesta && !avisoDeSistema && !linkBorrador && !linkLead && !conMarcaDeTicket(respuesta)) {
+      respuesta = `${respuesta}\n[[no-pude: ${queNoSupo(pedidoDelTicket, `lo que le escribió a ${paraElEquipo.nombre}, del equipo de MaKo`)}]]`;
     }
     // WhatsApp no es Markdown (F1): `**x**` llegaba con los asteriscos a la vista (6 respuestas del 21 al 28/10) y los `##`, igual.
     if (respuesta) respuesta = aFormatoWhatsapp(respuesta);
@@ -2821,7 +2850,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           // La instancia viene del webhook (`body.instance`): `bufferearYResponder` la guarda en el payload al encolar. Sin ella, la
           // línea de MaKo no se conocía y ninguna @mención contaba (la verificación de bb41ede4a; ya pasaba antes).
           const instancia = cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
-          const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn }> = [];
+          const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn; marca?: true }> = [];
           const pideUnSi = pideUnSiEn(ws, jid);
           let avisoDelAudio: string | null = null;
           for (const m of cola) {
@@ -2829,7 +2858,12 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
             let t = m.texto.trim();
             if (!t && audioDe(p)) {
               const oido = await transcribirDeMensaje(instancia, p);
-              if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido); continue; }
+              // Su marca en su lugar, como en el lote de la entrada (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`).
+              if (!('texto' in oido)) {
+                avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido);
+                textos.push({ texto: AUDIO_DEL_LOTE_SIN_ESCUCHAR, para: 'mako', autor: p.key?.participant ?? null, leHabla: false, payload: p, marca: true });
+                continue;
+              }
               t = oido.texto;
             }
             const citado = await escucharElAudioCitado(instancia, jid, p);
@@ -2841,7 +2875,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           }
           const lote = paraQuienDelLote(textos);
           const ultimo = lote.quedan[lote.quedan.length - 1]?.payload ?? ((cola[cola.length - 1].payload as MsgIn) ?? {});
-          if (textos.length) {
+          if (textos.some((x) => !x.marca)) {
             const sintetico: MsgIn = {
               key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
               pushName: ultimo.pushName,

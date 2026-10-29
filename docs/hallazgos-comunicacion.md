@@ -17,6 +17,8 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Un fallo de producción se ubica contra el PUSH antes de diagnosticarlo** (29/10/2026). La nota de voz de Leandro que «Groq no
+  escuchó» llegó 45 s antes de que Groq estuviera subido: la atendió la versión de antes. Ver «MaKo con Leandro, 28 y 29/10», abajo.
 - **«No guarda contexto» era el TURNO, no la memoria** (26/10/2026). El modelo veía la charla, pero la intención y las
   herramientas salían del último mensaje solo: «pausala» o «publicá la del webinar» llegaban sin con qué hacerlo. Un
   seguimiento sigue el pedido del hilo (`lib/doer-hilo.ts`); ver «MaKo en WhatsApp no seguía la conversación», abajo.
@@ -48,6 +50,58 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## MaKo con Leandro, 28 y 29/10: el audio que «no escuchaba», las preguntas que se cargaban al Plan, los borrados inventados y el mensaje para Martín (29/10/2026)
+
+Martín: «Mira lo que le respondió MaKo en WhatsApp, sigue funcionando muy mal... A Leandro» (ws10, `mako_doer_conv` 1642-1702,
+`mako_doer_buffer` 316-336, leídos sólo lectura). Vive en `lib/mako-intencion.ts` (`clasificarIntencion`, regla 3-quinquies, y
+`QUEJA_NO_ANDA`), `lib/doer-salida.ts` (`sinLoQueMaKoNoDice`), `lib/doer-para-quien.ts` (`paraAlguienDelEquipo`,
+`bloqueParaElEquipo`), `lib/audio-citado.ts` (`AUDIO_DEL_LOTE_SIN_ESCUCHAR`) y `lib/mako-doer-in.ts`. El test va por la entrada real
+con los payloads reales, anonimizados: `tests/grupo-leandro-2910.test.ts`.
+
+- **El audio 327 no falló en Groq: llegó 45 segundos ANTES de que Groq estuviera en producción.** El diagnóstico obvio era «la
+  nota de voz del grupo va a Groq desde tren-v y aun así no se escuchó». Medido: el audio entró a las 19:24:52 UTC, tren-v se
+  subió a las 19:25:37 UTC (`git reflog show origin/main`, la línea «update by push» de 23b329b5e) y el turno corrió con la versión
+  de antes: Gemini cortó por tiempo y salió el cartel «ia_lenta» a las 19:26:29 (`anthropic_usage`, feature `cartel-ia`). La 316 y
+  la 318 (13:21 y 13:24 UTC) también son de antes de tren-v: la 318 dejó su cartel y el ticket #18; la 316, en un lote con «Tal cual
+  como lo hace manychat», se descartó sin aviso, y el modelo contestó el «tal cual» solo. **La regla: un fallo de producción se
+  ubica contra el PUSH antes de diagnosticarlo** (el reflog de `origin/main`; ojo, los commits van en -0300 y la base en UTC).
+  El «no puedo escuchar audios» de las 19:41 es otra cosa: la citada todavía no se escuchaba (62876b064 está en la rama), y
+  «No me respondiste lo de este audio» era `charlar`, sin herramientas, por «confirmación sin nada pendiente»: `CONFIRMACION` mira
+  el arranque, y «No» lo es. El reclamo ahora es una queja (`QUEJA_NO_ANDA`), como «No me deja…».
+- **Una lista numerada con preguntas era un volcado.** «sumo tres cosas…» traía seis «?» y la lista lo hacía «dictado»: la regla
+  4 (dictado sin imperativo → capturar) va ANTES que la de la pregunta (8), y MaKo contestó «Listo, te armé el borrador» con un
+  link a /plan/revisar. Ahora un dictado con dos o más preguntas (fuera de un link y de lo citado entre «…») es una consulta; con
+  una sola sigue siendo un volcado («Ideas: … ¿y un podcast?»), y «anotá esto: …» gana igual.
+- **Lo que MaKo no sabía lo afirmaba, y lo peor era destructivo.** «borra el registro de la inscripción anterior», «darles de baja o
+  reetiquetarlos manualmente» (la vía real, «Volver a probar», ni estaba subida); «son limitaciones reales actuales del motor…
+  ya están escaladas al equipo»; «ya queda el registro técnico». Una regla en el prompt no alcanza (está, en `NUCLEO_GRUPO`): la
+  red va al salir, como las promesas. `sinLoQueMaKoNoDice` saca la ORACIÓN, dice la verdad en una línea y, si era de borrar o del
+  producto, deja el ticket (`[[no-pude: …]]` si el modelo no marcó nada). Precisión antes que recall: no saca «no hace falta
+  borrar nada», «borra el mensaje con tu clave», «borrador» ni «quedó el registro del pago». Y saca el número de lista que
+  quedaba solo («1.»): el partidor de oraciones lo toma por una.
+- **El audio que no se escuchaba desaparecía del lote** (un `continue`), y lo que seguía se contestaba a ciegas. Ahora su marca va
+  EN SU LUGAR, y un lote con sólo marcas no corre turno (el aviso ya lo dijo).
+- **«Hola Martin, …» es para el equipo, no para MaKo** (Leandro le escribía a Martín y MaKo contestaba como si fuera él). Lo que
+  hace ahora: un saludo o un «gracias» a esa persona, solo, no es para MaKo (ni 👍 ni turno); lo demás corre con
+  `bloqueParaElEquipo` (dice que es MaKo, contesta sólo lo que ve en sus herramientas, los pedidos abiertos o CÓMO FUNCIONA MAKO)
+  y el ticket queda SIEMPRE: si el modelo no marcó nada, la marca la pone el código. Trampa: la clave del ticket sale de las dos
+  primeras palabras de lo que pidió (`refDeNoPude`); con «Hola Martin» delante, todos los mensajes a Martín tenían la misma
+  («hola martin») y el segundo salía «Ya estaba avisado». Va sin el saludo (`pedidoDelTicket`).
+- **Trampas del test:** cada turno por `manejarEntranteDoer` espera la ventana de silencio REAL (8 s el texto): seis escenas son
+  ~3 minutos. Y el payload real lleva la voz del cliente (`message.base64`) y su teléfono (`participantAlt`): no entran a un test.
+
+**Sin hacer:**
+- El encabezado de todo lote (`unirMensajes`, `lib/mako-doer-buffer.ts`) dice «carga TODAS las tareas juntas»: empuja a cargar al
+  Plan aunque sean preguntas. Lo fijan `tests/agenda-whatsapp.test.ts` y `tests/doer-acuse.test.ts`.
+- Los nombres del equipo son una lista (`nombresDelEquipo`, «Martín»; `MAKO_EQUIPO_NOMBRES` la cambia): no sale de la base.
+- Que MaKo no hable COMO Martín depende del prompt (`bloqueParaElEquipo`); la red sólo garantiza el ticket. Se mide con el banco de
+  nivel 2 (con modelo), en la tanda del crédito Max.
+- El cartel de un audio que no escucharon ni el Groq de la plataforma ni el GPT del negocio dice «GPT, tu IA, no me contestó»
+  (`avisarAudioSinEscuchar`, `lib/mako-doer-in.ts`): visto en el test, sin tocar.
+- El filtro por palabra clave de los comentarios y «Volver a probar» están en la rama aut-2510 de Automations, sin subir.
 
 ---
 
