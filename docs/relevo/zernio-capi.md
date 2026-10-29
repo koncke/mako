@@ -193,7 +193,11 @@ docs/hallazgos-ads.md → «Un negocio SIN token administra sus campañas por Ze
    píxel, `getInstagramActorId` y `paginasDeGanadores`, aprobación (`/ads/{id}/review`). Las identidades (`identidadesMeta`) ya
    van por `/ads/instagram-accounts` (26/10, medido).
 
-## Varias claves de Zernio en un negocio (pedido del 27/10, SIN HACER)
+## Varias claves de Zernio en un negocio (pedido del 27/10) — DESCARTADO el 29/10
+
+**Martín, 29/10, por el Cerebro: NO.** Cada negocio con SU cuenta de Zernio; si necesita más de 2 redes, paga su plan. Los términos
+(zernio.com/tos) dicen «Abuse of the API may result in immediate suspension», y una suspensión le corta las publicaciones al
+cliente. No se arma ni se vuelve a preguntar. Lo de abajo queda como historia del diseño.
 
 Leila (876470842-23): «se pueden cargar varias claves de Zernio (de distintos emails) eligiendo cuál usa cada red». Hecho el 27/10:
 el aviso antes de conectar la cuenta que se paga. Lo de varias claves, no, porque cada clave es OTRO equipo de Zernio:
@@ -379,6 +383,9 @@ cuentas). La nota de la key NO cambia (tope de una línea y la fija zernio-sin-r
 **Punto 4, medido a medias:** `GET /v1/usage?range=cycle&granularity=total` y `/v1/billing` andan (200) con la clave de la
 plataforma, pero esa cuenta no manda nada: `lineItems` vacío. Falta medirlo con la clave de un negocio que mande mensajes (ws10 o
 ws13) con el sí del Cerebro. Detalle: docs/hallazgos-integraciones.md, «Los límites de Zernio, dichos al conectar…».
-**Siguen sin hacer:** el aviso al 80% (con Automations), varias claves por negocio (punto 3). Los términos de Zernio están en
-zernio.com/tos (09/10/2026): no prohíben varias cuentas gratis por escrito, pero «Abuse of the API may result in immediate suspension»
-deja el riesgo a criterio de Zernio. Avisado al Cerebro: es una decisión de Martín antes de arrancar el punto 3.
+**Punto 3 (varias claves): DESCARTADO** (Martín, 29/10, por el Cerebro: una cuenta de Zernio por negocio; zernio.com/tos avisa
+suspensión por «abuso»).
+**Punto 4, medido con el ws10 (sí del Cerebro, sólo lectura):** su ciclo va del 12/10 al 01/11 y `lineItems` no trae `messages`, pero
+el ws10 no mandó nada, y MaKo no mandó NINGÚN mensaje por redes desde el 01/09 en ningún negocio: no hay con qué medir y nadie está
+cerca del tope. El aviso al 80% (conteo en MaKo por ciclo, el evento `social_tope`) se lo propuse a Automations (local_7f005343…,
+«Automations: Instagram de Leandro, Leila y Mauricio»); espera su respuesta. Si lo toman ellos, este chat no lo arma.

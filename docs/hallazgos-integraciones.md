@@ -2221,22 +2221,28 @@ Martín (28/10): «Super importante advertir en la conexión de Zernio las limit
   MaKo midió un 402 que lo pedía. El test fija que el texto no lo nombre hasta que alguien lo mida con una cuenta real.
 - ⚠️ **La nota de la key no da para los límites:** el tope de una nota es una línea (120, tests/tutoriales-legibles.test.ts) y su
   texto lo fija tests/zernio-sin-respaldo.test.ts. Los límites van en el modal, abajo de la línea de las cuentas (con la key guardada).
-- ⚠️ **La salida gratis «conecta otra cuenta de Zernio (de otro email)» NO se dice todavía:** MaKo usa UNA clave por negocio y pegar
-  otra reemplaza la anterior (las redes de la vieja dejan de verse). La que sí existe hoy va en el aviso de la 3.ª: «desconecta en
-  zernio.com una que ya no uses» (Zernio cobra sólo las activas).
+- ⚠️ **La salida gratis «conecta otra cuenta de Zernio (de otro email)» NO se dice NUNCA** (Martín, 29/10, por el Cerebro: cada
+  negocio con SU cuenta de Zernio; si necesita más, paga su plan). Varias cuentas gratis para un mismo negocio arriesgan la
+  suspensión de Zernio (abajo, sus términos), y una suspensión le corta las publicaciones al cliente. La única salida gratis que se
+  dice va en el aviso de la 3.ª: «desconecta en zernio.com una que ya no uses» (Zernio cobra sólo las activas).
 - **El consumo de mensajes del mes (para avisar antes del tope de 10.000, el audio de Leandro): medido a medias.** La OpenAPI v1.358
   tiene `GET /v1/usage` (sin parámetros: la foto del plan; con `range=cycle&granularity=total`: lo FACTURADO en USD por familia, con
   `lineItems[]` de `product: 'messages'` y `quantity`) y `GET /v1/billing` (el ciclo: `period.start/end`). Medido el 29/10 con la
   clave de la plataforma (sólo lectura): las dos contestan 200, cuenta `metronome` (por uso), ciclo del 01/10 al 01/11; pero esa
-  cuenta no tiene redes ni envíos, así que `lineItems` sale vacío y **no se sabe si los 10.000 gratis aparecen con su `quantity`**
-  (podrían no ser una línea, por ser US$0). Falta medirlo con la clave de un negocio que mande mensajes (Fiesta Music, ws10, o Código
-  Inmobiliario, ws13), con el sí del Cerebro. Si no aparecen, la salida es contar en MaKo lo que MaKo manda por Zernio (no ve lo que
-  se manda desde el inbox de Zernio u otra herramienta con la misma cuenta). Y el «mes» es el CICLO de Zernio, no el calendario.
-- **Sin hacer:** el aviso al 80% de los 10.000 (una vez por ciclo, en el grupo del negocio), coordinado ANTES con Automations, que
-  ya avisa los topes de Meta y los 429 de Zernio (`social_tope`, c6f78deb4): que no queden dos avisos. Y varias claves de Zernio por
-  negocio (el diseño de 4 pasos, docs/relevo/zernio-capi.md).
+  cuenta no tiene redes ni envíos, así que `lineItems` sale vacío. Con la clave del ws10 (Fiesta Music, el sí del Cerebro, sólo
+  lectura): ciclo del 12/10 03:00Z al 01/11 (`anchorDay` 12: el ciclo arranca el día que el negocio se dio de alta, no el 1.º), y
+  `lineItems` trae SÓLO «Connected Accounts (priced)» y «Free Tier Credit applied» (la cuenta gratis se factura y se descuenta), sin
+  línea `messages`. ⚠️ **Eso no prueba que los mensajes gratis no aparezcan:** el ws10 no mandó NADA por MaKo en el ciclo (38
+  entrantes, 0 salientes), y **MaKo no mandó ni un mensaje por redes desde el 01/09 en ningún negocio** (0 filas sociales en
+  `nutricion_envios`, donde viven los envíos del motor; 0 salientes en `ig_mensajes`, donde viven los de Chats). Hoy nadie está
+  cerca del tope, y no hay cuenta con qué medir. La salida: contar en MaKo lo que MaKo manda por Zernio en el CICLO (no ve lo que se
+  manda desde el inbox de Zernio u otra herramienta con la misma cuenta: el aviso dice «desde MaKo») y, cuando un negocio pase los
+  10.000, mirar si `lineItems` trae `messages` con su `quantity`.
+- **Sin hacer:** el aviso al 80% de los 10.000 (una vez por ciclo, en el grupo del negocio). Propuesto el 29/10 a Automations, que
+  tiene el envío y ya avisa los topes de Meta y los 429 de Zernio (`social_tope`, c6f78deb4), para que no queden dos avisos: el
+  conteo en MaKo por ciclo y el mismo evento. Espera su respuesta.
 - **Los términos de Zernio están en zernio.com/tos** (no en /terms ni /terms-of-service, que dan 404; la portada no los enlaza),
   fechados el 09/10/2026. Leídos el 29/10: NO hablan de varias cuentas gratis, de agencias ni de compartir claves; sólo «Abuse of
   the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).
-  Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio: es una
-  decisión de Martín antes de ofrecerlo como salida gratis.
+  Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio. Por eso
+  Martín dijo que NO (29/10): varias claves de Zernio por negocio quedó DESCARTADO, no pendiente.

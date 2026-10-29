@@ -38,7 +38,7 @@ test('el aviso dice cuántas hay y cuánto cuesta la que viene', () => {
   assert.match(t, /ya tiene 2 cuentas conectadas/);
   assert.match(t, /US\$6 por mes/);
   assert.match(t, /desde la 3\.ª/);
-  // La salida gratis que es cierta HOY (Zernio cobra sólo las activas); «otra cuenta de Zernio» no, mientras haya una clave por negocio.
+  // La salida gratis que es cierta (Zernio cobra sólo las activas); «otra cuenta de Zernio» NUNCA (Martín, 29/10: una cuenta por negocio).
   assert.match(t, /Para no pagar, desconecta en zernio\.com una que ya no uses/);
   assert.doesNotMatch(t, /otra cuenta de Zernio|otro email/);
   assert.ok(MENSAJES_DE_MOTIVO.cobro.length > 0);
