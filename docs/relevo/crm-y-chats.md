@@ -37,4 +37,14 @@ check gris (también en el Plan del teléfono). 10. Cumpleaños (si pide migraci
 «Enviar a todos» de una etapa: es de Automations. La rama `crm-cuotas-espera-revision` NO se sube. `tienda-cws-2710` no se mezcla.
 
 ## Lo que espera a Martín (vía el Cerebro)
-- El sí para aplicar la migración 0340 en producción (antes del deploy de las acciones en bloque).
+- El sí para aplicar la migración 0340 en producción (`supabase/migrations/0340_leads_papelera.sql`), ANTES del deploy de
+  cc47d841d, y el cron NUEVO que ese commit agrega a vercel.json: `/api/cron/leads-papelera`, `45 10 * * *` (la purga de los
+  30 días). El Cerebro los pide juntos.
+
+## Lo que espera verificación
+- cc47d841d va a verificación con refutador (en fila detrás de Automations y Zernio con Planes; probablemente en la próxima
+  cuenta). Lo que tiene que mirar primero: que no se pierda ningún dato (la foto en cascada desde `pg_constraint`, recuperar con
+  los mismos ids, volver a apuntar lo que quedó en NULL), la purga diaria, y quién puede mandar a la papelera. Dato para eso:
+  los tres «Eliminar» de la pantalla siguen pidiendo sólo sesión, como el borrado de antes (un closer puede); en la API de
+  MaKo las 5 operaciones son de admin. La prueba de la base: `PGLITE=<carpeta con @electric-sql/pglite@0.2.17> node
+  scripts/probar-0340-pglite.mjs supabase/migrations/0340_leads_papelera.sql`.
