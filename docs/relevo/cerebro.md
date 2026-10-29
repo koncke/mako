@@ -88,6 +88,11 @@ preguntes: hacé esto en orden.
       comprobar. Sólo falta P2P, que espera a Martín.
     - **Joan: le contesté sus dos pedidos** (las 9 llamadas sin marcar con nombre y las cifras corregidas, más los 10
       links de Meet de la semana pasada; 3EB0C29D3599EBBA993B12).
+  - **00:35, ronda: el plan de Nadia de Leila.** Leila YA había contestado en su grupo el 28/10 a las 18:11 UTC (buffer
+    324): «Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000». Le llegó a MaKo, no al equipo: la falla
+    que arregla WhatsApp. Se le pidió confirmar si los 12.000 son por mes (6.000 por quincena, días 1 y 15) y hasta cuándo
+    sigue el de 10.000 (3EB015B3DB5E089D9A764E). **Su respuesta se lee en `mako_doer_buffer` del ws11**, porque también le
+    va a llegar a MaKo. Después, CRM y Chats carga el plan, con el sí de Martín en el chat (escritura en producción, ws11).
   - **00:30 (29/10): tren-w EN PRODUCCIÓN.** Lo subí yo (`c17134274`); alguien más subió encima tres commits de docs
     del relevo, hasta `b59d14943`, que es el deploy que sirve el dominio (Ready a las 23:19). **tren-x** (el editor,
     ticket 23: `004a4ae57`) **subido**, en PRODUCCIÓN (Ready a las 23:33). **Ticket de Leandro (subtítulos) CERRADO** y aviso mandado
