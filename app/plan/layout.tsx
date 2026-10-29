@@ -21,7 +21,7 @@ import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { estaImpersonando, rutaConWs } from '@/lib/workspace';
-import { pedidoActual } from '@/lib/pedido-actual';
+import { esNavegacionDelCliente, pedidoActual } from '@/lib/pedido-actual';
 import type { QueryDelPedido } from '@/lib/pedido-actual-reglas';
 
 /** La query que viaja con el salto, como la arman las páginas: un valor, o el primero si se repite. */
@@ -40,6 +40,9 @@ export default async function PlanLayout({ children }: { children: ReactNode }) 
     const sesion = await getUsuarioActual();
     if (sesion?.rol === 'admin' && !(await estaImpersonando())) {
       const qs = queryDe(query);
+      // /plan y /plan/agencia comparten ESTE layout: navegando, este redirect quedaba guardado en su nodo y el router
+      // renavegaba para siempre, en blanco (lo del Web Generator, 28/10/2026: lib/pedido-actual.ts). Navegando, redirige la página.
+      if (await esNavegacionDelCliente()) return children;
       redirect(await rutaConWs(`/plan/agencia${qs ? `?${qs}` : ''}`));
     }
     await requireCapa('todo');
@@ -49,6 +52,7 @@ export default async function PlanLayout({ children }: { children: ReactNode }) 
     const sesion = await getUsuarioActual();
     if (sesion?.rol !== 'admin' || (await estaImpersonando())) {
       const qs = queryDe(query);
+      if (await esNavegacionDelCliente()) return children;
       redirect(await rutaConWs(`/plan${qs ? `?${qs}` : ''}`));
     }
   }
