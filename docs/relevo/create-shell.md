@@ -34,3 +34,13 @@ Copywriter). Y después: Offer con el mismo sistema, la oferta armándose al cos
 - Copywriting y AI Avatar los cierran sus chats en sus ramas encima de las mías (nav.ts de su bloque incluido); están
   anotados en `FALTAN_SIN_SECCIONES` / `PAGINAS_CREATE`. `/reels` redirige a `/copywriter`: la rama del Copywriter sube
   con o después de ésta.
+
+## QA visual de Create (29/10/2026, tarde) — rama `create-qa-2910`, desde main 1cf06eba9
+
+Martín en producción: «se rompen muchísimo el diseño». Banco de QA (pantallas reales, sin `next dev`): carpeta de notas
+del Cerebro `banco-create-qa/`; capturas antes/después a 1920/1440/1366/390 en `C:/dev/revisiones/create-qa-2910/`.
+- Offer en 340 px: clase `.of-doc` repetida (ahora `.of-vivo`). Hilo de la tarjeta con márgenes de ventana (56 px): 14.
+- Editores: la tarjeta se pliega a una barra fina (`plegable`, `PlegarChatCtx`). Video: rótulos enteros y borde fundido.
+- Image: la barra de abajo cede por `@container`. Placeholders «Escribe a MaKo» (Offer y Video).
+- Doory: el crédito visible se borró (Martín, a su riesgo); el test 2 de image-editor-integracion exige que no vuelva.
+- Falta: el editor de Video no carga en el banco (queda «Cargando…», docs/hallazgos-video-editor.md); AI Avatar es de su chat.

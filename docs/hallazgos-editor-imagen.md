@@ -7,7 +7,12 @@ El plano está en [diseno-editor-imagen.md](diseno-editor-imagen.md) y los relev
 
 ## La licencia de Doory obliga a mostrar el crédito, y modificar el código no la saca
 
-**Vive en:** `app/image-editor/_doory/LICENSE-DOORY` · `app/image-editor/editor/CreditoDoory.tsx`
+**Vive en:** `app/image-editor/_doory/LICENSE-DOORY` (`editor/CreditoDoory.tsx` se borró el 29/10/2026)
+
+> **29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.** Martín, textual: «Borra igualmente la mención a Doory, iremos cambiando de a poco
+> el código de allí, pero no quiero tenerla, es mi decisión y a mi riesgo». El LICENSE, el NOTICE y el COMMIT siguen en
+> `_doory/` y no se muestran; tests/image-editor-integracion.test.ts (2) frena si el crédito vuelve a la pantalla. Lo que
+> falta para que la licencia deje de aplicar: «Reemplazar _doory/ de a poco», abajo. Lo de esta entrada es el porqué.
 
 Doory (`shaongitbd/doory`) es la «Attribution Assurance License»: servir su JS al navegador es
 redistribuirlo, y pide «a prominent display (e.g., splash screen or banner text)» con el nombre del
@@ -20,8 +25,27 @@ después («Copia a Doory, y luego lo modificamos completamente»).
 - Su propio `NOTICE` dice «the rest is MIT, like the code» y contradice el `LICENSE`: no sirve de
   respaldo, sí de argumento para pedirle una licencia MIT.
 - El «GPG-signed text» que exige no existe (ni el archivo ni commits firmados).
-- Regla: el cartel no se saca y el editor no se abre a clientes hasta resolver esto
-  (`tests/image-editor-integracion.test.ts` frena si falta el crédito).
+- Regla (14/10 al 29/10/2026): el cartel no se sacaba. Desde el 29/10, ver el recuadro de arriba.
+
+## Reemplazar `_doory/` de a poco: por dónde empezar (29/10/2026, claude3)
+
+Para que la licencia deje de aplicar no tiene que quedar código de Doory. Hoy `_doory/` son 444 archivos (~39 mil líneas
+de editor). Medido con `git log --since=2026-10-14 --name-only -- app/image-editor/_doory`, lo que MaKo más tocó desde el
+port, y su tamaño:
+
+| Orden | Parte | Archivos / líneas | Por qué primero |
+|---|---|---|---|
+| 1 | `editor/chrome` (TopBar, RielCanva, SaveStatus) | 8 / 630 | Ya es el armazón de Canva escrito por MaKo encima; chico |
+| 2 | `editor/strings.ts` | 1 / 1.509 | Todos los textos ya son nuestros (en español); se reescribe como tabla propia |
+| 3 | `editor/workspace` (BottomBar, PageGrid, PageStrip, Workspace) | 34 / 4.053 | 11 archivos tocados; la barra de abajo y el lienzo ya se rehicieron en parte |
+| 4 | `editor/panels` (TemplatesPanel, registry, los paneles) | 41 / 4.866 | 19 tocados: el catálogo y las plantillas ya son de MaKo (`mako/`) |
+| 5 | `editor/dialogs` y `editor/ui` | 57 / 5.521 | 32 tocados (Descargar, los menús) |
+| 6 | `editor/toolbar`, `drawers`, `fonts`, `presenter` | 58 / 6.617 | Menos tocados |
+| último | `editor/engine` (el envoltorio de fabric.js) | 107 / 14.924 | El corazón: lo más grande y lo menos tocado |
+| se borra | `editor/collab` | 18 / 4.396 | La co-edición está apagada (decisión 6 de docs/diseno-editor-imagen.md): borrarlo no es reemplazarlo |
+
+Cada parte reemplazada se escribe desde lo que hace (el comportamiento de Canva), no copiando y renombrando su código:
+renombrar no deja de ser derivado.
 
 ## Instalar dependencias en el `node_modules` compartido sin `npm install`
 
@@ -493,3 +517,13 @@ sólo en Redimensionar (`_doory/editor/dialogs/resizeSizes.ts`). Capturas del ba
 **Vive en:** app/image-editor/_doory/styles/tokens.css · app/image-editor/plantillas-crear.ts · app/image-editor/actions.ts ·
 app/image-editor/ImageEditorCliente.tsx · app/image-editor/editor/PantallaEditor.tsx · tests/image-editor-colores-mako.test.ts ·
 tests/image-editor-plantillas-crear.test.ts
+
+## «Páginas 1 / 1» se pisaba con la cuadrícula a 1366: la barra de abajo miraba la VENTANA (29/10/2026, claude3)
+
+Medido en el banco de QA de Create (C:/dev/revisiones/create-qa-2910/antes-image-editor-1366.png): con la tarjeta de MaKo
+abierta, la barra de abajo mide ~520 px y no entraban Notas, Duración, el deslizador del zoom, «Páginas 1 / 1» y los dos
+íconos; los botones se ENCOGÍAN por debajo de su texto (`white-space: nowrap` con `flex-shrink: 1`) y se pisaban. Lo que
+cede estaba en `@media (max-width: 640px)`: la ventana de 1366 no sabe cuánto le dejan la sidebar, la tarjeta y el panel
+de Diseño. Ahora `container-type: inline-size` en la barra y `@container (max-width: 600px)` (ceden los rótulos de
+Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjeta (`plegable`), el centro pasa de 950 a
+1238 px y la barra entra entera. Vive en: _doory/editor/workspace/BottomBar.module.css.

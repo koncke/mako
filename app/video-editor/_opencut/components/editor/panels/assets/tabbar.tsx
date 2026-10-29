@@ -9,6 +9,9 @@
 // de desplazamiento ahí: las flechas son la pista de que hay más pestañas, que es
 // lo que pide la regla de AGENTS.md «Una barra de navegación NO lleva scroll
 // horizontal»: que ningún destino quede escondido sin aviso).
+// ⚠️ El rótulo ENTERO, nunca con «…» (29/10/2026, Martín: «Transicio…», «Multimed…»). Cada
+// pestaña medía 58 px fijos y a 11 px «Transiciones» pide ~66: se cortaba a CUALQUIER ancho
+// de pantalla. Ahora mide 58 como mínimo y crece con su rótulo; lo que no entra lo corren ‹ ›.
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
@@ -60,6 +63,17 @@ export const PESTANAS_BIBLIOTECA: Record<
 
 /** Cuánto corre la fila cada clic en ‹ ›: dos pestañas. */
 const PASO_FLECHA = 116;
+
+/**
+ * El borde donde hay más pestañas se FUNDE (29/10/2026): la que queda a medias contra la flecha se leía como una palabra
+ * cortada («Efec», «Trans»). Fundida, se lee como «hay más», igual que la flecha.
+ */
+export function fundidoDeLaFila(izquierda: boolean, derecha: boolean): string | undefined {
+	if (!izquierda && !derecha) return undefined;
+	const desde = izquierda ? "transparent 0, #000 28px" : "#000 0";
+	const hasta = derecha ? "#000 calc(100% - 28px), transparent 100%" : "#000 100%";
+	return `linear-gradient(to right, ${desde}, ${hasta})`;
+}
 
 export function TabBar() {
 	const activeTab = useAssetsPanelStore((s) => s.activeTab);
@@ -116,6 +130,10 @@ export function TabBar() {
 				aria-label="Biblioteca"
 				// `relative`: el offsetLeft de cada pestaña se mide contra la fila.
 				className="relative flex min-w-0 flex-1 items-stretch overflow-hidden px-1"
+				style={{
+					maskImage: fundidoDeLaFila(hayIzquierda, hayDerecha),
+					WebkitMaskImage: fundidoDeLaFila(hayIzquierda, hayDerecha),
+				}}
 				onWheel={(event) => {
 					// La rueda vertical corre la fila, como en CapCut.
 					if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
@@ -135,7 +153,7 @@ export function TabBar() {
 							data-pestana={categoria}
 							onClick={() => setActiveTab(categoria)}
 							className={cn(
-								"flex w-[58px] shrink-0 cursor-pointer flex-col items-center justify-center gap-[3px] outline-none",
+								"flex min-w-[58px] shrink-0 cursor-pointer flex-col items-center justify-center gap-[3px] px-1.5 outline-none",
 								"focus-visible:ring-1 focus-visible:ring-primary rounded-[4px]",
 								activa
 									? "text-primary"
@@ -143,7 +161,7 @@ export function TabBar() {
 							)}
 						>
 							<Icono className="size-[18px]" />
-							<span className="max-w-full truncate px-0.5 text-[11px] leading-none">
+							<span className="whitespace-nowrap text-[11px] leading-none">
 								{etiqueta}
 							</span>
 						</button>

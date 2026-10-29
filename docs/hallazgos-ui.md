@@ -4949,3 +4949,30 @@ como un salto de línea de verdad): el script va a un archivo con la herramienta
   (Es la misma frontera de AGENTS.md, «'use client' es una frontera de DATOS».)
 
 **Vive en:** app/_crear/reglas.ts · app/_crear/PantallaCrear.tsx · tests/video-editor-sidebar.test.ts
+
+## El QA visual de Create sin `next dev`: el banco, y la falsa alarma del scroll de costado (29/10/2026, claude3)
+
+Para mirar TODAS las pantallas de Create a 1920/1440/1366/390 sin levantar la app (local escribe en producción) y sin
+sesión en producción, un banco: las pantallas REALES compiladas con esbuild, datos inventados y `fetch` simulado. Vive en
+la carpeta de notas compartidas del Cerebro, `banco-create-qa/` (build, entrada, capturador con medición, sonda). Lo que
+costó, para la próxima:
+- **Tailwind de verdad.** El editor de Video está hecho con clases de Tailwind: sin compilarlo sale sin estilos.
+  `@tailwindcss/postcss` sobre app/globals.css con `base` en el worktree (~2 min, escanea el repo).
+- **La falsa alarma.** La primera medición dio el documento 58 px más ancho que la ventana en TODAS las pantallas: el banco
+  ponía la <Pagina> al lado de la sidebar, y en app/layout.tsx va adentro de una COLUMNA (`flex: 1; min-width: 0`). Con
+  `flex: 'none'` (ESTILO_PAGINA_CREAR) + el `width: 100%` de Pagina, sin esa columna se pasa por el ancho de la sidebar.
+  En la app no pasa. El armado del banco copia la columna.
+- **El `fetch` simulado se tragaba lo estático**: el motor del Video Editor (/ve/wasm/…) daba 404. Lo que tiene extensión
+  va al servidor de verdad.
+- **El capturador MIDE, no sólo fotografía**: rótulos con «…» (`text-overflow: ellipsis` y `scrollWidth > clientWidth`),
+  botones que se pisan, el ancho de la tarjeta y del centro. Así salió «Páginas 1 / 1» pisado con la cuadrícula a 1366.
+
+## La tarjeta de MaKo se pliega en los editores: un contexto y no un prop en cada chat (29/10/2026, claude3)
+
+El botón de plegar tenía que estar en la cabecera de TRES chats distintos (el Cerebro, el del Video Editor y el del Image
+Editor), cada uno con su `cabecera`. En vez de tocar los tres, `PlegarChatCtx` (app/admin/operaciones/PanelChat.tsx): la
+pantalla de Create lo provee y `CabeceraDeChat` dibuja el botón a la derecha si existe. Fuera de Create es `null` y la
+cabecera queda igual (lo prueba el test dibujándola con y sin el contexto). Plegada, la tarjeta queda MONTADA con `hidden`
+(el hilo y lo escrito siguen). ⚠️ `.cr-tarjeta { display: flex }` le gana al `[hidden]` del navegador: sin
+`.cr-tarjeta[hidden] { display: none }` «plegada» no escondía nada. Se recuerda por tab (`mk-crear-plegada:<tab>`), con
+`useSyncExternalStore` como la sidebar; en el teléfono no se pliega (ya se ve una cosa por vez).

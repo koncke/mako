@@ -10,8 +10,10 @@
 // varias ya las tienes».
 //
 // Es la tarjeta izquierda del Web Generator (app/web-generator/editor/EditorLanding.tsx, `.gma-izq`), sacada a una pieza:
-//   · la tarjeta FLOTA a la izquierda y NO se cierra ni se pliega (24/10/2026 en el Web Generator: «La sidebar del chat de
-//     MaKo NO se debe poder cerrar nunca»). De entrada es el chat de MaKo: la conversación «Cerebro» de la persona
+//   · la tarjeta FLOTA a la izquierda y NO se cierra (24/10/2026 en el Web Generator: «La sidebar del chat de MaKo NO se debe
+//     poder cerrar nunca»). En un EDITOR (Video, Image: `plegable`) se pliega a una barra fina con la estrella, que la abre con
+//     un clic (29/10/2026, tarde: «el chat a la izquierda le come lugar al editor»); se recuerda por tab y el chat sigue
+//     montado detrás. De entrada es el chat de MaKo: la conversación «Cerebro» de la persona
 //     (`ConversacionCerebro`, app/_chat/MakoEnLaTab.tsx), la MISMA del Ops Center, que reparte. Una tab con un chat propio
 //     que edita lo abierto (el Video Editor) lo pasa en `chat`;
 //   · la «←» de su cabecera da vuelta la tarjeta a la LISTA de proyectos SIN navegar (paneles/PanelLandings.tsx): buscar, la
@@ -26,9 +28,10 @@
 // =============================================================================
 
 import './crear.css';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { PlegarChatCtx } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ConversacionCerebro } from '@/app/_chat/MakoEnLaTab';
 import { CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/web-generator/CajaPedido';
@@ -80,9 +83,39 @@ export type PropsPantallaCrear = {
   entidad?: EntidadChat | null;
   /** «Nuevo …» desde afuera (un `?nuevo=` en la URL): la pantalla arranca mostrando las plantillas. */
   creandoInicial?: boolean;
+  /** Un EDITOR (Video, Image): con una pieza abierta, la tarjeta se puede plegar a una barra fina para darle el ancho. */
+  plegable?: boolean;
   /** La pieza abierta (el editor). Sin esto, el centro es «¿Qué vas a crear hoy?». */
   children?: ReactNode;
 };
+
+/**
+ * La tarjeta plegada, por tab y en el navegador (`mk-crear-plegada:<tab>`): Martín la pliega una vez en el Video Editor y
+ * queda así. Sin almacenamiento (ventana privada), se recuerda mientras dure la página. `useSyncExternalStore`, como la
+ * sidebar (app/_components/Sidebar.tsx): el server dibuja la tarjeta abierta y nadie hace `setState` en un efecto.
+ */
+const clavePlegada = (tab: string) => `mk-crear-plegada:${tab}`;
+const plegadaEnMemoria = new Map<string, boolean>();
+const avisosPlegada = new Set<() => void>();
+function leerPlegada(tab: string): boolean {
+  try {
+    const v = window.localStorage.getItem(clavePlegada(tab));
+    if (v != null) return v === 'si';
+  } catch { /* sin almacenamiento: lo de la memoria */ }
+  return plegadaEnMemoria.get(tab) ?? false;
+}
+function guardarPlegada(tab: string, v: boolean) {
+  plegadaEnMemoria.set(tab, v);
+  try { window.localStorage.setItem(clavePlegada(tab), v ? 'si' : 'no'); } catch { /* sin almacenamiento: vale la memoria */ }
+  for (const avisar of avisosPlegada) avisar();
+}
+function usePlegada(tab: string): boolean {
+  return useSyncExternalStore(
+    (avisar) => { avisosPlegada.add(avisar); return () => { avisosPlegada.delete(avisar); }; },
+    () => leerPlegada(tab),
+    () => false,
+  );
+}
 
 const IconoMas = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
@@ -135,6 +168,11 @@ export function PantallaCrear(p: PropsPantallaCrear) {
   // en «¿Qué vas a crear hoy?» se perdía (iba a un Cerebro que no estaba montado) o editaba lo abierto.
   const conCerebro = !p.chat || (centro === 'nueva' && !onPedido);
 
+  // Plegada sólo con la pieza a la vista: en «Nuevo …» la tarjeta es el chat que crea, y sin pieza no hay a quién darle el ancho.
+  const sePliega = !!p.plegable && hayPieza && centro === 'pieza';
+  const plegada = usePlegada(tab) && sePliega;
+  const plegar = useCallback(() => guardarPlegada(tab, true), [tab]);
+
   const volver = (
     <button type="button" className="cr-volver" onClick={() => setCara('lista')} title={`Ver tus proyectos de ${tab}`} aria-label={`Ver tus proyectos de ${tab}`}>←</button>
   );
@@ -150,7 +188,15 @@ export function PantallaCrear(p: PropsPantallaCrear) {
 
       {/* Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a
           todo <aside> el alto de la ventana y la caja quedaba fuera de la vista (medido en el Web Generator, 22/10/2026). */}
-      <section role="complementary" className="cr-tarjeta" aria-label={cara === 'chat' ? `MaKo en ${tab}` : `Tus proyectos de ${tab}`}>
+      {plegada && (
+        // La barra fina ENTERA abre el chat: un clic en cualquier parte, como el riel plegado de la sidebar.
+        <button type="button" className="cr-riel" onClick={() => guardarPlegada(tab, false)} title="Abrir el chat con MaKo" aria-label="Abrir el chat con MaKo">
+          <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={30} />
+          <span className="cr-riel__rotulo">MaKo</span>
+        </button>
+      )}
+      <section role="complementary" className="cr-tarjeta" hidden={plegada} aria-label={cara === 'chat' ? `MaKo en ${tab}` : `Tus proyectos de ${tab}`}>
+        <PlegarChatCtx.Provider value={sePliega ? plegar : null}>
         {cara === 'lista' ? (
           <ListaDeProyectos {...p} creando={centro === 'nueva'} onNuevo={alNuevo} onChat={alChat}
             onElegido={() => { setCreando(false); setCara('chat'); setMovil('pieza'); }} />
@@ -158,6 +204,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
           // «MaKo» en la cabecera, como el chat propio de cada tab (el Image Editor, Offer): adentro es el Cerebro, que reparte.
           <ConversacionCerebro tab={tab} titulo="MaKo" antes={volver} entidad={p.entidad ?? null} pedido={pedido} onMandado={() => setPedido(null)} />
         )}
+        </PlegarChatCtx.Provider>
       </section>
 
       <div className="cr-centro">
