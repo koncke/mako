@@ -53,7 +53,7 @@ import {
 } from '@/lib/nutricion-etapa';
 import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA, RESIDUO_POR_DIA } from '@/lib/nutricion-residuo';
 // Los TOPES de Instagram y Messenger, dichos al negocio (Leandro, 28/10/2026).
-import { resumirTopes, cercaDelTopeDeMeta, datosTopeSocial, VENTANA_AVISO_TOPE_MIN, type TopeDeLaCorrida } from '@/lib/tope-social';
+import { resumirTopes, cercaDelTopeDeMeta, cuentaMasCargada, datosTopeSocial, VENTANA_AVISO_TOPE_MIN, type TopeDeLaCorrida } from '@/lib/tope-social';
 // Los que YA están en la etapa al activar (Leila 2, 28/10/2026): la ventana de 90 días y lo que se cuenta.
 import { ultimoHitoMs, VENTANA_HITO_DIAS, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
@@ -5793,10 +5793,24 @@ async function avisarTopesSociales(ws: number | null, topes: readonly TopeDeLaCo
     let resumen = resumirTopes(topes);
     if (!resumen) {
       const supabase = await getTenantDb();
+      const desde = new Date(Date.now() - 3_600_000).toISOString();
       const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
-        .in('canal', ['instagram', 'messenger']).eq('estado', 'enviado').gte('created_at', new Date(Date.now() - 3_600_000).toISOString());
+        .in('canal', ['instagram', 'messenger']).eq('estado', 'enviado').gte('created_at', desde);
+      // La suma del negocio es un techo: si ni ella llega, ninguna cuenta llega (y no se lee nada más).
       if (error || !cercaDelTopeDeMeta(count ?? 0)) return;
-      resumen = { estado: 'cerca', quien: 'meta', canales: ['instagram'], cuantos: count ?? 0, esperaMs: 0 };
+      // ⚠️ POR CUENTA (la verificación de 69b49a31c): el tope de Meta es de cada cuenta. Cada envío, en la cuenta de la
+      // conversación del lead por ese canal (`cuentaMasCargada`, lib/tope-social.ts).
+      const envios = await leerTodo<{ id: number; lead_id: number | null; canal: string | null }>(supabase, 'nutricion_envios', 'id, lead_id, canal', {
+        orden: 'id', filtros: (q) => q.in('canal', ['instagram', 'messenger']).eq('estado', 'enviado').gte('created_at', desde) as ConsultaPaginada,
+      });
+      const deLeads = envios.flatMap((e) => (e.lead_id != null && (e.canal === 'instagram' || e.canal === 'messenger') ? [{ leadId: Number(e.lead_id), canal: e.canal as 'instagram' | 'messenger' }] : []));
+      const convs = await conversacionesDeLeads(deLeads.map((e) => e.leadId));
+      const mas = cuentaMasCargada(deLeads, (leadId, canal) => {
+        const f = convs.get(leadId)?.[canal];
+        return f ? conversacionDeFila(f).cuentaId : null;
+      });
+      if (!mas || !cercaDelTopeDeMeta(mas.cuantos)) return;
+      resumen = { estado: 'cerca', quien: 'meta', canales: [mas.canal], cuantos: mas.cuantos, esperaMs: 0 };
     }
     const { reclamarEspaciado } = await import('@/lib/espaciado');
     if (!(await reclamarEspaciado(ws, 'social-tope', VENTANA_AVISO_TOPE_MIN, resumen.estado).catch(() => false))) return;

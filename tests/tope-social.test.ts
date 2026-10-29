@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { topeDeError as topeDe, esperaDeRetryAfter, ESPERA_TOPE_META_MS, ESPERA_TOPE_ZERNIO_MS, type ErrorDeZernio } from '../lib/zernio-tope';
-import { resumirTopes, datosTopeSocial, textoEspera, cercaDelTopeDeMeta, TOPE_META_POR_HORA } from '../lib/tope-social';
+import { resumirTopes, datosTopeSocial, textoEspera, cercaDelTopeDeMeta, cuentaMasCargada, TOPE_META_POR_HORA } from '../lib/tope-social';
 import { EVENTOS_MAKO } from '../lib/disparadores';
 import { AVISOS_SOLO_SUPERADMIN, CATALOGO_AVISOS } from '../lib/avisos-catalogo';
 import { VARIABLES_AVISO } from '../lib/variables-aviso';
@@ -122,6 +122,10 @@ test('el motor: junta los topes de la corrida y avisa UNA vez al final (y antes 
   assert.ok(iAviso > 0 && iAviso > proc.lastIndexOf('esperaDespuesDeResponder'), 'al final de la corrida');
   const aviso = funcion(n, 'async function avisarTopesSociales(');
   assert.match(aviso, /cercaDelTopeDeMeta\(count \?\? 0\)/);
+  // ⚠️ Y POR CUENTA (la verificación de 69b49a31c): la suma del negocio sólo decide si vale la pena mirar.
+  assert.match(aviso, /const mas = cuentaMasCargada\(deLeads, \(leadId, canal\) => \{\s*const f = convs\.get\(leadId\)\?\.\[canal\];\s*return f \? conversacionDeFila\(f\)\.cuentaId : null;\s*\}\);/);
+  assert.match(aviso, /if \(!mas \|\| !cercaDelTopeDeMeta\(mas\.cuantos\)\) return;\s*resumen = \{ estado: 'cerca', quien: 'meta', canales: \[mas\.canal\], cuantos: mas\.cuantos, esperaMs: 0 \};/);
+  assert.doesNotMatch(aviso, /canales: \['instagram'\], cuantos: count/, 'ni la suma del negocio ni Instagram fijo');
   assert.match(aviso, /reclamarEspaciado\(ws, 'social-tope', VENTANA_AVISO_TOPE_MIN, resumen\.estado\)/, 'uno por estado y por hora');
   assert.match(aviso, /emitirEventoDePlataforma\('social-tope', \{ ws, datos: datosTopeSocial\(resumen\) \}\)/);
 });
@@ -135,4 +139,28 @@ test('el evento: de la plataforma, sólo SuperAdmin, y cada dato que manda el mo
   for (const k of Object.keys(datosTopeSocial({ estado: 'frenado', quien: 'meta', canales: ['instagram'], cuantos: 1, esperaMs: 1 }))) {
     assert.ok(declarados.has(k), `{{${k}}} lo manda el motor y no está entre los datos del aviso`);
   }
+});
+
+// [baja] El «cerca» sumaba el negocio entero (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): Leandro con sus dos
+// cuentas a 320 cada una daba 640 y un falso «te estás acercando»; y un negocio sólo de Messenger recibía «Instagram».
+test('el «cerca» es por cuenta, y dice el canal de esa cuenta', () => {
+  const envios = (n: number, canal: 'instagram' | 'messenger', desde: number) => Array.from({ length: n }, (_, i) => ({ leadId: desde + i, canal }));
+  const dosCuentas = [...envios(320, 'instagram', 1), ...envios(320, 'instagram', 1001)];
+  const cuentaDe = (leadId: number) => (leadId > 1000 ? 'acc_leila' : 'acc_fiesta');
+  const mas = cuentaMasCargada(dosCuentas, cuentaDe)!;
+  assert.equal(mas.cuantos, 320);
+  assert.equal(cercaDelTopeDeMeta(mas.cuantos), false, 'ninguna de las dos se acerca a su tope');
+  const una = cuentaMasCargada([...envios(610, 'instagram', 1), ...envios(30, 'instagram', 1001)], cuentaDe)!;
+  assert.deepEqual(una, { canal: 'instagram', cuenta: 'acc_fiesta', cuantos: 610 });
+  const msn = cuentaMasCargada(envios(650, 'messenger', 1), () => 'pag_1')!;
+  assert.equal(msn.canal, 'messenger');
+  const d = datosTopeSocial({ estado: 'cerca', quien: 'meta', canales: [msn.canal], cuantos: msn.cuantos, esperaMs: 0 });
+  assert.equal(d.tope_canal, 'Messenger');
+  assert.equal(d.tope_quien, 'Facebook');
+  // La misma cuenta por Instagram y por Messenger son dos topes: no se suman.
+  assert.equal(cuentaMasCargada([...envios(300, 'instagram', 1), ...envios(300, 'messenger', 1)], () => 'acc')!.cuantos, 300);
+  assert.equal(cuentaMasCargada([], () => null), null);
+  // El texto del aviso dice el canal, no «Instagram» fijo.
+  const P = leer('lib/plantillas-automatizaciones.ts');
+  assert.match(P, /mako\('st_cerca_mk', '⚠️ \*Te estás acercando al tope de \{\{tope_canal\}\}\*/);
 });

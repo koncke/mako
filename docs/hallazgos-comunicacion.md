@@ -11663,6 +11663,11 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
   «DETÉN TODO» todos los días a las 03:05. Ahora, desde el segundo día, sale de 9 a 21 en la zona del negocio
   (`enHorarioDeRecordatorio`, `zonaDelNegocio`); el primer día sigue en el acto. La cuenta compartida se sigue tomando ANTES
   de mirar el horario, así otro negocio de la misma cuenta no avisa con su reloj mientras éste espera las 9.
+  **⚠️ Y con la zona ESTRICTA (la verificación sobre 69b49a31c, 29/10):** `zonaDelNegocio` nunca tira y, sin poder leer, da
+  Tijuana; el `.catch(() => null)` de después no se alcanzaba nunca. Con una lectura caída en el tick que abre el día, el
+  recordatorio de un negocio argentino frenado a las 23:00 salía a las 23:00. Ahora `zonaDelNegocioEstricta` y, si tira, esa
+  vuelta no avisa (el cron vuelve en 10 min) DESPUÉS de tomar la cuenta. **La regla** (AGENTS.md, «Una zona, un default»):
+  cuando la zona decide una ventana, la que tira; un `.catch` detrás de una función que nunca tira es código muerto.
 - **El aviso de cancelación doble de Guillermo Wong (MAU-33) era del 13/10:** 17:21:59 y 17:22:35, el mismo texto. Fue una
   reentrega de Calendly, y el freno (`claveCancelada`, 24 h) entró el 17/10 en 6904a447f. Desde ese día los avisos de
   cancelación salen por su automatización y no quedan en `notificaciones`: no hay dato después que lo confirme, ni ningún doble.

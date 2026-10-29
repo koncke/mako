@@ -343,9 +343,14 @@ test('⚠️ el recordatorio de cada día sale DE DÍA en la zona del negocio, n
   // Sin zona, como antes; con una zona que no existe, cuenta como UTC.
   assert.equal(tocaAvisar(d0, MIN_DIA, 0, en(MIN_DIA)), true);
   assert.equal(horaEnZona(T0, 'Marte/Olympus'), 6);
-  // El cron le pasa la zona del negocio.
+  // El cron le pasa la zona del negocio, ESTRICTA (la verificación de 69b49a31c): sin poder leerla, `zonaDelNegocio` daba
+  // Tijuana y el recordatorio podía caer de noche. Sin zona, esa vuelta no avisa, DESPUÉS de dejar la cuenta tomada.
   const src = sinComentarios(leer('../lib/alerta-critica.ts'));
-  assert.match(src, /const tz = abiertos\.length \? await zonaDelNegocio\(ws\)\.catch\(\(\) => null\) : null;/);
+  assert.match(src, /try \{ tz = await zonaDelNegocioEstricta\(ws\); \} catch \(e\) \{\s*zonaIlegible = true;/);
+  assert.doesNotMatch(src, /zonaDelNegocio\(ws\)/, 'la que nunca tira no decide la ventana');
+  const iTomada = src.indexOf('if (cuentaId) yaAvisadas?.add(cuentaId);');
+  const iSalta = src.indexOf('if (zonaIlegible) continue;');
+  assert.ok(iTomada > 0 && iSalta > iTomada && iSalta < src.indexOf('tocaAvisar(estado, minAbierto, veces, Date.now(), tz)'), 'salta después de tomar la cuenta y antes de decidir');
 });
 
 // Rotura: sin poder emitir, borrar la marca igual → 42 / 1, cae éste.

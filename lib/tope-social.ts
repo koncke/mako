@@ -55,6 +55,30 @@ export function resumirTopes(topes: readonly TopeDeLaCorrida[]): ResumenTope | n
 /** ¿Lo que salió por Instagram o Messenger en la última hora ya está cerca del tope de Meta? */
 export const cercaDelTopeDeMeta = (enviadosUltimaHora: number): boolean => enviadosUltimaHora >= CERCA_DEL_TOPE_META;
 
+/**
+ * LA CUENTA MÁS CARGADA DE LA ÚLTIMA HORA (la verificación del Cerebro sobre 69b49a31c, 29/10/2026). El tope de Meta es POR
+ * CUENTA y el «cerca» sumaba el negocio entero: Leandro con sus dos cuentas a 320 cada una daba 640 y un falso «te estás
+ * acercando». Cada envío cuenta en la cuenta de la conversación del lead por ese canal (`cuentaDe`: la misma que usa el envío);
+ * sin cuenta legible, aparte, por canal. Y el canal es el de esa cuenta: un negocio que manda sólo por Messenger no recibe
+ * «Instagram». null = no salió nada.
+ */
+export function cuentaMasCargada(
+  envios: ReadonlyArray<{ leadId: number; canal: CanalSocial }>,
+  cuentaDe: (leadId: number, canal: CanalSocial) => string | null,
+): { canal: CanalSocial; cuenta: string | null; cuantos: number } | null {
+  const por = new Map<string, { canal: CanalSocial; cuenta: string | null; cuantos: number }>();
+  for (const e of envios) {
+    const cuenta = cuentaDe(e.leadId, e.canal);
+    const k = `${e.canal}:${cuenta ?? ''}`;
+    const g = por.get(k) ?? { canal: e.canal, cuenta, cuantos: 0 };
+    g.cuantos += 1;
+    por.set(k, g);
+  }
+  let max: { canal: CanalSocial; cuenta: string | null; cuantos: number } | null = null;
+  for (const g of por.values()) if (!max || g.cuantos > max.cuantos) max = g;
+  return max;
+}
+
 /** «en 1 min», «en 25 min», «en 1 h», «en 2 h». */
 export function textoEspera(ms: number): string {
   const min = Math.max(1, Math.round(ms / 60_000));

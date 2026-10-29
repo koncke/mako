@@ -102,8 +102,12 @@ la plataforma va con su línea en la mudanza; tests/mudanza-apagados lo fija par
 
 **Sin hacer:** el aviso no sale hasta que exista su fila en el ws 9 (`scripts/mudanza-avisos-plataforma.mts --eventos=social_tope`:
 escribir en producción, lo pide el Cerebro); la respuesta del AI Step (`contestarSolaPorRedes`) y la de «Si responde» por redes
-son de una vez: con un tope no se reintentan; `X-RateLimit-Remaining` se lee pero todavía no frena el ritmo antes del 429; el
-«cerca» cuenta lo que salió del negocio entero, no por cuenta de Instagram. Nunca corrió contra un tope real.
+son de una vez: con un tope no se reintentan; `X-RateLimit-Remaining` se lee pero todavía no frena el ritmo antes del 429.
+Nunca corrió contra un tope real. **El «cerca» ya es por cuenta** (la verificación sobre 69b49a31c, 29/10): sumaba el negocio
+entero (dos cuentas a 320 daban un falso «te estás acercando») y decía «Instagram» aunque saliera por Messenger. Ahora la
+suma del negocio sólo decide si vale la pena mirar, y cada envío cuenta en la cuenta de la conversación del lead por ese
+canal (`cuentaMasCargada`, lib/tope-social.ts); `nutricion_envios` no guarda la cuenta, así que es la de la conversación
+de HOY del lead, no necesariamente la que mandó.
 
 ## El primer DM de Instagram no lo contestaba nadie: el AI Step esperaba el SEGUNDO (28/10/2026, la (a) del Cerebro)
 

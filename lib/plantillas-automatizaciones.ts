@@ -1077,7 +1077,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       condicion('st_estado', [
         [[{ campo: 'dato:tope_estado', valor: 'cerca' }], 'st_cerca_mk'],
       ], 'st_frenado_mk'),
-      mako('st_cerca_mk', '⚠️ *Te estás acercando al tope de Instagram*\nEn la última hora tus automatizaciones mandaron {{tope_cuantos}}, y {{tope_quien}} deja {{tope_limite}}.\n\nSi pasa el tope, los mensajes esperan y salen solos: no se pierde ninguno. — MaKo', null),
+      mako('st_cerca_mk', '⚠️ *Te estás acercando al tope de {{tope_canal}}*\nEn la última hora una de tus cuentas mandó {{tope_cuantos}}, y {{tope_quien}} deja {{tope_limite}} por cuenta.\n\nSi pasa el tope, los mensajes esperan y salen solos: no se pierde ninguno. — MaKo', null),
       mako('st_frenado_mk', '⚠️ *{{tope_quien}} frenó los mensajes de tus automatizaciones*\nLlegaste al tope por {{tope_canal}}: {{tope_cuantos}} esperan.\n\nNo se pierde ninguno: salen solos {{tope_espera}}. — MaKo', null),
     ],
   },

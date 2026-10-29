@@ -43,7 +43,7 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { getSetting, setSetting } from './settings';
-import { zonaDelNegocio } from './timezone';
+import { zonaDelNegocioEstricta } from './timezone';
 import { credWs } from './credenciales';
 import { emitirEventoDePlataforma } from './avisos';
 import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, tocaAvisar, ventanaDelIncidente, llegoAlguno, type Insistencia } from './alerta-critica-texto';
@@ -192,8 +192,18 @@ export async function insistirAlertasCriticas(
   const yaAvisadas = opts.cuentasYaAvisadas;
   const cuentaTomada = Boolean(cuentaId && yaAvisadas?.has(cuentaId));
   if (cuentaTomada) console.log(`[alerta-critica] ws=${ws} comparte la cuenta ${cuentaId} con otro workspace ya avisado — no repito`);
-  // La zona del negocio: el recordatorio de cada día sale de día ahí (`tocaAvisar`). Sin zona, como antes.
-  const tz = abiertos.length ? await zonaDelNegocio(ws).catch(() => null) : null;
+  // La zona del negocio: el recordatorio de cada día sale de día ahí (`tocaAvisar`). ⚠️ ESTRICTA (la verificación de
+  // 69b49a31c, 29/10/2026; AGENTS.md «Una zona, un default»): `zonaDelNegocio` no tira y, sin poder leer, daba Tijuana, así
+  // que el recordatorio de un negocio argentino podía caer a las 23:00. Sin poder leerla, esta vuelta no avisa (el cron
+  // vuelve en 10 min) y la cuenta queda tomada igual: otro negocio con la misma cuenta no avisa con SU reloj.
+  let tz: string | null = null;
+  let zonaIlegible = false;
+  if (abiertos.length) {
+    try { tz = await zonaDelNegocioEstricta(ws); } catch (e) {
+      zonaIlegible = true;
+      console.error(`[alerta-critica] ws=${ws}: no pude leer la zona (${e instanceof Error ? e.message : String(e)}) — no aviso en esta vuelta`);
+    }
+  }
 
 
   // ── Los que siguen abiertos: perseguir ────────────────────────────────────
@@ -207,6 +217,7 @@ export async function insistirAlertasCriticas(
     // Diseño» (ws4), la misma cuenta impaga, emitían cada hora con media hora de diferencia. No llegaba doble sólo porque
     // ws4 no tiene grupo.
     if (cuentaId) yaAvisadas?.add(cuentaId);
+    if (zonaIlegible) continue;
     try {
       const key = keyInsistencia(inc.id);
       const raw = await getSetting(key).catch(() => null);
