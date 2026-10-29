@@ -13,6 +13,7 @@
 
 import { useId, type CSSProperties, type ReactNode } from 'react';
 import { GLIFO_SOCIAL, IDENTIDAD_SOCIAL, type CanalSocial } from '@/lib/canal-social';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /** El logo oficial (simple-icons) en blanco sobre su degradé. Dibujado acá: no depende de `BrandDefs`. */
 export function LogoSocial({ canal, size = 22, radio }: { canal: CanalSocial; size?: number; radio?: number }) {
@@ -105,7 +106,8 @@ export function ArchivoSocial({ canal, url, mime, nombre, compacta, saliente = t
 
 /** La cabecera de la conversación: la foto (las iniciales) y el nombre, como arriba de un DM. */
 export function CabeceraSocial({ canal, nombre, detalle, derecha }: { canal: CanalSocial; nombre: string; detalle?: string; derecha?: ReactNode }) {
-  const inicial = (nombre.trim()[0] ?? '?').toUpperCase();
+  // La primera LETRA (lib/unicode-seguro): `trim()[0]` es media unidad de un emoji («🚀 Ana» → «\uD83D»), y React #418.
+  const inicial = iniciales(nombre, 1);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', minWidth: 0 }}>
       <span aria-hidden style={{

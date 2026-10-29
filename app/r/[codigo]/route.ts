@@ -10,23 +10,20 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
 import { codigoRefLimpio } from '@/lib/compra-plan-reglas';
 import { COOKIE_REF, DIAS_COOKIE_REF } from '@/lib/partners-reglas';
-import { sumarVisitaAlLink } from '@/lib/partners-programa';
+import { codigoVigente, sumarVisitaAlLink } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
 
-async function existe(codigo: string): Promise<boolean> {
-  const { data, error } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();
-  return !error && !!data;
-}
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ codigo: string }> }) {
   const { codigo: crudo } = await params;
-  const codigo = codigoRefLimpio(crudo);
+  const limpio = codigoRefLimpio(crudo);
   const destino = new URL('/planes', req.nextUrl.origin);
-  if (!codigo || !(await existe(codigo))) return NextResponse.redirect(destino, 302);
+  // El código que vale HOY (27/10/2026): un link viejo, de antes de que el partner cambiara su código, lleva con el nuevo
+  // (lib/partners-programa.ts, `codigoVigente`). Si no es de nadie, o no se pudo leer, a /planes sin código.
+  const codigo = limpio ? await codigoVigente(limpio).catch(() => null) : null;
+  if (!codigo) return NextResponse.redirect(destino, 302);
   const previo = codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value);
   const vale = previo ?? codigo;
   destino.searchParams.set('ref', vale);

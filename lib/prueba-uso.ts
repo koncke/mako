@@ -16,7 +16,9 @@
 import 'server-only';
 import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
-import { runWithWorkspace, wsSuperAdmin } from './workspace';
+import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
+import { CLAVE_PLAN_A_MANO, leerPlanAMano } from './plan-a-mano-reglas';
+import { nombreDePlan } from './clientes-plataforma-reglas';
 import { getSetting, setSetting } from './settings';
 import { diasQueQuedan, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
 import { NOMBRE_COSA_PRUEBA, textoTopePrueba, topeEnPrueba, type TopePrueba } from './topes-plan';
@@ -43,7 +45,10 @@ export const estadoDePrueba = cache(async (ws: number): Promise<EstadoPrueba> =>
       .order('pagado_at', { ascending: false, nullsFirst: false }).order('id', { ascending: false }).limit(1).maybeSingle();
     if (error) throw new Error(error.message);
     const c = data as { tipo: string; estado: string; creado_por: string | null; alta_capa: string | null; inicio_at: string | null; monto: number | null; moneda: string | null; concepto: string | null } | null;
-    if (!c || !esPruebaDePlan(c) || c.estado !== 'pendiente') return nada;
+    // Sin ninguna suscripción de MaKo, el plan a mano (si tiene). Con una pagada, nada: con el primer cobro los topes se van solos,
+    // aunque haya quedado un vencimiento a mano de antes.
+    if (!c) return await deUnPlanAMano(ws, nada);
+    if (!esPruebaDePlan(c) || c.estado !== 'pendiente') return nada;
     // El concepto es «MaKo Pro · mensual» (`conceptoDelPlan`): el plan es lo de antes del punto.
     const plan = (c.concepto ?? '').replace(/\s*·\s*mensual$/i, '').trim() || null;
     const despues = c.monto != null && c.moneda ? `${formatoMonto(Number(c.monto), c.moneda)}/mes` : null;
@@ -53,6 +58,42 @@ export const estadoDePrueba = cache(async (ws: number): Promise<EstadoPrueba> =>
     return nada;
   }
 });
+
+/**
+ * EL PLAN DADO A MANO CON VENCIMIENTO (28/10/2026, lib/plan-a-mano-reglas.ts): sin una prueba por la pasarela, el negocio que
+ * tiene uno está «en prueba» con el plan que le dieron, vigente o vencido sin resolver: los topes de la prueba valen hasta que
+ * Martín le saque el vencimiento. Sin cobro que lo diga, «después» no se sabe. Sin poder leer: no está (deja pasar).
+ */
+async function deUnPlanAMano(ws: number, nada: EstadoPrueba): Promise<EstadoPrueba> {
+  const p = leerPlanAMano(await runWithWorkspace(ws, () => getSetting(CLAVE_PLAN_A_MANO)));
+  if (!p) return nada;
+  // ⚠️ YA PAGÓ CON SU EMAIL (29/10/2026, la verificación de ddfa645d4): quien compra por /planes con el email de una cuenta que ya
+  //    existe deja el cobro `ya_tenia_cuenta`, SIN atar al negocio (`alta_ws` null) hasta que Martín lo ate en /admin/cobros, y el
+  //    negocio que ya pagó seguía con los topes de la prueba (y al vencer le llegaba «Terminó tu prueba»). Acá el email SÓLO quita
+  //    topes, nunca ata ni pausa: quien paga con tu email te paga a vos (atarlo solo, en cambio, es lo que lib/plan-acceso.ts no hace).
+  if (await pagoConElEmailDeSusAdmins(ws)) return nada;
+  const w = await getWorkspace(ws);
+  const capa = w?.capa ?? null;
+  if (!capa) return nada;
+  return { enPrueba: true, capa, hasta: p.hasta, despues: null, plan: nombreDePlan(capa), dias: diasQueQuedan(p.hasta, Date.now()) };
+}
+
+/**
+ * ¿Hay un cobro PAGADO de la plataforma, `ya_tenia_cuenta` y sin atar, con el email de un admin de este negocio? Tira si no se
+ * puede leer (el que llama lo toma como «sin topes»).
+ */
+async function pagoConElEmailDeSusAdmins(ws: number): Promise<boolean> {
+  const db = getSupabaseServer();
+  const { data: us, error: eU } = await db.from('usuarios').select('email, rol_ws').eq('workspace_id', ws).limit(50);
+  if (eU) throw new Error(eU.message);
+  const emails = [...new Set(((us ?? []) as Array<{ email: string | null; rol_ws: string | null }>)
+    .filter((u) => u.email && (u.rol_ws === 'admin' || u.rol_ws == null)).map((u) => u.email!.trim().toLowerCase()))];
+  if (!emails.length) return false;
+  const { data, error } = await db.from('cobros').select('id, email').eq('workspace_id', await wsSuperAdmin())
+    .eq('estado', 'pagado').eq('alta_estado', 'ya_tenia_cuenta').is('alta_ws', null).limit(500);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{ email: string | null }>).some((c) => !!c.email && emails.includes(c.email.trim().toLowerCase()));
+}
 
 /** Lo usado en la prueba, por cosa. */
 export function leerUsoDePrueba(crudo: string | null | undefined): Partial<Record<TopePrueba, number>> {

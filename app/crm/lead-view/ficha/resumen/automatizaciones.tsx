@@ -29,17 +29,17 @@ import Link from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Confirm } from '@/app/_ui/Confirm';
 import {
-  fechaCorta, lineaDelBloque, ordenarTarjetas, preguntaDeEmpezarDeNuevo, preguntaDeFrenarEnFicha, vistaVacia,
+  fechaCorta, lineaDelBloque, ordenarTarjetas, preguntaDeEmpezarDeNuevo, preguntaDeFrenarEnFicha, preguntaDeVolverAProbar, vistaVacia,
   type AutomatizacionesVista, type InscripcionVista,
 } from '@/app/crm/automatizacion-lead';
 import { useTzWorkspace } from '../../useTzWorkspace';
 import type { PropsBloque } from '../tipos';
 import { Bloque } from './piezas';
 import { useLectura } from './lectura';
-import { empezarDeNuevoDelBloque, frenarDelBloque, leerAutomatizacionesDelBloque } from './automatizaciones-datos';
+import { empezarDeNuevoDelBloque, frenarDelBloque, leerAutomatizacionesDelBloque, volverAProbarDelBloque } from './automatizaciones-datos';
 import { FilaAutomatizacion, TarjetaAutomatizacion, type EntornoTarjeta } from './tarjeta-automatizacion';
 
-type Accion = { tipo: 'frenar' | 'empezar'; aut: InscripcionVista };
+type Accion = { tipo: 'frenar' | 'empezar' | 'probar'; aut: InscripcionVista };
 /** Cuántas terminadas se ven antes de «Ver N más». */
 const TERMINADAS_A_LA_VISTA = 3;
 
@@ -80,14 +80,15 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
     try {
       const q = tipo === 'frenar'
         ? await frenarDelBloque(ctx.lead.id, aut.secuenciaId)
+        : tipo === 'probar' ? await volverAProbarDelBloque(ctx.lead.id, aut.secuenciaId)
         : await empezarDeNuevoDelBloque(ctx.lead.id, aut.secuenciaId);
       if (q.ok) {
-        show(tipo === 'frenar' ? 'Frenada' : 'Empezó de nuevo', undefined, 'good');
+        show(tipo === 'frenar' ? 'Frenada' : tipo === 'probar' ? 'Lista para volver a probar' : 'Empezó de nuevo', undefined, 'good');
         // La recién frenada pasa a las terminadas: abierta, para que se vea qué le pasó.
         if (tipo === 'frenar') abrir(aut.secuenciaId);
       } else setError({ secuenciaId: aut.secuenciaId, texto: q.error });
     } catch {
-      setError({ secuenciaId: aut.secuenciaId, texto: tipo === 'frenar' ? 'No se pudo frenar.' : 'No se pudo empezar de nuevo.' });
+      setError({ secuenciaId: aut.secuenciaId, texto: tipo === 'frenar' ? 'No se pudo frenar.' : tipo === 'probar' ? 'No se pudo dejar para volver a probar.' : 'No se pudo empezar de nuevo.' });
     }
     setHaciendo(false);
     setAccion(null);
@@ -97,10 +98,11 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
   const pregunta = accion
     ? (accion.tipo === 'frenar'
       ? preguntaDeFrenarEnFicha({ nombre: ctx.lead.nombre, aut: accion.aut })
+      : accion.tipo === 'probar' ? preguntaDeVolverAProbar({ nombre: ctx.lead.nombre, aut: accion.aut })
       : preguntaDeEmpezarDeNuevo({ nombre: ctx.lead.nombre, aut: accion.aut }))
     : null;
   const confirmacion = pregunta && (
-    <Confirm title={pregunta.titulo} message={pregunta.mensaje} confirmLabel={accion?.tipo === 'frenar' ? 'Frenar' : 'Empezar de nuevo'}
+    <Confirm title={pregunta.titulo} message={pregunta.mensaje} confirmLabel={accion?.tipo === 'frenar' ? 'Frenar' : accion?.tipo === 'probar' ? 'Volver a probar' : 'Empezar de nuevo'}
       tone={accion?.tipo === 'frenar' ? 'danger' : 'primary'} loading={haciendo} onConfirm={() => void confirmar()} onCancel={cancelar} />
   );
   const aviso = <Toast state={toast} onClose={clear} />;
@@ -136,6 +138,7 @@ export function AutomatizacionesDelLead({ ctx, titulo, diseno, epico }: PropsBlo
       onAntes={() => alternar(setConAntes, a.secuenciaId)}
       onFrenar={() => { setError(null); setAccion({ tipo: 'frenar', aut: a }); }}
       onEmpezar={() => { setError(null); setAccion({ tipo: 'empezar', aut: a }); }}
+      onProbar={() => { setError(null); setAccion({ tipo: 'probar', aut: a }); }}
       onPlegar={plegable ? () => plegar(a.secuenciaId) : undefined} />
   );
   const fila = (a: InscripcionVista) => <FilaAutomatizacion key={a.secuenciaId} a={a} en={en} onAbrir={() => abrir(a.secuenciaId)} />;

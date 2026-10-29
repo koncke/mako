@@ -867,6 +867,9 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   número después de recorrer `git worktree list` y listar cada `supabase/migrations/`. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
+  ⚠️ **Y el barrido va también por las ETIQUETAS** (`respaldo/*`, `nube/*`: el trabajo de un chat cortado o en la nube vive
+  ahí, y `git branch -a` no las lista) **y por las ramas que no están en el tren.** El 28/10/2026 la 0340 «verificada libre»
+  mirando tren-o y main era de `motion-imagen-2610`: docs/hallazgos-infra.md, «Un número de migración "verificado libre"».
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
@@ -3828,6 +3831,15 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   (tests/pasarela-sin-env.test.ts, tests/cobros-servicio.test.ts).
 - **Lo que confirma la pasarela se RELEE al proveedor** con la clave del workspace ruteado antes de aplicarse: el
   cuerpo de un aviso nunca marca nada pagado. Y el orden es CRM → Ganado → alta → Automations.
+  ⚠️ **Y releer no alcanza: lo releído tiene que ser lo que MaKo armó para ESE cobro, por lo que pide** (28/10/2026). El
+  token del cobro viaja en /pagar/<token> y un Payment Link acepta `?client_reference_id=<token>`: una venta de US$1 marcaba
+  pagado un cobro de US$1.500. La sesión lleva la metadata de MaKo (o es la guardada en el cobro), no sale de un Payment Link,
+  y el monto y la moneda alcanzan (`sesionDelCobro`, lib/cobros-eventos.ts); si no, se ignora con un ticket. Detalle:
+  [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Un Payment Link con el token de un cobro de MaKo».
+  ⚠️ **Y una guarda que se extiende de un caso a TODOS los cobros se decide estado por estado** (28/10/2026): «sesión `complete`
+  → ya pagado», escrita para la prueba de Stripe, dejó en un bucle a un OXXO o SEPA que FALLÓ (también `complete`, pero `unpaid`).
+  Antes de generalizarla, listar qué estados llegan (`paid`, `no_payment_required`, `unpaid` × cobro pendiente o fallido) y
+  decidir cada uno ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Una guarda nueva que vale para TODO cobro…»).
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
@@ -5348,7 +5360,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
-  `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
+  `pii: true`. Un `return` nuevo de `chatCheapCascade` con lo aceptado lleva su `anotarQuien` (`quienOut`, 27/10/2026): el chat
+  de Automations dice qué IA contestó (tests/automations-quien-contesto.test.ts los cuenta). Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
   misma regla él mismo: el corte de la cascada no lo cubre. Si la red manda HERRAMIENTAS de la API, «¿lee datos de
   clientes?» lo contesta el registro (`leeDatosDeClientes`: `DATOS_DE_CLIENTES_POR_AREA` y la marca `datosDeClientes`
   de cada operación), y se corta por lo que el turno PIDE, no por lo que viaja (molde: `turnoParaLaRed`,
@@ -6828,6 +6841,13 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
 - **Con clave, el registro es estricto** (sin base, no se crea nada: sin fila no hay cómo
   deduplicar), **y se abre DESPUÉS de los chequeos que pueden cortar**: una fila en 'creando'
   dejada por un 409 hace esperar al reintento legítimo.
+- **Si la fila se REUSA para otra corrida, la clave lleva la corrida** (29/10/2026, la verificación
+  sobre 69b49a31c): Zernio guarda la respuesta de cada clave 24 h, y `nutri:<inscripción>:<nodo>`
+  servía mientras una inscripción era UNA corrida. «Volver a probar» la reusa: la segunda prueba
+  mandaba con la clave de la primera, la pública daba 422 y el DM volvía con el 200 viejo sin
+  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). Y lo que se CREA
+  a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
+  otro: `crearDifusion` (lib/difusion.ts).
 
 # Un ticket de un cliente: el contexto lo junta el código, lo del cliente es DATO, y se cierra con el deploy
 
@@ -9984,6 +10004,16 @@ veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 ya costó las `variantes` borradas en silencio. Y al revés (25/10/2026): quien cambia el TEXTO de un
 mensaje manda `variantes: []` —son formas de decir el texto viejo, y el motor las sortea—; la clave
 ausente las conserva (docs/hallazgos-chatbot.md).
+Y un selector de línea PARA MANDAR (el número de salida de la automatización o de un mensaje, el «Sale desde» de
+«Probar») lee `RUTA_LINEAS` (app/automations/SalidaWhatsApp.tsx, `para=mandar`): en la plataforma el envío pone la de
+MaKo primero y por defecto, y con la lista del negocio la pantalla decía una línea y salía por otra (27/10/2026,
+docs/hallazgos-comunicacion.md). La bandeja y las operaciones de la línea siguen con las del negocio.
+Y un campo nuevo del CRON (un `Disparador`) tiene SU quinta puerta: `disparadoresDe` rearma el primero de las columnas y
+le devuelve de la lista sólo lo que nombra; sin sumarlo ahí (y a `higiene` y a `firmaDisparador`) se pierde en cada lectura
+del primero, sin error (28/10/2026, las palabras clave del comentario, docs/hallazgos-chatbot.md).
+Y un campo que se EDITA no muestra lo saneado (27/10/2026, ticket #12: el `trim` de `botonesDe` en cada tecla volvía
+«Obtener recurso» «Obtenerrecurso»): sanear es para lo que sale (el motor, Publicar), no para lo que se está escribiendo
+(`botonesDe(…, { comoSeEscribe: true })`, docs/hallazgos-chatbot.md).
 
 **La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
 adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa

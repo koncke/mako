@@ -266,7 +266,7 @@ test('Probar 1: al salir la prueba de verdad, un aviso corto con dónde mirar, U
 });
 
 test('Probar 2: «De → Para» envuelve; la flecha va pegada al destino', () => {
-  assert.equal(lineaDeEnvio('MaKo <equipo@hola-mako.com>', 'martinkoncke@gmail.com'), 'MaKo <equipo@hola-mako.com> →\u00a0martinkoncke@gmail.com');
+  assert.equal(lineaDeEnvio('MaKo <equipo@hola-mako.com>', 'martinkoncke@gmail.com'), 'Sale desde MaKo <equipo@hola-mako.com> →\u00a0martinkoncke@gmail.com');
   assert.equal(lineaDeEnvio(null, '+52 55 1234 5678'), 'Llega a\u00a0+52 55 1234 5678');
   const panel = sinComentarios(leer('app/automations/PanelProbar.tsx'));
   const linea = panel.slice(panel.indexOf('data-linea-envio'), panel.indexOf('</div>', panel.indexOf('data-linea-envio')));

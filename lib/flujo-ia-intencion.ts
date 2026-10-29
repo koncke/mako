@@ -17,7 +17,7 @@
 //   · En los TRES, lo último de la charla viaja al modelo (`bloqueDeLaCharla`): sin eso, «como te dije» no existe.
 // =============================================================================
 
-import { esPreguntaDictada } from './flujo-ia-consulta';
+import { esPreguntaDictada, esPreguntaConSignos } from './flujo-ia-consulta';
 
 export type IntencionChat = 'discutir' | 'editar';
 
@@ -50,6 +50,10 @@ export const LO_QUE_NO_ES_TARJETA = [
   '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones, «Horario de oficina».',
   '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día: Configuraciones, «Todos los canales», «Goteo» y «Tope por día».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
+  // 27/10/2026 (Leandro, 876470842: el número de Fiesta Music lo usan también los clientes de la distribuidora). Medido en el
+  // código: lo que entra por WhatsApp sólo se engancha a un lead que ya existe (`matchLeadPorTelefono`, lib/evolution-mensajes.ts);
+  // nada crea un lead por un mensaje entrante, y las automatizaciones y el AI Step corren sobre leads.
+  '- A quién le escriben las automatizaciones: sólo a los leads del CRM de este negocio. Alguien que escribe al WhatsApp y no es un lead (por ejemplo, los clientes de otro negocio que comparte el número) no entra en ninguna y nadie le contesta solo. Un contacto que SÍ está en el CRM (importado o traído de un grupo) entra en las de su etapa.',
 ].join('\n');
 
 /** Las reglas de DISCUTIR (el prompt de explicar ya sólo puede devolver "respuesta"). */
@@ -89,7 +93,9 @@ export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: {
   // «en Configuraciones, «Todos los canales», «Goteo»» (sin «›»: así lo dice el prompt desde el 23/10/2026) también nombra el lugar.
   if (lugares.length || /Configuraciones/.test(respuesta) || respuesta.includes('↶')) return null;
   const delega = /p[ií]d[eé]melo|hazlo t[uú]|desde el lienzo|ag[ré]galo t[uú]|habr[íi]a que|tendr[íi]as que/i.test(respuesta);
-  if (/\bno (se puede|puedo|existe|está|hay)\b/i.test(respuesta) && !delega) return null;
+  // «No tengo audios guardados» (27/10/2026, el arnés con el modelo real: «¿Le agregás un audio al final?» sin audios) es un
+  // «no se puede» con su motivo: rechazarlo mandaba al reintento a armar OTRA cosa.
+  if (/\bno (se puede|puedo|existe|está|hay|tengo)\b/i.test(respuesta) && !delega) return null;
   if (respuesta.includes('?') && !o.charlaConTextos && !delega) return null;
   return o.esPregunta && !delega ? null : ERROR_EDITAR_SIN_CAMBIOS;
 }
@@ -117,11 +123,13 @@ export function charlaConTextos(historial: readonly MensajeCharla[] | null | und
 
 /**
  * ¿Es una pregunta directa («¿Qué hace?», «¿A cuántos les llega?»), sin textos pegados? En Editar va al prompt de explicar.
- * También la DICTADA, sin signos (24/10/2026, f18: `esPreguntaDictada`, lib/flujo-ia-consulta.ts).
+ * También la DICTADA, sin signos (24/10/2026, f18: `esPreguntaDictada`, lib/flujo-ia-consulta.ts). Y desde el 27/10/2026
+ * (874749710-11), con los signos en cualquier lugar y sin un pedido de cambio (`esPreguntaConSignos`): antes valía sólo
+ * empezar con «¿» o terminar en «?», y «¿Le agregás un audio?» se contestaba en vez de hacerse.
  */
 export function esPreguntaDirecta(pedido: string): boolean {
   const t = String(pedido ?? '').trim();
-  return !traeTextosPegados(t) && (t.startsWith('¿') || /\?\s*$/.test(t) || esPreguntaDictada(t));
+  return !traeTextosPegados(t) && (esPreguntaConSignos(t) || esPreguntaDictada(t));
 }
 
 /**

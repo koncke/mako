@@ -106,7 +106,7 @@ import {
   condicionPorId, problemaDeFila, OPERADORES, seccionesDeCondiciones, deValorOpcion, opcionesDe, normalizarTexto, valoresDeFila,
   type OperadorCondicion, type CatalogosCondicion, type AmbitoDisparo, type DefCondicion, type CatalogoValor,
 } from './condiciones-catalogo';
-import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, type CanalSocial } from './canal-social';
+import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, respondeEnComentario, type CanalSocial } from './canal-social';
 import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON, botonesDe, type BotonSocial } from './botones-social';
 import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
@@ -1051,6 +1051,21 @@ function canalDeTarjeta(c: Card, est: Estado): CanalIA {
   return est.canalDefecto;
 }
 
+/**
+ * ¿PUEDE ESTE MENSAJE RESPONDER EN EL COMENTARIO? (ticket #17, 28/10/2026). Por Instagram o Messenger, y con un CRON que no
+ * sea otro evento de ese canal (`instagram:dm` no deja comentario que responder). Un CRON sin el evento (`trigger:instagram`)
+ * o sin elegir no frena: lo dice el motor si no hay comentario. Si no puede, el porqué va en los avisos.
+ */
+function respondeEnElComentario(social: CanalSocial | null, est: Estado): boolean {
+  if (!social) { est.avisos.push('Responder en el comentario es de Instagram y Messenger: va como mensaje'); return false; }
+  const m = /^(instagram|messenger):(.+)$/.exec(est.cron ?? '');
+  if (m && (m[1] !== social || m[2] !== 'comentario')) {
+    est.avisos.push('Responder en el comentario es con un CRON de comentario: va por mensaje privado');
+    return false;
+  }
+  return true;
+}
+
 function nodoDe(c: Card, est: Estado): NodoIA {
   const raw = c.raw;
   const { ctx, avisos } = est;
@@ -1126,6 +1141,12 @@ function nodoDe(c: Card, est: Estado): NodoIA {
             avisos.push(`Con botones, Instagram corta el texto en ${TOPE_TEXTO_CON_BOTONES} caracteres: lo acorté`);
           }
         }
+      }
+      // LA RESPUESTA PÚBLICA (ticket #17 de Leandro, 28/10/2026): "en_comentario": true publica el texto debajo del comentario
+      // que disparó el flujo. Sólo por Instagram o Messenger con un CRON de comentario, y sin botones.
+      if (raw.en_comentario === true && respondeEnElComentario(social, est)) {
+        paso.en_comentario = true;
+        if (n.botones.length) { n.botones = []; avisos.push('Una respuesta en el comentario no lleva botones: los saqué'); }
       }
       if (!cuerpo && paso.tipo !== 'audio' && paso.tipo !== 'media') { avisos.push('Saqué un mensaje vacío'); n.quitar = true; return n; }
       paso.cuerpo = cuerpo;
@@ -2469,6 +2490,14 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, exist
       est.avisos.push(`Con botones, Instagram corta el texto en ${TOPE_TEXTO_CON_BOTONES} caracteres: lo acorté`);
     }
   }
+  // LA RESPUESTA EN EL COMENTARIO (ticket #17, 28/10/2026): "en_comentario" true o false. Sin nombrarla queda como estaba; si el
+  // mensaje deja Instagram y Messenger, se va. Prendida, el mensaje no lleva botones.
+  if (toca('en_comentario')) {
+    if (x.en_comentario === true && respondeEnElComentario(social, est)) {
+      q.en_comentario = true;
+      if (botonesDe(q).length) { delete q.botones; est.avisos.push('Una respuesta en el comentario no lleva botones: los saqué'); }
+    } else delete q.en_comentario;
+  } else if (!social) delete q.en_comentario;
   return q;
 }
 
@@ -3474,6 +3503,8 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compact
         // cada uno o qué link abre. Sin esto el modelo no los veía, y un pedido sobre ellos no tenía de dónde agarrarse.
         const bs = botonesDe(p);
         if (bs.length) t.botones = bs.map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, sigue: b.siguiente ?? null }));
+        // La respuesta pública (ticket #17): sin esto, «sacá la respuesta pública» no sabía cuál era.
+        if (respondeEnComentario(p)) t.en_comentario = true;
         t.sigue = sigue();
         tarjetas.push(t);
         return;
@@ -3689,6 +3720,17 @@ export const PRUEBA_AB_IA = 'PRUEBA A/B: para probar dos versiones de algo, una 
 /** Al EDITAR (25/10/2026): cambiar los botones de un mensaje y colgar tarjetas nuevas de uno. */
 export const BOTONES_AL_EDITAR = 'Para cambiar los botones de un mensaje: en "cambiar", su id con "botones" (la lista NUEVA entera; cada "sigue" a una tarjeta que ya está). Para colgar tarjetas nuevas de un botón: en "agregar", "despues_de": el id del mensaje y "salida": "btn:<id del botón>".';
 
+/**
+ * LA RESPUESTA PÚBLICA AL COMENTARIO (ticket #17 de Leandro, 28/10/2026), SÓLO si el pedido habla de responder en público o
+ * el flujo ya la tiene: el techo de Groq no deja sumarla a todos (tests/crear-ia-tercera.test.ts).
+ */
+export const RX_PIDE_PUBLICO = /\bp[uú]blic(o|a|os|as|amente)\b|\b(respond|contest)\w*\s+(el|al|los|a\s+los|su|sus)\s+comentarios?\b/i;
+
+export const RESPUESTA_PUBLICA = 'RESPUESTA PÚBLICA: con un CRON de comentario, un "mensaje" con "en_comentario": true se publica DEBAJO del comentario, a la vista de todos (sólo texto, sin botones). Va ANTES del mensaje privado y es corta («¡Te lo mandé por mensaje!»); el contenido va en el privado.';
+
+/** Al EDITAR: prenderla o apagarla en un mensaje que ya está. */
+export const RESPUESTA_PUBLICA_AL_EDITAR = 'Para prenderla o apagarla: en "cambiar", su id con "en_comentario": true o false.';
+
 export const BOTONES_SOCIAL = 'BOTONES: un "mensaje" puede llevar "botones": hasta 3, {"titulo" (hasta 20 letras), "sigue": id} (tocarlo sigue por ahí y puede volver a una tarjeta de antes) o {"titulo", "link"}. Un recurso a cambio de seguir la cuenta: el primer mensaje con un botón («Obtener recurso») que sigue en una "condicion" con "sigue_instagram"; el link va SÓLO en el mensaje del sí, y el del no lleva un botón («Ya te sigo») que vuelve a esa condición.';
 
 export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
@@ -3698,6 +3740,7 @@ export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
   const pedido = [
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
     ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`, BOTONES_SOCIAL] : []),
+    ...(canal && esCanalSocial(canal) && RX_PIDE_PUBLICO.test(d.pedido) ? [RESPUESTA_PUBLICA] : []),
     ...(RX_PIDE_AB.test(d.pedido) ? [PRUEBA_AB_IA] : []),
     ...(d.recurrente ? [d.recurrente.linea] : []),
     'Arma la automatización.',
@@ -3814,9 +3857,12 @@ export function userDeEditar(ctx: CtxIA, d: DatosPedido, pasos: readonly PasoGra
   // LOS BOTONES (25/10/2026), sólo si el flujo ya los tiene o el pedido habla de ellos (o de que lo sigan): pesan ~250 tokens y
   // «cambia WhatsApp por Instagram» con el CRON pasaba el techo de Groq (tests/editar-ia-cambiar-quitar.test.ts).
   const conRedes = pasos.some((p) => botonesDe(p).length > 0) || RX_PIDE_BOTONES.test(d.pedido);
+  // La respuesta pública (ticket #17): sólo si el flujo ya la tiene o el pedido habla de ella.
+  const conPublica = pasos.some((p) => respondeEnComentario(p)) || RX_PIDE_PUBLICO.test(d.pedido);
   return [
     ...bloquesDeContexto(ctx, d, { cron }),
     ...(conRedes ? [BOTONES_SOCIAL, BOTONES_AL_EDITAR] : []),
+    ...(conPublica ? [RESPUESTA_PUBLICA, RESPUESTA_PUBLICA_AL_EDITAR] : []),
     // La prueba A/B: sólo si el pedido habla de ella (el flujo que ya la tiene la muestra en `aIA` como "prueba_ab").
     ...(RX_PIDE_AB.test(d.pedido) ? [PRUEBA_AB_IA] : []),
     ...(k >= 0 ? [`CRON ACTUAL: ${claveDisparo(k)}`] : []),
@@ -4156,6 +4202,8 @@ export type ListoIA = {
   cron?: CronAviso | null;
   /** Crear: lo que dijo MaKo («Creé «X»: sale … Manda «…»»), armado por el server con lo guardado (`textoDeCreada`). */
   texto?: string;
+  /** Qué IA lo contestó, en palabras («Con tu Claude», lib/quien-contesto.ts, 27/10/2026); ausente si no se sabe. */
+  ia?: string;
 } & Partial<ExtrasEdicionIA>;
 
 /**

@@ -11,7 +11,8 @@
 import type { NextRequest } from 'next/server';
 import { getConversacionesNoOficial, getResumenNoOficial, getMensajesDeChat, buscarLeadsComoPlaceholders } from '@/lib/evolution-mensajes';
 import { enviarYEspejar, enviarMediaYEspejar, enviarAudioYEspejar } from '@/lib/evolution-envio';
-import { jidToNumero, fetchProfilePic, fetchMediaBase64, listarLineas } from '@/lib/evolution';
+import { jidToNumero, fetchProfilePic, fetchMediaBase64, listarLineas, lineasParaMandarAqui } from '@/lib/evolution';
+import { esLineaDeMaKo } from '@/lib/linea-plataforma';
 import { rotuloLinea } from '@/lib/lineas-whatsapp';
 
 export const dynamic = 'force-dynamic';
@@ -64,9 +65,13 @@ export async function GET(req: NextRequest) {
     // Las líneas del negocio para el desplegable de la bandeja. Acá y no en /api/whatsapp/evolution
     // (sólo admin) porque la bandeja la usa todo el equipo. Sólo el rótulo, el estado y cuál es la
     // de por default: el número completo y la gestión de la línea siguen siendo del admin.
+    // ⚠️ `para=mandar` (27/10/2026): los selectores de Automations piden las líneas CON LAS QUE SE MANDA (en la plataforma,
+    // la de MaKo primero y por defecto, `lineasParaMandarAqui`); la bandeja, las del negocio. Sin eso «Probar» decía una
+    // línea y salía por otra. El «Línea N» cuenta sólo las del negocio: la de MaKo tiene su nombre.
     if (req.nextUrl.searchParams.get('lineas') === '1') {
-      const lineas = await listarLineas();
-      return Response.json({ ok: true, lineas: lineas.map((l, i) => ({ linea: l.instance_name, rotulo: rotuloLinea(l, i), estado: l.estado, esDefault: l.es_default })) });
+      const lineas = req.nextUrl.searchParams.get('para') === 'mandar' ? await lineasParaMandarAqui() : await listarLineas();
+      const propias = lineas.filter((l) => !esLineaDeMaKo(l.instance_name));
+      return Response.json({ ok: true, lineas: lineas.map((l) => ({ linea: l.instance_name, rotulo: rotuloLinea(l, Math.max(0, propias.indexOf(l))), estado: l.estado, esDefault: l.es_default })) });
     }
     if (avatarimg) {
       // Proxy de la foto de perfil: la bajamos del CDN de WhatsApp del lado del

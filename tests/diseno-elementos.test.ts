@@ -88,7 +88,10 @@ test('el clic derecho adentro del diseño abre el MISMO menú de la sección, en
   const cuerpo = v.slice(i, v.indexOf('});', i));
   assert.match(cuerpo, /if \(e\.shiftKey\) return;/, 'con Shift, el menú del navegador (como en un bloque)');
   assert.match(cuerpo, /if \(sel && !sel\.isCollapsed\) return;/, 'con texto elegido, el menú del navegador (copiar, el corrector)');
-  assert.match(cuerpo, /m\.dispatchEvent\(new MouseEvent\('contextmenu', \{ bubbles: true, cancelable: true, clientX: r\.left \+ e\.clientX, clientY: r\.top \+ e\.clientY \}\)\);/);
+  // 29/10/2026: una copia en escritorio se dibuja a 1440 y se achica al lienzo; el punto del iframe va × la escala.
+  assert.match(v, /escalaVivo\.current = escala;/, 'el clic derecho no sabe la escala de la copia');
+  assert.match(cuerpo, /const k = escalaVivo\.current;/, 'el clic derecho no lleva el punto a la escala de la copia');
+  assert.match(cuerpo, /m\.dispatchEvent\(new MouseEvent\('contextmenu', \{ bubbles: true, cancelable: true, clientX: r\.left \+ e\.clientX \* k, clientY: r\.top \+ e\.clientY \* k \}\)\);/);
   // Lo recibe la sección, que es la que ya abre su menú en el punto.
   assert.match(leer('app/web-generator/editor/nodos/TarjetaVista.tsx'), /seccion\.addEventListener\('contextmenu', alClicDerecho\);/);
 });

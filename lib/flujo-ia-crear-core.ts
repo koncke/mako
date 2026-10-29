@@ -27,6 +27,7 @@
 //     avisos). Si el chat no se guarda, es un aviso: la automatización ya está creada.
 // =============================================================================
 
+import type { QuienContesto } from './quien-contesto';
 import { validarGrafo, type PasoGrafo } from './flujo-grafo';
 import {
   deIA, validarIA, userDeCrear, leyendoDe, leyendoTexto, conEtiquetasReales, refsSinResolver, disparadorReal, ordenDeRevelado,
@@ -35,7 +36,7 @@ import {
 } from './flujo-ia';
 import { ordenarAvisos, type DetalleCreada } from './flujo-ia-cliente';
 import {
-  preguntaAntes, preguntaDeIA, aplicarRespuestas, sanearRespuestas, turnoDelUsuario, mensajeChat, textoDeCreada,
+  preguntaAntes, preguntaDeIA, aplicarRespuestas, sanearRespuestas, turnoDelUsuario, mensajeChat, textoDeCreada, textosDeRespuestas,
 } from './flujo-ia-preguntas';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from './automatizacion-chat';
 import {
@@ -89,6 +90,8 @@ export type CreadaConIA = {
   cron?: CronAviso;
   /** Lo que dijo MaKo al crear («Creé «X»: sale … a …. Manda «…». Quedó pausada.»), para la ruta y el chat. */
   texto: string;
+  /** Qué IA lo escribió (lib/quien-contesto.ts): el chat lo dice. null = no se sabe. */
+  quien?: QuienContesto | null;
 };
 /** MaKo pregunta en vez de crear (§2.4): no se escribió NADA. */
 export type PreguntaCrearIA = { ok: false; pregunta: PreguntaMako };
@@ -100,11 +103,11 @@ type Traducido = { r: ResultadoConPregunta; errores: string[] };
 
 export type DepsCrearIA = {
   /** Lo que el negocio tiene configurado (`armarContexto`). */
-  contexto: (pedido: string) => Promise<{ ctx: CtxIA; perfil: string; voz: string | null }>;
+  contexto: (pedido: string, o?: { textos?: string }) => Promise<{ ctx: CtxIA; perfil: string; voz: string | null }>;
   /** El system prompt de crear (editable en /configuraciones). */
   system: () => Promise<string>;
   /** La cascada gratis con sus tres escalones (`generar`). */
-  generar: (p: { system: string; user: string; hastaMs: number; traducir: (obj: Record<string, unknown>) => Traducido; alIntento?: (n: number) => void }) => Promise<{ r: ResultadoConPregunta } | FalloIA>;
+  generar: (p: { system: string; user: string; hastaMs: number; traducir: (obj: Record<string, unknown>) => Traducido; alIntento?: (n: number) => void }) => Promise<{ r: ResultadoConPregunta; quien?: QuienContesto | null } | FalloIA>;
   crearEtiquetas: (nuevas: EtiquetaNueva[]) => Promise<{ ids: Map<number, number>; creadas: Array<{ id: number; nombre: string }> }>;
   /** Los pasos guardados de una fila y su nombre (null = no existe en este negocio). */
   filaDe: (id: number) => Promise<{ pasos: PasoGrafo[]; nombre: string } | null>;
@@ -164,7 +167,10 @@ export async function conConteos(p: PreguntaMako, contar?: DepsCrearIA['contar']
  */
 export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<ResultadoCrearIA> {
   const inicio = o.inicio ?? Date.now();
-  const leido = await deps.contexto(o.pedido);
+  // Con lo que escribió en «Otra cosa» (la revisión del Cerebro, 28/10/2026): «cuando hacen clic en mi anuncio» contestado
+  // ahí no traía el anuncio al catálogo, porque el contexto se armaba con el pedido de la primera vuelta.
+  const textos = textosDeRespuestas(sanearRespuestas(o.respuestas ?? []));
+  const leido = await deps.contexto(o.pedido, textos ? { textos } : undefined);
   const { perfil, voz } = leido;
   const leyendo = leyendoDe(leido.ctx, perfil);
   o.alFase?.({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
@@ -324,6 +330,7 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
     ok: true, secuenciaId: id, nombre, pasos: guardado, orden,
     avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas, disparador: puesto, texto,
     ...(rec && puesto ? { cron: rec.cron } : {}),
+    quien: g.quien ?? null,
   };
 }
 

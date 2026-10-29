@@ -2137,3 +2137,117 @@ Los pasos lo dicen en una línea. Y el test cubre el camino del CÓDIGO con la p
 prompt), no la frase que arma el modelo.
 
 *27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Instagram orgánico por Zernio: la primera fuente de redes orgánicas de MaKo (28/10/2026)
+
+Martín a Teo (28/10, 00:16:26): «por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram». MaKo no tenía
+ninguna fuente de redes orgánicas. Chat «Zernio y CAPI», pedido del Cerebro (C:/dev/revisiones/2810-promesas-teo.md).
+
+**Vive en:** `lib/organico-reglas.ts` (puro) · `lib/zernio-organico.ts` (`rendimientoInstagram`) · la operación
+`ver_rendimiento_redes` (área contenido, canal WhatsApp) · tests/organico*.test.ts.
+
+- **Lo que Zernio da (su documentación, 28/10; no medido con una cuenta real):** `GET /v1/analytics/instagram/account-insights`
+  (alcance, vistas, cuentas que interactuaron, interacciones, me gusta, comentarios, guardados, compartidos, visitas al perfil;
+  sólo `reach` tiene serie, el resto es `total_value`; hasta 90 días), `…/follower-history` (la serie de seguidores, ganados
+  y perdidos; hasta 89 días: Meta sacó `follower_count` de sus insights) y `GET /v1/analytics` (las publicaciones con sus
+  métricas, también las que no se publicaron por Zernio: `source=all`). Los datos pueden tardar hasta 48 h.
+- ⚠️ **Es PAGO y aparte: el complemento de Analytics de Zernio.** Sin él contesta 402; MaKo lo dice en palabras («la cuenta de
+  Zernio no tiene el complemento de Analytics», y cómo prenderlo) en vez de «error». **Decidido (el Cerebro, 28/10):** con la
+  clave propia (lo vigente desde el 23/10) el complemento lo prende y lo paga el NEGOCIO en su cuenta de Zernio, como cada negocio
+  paga lo suyo.
+- ⚠️ **«No pude leer» no es «cero»:** una métrica que no vino, o una respuesta con otra forma, es null y va dicha en `faltan`;
+  las tres lecturas van a la vez y una que falla no tumba a las otras. La forma de la LISTA de `/v1/analytics` no está en su
+  documentación (sólo el ejemplo de un post): se acepta `posts`, `data` o `items`, y sin ninguna es «no sé leer», no «no hay».
+- **El id de la operación no nombra la red:** tests/sin-instagram.test.ts prohíbe `/instagram|zernio/` en los ids. Y cada
+  operación que sale por HTTP necesita su ruta en `RUTAS_REST` (lib/api-mako/rest.ts): sin ella, tests/api-mako-rest.test.ts
+  da rojo y frena el tren (pasó con ésta y con `programar_publicacion`).
+- ⚠️ **`publishedAt` viene en UTC (con Z): el día se saca en la zona del negocio** (`diaLocal`). Cortarlo a 10 caracteres corría
+  al día siguiente todo lo publicado entre las 21:00 y las 23:59 de Buenos Aires, la franja fuerte de Instagram (la
+  verificación del 28/10). **No medido:** en qué zona filtra Zernio `fromDate`/`toDate` (su documentación dice sólo
+  «YYYY-MM-DD»); si es UTC, de noche «hasta hoy» deja afuera lo de después de las 21:00.
+- ⚠️ **Mientras sincroniza, Zernio manda 0, no null.** `syncStatus` (synced | pending | partial | unavailable, y por red en
+  `platformAnalytics[].syncStatus`) y `analytics.lastUpdated` null dicen que todavía no hay métricas: ese post va con sus
+  números en null, marcado (`sin_metricas`) y contado en `faltan`. Si no, el reel recién publicado (justo el que se pregunta
+  por WhatsApp) decía que nadie lo vio. Un post `synced` con 0 sigue en 0.
+- **Lo que Zernio dice que no entregó** (`unavailableMetrics: [{ metric, reason }]`, documentado en follower-history) va dicho
+  en `faltan` con su motivo, no sólo en null.
+- **Una cuenta nombrada que no está** (un error al tipear el usuario) es un error con las conectadas, no los números de la primera.
+- ⚠️ **Con la clave de la CUENTA DE MaKo** (el ws1, o un negocio con la cuenta prestada: `cfg(ws).byok` false) los textos no le
+  hablan al negocio de «tu cuenta» ni de quién paga (`textoOrganico(m, deLaCasa)`). La misma regla en Conectar: `motivoDeError`
+  miraba sólo `ws === OWNER_WS`, y a un negocio con la cuenta prestada un 402 le decía «Tu cuenta de Zernio está pausada» con el
+  link de pago de MaKo; ahora `esDeLaCasa(ws, cfg)` (lib/zernio-conectar.ts) cuenta también la prestada.
+- **Sin hacer:** las plantillas de Instagram del Dashboard (Reels, Historias, DMs) y el reporte de agencia sobre esta fuente; los
+  DMs (Zernio no los da como métrica); medir la forma real con una cuenta que tenga el complemento (y si Zernio rechaza la falta
+  del complemento con otro status que el 402 documentado: un 403 hoy se dice «clave-mala»).
+
+## Conectar Instagram y Facebook sin pegar una clave de Zernio: la cuenta de la plataforma, detrás de un interruptor (28/10/2026)
+
+Martín a Teo (28/10, 00:27:36): «te logueás con Instagram y Facebook, escaneás el QR y ya tiene acceso a todo». El Cerebro: sin
+pegar una clave de Zernio, con la cuenta de la plataforma y un perfil por negocio. Chat «Zernio y CAPI».
+
+**Vive en:** `lib/zernio.ts` (`cfg`, `plataformaPrestaSuCuenta`, `keyDeSeguimiento`) · tests/zernio-plataforma.test.ts ·
+tests/zernio-sin-respaldo.test.ts (la regla nueva).
+
+- ⚠️ **Da vuelta una decisión del 23/10** («que cada usuario traiga su API de Zernio», lo fijaba tests/zernio-sin-respaldo.test.ts).
+  No se reconstruyó nada: el modo de la cuenta de la plataforma seguía vivo para el ws1 (el perfil `mako_ws_<ws>` que acuña
+  `ensureProfile`, el ruteo por perfil y el webhook firmado con el secreto maestro). Faltaba sólo que `cfg` cayera a esa key.
+- **La regla:** la key propia gana; sin ella, la de la plataforma (`byok: false` → su perfil por negocio) SÓLO si el negocio de
+  la plataforma prende `zernio.cuenta_de_la_plataforma` = '1' (app_settings). Nunca para el negocio de la plataforma. «No pude
+  leer» el interruptor tira (no es «apagado»). La clave de «¿te sigue?» es la misma de `cfg`.
+- ⚠️ **Apagado por defecto, porque es PLATA:** con la cuenta de la plataforma, cada cuenta conectada de cada cliente (Zernio cobra
+  desde la 3.ª) y el complemento de Analytics los paga MaKo. **ESPERA LA DECISIÓN DE MARTÍN AL PRENDER** (el Cerebro, 28/10):
+  quién paga cada cuenta conectada y el complemento con la cuenta de la plataforma se decide al prenderlo, no antes. Hasta
+  entonces queda apagado, y la pantalla de /integraciones y el paso del onboarding esperan esa misma decisión.
+- **Los anuncios no cambian:** `claveZernioAnuncios` (lib/zernio-ads.ts) sigue con la key del negocio.
+- **Sin hacer:** en /integraciones el modal de Zernio sigue pidiendo la key (`ConectarRedes` sólo se ve con una key cargada,
+  app/integraciones/ServicioConfigForm.tsx) y su nota dice «Zernio te cobra a ti»: con el interruptor prendido, hay que mostrar
+  «Conectar» sin key y decir quién paga. El onboarding no tiene todavía un paso «Conectá Instagram y Facebook» (y
+  tests/sin-instagram.test.ts prohíbe un paso de onboarding cuyo texto nombre Instagram: hay que decidir cómo se llama). El aviso
+  de «la 3.ª cuenta se paga» (`aceptaCobro`) es de la cuenta del negocio: con la de la plataforma no le corresponde.
+
+## Los límites de Zernio, dichos al conectar, y de dónde se leería el consumo de mensajes (29/10/2026)
+
+Martín (28/10): «Super importante advertir en la conexión de Zernio las limitaciones, como que hasta 2 redes sociales es gratis».
+
+**Vive en:** `lib/zernio-redes.ts` (`textoGratisZernio`, `MENSAJES_GRATIS_ZERNIO`, `ANUNCIOS_GRATIS_ZERNIO`, `USD_CUENTA_EXTRA_ZERNIO`,
+`textoAvisoCobro`) · `app/integraciones/ConectarRedes.tsx` (la línea, abajo de la de las cuentas) · tests/zernio-aviso-cobro.test.ts.
+
+- **Lo gratis, de zernio.com/pricing (leído el 28/10 23:40 y otra vez el 29/10 02:20):** 2 cuentas; 10.000 mensajes ENVIADOS por mes
+  (los recibidos, los comentarios y las reseñas no cuentan; los DM de X y los SMS van aparte); 500 anuncios gestionados. Sin tarjeta,
+  al llegar a 10.000 los ENVÍOS se frenan hasta el mes siguiente (leer, Analytics y publicar siguen); con tarjeta, US$1 cada 10.000.
+  ⚠️ La página se contradice: la tabla dice US$6 de la 3.ª a la 10.ª y su FAQ dice «$6/account for 1-10». Vale la tabla (2 gratis,
+  y así cobró a Leila).
+- ⚠️ **Analytics NO se promete.** La página dice «incluido en cada cuenta», la doc dice que `follower-stats` pide el complemento, y
+  MaKo midió un 402 que lo pedía. El test fija que el texto no lo nombre hasta que alguien lo mida con una cuenta real.
+- ⚠️ **La nota de la key no da para los límites:** el tope de una nota es una línea (120, tests/tutoriales-legibles.test.ts) y su
+  texto lo fija tests/zernio-sin-respaldo.test.ts. Los límites van en el modal, abajo de la línea de las cuentas (con la key guardada).
+- ⚠️ **La salida gratis «conecta otra cuenta de Zernio (de otro email)» NO se dice NUNCA** (Martín, 29/10, por el Cerebro: cada
+  negocio con SU cuenta de Zernio; si necesita más, paga su plan). Varias cuentas gratis para un mismo negocio arriesgan la
+  suspensión de Zernio (abajo, sus términos), y una suspensión le corta las publicaciones al cliente. La única salida gratis que se
+  dice va en el aviso de la 3.ª: «desconecta en zernio.com una que ya no uses» (Zernio cobra sólo las activas).
+- **El consumo de mensajes del mes (para avisar antes del tope de 10.000, el audio de Leandro): medido a medias.** La OpenAPI v1.358
+  tiene `GET /v1/usage` (sin parámetros: la foto del plan; con `range=cycle&granularity=total`: lo FACTURADO en USD por familia, con
+  `lineItems[]` de `product: 'messages'` y `quantity`) y `GET /v1/billing` (el ciclo: `period.start/end`). Medido el 29/10 con la
+  clave de la plataforma (sólo lectura): las dos contestan 200, cuenta `metronome` (por uso), ciclo del 01/10 al 01/11; pero esa
+  cuenta no tiene redes ni envíos, así que `lineItems` sale vacío. Con la clave del ws10 (Fiesta Music, el sí del Cerebro, sólo
+  lectura): ciclo del 12/10 03:00Z al 01/11 (`anchorDay` 12: el ciclo arranca el día que el negocio se dio de alta, no el 1.º), y
+  `lineItems` trae SÓLO «Connected Accounts (priced)» y «Free Tier Credit applied» (la cuenta gratis se factura y se descuenta), sin
+  línea `messages`. ⚠️ **Eso no prueba que los mensajes gratis no aparezcan:** el ws10 no mandó NADA por MaKo en el ciclo (38
+  entrantes, 0 salientes), y **MaKo no mandó ni un mensaje por redes desde el 01/09 en ningún negocio** (0 filas sociales en
+  `nutricion_envios`, donde viven los envíos del motor; 0 salientes en `ig_mensajes`, donde viven los de Chats). Hoy nadie está
+  cerca del tope, y no hay cuenta con qué medir. La salida: contar en MaKo lo que MaKo manda por Zernio en el CICLO (no ve lo que se
+  manda desde el inbox de Zernio u otra herramienta con la misma cuenta: el aviso dice «desde MaKo») y, cuando un negocio pase los
+  10.000, mirar si `lineItems` trae `messages` con su `quantity`.
+- **El conteo, hecho (29/10): `usoZernioDelCiclo(ws)` (lib/zernio-uso.ts).** El reparto con Automations, para que no salgan dos
+  avisos: el canal cuenta y lee el ciclo; Automations avisa (`avisarTopesSociales`, al 80%, una vez por ciclo, el evento
+  `social_tope` con el estado «gratis»). Devuelve `{ enviados, gratis, desde, hasta, deLaCasa }` o null. ⚠️ Es una aproximación,
+  y en las dos direcciones: una fila del motor (`nutricion_envios`) es UN mensaje aunque el paso saliera en varias partes (para
+  Zernio son varias), y la respuesta PÚBLICA a un comentario (gratis) cuenta igual porque la fila no la distingue de un DM. Para
+  contarlo exacto, el motor tendría que guardar cuántas partes salieron y marcar la pública (es de Automations). ⚠️ No vive en
+  lib/zernio-redes.ts: ese módulo lo importa el navegador (ConectarRedes, ConectarViaZernio), y esto habla con la base y con Zernio.
+  Por eso es un archivo del canal nuevo, sumado a la lista de tests/sin-instagram.test.ts.
+- **Los términos de Zernio están en zernio.com/tos** (no en /terms ni /terms-of-service, que dan 404; la portada no los enlaza),
+  fechados el 09/10/2026. Leídos el 29/10: NO hablan de varias cuentas gratis, de agencias ni de compartir claves; sólo «Abuse of
+  the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).
+  Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio. Por eso
+  Martín dijo que NO (29/10): varias claves de Zernio por negocio quedó DESCARTADO, no pendiente.

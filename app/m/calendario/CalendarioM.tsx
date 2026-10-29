@@ -156,7 +156,10 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
     setHechos((x) => ({ ...x, [it.id]: hecho }));
     const volver = () => setHechos((x) => { const n = { ...x }; delete n[it.id]; return n; });
     try {
-      if (!(await marcarEventoAction(it.id.replace(/^propio:/, ''), hecho))) { volver(); toast('Ese evento ya no existe'); return; }
+      const r = await marcarEventoAction(it.id.replace(/^propio:/, ''), hecho);
+      // Uno programado en la red se tilda solo cuando sale: el motivo, no un «hecho» que no pasó (28/10/2026).
+      if (typeof r === 'object') { volver(); toast(r.error); return; }
+      if (!r) { volver(); toast('Ese evento ya no existe'); return; }
       toast(hecho ? 'Hecho' : 'Pendiente');
     } catch {
       volver();
@@ -181,6 +184,8 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
         return;
       }
       const b = await borrarEventoAction(it.id.replace(/^propio:/, ''));
+      // Uno programado en la red no se borra sin cancelar antes: vuelve a verse, con el motivo.
+      if (b && 'error' in b) { volver(); toast(b.error); return; }
       // null = ya no estaba (lo borró otro, u otro toque): no hay nada que deshacer, y un toast sin Deshacer
       // reemplazaría al del borrado que sí pasó (el toast nuevo pisa al anterior). Ya no se ve: no se dice nada.
       if (b) toast('Evento borrado', { deshacer: () => { void restaurarEventoAction(b).catch(noSePudo); } });

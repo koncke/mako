@@ -58,20 +58,27 @@ export function urlValida(v: unknown): boolean {
  * LOS BOTONES DE UN PASO, saneados: con id único, el título recortado a 20, y el `siguiente` sólo en los de flujo. Lo
  * que no es una lista o no tiene título se cae. NO corta a 3: eso lo dice `problemasDeBotones` (un cuarto botón se
  * avisa, no se pierde en silencio). `existe`: los ids de las tarjetas, para soltar la flecha a una que ya no está.
+ *
+ * ⚠️ `comoSeEscribe` ES PARA EL EDITOR (27/10/2026, ticket #12 de Leandro: «Obtener recurso» quedaba «Obtenerrecurso» al
+ * tipear, y pegando sí andaba). El editor dibujaba esta lista saneada en cada tecla: el `trim` se comía el espacio del final
+ * antes de que llegara la letra siguiente. Con él, el título y el link van tal cual se escriben, y uno vacío no se cae (vaciar
+ * el campo para reescribirlo borraba el botón, y vaciar el link lo pasaba a «Sigue el flujo»). El motor y Publicar, sin él.
  */
-export function botonesDe(p: { botones?: unknown } | null | undefined, existe?: ReadonlySet<string>): BotonSocial[] {
+export function botonesDe(p: { botones?: unknown } | null | undefined, existe?: ReadonlySet<string>, opts: { comoSeEscribe?: boolean } = {}): BotonSocial[] {
   const lista = Array.isArray(p?.botones) ? (p!.botones as unknown[]) : [];
   const vistos = new Set<string>();
   const out: BotonSocial[] = [];
+  const crudo = opts.comoSeEscribe === true;
   lista.forEach((x, k) => {
     const o = x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : null;
     if (!o) return;
-    const titulo = str(o.titulo).slice(0, TOPE_TITULO_BOTON);
-    if (!titulo) return;
+    const titulo = (crudo ? (typeof o.titulo === 'string' ? o.titulo : '') : str(o.titulo)).slice(0, TOPE_TITULO_BOTON);
+    if (!titulo && !crudo) return;
     let id = idValido(o.id) ?? `b${k + 1}`;
     let n = 2;
     while (vistos.has(id)) id = `${idValido(o.id) ?? `b${k + 1}`}_${n++}`;
     vistos.add(id);
+    if (crudo && typeof o.url === 'string') { out.push({ id, titulo, url: o.url }); return; }
     const url = str(o.url);
     if (url) { out.push({ id, titulo, url }); return; }
     const sig = str(o.siguiente) || null;

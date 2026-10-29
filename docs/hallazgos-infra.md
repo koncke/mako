@@ -9126,4 +9126,49 @@ perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). 
   sin correr nada. El hook del push espera ese mismo lock: `typecheck-lock` 10 min y `tipos-respaldo-push` otros 10, y
   después sale con 99 «no hubo RAM». Así cayó el primer push de tren-y (04:17), con cuatro tsc de chats en la fila.
   **Regla:** para subir, la pausa NO se prende antes del push. Se apaga, se espera la fila de tipos vacía y se empuja; el
-  push toma el lock y los chats esperan detrás. **Sin hacer:** que `con-turno` espere la pausa ANTES de tomar el lock.
+  push toma el lock y los chats esperan detrás. (04:32: el Cerebro ya hizo que `con-turno` espere la pausa y la RAM ANTES de
+  tomar el turno de tipos; para los `--test`, con-turno sigue sin mirar la pausa.)
+- **Lo que sí subió tren-y (05:46, al tercer intento): tomar los DOS lugares de la fila de tests.** Las barredoras de los chats
+  (2 y 0,9 GB, de a dos por los dos lugares de con-turno) dejaban la PC en 3,7 GB aun con Chrome cerrado. `C:/dev/revisiones/
+  subir-tren.mjs` prende la pausa, toma `mako-tests.lock` y `mako-tests-2.lock` cuando se liberan (con su pid: con-turno ve
+  un dueño vivo y espera), espera la fila de tipos libre y 5,2 GB, empuja y suelta todo. Con eso la PC llegó a 6,3 GB y las
+  tres tandas dieron 0 en ~6 min. Esperar los dos lugares tardó 40 min (una barredora de un chat).
+
+## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
+
+- **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
+  tiene 0340». Al ir a commitearla, la 0340 ya era de `motion-imagen-2610` (`0340_image_editor_propuestas.sql`, rama del
+  26/10 que no estaba en ningún tren) y de su copia `respaldo/motion-2710-nube`. La del código de Partners pasó a 0341.
+- **La causa:** se miró el tren y main, no todas las refs. Y desde que los chats se cortan y siguen en la nube, el trabajo
+  vive también en ETIQUETAS (`respaldo/*`, `nube/*`), que `git branch -a` no lista.
+- **La regla:** el número se elige al commitear, barriendo ramas, remotas, etiquetas y worktrees:
+  `for b in $(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes refs/tags); do git ls-tree --name-only "$b" supabase/migrations/ | sed "s#^#$b: #"; done | sort -u -k2 | tail -8`
+  y `git worktree list` + `ls supabase/migrations` de cada uno (lo sin commitear). El número final lo confirma el Cerebro.
+
+**Vive en:** AGENTS.md (la regla del número de migración, con este caso) · supabase/migrations/.
+
+## «La tanda pasó los 10 min y se mató»: era tipos-por-tandas con la RAM en 0, no el cambio (28/10/2026, Planes)
+
+- **El síntoma:** `tests-afectados --rapido` dio ROJO con «tanda 10/11 · 0 tests · ROJA (? archivos) · la tanda pasó los 10 min 0 s y se
+  mató: un test se colgó», sin decir cuál. La RAM libre mínima de la corrida fue 0,0 GB.
+- **El diagnóstico obvio era el equivocado («algo del cambio se cuelga»):** los 6 de esa tanda, corridos de a uno, daban verde en
+  segundos, salvo `tests/tipos-por-tandas.test.ts`, una BARREDORA que corre siempre, toque lo que toque el cambio. Levanta varios tsc
+  de verdad (`medir-tipos.mjs` con 10 min de tope, tsc de 2 min cada uno): solo y con 4 GB libres da 32/0 en 403 s; en una tanda con
+  otros cinco y la PC en 0 GB, pasa el tope de la tanda.
+- **Las dos trampas para encontrarlo:** la carpeta `tests-afectados-*` con el log de la tanda roja ya no existe al terminar, y
+  `--listar` / `--explicar` dicen POR QUÉ entra cada test, no en qué tanda cae. La tanda se reconstruye con las mismas funciones del
+  script: `planear('origin/main', { profundidad: 1 })` (eso es `--rapido`) y `agrupar(sel.tests, sel.compartibles, { compartir: true })`,
+  y `orden` partido de a 6.
+
+**Vive en:** scripts/tests-afectados.mjs (`planear`, `agrupar`, `TOPE_TANDA_MS`) · tests/tipos-por-tandas.test.ts.
+
+## Editar código desde Python: `\b` y `\1` en una cadena normal son caracteres de control (29/10/2026, claude3)
+
+**Vive en:** cualquier edición con `python - <<'EOF'` que escribe regex de JavaScript.
+
+En una cadena normal de Python, `\b` es un RETROCESO (0x08) y `\1` es el carácter 0x01: el regex que queda en el archivo
+ya no es el que se ve. Pasó dos veces la misma noche: `/<title\b/` quedó con un retroceso y el test pasaba aunque se
+sacara la regla que vigilaba (no buscaba lo que decía), y un `(…)\b(…)<\/\1>` perdió los dos. `grep -c` con el rango
+0x01-0x08 lo delata; el Read del editor no lo muestra. **Regla:** las cadenas con regex van CRUDAS (prefijo `r`), o se
+edita con la herramienta Edit. Y un `find` de un pedazo corto (`const m = /^`) agarra la PRIMERA aparición: así se
+reemplazó media hoja de un archivo. Se ancla con el nombre de la función, y `git diff --stat` antes de seguir.

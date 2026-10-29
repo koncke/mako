@@ -24,6 +24,7 @@ import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPas
 import { detenerPruebaDeLaTarjeta, empezarPruebaDeLaTarjeta, estadoDeLaTarjeta } from '@/lib/pruebas/automatizacion';
 import { tarjetaABDe } from '@/lib/pruebas/tarjeta-ab';
 import { botonesDe } from '@/lib/botones-social';
+import { respondeEnComentario } from '@/lib/canal-social';
 import { botonesParaGuardar, textoParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
@@ -36,7 +37,8 @@ import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatosParaEquipo } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { textoDePalabras } from '@/lib/palabras-clave';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
@@ -100,6 +102,30 @@ const json = (x: unknown): string => JSON.stringify(x);
 const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: true });
 const num = (input: Record<string, unknown>, k: string): number => Number(input[k]);
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
+
+/**
+ * LO QUE PIDIÓ LA DIFUSIÓN (`difundir_a_leads`), saneado: la columna o los ids, los canales, el mismo texto para cada canal
+ * (el email con su asunto) y el goteo (por defecto, el de la hoja). Un dato que no se entiende vuelve como error.
+ */
+function pedidoDeDifusion(input: Record<string, unknown>):
+  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: { minutos: number; dia: number }; texto: string }
+  | { error: string } {
+  const etapa = str(input, 'etapa');
+  const ids = (Array.isArray(input.leadIds) ? input.leadIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  if (!etapa && !ids.length) return { error: 'Falta a quién: la etapa (la columna del CRM) o los leadIds.' };
+  const f = num(input, 'funnelId');
+  const seleccion = etapa ? { etapa, funnelId: Number.isInteger(f) && f > 0 ? f : null } : { leadIds: ids };
+  const canales = [...new Set((Array.isArray(input.canales) ? input.canales : []).filter((c): c is 'whatsapp' | 'email' | 'instagram' => c === 'whatsapp' || c === 'email' || c === 'instagram'))];
+  const texto = str(input, 'mensaje');
+  const asunto = str(input, 'asunto');
+  const mensajes = {
+    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: texto } } : {}),
+    ...(canales.includes('email') ? { email: { asunto, cuerpo: texto } } : {}),
+    ...(canales.includes('instagram') ? { instagram: { cuerpo: texto } } : {}),
+  };
+  const goteo = { minutos: input.minutos == null ? 3 : num(input, 'minutos'), dia: input.porDia == null ? 40 : num(input, 'porDia') };
+  return { seleccion, canales, mensajes, goteo, texto };
+}
 
 // Hasta el 17/09 acá había un `avisoTope()` que contaba las filas reales y avisaba
 // «los conteos quedan CORTOS» porque getSecuenciasConStats, getSettingData y
@@ -271,7 +297,12 @@ function textoDeUnCron(d: Disparador): string {
   if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
   const clase = claseDeDisparador(d);
   const evento = esClaseDeEventos(clase) ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
-  if (evento) return evento;
+  // Con las palabras clave del comentario (la revisión del Cerebro, 28/10/2026): sin ellas, «fiesta», «guía» y ninguna se
+  // resumían igual, y lo que se confirma por WhatsApp es sólo esto.
+  if (evento) {
+    const palabras = conPalabras(d.trigger_tipo, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
+    return palabras ? `${evento} ${palabras}` : evento;
+  }
   if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
   if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
   return nombre;
@@ -365,6 +396,8 @@ export const RUNNERS: Runners = {
           revisar: p.revisar ?? null, siguiente: siguienteDe(pasos, i),
           // LOS BOTONES de un DM (25/10/2026): «sigue» es la tarjeta a la que lleva el toque, por el puerto «btn:<id>».
           ...(botonesDe(p).length ? { botones: botonesDe(p).map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, puerto: `btn:${b.id}`, sigue: b.siguiente ?? null })) } : {}),
+          // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): se cambia con cambiar_botones_mensaje.
+          ...(respondeEnComentario(p) ? { en_comentario: true } : {}),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
@@ -1030,6 +1063,76 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // LA DIFUSIÓN (28/10/2026): la MISMA que la hoja del CRM (lib/difusion.ts). Preparar lee a quién le llega por cada canal y lo
+  // dice con el ritmo (no escribe); confirmar vuelve a leer y crea la automatización.
+  difundir_a_leads: {
+    preparar: async (input, ctx) => {
+      const pedido = pedidoDeDifusion(input);
+      if ('error' in pedido) return { error: pedido.error };
+      const { prepararDifusion } = await import('@/lib/difusion');
+      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracion, goteoValido } = await import('@/lib/difusion-reglas');
+      // El goteo fuera de rango se dice ANTES del «sí» (la verificación de 69b49a31c: fallaba recién al confirmar).
+      const goteo = goteoValido(pedido.goteo);
+      if (!goteo) {
+        const { RANGOS_GOTEO } = await import('@/lib/config-automatizacion');
+        return { error: `El goteo va de ${RANGOS_GOTEO.minutos[0]} a ${RANGOS_GOTEO.minutos[1]} minutos y de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]} por día.` };
+      }
+      const v = await prepararDifusion(ctx.ws, pedido.seleccion, pedido.canales, goteo);
+      if (pedido.canales.includes('whatsapp') && !v.whatsappQr) return { error: 'No hay un WhatsApp por QR conectado: el oficial hoy no manda. Sácalo de los canales o conecta uno.' };
+      const falta = problemaDeDifusion({ canales: pedido.canales, mensajes: pedido.mensajes, alcance: v.alcance });
+      if (falta) return { error: `${falta}.` };
+      const porCanal = v.alcance.porCanal.map((c) => `${NOMBRE_CANAL_DIFUSION[c.canal]} ${c.llegan}${c.afuera.length ? ` (afuera: ${c.afuera.map((a) => `${a.cuantos} ${TEXTO_AFUERA[a.motivo]}`).join(', ')})` : ''}`);
+      const de = v.etapa ? `de «${v.etapa}»` : 'elegidos';
+      return {
+        payload: { ...input },
+        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal (${textoDeDuracion(Math.max(0, ...v.alcance.porCanal.map((c) => c.llegan)), pedido.goteo)}).${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const pedido = pedidoDeDifusion(payload);
+      if ('error' in pedido) return { ok: false, resumen: pedido.error };
+      try {
+        const { crearDifusion } = await import('@/lib/difusion');
+        const r = await crearDifusion(ctx.ws, { seleccion: pedido.seleccion, canales: pedido.canales, mensajes: pedido.mensajes, goteo: pedido.goteo, autor: ctx.actor?.trim() || 'MaKo' });
+        // El MISMO pedido otra vez retoma la difusión que ya existía (lib/difusion.ts): se dice, para que no parezca otra.
+        const yaEstaba = r.ok && r.yaEstaban != null
+          ? `Esa misma difusión ya estaba: «${r.nombre}». ${r.leads - r.yaEstaban ? `Sumé a los ${r.leads - r.yaEstaban} que faltaban; ` : 'No la mandé dos veces; '}le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}. Está en Automations.`
+          : null;
+        return r.ok
+          ? { ok: true, resumen: yaEstaba ?? `Listo: «${r.nombre}» le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}, con su goteo. Está en Automations.`, datos: { secuenciaId: r.secuenciaId, leads: r.leads } }
+          : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] difundir_a_leads:', msg);
+        return { ok: false, resumen: `No se pudo mandar la difusión (${msg}).` };
+      }
+    },
+  },
+
+  // «Volver a probar» (28/10/2026, ticket #19): el núcleo de la ficha (`volverAProbarEnAutomatizacion`), con `soloVer` al
+  // preparar (decide sin escribir) y de verdad al confirmar, que vuelve a decidir contra la base.
+  volver_a_probar_lead_secuencia: {
+    preparar: async (input) => {
+      const leadId = num(input, 'leadId'); const secuenciaId = num(input, 'secuenciaId');
+      const { volverAProbarEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+      const v = await volverAProbarEnAutomatizacion(leadId, secuenciaId, 'MaKo', { soloVer: true });
+      if (!v.ok) return { error: v.error };
+      return { payload: { leadId, secuenciaId }, resumen: `${v.resumen} No le sale nada ahora.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId); const secuenciaId = Number(payload.secuenciaId);
+      try {
+        const { volverAProbarEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+        const r = await volverAProbarEnAutomatizacion(leadId, secuenciaId, ctx.actor?.trim() || 'MaKo');
+        return r.ok ? { ok: true, resumen: `Listo: ${r.resumen}`, datos: { leadId, secuenciaId } } : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] volver_a_probar_lead_secuencia:', msg);
+        return { ok: false, resumen: `No se pudo dejar al lead #${leadId} para volver a probar la secuencia #${secuenciaId} (${msg}).` };
+      }
+    },
+  },
+
   // El espejo de inscribir_lead_secuencia (17/10/2026). La decisión pura y la escritura (compare-and-set sobre el
   // estado leído, con getTenantDb) son UNA función (sacarDeSecuencia, lib/nutricion-salida-manual.ts): acá con
   // `soloVer`, que no escribe; al confirmar, sin él, y vuelve a decidir contra la base.
@@ -1363,8 +1466,10 @@ export const RUNNERS: Runners = {
       // Sin «botones», se quedan los que hay ([] los saca); sin «texto», el texto (25/10: el texto de un DM, por la API).
       const lista = Array.isArray(input.botones) ? (input.botones as BotonPedido[]) : null;
       const nuevoTexto = typeof input.texto === 'string' ? input.texto : undefined;
-      if (!lista && nuevoTexto === undefined) return { error: 'Pasa los botones ([] los saca), el texto o los dos.', faltan: ['botones'] };
-      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto);
+      // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): true la prende, false la apaga.
+      const enComentario = typeof input.en_comentario === 'boolean' ? input.en_comentario : undefined;
+      if (!lista && nuevoTexto === undefined && enComentario === undefined) return { error: 'Pasa los botones ([] los saca), el texto o «en_comentario».', faltan: ['botones'] };
+      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto, enComentario);
       if (!r.ok) return { error: r.error };
       return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
     },

@@ -201,7 +201,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'limites_formato_instagram', area: 'contenido', tipo: 'lectura',
     titulo: 'Límites técnicos de Instagram',
-    descripcion: 'Los límites técnicos de cada formato de Instagram: reel (duración máxima en segundos, peso en MB, códec), carrusel (2 a 10 elementos, mezcla de imagen y video) o story (9:16, duración y peso, y que stickers, encuestas y links se agregan a mano en la app). Incluye el tope de caption y que las imágenes van solo en JPEG. Úsalo para «¿puedo poner una encuesta en la story?» o «¿cuánto puede durar el reel?». MaKo no publica en Instagram: la persona sube la pieza a mano.',
+    descripcion: 'Los límites técnicos de cada formato de Instagram: reel (duración máxima en segundos, peso en MB, códec), carrusel (2 a 10 elementos, mezcla de imagen y video) o story (9:16, duración y peso, y que stickers, encuestas y links se agregan a mano en la app). Incluye el tope de caption y que las imágenes van solo en JPEG. Úsalo para «¿puedo poner una encuesta en la story?» o «¿cuánto puede durar el reel?». Para que salga sola el día y la hora que se elijan, se arma como Publicación en el Calendario (programar_publicacion).',
     parametros: [
       { nombre: 'formato', tipo: 'string', obligatorio: true, enum: ['reel', 'carrusel', 'story'], descripcion: 'El formato a consultar.' },
     ],
@@ -281,5 +281,19 @@ export const DEFS: readonly OperacionDef[] = [
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'quita un guion del anuncio en app_settings mako.razones (relee antes de escribir)',
     canales: TODOS, costo: 'gratis', gating: G_ADS,
+  },
+  {
+    // 28/10/2026 (Martín a Teo: «por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram»). La fuente de
+    // Instagram orgánico por Zernio (lib/zernio-organico.ts). El id no nombra la red: tests/sin-instagram.test.ts lo prohíbe.
+    id: 'ver_rendimiento_redes', area: 'contenido', tipo: 'lectura',
+    titulo: 'Cómo vienen las publicaciones de Instagram',
+    descripcion: 'El rendimiento orgánico de la cuenta de Instagram del negocio (conectada en Zernio) entre dos fechas: los seguidores (cuántos hay, ganados y perdidos), la cuenta (alcance, vistas, cuentas que interactuaron, interacciones, me gusta, comentarios, guardados, compartidos, visitas al perfil) y las últimas publicaciones (reels, historias, posts) con su link y sus números. Lo que no se pudo leer viene en «faltan» y es null, nunca 0. Necesita el complemento de Analytics de Zernio. Úsala para «¿cómo vienen las últimas publicaciones?» o «¿cuántos seguidores gané este mes?».',
+    parametros: [
+      { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'Inicio, inclusive, YYYY-MM-DD. Si se omite, 30 días antes de «hasta».', ejemplo: '2026-10-01' },
+      { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'Fin, inclusive, YYYY-MM-DD. Si se omite, hoy. Máximo 89 días en total.', ejemplo: '2026-10-28' },
+      { nombre: 'cuenta', tipo: 'string', max: 60, descripcion: 'El usuario de Instagram (con o sin @) si el negocio conectó más de una. Si se omite, la primera.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 20, descripcion: 'Cuántas publicaciones traer, de la más nueva a la más vieja. Si se omite, 10.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
   },
 ];

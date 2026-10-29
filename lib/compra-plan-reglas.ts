@@ -122,6 +122,24 @@ export const TEXTO_CODIGO_NO_EXISTE = 'Ese código de referido no existe. Revís
 export const codigoDeLaCompra = (p: { escrito: string | null; cookie: string | null; url: string | null }): string | null =>
   p.escrito ?? p.cookie ?? p.url;
 
+/**
+ * EL CÓDIGO QUE SE GUARDA EN EL COBRO (28/10/2026, la verificación de 3ca2d8328): el escrito ya se validó (o no se pudo leer y
+ * sigue); el que trajo un LINK (`elegido`: la cookie de /r/<código> o el `?ref=`), sólo si es de un partner. Antes entraba sin
+ * mirar, y con el código editable un partner podía ELEGIR después ese texto (`promo-octubre`) y llevarse el crédito de una compra
+ * que no trajo. Primero la cookie y después el `?ref=` (el primero que lo trajo gana, `codigoDeLaCompra`); una cookie de nadie no
+ * tapa el `?ref=` de un partner. ⚠️ Si no se puede LEER (la verificación de a196d5a93): la cookie vale (la dejó /r/<código>, que ya
+ * la validó con `codigoVigente`) y el `?ref=` crudo se descarta: guardarlo «por las dudas» era otra vez el código huérfano.
+ */
+export async function codigoQueCuenta(
+  p: { escrito: string | null; cookie: string | null; url: string | null }, esDePartner: (codigo: string) => Promise<boolean>,
+): Promise<string | null> {
+  if (p.escrito) return p.escrito;
+  for (const [x, siNoSePuedeLeer] of [[p.cookie, true], [p.url, false]] as const) {
+    if (x && (await esDePartner(x).catch(() => siNoSePuedeLeer))) return x;
+  }
+  return null;
+}
+
 /** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
 export const TEXTO_ANUAL_SE_PIDE = 'El plan anual se pide con tus datos: te escribimos por WhatsApp para darte de alta.';
 
@@ -166,6 +184,33 @@ export function pasarelaDeLaCompra(p: {
   if (!p.sirven.length) return { ok: false, motivo: 'sin-pasarela' };
   if (p.pedida) return p.sirven.includes(p.pedida) ? { ok: true, pasarela: p.pedida } : { ok: false, motivo: 'no-sirve' };
   return p.sirven.length === 1 ? { ok: true, pasarela: p.sirven[0] } : { ok: false, motivo: 'elegir' };
+}
+
+// =============================================================================
+// LA PASARELA SEGÚN EL PAÍS (27/10/2026, llamada con Leila, Fathom 876470842)
+// =============================================================================
+// En vivo, una clienta de México recibió el link de la Mercado Pago de MaKo y MP la rechazó: «No se puede continuar con este
+// pago. La cuenta del vendedor es de otro país». Mercado Pago cobra sólo dentro del país de SU cuenta (la de MaKo es
+// argentina: cobra en ARS). Así que Mercado Pago se ofrece sólo a quien está en ese país, y ahí es la ÚNICA (en pesos, sin
+// el recargo de la tarjeta internacional: docs/estrategia-financiera-mako.md); en el resto del mundo, Stripe. Sin saber el
+// país (sin el encabezado de Vercel: local, o una IP que Vercel no ubica), las dos, y elige la persona.
+
+/** El país de cada sitio de Mercado Pago, por la moneda en que cobra su cuenta. */
+const PAIS_DE_MERCADO_PAGO: Readonly<Record<string, string>> = { ARS: 'AR', MXN: 'MX', BRL: 'BR', CLP: 'CL', COP: 'CO', PEN: 'PE', UYU: 'UY' };
+
+/** El país del visitante (el encabezado `x-vercel-ip-country`, dos letras), o null si no se sabe. */
+export function paisDelVisitante(encabezado: string | null | undefined): string | null {
+  const p = String(encabezado ?? '').trim().toUpperCase();
+  // XX = Vercel no lo ubicó; T1 = Tor (convención de Cloudflare, por si el encabezado viene de un proxy).
+  return /^[A-Z]{2}$/.test(p) && p !== 'XX' && p !== 'T1' ? p : null;
+}
+
+/** Las pasarelas que se le ofrecen a quien está en `pais` (ver arriba). Mantiene el orden y los datos de cada opción. */
+export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, opciones: readonly T[]): T[] {
+  if (!pais) return [...opciones];
+  const deSuPais = (o: T) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais;
+  const locales = opciones.filter(deSuPais);
+  return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');
 }
 
 // =============================================================================

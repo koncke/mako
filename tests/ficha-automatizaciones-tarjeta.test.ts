@@ -158,7 +158,8 @@ test('la pantalla: sello y estado arriba, el riel, el pie con «Frenar» aparte 
   assert.match(P, /<footer className="fr-aut-pie">\s*\{frena && \(\s*<button type="button" className="fr-aut-frenar"/, '«Frenar» no va primero en el pie');
   assert.match(P, /<Button variant="secondary" size="sm" icon=\{<IconoMenu nombre="restaurar" size=\{15\} \/>\}/);
   assert.match(P, /preguntaDeFrenarEnFicha\(\{ nombre: ctx\.lead\.nombre, aut: accion\.aut \}\)/);
-  assert.match(P, /show\(tipo === 'frenar' \? 'Frenada' : 'Empezó de nuevo', undefined, 'good'\);/, 'lo que salió bien, en un toast');
+  // (28/10/2026: y «Volver a probar», ticket #19 de Automations.)
+  assert.match(P, /show\(tipo === 'frenar' \? 'Frenada' : tipo === 'probar' \? 'Lista para volver a probar' : 'Empezó de nuevo', undefined, 'good'\);/, 'lo que salió bien, en un toast');
   // Lo que se fue: el chip de la esquina, la caja gris, el triangulito, el botón gris apagado y la zona suelta abajo.
   assert.doesNotMatch(P, /fr-aut-chip|fr-tarjeta|<details|variant="tertiary"|Hora de \$\{/);
   // La zona: en cada hora al pasar, y en lo próximo sólo si quien mira está en otra.

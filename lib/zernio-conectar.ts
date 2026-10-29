@@ -103,8 +103,19 @@ export function motivoDeError(e: unknown, deLaCasa = false): ZernioConectarError
   return new ZernioConectarError('error');
 }
 
-function fallo(e: unknown, donde: string, ws: number): Extract<RespuestaConectar, { ok: false }> {
-  const m = motivoDeError(e, ws === OWNER_WS);
+/**
+ * ¿Se habló con la clave de la CUENTA DE MaKo? El ws1 (OWNER_WS) y, con el interruptor prendido, un negocio sin clave propia que usa
+ * la cuenta prestada de la plataforma (`byok` false). La verificación del 28/10: sólo se miraba el ws1, y a un negocio prestado un
+ * 402 le decía «Tu cuenta de Zernio está pausada» con el link de pago de MaKo. `usada`: la config con la que se habló, si se llegó.
+ */
+async function esDeLaCasa(ws: number, usada: ZernioCfg | null): Promise<boolean> {
+  if (ws === OWNER_WS) return true;
+  if (usada) return !usada.byok;
+  return cfg(ws).then((c) => !c.byok, () => false);
+}
+
+function fallo(e: unknown, donde: string, ws: number, deLaCasa: boolean): Extract<RespuestaConectar, { ok: false }> {
+  const m = motivoDeError(e, deLaCasa);
   // La key y el `authUrl` nunca van al log: sólo el motivo y el mensaje de Zernio.
   if (m.motivo === 'error' || m.motivo === 'sin-red' || m.motivo === 'respuesta') console.error(`[zernio-conectar] ${donde} ws${ws}: ${m.motivo} — ${msg(e).slice(0, 300)}`);
   return { ok: false, motivo: m.motivo, error: m.message, ...(m.pagoUrl ? { pagoUrl: m.pagoUrl } : {}) };
@@ -117,8 +128,10 @@ function fallo(e: unknown, donde: string, ws: number): Extract<RespuestaConectar
  * decide qué decir. `accountId` es el `_id` de Zernio: lo que pide su API de anuncios para publicar.
  */
 export async function conexionesViaZernio(ws: number, red?: RedZernio): Promise<ConexionZernio[]> {
+  let usada: ZernioCfg | null = null;
   try {
     const { c, profileId } = await contexto(ws);
+    usada = c;
     const q = new URLSearchParams({ profileId, excludeHidden: 'true' });
     if (red) q.set('platform', REDES[red].plataforma);
     const r = await zFetch<unknown>(c.apiKey, `/accounts?${q.toString()}`);
@@ -130,7 +143,7 @@ export async function conexionesViaZernio(ws: number, red?: RedZernio): Promise<
     }
     return leerCuentasDeZernio(r, profileId);
   } catch (e) {
-    throw motivoDeError(e, ws === OWNER_WS);
+    throw motivoDeError(e, await esDeLaCasa(ws, usada));
   }
 }
 
@@ -160,12 +173,14 @@ export async function urlConectarViaZernio(
   volver: string,
   opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; flujo?: string | null; aceptaCobro?: boolean } = {},
 ): Promise<RespuestaConectar> {
+  let usada: ZernioCfg | null = null;
   try {
     if (!esRedZernio(red)) throw new ZernioConectarError('error', 'Esa red no se puede conectar.');
     const def = REDES[red];
     const v = validarVolver(volver);
     if (!v) throw new ZernioConectarError('error', 'La dirección de vuelta no vale.');
     const { c, profileId } = await contexto(ws);
+    usada = c;
 
     // El cobro, ANTES del login (27/10/2026, feedback de Leila): con la clave del negocio (con la de MaKo paga MaKo), si su Zernio ya
     // tiene 2 cuentas activas y ésta es nueva, se contesta `cobro` y la pantalla pide confirmar; vuelve con `aceptaCobro`. Se cuenta
@@ -209,7 +224,7 @@ export async function urlConectarViaZernio(
     }
     throw new ZernioConectarError('respuesta', undefined);
   } catch (e) {
-    return fallo(e, `conectar ${String(red)}`, ws);
+    return fallo(e, `conectar ${String(red)}`, ws, await esDeLaCasa(ws, usada));
   }
 }
 

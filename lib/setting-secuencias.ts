@@ -233,10 +233,11 @@ export const NOMBRE_PROVISORIO = 'Nueva automatización';
  * (`TRIGGERS_APARTE` en lib/flujo-conversacion.ts no lo ofrece por eso). Nace pausada igual: un
  * canal propone, una persona confirma (decisión 16).
  */
-export async function crearSecuenciaVacia(nombre?: string | null): Promise<{ id: number; nombre: string }> {
+export async function crearSecuenciaVacia(nombre?: string | null, o: { prefijoClave?: string } = {}): Promise<{ id: number; nombre: string }> {
   const supabase = await getTenantDb();
   const n = nombreDeSecuencia(nombre ?? '') || NOMBRE_PROVISORIO;
-  const clave = `automatizacion-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  // `prefijoClave`: quien la crea para algo propio la marca en la clave, que no cambia nunca (la difusión, lib/difusion.ts).
+  const clave = `${o.prefijoClave ?? 'automatizacion-'}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const { data, error } = await supabase
     .from('nutricion_secuencias')
     .insert({ clave, nombre: n, etapa: 'manual', trigger_tipo: 'manual', activa: false, pasos: [] })

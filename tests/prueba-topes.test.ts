@@ -66,7 +66,8 @@ test('el TEXTO de cada tope: «Disponible al terminar tu prueba», qué topó, y
 test('EN PRUEBA = su suscripción de MaKo es una prueba sin cobrar; fuera de la prueba, ningún tope de prueba', () => {
   const f = fuente('lib/prueba-uso.ts');
   assert.match(f, /\.eq\('workspace_id', plataforma\)\.eq\('alta_ws', ws\)\.eq\('tipo', 'suscripcion'\)\.or\(FILTRO_SUSCRIPCION_DE_MAKO\)/);
-  assert.match(f, /if \(!c \|\| !esPruebaDePlan\(c\) \|\| c\.estado !== 'pendiente'\) return nada;/, 'con el primer cobro, los topes se van solos');
+  // Desde el 28/10/2026, sin ninguna suscripción mira el plan dado a mano (tests/plan-a-mano.test.ts); con una, como siempre.
+  assert.match(f, /if \(!c\) return await deUnPlanAMano\(ws, nada\);\s*if \(!esPruebaDePlan\(c\) \|\| c\.estado !== 'pendiente'\) return nada;/, 'con el primer cobro, los topes se van solos');
   assert.match(cuerpo('lib/prueba-uso.ts', 'frenoDePrueba'), /if \(!e\.enPrueba\) return \{ ok: true \};/);
   assert.match(cuerpo('lib/prueba-uso.ts', 'sumarUsoDePrueba'), /if \(!\(await estadoDePrueba\(ws\)\)\.enPrueba\) return;/, 'sólo cuenta en la prueba');
   assert.doesNotMatch(f, /from '\.\/cobros'/, 'lo llaman acciones del navegador: sin el grafo de lib/cobros (tests/d6b-rutas.test.ts)');

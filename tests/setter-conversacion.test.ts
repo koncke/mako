@@ -335,7 +335,7 @@ test('el corte de la charla se guarda y el borrador es UNO por lead (#360, #788)
 
 test('pausarPorRespuesta busca la charla cuando no hay inscripción activa (#788)', () => {
   const b = bloque(NUTRI, 'export async function pausarPorRespuesta(');
-  assert.ok(b.includes('if (!atendida) await seguirCharla(leadId, charla,'));
+  assert.ok(b.includes('if (!atendida) atendida = await seguirCharla(leadId, charla,'));
   // La respuesta a una secuencia que ya terminó se anota, y sólo si le salió algo.
   assert.match(b, /\.eq\('estado', 'completada'\)\.is\('desenlace', null\)/);
   assert.match(b, /enviosPorInscripcion\(/);

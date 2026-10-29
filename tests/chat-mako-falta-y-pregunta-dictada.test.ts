@@ -89,8 +89,9 @@ test('f23: el globo de MaKo con una falta lleva «Pedírselo al equipo»; sin fa
 
 test('f23: la ruta del chat guarda la falta, y la del ticket es del mismo origen, del admin y con lo guardado', () => {
   const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
-  assert.match(ruta, /await anotar\(\[mensajeChat\('mako', respuesta, 'app', falta \? \{ falta \} : \{\}\)\]\);/);
-  assert.match(ruta, /await contestar\(g\.r\.respuesta, g\.r\.falta\);/);
+  // Desde el 27/10/2026 también con qué IA contestó (`ia`, tests/automations-quien-contesto.test.ts): la falta sigue igual.
+  assert.match(ruta, /await anotar\(\[mensajeChat\('mako', respuesta, 'app', \{ \.\.\.\(falta \? \{ falta \} : \{\}\), \.\.\.\(ia \? \{ ia \} : \{\}\) \}\)\]\);/);
+  assert.match(ruta, /await contestar\(g\.r\.respuesta, g\.r\.falta, textoDeQuienContesto\(g\.quien\)\);/);
   const t = leer('app/api/chat-agent/secuencias/ia/falta/route.ts');
   assert.match(t, /if \(!mismo\) return json\(\{ ok: false, error: 'No salió de MaKo' \}, 403\);/);
   assert.match(t, /rol !== 'admin'\) return json\(/);

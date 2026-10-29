@@ -88,6 +88,9 @@ const PALABRAS_EVENTO: Readonly<Record<string, RegExp>> = {
   en_vivo: /en vivo|\blives?\b/,
   ref: /referencia|\bref\b/,
   qr: /\bqr\b/,
+  // El clic en un anuncio (44daa5f2e): sin esto, «cuando hace clic en mi anuncio» no decía qué hace y se preguntaba sin
+  // ofrecerlo (la revisión del Cerebro, 28/10/2026). La misma regla que `PIDE_ANUNCIO` (lib/disparadores.ts).
+  anuncio: /\banuncios?\b|\bads?\b|publicidad/,
 };
 
 /** ¿El pedido dice qué hace la persona en ese canal? (una palabra de alguno de los eventos que ofrece el CRON) */
@@ -98,9 +101,14 @@ export function diceQueHace(pedido: string, canal: 'instagram' | 'messenger'): b
 
 // ── Lo que ya contestó ───────────────────────────────────────────────────────────
 
+/** Lo que se escribió en «Otra cosa», unido (vacío = nada). Lo lee también el contexto: el anuncio, si lo nombró ahí. */
+export function textosDeRespuestas(respuestas: readonly RespuestaMako[]): string {
+  return respuestas.map((r) => r.texto?.trim() ?? '').filter(Boolean).join('\n');
+}
+
 /** El pedido con lo que se escribió en «Otra cosa» (cuenta para buscar palabras: lo dijo la persona). */
 function pedidoConTextos(pedido: string, respuestas: readonly RespuestaMako[]): string {
-  return [pedido, ...respuestas.map((r) => r.texto?.trim() ?? '').filter(Boolean)].join('\n');
+  return [pedido, textosDeRespuestas(respuestas)].filter(Boolean).join('\n');
 }
 
 const respondida = (respuestas: readonly RespuestaMako[], ...sobres: SobrePregunta[]) => respuestas.some((r) => sobres.includes(r.sobre));
@@ -127,10 +135,13 @@ function preguntaEvento(pedido: string, ctx: CtxPreguntas, canal: 'instagram' | 
   if (diceQueHace(pedido, canal)) return null;
   const clase: ClaseDeEventos = canal;
   const valores = new Set(ctx.disparadores.map((d) => d.value));
-  // Las 3 primeras que ofrece el CRON sin las apagadas (`eventosParaIA`), y sólo si están en el desplegable (conectado).
-  const opciones: OpcionPregunta[] = eventosParaIA(clase).slice(0, 3)
+  // Las 3 primeras que ofrece el CRON sin las apagadas (`eventosParaIA`) y que están en el desplegable (conectado).
+  // ⚠️ SE FILTRA ANTES DE CORTAR (la revisión del Cerebro, 28/10/2026): con el anuncio prendido primero en Messenger, el
+  // corte de 3 lo dejaba adentro, el filtro lo sacaba (no estaba en el desplegable) y «enlace de referencia» se perdía.
+  const opciones: OpcionPregunta[] = eventosParaIA(clase)
     .map((ev) => ({ valor: valorEventoIA(clase, ev.subtipo), label: ev.label }))
-    .filter((o) => valores.has(o.valor));
+    .filter((o) => valores.has(o.valor))
+    .slice(0, 3);
   if (opciones.length < 2) return null;
   return { id: `pregunta-evento-${canal}`, sobre: 'evento', texto: TEXTO_PREGUNTA.evento, opciones, otra: true };
 }

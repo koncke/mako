@@ -101,6 +101,9 @@ export const TABLAS_DE_INQUILINO = [
   // El código de MaKo Partners de cada negocio (mig 0330): vaciar o borrar el negocio se lleva su código. No va en TENANT_TABLES:
   // la lee y escribe lib/partners-programa.ts con el cliente de servicio, siempre con el ws de la sesión.
   'partner_codigos',
+  // Los códigos que un partner dejó de usar y le siguen acreditando (mig 0341, 27/10/2026). Igual que el de arriba.
+  // ⚠️ La 0341 se aplica ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla que no existe da error.
+  'partner_codigos_anteriores',
   // Los avisos de Stripe y Mercado Pago (mig 0255): `workspace_id` admite null, como email_entrantes.
   // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
   'pasarela_eventos',

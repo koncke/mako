@@ -103,7 +103,8 @@ test('el cron también relee los anulados que llegaron a la pasarela, con su pro
   const f = cuerpo('reconciliarCobros');
   assert.match(f, /\.eq\('estado', 'anulado'\)\.not\('proveedor_ref', 'is', null\)\.gte\('updated_at', desde\)/);
   assert.match(f, /\.order\('updated_at', \{ ascending: false \}\)\.limit\(20\),/);
-  assert.match(f, /const pendientes = \[\.\.\.\(pend\.data \?\? \[\]\), \.\.\.\(anul\.data \?\? \[\]\)\]/, 'los anulados no entran al recorrido');
+  // Después de los anulados pueden venir otras lecturas (las pruebas de un plan, sin el tope de 50: 28/10/2026).
+  assert.match(f, /const pendientes = \[\.\.\.\(pend\.data \?\? \[\]\), \.\.\.\(anul\.data \?\? \[\]\)[,\]]/, 'los anulados no entran al recorrido');
   assert.match(f, /if \(anul\.error\) throw new Error\(/);
 });
 

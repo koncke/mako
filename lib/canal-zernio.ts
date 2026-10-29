@@ -29,9 +29,9 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enviarDm, responderComentario, esLimiteDeMeta, estadosDeSeguimiento, ZernioError } from './zernio';
+import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoDelComentario, esLimiteDeMeta, estadosDeSeguimiento, topeDe, ZernioError, type TopeSocial } from './zernio';
 import {
-  decidirSalida, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
+  decidirSalida, decidirRespuestaPublica, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
   conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento, canalDePlataforma, TOPE_TEXTO_SOCIAL,
   filasDeCharlaSocial, TOPE_CHARLA_SOCIAL,
   type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial, type EntranteSocial, type SalienteSocial,
@@ -59,6 +59,12 @@ export type ResultadoSocial = {
   error?: string;
   /** Reintentar no lo arregla (Meta dijo que no, o no hay conversación). */
   terminal?: boolean;
+  /**
+   * ESTA TARJETA NO SALE Y EL FLUJO SIGUE (la revisión del Cerebro, 28/10/2026): la respuesta pública sin un comentario del
+   * disparo que responder, o rechazada por Meta. Antes era terminal y cerraba la inscripción: el DM de la tarjeta siguiente
+   * (el recurso) no salía nunca. El motor la anota 'omitido' con su motivo y avanza.
+   */
+  omitir?: boolean;
   backoffHoras?: number;
   /** Algo salió distinto de lo escrito (una respuesta privada lleva sólo texto). */
   nota?: string;
@@ -67,7 +73,18 @@ export type ResultadoSocial = {
    * rechazó en una respuesta privada) y salió la línea «Escríbeme «…»». Ausente = la tarjeta no tiene.
    */
   botones?: 'botones' | 'texto';
+  /**
+   * EL TOPE que lo frenó (28/10/2026, Leandro: «que no me encuentre con mil mensajes sin responder»): el de Zernio o el de
+   * Meta. NO es terminal: el paso vuelve a salir cuando el tope lo deja (`backoffHoras` = su espera) y el motor lo cuenta
+   * para avisarle al negocio (`avisarTopesSociales`, lib/nutricion.ts).
+   */
+  tope?: TopeSocial;
 };
+
+/** El resultado de un envío que frenó un TOPE: no se pierde, vuelve a salir cuando pasa (como mínimo, en un minuto). */
+function porTope(t: TopeSocial, base: Pick<ResultadoSocial, 'salieron' | 'textos' | 'destino'>, e: unknown): ResultadoSocial {
+  return { ...base, ok: false, error: `tope de ${t.quien === 'meta' ? 'Meta' : 'Zernio'}: ${msg(e)}`, backoffHoras: Math.max(1 / 60, t.esperaMs / 3_600_000), tope: t };
+}
 
 /** La marca de una cuenta de Instagram que ya rechazó botones en una respuesta privada (lib/botones-social.ts). */
 const keyRechazaBotones = (cuentaId: string) => `zernio.botones_rechazados.${cuentaId}`;
@@ -169,7 +186,7 @@ export async function charlaSocialDelLead(leadId: number, canal: CanalSocial, to
  * MANDA UN PASO de Instagram o Messenger. Nunca tira: todo fallo vuelve en el resultado, con
  * `terminal` cuando reintentar no lo arregla.
  *
- * `idempotencia`: una clave estable por inscripción y nodo (`nutri:<inscripción>:<nodo>`). Cada parte
+ * `idempotencia`: una clave estable por inscripción, vuelta y nodo (`claveDeEnvio`, lib/reentrada.ts). Cada parte
  * le suma su índice: si una respuesta se pierde, Zernio contesta la original en vez de mandar dos veces.
  */
 export async function enviarPasoSocial(input: {
@@ -191,6 +208,13 @@ export async function enviarPasoSocial(input: {
    * `payload` de cada uno. Van en la burbuja del ÚLTIMO texto: Meta los dibuja debajo de ese texto.
    */
   botones?: { lista: readonly BotonSocial[]; inscripcionId: number; nodoId: string };
+  /**
+   * La tarjeta RESPONDE EN PÚBLICO el comentario (`en_comentario`, ticket #17 de Leandro, 28/10/2026): su texto sale debajo
+   * del comentario que la persona dejó, no por DM (`decidirRespuestaPublica`, lib/canal-social.ts). Sólo texto y sin botones.
+   */
+  enComentario?: boolean;
+  /** Cuándo entró a la automatización: la respuesta pública sólo va al comentario del disparo o a uno posterior. */
+  inscriptoAt?: string | null;
 }): Promise<ResultadoSocial> {
   const { ws, leadId, canal, partes, vars, idempotencia } = input;
   const botones = input.botones?.lista.length ? aBotonesZernio(input.botones.lista, input.botones.inscripcionId, input.botones.nodoId) : [];
@@ -201,16 +225,38 @@ export async function enviarPasoSocial(input: {
   if (fila === undefined) return { ok: false, salieron: desde, textos: [], destino: null, error: `no pude leer la conversación de ${nombre}`, backoffHoras: 4 };
   const destino = fila ? (fila.username ? `@${fila.username}` : fila.igsid) : null;
   // Con la cuenta de la tarjeta y sin conversación con ESA cuenta: el motivo nombra la cuenta elegida (no cae a otra).
-  if (fila === null && cuenta) return { ok: false, salieron: desde, textos: [], destino: null, error: `el lead no le escribió a la cuenta de ${nombre} elegida en la tarjeta`, terminal: true, backoffHoras: 24 };
+  if (fila === null && cuenta) {
+    const error = `el lead no le escribió a la cuenta de ${nombre} elegida en la tarjeta`;
+    return input.enComentario ? { ok: false, salieron: 0, textos: [], destino: null, error, omitir: true } : { ok: false, salieron: desde, textos: [], destino: null, error, terminal: true, backoffHoras: 24 };
+  }
+
+  // ── La respuesta PÚBLICA al comentario (ticket #17): UNA, sólo texto, sin ventana y sin gastar la privada ──
+  if (input.enComentario) {
+    // Lo que no puede salir se OMITE y el flujo sigue con el DM de después (`omitir`): nunca cierra la inscripción.
+    const pub = decidirRespuestaPublica(fila ? conversacionDeFila(fila) : null, canal, { inscriptoAt: input.inscriptoAt ?? null });
+    if (pub.via === null) return { ok: false, salieron: 0, textos: [], destino, error: pub.motivo, omitir: true };
+    const texto = textoDeLasPartes(partes, vars);
+    if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'una respuesta en el comentario es de texto, y este mensaje no tiene', omitir: true };
+    const dejaAfuera = partes.some((p) => p.tipo !== 'texto') || botones.length > 0;
+    try {
+      await responderComentarioEnPublico(ws, { accountId: pub.cuentaId, postId: pub.postId, commentId: pub.comentarioId, texto, idempotencyKey: `${idempotencia}#publica` });
+      return { ok: true, salieron: partes.length, textos: [texto], destino, ...(dejaAfuera ? { nota: 'respuesta en el comentario: sólo el texto' } : {}) };
+    } catch (e) {
+      // Un TOPE primero (28/10/2026): un 422 o un 403 de Meta por «muchos pedidos» no es un rechazo, pasa solo.
+      const t = topeDe(e);
+      if (t) return porTope(t, { salieron: 0, textos: [], destino }, e);
+      if (esRechazoDelComentario(e) || esLimiteDeMeta(e)) return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, omitir: true };
+      return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
+    }
+  }
+
   const salida = decidirSalida(fila ? conversacionDeFila(fila) : null, Date.now(), canal);
   if (salida.via === null) return { ok: false, salieron: desde, textos: [], destino, error: salida.motivo, terminal: salida.terminal, backoffHoras: 24 };
   if (!partes.length) return { ok: false, salieron: 0, textos: [], destino, error: 'el mensaje está vacío', backoffHoras: 24 };
 
   // ── La respuesta privada a un comentario: UNA, sólo texto ──
   if (salida.via === 'respuesta_privada') {
-    const textos = partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo?.trim() ? [p.cuerpo] : []))
-      .map((t) => aplicarVariables(t, vars).trim()).filter(Boolean);
-    const texto = textos.join('\n\n');
+    const texto = textoDeLasPartes(partes, vars);
     if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'a un comentario se le contesta con texto, y este mensaje no tiene', backoffHoras: 24 };
     const dejaAfuera = partes.some((p) => p.tipo !== 'texto');
     // Los botones de la tarjeta, salvo en una cuenta que ya los rechazó: ahí la línea «Escríbeme «…»», y escribir el
@@ -227,6 +273,9 @@ export async function enviarPasoSocial(input: {
       const notas = [dejaAfuera ? 'respuesta privada: sólo el texto' : null, comoTexto ? 'la cuenta rechaza botones: salieron como texto' : null].filter(Boolean);
       return { ok: true, salieron: partes.length, textos: [final], destino, ...(notas.length ? { nota: notas.join('; ') } : {}), ...(botones.length ? { botones: comoTexto ? 'texto' as const : 'botones' as const } : {}) };
     } catch (e) {
+      // Un TOPE no gasta la respuesta privada (28/10/2026): vuelve a salir cuando pasa, sin marcarla usada.
+      const t = topeDe(e);
+      if (t) return porTope(t, { salieron: 0, textos: [], destino }, e);
       // Meta rechazó los BOTONES porque no sigue la cuenta (1545133): la cuenta queda anotada y la próxima sale en texto.
       if (botones.length && !comoTexto && esRechazoDeBotones(e)) await anotarRechazoDeBotones(salida.cuentaId);
       // Gastada o rechazada por Meta: la respuesta privada de ESE comentario ya no existe.
@@ -266,12 +315,21 @@ export async function enviarPasoSocial(input: {
       }
       salieron = k + 1;
     } catch (e) {
+      // Un TOPE: lo que ya salió queda contado (`salieron`) y el resto sale cuando pasa, desde la parte que no salió.
+      const t = topeDe(e);
+      if (t) return porTope(t, { salieron, textos, destino }, e);
       if (esLimiteDeMeta(e)) return { ok: false, salieron, textos, destino, error: `${nombre}: ${msg(e)}`, terminal: true };
       const reintento = e instanceof ZernioError && e.status >= 400 && e.status < 500 && e.status !== 409 && e.status !== 429 ? 24 : 4;
       return { ok: false, salieron, textos, destino, error: msg(e), backoffHoras: reintento };
     }
   }
   return { ok: true, salieron, textos, destino, ...(conBotones ? { botones: 'botones' as const } : botones.length ? { nota: 'los botones no salieron: el mensaje termina en un archivo' } : {}) };
+}
+
+/** El TEXTO de un mensaje que sale de una vez (la respuesta a un comentario): sus textos y los pies de sus archivos. */
+function textoDeLasPartes(partes: readonly ParteMensaje[], vars: Record<string, string>): string {
+  return partes.flatMap((p) => (p.tipo === 'texto' ? [p.cuerpo] : p.tipo === 'media' && p.cuerpo?.trim() ? [p.cuerpo] : []))
+    .map((t) => aplicarVariables(t, vars).trim()).filter(Boolean).join('\n\n');
 }
 
 /** La respuesta privada se usó (o Meta la dio por gastada): no se vuelve a intentar con ese comentario. */
