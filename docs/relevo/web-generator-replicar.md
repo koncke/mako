@@ -33,6 +33,10 @@ cerrados.**
   previa en `C:/dev/revisiones/landing-principal-2910/propuesta-avatar/`. Lo corre el Cerebro con `--aplicar --version 13`
   recién con DOS cosas: la rama (es `ai-avatar-todos-2910`, 51ab0774a, que trae abfe143ed) DESPLEGADA, y un look generado en
   producción. El motor nunca generó uno, según docs/hallazgos-ai-avatar.md de esa rama (7511f5f14 lo dice en el script).
+- **29/10 ~20:00: las tarjetas de la demo a Thiago.** e832e27eb (script + cosecha): 9 tarjetas en el orden de la llamada,
+  «todo en uno» + «Reemplaza a» y «Y además»; el Avatar detrás de `--con-avatar`. El Cerebro la publicó: #32 v14 (respaldo #86).
+  Producción medida a 1440 y 390 (`C:/dev/revisiones/landing-principal-2910/produccion-thiago/`). 251e1b75e: la última tarjeta
+  impar a todo el ancho en 2 columnas. Leído contra la v14, es el único cambio; falta que el Cerebro lo corra con `--version 14`.
 - DOCUMENTO #32 (ws9): `scripts/landing-principal-high-ticket.mts` lee la fila en vivo, cambia «VSL Funnel»→High Ticket (titular
   «El mejor SaaS para ventas High Ticket, de punta a punta»), deja 6 tarjetas (setter WA, CRM, Instagram, media buyer, landings,
   Closing Analyst) a 3 columnas, y saca el fondo azul de #beta (hoja). Sin `--aplicar` sólo lee. `--aplicar --version 10`: respaldo
