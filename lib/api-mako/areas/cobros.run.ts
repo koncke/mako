@@ -819,7 +819,7 @@ export const RUNNERS: Runners = {
       // preguntar»). Y el workspace del cobro es SIEMPRE el de la plataforma, nunca el que traiga el pedido.
       const plataforma = await wsSuperAdmin();
       if (ctx.ws !== plataforma) return { error: 'Vender un plan de MaKo es sólo de la plataforma.' };
-      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null });
+      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null, refCodigo: s(input.codigoPartner) });
       if (!val.ok) return { error: val.error };
       const v = val.venta;
       let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
@@ -852,7 +852,7 @@ export const RUNNERS: Runners = {
         : ' Al pagarlo se le crea la cuenta y le llega el acceso.';
       return {
         payload: { ...v },
-        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar} El link queda en Cobros.`,
+        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar}${v.refCodigo ? ` Lo trajo el partner «${v.refCodigo}».` : ''} El link queda en Cobros.`,
       };
     },
     // Corre antes de marcar la propuesta aplicada (lib/api-mako/acciones.ts): un «no» acá no la quema.

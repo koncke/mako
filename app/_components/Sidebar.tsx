@@ -484,6 +484,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [verPlataforma, setVerPlataforma] = useState(false);
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
+  const [clienteDeAgencia, setClienteDeAgencia] = useState(false);
   // MaKo Esencial por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
   const [planEsencial, setPlanEsencial] = useState(false);
   const esPro = (key: string) => planEsencial && esNavSoloPro(key);
@@ -587,6 +588,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
         setRol((j.rol as string) || '');
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
+        setClienteDeAgencia(j.clienteDeAgencia === true);
         setPlanEsencial(j.planEsencial === true);
         setImpersonando(Boolean(j.impersonando));
         setClienteNombre((j.clienteNombre as string) || '');
@@ -611,7 +613,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   //           mirando como cliente. Va acá y no en cada familia: `puedeVer` es por donde pasan la barra y el buscador.
   // La regla vive en lib/nav-visibilidad.ts: la usa también la barra de secciones de las tabs unificadas.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
-  const vistaNav = { adminShell, rolWs, capa };
+  const vistaNav = { adminShell, rolWs, capa, clienteDeAgencia };
   const puedeVer = (it: NavItem) => puedeVerItem(it, vistaNav);
   /**
    * Lo de ARRIBA de todo (17/10/2026): Ops Center sólo en la barra del super admin (`adminOnly`) y Second Brain para los demás.

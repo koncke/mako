@@ -285,6 +285,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'código de 3 letras (USD, MXN, ARS…). Sin ella, la de la cuenta de la pasarela.' },
       { nombre: 'montoUsd', rotulo: 'Valor en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'cuánto es en dólares, si la moneda no es USD: sin él el cobro no entra a la plata del CRM.' },
       { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o mercadopago. Hace falta sólo si la plataforma tiene las dos conectadas.' },
+      // 29/10/2026: el partner que lo trajo, como el campo de la pantalla; tiene que ser el código de un partner.
+      { nombre: 'codigoPartner', rotulo: 'Código de partner', tipo: 'string', max: 40, descripcion: 'el código de MaKo Partners de quien lo trajo, si lo trajo alguien: ese partner gana su primer mes.' },
     ],
     canales: ['whatsapp', 'app'], costo: 'externo', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },

@@ -15,6 +15,7 @@ import './partners.css';
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
+import { agenciaDeCliente } from '@/lib/agencia';
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -22,9 +23,6 @@ import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { ProgramaM, ReferidosM } from './ReferidosM';
 import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
-import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
-import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
-import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '@/lib/topes-plan';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { LandingPartners } from '@/app/mako-partners/LandingPartners';
 import { AltaPartner } from '@/app/partners/AltaPartner';
@@ -43,6 +41,8 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
   const esSuper = (await getSesionAdmin()) != null;
   // Sólo el admin, como en la computadora (app/partners/page.tsx).
   if ((await adminDeWorkspaceActual()) == null && !esSuper) redirect(await rutaConWs('/m/cs'));
+  // El cliente de una AGENCIA no ve MaKo Partners (29/10/2026), como en la computadora.
+  if (!esSuper && ws != null && (await agenciaDeCliente(ws).catch(() => null))) redirect(await rutaConWs('/m'));
   // Un link viejo de la cartera de una agencia: a su pantalla (/m/agency).
   if (sp.cuenta) redirect(await rutaConWs('/m/agency'));
   const cabecera = <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />;
@@ -60,15 +60,7 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
     getSupabaseServer().from('workspaces').select('nombre').eq('id', ws).maybeSingle().then((r) => (r.data as { nombre?: string } | null)?.nombre ?? null, () => null),
   ]);
   if (!alta) {
-    // SÓLO MaKo Pro (27/10/2026), como en la computadora (app/partners/page.tsx): un Esencial ve «Pasar a Pro».
-    if (await esEsencialDeLaSesion()) {
-      return (
-        <PantallaM>{cabecera}
-          <p style={{ margin: '0 16px 12px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>{textoSoloPro('partners')}</p>
-          <LandingPartners modo="app" accion={{ href: await rutaConWs(RUTA_CAMBIAR_PLAN), texto: ROTULO_PASAR_A_PRO }} />
-        </PantallaM>
-      );
-    }
+    // Cualquier plan es partner (29/10/2026), como en la computadora (app/partners/page.tsx).
     if (sp.alta === '1') return <PantallaM>{cabecera}<AltaPartner nombreNegocio={nombre} /></PantallaM>;
     return <PantallaM>{cabecera}<LandingPartners modo="app" accion={{ href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' }} /></PantallaM>;
   }

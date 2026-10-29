@@ -50,6 +50,8 @@ export default function VenderPlan({ pasarelas, sugeridos }: {
   const [montoUsd, setMontoUsd] = useState('');
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
+  // El código de MaKo Partners de quien lo trajo (29/10/2026, opcional).
+  const [refCodigo, setRefCodigo] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hecho, setHecho] = useState<{ link: string; monto: number; moneda: string } | null>(null);
@@ -90,7 +92,7 @@ export default function VenderPlan({ pasarelas, sugeridos }: {
     const r = await venderPlanAction({
       capa, monto: montoNum, moneda: monedaFinal, tipo,
       montoUsd: pideUsd && Number.isFinite(usd) && usd > 0 ? usd : null,
-      email: email.trim(), nombre: nombre.trim(), pasarela: efectiva,
+      email: email.trim(), nombre: nombre.trim(), pasarela: efectiva, refCodigo: refCodigo.trim() || null,
     }).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No pude crear el link.' }));
     setPending(false);
     if (!r.ok) { setError(r.error); return; }
@@ -198,6 +200,8 @@ export default function VenderPlan({ pasarelas, sugeridos }: {
                 placeholder="Email" style={wizardInput} aria-label="Email de quien paga" />
               <input value={nombre} onChange={(e) => setNombre(e.target.value)}
                 placeholder="Nombre" style={wizardInput} aria-label="Nombre de quien paga" />
+              <input value={refCodigo} onChange={(e) => setRefCodigo(e.target.value)}
+                placeholder="Código de partner (si lo trajo alguien)" style={wizardInput} aria-label="Código de partner" />
             </div>
           )}
 

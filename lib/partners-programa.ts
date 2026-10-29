@@ -35,8 +35,6 @@ import {
   type AltaPartner, type EstadoReferido, type Renglon, type Resumen,
 } from './partners-reglas';
 import { cuotasDeLugares, cobrosDeLugares } from './plan-acceso';
-import { esEsencialDe } from './plan-esencial';
-import { textoSoloPro } from './topes-plan';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -206,7 +204,7 @@ export async function hacermePartner(ws: number, respuestas: unknown): Promise<R
   try {
     if (ws === (await wsSuperAdmin())) return { ok: false, error: 'MaKo no es partner de sí mismo.' };
     const antes = await altaDePartner(ws).catch(() => null);
-    if (!antes && (await esEsencialDe(ws))) return { ok: false, error: textoSoloPro('partners'), soloPro: true };
+    // CUALQUIERA ES PARTNER (29/10/2026, alineado con las landings: «gratis», «cualquier plan»): ya no se frena al Esencial.
     const codigo = await codigoDe(ws);
     if (!codigo) return { ok: false, error: 'No pudimos crear tu link. Prueba otra vez en un minuto.' };
     const alta = altaLimpia({ ...(respuestas && typeof respuestas === 'object' ? respuestas : {}), at: antes?.at });

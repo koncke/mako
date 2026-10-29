@@ -57,7 +57,6 @@ export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = 
 /** Lo demás que es sólo de Pro (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`), dicho igual. */
 export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Sumar a tu lista los contactos de tus grupos de WhatsApp',
-  partners: 'Ganar el primer mes de cada negocio que traes a MaKo',
 };
 
 export const GRUPOS_COMPARACION = [
@@ -87,7 +86,8 @@ export function filasDeComparacion(): FilaComparacion[] {
     ...(TABS_TODAVIA_CERRADAS.includes('ai-avatar') ? [] : [soloPro(anuncios, NOMBRE_TAB_PRO['ai-avatar'])]),
     filaDeTope(equipo, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
-    soloPro(recomendar, NOMBRE_FUNCION_PRO.partners),
+    // MaKo Partners, en todos los planes desde el 29/10/2026 (como lo dicen las landings).
+    enTodos(recomendar, 'Ganar el primer mes de cada negocio que traes a MaKo'),
     soloPrograma(acompanamiento, 'Tus páginas, mensajes y anuncios armados en la primera semana'),
     soloPrograma(acompanamiento, 'La asesoría grupal en vivo con Martín, cada semana'),
     soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),

@@ -1,5 +1,5 @@
 // =============================================================================
-// El scraper de WhatsApp y hacerse MaKo Partner, SÓLO en Pro (27/10/2026)
+// El scraper de WhatsApp, SÓLO en Pro (27/10/2026); MaKo Partners, en TODOS los planes desde el 29/10/2026
 // =============================================================================
 // Martín, en la llamada con Leila (Fathom 876470842-15), ya decidido: traer los contactos de un grupo de WhatsApp y hacerse
 // partner son de MaKo Pro. Antes, `TABS_SOLO_PRO` no tenía al scraper (no es una tab) y `hacermePartner` no miraba el plan:
@@ -10,6 +10,8 @@
 //   · Partners: `hacermePartner` frena ANTES de crear el código, pero quien ya era partner sigue; la página (computadora y
 //     teléfono) muestra «Pasar a Pro» en lugar del alta; la API no propone lo que va a frenar;
 //   · /planes lo dice (tests/planes-tres-bloques.test.ts, las filas de `FUNCIONES_SOLO_PRO`).
+// ⚠️ 29/10/2026: Partners SALIÓ de Pro (la llamada con Thiago, «una persona refiere a MaKo», y las landings, que dicen
+// «gratis» y «cualquier plan»). Los dos tests de Partners de abajo ahora fijan que NO haya candado.
 //
 // Probado rompiéndolo (27/10/2026): al pie del archivo.
 // Correr: node --import tsx --test tests/scraper-partners-solo-pro.test.ts
@@ -34,10 +36,9 @@ function cuerpo(rel: string, nombre: string): string {
   return fin > 0 ? resto.slice(0, fin) : resto;
 }
 
-test('la regla: el scraper y Partners son de Pro, y el candado dice qué es y cómo tenerlo', () => {
-  assert.deepEqual([...FUNCIONES_SOLO_PRO], ['scraper-whatsapp', 'partners']);
+test('la regla: el scraper es de Pro (Partners ya no), y el candado dice qué es y cómo tenerlo', () => {
+  assert.deepEqual([...FUNCIONES_SOLO_PRO], ['scraper-whatsapp']);
   assert.equal(textoSoloPro('scraper-whatsapp'), 'Traer los contactos de un grupo de WhatsApp es de MaKo Pro. Pasa a Pro para usarlo.');
-  assert.equal(textoSoloPro('partners'), 'Ser MaKo Partner y ganar por cada negocio que traes es de MaKo Pro. Pasa a Pro para usarlo.');
   for (const f of FUNCIONES_SOLO_PRO) {
     const fila = filasDeComparacion().find((x) => x.que === NOMBRE_FUNCION_PRO[f]);
     assert.deepEqual([fila?.esencial, fila?.pro], [false, true], `/planes lo dice: ${f}`);
@@ -75,27 +76,13 @@ test('el SCRAPER por la API: la lista, el pedido de un grupo y las dos ejecucion
   }
 });
 
-test('PARTNERS: frena ANTES de crear el código, y quien ya era partner sigue', () => {
-  const f = cuerpo('lib/partners-programa.ts', 'hacermePartner');
-  const antes = f.indexOf('const antes = await altaDePartner(ws).catch(() => null);');
-  const freno = f.indexOf("if (!antes && (await esEsencialDe(ws))) return { ok: false, error: textoSoloPro('partners'), soloPro: true };");
-  const codigo = f.indexOf('const codigo = await codigoDe(ws);');
-  assert.ok(antes > 0 && freno > antes && codigo > freno, 'leer el alta, frenar al Esencial nuevo y recién ahí el código');
-  // La API no propone lo que va a frenar.
+test('PARTNERS en todos los planes (29/10/2026): sin candado en hacermePartner, la API ni las pantallas, y /planes lo dice', () => {
+  assert.doesNotMatch(cuerpo('lib/partners-programa.ts', 'hacermePartner'), /esEsencialDe\(/);
   const neg = fuente('lib/api-mako/areas/negocio.run.ts');
-  const prep = neg.slice(neg.indexOf('  hacerme_partner: {'), neg.indexOf('  cambiar_cobro_partners: {'));
-  assert.match(prep, /if \(!ya && \(await esEsencialDe\(ctx\.ws\)\)\) return \{ error: textoSoloPro\('partners'\) \};/);
-});
-
-test('PARTNERS en pantalla: un Esencial ve «Pasar a Pro» en lugar del alta, en la computadora y en el teléfono', () => {
-  for (const rel of ['app/partners/page.tsx', 'app/m/partners/page.tsx']) {
-    const p = fuente(rel);
-    const candado = p.indexOf('if (await esEsencialDeLaSesion()) {');
-    const alta = p.indexOf("sp.alta === '1'", p.indexOf('if (!alta) {'));
-    assert.ok(candado > p.indexOf('if (!alta) {') && candado < alta, `${rel}: el candado, antes del alta corta`);
-    assert.match(p.slice(candado, alta), /accion=\{\{ href: await rutaConWs\(RUTA_CAMBIAR_PLAN\), texto: ROTULO_PASAR_A_PRO \}\}/, rel);
-    assert.match(p.slice(candado, alta), /\{textoSoloPro\('partners'\)\}/, rel);
-  }
+  assert.doesNotMatch(neg.slice(neg.indexOf('  hacerme_partner: {'), neg.indexOf('  cambiar_cobro_partners: {')), /esEsencialDe\(/);
+  for (const rel of ['app/partners/page.tsx', 'app/m/partners/page.tsx']) assert.doesNotMatch(fuente(rel), /esEsencialDeLaSesion\(/, rel);
+  const fila = filasDeComparacion().find((x) => x.que === 'Ganar el primer mes de cada negocio que traes a MaKo');
+  assert.deepEqual([fila?.esencial, fila?.pro], [true, true]);
 });
 
 // Probado rompiéndolo (27/10/2026), una rotura por vez sobre la base en verde (5 pases, 0 fallos), restaurando el texto con un

@@ -20,13 +20,10 @@ import { redirect } from 'next/navigation';
 import { requireSesion, guardOnboarding } from '@/lib/tab-access';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
-import { esAgencia } from '@/lib/agencia';
+import { agenciaDeCliente, esAgencia } from '@/lib/agencia';
 import { getSupabaseServer } from '@/lib/supabase';
 import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
-import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
-import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
-import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '@/lib/topes-plan';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { Pagina, PageHeader } from '@/app/_ui';
@@ -79,6 +76,8 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
 
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/clients'));
   if ((await adminDeWorkspaceActual()) == null) redirect(await rutaConWs('/clients'));
+  // El cliente de una AGENCIA no ve MaKo Partners (29/10/2026, Thiago: «yo no me meto con ese cliente»).
+  if (await agenciaDeCliente(ws).catch(() => null)) redirect(await rutaConWs('/inicio'));
   // Como toda tab: con el onboarding sin terminar, primero el onboarding (lib/tab-access.ts).
   await guardOnboarding();
 
@@ -91,17 +90,8 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
 
   // Todavía no es partner: la landing; y al tocar «Hacerme partner», el onboarding corto.
   if (!alta) {
-    // SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila): un Esencial ve la landing con «Pasar a Pro» en lugar de
-    // «Hacerme partner», y el alta corta no se abre (`hacermePartner` lo frena igual, también por la API).
-    if (await esEsencialDeLaSesion()) {
-      return (
-        <Pagina>
-          <PageHeader titulo="MaKo Partners" />
-          <p style={{ margin: '0 0 12px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>{textoSoloPro('partners')}</p>
-          <LandingPartners modo="app" accion={{ href: await rutaConWs(RUTA_CAMBIAR_PLAN), texto: ROTULO_PASAR_A_PRO }} />
-        </Pagina>
-      );
-    }
+    // CUALQUIERA ES PARTNER (29/10/2026): en la llamada con Thiago, «una persona refiere a MaKo», y las landings dicen «gratis» y
+    // «cualquier plan». Antes, sólo MaKo Pro (27/10, Leila): se alinea con lo publicado. Cualquier plan se hace partner.
     if (sp.alta === '1') {
       return (
         <Pagina>

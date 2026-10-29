@@ -48,7 +48,9 @@ export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor',
  * lib/partners-programa.ts). Un Esencial que paga por la pasarela las ve con el candado y «Pasar a Pro» (`textoSoloPro`); la
  * vitrina lo dice en la tabla (lib/planes-comparacion.ts). Quien YA era partner antes del 27/10 sigue siéndolo.
  */
-export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp', 'partners'] as const;
+// MaKo Partners salió de acá el 29/10/2026: cualquier plan es partner (la llamada con Thiago, «una persona refiere a MaKo», y
+// las landings, que dicen «gratis» y «cualquier plan»).
+export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp'] as const;
 export type FuncionSoloPro = (typeof FUNCIONES_SOLO_PRO)[number];
 
 const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {

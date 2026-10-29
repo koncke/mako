@@ -26,6 +26,7 @@ import 'server-only';
 //     vivos, y pagar los dos creaba dos cuentas.
 // =============================================================================
 
+import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { createLead } from './leads';
 import { LeadDuplicadoError } from './leads-duplicados';
@@ -37,6 +38,7 @@ import { leadPorEmail } from './editor-landing/pago-pedido';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import { ventaValida, type VentaPlan, type VentaValida } from './vender-plan-reglas';
+import { esCodigoDePartner } from './partners-programa';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 
 export { ventaValida };
@@ -149,11 +151,19 @@ export async function venderPlan(v: Partial<VentaPlan> | null | undefined, cread
       return { ok: false, error: `Ya tiene un link pendiente de ese plan por otro monto (cobro #${c.id}): anúlalo primero para crear otro.` };
     }
     if (abierto) return { ok: false, error: `Ya pagó el plan ${capaDef(venta.capa).nombre} (cobro #${abierto.pagado.id}) y su cuenta todavía no quedó dada de alta: se revisa en Cobros.` };
+    // El código de partner, si vino, tiene que ser de un partner (como el que se escribe en el carrito de /planes): uno
+    // tipeado mal no acredita a nadie, y se frena acá en vez de guardarse y no contar nunca.
+    if (venta.refCodigo && !(await esCodigoDePartner(venta.refCodigo))) return { ok: false, error: `No hay ningún partner con el código «${venta.refCodigo}».` };
     const r = await crearCobro(ws, {
       leadId: lead.id, altaCapa: venta.capa, monto: p.previa.monto, moneda: p.previa.moneda, montoUsd: p.previa.montoUsd,
       tipo: venta.tipo, email: venta.email, nombre: venta.nombre, pasarela: p.previa.pasarela, creadoPor,
     });
     if (!r.ok) return { ok: false, error: r.error };
+    // El partner que lo trajo (29/10/2026): en el cobro, como el de /r/<código> (lib/partners-programa.ts lo acredita).
+    if (venta.refCodigo) {
+      const { error: e } = await getSupabaseServer().from('cobros').update({ ref_codigo: venta.refCodigo }).eq('id', r.cobro.id).eq('workspace_id', ws);
+      if (e) console.error(`[vender-plan] el cobro #${r.cobro.id} quedó sin el código ${venta.refCodigo}: ${e.message}`);
+    }
     // El monto y la moneda COMO QUEDARON en el cobro.
     return { ok: true, link: r.link, cobroId: r.cobro.id, monto: r.cobro.monto, moneda: r.cobro.moneda };
   } catch (e) {

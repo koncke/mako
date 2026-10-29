@@ -5,6 +5,7 @@
 // (b) pintar el banner de impersonación "estás viendo a <cliente>".
 
 import { NextResponse } from 'next/server';
+import { agenciaDeCliente } from '@/lib/agencia';
 import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
@@ -35,6 +36,8 @@ export async function GET() {
   const [ws, impersonando, vista, rolWs, capa, planEsencial] = await Promise.all([
     getWorkspaceActual(), estaImpersonando(), vistaDeOtro(), getRolWsEfectivo(), getCapaActual(), esEsencialDeLaSesion(),
   ]);
+  // La cuenta de un cliente de una AGENCIA (29/10/2026): la barra le esconde MaKo Partners (lib/nav-visibilidad.ts).
+  const clienteDeAgencia = ws != null && (await agenciaDeCliente(ws).catch(() => null)) != null;
 
   // ⚠️ LA SALIDA ES UN DATO, NO UNA CONSTANTE. El botón «Salir de la vista»
   // apuntaba hardcodeado a '/admin' en tres lugares, y '/admin' está en
@@ -88,6 +91,7 @@ export async function GET() {
     capa,
     // MaKo Esencial por la pasarela (23/10/2026): la barra dibuja las tabs de Pro con candado (lib/plan-esencial-reglas.ts).
     planEsencial,
+    clienteDeAgencia,
     legacy: sesion.sub === 'legacy',
     impersonando,
     clienteNombre: vista?.clienteNombre ?? null,

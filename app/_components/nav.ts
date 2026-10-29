@@ -110,6 +110,8 @@ export type NavItem = {
    * Customers. Cosmético, como todo acá: la ruta sigue abriendo.
    */
   noEnPlataforma?: true;
+  /** No lo ve la cuenta de un cliente de una AGENCIA (29/10/2026): MaKo Partners. Lo decide lib/nav-visibilidad.ts. */
+  noParaClienteDeAgencia?: true;
   /**
    * El ícono es una CRIATURA del Ops Center (app/admin/operaciones/Muneco.tsx), no un dibujo de icons.tsx: el nombre
    * del empleado cuyo muñeco se dibuja («Ops Center», «Second Brain»). Es el mismo muñeco que tiene ese chat en el
@@ -586,7 +588,7 @@ export const USER_NAV: NavItem[] = [
   // a su tablero (/partners/referidos) — con `soloCapas: ['agencia']` un cliente sólo llegaba tipeando la URL. Sin
   // `rolesWs`, el closer y el setter no la ven (`puedeVerItem`). La página reparte: la agencia, su cartera; el resto, sus
   // referidos (app/partners/page.tsx).
-  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', noEnPlataforma: true, match: starts('/partners') },
+  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', noEnPlataforma: true, noParaClienteDeAgencia: true, match: starts('/partners') },
   // Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9: «otra tab abajo de "Partners"»): la landing para
   // sumarse como Agency (sólo con el plan Pro activo) y, ya sumada, las cuentas de MaKo de sus clientes. La cartera vivía
   // en /partners; Partners quedó para los referidos. Sin `rolesWs`: sólo el admin, como Partners (app/agency/page.tsx).

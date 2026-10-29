@@ -22,6 +22,7 @@ import { planesMako } from '@/lib/compra-plan';
 import { precioEn } from '@/lib/planes-mako';
 import { PLAN_PRO, proPorLlamada } from '@/lib/subir-plan-reglas';
 import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
+import { agenciaDeCliente } from '@/lib/agencia';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -59,11 +60,15 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   const porLlamada = pro && proPorLlamada({ capa, subidaEnLinea: subir != null })
     ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Pídelo y te lo activamos.`, href: `/planes/${pro.id}` }
     : null;
+  const deAgencia = (await agenciaDeCliente(ws).catch(() => null)) != null;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}
       <TituloAjustes titulo="Tu plan" />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion} subir={subir} porLlamada={porLlamada}
+      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion}
+        // El cliente de una AGENCIA (29/10/2026, Thiago: «yo no me meto con ese cliente»): su plan lo maneja su agencia. No ve
+        // «Pasar a Pro» ni «Recomienda MaKo».
+        subir={deAgencia ? null : subir} porLlamada={deAgencia ? null : porLlamada} clienteDeAgencia={deAgencia}
         destacarEmpezar={destacarEmpezar} />
     </AjustesPagina>
   );
