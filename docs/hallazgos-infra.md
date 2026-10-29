@@ -9072,3 +9072,10 @@ tabnews.com.br (el dato de 80 MB por instancia).
   barridos de 30-60 min y el que esperaba 30 min salía con 99 y relanzaba: «no se liberó» se leyó como un cuelgue y no lo
   era. Un barrido pesa ~600 MB y `tests-afectados` ya espera RAM por su cuenta. Ahora son dos lugares, con 90 min de
   espera; los tsc siguen de a uno con 30. Un con-turno que ya estaba esperando corre el código viejo (un lugar).
+- **28-29/10: lo que se commitea en la rama del tren MIENTRAS corre su push termina en main (causa NO encontrada).** Dos
+  veces seguidas: el push mandó `c17134274` y, 11 s después, origin/main ya estaba en `b59d14943`; después mandó
+  `7f63046be` y 11 s más tarde estaba en `ed8c965d1`. Las dos veces, los commits de más eran del relevo, hechos durante el
+  chequeo de tipos del push. No los empujaba el pre-push, ni el cartero, ni `bitacora-sesion.sh`, y `remote.origin.push` no
+  está configurado (medido). Sólo eran docs y no cambiaron nada para los clientes. **Regla hasta encontrar la causa:**
+  mientras corre el push de un tren, en esa rama no se commitea NADA que no sea docs. Un merge de código va DESPUÉS de que
+  el push termine y el deploy esté Ready.
