@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **El Web Generator en blanco entrando por el menú (28/10)**: navegando, el `redirect()` de un LAYOUT viaja en su nodo del RSC, el router lo guarda y lo vuelve a tirar al llegar debajo del mismo layout (renavega para siempre); el refresh es un 307 y anda. Un layout redirige debajo de sí mismo sólo en la carga (`esNavegacionDelCliente`). Para medirlo en Windows, `--debug-build-paths` no compila nada y sale 0 |
 | Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | **MaKo en WhatsApp contesta mal: el modelo era lo que MENOS pesaba (28/10)**: el clasificador del grupo cae en «capturar», el grupo usa el prompt del dashboard y el turno no ve al equipo ni los tickets. Se mide con respuestas reales antes de cambiar de modelo |
 | Second Brain | [hallazgos-second-brain.md](hallazgos-second-brain.md) | **«Todos los chats usan el Second Brain» era falso (28/10)**: lo que los prompts llaman así es el RAG; ningún chat lee el grafo, y las funciones de MaKo sólo se dibujan. La regla: pre-recuperar los nodos con presupuesto y un catálogo de funciones único |
 | Editor de landing | [hallazgos-editor-landing.md](hallazgos-editor-landing.md) | **La copia fiel deja ciego al chat del editor (28/10)**: `htmlLibre` no tiene texto para Editar ni Discutir, y pasarla a «Diseño editable» le saca el CSS si no va a `config.diseno.css` |
