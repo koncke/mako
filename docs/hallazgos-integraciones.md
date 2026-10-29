@@ -2403,3 +2403,31 @@ tests/zernio-leads-barrido.test.ts.
 
 - **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. El hueco de la papelera
   en el poll de Meta.
+
+## WhatsApp vuelve a /integraciones: la tarjeta de las líneas por QR (29/10/2026)
+
+Martín: «En Integraciones falta el logo de WhatsApp para que aparezca eso también, con el QR obvio, con las múltiples líneas, claro».
+La de Chatwoot (el oficial) se fue el 09/10 (tests/sin-chatwoot.test.ts); WhatsApp se conectaba por QR (Evolution) sólo desde
+/configuraciones › Teléfonos, /whatsapp y Automations, y no tenía tarjeta.
+
+**Vive en:** `lib/integraciones-catalogo.ts` (la tarjeta `whatsapp`) · `lib/integraciones.ts` (`estadoWhatsApp`) ·
+`app/integraciones/LineasWhatsApp.tsx` (las líneas y «Agregar línea») · `lib/lineas-whatsapp-tarjeta.ts` (el texto del estado) ·
+`app/api/whatsapp/evolution/route.ts` (`deMaKo`) · `app/integraciones/IntegracionesBoard.tsx` · `app/m/configuraciones/integraciones/IntegracionesM.tsx` ·
+`lib/servicio-slides.ts` · tests/whatsapp-tarjeta.test.ts.
+
+- ⚠️ **`integracionConectada('whatsapp')` es la pregunta del OFICIAL** (lo que mandaba Chatwoot) en la API de MaKo
+  (lib/api-mako/areas/whatsapp.run.ts, nueve lugares). Sale del catálogo de MÉTODOS, no de la grilla: por eso la tarjeta nueva entra
+  SÓLO a `DEFS` (lib/integraciones-catalogo.ts) y NO a lib/metodo-catalogo.ts. Si entrara, esa pregunta empezaría a contestar algo
+  y la API de MaKo creería que hay un oficial. Lo fija el test.
+- **Ninguna conexión nueva:** «Agregar línea» monta el MISMO `EvolutionConnect` con `nueva` de /whatsapp y de Automations (el QR,
+  el tope del plan, la línea que nace al pedirlo). El estado de cada línea se MIDE (`GET /api/whatsapp/evolution?linea=`), porque la
+  fila miente en las dos direcciones; lo que nadie midió dice «sin comprobar», nunca un verde.
+- **La línea de MaKo (la del grupo, `mako_superadmin*`) no es del negocio:** la regla vive en un lugar (`esLineaDeMaKo`); la ruta
+  la marca (`deMaKo`) y la tarjeta la saca, en el estado de la grilla y en la lista del modal.
+- **El teléfono:** la hoja muestra las líneas (la misma pieza, `soloLectura`) y «Agregar una línea en la computadora». Un QR no
+  se escanea con el mismo teléfono que lo muestra.
+- **Capturas sin levantar la app:** un banco de esbuild con el `IntegracionesBoard` real y la ruta simulada (el molde del banco de
+  Create, docs/hallazgos-ui.md): `C:/dev/revisiones/whatsapp-tarjeta-2910/`. El CSS del teléfono no viene en `globals.css`: el
+  banco tiene que importar `app/m/m.css` y `app/m/configuraciones/configuraciones.css`, o la hoja sale sin estilos.
+- **Sin hacer:** renombrar, desvincular o elegir la de por defecto desde la tarjeta (sigue en /whatsapp); el código de vinculación
+  (`pairingCode`) que permitiría agregar una línea desde el teléfono (el tipo existe en `EvolutionConnect`, la pantalla no lo muestra).

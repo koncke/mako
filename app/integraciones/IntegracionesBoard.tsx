@@ -53,6 +53,9 @@ import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import ServicioConfigForm, { IconBtn } from './ServicioConfigForm';
+import dynamicImport from 'next/dynamic';
+// Las líneas de WhatsApp por QR (29/10/2026): se bajan sólo al abrir esa tarjeta (traen el QR de /whatsapp).
+const LineasWhatsApp = dynamicImport(() => import('./LineasWhatsApp'), { ssr: false });
 import { Icon } from '../_components/icons';
 import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
@@ -1683,6 +1686,8 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
   const esLanding = i.key === 'landing';
   // El agente tampoco: token + skill del lado del usuario. Mismo molde que la landing.
   const esAgente = i.key === 'agente';
+  // WhatsApp por QR (29/10/2026): sus líneas y «Agregar línea», no un formulario de claves.
+  const esWhatsApp = i.key === 'whatsapp';
 
   return (
     // Alto FIJO e igual para todos los servicios (el de 1 sola key y el de 6):
@@ -1751,7 +1756,9 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
 
           {i.key === 'google' && <PermisoGoogleCalendar conectada={i.estado === 'conectada'} estado={gcal} />}
 
-          {esAgente ? (
+          {esWhatsApp ? (
+            <LineasWhatsApp onCambio={onCambio} />
+          ) : esAgente ? (
             <TutorialAgente actual={agenteActual ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>

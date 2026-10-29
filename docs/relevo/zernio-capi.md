@@ -3,6 +3,14 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 29/10/2026 noche, tercera tanda (cuenta `claude3`) — WhatsApp en /integraciones
+
+Pedido del Cerebro (Martín: «En Integraciones falta el logo de WhatsApp... con el QR obvio, con las múltiples líneas»): la tarjeta
+`whatsapp` (Mensajería) con las líneas del negocio (número y estado medido), «Agregar línea» con el MISMO `EvolutionConnect nueva`,
+la de MaKo afuera, y en el teléfono la hoja con las líneas (el QR, en la computadora). Capturas del banco en
+`C:/dev/revisiones/whatsapp-tarjeta-2910/` (banco: el scratchpad de esta sesión, `banco-wa/`).
+**Sin hacer:** renombrar/desvincular desde la tarjeta; agregar una línea desde el teléfono con el código de vinculación.
+
 ## ESTADO 29/10/2026 noche, segunda tanda (cuenta `claude3`) — las promesas de la llamada con la agencia
 
 Rama `zernio-token-2910` (main ff908e645 mezclado en `77cf7a90b`). Pedido del Cerebro, en este orden:

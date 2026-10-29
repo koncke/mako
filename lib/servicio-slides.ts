@@ -18,7 +18,16 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/meta-capi.ts, disparado desde lib/leads.ts y el webhook de Calendly
     { t: 'Meta se entera de lo que cierra', d: 'Cuando un lead califica o agenda, le devolvemos el evento por CAPI para que optimice con datos reales, no con clicks.' },
   ],
-  // (Las de `whatsapp` —el servicio Chatwoot— se fueron el 09/10/2026 con la integración.)
+  // (Las de `whatsapp` —el servicio Chatwoot— se fueron el 09/10/2026 con la integración.) Vuelven el 29/10/2026 para las líneas por QR
+  // (Evolution): lo que de verdad hace cada una.
+  whatsapp: [
+    // lib/evolution.ts (varias líneas por negocio, `evolution_instancias`) + app/whatsapp/EvolutionConnect.tsx (el QR)
+    { t: 'Una línea o varias', d: 'Cada número se vincula con su QR, desde WhatsApp › Dispositivos vinculados. Por ejemplo, una línea por setter.' },
+    // app/chats (la bandeja, con el desplegable de la línea)
+    { t: 'Los chats, en MaKo', d: 'Las conversaciones de cada línea entran a Chats, y se contesta desde la misma línea.' },
+    // lib/nutricion-canal.ts (el envío de Automations por la línea elegida)
+    { t: 'Automations manda por la que elijas', d: 'Cada automatización sale por la línea que le digas.' },
+  ],
   email: [
     // lib/nutricion.ts (mismo motor que WhatsApp, canal email)
     { t: 'Secuencias que salen solas', d: 'El mismo motor de nutrición, por mail: pasos, variables y horarios.' },
