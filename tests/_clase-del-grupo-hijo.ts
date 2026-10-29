@@ -36,6 +36,9 @@ const pg = crearPostgrest({
   defaults: (t, f) => ({ id: ++n, created_at: new Date().toISOString(), ...(t === 'mako_doer_buffer' ? { estado: 'pendiente', workspace_id: WS } : {}), ...(t === 'tickets' ? { estado: 'esperando_decision' } : {}), ...f }),
   unicos: [{ tabla: 'mako_doer_buffer', columnas: ['grupo_jid', 'wa_message_id'], donde: (f) => f.wa_message_id !== '', nombre: 'ux_doer_buffer_msg' }],
   candado: true,
+  // Los pedidos del negocio (`ticketsDelNegocio`: `estado.not.in.(…)` y `and(estado.eq.resuelto,updated_at.gte."…")`): sin esto la
+  // lectura caía en silencio y el bloque de pedidos salía vacío en todas las escenas.
+  orCompleto: true,
 });
 
 /** Lo que hace la red en cada escena: la clase que contesta el clasificador (o que se cae), y lo que contesta el turno. */
@@ -90,10 +93,11 @@ async function main() {
     return { modelo: b.model ?? '', clave: x.clave, mensaje: JSON.stringify(b.messages?.[0]?.content ?? '').slice(0, 400) };
   });
   let ts = 1793260000;
-  const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID } = {}) => {
+  const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes }: { limpiar?: boolean; jid?: string; antes?: () => void } = {}) => {
     Object.assign(escena, { clase: '', claseCaida: false, respuesta: '' }, e);
     red.splice(0);
     if (limpiar) { pg.db.mako_doer_conv.splice(0); pg.db.tickets.splice(0); }
+    antes?.();
     pg.db.mako_doer_lock.splice(0);
     const r = await manejarEntranteDoer(LINEA, real(`3EB0CLASE${String(++ts).slice(-10)}`, ts, texto, jid) as never);
     out[k] = {
@@ -139,6 +143,18 @@ async function main() {
   // Un DEBUG fuera del grupo de SuperAdmin es una PREGUNTA (el deny gana): corre el turno, sólo con lecturas.
   await correr('debugAfuera', { clase: '{"clase":"DEBUG","resumen":"Ver qué le pasa a Leila","reenviado":false,"negocio":"Leila"}', respuesta: 'No lo puedo ver desde acá.' },
     'fíjate por qué a Leila no le conecta Facebook');
+  // El #30 de Leandro (29/10/2026): una PREGUNTA por el estado de un arreglo, con el pedido resuelto y su hito en la bitácora de
+  // mako-doer (`tickets: [30]`). El modelo contesta lo que contestó en producción: «no tengo acceso» y un «ya quedó reportado» falso.
+  await correr('estadoArreglo', {
+    clase: '{"clase":"PREGUNTA","resumen":"si actualizó la documentación de la API","reenviado":false}',
+    respuesta: 'No tengo acceso directo para editar la documentación de la API desde aquí. Ya quedó reportado al equipo de desarrollo para que actualicen los detalles de las palabras clave y los botones.',
+  }, 'lo actulizaste en la documentación api?', {
+    antes: () => pg.db.tickets.push({
+      id: 30, workspace_id: WS, estado: 'resuelto', tipo: 'bug', titulo: 'MaKo no pudo hacer lo que le pidieron, en WhatsApp',
+      respuesta: 'Ya está arreglado: Automations: «Ya te sigo» vuelve a preguntar y entrega el recurso.', canal: 'whatsapp',
+      created_at: new Date(Date.now() - 3600_000).toISOString(), updated_at: new Date().toISOString(),
+    }),
+  });
   // Una respuesta que era TODO relleno: no sale nada (va la reacción).
   await correr('relleno', { clase: '{"clase":"PREGUNTA","resumen":"cómo va","reenviado":false}', respuesta: 'Excelente, quedo atento.' },
     '¿cómo vamos con lo de la campaña?');

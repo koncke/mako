@@ -386,6 +386,29 @@ export const SIN_HACER = 'Eso no lo llegué a hacer en este mensaje: pídemelo o
  */
 export const SIN_HACER_LO_DEMAS = 'Lo demás no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.';
 /**
+ * ⚠️ «PÍDEMELO OTRA VEZ Y LO HAGO» NUNCA ANTE LO QUE MaKo NO PUEDE HACER (29/10/2026, el ticket #30 de Leandro). Le preguntó
+ * «¿lo actualizaste en la documentación API?» y salió «No tengo acceso directo para editar la documentación de la API desde aquí.
+ * Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago»: el saneo sacó un «Ya quedó reportado al equipo de
+ * desarrollo…» falso y pegó `SIN_HACER` debajo de un «no puedo». Una promesa falsa: pedírselo otra vez no lo hace posible. Si la
+ * respuesta dice que MaKo no puede (`noLoPuedeHacer`) o lo sacado era del EQUIPO, no va `SIN_HACER`: queda lo que dijo, y si no
+ * queda nada, esta línea, que no promete.
+ */
+export const SIN_HACER_SIN_PROMESA = 'Eso no quedó hecho en este mensaje.';
+
+/** La respuesta dice que MaKo NO puede hacer eso (no tiene acceso, no está a su alcance). */
+const NO_PUEDE = /\b(?:no\s+tengo\s+(?:acceso|permisos?|forma\s+de)|no\s+(?:puedo|podr[ée])\s+(?:editar|modificar|cambiar|hacer|tocar|acceder|actualizar|entrar|publicar|borrar)|no\s+(?:est[áa]|queda)\s+a\s+mi\s+alcance|fuera\s+de\s+mi\s+alcance|(?:eso|esto)\s+no\s+(?:lo\s+)?puedo|mako\s+no\s+(?:tiene\s+acceso|puede))\b/i;
+/** Lo que se dice HECHO es del EQUIPO de MaKo («quedó reportado al equipo de desarrollo», «registré el pedido para el equipo
+ *  técnico»): no es algo que MaKo haga en el próximo turno por un «pídemelo otra vez». */
+const DEL_EQUIPO = /\b(?:report|registr|escal|deriv|pas[éeao]|avis)\w*\b[^.?!\n]{0,80}?\bequipo\b|\bequipo\s+(?:de\s+(?:desarrollo|soporte|mako)|t[ée]cnico)\b/i;
+
+/** ¿Lo que se promete o se da por hecho es algo que MaKo NO hace (no puede, o lo hace el equipo)? */
+export function noLoPuedeHacer(texto: string): boolean {
+  return NO_PUEDE.test(texto || '') || DEL_EQUIPO.test(texto || '');
+}
+
+/** La línea que va después de sacar una promesa o un «hecho» sin respaldo: `normal`, o ninguna si MaKo no lo puede hacer. */
+const laVerdad = (textoEntero: string, normal: string): string | null => (noLoPuedeHacer(textoEntero) ? null : normal);
+/**
  * La nota que va cuando MaKo dice que HIZO algo y el código no ve nada que lo respalde (1.5; la tercera revisión,
  * 21/10/2026). ⚠️ LA ORACIÓN NO SE BORRA: borrar una verdad («sí, ya te la agendé» después de confirmar la tarjeta) es peor
  * que dejar pasar una mentira, porque le dice al cliente «no hice nada» sobre algo que sí se hizo. Las dos versiones que
@@ -668,11 +691,12 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
   const sinRespaldoGrupo = enElGrupo && !enElGrupo.respaldado ? afirmacionesDeHecho(textoEntero, { enElGrupo: delGrupo }) : [];
   if (sinRespaldoGrupo.length) {
     const queda = sinOraciones(textoEntero, (o) => afirmacionesDeHecho(o, { enElGrupo: delGrupo }).length > 0);
-    const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : SIN_HACER;
+    // Lo que MaKo no puede hacer (o era del equipo) no lleva «pídemelo otra vez y lo hago» (`SIN_HACER_SIN_PROMESA`, el #30).
+    const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : laVerdad(textoEntero, SIN_HACER);
     const resto = queda ? sanearSalida(queda, { corrioHerramientas, bloquesDebajo, finDeTurno }) : null;
     const yaLoDice = !!resto && (resto.texto.includes(SIN_HACER) || resto.texto.includes(SIN_HACER_LO_DEMAS));
     return {
-      texto: resto ? (yaLoDice ? resto.texto : `${resto.texto}\n\n${verdad}`) : verdad,
+      texto: resto ? (yaLoDice || !verdad ? resto.texto : `${resto.texto}\n\n${verdad}`) : verdad ?? SIN_HACER_SIN_PROMESA,
       promesas: resto?.promesas ?? [], groserias: resto?.groserias ?? groseriasDe(textoEntero), sinRespaldo: sinRespaldoGrupo,
     };
   }
@@ -688,7 +712,8 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
     // Con respaldo, ninguna nota de promesa: «Sí, ya te la agendé. Dame un segundo…» con «Esto no lo hice» pegado se lee
     // como que no se agendó.
     const prometidas = corrioHerramientas || hecho.respaldado ? [] : promesasFirmesDe(salida, { bloquesDebajo });
-    const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length ? NOTA_SIN_HACER : null;
+    // «si lo necesitas, pídemelo» tampoco ante lo que MaKo no puede hacer (el #30 de Leandro, `SIN_HACER_SIN_PROMESA`).
+    const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length && !noLoPuedeHacer(salida) ? NOTA_SIN_HACER : null;
     if (nota) salida = `${salida}\n\n${nota}`;
     return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
   }
@@ -703,9 +728,13 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
     const sinEspera = prometidas.length ? sinLaUltima(texto, prometidas[0]) : texto;
     const queda = sinOraciones(sinEspera, (o) => groseriasDe(o).length > 0);
     if (!prometidas.length) return { texto: queda ?? SIN_GROSERIA, promesas: prometidas, groserias };
-    return { texto: queda ? `${queda}\n\n${SIN_HACER_LO_DEMAS}` : SIN_HACER, promesas: prometidas, groserias };
+    const demas = laVerdad(texto, SIN_HACER_LO_DEMAS);
+    return { texto: queda ? (demas ? `${queda}\n\n${demas}` : queda) : laVerdad(texto, SIN_HACER) ?? SIN_HACER_SIN_PROMESA, promesas: prometidas, groserias };
   }
   const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
-  if (prometidas.length) return { texto: sacada ? `${sacada}\n\n${SIN_HACER}` : SIN_HACER, promesas: prometidas, groserias };
+  if (prometidas.length) {
+    const verdad = laVerdad(texto, SIN_HACER);
+    return { texto: sacada ? (verdad ? `${sacada}\n\n${verdad}` : sacada) : verdad ?? SIN_HACER_SIN_PROMESA, promesas: prometidas, groserias };
+  }
   return { texto: sacada ?? SIN_GROSERIA, promesas: prometidas, groserias };
 }

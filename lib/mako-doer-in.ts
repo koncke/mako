@@ -375,6 +375,7 @@ CÓMO CONTESTAS:
 - Primero MIRA con tus herramientas lo que te preguntan; después contesta con lo que viste. Nada de lo que crees saber.
 - En pocas líneas, en español neutro (tú). Sin saludo, sin «buena pregunta», sin «te voy a ser directo», sin agradecer.
 - Si no lo pudiste ver, dilo en una línea y pon la marca [[no-pude: lo que no pudiste ver]]. ⛔ No inventes números, nombres ni fechas.
+- Si te preguntan si algo YA quedó hecho, arreglado o actualizado, contesta con el estado de su pedido y lo que salió en producción (el bloque PEDIDOS ABIERTOS DE ESTE NEGOCIO), no con lo que tú puedes o no puedes hacer.
 - ⛔ No prometas volver con el dato: tu respuesta es el final del turno.
 - ⛔ No indiques borrar datos, ni afirmes cómo funciona algo de MaKo que no leíste, ni el estado de una integración que no miraste.`;
 
@@ -1650,8 +1651,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // LO QUE EL NEGOCIO YA PIDIÓ (F2b, lib/pedidos-del-negocio.ts): sus tickets abiertos y los resueltos de hace poco, de
     // cualquier persona del negocio. Sin poder leerlos, sin el bloque.
     const leidos = await ticketsDelNegocio(wsData).catch(() => null);
+    // Lo que salió en PRODUCCIÓN para los resueltos (29/10/2026, el #30 de Leandro: «¿lo actualizaste en la documentación API?» se
+    // contestó con «no tengo acceso»): el hito de la bitácora que nombra cada ticket. Sólo si hay alguno resuelto, con un import
+    // aparte (las bitácoras de todas las áreas no viajan en cada turno), y sin poder leerlo, sin eso.
+    const hitos = leidos?.ok && leidos.datos.some((t) => t.estado === 'resuelto')
+      ? await import('@/lib/tickets-cierre').then((m) => m.hitosDesplegados()).catch(() => null)
+      : null;
     const pedidosDelNegocio: PedidoDelNegocio[] = leidos?.ok
-      ? leidos.datos.map((t) => ({ id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at }))
+      ? leidos.datos.map((t) => {
+        const desplegado = t.estado === 'resuelto' ? hitos?.get(t.id) : undefined;
+        return { id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at, ...(desplegado ? { desplegado } : {}) };
+      })
       : [];
     const ctxPedidos = bloqueDePedidos(pedidosDelNegocio, new Date(), tzGrupo);
     // EL MENSAJE PARA ALGUIEN DEL EQUIPO (29/10/2026, Leandro, ws10; lib/doer-para-quien.ts): «Hola Martin, …». MaKo no contesta

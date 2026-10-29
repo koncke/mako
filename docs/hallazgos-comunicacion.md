@@ -11986,3 +11986,27 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
   existe sólo está probado por partes (`respuestaDelDebug` y `hechosDelDiagnostico`), no por la entrada con la base de mentira; un
   TICKET abierto por el grupo sale con el `tipo` que le pone el triage (`clasificar`, lib/tickets-reglas.ts: «pregunta» en el
   reporte de la 680 de la escena del test), no «bug».
+
+## «Pídemelo otra vez y lo hago» ante lo que MaKo no puede: el ticket #30 de Leandro (29/10/2026, claude3)
+
+**Vive en:** `lib/doer-salida.ts` (`noLoPuedeHacer`, `SIN_HACER_SIN_PROMESA`) · `lib/pedidos-del-negocio.ts` (`desplegado`) ·
+`lib/tickets-cierre.ts` (`hitosDesplegados`) · `lib/mako-doer-in.ts` (los pedidos del turno, `VOZ_DE_LA_CONSULTA`)
+
+- **El síntoma:** Leandro preguntó «¿lo actualizaste en la documentación API?» (sobre el arreglo del #29). MaKo contestó «No tengo
+  acceso directo para editar la documentación de la API desde aquí. Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y
+  lo hago», y abrió el #30 de «no pude». Una promesa falsa, y un ticket por una pregunta.
+- ⚠️ **La segunda oración no la escribió el modelo: la pegó el CÓDIGO.** El modelo había escrito «Ya quedó reportado al equipo de
+  desarrollo…» (falso: 0 herramientas corridas); el saneo del grupo lo sacó, bien, y pegó `SIN_HACER` debajo de un «no tengo
+  acceso», sin mirar si lo que se prometía era algo que MaKo puede hacer. Medido en `anthropic_usage` (`saneo-doer`, 20:16).
+- **Y la pregunta tenía respuesta:** el #29 estaba resuelto y la guía ya estaba desplegada (tren-ac). El turno veía el ticket
+  («Ya está arreglado: …») pero no lo que salió en producción, y la voz no le decía que una pregunta por un arreglo se contesta
+  con su estado.
+- **Lo que quedó:** `SIN_HACER` / `SIN_HACER_LO_DEMAS` / `NOTA_SIN_HACER` no van si la respuesta dice que MaKo no puede o lo que se
+  daba por hecho era del equipo (`noLoPuedeHacer`); sin nada que quede, `SIN_HACER_SIN_PROMESA`, que no promete. Cada pedido
+  resuelto del negocio llega al turno con el hito de la bitácora que lo nombra (`tickets: [n]`): título y 3 puntos.
+- **La regla:** una línea que escribe el código y PROMETE («lo hago») mira antes si es posible. Un hito que cierra un ticket es lo
+  que el cliente va a leer como «Ya está arreglado: …»: su título va en palabras del cliente, y sus puntos, con los links.
+- **Sin hacer (al 29/10):** la guía de la API (`app/api-mako/articulos-meta.ts`) existe sólo en main: esta rama no la tiene, y el
+  turno no puede leer la lista de artículos (después del merge, sumarla como lectura). Si el modelo contesta una PREGUNTA con
+  «no tengo acceso» y su marca `[[no-pude: …]]`, el ticket se abre igual (causa «texto», `causaDelNoPude` en lib/no-pude.ts): así
+  nació el #30. Con la respuesta correcta (el estado del arreglo) no hay marca ni ticket.

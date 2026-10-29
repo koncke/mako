@@ -13,7 +13,9 @@
 //   5. una PREGUNTA no afirma un número que no está en nada de lo que recibió (`numerosSinFuente`);
 //   6. ACCIÓN (lib/despacho-grupo.ts): sólo las escrituras simples; si no propuso ni hizo nada y no pregunta un dato, se DELEGA como
 //      «pedido» marcado `delegado`, con la respuesta fija;
-//   7. DEBUG: sólo en el grupo de SuperAdmin, lo resuelve el código (sin turno); afuera es una PREGUNTA.
+//   7. DEBUG: sólo en el grupo de SuperAdmin, lo resuelve el código (sin turno); afuera es una PREGUNTA;
+//   8. el #30 de Leandro: la pregunta por un arreglo ve lo que salió en producción, y «pídemelo otra vez y lo hago» no sale ante
+//      lo que MaKo no puede hacer.
 //
 // Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base 7/7; restaurado con .rotura-bak): sin la delegación
 // → 6 · la ACCIÓN con todas las escrituras → 6 · sin el chequeo de los números → 5 · el DEBUG sin el deny → 7 · el DEBUG con el turno
@@ -128,6 +130,21 @@ test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo 
   assert.equal(t.contexto.clasificacion?.clase, 'ACCION');
   assert.match(t.descripcion, /^ACCIÓN DELEGADA: /);
   assert.match(t.descripcion, /«créame una automatización que le dé la bienvenida a los leads nuevos»/);
+});
+
+test('8. el #30 de Leandro: una pregunta por un arreglo ve lo que salió en producción, y nunca sale «pídemelo otra vez y lo hago»', () => {
+  // Rota: sin `noLoPuedeHacer` en el saneo → «No tengo acceso…\n\nEso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo
+  // hago» (lo que salió en producción). Sin `hitosDesplegados` en el turno → el system no trae lo que salió para el #30.
+  const e = escena('estadoArreglo');
+  assert.equal(e.turno.length, 1);
+  const sys = e.turno[0].system;
+  assert.match(sys, /- #30 «MaKo no pudo hacer lo que le pidieron, en WhatsApp» — /, 'el pedido resuelto no llegó al turno');
+  assert.match(sys, /\n  En producción salió: «MaKo ya no te ofrece hacer lo que no puede/, 'el turno no ve lo que salió en producción para el #30');
+  assert.match(sys, /Si te preguntan si algo de éstos YA quedó hecho, arreglado o actualizado/);
+  assert.match(sys, /Si te preguntan si algo YA quedó hecho, arreglado o actualizado, contesta con el estado de su pedido/, 'la voz de la consulta no lo dice');
+  assert.equal(e.salio.length, 1, JSON.stringify(e.salio));
+  assert.match(e.salio[0], /^No tengo acceso directo para editar la documentación de la API desde aquí\./);
+  assert.doesNotMatch(e.salio[0], /pídemelo otra vez|lo llegué a hacer|Ya quedó reportado/, 'salió la promesa falsa');
 });
 
 test('7. DEBUG: lo resuelve el código en el grupo de SuperAdmin, sin turno; afuera es una PREGUNTA', () => {

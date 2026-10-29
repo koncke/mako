@@ -20,7 +20,7 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro } from './tickets-db';
-import { aprobadoPorRegla, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
+import { aprobadoPorRegla, hitosDeLosTickets, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
@@ -29,6 +29,11 @@ export type HitoDeTicket = { area: string; titulo: string };
 /** Los tickets que nombra alguna bitácora DESPLEGADA (la de este build), con el hito que los arregla. */
 export function ticketsDesplegados(): Map<number, HitoDeTicket> {
   return ticketsDeHitos(REGISTROS_SLUGS.map((slug) => ({ area: slug, bitacora: registroDe(slug).bitacora })));
+}
+
+/** Lo que salió en ESTE build para cada ticket, con sus puntos: lo lee el turno del grupo (`PedidoDelNegocio.desplegado`). */
+export function hitosDesplegados(): Map<number, { titulo: string; puntos: string[] }> {
+  return hitosDeLosTickets(REGISTROS_SLUGS.map((slug) => ({ bitacora: registroDe(slug).bitacora })));
 }
 
 /**

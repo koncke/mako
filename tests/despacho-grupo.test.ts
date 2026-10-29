@@ -23,8 +23,9 @@ import {
   ACCIONES_SIMPLES, WS_CON_CUIDADO, delegaLaAccion, esAccionSimple, negocioLeido, preguntaUnDato, respuestaDeLaDelegacion, respuestaDelDebug,
 } from '../lib/despacho-grupo';
 import { hechosDelDiagnostico } from '../lib/diagnostico-negocio';
-import { numerosSinFuente } from '../lib/doer-salida';
-import { textoDelAviso, sanearContexto } from '../lib/tickets-reglas';
+import { numerosSinFuente, noLoPuedeHacer, sanearSalida, SIN_HACER, SIN_HACER_SIN_PROMESA } from '../lib/doer-salida';
+import { hitosDeLosTickets, textoDelAviso, sanearContexto } from '../lib/tickets-reglas';
+import { bloqueDePedidos } from '../lib/pedidos-del-negocio';
 import { mensajePedidoDelegado, mensajeTicketNuevo } from '../lib/tickets-aviso';
 
 const RAIZ = join(__dirname, '..');
@@ -141,4 +142,43 @@ test('6. el pedido delegado del ws1 lo dice en su ticket; el Runner lo marca por
   assert.equal(r.split("...(esDelegado(f.contexto) ? { delegado: true as const } : {})").length - 1, 2);
   assert.match(r, /select\('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos, triage, contexto'\)/);
   assert.match(r, /select\('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos, contexto'\)/);
+});
+
+test('7. el #30 de Leandro: «pídemelo otra vez y lo hago» nunca ante lo que MaKo no puede hacer', () => {
+  // Rota: sin `noLoPuedeHacer` en `sanearSalida` → «No tengo acceso…\n\nEso no lo llegué a hacer en este mensaje: pídemelo otra vez
+  // y lo hago» (lo que salió en producción el 29/10 a las 20:17).
+  const grupo = { corrioHerramientas: false, finDeTurno: true, enElGrupo: { respaldado: false, propuesto: false, leyo: false } };
+  const real = 'No tengo acceso directo para editar la documentación de la API desde aquí. Ya quedó reportado al equipo de desarrollo para que actualicen los detalles de las palabras clave y los botones.';
+  const s = sanearSalida(real, grupo);
+  assert.equal(s.texto, 'No tengo acceso directo para editar la documentación de la API desde aquí.');
+  assert.ok(s.sinRespaldo?.length, 'el «ya quedó reportado» falso no se sacó');
+  // Sólo el «hecho» del equipo, sin nada más: la línea que no promete.
+  assert.equal(sanearSalida('Ya quedó reportado al equipo de desarrollo.', grupo).texto, SIN_HACER_SIN_PROMESA);
+  // Una promesa sin herramientas, con «no puedo» al lado: tampoco.
+  const p = sanearSalida('Eso no puedo editarlo desde aquí. Déjame ver con el equipo técnico y te aviso.', { corrioHerramientas: false });
+  assert.doesNotMatch(p.texto, /pídemelo/);
+  // Lo que MaKo SÍ hace sigue llevando la verdad de siempre (no se tapa todo).
+  assert.ok(sanearSalida('Déjame ver el plan y te cargo las tareas.', { corrioHerramientas: false }).texto.includes(SIN_HACER));
+  assert.ok(noLoPuedeHacer('No tengo acceso directo para editar la documentación'));
+  assert.ok(noLoPuedeHacer('lo registré para que el equipo técnico lo corrija'));
+  assert.ok(!noLoPuedeHacer('Te cargo las tareas al plan.'));
+});
+
+test('8. lo que salió en producción para cada pedido: el hito de la bitácora, y el turno lo ve', async () => {
+  // Rota: `bloqueDePedidos` sin `desplegado` → el turno no sabe que el #30 ya salió, y contesta «no tengo acceso».
+  const m = hitosDeLosTickets([
+    { bitacora: [{ titulo: '**A** se arregló', puntos: ['uno **dos**', 'tres', 'cuatro', 'cinco'], tickets: [30, 31] }, { titulo: 'B', tickets: [30] }] },
+  ]);
+  assert.deepEqual(m.get(30), { titulo: 'A se arregló', puntos: ['uno dos', 'tres', 'cuatro'] }, 'el primero gana, sin ** y con 3 puntos');
+  assert.equal(m.get(32), undefined);
+  const ahora = new Date('2026-10-29T21:00:00Z');
+  const pedidos = [{ id: 30, titulo: 'Documentación', estado: 'resuelto' as const, respuesta: 'Ya está arreglado.', updated_at: '2026-10-29T20:30:00Z', desplegado: { titulo: 'La guía de palabras clave', puntos: ['está en /api-mako?art=instagram-palabras-botones'] } }];
+  const b = bloqueDePedidos(pedidos, ahora, 'America/Argentina/Buenos_Aires');
+  assert.match(b, /\n  En producción salió: «La guía de palabras clave»\n  · está en \/api-mako\?art=instagram-palabras-botones/);
+  assert.match(b, /Si te preguntan si algo de éstos YA quedó hecho/);
+  assert.doesNotMatch(bloqueDePedidos([{ ...pedidos[0], desplegado: undefined }], ahora, 'UTC'), /YA quedó hecho|En producción salió/);
+  // Y el hito de este arreglo está en la bitácora de mako-doer con `tickets: [30]`: al desplegarse, el #30 se cierra solo.
+  const { REGISTROS_SLUGS, registroDe } = await import('../app/admin/dev/registros');
+  const reales = hitosDeLosTickets(REGISTROS_SLUGS.map((slug) => ({ bitacora: registroDe(slug).bitacora })));
+  assert.match(reales.get(30)?.titulo ?? '', /^MaKo ya no te ofrece hacer lo que no puede/);
 });

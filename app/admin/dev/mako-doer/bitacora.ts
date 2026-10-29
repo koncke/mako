@@ -695,4 +695,48 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [18],
   },
+  {
+    fecha: '29 oct', hora: '14:50', chat: 'MaKo en WhatsApp', sesion: 'local_cf058ed5-4fbb-41b8-b1f9-93030d11d1a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en el grupo sabe si le hacen una pregunta, le piden una acción o le reportan un problema, y delega lo que no hace sola',
+    pedido: 'Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp… Que sepa cuándo es un ticket, cuándo es una pregunta, o una acción dentro de MaKo».',
+    puntos: [
+      'La clase del mensaje la decide la IA (Haiku, el crédito de los grupos): pregunta, acción, ticket, debug, charla o «no es para MaKo». En 76 mensajes reales de 9 grupos acierta 75 (las reglas solas, 49).',
+      'Un ticket no pasa por el modelo: lo abre el código y la respuesta es fija, con el número. Una charla es el 👍; lo que no es para MaKo, silencio.',
+      'Una acción simple (una ficha, una etapa, una nota, una reunión, una tarea) la hace MaKo; cualquier otra se delega al Cerebro como «pedido delegado» y el «listo» vuelve al grupo.',
+      'Una pregunta va sólo con lecturas, y un número que no vio no sale.',
+      '**Cómo se prueba:** en el grupo de un negocio, «¿cuántos leads entraron hoy?», «agéndame una reunión con Juan el viernes» y «el botón de pagar no anda».',
+    ],
+    commits: [
+      { sha: 'fd7b00a45', msg: 'MaKo en el grupo sabe cuándo es una pregunta, una acción, un ticket, un debug, una charla o no es para él', lineas: 3385, archivos: 8 },
+      { sha: '4a15d0775', msg: 'MaKo en el grupo es un despachante: hace sola lo simple, delega lo demás al Cerebro y el DEBUG lo resuelve el código', lineas: 999, archivos: 27 },
+      { sha: 'de5778615', msg: 'Despachante: los rojos de tests-afectados y el tipo del DEBUG que ya sale antes', lineas: 65, archivos: 5 },
+      { sha: '6af2bb1e0', msg: 'Despachante: los rojos de las barredoras (cableado de la forma vieja, «acá», el reenvío con la pregunta del equipo viva)', lineas: 74, archivos: 15 },
+      { sha: '200cf0582', msg: 'Despachante: las roturas D1–D12 cazadas, y la cosecha de la verificación', lineas: 23, archivos: 4 },
+    ],
+    archivos: [
+      'lib/mako-intencion-ia.ts — la clase, con el banco de casos reales',
+      'lib/despacho-grupo.ts — qué hace MaKo sola y qué delega; las respuestas fijas',
+      'lib/mako-doer-in.ts — el despacho en el turno',
+      'scripts/banco-clases.mts — el banco (tests/fixtures/banco-grupos-2910.json)',
+      'tests/clase-del-grupo.test.ts — por la entrada real, 14 escenas',
+    ],
+  },
+  {
+    fecha: '29 oct', hora: '18:40', chat: 'MaKo en WhatsApp', sesion: 'local_cf058ed5-4fbb-41b8-b1f9-93030d11d1a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya no te ofrece hacer lo que no puede, y si le preguntas por un arreglo te dice en qué quedó',
+    puntos: [
+      'Leandro preguntó «¿lo actualizaste en la documentación API?» y MaKo contestó «no tengo acceso… pídemelo otra vez y lo hago»: una promesa falsa, y un ticket de «no pude» por una pregunta.',
+      '«Pídemelo otra vez y lo hago» ya no sale cuando la respuesta dice que MaKo no puede o lo que se dio por hecho era del equipo.',
+      'Ahora MaKo ve lo que salió en producción para cada pedido resuelto del negocio, y una pregunta por el estado de un arreglo se contesta con eso.',
+      '**Cómo se prueba:** en el grupo de un negocio con un pedido resuelto, preguntar «¿eso ya quedó?».',
+    ],
+    archivos: [
+      'lib/doer-salida.ts — `noLoPuedeHacer` y `SIN_HACER_SIN_PROMESA`',
+      'lib/pedidos-del-negocio.ts — lo que salió en producción en el bloque de pedidos',
+      'lib/tickets-cierre.ts — `hitosDesplegados`',
+    ],
+    tickets: [30],
+  },
 ];

@@ -658,6 +658,27 @@ export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora
   return m;
 }
 
+/**
+ * LO QUE SALIÓ EN PRODUCCIÓN para cada ticket (29/10/2026, el #30 de Leandro: «¿lo actualizaste en la documentación API?»): el
+ * título del hito y sus primeros puntos, en una línea cada uno, sin el `**` de la bitácora. Con esto, MaKo contesta el ESTADO de un
+ * arreglo leyendo lo desplegado, no «no tengo acceso para editar eso». El mismo recorrido que `ticketsDeHitos`.
+ */
+export function hitosDeLosTickets(
+  registros: ReadonlyArray<{ bitacora: ReadonlyArray<{ titulo: string; puntos?: readonly string[]; tickets?: readonly number[] }> }>,
+  maxPuntos = 3,
+): Map<number, { titulo: string; puntos: string[] }> {
+  const m = new Map<number, { titulo: string; puntos: string[] }>();
+  const limpio = (s: string): string => s.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 220);
+  for (const r of registros) {
+    for (const h of r.bitacora) {
+      for (const n of h.tickets ?? []) {
+        if (Number.isInteger(n) && n > 0 && !m.has(n)) m.set(n, { titulo: limpio(h.titulo), puntos: (h.puntos ?? []).slice(0, maxPuntos).map(limpio).filter(Boolean) });
+      }
+    }
+  }
+  return m;
+}
+
 // ── El aviso al cliente ───────────────────────────────────────────────────────────────────────────────────────────
 /**
  * El texto del aviso al GRUPO del negocio cuando un error del sistema ya está arreglado: qué se rompió (el título, que

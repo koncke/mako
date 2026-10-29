@@ -72,7 +72,13 @@ export function crearPostgrest(o: {
       }
     }
     const [col, op, ...r] = p.split('.');
-    const x = r.join('.');
+    // Un valor entre comillas (`updated_at.gte."2026-10-29T…"`, lib/tickets-db.ts → `ticketsDelNegocio`) se compara sin ellas.
+    const x = r.join('.').replace(/^"(.*)"$/, '$1');
+    // `estado.not.in.(…)` (29/10/2026, los pedidos del negocio en el turno del grupo): como Postgres, un null no entra.
+    if (op === 'not' && x.startsWith('in.(') && x.endsWith(')')) {
+      const xs = x.slice(4, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
+      return (f) => f[col] != null && !xs.includes(String(f[col]));
+    }
     if (op === 'eq') return (f) => f[col] != null && String(f[col]) === x;
     if (op === 'neq') return (f) => f[col] != null && String(f[col]) !== x;
     if (op === 'is' && x === 'null') return (f) => f[col] == null;

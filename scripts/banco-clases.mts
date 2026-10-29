@@ -46,7 +46,11 @@ const SALIDA = valor('--salida', '');
 const CLAVE = process.env.ANTHROPIC_CREDITO_CUENTA1 || process.env.ANTHROPIC_CREDITO_CUENTA2 || '';
 if (!SIN_IA && !CLAVE) { console.error('Falta ANTHROPIC_CREDITO_CUENTA1 (o la 2) en el entorno: corre con --env-file del .env.local del clon.'); process.exit(2); }
 
-const { casos } = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'tests', 'fixtures', 'banco-grupos-2910.json'), 'utf8')) as { casos: Caso[] };
+const { casos: todos } = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'tests', 'fixtures', 'banco-grupos-2910.json'), 'utf8')) as { casos: Caso[] };
+/** `--solo conv:1728,conv:1712`: sólo esos casos (un caso nuevo se mide con UNA llamada, sin volver a correr el banco). */
+const SOLO = valor('--solo', '').split(',').map((s) => s.trim()).filter(Boolean);
+const casos = SOLO.length ? todos.filter((c) => SOLO.includes(c.id)) : todos;
+if (SOLO.length && casos.length !== SOLO.length) { console.error(`--solo: no están ${SOLO.filter((id) => !casos.some((c) => c.id === id)).join(', ')}`); process.exit(2); }
 
 /** La partición fija: 40 % retenido por el hash del id (no se toca al ajustar el prompt). */
 const retenido = (id: string): boolean => parseInt(createHash('sha256').update(id).digest('hex').slice(0, 8), 16) % 10 < 4;

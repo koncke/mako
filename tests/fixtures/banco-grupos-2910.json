@@ -2771,6 +2771,30 @@
    "fallas": [],
    "derivado": true,
    "deDonde": "plataforma"
+  },
+  {
+   "id": "conv:1728",
+   "ws": "10",
+   "at": "2026-10-29T20:16:51.837Z",
+   "texto": "lo actulizaste en la documentación api?",
+   "historial": [
+    {
+     "rol": "persona",
+     "texto": "bueno hazlo"
+    },
+    {
+     "rol": "mako",
+     "texto": "Te entiendo perfecto y tienes luz verde. Como MaKo no tiene acceso directo para modificar las entrañas del motor de automatizaciones ni editar la documentación de la API desde este chat, ya registré el pedido exacto para que el equipo técnico aplique la corrección en el bucle de «Ya te sigo» y normalice la sensibilidad a tildes y mayúsculas en el filtro. Quedó el ticket #29 para el equipo de MaKo."
+    }
+   ],
+   "reenviado": false,
+   "pendiente": false,
+   "preguntaDelEquipo": null,
+   "clase": "PREGUNTA",
+   "tambien": [],
+   "dificil": true,
+   "quien": null,
+   "deDonde": "ticket #30 (29/10, el Cerebro): pregunta por el estado de un arreglo; MaKo contestó «no tengo acceso… pídemelo otra vez y lo hago»"
   }
  ],
  "nota": "Las clases a mano (29/10/2026, el chat MaKo en WhatsApp). dificil: reenviados, varios temas, quejas con carga emocional, lo del equipo, la frontera PREGUNTA/TICKET. derivado: armado desde un hecho real de la semana (deDonde) para medir DEBUG; va aparte del 95 %. Teléfonos y emails, tapados. Lo arma el script del banco (scripts/banco-clases.mts lo lee). menciones: las @menciones de WhatsApp del mensaje (mentionedJid); sin el campo, el banco las toma del texto. En conv:1681 y conv:1699 van vacías a propósito: los @ del texto son cuentas de Instagram de los comentarios de prueba, no menciones (29/10, la primera corrida con Haiku las tomaba por «a otro»)."
