@@ -18,7 +18,11 @@ import { ROTULO_ESTADO_CLIENTE, estadoParaElCliente, type EstadoTicket } from '.
 export const MAX_PEDIDOS = 8;
 export const DIAS_RESUELTOS = 3;
 
-export type PedidoDelNegocio = { id: number; titulo: string; estado: EstadoTicket; respuesta: string | null; updated_at: string };
+/** `desplegado` (29/10/2026, el #30 de Leandro): lo que salió en producción para ese pedido —el hito de la bitácora que lo nombra
+ *  (`hitosDesplegados`, lib/tickets-cierre.ts)—. «¿lo actualizaste en la documentación?» se contesta con esto. */
+/** `delegado` (30/10/2026, la re-verificación de d49539722, N2): un PEDIDO DELEGADO; lo que respondió el equipo lo escribió el
+ *  Cerebro y no va al turno (cada turno lo leía 3 días, crudo): queda su estado. */
+export type PedidoDelNegocio = { id: number; titulo: string; estado: EstadoTicket; respuesta: string | null; updated_at: string; desplegado?: { titulo: string; puntos: string[] }; delegado?: true };
 
 const enUnaLinea = (s: string, max: number): string => {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -32,9 +36,15 @@ export function bloqueDePedidos(pedidos: readonly PedidoDelNegocio[], ahora: Dat
     'PEDIDOS ABIERTOS DE ESTE NEGOCIO (lo que ya le pidió o reportó al equipo de MaKo). Si lo de ahora es uno de éstos, dilo con su número y su estado y marca [[ya-pedido: #N]]: no lo contestes como consejo ni abras otro.',
     ...pedidos.slice(0, MAX_PEDIDOS).map((p) => {
       const estado = ROTULO_ESTADO_CLIENTE[estadoParaElCliente(p.estado)];
-      const dijo = p.respuesta?.trim() ? ` · el equipo dijo: «${enUnaLinea(p.respuesta, 160)}»` : '';
-      return `- #${p.id} «${enUnaLinea(p.titulo, 110)}» — ${estado} (act. ${cuando(p.updated_at, ahora, tz)})${dijo}`;
+      const dijo = p.respuesta?.trim() && !p.delegado ? ` · el equipo dijo: «${enUnaLinea(p.respuesta, 160)}»` : '';
+      const salio = p.desplegado
+        ? `\n  En producción salió: «${enUnaLinea(p.desplegado.titulo, 160)}»${p.desplegado.puntos.map((x) => `\n  · ${enUnaLinea(x, 220)}`).join('')}`
+        : '';
+      return `- #${p.id} «${enUnaLinea(p.titulo, 110)}» — ${estado} (act. ${cuando(p.updated_at, ahora, tz)})${dijo}${salio}`;
     }),
+    ...(pedidos.some((p) => p.desplegado)
+      ? ['Si te preguntan si algo de éstos YA quedó hecho, arreglado o actualizado, contesta con su estado y con lo que salió en producción (con su link si lo trae). No contestes con lo que tú puedes o no puedes hacer.']
+      : []),
   ].join('\n');
 }
 

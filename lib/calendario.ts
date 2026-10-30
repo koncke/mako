@@ -73,7 +73,7 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
   const hastaIso = inicioDelDia(hasta, tz);
   const fallos: FallosCalendario = {};
   const meta: { google: GoogleDelCalendario | null } = { google: null };
-  const [propios, crm, google, plan, recurrentes, cobros, objetivos] = await Promise.all([
+  const [propios, crm, google, plan, recurrentes, cobros, objetivos, series] = await Promise.all([
     leerPropios(desdeIso, hastaIso).catch((e) => { console.error('[calendario] propios:', msg(e)); fallos.propios = true; return [] as ItemCalendario[]; }),
     leerCrm(desde, hasta, desdeIso, hastaIso, tz).catch((e) => { console.error('[calendario] crm:', msg(e)); fallos.crm = true; return [] as ItemCalendario[]; }),
     leerGoogle(desdeIso, hastaIso, tz, fallos, meta),
@@ -81,10 +81,13 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
     leerRecurrentes(desde, hasta, tz).catch((e) => { console.error('[calendario] recurrentes:', msg(e)); fallos.recurrentes = true; return [] as ItemCalendario[]; }),
     leerCobros(desde, hasta, tz).catch((e) => { console.error('[calendario] cobros:', msg(e)); fallos.cobros = true; return [] as ItemCalendario[]; }),
     leerObjetivos(desde, hasta, tz).catch((e) => { console.error('[calendario] objetivos:', msg(e)); fallos.objetivos = true; return [] as ItemCalendario[]; }),
+    // Las próximas veces de las Publicaciones que se repiten (29/10/2026, lib/calendario-recurrentes.ts): en la capa «Se repite».
+    import('./calendario-recurrentes').then((m) => m.seriesParaDibujar(desde, hasta, desdeIso, tz))
+      .catch((e) => { console.error('[calendario] series:', msg(e)); fallos.recurrentes = true; return [] as ItemCalendario[]; }),
   ]);
   // Los de Google van TODOS: si una reunión del CRM y su evento de Google son la misma, lo decide la pantalla según qué
   // calendarios están prendidos (`sinDuplicarLlamadas`). Apagando las llamadas del CRM, el de Google tiene que verse.
-  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...objetivos], fallos, google: meta.google };
+  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...objetivos, ...series], fallos, google: meta.google };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -426,12 +429,47 @@ export async function marcarEvento(id: string, hecho: boolean): Promise<boolean 
 export type EventoBorrado = FilaEvento & {
   origen: string; creado_por: string | null;
   publicacion?: Pick<DatosPublicacion, 'red' | 'cuenta_red' | 'archivo' | 'archivo_tipo' | 'texto'>;
+  /**
+   * Su lugar en una Publicación que se repite (mig 0349): `de` = el molde, si es una de sus veces; `hasta` = lo que el cron ya
+   * atendió, si es el molde. Sin esto, el «Deshacer» devolvía la vez SUELTA, su «Repetir» abría otra serie y salían dos posts por
+   * día (re-verificación de privacidad del 29/10, N1); y el molde volvía sin su marca, y lo borrado renacía (N8).
+   */
+  serie?: { de: string | null; hasta: string | null };
 };
+
+/** El lugar en una serie de un evento, ANTES de borrarlo. Sin la 0349 (o sin poder leerlo), null: el evento vuelve como antes. */
+async function serieDelEvento(id: string): Promise<EventoBorrado['serie'] | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('calendario_eventos').select('serie_de, repetir_hasta').eq('id', id).maybeSingle();
+  if (error || !data) return null;
+  const f = data as { serie_de?: string | null; repetir_hasta?: string | null };
+  return f.serie_de || f.repetir_hasta ? { de: f.serie_de ?? null, hasta: f.repetir_hasta ?? null } : null;
+}
+
+/**
+ * Lo de la serie que se vuelve a escribir, VALIDADO (lo manda el navegador): el molde tiene que ser un evento de ESTE negocio
+ * (`getTenantDb`) y otro que éste; si ya no está, la vez vuelve suelta (su serie se borró: no hay con qué duplicarse). Si no se puede
+ * leer, TIRA: volver suelta una vez de una serie viva es justo lo que abría la segunda serie.
+ */
+async function serieParaVolver(id: string, s: EventoBorrado['serie']): Promise<{ serie_de?: string; repetir_hasta?: string }> {
+  if (!s || typeof s !== 'object') return {};
+  const out: { serie_de?: string; repetir_hasta?: string } = {};
+  if (typeof s.hasta === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.hasta)) out.repetir_hasta = s.hasta;
+  if (typeof s.de === 'string' && /^[a-z0-9]{1,40}$/i.test(s.de) && s.de !== id) {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('calendario_eventos').select('id').eq('id', s.de).maybeSingle();
+    if (error) throw new Error(`No pude volver a poner el evento: ${error.message}`);
+    if (data) out.serie_de = s.de;
+  }
+  return out;
+}
 
 /** Borra un evento propio y devuelve lo que borró (para el «Deshacer», que lo vuelve a poner con el MISMO id). */
 export async function borrarEvento(id: string): Promise<EventoBorrado | null> {
   // Uno que espera a Zernio se publicaría igual: primero se cancela (28/10/2026). La condición va EN el DELETE.
   const pub = (await leerPublicaciones([id])).get(id);
+  // Aparte del DELETE (que no puede nombrar columnas de la 0349: sin ella, PostgREST rechazaría el borrado entero).
+  const serie = await serieDelEvento(id);
   const db = await getTenantDb();
   const w = await sinPublicacionEnCurso<EventoBorrado>((c) => conCondicion(db.from('calendario_eventos').delete().eq('id', id), c).select(`${COLS}, origen, creado_por`) as never);
   if ('error' in w) throw new Error(`No pude borrar el evento: ${w.error}`);
@@ -443,6 +481,7 @@ export async function borrarEvento(id: string): Promise<EventoBorrado | null> {
   }
   // El «Deshacer» devuelve el archivo y el texto, NUNCA la cuenta: la cuenta se vuelve a elegir entre las del negocio.
   if (pub && (pub.archivo || pub.texto)) b.publicacion = { red: null, cuenta_red: null, archivo: pub.archivo, archivo_tipo: pub.archivo_tipo, texto: pub.texto };
+  if (serie) b.serie = serie;
   return b;
 }
 
@@ -462,11 +501,14 @@ export async function restaurarEvento(f: EventoBorrado): Promise<void> {
     && (f.estado === 'planeado' || f.estado === 'hecho');
   if (!ok) throw new Error('Ese evento no se puede volver a poner.');
   const origen = ['user', 'plantilla', 'ia', 'api'].includes(f.origen) ? f.origen : 'user';
+  // ⚠️ La serie va EN el insert (todo o nada): una vez que vuelve sin su `serie_de` puede abrir otra serie (N1). La regla del molde
+  //    (`repetir`) NO vuelve: se vuelve a poner con su confirmación; su marca (`repetir_hasta`) sí, para que lo atendido no renazca.
+  const serie = await serieParaVolver(f.id, f.serie);
   const db = await getTenantDb();
   const { error } = await db.from('calendario_eventos').insert({
     id: f.id, tipo: f.tipo, formato: f.formato ?? null, titulo: f.titulo, notas: f.notas, inicio: f.inicio, fin: f.fin ?? null,
     dia_completo: !!f.dia_completo, estado: f.estado, origen, creado_por: typeof f.creado_por === 'string' ? f.creado_por.slice(0, 200) : null,
-    updated_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(), ...serie,
   });
   if (error && error.code !== '23505') throw new Error(`No pude volver a poner el evento: ${error.message}`);
   // Ya había vuelto (dos «Deshacer»): la publicación la escribió el primero, y ésta no se escribe encima (la verificación del

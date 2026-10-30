@@ -6,7 +6,8 @@
 // En Madgicx la tuerca abre una PÁGINA (vivo-ai-marketer-ajustes.jpg): «AI Marketer settings» con «Back», y una tarjeta
 // «Optimization KPIs» por cuenta con «Primary KPI» y «Target value» (el recomendado por la IA o uno propio). Se copia esa
 // estructura —título, volver, tarjetas— y en tarjetas aparte va lo que MaKo agrega y Madgicx no tiene (dicho acá): cómo
-// trabaja (propone o piloto automático, y el interruptor), los topes del dinero, las metas del mes y la cuenta publicitaria.
+// trabaja (propone o piloto automático, y el interruptor), los topes del dinero, DÓNDE y HASTA (la zona y la fecha de fin que
+// Martín le prometió a la agencia de Thiago el 29/10: lib/media-buyer/zona.ts), las metas del mes y la cuenta publicitaria.
 // Lo que se guarda pasa por la misma puerta que siempre (POST /api/media-buyer, op config → lib/media-buyer/store.ts).
 // =============================================================================
 
@@ -18,6 +19,8 @@ import type { ConfigMediaBuyer, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import { textoCupo, type CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { leerMonto } from '@/lib/media-buyer/monto';
+import { HASTA_SIN_SUBIR_DIAS, type LugarZona } from '@/lib/media-buyer/zona';
+import { ElegirLugares } from './ElegirLugares';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
 type EstadoZernio = { tieneClave: boolean; cuenta: string | null; conectado: boolean };
@@ -40,6 +43,8 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
   const [ventas, setVentas] = useState(txt(config.metaVentasMes));
   const [gasto, setGasto] = useState(txt(config.metaGastoMes));
   const [cuenta, setCuenta] = useState(config.cuentaPublicitaria ?? '');
+  const [zona, setZona] = useState<LugarZona[]>(config.zona);
+  const [hasta, setHasta] = useState(config.hasta ?? '');
   const [zernio, setZernio] = useState<EstadoZernio | null>(null);
   const [guardando, setGuardando] = useState(false);
   const { toast, show, clear } = useToast();
@@ -55,6 +60,9 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
     const r = await api({ op: 'config', cambio: {
       modo, encendido, kpi, objetivo: num(objetivo), subidaMaxPctDia: Number(subida || 0), presupuestoMaxDia: num(maxDia),
       metaVentasMes: num(ventas), metaGastoMes: num(gasto), cuentaPublicitaria: cuenta.trim() || null,
+      // Sólo si cambiaron: sin la migración 0350 guardar la zona o la fecha da error, y eso no puede frenar el resto de Ajustes.
+      ...(JSON.stringify(zona) !== JSON.stringify(config.zona) ? { zona } : {}),
+      ...((hasta || null) !== config.hasta ? { hasta: hasta || null } : {}),
     } });
     setGuardando(false);
     if (r.ok) show('Guardado', undefined, 'good'); else show(r.error ?? 'No se pudo guardar.', undefined, 'bad');
@@ -93,7 +101,7 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
           {cupo.piloto
             ? <p className="mk-hint" style={{ margin: 0 }}>Cada táctica puede tener el suyo en <Link href="/ads-manager/automatizaciones" className="mb-pro-link">Automatizaciones</Link>.</p>
             : <p className="mk-hint" style={{ margin: 0 }}>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'El piloto automático es de MaKo Pro.'} <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro-link">Pasar a Pro</Link></p>}
-          <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no mira tu cuenta ni lanza nada." />
+          <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no mira tu cuenta ni lanza nada: sólo pausa lo que llegó a su fecha de fin." />
         </section>
 
         <section className="mba-card">
@@ -102,6 +110,15 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
             <TextField label="Subida máxima por día" inputMode="numeric" value={subida} onChange={(e) => setSubida(e.target.value)} suffix="%" />
             <TextField label="Presupuesto máximo por día" inputMode="decimal" value={maxDia} onChange={(e) => setMaxDia(e.target.value)} placeholder="Sin tope" hint="La suma de lo prendido, en dólares." />
           </div>
+        </section>
+
+        {/* DÓNDE y HASTA: no hay equivalente en Madgicx; va como una tarjeta más, como los topes. */}
+        <section className="mba-card">
+          <h2>Dónde y hasta cuándo</h2>
+          <ElegirLugares etiqueta="Dónde" elegidos={zona} onCambio={setZona}
+            ayuda="Vacío: toda la cuenta. Con una zona, MaKo no prende ni sube lo que muestra anuncios fuera de ella." />
+          <TextField label="Hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
+            hint={`Pasada esta fecha MaKo pausa tus campañas, y desde ${HASTA_SIN_SUBIR_DIAS} días antes no sube presupuestos. Cada campaña puede tener la suya en Campañas.`} />
         </section>
 
         <section className="mba-card">

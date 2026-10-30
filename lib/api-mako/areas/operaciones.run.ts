@@ -158,4 +158,58 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: el «Completado» de ${typeof payload.chat === 'string' ? payload.chat : 'ese chat'} ya está visto.` };
     },
   },
+
+  // El DEBUG de un negocio desde el grupo de SuperAdmin (29/10/2026): ver operaciones.def.ts. Las lecturas de integraciones son las
+  // MISMAS que usa ese negocio (su `ver_integraciones`, `ver_ia_del_negocio`, `ver_conexion_meta`), corridas con SU workspace: lo que
+  // ve MaKo es lo que vería él. Cada parte por su lado: una que falla dice su error y las demás salen igual.
+  diagnosticar_negocio: {
+    leer: async (input, ctx): Promise<SalidaLectura> => {
+      const { wsSuperAdmin, runWithWorkspace } = await import('@/lib/workspace');
+      if (ctx.ws !== (await wsSuperAdmin())) return { content: 'Diagnosticar otro negocio es sólo de la plataforma.', isError: true };
+      const { vistaDeClientes } = await import('@/lib/clientes-plataforma');
+      const { buscarNegocio } = await import('@/lib/diagnostico-negocio');
+      const v = await vistaDeClientes();
+      const pedido = typeof input.negocio === 'string' ? input.negocio.trim() : '';
+      const cand = buscarNegocio(pedido, v.filas.map((f) => ({ ws: f.ws, nombre: f.nombre })));
+      if (cand.length !== 1) {
+        return json(cand.length
+          ? { encontrado: false, candidatos: cand, nota: `«${pedido}» calza con más de un negocio: pregunta cuál.` }
+          : { encontrado: false, nota: `No hay un negocio que se llame «${pedido}». Pregunta de cuál es.`, negocios: v.filas.slice(0, 40).map((f) => ({ ws: f.ws, nombre: f.nombre })) });
+      }
+      const ws = cand[0].ws;
+      const fila = v.filas.find((f) => f.ws === ws)!;
+      const ctxDelNegocio = { ...ctx, ws };
+      const { RUNNERS: INTEG } = await import('./integraciones.run');
+      const deSuLectura = async (id: 'ver_integraciones' | 'ver_ia_del_negocio' | 'ver_conexion_meta'): Promise<unknown> => {
+        try {
+          const run = INTEG[id];
+          if (!run || !('leer' in run)) return { error: `${id} no es una lectura` };
+          const r = await runWithWorkspace(ws, () => run.leer({}, ctxDelNegocio));
+          const texto = typeof r === 'string' ? r : r.content;
+          try { return JSON.parse(texto); } catch { return texto; }
+        } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
+      };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ticketsDelNegocio } = await import('@/lib/tickets-db');
+      const desde = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+      const [integraciones, ia, meta, errores, tickets] = await Promise.all([
+        deSuLectura('ver_integraciones'), deSuLectura('ver_ia_del_negocio'), deSuLectura('ver_conexion_meta'),
+        getSupabaseServer().from('errores_app').select('titulo, origen, veces, ultima_vez, ejemplo, ticket_id')
+          .contains('afectados', [{ ws }]).gte('ultima_vez', desde).order('ultima_vez', { ascending: false }).limit(10)
+          .then((r) => (r.error ? { error: r.error.message } : (r.data ?? []).map((e) => ({
+            titulo: e.titulo, origen: e.origen, veces: e.veces, ultima_vez: e.ultima_vez, ticket: e.ticket_id,
+            pantalla: (e.ejemplo as { ruta?: string } | null)?.ruta ?? null,
+          })))),
+        ticketsDelNegocio(ws, 0, 8).then((r) => (r.ok ? r.datos.map((t) => ({ numero: t.id, estado: t.estado, titulo: t.titulo })) : { error: r.error })).catch((e) => ({ error: String(e) })),
+      ]);
+      return json({
+        negocio: {
+          ws, nombre: fila.nombre, plan: fila.capa, estado: fila.estado, en_riesgo: fila.riesgo, por_que_en_riesgo: fila.motivoRiesgo,
+          dias_sin_entrar: fila.sinEntrar, onboarding_hecho: fila.onboardingHecho, leads: fila.leads,
+        },
+        integraciones, ia, meta, errores_7_dias: errores, tickets_abiertos: tickets,
+        nota: 'Es lo que ve MaKo de ESE negocio, ahora. Contesta con estos hechos (qué tiene conectado, qué falla y desde cuándo), sin consejos genéricos. Si es un bug de MaKo, abre el ticket con esta evidencia.',
+      });
+    },
+  },
 };

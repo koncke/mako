@@ -121,7 +121,7 @@ export function Detalles() {
 			<div className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-2">
 				{filas.map(([rotulo, valor]) => (
 					<div key={rotulo} className="flex min-h-[38px] items-center gap-3">
-						<span className="w-[168px] max-w-[45%] shrink-0 truncate text-[12.5px] text-(--cc-text-3)">
+						<span className="w-[168px] max-w-[45%] shrink-0 text-[12.5px] leading-snug text-(--cc-text-3)">
 							{rotulo}
 						</span>
 						<span className="min-w-0 truncate text-[12.5px] text-foreground" title={valor}>

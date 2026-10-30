@@ -236,7 +236,9 @@ test('motivoDeRespuesta: cada status de Zernio se dice como lo que es', () => {
   assert.equal(motivoDeRespuesta(402, { details: { reason: 'free_tier_exceeded' } }).motivo, 'pago');
   assert.equal(motivoDeRespuesta(403, { code: 'platform_account_limit' }).motivo, 'limite');
   assert.equal(motivoDeRespuesta(403, { error: 'otra cosa' }).motivo, 'error');
-  for (const s of [429, 500, 502, 503]) assert.equal(motivoDeRespuesta(s, null).motivo, 'sin-red', String(s));
+  for (const s of [500, 502, 503]) assert.equal(motivoDeRespuesta(s, null).motivo, 'sin-red', String(s));
+  // El 429 es el tope por minuto de Zernio: su propio motivo, que espera (ticket #34, tests/zernio-pausa-429.test.ts).
+  assert.equal(motivoDeRespuesta(429, null).motivo, 'pausa');
   const e = motivoDeRespuesta(400, { error: `Falta ${'x'.repeat(400)}`, code: 'x' });
   assert.equal(e.motivo, 'error');
   assert.ok(e.texto && e.texto.length <= 200, 'el texto de Zernio va recortado');
@@ -402,7 +404,8 @@ test('la ruta: sólo el admin, las redes del catálogo y los motivos de la pieza
   assert.match(ruta, /modo: body\.modo === 'pagina' \? 'pagina' : 'ventana',/);
   assert.match(ruta, /const conexiones = await conexionesViaZernio\(ws, red \?\? undefined\);/);
   assert.match(ruta, /return Response\.json\(\{ ok: true, \.\.\.\(await recibirConexion\(ws\)\) \}\);/);
-  assert.match(ruta, /return Response\.json\(\{ ok: false, motivo: m\.motivo, error: m\.message, \.\.\.\(m\.pagoUrl \? \{ pagoUrl: m\.pagoUrl \} : \{\}\) \}\);/);
+  // (30/10, ticket #34: la pausa de un 429 viaja con su espera.)
+  assert.match(ruta, /return Response\.json\(\{\n\s+ok: false, motivo: m\.motivo, error: m\.message, \.\.\.\(m\.pagoUrl \? \{ pagoUrl: m\.pagoUrl \} : \{\}\),/);
   // El «estado» de la cabecera de Automations sigue pidiendo una de las dos plataformas de mensajes.
   assert.match(ruta, /const plataforma = body\.plataforma === 'facebook' \? 'facebook' : body\.plataforma === 'instagram' \? 'instagram' : null;/);
 });

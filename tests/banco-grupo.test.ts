@@ -90,7 +90,8 @@ test('1-ter. G1: el default va DESPUÉS del hilo: «pausala» sigue el pedido vi
   assert.equal(h.veredicto.sigueElHilo, true, 'el hilo ya no se sigue');
   assert.equal(enElGrupoSinSenal(h.veredicto, 'pausala'), h.veredicto, 'el default pisó el hilo');
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const intencion = enElGrupoSinSenal\(correccion\.veredicto, texto, pedidoDelHilo\(historial\)\?\.areas \?\? \[\]\);/);
+  // Desde el 29/10/2026 lo de las reglas es el PISO (`porReglas`) y la clase la decide la IA (lib/mako-intencion-ia.ts).
+  assert.match(doer, /const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const (?:intencion|porReglas) = enElGrupoSinSenal\(correccion\.veredicto, texto, pedidoDelHilo\(historial\)\?\.areas \?\? \[\]\);/);
 });
 
 test('1-quater. el «sí» a una pendiente viva sigue entrando por la confirmación; la de plata, sólo de quien la pidió', () => {

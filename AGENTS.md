@@ -2308,6 +2308,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+- **Y una línea que escribe el CÓDIGO tampoco promete lo imposible** (29/10/2026, el ticket #30 de Leandro: «No tengo acceso…
+  pídemelo otra vez y lo hago»). Un texto fijo que dice «lo hago» mira antes si es algo que MaKo puede hacer (`noLoPuedeHacer`);
+  si no, no va.
 - **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
@@ -2316,6 +2319,27 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   el texto por `enviarTextoVozMaKo` (que usan `enviarAGrupoJid`, el grupo SuperAdmin y la bienvenida), y `enviarAlGrupoMaKo` y
   `enviarPartesAJid` anotan lo suyo. Un envío nuevo a un grupo pasa por ahí, o anota su id. Si no, su eco vuelve como un `fromMe`
   que nadie mandó: el doer lo toma por el dueño escribiendo y le contesta a su propio aviso (28/10/2026). Un DM no es un grupo.
+
+## Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla (29/10/2026)
+
+Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp». El prompt del grupo ya decía «no inventes», «no
+prometas», «sin muletillas», y el modelo lo hacía igual. Cada regla de ese tipo tiene DOS capas: la frase en el prompt y un
+chequeo en el código que corre al salir (`sanearSalida`, `sinLoQueMaKoNoDice`, `sinMuletillas`, `numerosSinFuente` en
+lib/doer-salida.ts). Una regla nueva de lo que MaKo no dice llega con su chequeo y su test; si no se puede chequear, se dice así.
+
+- **MaKo en el grupo es un DESPACHANTE (lib/despacho-grupo.ts).** La clase la decide `clasificarConIA` (lib/mako-intencion-ia.ts)
+  y el texto de TICKET, DEBUG y de una acción delegada lo escribe el CÓDIGO, con el número del ticket: el modelo no corre. Una
+  escritura que MaKo hace sola entra a `ACCIONES_SIMPLES` (una fila o un evento, reversible) con su test por el turno real; si mueve
+  plata y tiene pantalla, a `ACCIONES_CON_PANTALLA`; un WhatsApp a un lead, a `SE_APRUEBAN_EN_LA_APP` (lib/confirmacion-pura.ts:
+  se aprueba con un toque en la app, nunca con un «sí» por WhatsApp). Lo demás se delega al Cerebro como «pedido delegado» y el
+  «listo» vuelve al grupo al cerrarlo; un pedido compuesto delega lo que no hizo. En la duda, se delega.
+- **El banco de casos reales (tests/fixtures/banco-grupos-2910.json) se corre antes de tocar el clasificador**
+  (`scripts/banco-clases.mts`): los ejemplos del prompt salen sólo del 60 % de ajuste; el 40 % retenido no se mira.
+- **Lo que mira un PERMISO en el grupo se lee con QUIÉN escribe, no con el grupo (30/10/2026, la revisión de privacidad).** En
+  `procesarDoer` es `quienPide`: el teléfono de `participantAlt` en un grupo de `@lid` (sin él, todo queda con el pushName y nadie es
+  usuario del negocio), y nadie en un lote de varios. El «hazlo» de un pedido delegado lo decide `delegadoQueDecideMartin`
+  (lib/tickets-reglas.ts: admin del negocio, sin plata, envíos ni borrados); el DEBUG, un admin de MaKo. Lo que llega al grupo de un
+  cliente desde el Cerebro o una bitácora pasa por el filtro de ESE negocio (`hitosDelNegocio`, `sinLoInterno`), nunca tal cual.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -3815,6 +3839,10 @@ sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o e
   (lib/meta-escribir-zernio.ts: lee de quién es el id y si está borrado ANTES de escribir) y NUNCA por el token de respaldo. Un
   `graphPost` nuevo con el token deja afuera a todo negocio sin token: si hace falta escribir otra cosa, se le suma su rama de
   Zernio. Borrar el último anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña: se avisa antes del «sí».
+- **Lo que el Media Buyer PRENDE o SUBE pasa por `lanzar` (lib/media-buyer/ejecutar.ts)**, que además de los topes mira la ZONA y
+  la FECHA DE FIN del negocio con el público leído en vivo (lib/media-buyer/zona.ts; «no sé» es fuera). Un camino nuevo que prende
+  o sube por su cuenta se saltea «en tal zona, solamente hasta tal fecha» (29/10/2026, docs/hallazgos-ads.md → «DÓNDE, HASTA…»).
+  Y por Zernio, cambiar UN lugar de un conjunto reemplaza TODOS: se mandan todos, o ninguno (lib/zernio-publico.ts).
 - **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
 - **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
 - **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.
@@ -4286,8 +4314,8 @@ hacer?**» y «**Tocá** el botón», con los siete prompts pidiendo acento
   decir lleva su bloque de idioma explícito.** La pregunta al escribir un writer nuevo no
   es «¿qué le pido al modelo?» sino **«¿de quién es la voz de lo que sale?»**.
 - **Y la segunda capa mide la salida**, porque el prompt solo no alcanza: `marcasDeVoseo()`
-  (`lib/puestas-data.ts`, sin `server-only` para que se pueda testear) marca el texto y la
-  pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
+  (`lib/puestas-data.ts`, que la re-exporta de `lib/voseo.ts`, sin `server-only` para que se
+  pueda testear) marca el texto y la pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
   avisa y se rehace.
 - **Cuando el texto lo va a DECIR una persona, el acento es un campo, no un default.**
   No se puede adivinar, y equivocarlo no se nota al leer: se nota cuando alguien
@@ -4326,6 +4354,10 @@ escribió, nunca el verbo que todavía no usó nadie. La conjugación voseante e
 del infinitivo; lo único que se escribe es lo irregular del lado NEUTRO (`tener` → tienes).
 Al ampliarlo aparecieron **224 casos vivos en 96 archivos**. Cuando un chequeo se queda
 corto, la pregunta no es «¿qué le falta a la lista?» sino **«¿por qué hay una lista?»**.
+**Y el generador vive en `lib/voseo.ts`, no en el test:** hasta el 29/10/2026 estaba adentro de
+`tests/puente-panel-copy.test.ts` y la segunda capa de la IA seguía con una lista de 21 palabras
+(«escribime», «agendá», «mandame» pasaban). **Un detector que usan un test y el código de
+producción vive en `lib/` y el test lo importa.**
 
 ⚠️ **Y ese mismo guard daba verde sobre código que NUNCA MIRÓ.** Un `text/*` —un MIME con
 comodín, adentro de un comentario `//`— abría un bloque `/* … */` que se cerraba 71 líneas
@@ -5216,6 +5248,12 @@ nuevo:
   (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
   del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
+- **Y el turno de texto de los GRUPOS de WhatsApp, desde el 28/10/2026** (Martín: «habilites las API que tenemos disponibles
+  con todas las cuentas de planes 200»). Sólo `FEATURE_DE_LOS_GRUPOS` (`mako-doer-in`), sólo si el negocio no tiene su Claude
+  (el suyo gana), con Haiku, nunca después de una herramienta y nunca el Plan; el gasto lleva «(cuenta N)», y el interruptor
+  `ia.credito_grupos` de la plataforma lo apaga. ⚠️ **Las cuentas son UNA lista, la del Uso** (`CUENTAS_DEL_CREDITO`,
+  lib/credito-api.ts → `CLAVES_CREDITO_DE_LOS_GRUPOS`): una cuenta nueva es una línea ahí, nunca otra copia de nombres. Una
+  cuenta que paga y el Uso no conoce es gasto que no se ve.
 - **Y lo que lo gasta pasa por la GUARDIA del onboarding** (17/10/2026, `frenoDeIa`, lib/onboarding-guardia-server.ts:
   ráfaga por usuario e IP, un tope de turnos y documentos por onboarding en la base, el troleo que no llega a la IA y
   el bloqueo con aviso al equipo). Una acción nueva de /api/offer que pague IA se suma a `tipoIa` antes del `switch`;
@@ -6939,6 +6977,9 @@ código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallaz
   puedo» con el botón ahí al lado fue el caso de Leila con «Borrar silencios».
 - **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
   uno de los 10 «no puedo» de Leila era algo que no existía.
+- **El `forma` (el ejemplo) de una operación del catálogo lo COPIA el modelo: un parámetro opcional no va en el ejemplo.**
+  Con `{"op":"borrar_silencios","ref":"v1"}` el modelo nombraba siempre un clip, y a Leila le buscó silencios en uno de 0,9 s
+  cuando pedía el video (ticket 31, 29/10/2026). Cuándo SÍ usarlo lo dice el `para`.
 
 # Un ticket resuelto se CIERRA y se AVISA en el grupo del cliente, sin preguntarle a Martín (Martín, 28/10/2026)
 
@@ -10821,6 +10862,34 @@ ejecuta nada. Una decisión vale para TODAS las señales de la tarjeta que se VI
 pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada), repetirla mientras sigue vigente no
 escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
 tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
+
+## Una APERTURA de MaKo no es una recomendación: la arma el código y pregunta un hecho (29/10/2026)
+
+Martín: «en todos lados que haya un chat de MaKo, que MaKo te vaya guiando… EN LUGAR de que esté en la top bar "adaptar con
+MaKo"… que MaKo tome la iniciativa». Lo que MaKo dice PRIMERO en un chat es una apertura (lib/aperturas/, la pieza
+app/_chat/AperturaMako.tsx; el plan, docs/mako-iniciativa/plan.md), y es la excepción a «toda pantalla que sugiera algo usa el
+motor de recomendaciones»: no mide una señal, lee el ESTADO y pregunta el primer hecho que falta. **Regla para código nuevo:**
+- la arma el CÓDIGO (una función pura por superficie, `lib/aperturas/<superficie>.ts`, con su `CATALOGO` y sus `EJEMPLOS`), sin IA
+  y sin prompts; devuelve `null` si no falta nada, y MaKo calla;
+- la primera pregunta es de HECHO («¿Cuál usas?»), nunca de acción («¿Quieres que…?»): lo exige `PREGUNTA_DE_ACCION`
+  (tests/aperturas.test.ts), salvo la guía de cada pestaña, por su id y con el porqué escrito;
+- sus botones andan SIN la app de escritorio (`respuesta`, `ir`, `hacer`, `callar`); la IA del negocio entra sólo con un toque
+  (`pedir`), con el texto que arma el código;
+- nunca un botón en la barra para lo mismo, y nunca un mensaje guardado con botones: el Cerebro es uno en toda la app, y lo
+  guardado saldría en todas las tabs;
+- la memoria es POR PERSONA, con el workspace en la clave (`usuarios.perfil.aperturas`, /api/aperturas): «Ahora no» calla 14
+  días y el segundo para siempre; lo de negocio habla una vez por día.
+
+## La GUÍA de cada pestaña: MaKo enseña señalando, con el chat a la vista (29/10/2026)
+
+Martín: «que Mako le pueda ir señalizando diferentes lugares… cada vez que un usuario entra por primera vez a una tab… que la
+pestaña se ponga un poco opaca por detrás». Reemplaza a los recorridos con «Siguiente» (app/_ui/Recorrido.tsx) tab por tab
+(docs/mako-iniciativa/guia.md). **Regla para código nuevo:** toda tab trae su catálogo de guía AL LADO de su pantalla
+(`app/<tab>/guia-<tab>.ts`, sumado a lib/guia/catalogo.ts) y llama `useGuiaDeLaTab(key, { listo, hechos })`; una marca se pone
+con `ancla('id')` (el id no se renombra: es la clave de lo visto); nunca un `aria-label` como ancla; el chat que la tab dibuja
+lleva `data-mako-chat` (el velo le deja un hueco: con la guía puesta se usa la tab y se le escribe a MaKo); su pregunta habla con
+la pieza de las aperturas. El «recomendado» de la guía ordena qué enseñar primero con hechos de la pantalla: tampoco es una
+recomendación. tests/guia-*.test.ts; una tab que un cliente ve sin catálogo, falla.
 
 # El desenlace de un lead y la columna de su tarjeta se escriben JUNTOS (27/10/2026)
 

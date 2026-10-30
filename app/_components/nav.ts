@@ -249,7 +249,9 @@ export const RUTAS_DE_CHATS = ['/whatsapp', '/email'] as const;
  * vez acá y se cuelga como SECCIÓN `adminOnly` de la tab que hace su trabajo (la barra de secciones de arriba de la
  * pantalla, app/_components/SeccionesTab.tsx, la ofrece sólo al super admin):
  *   · WhatsApp de MaKo → Chats · Mensajes de MaKo → Automations · Strategy y Offer Playbook → Offer
- *   · el método de redacción → Copywriting
+ *   · el método de redacción y las bibliotecas de guiones: SIN fila ni mención desde el 29/10/2026 (Martín: «Elimina esto
+ *     "Copy…", no quiero ninguna mención en todo MaKo»). Sus rutas redirigen a /copywriter; lo que la IA lee de ellas
+ *     (la metodología, el swipe, los ángulos y las estructuras, con sus overrides) sigue igual.
  *   · Ops Center arriba de todo (con la Ticketera adentro) · Cobros, el agente de los clientes, Contexto, Modelos IA,
  *     Conocimientos → menú de la foto (Cobros y Agents iban en Clients; su jefe las mandó acá: viven fuera de
  *     /clients y son de la plataforma, no de los clientes del negocio). Contexto, Modelos IA y Dev se fueron el 25/10/2026.
@@ -257,17 +259,9 @@ export const RUTAS_DE_CHATS = ['/whatsapp', '/email'] as const;
  * (getSesionAdmin, puedeOperar) y `adminOnly` sigue siendo cosmético.
  *
  * ⚠️ Las keys no llevan el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros), y ninguna repite la de una
- * tab del producto: la del método de redacción era `copywriting`, la MISMA que la tab Copywriting, y colgada como su
- * sección habría escondido a la tab en el teléfono (lib/movil-rutas.ts la busca por key). Por eso es `admin-copywriting`.
+ * tab del producto (colgada como su sección, escondería a la tab en el teléfono: lib/movil-rutas.ts la busca por key).
  */
 const HERRAMIENTAS = {
-  // El cerebro de redacción de MaKo (la metodología y el swipe de ejemplos con que redacta). Era la tercera sub-tab de
-  // /admin y tiene ruta propia desde el 27/09. Su casa: Copywriting, la tab donde se escribe.
-  copywriting: { key: 'admin-copywriting', label: 'Copy Method', seccion: 'Method', href: '/admin/copywriting', icon: 'escribir', adminOnly: true, match: starts('/admin/copywriting') },
-  // Las dos bibliotecas globales con que escribe Ads Writer (los ángulos y las estructuras de un guion). Se editaban SÓLO
-  // en la página de Dev de Ads Writer (/admin/guiones redirigía ahí); Dev se fue el 25/10/2026 y se mudaron a su casa:
-  // Copywriting, al lado del método de redacción.
-  guiones: { key: 'admin-guiones', label: 'Angles & Structures', seccion: 'Library', href: '/admin/guiones', icon: 'escribir', adminOnly: true, match: starts('/admin/guiones') },
   // ⚠️ «MaKo WhatsApp» (/agencia) YA NO ES UNA SECCIÓN (24/10/2026, Martín: «En SuperAdmin no deben haber 3 tabs allí, debe
   // ser igual que el resto. Y que simplemente pueda cambiar entre mi número y el de MaKo y ver entre los chats los
   // grupos»). El número de MaKo es una línea más del chip «Canales» de Chats para el super admin (docs/diseno-chats.md
@@ -405,11 +399,11 @@ export const FAMILIAS: NavFamilia[] = [
         // de MaKo… y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING»): UNA pantalla, sin
         // `secciones`, con la key de su pantalla ('copywriter': la piden la página, el teléfono y la API). Ads Writer, Stories y
         // YouTube Writer dejan la barra; sus keys siguen en SIN_FILA (sus rutas, la API y las capas las piden). El método de
-        // redacción y la biblioteca de guiones son herramientas del super admin y siguen en su menú (ADMIN_NAV).
+        // redacción y la biblioteca de guiones no tienen fila ni mención desde el 29/10/2026 (D15): sus rutas redirigen acá.
         // docs/diseno-copywriter.md, D11.
         {
           key: 'copywriter', label: 'Copywriting', href: '/copywriter', icon: 'escribir',
-          match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p) || starts('/admin/guiones')(p),
+          match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p),
         },
         {
           // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen». Y el 29/10/2026: «replica a

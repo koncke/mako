@@ -16,13 +16,15 @@ import { proponer, objetivoRecomendado, type DecisionPrevia } from './motor';
 import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla, cupoDe } from './store';
 import { modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
 import { resolverTacticas } from './tacticas';
-import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio } from './datos';
+import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio, hoyDelNegocio } from './datos';
+import { lectorDeZona } from './publico';
+import { motivoZona, pausasPorFecha, pausasPendientes } from './zona';
 import { prepararVariaciones } from './variaciones';
 import { propuestasDeAgentesPropios } from './agentes-ia';
 import { alertasProtect, type Alerta } from './protect';
 import { lanzar } from './ejecutar';
 import { crearNotificacion } from '@/lib/notificaciones';
-import type { Decision, Propuesta } from './tipos';
+import { MUEVE_PLATA, type Decision, type Propuesta } from './tipos';
 
 export type ResumenCorrida = {
   /**
@@ -44,6 +46,8 @@ export type ResumenCorrida = {
   alertas?: Alerta[];
   /** Las que el motor vio y no entraron en el cupo del plan de hoy (MaKo Esencial: lib/media-buyer/plan.ts). */
   fueraDelCupo?: number;
+  /** DÓNDE: lo que subía o prendía algo fuera de la zona del negocio (o que no se pudo confirmar adentro), con el motivo. */
+  fueraDeZona?: string[];
   avisos?: string[];
   fuente?: string;
 };
@@ -102,12 +106,19 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   // Cada táctica con su estado, sus umbrales y lo que cubre (tacticas.ts). Sin piloto en el plan, ninguna es automática.
   const tacticas = resolverTacticas(config.tacticas, { piloto: modoEfectivo(config.modo, cupo) === 'piloto', pilotoPermitido: cupo.piloto });
-  const props = proponer({
+  // HASTA: el día del negocio (su zona horaria), no el de Tijuana de las ventanas: «hasta el 5» es el 5 de quien lo puso.
+  const hoyNegocio = await hoyDelNegocio(ws);
+  const avisos = [...datos.avisos];
+  if (!hoyNegocio && (config.hasta || Object.keys(config.hastaCampanas).length)) avisos.push('No pude leer tu zona horaria: hoy no se pausa nada por fecha de fin y no se sube lo que tiene fecha.');
+  const todasProps = proponer({
     ahora: Date.now(), config, objetivo, arbol: datos.arbol, tacticas,
     corta: datos.corta, larga: datos.larga, crm: datos.crm,
     historial: decisiones.map(previa),
-    aUnidad: datos.conversor.aUsdNum, fmt: fmtUnidad(datos), presupuestoMinimo: presupuestoMinimoCuenta(datos),
+    aUnidad: datos.conversor.aUsdNum, fmt: fmtUnidad(datos), presupuestoMinimo: presupuestoMinimoCuenta(datos), hoyNegocio,
   }, hoy);
+  // Las pausas por fecha de fin no son recomendaciones: no entran al cupo del plan y se guardan aparte (abajo).
+  const porFecha = todasProps.filter((p) => p.tactica === 'hasta');
+  const props = todasProps.filter((p) => p.tactica !== 'hasta');
 
   // Las variaciones se escriben ANTES de guardar: una propuesta de variaciones sin variaciones no se puede lanzar. Sólo las
   // que todavía no existen (misma clave = ya se escribieron hoy, no se gasta IA dos veces).
@@ -117,7 +128,20 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   // Los agentes PROPIOS (una regla escrita en palabras, agentes-propios.ts): la IA del negocio la mira contra la cuenta y
   // deja acciones con la táctica `manual`, que el piloto no lanza nunca (abajo, `automaticas`). Entran al cupo al final.
   const propios = await propuestasDeAgentesPropios(ws, { hoy, datos, kpi: config.kpi, objetivo, fmt: fmtUnidad(datos), yaHoy: yaGuardadas });
-  const { orden, lugares } = ordenDelCupo([...props, ...propios.propuestas].filter((p) => !yaGuardadas.has(p.clave)), recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
+  // DÓNDE: lo que sube o prende algo que muestra anuncios fuera de la zona (o que no se pudo confirmar adentro) no se propone.
+  // Se mira ANTES del cupo (no le saca el lugar a otra) y con el público leído en vivo, sólo de lo que se iba a proponer.
+  // `lanzar` lo vuelve a mirar al escribir: entre proponer y lanzar alguien pudo cambiar el público.
+  const lector = config.zona.length ? lectorDeZona(ws, datos, config.zona) : null;
+  const fueraDeZona: string[] = [];
+  const candidatas: Propuesta[] = [];
+  for (const p of [...props, ...propios.propuestas].filter((x) => !yaGuardadas.has(x.clave))) {
+    if (lector && MUEVE_PLATA.has(p.tipo)) {
+      const motivo = motivoZona(await lector(p.nivel, p.entidadId), p.entidadNombre, config.zona);
+      if (motivo) { fueraDeZona.push(motivo); continue; }
+    }
+    candidatas.push(p);
+  }
+  const { orden, lugares } = ordenDelCupo(candidatas, recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
   let quedan = lugares;
   let fueraDelCupo = 0;
   const sinVariaciones: string[] = [];
@@ -133,23 +157,48 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
     }
     quedan--;
   }
-  const nuevas = await guardarPropuestas(ws, listas, datos.moneda);
+  const nuevasMotor = await guardarPropuestas(ws, listas, datos.moneda);
+  // Aparte: sin la 0350 la táctica `hasta` rompe el CHECK de la tabla, y eso no puede llevarse puesta la corrida entera.
+  let nuevasFecha: Decision[] = [];
+  const porFechaNuevas = porFecha.filter((p) => !yaGuardadas.has(p.clave));
+  if (porFechaNuevas.length) {
+    try { nuevasFecha = await guardarPropuestas(ws, porFechaNuevas, datos.moneda); }
+    catch (e) { avisos.push(`No pude guardar las pausas por fecha de fin (${e instanceof Error ? e.message.slice(0, 160) : String(e)}).`); }
+  }
+  const nuevas = [...nuevasFecha, ...nuevasMotor];
+  // Las pausas por fecha guardadas antes que todavía no salieron (zona.ts → pausasPendientes): se relanzan cada vez.
+  const fechaPendientes = pausasPendientes(pausasPorFecha(datos.arbol, config, hoyNegocio), decisiones);
 
   // El piloto automático: lanza lo nuevo con la MISMA lectura (que `lanzar` mantiene al día), de lo que BAJA el gasto a lo
   // que lo SUBE, así el tope de la cuenta ve primero lo que se liberó.
   let lanzadas = 0;
   const fallidas: string[] = [];
   // Sólo lo de las tácticas AUTOMÁTICAS (tacticas.ts: la táctica elegida así, o todas con el piloto general). Un negocio que
-  // bajó a Esencial con el piloto prendido queda en «propone» (resolverTacticas con `pilotoPermitido`).
-  const automaticas = soloProponer ? [] : nuevas.filter((d) => d.tactica !== 'manual' && tacticas[d.tactica].estado === 'automatica');
+  // bajó a Esencial con el piloto prendido queda en «propone» (resolverTacticas con `pilotoPermitido`). La fecha de fin se
+  // lanza SIEMPRE (también en «propone» y en un «mirá la cuenta» por chat): es la regla que puso la persona, no algo que MaKo
+  // recomienda.
+  const automaticas = [
+    ...nuevasFecha, ...fechaPendientes,
+    ...(soloProponer ? [] : nuevasMotor.filter((d) => d.tactica !== 'manual' && d.tactica !== 'hasta' && tacticas[d.tactica].estado === 'automatica')),
+  ];
   const enPiloto = automaticas.length > 0;
+  const fallasFecha: string[] = [];
   if (enPiloto) {
     const orden = (d: Decision) => (d.tipo === 'pausar' ? 0 : d.tipo === 'bajar_presupuesto' ? 1 : d.tipo === 'activar' ? 2 : d.tipo === 'subir_presupuesto' ? 3 : 4);
     for (const d of [...automaticas].sort((a, b) => orden(a) - orden(b))) {
-      const x = await lanzar(ws, d.id, { nombre: 'Piloto automático', origen: 'piloto' }, { datos });
+      const x = await lanzar(ws, d.id, { nombre: d.tactica === 'hasta' ? 'Tu fecha de fin' : 'Piloto automático', origen: 'piloto' }, { datos });
       if (x.ok) lanzadas++;
-      else fallidas.push(`${d.titulo}: ${x.error}`);
+      else { fallidas.push(`${d.titulo}: ${x.error}`); if (d.tactica === 'hasta') fallasFecha.push(`${d.entidadNombre}: ${x.error}`); }
     }
+  }
+  // Una campaña que no se pudo pausar pasada su fecha sigue gastando: se avisa (una vez por corrida, o sea por día; el vigía la
+  // reintenta cada dos horas sin avisar de nuevo).
+  if (fallasFecha.length) {
+    await crearNotificacion({
+      ws, tipo: 'media_buyer', severidad: 'warn', origen: 'media-buyer', link: '/ads-manager',
+      titulo: `No pude pausar ${fallasFecha.length === 1 ? 'una campaña que llegó' : `${fallasFecha.length} campañas que llegaron`} a su fecha de fin`,
+      descripcion: fallasFecha.join(' · ').slice(0, 400),
+    }).catch(() => null);
   }
 
   // Protect (el de AdAmigo): lo roto en la cuenta. Las graves van al aviso del negocio, aparte de las recomendaciones.
@@ -167,7 +216,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   // El aviso: lo que propone un cron no dispara nada solo (docs/hallazgos-ads.md, «El Autopilot»: «una propuesta de
   // madrugada espera sin que nadie se entere»). Va al feed de avisos del negocio, el de la campanita y el Inbox del teléfono.
-  const esperan = nuevas.length - automaticas.length;
+  const esperan = nuevas.length - (automaticas.length - fechaPendientes.length);
   if (lanzadas > 0 || esperan > 0) {
     await crearNotificacion({
       ws, tipo: 'media_buyer', severidad: fallidas.length ? 'warn' : 'info', origen: 'media-buyer', link: '/ads-manager',
@@ -180,10 +229,11 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   return {
     estado: 'ok', objetivo, objetivoEsRecomendado: config.objetivo == null,
-    propuestas: props.length + propios.propuestas.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones, fueraDelCupo,
+    propuestas: todasProps.length + propios.propuestas.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones, fueraDelCupo,
+    ...(fueraDeZona.length ? { fueraDeZona } : {}),
     ...(propios.avisos.length ? { agentes: propios.avisos } : {}),
     alertas,
-    avisos: fueraDelCupo && cupo.recomendacionesDia != null ? [...datos.avisos, textoCupo(cupo.recomendacionesDia)] : datos.avisos,
+    avisos: fueraDelCupo && cupo.recomendacionesDia != null ? [...avisos, textoCupo(cupo.recomendacionesDia)] : avisos,
     fuente: datos.fuente,
   };
 }

@@ -26,8 +26,11 @@ export async function huellasDelNegocio(ws: number): Promise<Set<string>> {
   return new Set((await clavesZernio(ws)).map((k) => k.huella));
 }
 
-/** Programa un post. Devuelve su id en Zernio y la huella de la clave con la que se programó. */
-export async function crearPostZernio(ws: number, cuerpo: CuerpoPost, requestId: string): Promise<{ id: string; clave: string }> {
+/**
+ * Programa un post. Devuelve su id en Zernio y la huella de la clave con la que se programó. `yaEstaba`: Zernio contestó 409 (el
+ * mismo contenido en 24 h) y el id es el del post que YA tenía: quien llama mira que no sea el de otra publicación.
+ */
+export async function crearPostZernio(ws: number, cuerpo: CuerpoPost, requestId: string): Promise<{ id: string; clave: string; yaEstaba?: true }> {
   // Con la clave DUEÑA de la cuenta donde se publica (varias claves, 29/10/2026); con una sola, la de siempre.
   const c = await cfgDeCuenta(ws, cuerpo.platforms[0]?.accountId);
   const clave = huellaDe(c.apiKey);
@@ -41,7 +44,7 @@ export async function crearPostZernio(ws: number, cuerpo: CuerpoPost, requestId:
   } catch (e) {
     // El mismo contenido en 24 h: Zernio devuelve el que ya estaba. Es ESE post (no se programa otro).
     const existente = e instanceof ZernioError && e.status === 409 ? idExistente(e) : null;
-    if (existente) return { id: existente, clave };
+    if (existente) return { id: existente, clave, yaEstaba: true };
     throw e;
   }
 }

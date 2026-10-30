@@ -2298,6 +2298,8 @@ export type CtxEvento = {
   subtipo?: string;
   /** Lo que COMENTÓ la persona: las palabras clave de un CRON de comentario (ticket #17, `disparaPorEvento`). */
   texto?: string | null;
+  /** En qué publicación comentó (`comment.platformPostId`): la publicación del CRON (ticket #25, `disparaPorEvento`). */
+  publicacion?: string | null;
   /**
    * El evento de etapa es de un lead AGREGADO a ese CRM (`lead_funnel`, lib/lead-funnel.ts), no de su casa: entra con la
    * MISMA regla que el barrido de la hora (`agregadosQueEntran`). Ver `enrolarPorEvento`.
@@ -6090,7 +6092,11 @@ export async function tocarBoton(leadId: number, t: { payload?: string | null; t
   try {
     const db = await getTenantDb();
     const pl = t.payload != null ? leerPayloadDeBoton(t.payload) : null;
-    if (t.payload != null && !pl) return 'no_es';
+    // ⚠️ UN PAYLOAD QUE NO SE LEE NO ES «NO ES UN BOTÓN» (ticket #33 de Leandro, 30/10/2026): con cinco copias de la misma
+    // automatización, el toque de un DM VIEJO llegó con un payload que no era el de MaKo, `tocarBoton` dijo 'no_es' y el
+    // webhook lo tomó como un mensaje escrito: nada se movió y TODAS las inscripciones del lead pasaron a «respondió». Si
+    // vino el título, se resuelve por el título, como un botón que no se vio.
+    if (t.payload != null && !pl && !t.texto?.trim()) return 'no_es';
     type FilaToque = { id: number; lead_id: number; secuencia_id: number; estado: string; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; updated_at: string; inscripto_at: string | null };
     const cols = 'id, lead_id, secuencia_id, estado, paso_actual, nodo_actual, proximo_envio_at, hilos, updated_at, inscripto_at';
     const secs = await getSecuenciasActivas();
@@ -6102,7 +6108,10 @@ export async function tocarBoton(leadId: number, t: { payload?: string | null; t
       if (error) throw new Error(error.message);
       if (data) hallado = { f: data as FilaToque, nodoId: pl.nodoId, botonId: pl.botonId };
     } else {
-      const { data, error } = await db.from('nutricion_inscripciones').select(cols).eq('lead_id', leadId).eq('estado', 'activa').is('proximo_envio_at', null).not('nodo_actual', 'is', null);
+      // Varias esperan el MISMO título (copias de una automatización, ticket #33): sin el payload no se sabe qué DM tocó, y se
+      // atiende la MÁS VIEJA. El DM más nuevo llega con su payload; el que cae acá es casi siempre uno de antes, y tocar los
+      // demás atiende a las demás, de a una.
+      const { data, error } = await db.from('nutricion_inscripciones').select(cols).eq('lead_id', leadId).eq('estado', 'activa').is('proximo_envio_at', null).not('nodo_actual', 'is', null).order('id', { ascending: true });
       if (error) throw new Error(error.message);
       for (const f of (data ?? []) as FilaToque[]) {
         const sec = porId.get(f.secuencia_id);

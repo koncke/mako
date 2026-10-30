@@ -44,6 +44,17 @@ export function confirmacionPura(mensaje: string | null | undefined): boolean {
 }
 
 /**
+ * ⚠️ EL WHATSAPP A UN LEAD SE APRUEBA CON UN TOQUE EN LA APP, NUNCA CON UN «SÍ» POR WHATSAPP (29/10/2026, el Cerebro con las
+ * reglas de Martín, por la llamada con Thiago: «moveme la reunión y mandale un WhatsApp»). Desde el grupo, MaKo deja el mensaje
+ * propuesto y el link a Pendientes; un «sí» escrito en el grupo —puro o no— no lo manda. Las demás de `aTerceros` (un email, una
+ * invitación) siguen con el «sí» puro de arriba.
+ */
+export const SE_APRUEBAN_EN_LA_APP: ReadonlySet<string> = new Set(['enviar_borrador_whatsapp']);
+/** Lo que le llega al modelo cuando le piden confirmarla por WhatsApp. */
+export const rechazoApruebaEnLaApp = (titulo: string): string =>
+  `«${titulo}» le llega a un lead y sale sólo cuando lo aprueban con un toque en la app (en Pendientes): un «sí» por WhatsApp no alcanza. NO la confirmes: dile en una línea que lo apruebe en la app; el link lo pone el código.`;
+
+/**
  * ¿Le CONFIRMA algo a otra persona? Lo que `confirmacionPura` acepta («sí, hacelo», «dale, confirmalo», «sí, mandalo», «sí,
  * agendalo», «sí, confirmá») y «sí, confirmalo vos» / «sí, hacelo tú» (que le devuelve la acción a quien preguntó). Lo usa la
  * respuesta corta del lote (lib/doer-para-quien.ts, `esRespuestaCorta`): la verificación de 9cef25dba vio que sin los verbos, «sí,
@@ -66,7 +77,10 @@ export function rechazoSiNoEsConfirmacionPura(p: {
   plata?: boolean | undefined;
   /** El grupo de WhatsApp: quién pidió la acción, quién confirma, y si el «sí» le habla a MaKo (`elSiEsDeQuienPidio`). */
   enElGrupo?: ElSiEnElGrupo;
+  /** El id de la acción del registro: las de `SE_APRUEBAN_EN_LA_APP` no se confirman por WhatsApp con NINGÚN «sí». */
+  id?: string;
 }): string | null {
+  if (p.canal === 'whatsapp' && p.id && SE_APRUEBAN_EN_LA_APP.has(p.id)) return rechazoApruebaEnLaApp(p.titulo);
   if (p.canal !== 'whatsapp' || !(p.aTerceros || p.plata)) return null;
   if (!confirmacionPura(p.mensaje)) {
     if (!p.aTerceros) return `«${p.titulo}» mueve plata (un gasto, un monto) y no se toma a la ligera: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a pasar —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;

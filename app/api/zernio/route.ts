@@ -104,7 +104,12 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       const m = motivoDeError(e);
       if (m.motivo === 'error' || m.motivo === 'sin-red' || m.motivo === 'respuesta') console.error(`[api:zernio] ${String(body.action)} ws${ws}: ${msg(e).slice(0, 300)}`);
-      return Response.json({ ok: false, motivo: m.motivo, error: m.message, ...(m.pagoUrl ? { pagoUrl: m.pagoUrl } : {}) });
+      // El tope por minuto se anota (cuántos 429 hay es el dato que se mide), sin ser un error.
+      if (m.motivo === 'pausa') console.warn(`[api:zernio] ${String(body.action)} ws${ws}: tope de Zernio (429), espera ${m.esperaMs ?? '?'} ms`);
+      return Response.json({
+        ok: false, motivo: m.motivo, error: m.message, ...(m.pagoUrl ? { pagoUrl: m.pagoUrl } : {}),
+        ...(m.motivo === 'pausa' ? { esperaMs: m.esperaMs } : {}),
+      });
     }
   }
 

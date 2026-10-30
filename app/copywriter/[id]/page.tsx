@@ -9,11 +9,10 @@
 // =============================================================================
 
 import { notFound } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
 import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { abrir, listar } from '@/lib/copywriter/server';
-import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
+import { catalogosDelCopywriter, ofertasDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { esIdPagina } from '@/lib/copywriter/tipos';
 import { requireCopywriter } from '../acceso';
 import { Copywriter } from '../Copywriter';
@@ -28,9 +27,7 @@ export default async function GuionPage({ params }: { params: Promise<{ id: stri
   await requireCopywriter();
   const { id } = await params;
   if (!esIdPagina(id)) notFound();
-  const [rAbrir, rListar, catalogos, ws, admin] = await Promise.all([
-    abrir(id), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), getSesionAdmin().catch(() => null),
-  ]);
+  const [rAbrir, rListar, catalogos, ws, ofertas] = await Promise.all([abrir(id), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter()]);
   if (!rAbrir.ok && rAbrir.status === 404) notFound();
   // El shell único de Create (app/_crear/PantallaCrear.tsx) mide el alto de la <Pagina>, como Video y Offer.
   return (
@@ -41,7 +38,7 @@ export default async function GuionPage({ params }: { params: Promise<{ id: stri
         guion={rAbrir.ok ? { pagina: rAbrir.pagina, doc: rAbrir.doc } : null}
         error={rAbrir.ok ? null : rAbrir.error}
         catalogos={catalogos}
-        deLaPlataforma={!!admin}
+        ofertas={ofertas}
       />
     </Pagina>
   );

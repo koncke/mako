@@ -9282,3 +9282,40 @@ código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esa
 
 **Vive en:** el método de investigación (docs/plantillas-reales/README.md, sección 5)
 
+## Leer un Gmail con el conector oficial: la búsqueda no trae fechas (30/10/2026)
+
+- **Síntoma:** al cosechar el Gmail de Martín (40 remitentes, unos 4.300 emails), `search_threads` devolvió los hilos sin fecha y
+  sin resumen, aunque su descripción dice que la vista mínima trae `date` y `snippet`.
+- **Causa:** el conector (gmailmcp.googleapis.com) no llena esos campos en la búsqueda; sólo `get_thread` trae el contenido.
+- **La regla:** para ordenar o filtrar por fecha sin abrir cada hilo, la fecha sale del ID del hilo: los primeros 11 dígitos
+  hexadecimales son milisegundos desde 1970 (`int(id, 16) >> 20`), y coinciden al segundo con la fecha real.
+- **Además:** el conector conectado a la cuenta de claude.ai queda «pending» en la sesión hasta el turno siguiente; sus herramientas
+  aparecen recién ahí (ver session_connectors_status). Y sólo se usan las de lectura: el conector también trae enviar, reenviar,
+  etiquetar y borrar.
+- **Vive en:** las herramientas de la sesión del Cerebro (no es código de MaKo). La cosecha: docs/conocimiento/patrones-email.md.
+- **La primera pasada se quedó corta y nadie lo vio (30/10):** el guion del inventario pedía «hasta 40 remitentes». Martín
+  extrañó a los que conocía, y dos de los tres que nombró ya estaban, pero escondidos: uno escribe desde el dominio de su
+  marca, sin su nombre en el remitente, y otra tiene además un newsletter en otra plataforma, con otro nombre y otro dominio.
+  **La regla:** el inventario no lleva tope (se busca hasta que dos rondas seguidas no traen remitentes nuevos), y a cada
+  persona se la busca por su nombre, por su marca y por el nombre de su newsletter, no sólo por la dirección. La segunda
+  pasada llevó la cosecha a 70 remitentes y unos 5.050 emails.
+- **Quedó sin ficha:** los posteos de comunidades (Skool) de dos o tres autores que ya tienen ficha por sus emails, un segundo
+  dominio de un autor en inglés (~120 emails) y la «sección B» del primer inventario (marketing que sirve menos). La lista
+  está en `remitentes-lista.md`, en el scratchpad de la sesión del Cerebro 4d1a09d4.
+
+## Un número por migración, y el push que falla por RAM le regala la RAM a los demás (30/10/2026, Integración)
+
+- **Ninguna guarda veía dos migraciones con el mismo número.** El 0340 doble (`leads_papelera` en main e
+  `image_editor_propuestas` en `motion-imagen-2610`) lo vio un chat al leerlo. Ahora lo frena
+  `tests/migraciones-numero-unico.test.ts`, que corre sobre el árbol del TREN: ve el choque entre una rama y main, o entre dos
+  ramas del mismo tren. Los 13 repetidos viejos (de la 0024 a la 0223) ya están aplicados con esos nombres y quedan congelados.
+  **Regla:** el número lo confirma el tren, no el chat que eligió «el próximo libre» esa mañana.
+- ⚠️ **Un push que falla por RAM suelta los lugares y la pausa, y en ese segundo los pesados de los chats toman la memoria.**
+  - El 30/10 a las 00:54 el tren-af se rindió con 1,58 GB libres, porque las tandas piden 5,2. En el acto arrancaron un tsc de
+    2 GB y tests de otros dos chats: quedaron 1,24 GB.
+  - El reintento con `SUBIR_UN_LUGAR=1` se rindió a los 2 minutos sin lugar de tests.
+  - Lo que sirvió: `subir-tren.mjs` SIN un lugar (espera los dos), con la pausa prendida. Los lugares tardaron 2 minutos, y
+    con lo que estaba corriendo terminado hubo 5,68 GB. Subió a las 01:11.
+  - **Regla:** cuando el push falla por RAM, el reintento va enseguida y esperando los dos lugares. El Cerebro frena sus
+    workflows mientras tanto.
+  - **Sin hacer:** que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM.

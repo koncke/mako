@@ -164,7 +164,9 @@ test('la cabecera ofrece «Conectar» también sin Zernio y con la key mala, y l
 
 test('el 402 viaja como 402 con su link (sólo con key PROPIA), y la pantalla lo dice con el link', () => {
   const ruta = fuente('app/api/zernio/route.ts');
-  const cat = bloque(ruta, '} catch (e) {', "return Response.json({ ok: false, error: 'Zernio no contestó' }, { status });");
+  // Desde el catch del «estado» (30/10): anclado en el PRIMER `} catch (e) {` de la ruta abarcaba tres bloques y, al crecer el de
+  // conectar (el 429, ticket #34), pasaba el tope sin que el del 402 cambiara.
+  const cat = bloque(ruta, 'console.error(`[api:zernio] estado ws${ws}: ${msg(e)}`);', "return Response.json({ ok: false, error: 'Zernio no contestó' }, { status });");
   assert.match(cat, /if \(e instanceof ZernioError && \(e\.status === 401 \|\| e\.status === 402\) && \(await usaCuentaPropia\(ws\)\.catch\(\(\) => false\)\)\) \{/,
     'con la key de la plataforma el 402 es de MaKo: su link de pago no es del cliente');
   assert.match(cat, /return Response\.json\(\{ ok: false, motivo: 'pausada', error: ZERNIO_PAUSADA, billingUrl: urlDePagoDeZernio\(e\.body\) \}, \{ status: 402 \}\);/);
