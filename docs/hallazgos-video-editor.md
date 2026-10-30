@@ -1964,6 +1964,32 @@ WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configura
 `transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
 *28/10/2026, chat «Video Editor: el ruido y los silencios de Leila».*
 
+## «No hay silencios» cuando sobran: el chat buscó en UN clip de 0,9 s porque el ejemplo del catálogo nombraba uno (ticket 31, Leila, 29/10/2026)
+
+Leila escribió en el chat «Quiero borrar silencios y me dice que no hay cuando sobran», aceptó, y salió «No se aplica: no hay
+silencios de 0,4 s o más». **El diagnóstico obvio era el equivocado:** se sospechó del detector con su ruido de fondo (lo del
+28/10). La propuesta guardada lo desmiente: el modelo mandó `{"op":"borrar_silencios","ref":"v9"}`, y v9 era un pedazo de 0,93 s
+(del 23,4 al 24,3 del original) de un video que ella ya venía cortando a mano. En 0,93 s no entra una pausa de 0,4 s con sus
+80 ms a cada lado. El modelo copió la `forma` del catálogo, que traía siempre `"ref":"v1"`.
+
+- ⚠️ **El `forma` de una operación es lo que el modelo COPIA.** Un parámetro opcional que aparece en el ejemplo se vuelve
+  obligatorio en la práctica. El ejemplo va sin él, y el `para` dice cuándo sí: «Con "ref" SÓLO si la persona nombra un clip».
+- ⚠️ **El audio de un proyecto del Video Editor no está en la base:** vive en el navegador de quien edita (OPFS). En la base
+  quedan el espejo de la línea de tiempo (`video_editor_proyectos.vista`: clips, recortes y duraciones) y el hilo del chat con
+  cada propuesta (`video_editor_chats.mensajes`: `propuesta.operaciones` y `refsPorId`). Con eso se ve QUÉ se pidió y sobre
+  qué clip, pero no se puede medir el detector con su audio. Si su ruido además le gana al detector no se sabe: hace falta el
+  archivo original.
+- ⚠️ **El chat del Video Editor no manda historial** (cada pedido llega solo a `/api/video-editor/ia`). Un aviso que pregunta
+  «¿las busco más cortas?» no se puede contestar con un «sí». El aviso trae la FRASE para pedirlo.
+- **El botón tenía el mismo agujero:** sin nada elegido, busca sólo en el clip bajo el cabezal, que después de cortar a mano es
+  un pedazo, y decía «Sin silencios» sin decir dónde había buscado.
+- **La regla:** un «no encontré» dice dónde buscó y cuánto duraba, y qué se puede pedir (`textoSinSilencios`, sin el «No se
+  aplica:» delante). La pausa mínima se puede pedir de 0,2 a 2 s (`pausa_min`, también por la API).
+
+**Vive en:** `audio/silencios-aviso.ts` (puro) · `audio/borrar-silencios.ts` · `chat/aplicar.ts` · `chat/linea.ts` ·
+`lib/editor-video/chat-catalogo.ts` · tests/video-editor-chat.test.ts (test 53) · tests/video-editor-silencios.test.ts ·
+*29/10/2026, chat «Video Editor: el ruido y los silencios de Leila» (claude3).*
+
 ## Los colores de MaKo en `.ce`: un ciclo de variables CSS no tira error, deja todo transparente (29/10/2026, claude3)
 
 Martín, 29/10: «en las tabs de Editor e Image, pongas los colores de MaKo, no esos colores». La paleta `--cc-*` pasó a apuntar

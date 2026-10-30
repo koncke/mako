@@ -23,7 +23,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MedidorVentanas, rangosDeSilencio, tramosQueQuedan, umbralEfectivo, segundosQuitados,
+  MedidorVentanas, PAUSA_MIN_S, rangosDeSilencio, tramosQueQuedan, umbralEfectivo, segundosQuitados,
 } from '../app/video-editor/_opencut/audio/dsp/silencios';
 import { JuntadorDeTrozos, silenciosSinRuido } from '../app/video-editor/_opencut/audio/dsp/silencios-sin-ruido';
 import { instanciarRnnoise, URL_WASM_RNNOISE, type MotorRnnoise } from '../app/video-editor/_opencut/audio/dsp/rnnoise';
@@ -288,11 +288,36 @@ test('el juntador pone cada trozo en su lugar de la fuente: un hueco queda en si
 
 test('el cableado: el botón y el chat buscan las pausas en el audio sin ruido, y cortan el original', () => {
   const runner = fuente('audio', 'borrar-silencios.ts');
-  assert.match(runner, /const silencios = await silenciosSinRuido\(\{ audio, motor \}\);/);
+  // Con la pausa mínima del pedido (ticket 31); el botón, sin ella, usa la de siempre.
+  assert.match(runner, /const silencios = await silenciosSinRuido\(\{ audio, motor, opciones: \{ minSilencioS: minimoS \} \}\);/);
+  assert.match(runner, /minimoS = PAUSA_MIN_S,/);
   assert.doesNotMatch(runner, /rangosDeSilencio\(/, 'quedó una búsqueda sobre el original');
   assert.match(runner, /alTrozo: \(trozo\) => juntador\.agregar\(trozo\)/);
   // Sin bajar el umbral: la búsqueda nueva usa el de siempre (rangosDeSilencio, con sus defaults).
   assert.match(fuente('audio', 'dsp', 'silencios-sin-ruido.ts'), /return rangosDeSilencio\(medidor\.resultado\(\), opciones\);/);
+});
+
+test('la pausa mínima (ticket 31): la de siempre es 0,4 s, y pidiendo 0,2 se saca la pausa corta que con 0,4 se deja', () => {
+  assert.deepEqual(rangosDeSilencio(clipDePrueba(), { minSilencioS: PAUSA_MIN_S }), rangosDeSilencio(clipDePrueba()), 'PAUSA_MIN_S no es la de siempre');
+  // Voz · una pausa de 300 ms · voz.
+  const m = new MedidorVentanas();
+  m.agregar(trozo(0, 1.0, 0.25));
+  m.agregar(trozo(1.0, 0.3, 0.0));
+  m.agregar(trozo(1.3, 1.0, 0.25));
+  const v = m.resultado();
+  assert.deepEqual(rangosDeSilencio(v), [], 'con 0,4 s la pausa de 300 ms se deja');
+  const cortas = rangosDeSilencio(v, { minSilencioS: 0.2 });
+  assert.equal(cortas.length, 1, 'pidiendo 0,2 s la pausa de 300 ms no apareció');
+  assert.ok(cortas[0][0] > 1 && cortas[0][1] < 1.3, `la pausa corta cae en ${cortas[0].join('–')}, fuera de 1,0–1,3 s`);
+});
+
+test('el botón dice DÓNDE buscó cuando no hay pausas (ticket 31): sin nada elegido, sólo el clip bajo el cabezal', () => {
+  const runner = fuente('audio', 'borrar-silencios.ts');
+  assert.doesNotMatch(runner, /toast\("Sin silencios"\)/, 'volvió el «Sin silencios» que no dice dónde buscó');
+  assert.match(runner, /const aviso = avisoBotonSinSilencios\(r, conAudio > r\.clips\);\s*toast\(aviso\.titulo, \{ description: aviso\.descripcion/);
+  // Lo que se escuchó: sólo los clips con audio, con lo que duran en la línea.
+  assert.match(runner, /escuchados\+\+;\s*segundosEscuchados \+= duracion;/);
+  assert.match(runner, /motivo: "sin-silencios", clips: escuchados,[\s\S]*?segundos: segundosEscuchados, minimoS \}/);
 });
 
 // Roturas (28/10/2026, base 19/0), cada una sola y restaurada con su copia:

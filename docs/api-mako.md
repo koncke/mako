@@ -16132,7 +16132,7 @@ curl -L \
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/borrar-silencios` — Borrar los silencios
 
-PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Borrar silencios», como el botón de la barra: escucha el sonido del clip, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. Con "ref", ese video o audio; sin "ref", cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Borrar silencios», como el botón de la barra: escucha el sonido, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. SIN "ref" (lo normal: «borra los silencios», «saca las pausas»): todo el video, cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). Con "ref" SÓLO si la persona nombra un clip o un audio en particular. "pausa_min" (opcional, de 0.2 a 2 segundos): la pausa más corta que se saca, cuando pide pausas más cortas o más largas que 0,4 s. No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.
 
 - **Ruta por operación:** `POST /api/v1/video/borrar_silencios_video`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
@@ -16148,6 +16148,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
 | `ref` | string | no | Opcional: la ref del video o el audio en la línea de tiempo (v1, a4…, de ver_proyecto_video). Sin ella, cada clip con sonido de la pista principal. |
+| `pausa_min` | number | no | Opcional: la pausa más corta que se saca, en segundos (de 0,2 a 2; sin ella, 0,4). |
 
 ```bash
 curl -L \

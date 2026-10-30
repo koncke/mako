@@ -42,6 +42,8 @@ import { MARCA, codificarAncla } from '../app/video-editor/_opencut/plantillas/h
 import { DEFS as DEFS_VIDEO } from '../lib/api-mako/areas/video.def';
 import { sumarProgreso, type ArmadoChat } from '../app/video-editor/_opencut/chat/armado';
 import { MOTIVO_SUBTITULOS, motivoDeLaFalla, textoDeSubtitulos } from '../app/video-editor/_opencut/subtitles/resultado';
+import { PAUSA_MIN_RANGO, PAUSA_MIN_S, avisoBotonSinSilencios, segundosDeAviso, textoSinSilencios } from '../app/video-editor/_opencut/audio/silencios-aviso';
+import { operacionApiPorId, operacionDesdeInput } from '../lib/editor-video/chat-api';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -999,6 +1001,59 @@ test('52: «Generar los subtítulos» desde el chat dice POR QUÉ no salieron (t
   const tx = sinComentarios(leer('app/video-editor/_opencut/transcripcion/components/transcripcion-view.tsx'));
   assert.match(tx, /const r = await generarSubtitulos\(editor\);\s*if \(!r\.ok && r\.motivo !== "cancelado"\) toast\.error\(textoDeSubtitulos\(r\.motivo\)/);
   assert.doesNotMatch(tx, /void generarSubtitulos\(/, 'Transcribir vuelve a tirar el resultado');
+});
+
+test('53: «Borrar silencios» sin pausas (ticket 31, 29/10): todo el video salvo que nombre un clip, y el aviso dice dónde buscó y qué pedir', () => {
+  // Leila pidió «Quiero borrar silencios»; el modelo copió el ejemplo `"ref":"v1"` y eligió UN clip de 0,9 s.
+  const cat = OPERACIONES_CHAT.find((o) => o.op === 'borrar_silencios')!;
+  assert.equal(cat.forma, '{"op":"borrar_silencios"}', 'el ejemplo vuelve a nombrar un clip: el modelo lo copia');
+  assert.match(cat.para, /SIN "ref" \(lo normal[^)]*\): todo el video/);
+  assert.match(cat.para, /Con "ref" SÓLO si la persona nombra un clip/);
+  // Los números del catálogo (lib/) son los del motor (app/): la pausa de siempre y el rango que se puede pedir.
+  assert.ok(cat.para.includes(`saca cada pausa de ${segundosDeAviso(PAUSA_MIN_S)} o más`));
+  assert.ok(cat.para.includes(`de ${PAUSA_MIN_RANGO.desde} a ${PAUSA_MIN_RANGO.hasta} segundos`));
+  // La pausa mínima: de 0,2 a 2 s, redondeada a la décima; fuera de eso, el motivo.
+  assert.deepEqual(validarOperacion({ op: 'borrar_silencios', pausa_min: 0.2 }), { ok: true, op: { op: 'borrar_silencios', pausa_min: 0.2 } });
+  assert.deepEqual(validarOperacion({ op: 'borrar_silencios', pausa_min: 0.26 }), { ok: true, op: { op: 'borrar_silencios', pausa_min: 0.3 } });
+  assert.deepEqual(validarOperacion({ op: 'borrar_silencios', pausa_min: 2 }), { ok: true, op: { op: 'borrar_silencios', pausa_min: 2 } });
+  for (const mala of [0.1, 2.5, '0.3', Number.NaN, null]) {
+    const v = validarOperacion({ op: 'borrar_silencios', pausa_min: mala });
+    assert.ok(!v.ok && /pausa mínima fuera de 0,2 a 2/.test(v.motivo), `pausa_min ${String(mala)} pasó`);
+  }
+  // La revisión: sin ref y con el alcance del video, todo el video; con ref o con la selección, no. La pausa viaja.
+  const todo = revisar([{ op: 'borrar_silencios' }]).resueltas[0] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>;
+  assert.deepEqual([todo.todo, todo.minimoS], [true, PAUSA_MIN_S]);
+  const uno = revisar([{ op: 'borrar_silencios', ref: 'v1' }]).resueltas[0] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>;
+  assert.equal(uno.todo, false, 'con un clip nombrado, el aviso diría «todo el video»');
+  const sel = revisarOperaciones({ operaciones: [{ op: 'borrar_silencios' }], vista: vistaRica({ elegidos: [{ trackId: 'pa', elementId: 'aud1' }] }), alcance: 'seleccion' });
+  assert.equal((sel.resueltas[0] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>).todo, false);
+  const corta = revisar([{ op: 'borrar_silencios', pausa_min: 0.2 }]);
+  assert.equal((corta.resueltas[0] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>).minimoS, 0.2);
+  assert.equal(corta.cambios.at(-1)?.antes, 'las pausas de 0,2 s o más (se buscan al aceptar, escuchando el audio)');
+  // El aviso: el caso de Leila, y cada combinación pide sólo lo que todavía se puede pedir.
+  assert.equal(
+    textoSinSilencios({ clips: 1, titulo: '174836_h264.mp4', segundos: 0.93, minimoS: 0.4, todoElVideo: false }),
+    'No encontré pausas de 0,4 s o más en «174836_h264.mp4», que dura 0,9 s. Pídeme «borra los silencios de todo el video» o «borra las pausas de 0,2 s o más».',
+  );
+  assert.equal(
+    textoSinSilencios({ clips: 11, segundos: 60.06, minimoS: 0.4, todoElVideo: true }),
+    'No encontré pausas de 0,4 s o más en todo el video (60,1 s). Pídeme «borra las pausas de 0,2 s o más».',
+  );
+  assert.equal(textoSinSilencios({ clips: 3, segundos: 12, minimoS: 0.2, todoElVideo: false }), 'No encontré pausas de 0,2 s o más en 3 clips (12 s). Pídeme «borra los silencios de todo el video».');
+  assert.equal(textoSinSilencios({ clips: 11, segundos: 60.06, minimoS: 0.2, todoElVideo: true }), 'No encontré pausas de 0,2 s o más en todo el video (60,1 s). No hay silencios para sacar.');
+  assert.deepEqual(avisoBotonSinSilencios({ clips: 1, titulo: 'a.mp4', segundos: 0.93, minimoS: 0.4 }, true), { titulo: 'No encontré pausas de 0,4 s o más', descripcion: 'Busqué sólo en «a.mp4» (0,9 s). Para buscar en más, elige más clips.' });
+  assert.equal(avisoBotonSinSilencios({ clips: 1, titulo: 'a.mp4', segundos: 60, minimoS: 0.4 }, false).descripcion, 'Busqué en «a.mp4» (60 s).');
+  // El cableado: el chat pasa la pausa y arma el aviso con «todo el video» de la revisión, sin «No se aplica:» delante.
+  const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
+  assert.match(aplicar, /await quitarSilencios\(editor, \{[\s\S]*?minimoS: r\.minimoS,/);
+  assert.match(aplicar, /if \(hecho\.motivo !== "sin-silencios"\) return \[SIN_SILENCIOS\[hecho\.motivo\]\];[\s\S]*?textoSinSilencios\(\{[\s\S]*?todoElVideo: r\.todo \}\)/);
+  assert.match(aplicar, /descarte\.startsWith\(NO_ENCONTRE\) \? descarte : `No se aplica: \$\{descarte\}`/);
+  assert.equal((aplicar.match(/`No se aplica: /g) ?? []).length, 1, 'quedó un «No se aplica:» armado a mano');
+  assert.equal((aplicar.match(/noSeAplica\(descartes\[0\]/g) ?? []).length, 2);
+  // La API de MaKo puede pedir lo mismo (AGENTS.md: «todo MaKo se debe poder utilizar por API»).
+  const api = operacionApiPorId('borrar_silencios_video')!;
+  assert.ok(api.parametros.some((p) => p.nombre === 'pausa_min' && p.minimo === PAUSA_MIN_RANGO.desde && p.maximo === PAUSA_MIN_RANGO.hasta));
+  assert.deepEqual(operacionDesdeInput(api, { proyecto: 'x', pausa_min: 0.2 }), { ok: true, op: { op: 'borrar_silencios', pausa_min: 0.2 } });
 });
 
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:
