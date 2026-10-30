@@ -144,10 +144,26 @@ async function main() {
   const g0 = pedidos.length;
   await C.urlConectarViaZernio(WS, 'youtube' as never, '/integraciones', { aceptaCobro: true });
   out.g = conQue(g0).filter((x) => x.includes('/connect/'));
-  // Volver a entrar con una red que esa clave ya tiene no suma: va derecho a la clave que tiene lugar para ella (la 2 tiene LinkedIn).
+  // «Conectar otra» de una red que una clave YA tiene (29/10/2026, la llamada con Thiago): es OTRA cuenta para Zernio. Con las dos
+  // claves llenas, el aviso (antes iba derecho a la 2 y se cobraba la 3.ª sin decir nada). Reconectar esa cuenta sí entra sin aviso.
   const h0 = pedidos.length;
   const rH = await C.urlConectarViaZernio(WS, 'linkedin' as never, '/integraciones', {});
-  out.h = { ok: rH.ok, connect: conQue(h0).filter((x) => x.includes('/connect/')) };
+  const h1 = pedidos.length;
+  const rH2 = await C.urlConectarViaZernio(WS, 'linkedin' as never, '/integraciones', { reconectarId: 'acc_li_2' });
+  out.h = {
+    r: rH, connect: conQue(h0).slice(0, h1 - h0).filter((x) => x.includes('/connect/')),
+    reconectar: { ok: rH2.ok, connect: conQue(h1).filter((x) => x.includes('/connect/')) },
+  };
+
+  // Una sola clave con Facebook e Instagram: «Conectar otra» de Instagram (un 2.º Instagram) avisa, y dice por qué.
+  reset(['sk_uno'], { sk_uno: [cuenta('acc_fb_1', 'facebook'), cuenta('acc_ig_1', 'instagram')] });
+  const o0 = pedidos.length;
+  out.otroInstagram = { r: await C.urlConectarViaZernio(WS, 'instagram' as never, '/integraciones', {}), connect: conQue(o0).filter((x) => x.includes('/connect/')) };
+  // Con una sola cuenta en la clave, el 2.º Instagram es gratis: sin aviso.
+  reset(['sk_uno'], { sk_uno: [cuenta('acc_ig_1', 'instagram')] });
+  const o1 = pedidos.length;
+  const rO = await C.urlConectarViaZernio(WS, 'instagram' as never, '/integraciones', {});
+  out.otroInstagramGratis = { ok: rO.ok, connect: conQue(o1).filter((x) => x.includes('/connect/')) };
 
   // (i) Las CINCO claves llenas → el aviso ya no ofrece otra clave: dice la salida que queda.
   const cinco = ['sk_uno', 'sk_dos', 'sk_tres', 'sk_cuatro', 'sk_cinco'];

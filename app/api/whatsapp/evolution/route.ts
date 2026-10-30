@@ -24,6 +24,7 @@ import {
   listarLineas, renombrarLinea, predeterminarLinea,
 } from '@/lib/evolution';
 import { rotuloLinea, sanearEtiqueta } from '@/lib/lineas-whatsapp';
+import { esLineaDeMaKo } from '@/lib/linea-plataforma';
 import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
@@ -105,6 +106,8 @@ export async function GET(req: NextRequest) {
       lineas: lineas.map((l, i) => ({
         linea: l.instance_name, rotulo: rotuloLinea(l, i), etiqueta: l.etiqueta,
         numero: l.numero, estado: l.estado, esDefault: l.es_default,
+        // La de MaKo (la del grupo, en la plataforma) no es una línea del negocio: la tarjeta de WhatsApp de /integraciones no la lista.
+        deMaKo: esLineaDeMaKo(l.instance_name),
       })),
     });
   } catch (e) {

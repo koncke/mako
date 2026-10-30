@@ -73,7 +73,7 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
   const hastaIso = inicioDelDia(hasta, tz);
   const fallos: FallosCalendario = {};
   const meta: { google: GoogleDelCalendario | null } = { google: null };
-  const [propios, crm, google, plan, recurrentes, cobros, objetivos] = await Promise.all([
+  const [propios, crm, google, plan, recurrentes, cobros, objetivos, series] = await Promise.all([
     leerPropios(desdeIso, hastaIso).catch((e) => { console.error('[calendario] propios:', msg(e)); fallos.propios = true; return [] as ItemCalendario[]; }),
     leerCrm(desde, hasta, desdeIso, hastaIso, tz).catch((e) => { console.error('[calendario] crm:', msg(e)); fallos.crm = true; return [] as ItemCalendario[]; }),
     leerGoogle(desdeIso, hastaIso, tz, fallos, meta),
@@ -81,10 +81,13 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
     leerRecurrentes(desde, hasta, tz).catch((e) => { console.error('[calendario] recurrentes:', msg(e)); fallos.recurrentes = true; return [] as ItemCalendario[]; }),
     leerCobros(desde, hasta, tz).catch((e) => { console.error('[calendario] cobros:', msg(e)); fallos.cobros = true; return [] as ItemCalendario[]; }),
     leerObjetivos(desde, hasta, tz).catch((e) => { console.error('[calendario] objetivos:', msg(e)); fallos.objetivos = true; return [] as ItemCalendario[]; }),
+    // Las próximas veces de las Publicaciones que se repiten (29/10/2026, lib/calendario-recurrentes.ts): en la capa «Se repite».
+    import('./calendario-recurrentes').then((m) => m.seriesParaDibujar(desde, hasta, desdeIso, tz))
+      .catch((e) => { console.error('[calendario] series:', msg(e)); fallos.recurrentes = true; return [] as ItemCalendario[]; }),
   ]);
   // Los de Google van TODOS: si una reunión del CRM y su evento de Google son la misma, lo decide la pantalla según qué
   // calendarios están prendidos (`sinDuplicarLlamadas`). Apagando las llamadas del CRM, el de Google tiene que verse.
-  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...objetivos], fallos, google: meta.google };
+  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...objetivos, ...series], fallos, google: meta.google };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));

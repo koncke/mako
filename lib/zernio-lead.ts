@@ -46,6 +46,11 @@ export type LeadDeZernio = {
   formularioId: string | null;
   formularioNombre: string | null;
   esOrganico: boolean;
+  /**
+   * La cuenta conectada de Zernio de la que vino (`accountId` del REST, `AdLead`). Sólo la trae el BARRIDO: con ella descarta en
+   * memoria lo que no es del negocio (el webhook rutea por su propia puerta). Null si no vino o no tiene forma de id.
+   */
+  cuentaId?: string | null;
 };
 
 /**
@@ -133,6 +138,67 @@ export function queHacerConElLead(creado: boolean, creadoEn: string | null, ahor
   const t = creadoEn ? Date.parse(creadoEn) : NaN;
   const conversion = !Number.isFinite(t) || ahoraMs - t <= VENTANA_CAPI_DIAS * 86_400_000;
   return { nuevo: creado && esNuevoParaElNegocio(creadoEn ?? new Date(ahoraMs).toISOString(), ahoraMs), conversion };
+}
+
+/** El `fieldData` crudo de Meta que trae el REST (`[{ name, values }]`), acotado como `fieldDataDe`. Lo que no tiene forma, afuera. */
+function fieldDataCrudo(v: unknown): MetaFieldData {
+  if (!Array.isArray(v)) return [];
+  const out: MetaFieldData = [];
+  for (const f of v) {
+    if (out.length >= MAX_CAMPOS) break;
+    const o = objeto(f);
+    const name = o ? txt(o.name, MAX_NOMBRE) : null;
+    if (!o || !name) continue;
+    const valores = (Array.isArray(o.values) ? o.values : [o.values]).map((x) => txt(x)).filter((x): x is string => !!x).slice(0, MAX_VALORES);
+    if (valores.length) out.push({ name, values: valores });
+  }
+  return out;
+}
+
+/**
+ * Un lead del barrido (`GET /v1/ads/leads`, OpenAPI de Zernio v1.416, `AdLead`), en el MISMO `LeadDeZernio` que el webhook: lo carga la
+ * misma puerta (`cargarLeadDeZernio`). Las diferencias del REST, medidas en la OpenAPI (29/10/2026): trae `fieldData` CRUDO de Meta
+ * (la forma del webhook de Meta; se prefiere, y si no viene se usa `fields`) y la fecha es `createdTime`. Un lead de LinkedIn trae un
+ * `leadgenId` que no son dígitos: no se carga (el barrido es de Meta).
+ */
+export function leerLeadDelRest(item: unknown): LeadDeZernio | IgnoradoZernio {
+  const lead = objeto(item);
+  if (!lead) return { ignorado: 'el lead no es un objeto', porque: 'cuerpo' };
+  const leadgenId = idDe(lead.leadgenId);
+  if (!leadgenId || !/^[0-9]{8,32}$/.test(leadgenId)) {
+    return { ignorado: 'el lead no trae un leadgenId con forma de id de Meta', porque: 'sin_id' };
+  }
+  const crudo = fieldDataCrudo(lead.fieldData);
+  const fields = objeto(lead.fields);
+  const fieldData = crudo.length ? crudo : fields ? fieldDataDe(fields) : [];
+  const { campos, apellido } = paraElParser(fieldData);
+  const { email, nombre, telefono, empresa, noReconocidos: sinColumna } = parseLeadFields(campos);
+  const noReconocidos = apellido ? sinColumna.filter((n) => n !== apellido) : sinColumna;
+  return {
+    leadgenId,
+    creadoEn: fechaDeMeta(typeof lead.createdTime === 'string' ? lead.createdTime : null),
+    email: email ? email.toLowerCase() : null,
+    nombre,
+    telefono,
+    empresa,
+    fieldData,
+    noReconocidos,
+    anuncioId: idDe(lead.adId),
+    conjuntoId: idDe(lead.adsetId),
+    campanaId: idDe(lead.campaignId),
+    formularioId: idDe(lead.formId),
+    formularioNombre: txt(lead.formName, MAX_NOMBRE),
+    esOrganico: lead.isOrganic === true,
+    cuentaId: idDe(lead.accountId),
+  };
+}
+
+/**
+ * ¿Le toca al barrido de Zernio en este tic del cron de leads (cada 10 minutos)? Cada 30 minutos y en la pasada diaria: Zernio relee
+ * las páginas cada 15 minutos (`meta.lastCheckedAt`, OpenAPI v1.416) y pedir más seguido no trae nada nuevo.
+ */
+export function tocaBarrerZernio(ahora: Date, diaria: boolean): boolean {
+  return diaria || Math.floor(ahora.getUTCMinutes() / 10) % 3 === 0;
 }
 
 /** Lee el cuerpo (ya parseado) de un `lead.received`. Devuelve el lead, o por qué NO se carga. */

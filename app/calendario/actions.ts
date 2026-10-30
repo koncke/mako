@@ -25,6 +25,7 @@ import {
 } from '@/lib/calendario-publicar';
 import type { DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 import { publicacionDesdeCrear } from '@/lib/calendario-desde-crear';
+import { guardarRepeticion, repeticionDelEvento } from '@/lib/calendario-recurrentes';
 import { hoyEnWorkspace } from '@/lib/timezone';
 
 const guard = () => requireRolWs([], { nav: 'calendario' });
@@ -212,6 +213,28 @@ export async function publicacionDesdeCrearAction(p: { origen: string; titulo?: 
   } catch (e) {
     console.error('[calendario] publicar desde Create:', e instanceof Error ? e.message : e);
     return { ok: false, error: 'No se pudo llevar al Calendario.' };
+  }
+}
+
+/** La regla de una Publicación que se repite (29/10/2026, mig 0349). `disponible: false` = la base todavía no la tiene. */
+export async function repeticionAction(id: string): Promise<{ regla: string | null; disponible: boolean; serieHref: string | null }> {
+  await guard();
+  try { return await repeticionDelEvento(idDe(id)); } catch (e) {
+    console.error('[calendario] repetición:', e instanceof Error ? e.message : e);
+    return { regla: null, disponible: false, serieHref: null };
+  }
+}
+
+/** Pone o saca la regla (null = deja de repetirse; lo que ya nació y está programado, queda). */
+export async function guardarRepeticionAction(id: string, regla: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  await guard();
+  try {
+    const r = await guardarRepeticion(idDe(id), typeof regla === 'string' ? regla.slice(0, 200) : null);
+    if (r.ok) revalidatePath('/calendario');
+    return r;
+  } catch (e) {
+    console.error('[calendario] guardar repetición:', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo guardar.' };
   }
 }
 

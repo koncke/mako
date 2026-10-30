@@ -153,9 +153,11 @@ export const slotDeClaveZernio = (env: string): number | null => {
  * ¿En qué clave se conecta una red nueva? La PRIMERA (en orden) donde entra sin que Zernio cobre: menos de 2 cuentas activas, o ya
  * tiene una de esa red (volver a entrar no suma). null = todas están llenas: hay que avisar antes del login.
  */
-export function claveConLugar(claves: ReadonlyArray<{ slot: number; conectadas: readonly ConexionZernio[] }>, red: RedZernio): number | null {
+export function claveConLugar(
+  claves: ReadonlyArray<{ slot: number; conectadas: readonly ConexionZernio[] }>, red: RedZernio, opc: { otra?: boolean } = {},
+): number | null {
   for (const k of [...claves].sort((a, b) => a.slot - b.slot)) {
-    if (!avisoDeCobroZernio({ conectadas: k.conectadas, red })) return k.slot;
+    if (!avisoDeCobroZernio({ conectadas: k.conectadas, red, otra: opc.otra })) return k.slot;
   }
   return null;
 }
@@ -240,10 +242,12 @@ export function textoGratisZernio(): string {
  * una línea fija). Zernio cobra por cuenta ACTIVA de toda la cuenta de Zernio (las ocultas y desconectadas no cuentan), y la página,
  * el Instagram y los anuncios cuentan aparte. Se avisa si ya hay 2 o más y la red a conectar todavía no tiene una cuenta activa:
  * volver a entrar con la misma cuenta no suma otra (Zernio conserva su id). null = no hace falta avisar.
+ * ⚠️ `otra` (29/10/2026, la llamada con Thiago): «Conectar otra» sobre una red que YA tiene cuenta es OTRA cuenta para Zernio (un 2.º
+ * Instagram cuesta US$6 por mes si la clave ya tiene 2). Sin `otra`, una red ya conectada se daba por «volver a entrar» y no avisaba.
  */
-export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio }): { cuentas: number } | null {
+export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio; otra?: boolean }): { cuentas: number } | null {
   const activas = p.conectadas.filter((c) => c.activa);
-  if (activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
+  if (!p.otra && activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
   return activas.length >= CUENTAS_GRATIS_ZERNIO ? { cuentas: activas.length } : null;
 }
 
@@ -252,11 +256,13 @@ export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; r
  * cuidado: si conectás esta cuenta sin otra API te va a empezar a cobrar Zernio"»). La salida gratis es OTRA clave de Zernio, de
  * otra cuenta del cliente (`puedeAgregar`: todavía hay lugar para una clave más); si ya están las cinco, desconectar una en zernio.com.
  */
-export function textoAvisoCobro(cuentas: number, opc: { puedeAgregar?: boolean } = {}): string {
+export function textoAvisoCobro(cuentas: number, opc: { puedeAgregar?: boolean; otraDe?: string | null } = {}): string {
   const salida = opc.puedeAgregar === false
     ? 'Para no pagar, desconecta en zernio.com una que ya no uses.'
     : 'Para no pagar, agrega otra clave de Zernio (de otra cuenta tuya, con otro Gmail).';
-  return `Esta clave de Zernio ya tiene ${cuentas} redes. Si conectas otra, Zernio te empieza a cobrar (US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una desde la 3.ª). ${salida}`;
+  // «Conectar otra» de una red que ya está (un 2.º Instagram): se dice que también cuenta.
+  const otra = opc.otraDe ? `Otra cuenta de ${opc.otraDe} cuenta como una red más. ` : '';
+  return `${otra}Esta clave de Zernio ya tiene ${cuentas} redes. Si conectas otra, Zernio te empieza a cobrar (US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una desde la 3.ª). ${salida}`;
 }
 
 // ── A dónde vuelve ───────────────────────────────────────────────────────────

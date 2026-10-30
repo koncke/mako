@@ -252,7 +252,7 @@ export async function urlConectarViaZernio(
 
 /**
  * EN QUÉ CLAVE SE CONECTA (29/10/2026, varias claves). Reconectar: la dueña de esa cuenta. La pedida (`clave`, «Conectar igual» en
- * esa). Si no, la PRIMERA con lugar (`claveConLugar`: menos de 2 cuentas activas, o ya tiene esa red). Si todas están llenas, el
+ * esa). Si no, la PRIMERA con lugar (`claveConLugar`: menos de 2 cuentas activas; una red que ya tiene también suma). Si todas están llenas, el
  * aviso de la 3.ª red ANTES del login (27/10, feedback de Leila; 29/10, Martín: «te advierte... si conectás esta cuenta sin otra API
  * te va a empezar a cobrar Zernio»), salvo `aceptaCobro`. Se cuenta TODA la cuenta de Zernio de cada clave (sin `profileId`): Zernio
  * cobra por equipo. Con la clave de MaKo (el ws1) no se avisa: paga MaKo. Si no se puede contar, no se frena (el 402 de Zernio avisa).
@@ -271,12 +271,15 @@ async function claveParaConectar(
     if (!todas || !tieneListaDeCuentas(todas)) return { clave: k };
     conteos.push({ slot: k.slot, conectadas: leerCuentasDeZernio(todas) });
   }
-  const slot = claveConLugar(conteos, red);
+  // ⚠️ Sin `reconectarId` (eso ya volvió arriba), conectar una red que la clave YA tiene es «Conectar otra»: OTRA cuenta para Zernio
+  // (29/10/2026, la llamada con Thiago: un 2.º Instagram se cobraba sin aviso). Se cuenta como una red nueva.
+  const slot = claveConLugar(conteos, red, { otra: true });
   if (slot != null) return { clave: claves.find((k) => k.slot === slot) ?? claves[0] };
   if (opc.aceptaCobro) return { clave: pedida ?? claves[0] };
   const llena = conteos[0];
   const puedeAgregar = claves.length < MAX_CLAVES_ZERNIO;
-  return { cobro: textoAvisoCobro(llena.conectadas.filter((x) => x.activa).length, { puedeAgregar }), puedeAgregar };
+  const mismaRed = conteos.some((k) => k.conectadas.some((x) => x.activa && x.plataforma === REDES[red].plataforma));
+  return { cobro: textoAvisoCobro(llena.conectadas.filter((x) => x.activa).length, { puedeAgregar, otraDe: mismaRed ? REDES[red].etiqueta : null }), puedeAgregar };
 }
 
 // ── Quedó conectada: armar la recepción ──────────────────────────────────────
