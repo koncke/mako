@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import { cajaDe, refsDeIds, vistaDeDiseno } from '../lib/image-editor/chat/vista';
 import { TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
-import { AVISO_CORTADA, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
+import { AVISO_CORTADA, TOPES_HILO, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
 import { cambiarHilo, cargarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
 import { aceptarPropuesta, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
@@ -528,10 +528,13 @@ test('el pedido llega al diseño con la respuesta TAL CUAL la da la ruta (ya val
 test('si se pierde casi todo, el mensaje no promete lo que no va a pasar', async () => {
   const { editor } = editorDeMentira([]);
   const malas = Array.from({ length: 3 }, () => ({ op: 'volar' }));
-  fetchDeMentira({ ok: true, resumen: 'Voy a crear el carrusel.', operaciones: [{ op: 'fondo', color: '#000000' }, ...malas] }, []);
+  // La misma forma que contesta la ruta: lo que sobrevivió y, aparte, lo que tiró.
+  const ruta = validarOperaciones([{ op: 'fondo', color: '#000000' }, ...malas]);
+  fetchDeMentira({ ok: true, resumen: 'Voy a crear el carrusel.', operaciones: ruta.operaciones, descartes: ruta.descartes }, []);
   await pedirEdicion(editor as never, 'el carrusel', 'diseno');
   const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
   assert.match(m.texto, /^Pude hacer sólo una parte\./);
+  assert.equal(m.descartes!.length, 3, 'lo que tiró la ruta llega a «No se aplica»');
 });
 
 test('un carrusel de más páginas que el diseño: el texto llega a la página nueva por su ref', () => {
@@ -543,7 +546,7 @@ test('un carrusel de más páginas que el diseño: el texto llega a la página n
     { op: 'agregar_texto', pagina: 'pn2', texto: 'Otra', tamano: 60 },
   ]);
   assert.deepEqual(r.descartes, []);
-  const paginas = (r.doc as { pages: Array<{ objects: Obj[]; background: Obj }> }).pages;
+  const paginas = (r.doc as unknown as { pages: Array<{ objects: Obj[]; background: Obj }> }).pages;
   const conTexto = paginas.slice(-2);
   assert.equal(conTexto[0].objects.at(-1)!.text, 'Slide nueva');
   assert.equal(conTexto[0].background.color, '#000000');
@@ -560,7 +563,7 @@ test('la ref que inventa la IA no hace perder el contenido (medido con la IA de 
     { op: 'color', ref: ref('obj-titulo'), color: '#ff0000' },
   ]);
   assert.deepEqual(r.descartes, []);
-  const paginas = (r.doc as { pages: Array<{ objects: Obj[] }> }).pages;
+  const paginas = (r.doc as unknown as { pages: Array<{ objects: Obj[] }> }).pages;
   assert.equal(paginas.at(-1)!.objects.at(-1)!.text, 'Con su ref');
   assert.equal(paginas.at(-1)!.objects.at(-1)!.fill, '#00ffff');
   assert.notEqual(objDe(r.doc, 'obj-titulo').fill, '#ff0000', 'la ref habla de lo nuevo, no del que ya estaba');
@@ -599,4 +602,86 @@ test('el pedido manda lo que ya se habló, sin repetir el mensaje de ahora', asy
   const memoria = pedidos.find((p) => p.url === '/api/image-editor/ia')!.cuerpo!.memoria as Array<{ texto: string }>;
   assert.ok(memoria.some((l) => l.texto === 'SLIDE 1 — Portada'));
   assert.ok(!memoria.some((l) => l.texto === 'aplica lo que te pedí'));
+});
+
+// ── Lo que encontró la revisión que intentó refutar el arreglo (30/10/2026) ─────────────────────────────────────
+
+test('una fuente que el editor no tiene no hace perder el texto', () => {
+  const r = aplicar([{ op: 'agregar_texto', texto: 'Slide 1', fuente: 'Helvetica', tamano: 60 }], { fuente: () => null });
+  assert.deepEqual(r.descartes, ['la fuente «Helvetica» no está en el editor']);
+  assert.equal(r.aplicadas, 1);
+  assert.equal((r.doc as unknown as { pages: Array<{ objects: Obj[] }> }).pages[0].objects.at(-1)!.text, 'Slide 1');
+  const e = aplicar([{ op: 'estilo_texto', ref: ref('obj-titulo'), fuente: 'Helvetica', color: '#00ff00' }], { fuente: () => null });
+  assert.equal(objDe(e.doc, 'obj-titulo').fill, '#00ff00', 'el resto del estilo sí');
+  assert.equal(aplicar([{ op: 'estilo_texto', ref: ref('obj-titulo'), fuente: 'Helvetica' }], { fuente: () => null }).aplicadas, 0, 'sólo la fuente: no hay nada que hacer');
+});
+
+test('una ref inventada que coincide con una existente no toca lo de la persona si lo nuevo no se pudo agregar', () => {
+  const r = ref('obj-titulo');
+  const a = aplicar([{ op: 'agregar_texto', pagina: 'pzz', texto: 'Nuevo', ref: r }, { op: 'cambiar_texto', ref: r, texto: 'Pisado' }, { op: 'borrar', refs: [r] }]);
+  assert.equal(objDe(a.doc, 'obj-titulo').text, 'Hola mundo');
+  assert.equal(a.aplicadas, 0);
+  // Antes de declararla, la ref sigue siendo la del elemento que ya estaba.
+  const b = aplicar([{ op: 'cambiar_texto', ref: r, texto: 'Sí' }, { op: 'agregar_texto', pagina: 'pzz', texto: 'Nuevo', ref: r }]);
+  assert.equal(objDe(b.doc, 'obj-titulo').text, 'Sí');
+  // Y una página: la que no se pudo crear no cae sobre la que ya existe.
+  const pagina = [...VISTA.paginas.keys()][0];
+  const c = aplicar([{ op: 'agregar_pagina', despues_de: 'pzz', nueva: pagina }, { op: 'fondo', pagina, color: '#123456' }]);
+  assert.equal(c.aplicadas, 0);
+});
+
+test('lo que depende de algo que tiró la validación también se va, en vez de caer sobre lo que ya estaba', () => {
+  const v = validarOperaciones([
+    { op: 'agregar_texto', texto: 'x'.repeat(TOPES_CHAT_IMAGEN.texto + 1), ref: 't11' },
+    { op: 'borrar', refs: ['t11', 'f0z'] },
+    { op: 'estilo_texto', ref: 't11', tamano: 40 },
+    { op: 'fondo', color: '#000000' },
+  ]);
+  assert.deepEqual(v.operaciones.map((o) => o.op), ['fondo']);
+  assert.equal(v.descartes.length, 3);
+});
+
+test('una ref repetida no hace perder el contenido: la última es la que vale', () => {
+  const r = aplicar([
+    { op: 'agregar_texto', texto: 'Titulo 1', ref: 't1' },
+    { op: 'agregar_texto', texto: 'Titulo 2', ref: 't1' },
+    { op: 'color', ref: 't1', color: '#00ffff' },
+  ]);
+  assert.deepEqual(r.descartes, []);
+  const textos = (r.doc as unknown as { pages: Array<{ objects: Obj[] }> }).pages[0].objects.filter((o) => String(o.text).startsWith('Titulo'));
+  assert.deepEqual(textos.map((o) => [o.text, o.fill === '#00ffff']), [['Titulo 1', false], ['Titulo 2', true]]);
+});
+
+test('«ya dice eso» no cuenta como perdido: el aviso de parcial es por lo que se perdió', async () => {
+  const { editor } = editorDeMentira([]);
+  const ops = validarOperaciones([
+    { op: 'cambiar_texto', ref: ref('obj-titulo'), texto: 'Hola mundo' },
+    { op: 'fondo', color: '#000000' },
+  ]);
+  fetchDeMentira({ ok: true, resumen: 'Cambio el fondo.', operaciones: ops.operaciones, descartes: ops.descartes }, []);
+  await pedirEdicion(editor as never, 'el fondo', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.equal(m.texto, 'Cambio el fondo.');
+});
+
+test('si se perdió todo, tampoco promete', async () => {
+  const { editor } = editorDeMentira([]);
+  const ruta = validarOperaciones([{ op: 'volar' }]);
+  fetchDeMentira({ ok: true, resumen: 'Voy a crear el carrusel.', operaciones: ruta.operaciones, descartes: ruta.descartes }, []);
+  await pedirEdicion(editor as never, 'el carrusel', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.match(m.texto, /^No pude hacerlo\./);
+});
+
+test('los topes cuadran: lo que entra por la caja entra en la memoria y en el hilo, y la revisión muestra todos los cambios', () => {
+  assert.ok(TOPES_MEMORIA.porMensaje >= TOPES_CHAT_IMAGEN.instruccion);
+  assert.ok(TOPES_HILO.texto >= TOPES_CHAT_IMAGEN.instruccion);
+  assert.ok(TOPES_HILO.cambios >= TOPES_CHAT_IMAGEN.operaciones);
+  // A la densidad del carrusel de Leila, más de esto no entra en los 4.000 tokens de la respuesta (lib/image-editor/chat/ia.ts).
+  assert.ok(TOPES_CHAT_IMAGEN.instruccion <= 4_000);
+});
+
+test('la memoria no afirma que la persona descartó lo que se cortó solo', () => {
+  const [l] = memoriaDelHilo([{ de: 'mako', texto: 'Armé el carrusel.', estado: 'descartada', aviso: AVISO_CORTADA }]);
+  assert.equal(l.texto, 'Armé el carrusel.');
 });

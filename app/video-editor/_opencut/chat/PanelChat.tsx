@@ -104,7 +104,7 @@ function useHilo(proyectoId: string): Hilo {
 	return useSyncExternalStore(suscribir, () => leerHilo(proyectoId), () => HILO_SERVER);
 }
 
-type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
+type Respuesta = { ok: true; resumen: string; operaciones: unknown[]; descartes?: string[] } | { ok: false; error: string };
 
 /** El pedido a la ruta. Un corte de la persona no es un error (no se pinta en rojo). */
 async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
@@ -216,7 +216,8 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	// revisan las referencias contra la vista con la que se pidió.
 	const { operaciones, descartes: deForma } = validarOperaciones(r.operaciones);
 	const revision = revisarOperaciones({ operaciones, vista, alcance: alcanceReal, transcripcion: datos.transcripcion });
-	const descartes = [...deForma, ...revision.descartes];
+	// `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
+	const descartes = [...(r.descartes ?? []), ...deForma, ...revision.descartes];
 	if (!revision.resueltas.length) {
 		terminar({ de: "mako", texto: r.resumen || "Sin cambios.", descartes: descartes.length ? descartes : undefined });
 		return;

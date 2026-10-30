@@ -46,7 +46,7 @@ export type MensajeGuardado =
       links?: Array<{ texto: string; href: string }>;
     };
 
-export const TOPES_HILO = { mensajes: 80, texto: 4000, cambios: 40, descartes: 20, refs: 4000, total: 400_000 } as const;
+export const TOPES_HILO = { mensajes: 80, texto: 4000, cambios: 80, descartes: 20, refs: 4000, total: 400_000 } as const;
 
 /** El aviso de una propuesta que se estaba aplicando cuando se cortó la pestaña. */
 export const AVISO_CORTADA = 'Se cortó mientras se aplicaba: mira el diseño antes de volver a pedirlo.';
@@ -153,7 +153,7 @@ export function hiloParaGuardar(raw: unknown): MensajeGuardado[] {
 // Cada pedido iba solo: a «Puedes aplicar los cambios que te pedí?» MaKo contestó que no había nada (Leila, 30/10/2026).
 // Va como DATO (ia.ts): sirve para entender a qué se refiere el pedido de ahora, no es una orden.
 
-export const TOPES_MEMORIA = { mensajes: 10, porMensaje: 2_500, total: 8_000 } as const;
+export const TOPES_MEMORIA = { mensajes: 10, porMensaje: 4_000, total: 8_000 } as const;
 export type LineaMemoria = { de: 'yo' | 'mako'; texto: string };
 
 const QUE_PASO: Partial<Record<EstadoPropuesta, string>> = {
@@ -174,10 +174,11 @@ function dentroDeLosTopes(lineas: readonly LineaMemoria[]): LineaMemoria[] {
 }
 
 /** Del hilo a lo que viaja: sin los errores (no son parte de la charla) y con qué pasó con cada propuesta. */
-export function memoriaDelHilo(mensajes: ReadonlyArray<{ de: string; texto?: unknown; error?: unknown; estado?: unknown }>): LineaMemoria[] {
+export function memoriaDelHilo(mensajes: ReadonlyArray<{ de: string; texto?: unknown; error?: unknown; estado?: unknown; aviso?: unknown }>): LineaMemoria[] {
   return dentroDeLosTopes(mensajes.flatMap((m): LineaMemoria[] => {
     if ((m.de !== 'yo' && m.de !== 'mako') || m.error || typeof m.texto !== 'string' || !m.texto.trim()) return [];
-    const paso = m.de === 'mako' ? QUE_PASO[m.estado as EstadoPropuesta] : undefined;
+    // Con aviso no se sabe: una aplicación cortada queda «descartada» sin que nadie la haya descartado (`hiloAlAbrir`).
+    const paso = m.de === 'mako' && !m.aviso ? QUE_PASO[m.estado as EstadoPropuesta] : undefined;
     return [{ de: m.de, texto: paso ? `${m.texto.trim()} (${paso})` : m.texto.trim() }];
   }));
 }
