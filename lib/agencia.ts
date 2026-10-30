@@ -230,6 +230,19 @@ export const agenciaDeCliente = cache(async (clienteWs: number | null | undefine
 });
 
 /**
+ * ¿Esta cuenta la maneja una agencia? (29/10/2026, Thiago: «yo no me meto con ese cliente»): lo que MaKo le deja de ofrecer
+ * al cliente de una agencia (MaKo Partners, «Pasar a Pro»). Contesta sí o no y NO NOMBRA A NADIE.
+ *
+ * ⚠️ NO ES `agenciaDeCliente`, que dibuja la cadena: ahí, con dos dueños, no se afirma nada porque habría que inventar un
+ * padre. Acá la pregunta es otra y con dos dueños la respuesta es sí: usar aquella dejaba al cliente de dos agencias viendo lo
+ * que no debe. La misma regla de vigencia (una revocada ya no es dueña). No se pudo leer = no (`agenciasDeCliente`).
+ */
+export const esClienteDeAgencia = cache(async (ws: number | null | undefined): Promise<boolean> => {
+  if (!esWsValido(ws)) return false;
+  return (await agenciasDeCliente(ws)).some(esCarteraVigente);
+});
+
+/**
  * ¿Este workspace puede TENER clientes propios? (mig 0176)
  *
  * ⚠️ ES OTRA PREGUNTA QUE `carteraDeAgencia`, y separarlas es lo que cierra el

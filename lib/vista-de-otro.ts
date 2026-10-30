@@ -18,7 +18,7 @@ import 'server-only';
 import { getUsuarioActual } from './auth';
 import { getWorkspace, getWorkspaceActual, estaImpersonando } from './workspace';
 import { rutaDeSalida } from './agencia-cartera';
-import { agenciaDeCliente } from './agencia';
+import { agenciaDeCliente, esClienteDeAgencia } from './agencia';
 import { WS_PARAM } from './ws-tab';
 
 export type VistaDeOtro = {
@@ -31,6 +31,15 @@ export type VistaDeOtro = {
   /** De qué agencia es el cliente, cuando el super admin mira a uno de una agencia. */
   agencia: { ws: number; nombre: string } | null;
 };
+
+/**
+ * ¿La cuenta que se está mirando es de una agencia? (lo que la barra le esconde: lib/nav-visibilidad.ts). Vive acá y no en la
+ * ruta para que `/api/auth/me` tenga UNA sola lectura de «a quién se mira»: esta función lee la MISMA `getWorkspaceActual` que
+ * `vistaDeOtro`, y devuelve un sí o un no, que no puede nombrar a otro cliente.
+ */
+export async function cuentaActualEsDeAgencia(): Promise<boolean> {
+  return esClienteDeAgencia(await getWorkspaceActual());
+}
 
 /** null = cada uno en su cuenta (o sin sesión). */
 export async function vistaDeOtro(): Promise<VistaDeOtro | null> {

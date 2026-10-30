@@ -41,7 +41,7 @@ test('2. conectar: el tope frena SÓLO la línea que se va a crear, antes de su 
   assert.equal([...ev.matchAll(/topeDeLineaNueva\(/g)].length, 2, 'sólo la definición y la llamada de la línea nueva');
   assert.doesNotMatch(ev, /tope[^\n]*desconectar\(|desconectar\([^\n]*tope/i, 'el tope nunca desconecta');
   const helper = ev.slice(ev.indexOf('async function topeDeLineaNueva'), ev.indexOf('async function topeDeLineaNueva') + 900);
-  assert.match(helper, /cobradoPorPasarela: \(await suscripcionDeMakoDe\(ws\)\) != null/, 'el plan cobrado por la pasarela');
+  assert.match(helper, /cobradoPorPasarela: await aplicanTopes\(ws\)/, 'el plan cobrado por la pasarela, o una cuenta de agencia');
   assert.match(helper, /\} catch \(e\) \{\n[^\n]*\n {4}return \{ ok: true \};/, 'sin poder leer el plan, deja conectar');
 });
 

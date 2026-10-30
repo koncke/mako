@@ -12,7 +12,7 @@
 // =============================================================================
 
 import 'server-only';
-import { suscripcionDeMakoDe } from './cobros';
+import { aplicanTopes } from './topes-plan-server';
 import { getTenantDb, getWorkspace } from './workspace';
 import { listarFunnels } from './funnels';
 import { textoTope, topeDe } from './topes-plan';
@@ -43,7 +43,7 @@ async function usados(cual: TopeCrm): Promise<number> {
  */
 export async function estadoTopeCrm(ws: number, cual: TopeCrm): Promise<EstadoTope> {
   try {
-    if (!(await suscripcionDeMakoDe(ws))) return null;
+    if (!(await aplicanTopes(ws))) return null;
     const capa = (await getWorkspace(ws))?.capa ?? 'completo';
     const tope = topeDe(capa, cual);
     if (tope == null) return null;

@@ -27,6 +27,23 @@ export const SOLO_PRO_FUERA_DE_LA_BARRA: ReadonlySet<string> = new Set(['closing
 
 export const esNavSoloPro = (key: string | null | undefined): boolean => !!key && NAV_SOLO_PRO.has(key);
 
+// =============================================================================
+// LAS CUENTAS DE AGENCIA DE ANTES (29/10/2026, la verificación independiente de la rama de Thiago, hallazgo H1)
+// =============================================================================
+// Desde el 29/10 el plan de una cuenta de agencia ES su capa (Esencial = `completo`, Pro = `agencia`) y sus topes y candados
+// corren. Pero las cuentas que ya existían se abrieron con la capa por defecto, `completo`, y usaban todo lo de Pro: al
+// desplegar habrían quedado en Esencial de golpe (en producción, 6 de la agencia ws13). Lo decide Martín; mientras tanto,
+// SIGUEN COMO PRO hasta que su agencia les elija el plan («Elegir Esencial» / «Elegir Pro» en su ficha). Una cuenta tiene
+// el plan ELEGIDO si tiene la marca `agency.plan_cambiado` (la escriben abrir la cuenta y cambiar el plan).
+// ⚠️ SI MARTÍN DICE QUE PASEN A ESENCIAL: es esta línea, `false`. Sin migración: la marca no cambia nada más.
+export const CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO = true;
+
+/** La marca del plan elegido de una cuenta de agencia (en la cuenta del CLIENTE): {at, plan, pendiente}. */
+export const KEY_PLAN_CAMBIADO = 'agency.plan_cambiado';
+
+/** ¿Corren el plan, los topes y los candados de una cuenta de agencia? Con el plan elegido, sí; sin elegir, según la línea de arriba. */
+export const rigeElPlanDeAgencia = (elegido: boolean): boolean => elegido || !CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO;
+
 /** Los que nunca tienen el candado: el ws1 (de Mauricio, acuerdo a mano) y la plataforma (el ws de MaKo). */
 export const WS_SIN_PLAN_DE_PASARELA: ReadonlySet<number> = new Set([1]);
 

@@ -34,8 +34,7 @@ import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
 import { mensajesParaCopiar } from '@/lib/partners-recursos';
-import { NOMBRE_COSA_PRUEBA, textoSoloPro } from '@/lib/topes-plan';
-import { esEsencialDe } from '@/lib/plan-esencial';
+import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
@@ -290,8 +289,7 @@ export const RUNNERS: Runners = {
     preparar: seguro(async (input, ctx) => {
       const alta = altaLimpia(input);
       const ya = await altaDePartner(ctx.ws).catch(() => null);
-      // Sólo MaKo Pro (27/10/2026): no se propone lo que `hacermePartner` va a frenar.
-      if (!ya && (await esEsencialDe(ctx.ws))) return { error: textoSoloPro('partners') };
+      // Cualquier plan es partner desde el 29/10/2026 (antes, sólo MaKo Pro).
       const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
       const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
       const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);

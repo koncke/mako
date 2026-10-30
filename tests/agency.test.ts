@@ -142,7 +142,8 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
     'lead = await leadParaPartners(',
     'if (lead.clienteWs) return',
     'if (await buscarUsuarioPorEmail(correo))',
-    'const ws = await crearWorkspace(nombre);',
+    // Desde el 29/10/2026 con la capa de su plan (Esencial o Pro).
+    'const ws = await crearWorkspace(nombre, CAPA_DE_PLAN[plan]);',
     ".insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' })",
     'update({ cliente_ws: ws.id })',
     'await crearUsuario({',
@@ -167,7 +168,7 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
   const acc = leer('app/agency/actions.ts');
   assert.match(acc, /const r = await abrirCuentaDePartner\(\{/);
   assert.match(acc, /paga: quienPagaDe\(datos\?\.paga\),/);
-  assert.match(leer('app/agency/NuevoCliente.tsx'), /await abrirCuentaClienteAction\(\{ leadId, nombre, email, paga \}\)/);
+  assert.match(leer('app/agency/NuevoCliente.tsx'), /await abrirCuentaClienteAction\(\{ leadId, nombre, email, paga, plan \}\)/);
 });
 
 test('«paga tu cliente» sin link del primer mes: su acceso NO sale, y el modal no pide reenviárselo (25/10/2026)', () => {
@@ -237,8 +238,9 @@ test('las acciones las usa sólo el admin, y en un archivo use server sólo se e
   const acc = leer('app/agency/actions.ts');
   assert.match(acc, /^'use server';/);
   for (const m of acc.matchAll(/^export\s+(\S+\s+\S+)/gm)) assert.equal(m[1], 'async function', m[0]);
-  // ⚠️ Cuatro desde el 27/10/2026: «Aplicar plantilla» (MAU-01) pregunta lo mismo, salvo el super admin.
-  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 4, 'las cuatro acciones preguntan el admin');
+  // ⚠️ Cuatro desde el 27/10/2026: «Aplicar plantilla» (MAU-01) pregunta lo mismo, salvo el super admin. Seis desde el 29/10:
+  // «Dar de baja» y «Cambiar el plan» de la cuenta de un cliente.
+  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 6, 'las seis acciones preguntan el admin');
 });
 
 test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no pide nada', () => {

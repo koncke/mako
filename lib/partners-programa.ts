@@ -24,6 +24,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
+import { esClienteDeAgencia } from './agencia';
 import { APP_BASE_URL, linkApp } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
 import { formatoMonto } from './pasarela-moneda';
@@ -35,8 +36,6 @@ import {
   type AltaPartner, type EstadoReferido, type Renglon, type Resumen,
 } from './partners-reglas';
 import { cuotasDeLugares, cobrosDeLugares } from './plan-acceso';
-import { esEsencialDe } from './plan-esencial';
-import { textoSoloPro } from './topes-plan';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -44,6 +43,18 @@ const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
 /** El precio de lista por mes de un plan del catálogo (null = no es un plan conocido). */
 const listaDe = (plan: string): number | null => PLANES_MAKO_DEFAULT.find((p) => p.id === plan)?.precioUsd ?? null;
 const nombreDelPlan = (plan: string | null | undefined): string | null => (plan ? PLANES_MAKO_DEFAULT.find((p) => p.id === plan)?.nombre ?? null : null);
+/**
+ * La compra con SU plan de lista: el anotado (`plan_mako`) o, si no lo tiene (la venta a mano de /admin/cobros), el MÁS BARATO de
+ * la capa que se vendió (`alta_capa`). Sin esto se acreditaba lo cobrado: un pago único de US$1.500 o un precio especial, entero
+ * (revisión de plata del 29/10/2026, hallazgo 6). Así un partner nunca gana más que la lista.
+ */
+function conPlanDeLista<T extends { plan_mako: string | null; alta_capa?: string | null }>(c: T): T {
+  if (c.plan_mako || !c.alta_capa) return c;
+  // Una capa sin plan en el catálogo (p. ej. `pm`) se topea al plan más barato de todos (tercera pasada de la revisión).
+  const porPrecio = [...PLANES_MAKO_DEFAULT].sort((a, b) => a.precioUsd - b.precioUsd);
+  const plan = porPrecio.find((p) => p.capa === c.alta_capa) ?? porPrecio[0];
+  return plan ? { ...c, plan_mako: plan.id } : c;
+}
 
 /** El código del negocio: el que tiene, o uno nuevo (único) a partir de su nombre. null si no se pudo (sin la mig 0330). */
 export async function codigoDe(ws: number): Promise<string | null> {
@@ -190,23 +201,23 @@ export async function altaDePartner(ws: number): Promise<AltaPartner | null> {
   return leerAlta(await leerSetting(ws, CLAVE_ALTA_PARTNERS));
 }
 
-/** `soloPro`: el negocio paga Esencial y hacerse partner es de Pro (la pantalla muestra «Pasar a Pro»). */
-export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: AltaPartner } | { ok: false; error: string; soloPro?: true };
+export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: AltaPartner } | { ok: false; error: string };
 
 /**
  * Terminar el alta (el último paso del onboarding corto, o `hacerme_partner` por la API): guarda lo que contestó y le da su
  * link (`codigoDe`: lo crea la primera vez y devuelve el mismo después). Hacerlo dos veces no duplica nada: se queda con la
  * fecha del primer alta y con las respuestas nuevas. La plataforma nunca es partner.
  *
- * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): un
- * Esencial que paga por la pasarela no se hace partner (ni nace su código). Quien YA era partner sigue siéndolo: volver a
- * terminar el alta no le saca nada. Ante la duda (no se pudo leer el plan), sin candado (lib/plan-esencial.ts).
+ * CUALQUIER PLAN (29/10/2026; del 27/10 al 29/10 fue sólo MaKo Pro): las landings dicen «gratis» y «cualquier plan». El
+ * cliente de una agencia, no: su cuenta la maneja su agencia (docs/hallazgos-partners.md).
  */
 export async function hacermePartner(ws: number, respuestas: unknown): Promise<ResultadoAlta> {
   try {
     if (ws === (await wsSuperAdmin())) return { ok: false, error: 'MaKo no es partner de sí mismo.' };
+    // El cliente de una AGENCIA no ve el programa (29/10/2026), y tampoco se hace partner por la API (revisión de plata, hallazgo 13).
+    if (await esClienteDeAgencia(ws)) return { ok: false, error: 'Tu cuenta la maneja tu agencia: MaKo Partners no está para tu cuenta.' };
     const antes = await altaDePartner(ws).catch(() => null);
-    if (!antes && (await esEsencialDe(ws))) return { ok: false, error: textoSoloPro('partners'), soloPro: true };
+    // CUALQUIERA ES PARTNER (29/10/2026, alineado con las landings: «gratis», «cualquier plan»): ya no se frena al Esencial.
     const codigo = await codigoDe(ws);
     if (!codigo) return { ok: false, error: 'No pudimos crear tu link. Prueba otra vez en un minuto.' };
     const alta = altaLimpia({ ...(respuestas && typeof respuestas === 'object' ? respuestas : {}), at: antes?.at });
@@ -268,7 +279,7 @@ export type Tablero = {
   pagos: Array<{ fecha: string; montoUsd: number; nota: string | null }>;
 };
 
-type CompraConCodigo = { alta_ws: number; monto_usd: number | null; plan_mako: string | null; meses?: number | null; created_at: string };
+type CompraConCodigo = { alta_ws: number; monto_usd: number | null; plan_mako: string | null; alta_capa?: string | null; meses?: number | null; created_at: string };
 
 /**
  * La compra que TRAJO al negocio (filtro de PostgREST): la que creó la cuenta (alta 'hecha') o el cobro de «Empezar mi plan
@@ -280,7 +291,7 @@ const COMPRA_QUE_TRAJO = 'alta_estado.eq.hecha,creado_por.like.empezar-ya:*';
 
 /** Los cobros de la plataforma comprados con ESTOS códigos (el actual y los que dejó), ya con su negocio (los referidos). */
 async function comprasConCodigo(plataforma: number, codigos: readonly string[]): Promise<CompraConCodigo[]> {
-  const { data, error } = await getSupabaseServer().from('cobros').select('alta_ws, monto_usd, plan_mako, meses, created_at')
+  const { data, error } = await getSupabaseServer().from('cobros').select('alta_ws, monto_usd, plan_mako, alta_capa, meses, created_at')
     .eq('workspace_id', plataforma).in('ref_codigo', [...codigos]).eq('alta_estado', 'hecha').not('alta_ws', 'is', null).order('created_at', { ascending: true }).limit(500);
   if (error) throw new Error(`No pude leer los referidos: ${error.message}`);
   return (data ?? []) as CompraConCodigo[];
@@ -336,7 +347,7 @@ export async function tableroDe(ws: number): Promise<Tablero> {
       const m = meses.get(rws) ?? 0;
       const w = filas.get(rws);
       const c = porWs.get(rws)!;
-      const precio = precioDeListaPorMes(c, listaDe);
+      const precio = precioDeListaPorMes(conPlanDeLista(c), listaDe);
       return {
         ws: rws, nombre: w?.nombre ?? 'Un negocio', desde: c.created_at, mesesPagados: m, plan: nombreDelPlan(c.plan_mako),
         gananciaUsd: precio != null ? gananciaDelReferido(precio) : null,
@@ -484,7 +495,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
   const out = { vistos: 0, atados: 0, acreditados: 0 };
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
-  const { data, error } = await db.from('cobros').select('alta_ws, ref_codigo, monto_usd, plan_mako, meses, created_at')
+  const { data, error } = await db.from('cobros').select('alta_ws, ref_codigo, monto_usd, plan_mako, alta_capa, meses, created_at')
     // Sólo clientes NUEVOS (docs/referidos.md): la compra que CREÓ la cuenta (alta hecha), nunca la de quien ya la tenía; o
     // la de «Empezar mi plan ya», que reemplaza a esa prueba con su mismo código (`COMPRA_QUE_TRAJO`, 25/10/2026).
     .eq('workspace_id', plataforma).not('ref_codigo', 'is', null).not('alta_ws', 'is', null).or(COMPRA_QUE_TRAJO)
@@ -494,7 +505,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
   const primero = new Map<number, { codigo: string; precio: number | null }>();
   for (const c of (data ?? []) as Array<CompraConCodigo & { ref_codigo: string }>) {
     // El precio de LISTA por mes de su plan: un anual cobra el año, y lo que se gana es su primer mes (`precioDeListaPorMes`).
-    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo, precio: precioDeListaPorMes(c, listaDe) });
+    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo, precio: precioDeListaPorMes(conPlanDeLista(c), listaDe) });
   }
   const meses = await mesesPagadosDe(plataforma, [...primero.keys()]).catch(() => new Map<number, number>());
   for (const [referido, { codigo, precio }] of primero) {

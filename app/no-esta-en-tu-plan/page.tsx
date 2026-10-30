@@ -8,9 +8,10 @@
 // que lo dice existía desde agosto sin un solo emisor: `PermissionState` con `motivo="plan"` (app/_ui/Estados.tsx).
 
 import { requireSesion } from '@/lib/tab-access';
-import { rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { PermissionState } from '@/app/_ui/Estados';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
@@ -34,11 +35,14 @@ export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParam
   // «Ir al inicio» va al REPARTIDOR, como el login (21/10/2026): en la computadora, el Ops Center del negocio, que está en
   // todos los planes (lib/ops-center-ruta.ts → casaEnLaComputadora). Iba a la casa del plan (/crm o /plan).
   const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs(RUTA_CAMBIAR_PLAN)]);
+  // El cliente de una agencia (29/10/2026): «Ver mi plan», no «Pasar a Pro» (su plan lo cambia su agencia; «Tu plan» lo dice).
+  const ws = pro ? await getWorkspaceActual() : null;
+  const deAgencia = await esClienteDeAgencia(ws);
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
       <div style={{ width: '100%', maxWidth: 520 }}>
         <PermissionState motivo="plan" que={nombreDeTab(key)}
-          accion={{ label: pro ? ROTULO_PASAR_A_PRO : 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
+          accion={{ label: pro && !deAgencia ? ROTULO_PASAR_A_PRO : 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
       </div>
     </main>
   );

@@ -63,9 +63,12 @@ test('el layout se lo pasa a los dos, y abre el hueco de la barra desde el HTML 
 test('/api/auth/me y el layout leen al cliente de UN solo lugar', () => {
   const me = sinComentarios(leer('app/api/auth/me/route.ts'));
   // Desde el 23/10/2026, en el Promise.all de la ruta (tests/rendimiento-pedido.test.ts): sigue siendo UNA lectura.
-  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial\] = await Promise\.all\(\[[^\]]*\bvistaDeOtro\(\)/);
+  // Desde el 30/10/2026 también `cuentaActualEsDeAgencia`, que vive en el mismo lib/vista-de-otro.ts y contesta sí o no (no
+  // nombra a nadie). Medido con dos negocios en tests/agencia-dos-negocios.test.ts.
+  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia\] = await Promise\.all\(\[[^\]]*\bvistaDeOtro\(\)[^\]]*\bcuentaActualEsDeAgencia\(\)/);
   assert.equal((me.match(/vistaDeOtro\(\)/g) ?? []).length, 1);
-  assert.doesNotMatch(me, /getWorkspace\(|agenciaDeCliente\(/, 'una segunda cuenta de «a quién se mira» puede nombrar a otro cliente');
+  assert.doesNotMatch(me, /getWorkspace\(|agenciaDeCliente\(|esClienteDeAgencia\(/, 'una segunda cuenta de «a quién se mira» puede nombrar a otro cliente');
+  assert.match(sinComentarios(leer('lib/vista-de-otro.ts')), /return esClienteDeAgencia\(await getWorkspaceActual\(\)\);/, 'la MISMA lectura del negocio que `vistaDeOtro`');
   for (const campo of ['clienteNombre: vista?.clienteNombre ?? null', 'clienteWs: vista?.clienteWs ?? null', 'salida: vista?.salida ?? rutaDeSalida(esSuperAdmin)', 'const agencia = vista?.agencia ?? null;']) {
     assert.ok(me.includes(campo), `falta «${campo}»`);
   }

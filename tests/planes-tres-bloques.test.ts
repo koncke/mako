@@ -70,7 +70,8 @@ test('una tab que todavía no se abrió no se promete; AI Avatar está abierta e
   }
   for (const t of TABS_TODAVIA_CERRADAS) assert.ok(!filas.some((x) => x.que === NOMBRE_TAB_PRO[t]), `${t} está cerrada y la tabla la promete`);
   // Y Partners dice QUÉ se gana: el primer mes de cada negocio (no «el 100%» suelto, que sonaba a para siempre).
-  assert.match(NOMBRE_FUNCION_PRO.partners, /primer mes/);
+  // Desde el 29/10/2026 Partners es de TODOS los planes (una fila «en todos»), y sigue diciendo el primer mes.
+  assert.ok(filasDeComparacion().some((x) => /primer mes/.test(x.que) && x.esencial && x.pro), 'Partners en todos los planes, con «primer mes»');
   // Atado a la puerta de verdad: la tab está abierta (la puerta de toda tab, no «sólo el super admin»); venderla es aparte.
   assert.ok(fuente('app/ai-avatar/acceso.ts').includes("await requireRolWs([], { nav: 'ai-avatar' });"), 'AI Avatar volvió a tener la puerta cerrada');
 });
