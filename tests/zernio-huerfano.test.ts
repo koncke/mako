@@ -40,6 +40,6 @@ test('al ganador se le pasa el anuncio y la entrada SÓLO si no los tiene', () =
 test('nunca se borra el lead que quedó unido', () => {
   const q = cuerpo('async function quitarHuerfano(');
   const iGuarda = q.indexOf('if (ganador === huerfano) return;');
-  const iBorra = q.indexOf(".from('leads').delete().eq('id', huerfano)");
+  const iBorra = q.indexOf("borrarLeadConCamino(db, ws, huerfano, 'zernio_duplicado'");
   assert.ok(iGuarda > 0 && iBorra > iGuarda, 'la guarda va antes del borrado');
 });

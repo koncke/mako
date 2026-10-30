@@ -3976,10 +3976,11 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/papelera"
 ```
 
-### `GET /api/v1/crm/ver_bajas_de_leads` — Ver lo que se borró del CRM
+### `GET /api/v1/crm/bajas` — Ver lo que se borró del CRM
 
 Quién, cuándo, cuántos y por qué camino se borraron leads de este negocio (eliminar, unificar, un duplicado automático). Queda para siempre, también después de que la papelera purga. Sirve para contestar «¿qué pasó con estos leads?». Sólo trae ids; se registra desde el 30/10/2026.
 
+- **Ruta por operación:** `GET /api/v1/crm/ver_bajas_de_leads`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -3992,7 +3993,11 @@ Quién, cuándo, cuántos y por qué camino se borraron leads de este negocio (e
 | `leadId` | number | no | lo que pasó con UN lead, por su id. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/bajas"
 ```
 
 ### `POST /api/v1/crm/papelera/recuperaciones` — Recuperar de la papelera

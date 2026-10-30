@@ -46,4 +46,4 @@ export function agruparBajas(filas: readonly FilaBaja[]): RenglonBaja[] {
 }
 
 /** Se dice siempre: lo que se borró antes no está, y un «no hay nada» no puede leerse como «no se borró nada». */
-export const AVISO_DESDE_CUANDO = 'Se registra desde el 30/10/2026: lo que se borró antes no está acá.';
+export const AVISO_DESDE_CUANDO = 'Se registra desde el 30/10/2026: lo que se borró antes no está aquí.';

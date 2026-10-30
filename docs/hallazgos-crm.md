@@ -48,8 +48,8 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 - ⚠️ **`leads_bajas` es de inquilino, y borrar `leads` escribe ahí.** Vaciarla en su lugar de la lista dejaba un residuo: por eso
   `vaciarTablas` la barre otra vez al final.
 - ⚠️ **Último autor no es quién borró.** Para los 1.371 de antes, lo único que queda es la última línea del historial. Es una pista, no un
-  hecho. Medido el 30/10 (los de octubre): Leila 112 (28/10), Martín 25 (27/10) y 606 (26/10), tejadomartin@gmail.com 440 (26/10) y 173
-  (25/10). Quien pregunte por esos lee esto: el registro arranca el 30/10, y la API lo avisa siempre.
+  hecho. Medido el 30/10 (los de octubre): Leila 112 (28/10), Martín 25 (27/10) y 606 (26/10) en su negocio, y otra cuenta de Martín 440 (26/10) y 173 (25/10) en el
+  de Leandro. Quien pregunte por esos lee esto: el registro arranca el 30/10, y la API lo avisa siempre.
 
 **Quedó SIN hacer:**
 - El botón «Eliminar» no se probó en pantalla (faltaba la sesión). Se leyó el código, y las funciones se midieron por PostgREST.
