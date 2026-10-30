@@ -1964,13 +1964,15 @@ WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configura
 `transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
 *28/10/2026, chat «Video Editor: el ruido y los silencios de Leila».*
 
-## «No hay silencios» cuando sobran: el chat buscó en UN clip de 0,9 s porque el ejemplo del catálogo nombraba uno (ticket 31, Leila, 29/10/2026)
+## «No hay silencios» cuando sobran: el chat buscó en UN clip de 0,9 s porque el ejemplo del catálogo nombraba uno (tickets 31 y 32, Leila, 29/10/2026)
 
 Leila escribió en el chat «Quiero borrar silencios y me dice que no hay cuando sobran», aceptó, y salió «No se aplica: no hay
 silencios de 0,4 s o más». **El diagnóstico obvio era el equivocado:** se sospechó del detector con su ruido de fondo (lo del
 28/10). La propuesta guardada lo desmiente: el modelo mandó `{"op":"borrar_silencios","ref":"v9"}`, y v9 era un pedazo de 0,93 s
 (del 23,4 al 24,3 del original) de un video que ella ya venía cortando a mano. En 0,93 s no entra una pausa de 0,4 s con sus
-80 ms a cada lado. El modelo copió la `forma` del catálogo, que traía siempre `"ref":"v1"`.
+80 ms a cada lado. El modelo copió la `forma` del catálogo, que traía siempre `"ref":"v1"`. El #32 («dice que no hay
+silencios y sí los hay», por el chat de soporte) llegó UN minuto después: es el mismo episodio contado dos veces, no una
+segunda prueba de que falle el detector (en el hilo hay una sola propuesta de silencios).
 
 - ⚠️ **El `forma` de una operación es lo que el modelo COPIA.** Un parámetro opcional que aparece en el ejemplo se vuelve
   obligatorio en la práctica. El ejemplo va sin él, y el `para` dice cuándo sí: «Con "ref" SÓLO si la persona nombra un clip».
