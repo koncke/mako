@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Image Editor | [hallazgos-editor-imagen.md](hallazgos-editor-imagen.md) | **El carrusel en blanco de Leila (30/10)**: validar dos veces tiraba todo el texto (Video igual), las refs que inventa la IA, la memoria del chat, y por qué no comparte causa con Replicar |
 | UI compartida | [recorrido-visual-30-10.md](recorrido-visual-30-10.md) | **El recorrido visual de producción (30/10, A MEDIAS)**: lo abierto por chat dueño, lo que NO era un problema (los nombres en inglés son regla de Martín; la conversación del Cerebro en Create es a propósito) y las trampas de mirar la app: antes de cada tanda `/api/auth/me`, porque Chrome puede volver con la sesión de otra persona. |
 | Editor de landing | [hallazgos-editor-landing.md](hallazgos-editor-landing.md) | **La copia con las imágenes rotas (30/10)**: lo relativo se resuelve contra `<base href>` o la dirección FINAL tras las redirecciones, nunca contra lo pegado ni contra el `canonical`. Sin probar de punta a punta y con la #88 sin reparar. |
 | Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | **Un número por migración (30/10)**: `migraciones-numero-unico` frena dos migraciones con el mismo número en el árbol del tren (13 históricos congelados); un push que falla por RAM suelta la pausa y los chats toman la memoria: el reintento va enseguida, esperando los dos lugares. |

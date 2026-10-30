@@ -621,3 +621,48 @@ cede estaba en `@media (max-width: 640px)`: la ventana de 1366 no sabe cuánto l
 de Diseño. Ahora `container-type: inline-size` en la barra y `@container (max-width: 600px)` (ceden los rótulos de
 Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjeta (`plegable`), el centro pasa de 950 a
 1238 px y la barra entra entera. Vive en: _doory/editor/workspace/BottomBar.module.css.
+
+## El carrusel quedaba en blanco, con el fondo y nada más: validar dos veces tiraba todo el texto (30/10/2026, claude1)
+
+**Vive en:** `lib/image-editor/chat/catalogo.ts` (`validarOperacion`) · `app/image-editor/mako/chat/acciones.ts` · `lib/image-editor/chat/ia.ts`.
+
+**Síntoma:** en la prueba en vivo, Leila pegó un carrusel de 9 slides. MaKo contestó «Voy a crear el carrusel» y sólo cambió el fondo de una página. A «Puedes aplicar los cambios que te pedí?» contestó que no había elementos. En la llamada se anotó como tres bugs: no pone imágenes, no recuerda, de la marca sólo aplica el fondo. En la base, el hilo tenía la propuesta con una operación (`fondo`) y 12 y 20 descartes.
+
+**Causa, en capas (cada una tapaba a la siguiente):**
+
+1. La ruta valida y el panel vuelve a validar lo que contestó la ruta. `validarOperacion` recibe el estilo suelto y lo devuelve adentro de `estilo`, y la segunda pasada lo rechaza: `agregar_texto` y `estilo_texto` no pasaron nunca desde que existe el chat (16/10). Video tenía lo mismo en `estilo_texto`, `transformar` y `ajustar_color`.
+2. Con eso arreglado, la IA de verdad seguía perdiendo el texto: le pone a lo nuevo sus propias refs («t1», «p1k1», «n1» a una página) y se rechazaba el texto entero por el nombre. Esto no se ve con un test: apareció corriéndolo contra el modelo.
+3. Un carrusel con más slides que páginas no podía poner nada en las páginas nuevas: `agregar_pagina` no daba una ref.
+4. Cada pedido iba solo a la IA: el hilo se guardaba y se mostraba, pero no se le mandaba.
+
+**El diagnóstico obvio era el equivocado:** «no pone imágenes» y «Replicar no trae las imágenes» parecían la misma causa, y no comparten nada: Replicar es la dirección base de la página (ver hallazgos-editor-landing.md). Y «de la marca sólo aplica el fondo» no era un problema de la marca: el fondo era lo único que sobrevivía. Tampoco era la IA: los tests pasaban porque su respuesta de mentira traía la forma suelta, que la ruta real nunca devuelve.
+
+**Reglas:**
+
+- Una validación que corre dos veces sobre lo mismo tiene que aceptar lo que ella misma devuelve. Lo fija un test recorriendo todo el catálogo (imagen y video).
+- La respuesta de mentira de un test sale de la función real, no escrita a mano.
+- Un nombre raro no es motivo para perder el contenido: la ref se acepta y, si no existe, lo dice `aplicar.ts`.
+- Un chat con IA se prueba al menos una vez contra el modelo: `node --require <sin-server-only.cjs> --import tsx` con `runWithWorkspace`. El ws3 no tiene IA conectada; se usó el ws9.
+
+**Medido con la IA real (ws9, diseño en blanco de 5 páginas, 9 slides):** 24 operaciones, 0 descartes, 9 páginas con su fondo, todo el texto y la tipografía pedida. Sólo la estructura: no se miró cómo queda dibujado.
+
+**Trampa con el tope de la respuesta:** con `maxTokens` en 8.000 se cortó dos veces a los 90 s; con 4.000 armó las páginas. Son pocas corridas y Gemini también se cortó con 4.000, así que no está probado que el tope sea la causa: quedó en 4.000 porque es lo único que anduvo.
+
+**Lo que quedó SIN hacer:**
+
+- **Poner fotos desde el chat:** `NO_SE_PUEDE_CHAT_IMAGEN` (catalogo.ts). Es una función que falta, no parte de este bug.
+- **La marca completa:** el chat no conoce colores ni logo del negocio. Depende del brand board (pendientes-30-10.md, 2.9).
+- **Los motivos de «No se aplica»** están escritos para el programador (««estilo» no es algo de…»).
+- **Cómo se ve:** falta mirarlo en el editor, con una sesión que no sea de un cliente.
+
+## «Página 1» se montaba sobre los íconos en un carrusel (30/10/2026, claude1)
+
+**Vive en:** `app/image-editor/_doory/editor/workspace/PageSlot.module.css`.
+
+**Síntoma:** Leila, con la barra y el chat abiertos: se rompe el texto al lado de «Página 1, 2, 3». **Causa:** con varias páginas, el tamaño y los cinco íconos piden unos 250 px y no se encogen; el encabezado mide desde 372 (`HEADER_MIN_WIDTH`). Con una página sola hay menos íconos y entra, por eso se ve en un carrusel.
+
+**Regla:** en el encabezado, lo primero que se va es el tamaño (también está en Redimensionar). Medido en una réplica con las mismas reglas (el título pasaba 6 px sobre los íconos; ahora les quedan 8 libres), no en el editor real.
+
+**El diagnóstico obvio era el equivocado:** sumar las pantallas de Create a `RUTAS_QUE_PLIEGAN`, como pide 2.13. Choca con la decisión del 24/10 (la flecha fija la barra y se respeta; lo cuida `tests/sidebar-plegada-por-defecto.test.ts`). La barra ya arranca plegada: sólo queda abierta para quien la fijó.
+
+**Lo que quedó SIN hacer:** con la barra fijada y el chat abierto puede haber otras roturas: «se rompe» no está medido en la pantalla real.

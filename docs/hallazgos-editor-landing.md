@@ -3848,6 +3848,10 @@ devolvía sólo el HTML y la dirección final se perdía.
 **Regla:** una ruta relativa se resuelve contra lo mismo que el navegador: `<base href>`, y si no hay, la dirección FINAL después de las
 redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`.
 
+**Probado (30/10):** de las 32 imágenes de esa copia, hoy respondían 0 y con la base corregida 32. Es el caso que Martín mostró en la llamada con Leila (minuto 4, ws9; pendientes-30-10.md, 1.16). #88 reparada, con respaldo. De las otras 8 copias de afuera, ninguna tiene imágenes con 404 (hasta 12 por copia).
+
+**Trampa de la medición:** `copiaFiel` da 0 imágenes con esa página, porque las copias de hoy salen de la foto del navegador. Para probarlo hay que resolver las direcciones guardadas contra `baseDeDocumento`.
+
 **Sin hacer (rama `recorrido-web-3010`, sin subir):**
 
 - Correr sus tests: los frenó la falta de RAM. Hay 4 aserciones actualizadas sin correr en `tests/editor-landing-{crear-panel,estilo,replicar,replicar-animaciones}.test.ts`.
