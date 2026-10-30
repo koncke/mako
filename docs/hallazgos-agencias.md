@@ -130,8 +130,8 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 - **Trampa del arnés:** `mock.module` con `namedExports` tiene que declarar TODO lo que importan los demás, o el módulo no carga. `tests/_agencia-dos-negocios-hijo.ts` lee los nombres de la fuente y deja de mentira los que no usa.
 
 **Sin hacer:**
-- `app/agency/page.tsx`, `app/m/agency/page.tsx` y `lib/agency.ts` siguen preguntando con `agenciaDeCliente`: con dos dueños, ese cliente entra al Agency Dashboard. Hoy ningún cliente tiene dos.
-- De la re-verificación de plata de 28cc3e2cb (`C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md`), sin tocar: la MEDIA de una fila de cartera cargada a mano sobre un Pro directo, las tres BAJAS y lo abierto desde antes (el link viejo sin cerrar en `lib/cobros.ts`, la baja con la suscripción ya cancelada, H7).
+- `app/agency/page.tsx` y `app/m/agency/page.tsx` siguen preguntando con `agenciaDeCliente`: con dos dueños, ese cliente entra al Agency Dashboard. Hoy ningún cliente tiene dos (docs/pendientes.md, P15). `cartelDelCliente` (`lib/agency.ts`) la usa bien: necesita UNA agencia para leer sus cobros.
+- De la re-verificación de plata de 28cc3e2cb (`C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md`), sin tocar: la MEDIA de una fila de cartera cargada a mano sobre un Pro directo, las tres BAJAS y lo abierto desde antes (docs/pendientes.md, P14).
 
 **Vive en:** `lib/agencia.ts` · `lib/vista-de-otro.ts` · `lib/agencia-cobro-reglas.ts` · `tests/agencia-dos-negocios.test.ts`.
 
