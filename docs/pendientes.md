@@ -17,6 +17,8 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 | # | Qué | Dónde vive | Origen |
 |---|---|---|---|
+| ⚠️ A0 | **Un lead borrado se lleva en cascada sus envíos, y quién lo borró no quedó registrado.** Cualquier cosa que le haya pasado a un lead borrado es irreconstruible, y no sabemos quién borra. Es un agujero de trazabilidad, no un bug de automatizaciones: 4.457 filas de historial de leads que ya no existen, y la papelera en 0 en todos los negocios (a los 30 días se purga, y dos caminos no pasan por ella). | `docs/hallazgos-crm.md` (arriba); `lib/leads-papelera.ts`, `lib/leads-unificar.ts:190`, `lib/zernio-entrante.ts:235` | Automations, 30/10 |
+| ⚠️ A1 | **Un mensaje de IA más adelante en el flujo puede quedar para aprobar sin que lo diga: el aviso mira sólo el primero.** El aviso al activar vuelve a decir algo que no es exacto, un paso más adentro. | `lib/ritmo-al-activar.ts` (`primeroQuedaParaAprobar`); la regla de todo el flujo ya está en `dejaBorradores`, lib/mensajes-por-aprobar.ts | Automations, 30/10 |
 | P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center) y las opciones que no se tocan en el teléfono → Ops Center; tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
 | P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
 | P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
@@ -32,7 +34,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
 
-- El **aviso al activar una automatización** (cuántos y a qué ritmo), al desplegar: el interruptor, el «⋯» con «Poner goteo» y el teléfono. Probado con tests y con el dato real, no en el navegador (`lib/ritmo-al-activar.ts`)
+- El **aviso al activar una automatización** (cuántos, a qué ritmo y entre qué horas), al desplegar: el interruptor, el «⋯» con «Poner goteo» / «Poner horario» y el teléfono; y **el de las ya prendidas sin goteo o sin horario**, en su pantalla, su tarjeta y el teléfono. Probado con tests y con el dato real, no en el navegador (`lib/ritmo-al-activar.ts`). El texto de «queda para aprobar» nunca se leyó con un caso real
 - La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
 - El **«Creando…»** de los «+» del editor de etapas (se prueba en el **Cliente de Prueba**, nunca en un cliente real)
 - El **selector de funnel del teléfono**

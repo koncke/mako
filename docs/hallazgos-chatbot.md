@@ -27,6 +27,37 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## La automatización de Leila que «siguió hasta las 11 de la noche» (30/10/2026, llamada, punto 1.7)
+
+**Lo medido, no lo supuesto.** «Prospección: apertura», creada de nuestra plantilla el 26/10 a las 15:01 (hora de Cancún, la de ella):
+68 mensajes a 68 personas, de los 113 que trajo de un grupo de WhatsApp. **Exactamente el tope de la línea:** tandas de hasta 6, en los
+minutos :00 a :02 de cada hora. El 26/10, de 16:00 a 21:01, cortó por el tope de 40 en 24 h (34 suyos + 6 de otra); el 27/10 volvió a
+las 17:01, cuando se liberó la ventana, y siguió hasta las 23:01. La última escritura de la fila es de las 23:46: la pausa a mano.
+**El horario no falló: no tenía.** Ni ella ni el negocio tenían uno, y sin horario nada la cierra (`cerradasAhora`). El motor hizo
+exactamente lo que estaba configurado. **Martín, textual:** «ella no sabia donde se configuraba el horario de oficina nada mas». No es
+un bug del motor; es el mismo defecto que el goteo: **una opción que decide cuándo y cuánto se manda, escondida en Configuraciones.** Por
+eso el aviso dice entre qué horas sale y, si no tiene horario, lo dice y ofrece ponerlo.
+
+**Y lo que sí era nuestro, en la plantilla:** decía «nace para aprobar y el goteo la reparte» y las dos cosas eran falsas. Desde el
+23/10 un mensaje fijo sale solo (`saleSolo`: el `revisar` de la plantilla ya no frena), y nadie le ponía goteo. La plantilla de escribirle
+en frío a una base nacía sin horario, sin goteo y sin aprobación. **Ahora nace con los dos (`ritmo`: 9 a 21, uno cada 10 min, 30 por
+día)**, sólo las nuevas.
+
+**Trampas de esta medición:**
+- `nutricion_envios` tenía sólo 2 de los 68: un lead borrado se lleva en cascada sus inscripciones y sus envíos, y deja el mensaje en
+  `wa_mensajes` con `lead_id` null. **Quien mide lo que salió con los envíos, después de un borrado, ve casi nada: se mide en `wa_mensajes`.**
+  Los leads ya no están y tampoco en la papelera, que es del 28/10; el rastro del `lead_audit` dice que los trajo, movió y cambió de etapa ella.
+- `at time zone` da una fecha sin zona, y el driver la lee como hora local de la máquina y la corre 3 horas: se pide con `to_char`.
+- Medir en la zona equivocada escondía todo: el negocio es Cancún, no Tijuana.
+
+**Un negocio sin horario manda a cualquier hora (decidido por el Cerebro, 30/10).** Medido ese día: de 15 activas (sin los avisos de
+MaKo), 14 sin goteo y 12 sin horario; sólo 2 negocios tienen uno propio. **Las que nacen de ahora en más: horario de fábrica, de 9 a 21.
+Las que ya existen: no se toca ninguna**, y el puente es el aviso en las prendidas. El corte es por fecha de creación
+(`DESDE_HORARIO_DE_FABRICA`, `naceConHorario`). ⚠️ **Se decide al prenderla por primera vez, no al crearla:** una vacía nace sin saber
+qué la dispara, y lo que contesta a algo que acaba de hacer la persona (un DM, un comentario, un email) no espera a las 9: alguien
+probándola a las 22:00 la lee como rota. Va en `setSecuenciaActiva`, la única puerta que prende, y el aviso dice ese mismo horario. La difusión queda afuera: la manda la persona a
+propósito, y su hoja promete los turnos de Instagram sin horario de por medio. Si no se puede leer el horario o la fecha, no se pone.
+
 ## Al activar se dice cuántos y a qué ritmo (30/10/2026, decisión de Martín del 25/10)
 
 **El pedido:** «como está muy escondido el "goteo" se manden muchos mensajes de una… al activar la automatización podriamos darle una
@@ -44,7 +75,14 @@ alargan. ⚠️ El tope de la línea no separa, corta la tanda: usarlo como un g
 hay a quién contar: quedaba puesto donde el riesgo es menor y callado en Instagram, donde es mayor. El aviso no está para decir a
 cuántos, está para que no te enteres del goteo después. **Un aviso que miente es peor que ninguno:** si el primer mensaje lo escribe la
 IA y no sale solo (`saleSolo`), queda para aprobar, y el aviso lo dice en vez de «sale». Desde el 23/10 un mensaje fijo siempre sale, así
-que este caso es sólo el de la IA: ninguna de las 44 medidas el 30/10 cae ahí. **Medido ese día:** las 7 activas de Instagram no tienen goteo.
+que este caso es sólo el de la IA: ninguna de las 44 medidas el 30/10 cae ahí, así que ese texto nunca se leyó con un caso real.
+
+**Un aviso que sale al activar no alcanza a las que ya viajan (el hallazgo de este punto).** Medido el 30/10: las 7 activas de Instagram
+leídas no tienen goteo. El riesgo que Martín temía no es futuro, está prendido. **La regla:** el valor de un aviso no está en el momento
+de prender, está en que el dueño lo sepa: se dice en la pantalla y en la tarjeta de la prendida (`avisoDeUnaPrendida`, `aviso_ritmo`), y
+NO se les pone goteo: cambiaría cómo le llegan los mensajes a los leads de un cliente, sin que el cliente lo pida. No poder leer la
+configuración no dice nada: no saber si tiene goteo no es «no tiene goteo». Una lectura por lista, no una por automatización. Lo ve
+quien ve la automatización, en la computadora y en el teléfono: un setter no lo arregla, pero puede avisar. Ponerlo, sólo el admin.
 
 **Decisiones de Automations:** con menos de 2 personas, y sin evento, no hay ritmo que decir. No poder contar no frena, pero sin goteo se
 dice igual.

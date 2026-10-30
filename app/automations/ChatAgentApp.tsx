@@ -174,6 +174,8 @@ export type SecuenciaDto = {
   emoji?: string | null;
   /** Cuántos mensajes suyos esperan que los apruebes (lib/mensajes-por-aprobar.ts). `null`/ausente = no se pudo leer. */
   por_aprobar?: number | null;
+  /** No tiene goteo u horario: lo que se le dice al dueño (`avisoDeUnaPrendida`). Se muestra sólo si está prendida. */
+  aviso_ritmo?: { texto: string; rotulo: string } | null;
   /** Dónde quedó cada tarjeta movida del lienzo (mig 0233). `{}` = ninguna; `null` = no se pudieron
    *  leer (el lienzo se mueve y no guarda). Ver lib/secuencia-posiciones.ts. */
   posiciones?: Record<string, { x: number; y: number }> | null;

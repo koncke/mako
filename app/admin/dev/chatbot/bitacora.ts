@@ -3186,8 +3186,11 @@ FEEDBACK PROBAR:
     actor: "claude", tipo: "implementacion",
     titulo: "Automations: al activar te dice cuántos mensajes salen y a qué ritmo",
     puntos: [
-      "Antes de prender una automatización dice a cuántas personas les llega, por qué canal y a qué ritmo. Si no tiene goteo, lo dice y ofrece ponerlo.",
+      "Antes de prender una automatización dice a cuántas personas les llega, por qué canal, a qué ritmo y entre qué horas. Si no tiene goteo u horario, lo dice y ofrece ponerlo.",
       "En WhatsApp, sin goteo, los frena el tope de la línea. En Instagram y Messenger salen todos juntos.",
+      "Las que ya están prendidas sin goteo o sin horario lo dicen en su pantalla y en su tarjeta. No se les cambió nada.",
+      "La plantilla «Prospección: apertura» nace con horario y goteo: la de Leila salió hasta las 11 de la noche porque no sabía dónde se ponía el horario.",
+      "Las automatizaciones nuevas, al prenderlas, toman un horario de 9 a 21 si el negocio no tiene uno. Las que ya existen no cambian, y lo que contesta un DM o un comentario tampoco espera.",
       "Por la API, el paso de una inscripción terminada nombra lo último que le salió, no otra tarjeta: 106 de 150 estaban mal.",
       "Lo que manda Instagram al tocar un botón queda guardado, y un 429 de Zernio dice «pausa» también en Automations y Calendario.",
     ],
