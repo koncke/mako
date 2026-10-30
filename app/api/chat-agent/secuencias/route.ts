@@ -79,7 +79,7 @@ import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-p
 import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador } from '@/lib/secuencia-borrador';
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
-import { estadoCanalesDisparo, estadoMedios } from '@/lib/disparadores-canales';
+import { estadoCanalesDisparo, estadoMedios, publicacionesParaElCron } from '@/lib/disparadores-canales';
 import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
@@ -117,6 +117,17 @@ export async function GET(req: NextRequest) {
     try { return Response.json({ ok: true, medios: await estadoMedios(mediosDeConsulta(pedidos)) }); } catch (e) {
       console.error(`[api:setting/secuencias GET medios] ${msg(e)}`);
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  }
+  // Las publicaciones del CRON de comentario (ticket #25): las pide el selector al abrir «comenta tu publicación o Reel».
+  const red = req.nextUrl?.searchParams.get('publicaciones');
+  if (red === 'instagram' || red === 'messenger') {
+    try {
+      const publicaciones = await publicacionesParaElCron(red);
+      return publicaciones ? Response.json({ ok: true, publicaciones }) : Response.json({ ok: false, error: 'No pude leer tus publicaciones' });
+    } catch (e) {
+      console.error(`[api:setting/secuencias GET publicaciones] ${msg(e)}`);
+      return Response.json({ ok: false, error: 'No pude leer tus publicaciones' }, { status: 500 });
     }
   }
   if (req.nextUrl?.searchParams.get('canales') === '1') {

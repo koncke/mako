@@ -54,7 +54,32 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
       y no dicen que se paga con Google Flow del cliente.
     - **El Cerebro dijo «sacar»:** salió en el tren-ae (`AI_AVATAR_SE_VENDE = false`).
     - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
-- **tren-ae (rama `tren-ae`, subiendo):**
+- **tren-ae SUBIDO: main = `4b8f8145d` (29/10 21:42). READY 21:45: hola-mako.com sirve `mako-gv9vfmoz3`
+  (dpl_E2uWxgoB…).** Avisado el Cerebro; Create y el Copywriter estaban archivados.
+- **tren-af (rama `tren-af`, subiendo):**
+  - **Lleva:**
+    - El Media Buyer de Thiago (`b4ee3c411`): dónde, hasta, y «lánzame una campaña», que nace en PAUSA y se relee. La mig 0350
+      está APLICADA (21:50).
+    - Automations #25 de Leandro (`b26d89b94`): el CRON de comentario elige la publicación o el Reel.
+    - El Copywriter sin ninguna mención a Copy Method (`bf7e86c27`).
+  - **Revisión de plata del Media Buyer:** «entra con bajas», sin ALTA. La baja y M1, M5 y M6 están hechas. Cosechado en
+    `docs/hallazgos-ads.md`. El vigía apagado sólo mira fechas, y ninguna configuración de producción tiene fechas.
+  - **Arreglado por Integración** (el chat de Ads estaba archivado):
+    - `revisar-fijo`: los ids con que se arma la campaña quedan fijos al revisar (`c9d23904c`);
+    - el aviso de la campaña creada lleva «Reportar a Soporte» (`13562c8a8`).
+  - **Chequeo:** 9351 tests, más el delta, más las guardas. Los únicos rojos fueron los `todo` de siempre.
+- **tren-ag (sin armar):**
+  - **Lleva:**
+    - PRIORIDAD: los tickets #31 y #32 de Leila (`editor-leila-2810`, `3b6a9b3ee`: quitar silencios en el Video Editor).
+    - Las tarjetas del Copywriter (`plantillas-tarjeta-2910`, `6713868bb`).
+    - Zernio `da3cff9f7`: la re-verificación dio «entra con bajas».
+    - Los docs del Cerebro (`iniciativa-plan-2910`).
+    - La guarda de los números de migración, que está en el scratchpad de Integración.
+  - ⚠️ **La 0349 sigue sin aplicar:** N1, deshacer el borrado de una vez de la serie, le saca `serie_de` y vuelve a abrir A2.
+  - **Agency/Planes (`4b42b6a7f`): NO entra** hasta la decisión de Martín sobre H1, y hasta que estén H2 y H3. La devolución
+    está en la carpeta compartida (`integracion-agency-thiago-devuelto.md`).
+  - **El despachante de WhatsApp (`72fb49d6d`): NO entra.** A1 y A2 siguen sin arreglar.
+- **Detalle del tren-ae:**
   - **Lleva:**
     - Create: la QA visual (`95ac56201`) y la base de las plantillas reales (`390229c3d`, que la contiene).
     - Las plantillas del Copywriter (`1d9160f87`). El test de los ejemplos lee `REALES` de `tests/_reales.ts`, porque Create

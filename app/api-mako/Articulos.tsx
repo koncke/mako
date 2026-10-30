@@ -388,6 +388,9 @@ function InstagramPalabrasBotones() {
         <li><strong>Un emoji es una palabra propia:</strong> «🔥» sirve de palabra clave, y «Fiesta🎉» se lee «fiesta 🎉».</li>
         <li>Una palabra sin letras, números ni emoji («?», «...») no se puede guardar.</li>
       </ul>
+      <h3 id="publicacion">En qué publicación</h3>
+      <p>El mismo disparador elige también <strong>en qué publicación o Reel</strong>: «Cualquier publicación» (lo de siempre) o una de las 25 últimas de la cuenta, también las que no publicaste desde MaKo. Un comentario en otra publicación no arranca nada, aunque tenga la palabra clave.</p>
+
       <Nota>Una persona que ya pasó por una automatización no vuelve a entrar sola. Para probar otra vez con la misma cuenta, usa «Volver a probar» en la ficha del lead: entra de nuevo con su próximo comentario.</Nota>
 
       <h2 id="botones">Los botones de un DM</h2>

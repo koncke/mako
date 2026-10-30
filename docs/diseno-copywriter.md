@@ -295,9 +295,14 @@ El Copywriter la usa así (app/copywriter/Copywriter.tsx), y reemplaza al armaz�
 - La página va a la derecha (`children`), dentro de `<Pagina style={ESTILO_PAGINA_CREAR}>` como Video y Offer.
 - ⚠️ **Lo que se perdió del árbol de Notion:** arrastrar para reordenar y anidar (la lista del shell es plana). Las migas de
   la página siguen navegando el árbol, y una subpágina se crea desde el ⋯.
-- **Las herramientas del super admin** («Copy Method», /admin/copywriting, y «Angles & Structures», /admin/guiones) eran
-  pestañas de Copywriting sólo para él. Sin pestañas, van al pie de la lista, debajo de la Papelera, sólo si
-  `deLaPlataforma` (las páginas lo leen de `getSesionAdmin`). La barra sigue marcando Copywriting en esas rutas.
+- **Las herramientas del super admin** (el método de redacción, /admin/copywriting, y las bibliotecas de ángulos y
+  estructuras, /admin/guiones) fueron pestañas de Copywriting y, por unas horas, dos links al pie de la lista.
+  **29/10/2026, Martín: sin ninguna mención** («Elimina esto […], no quiero ninguna mención en todo MaKo»): ni fila, ni
+  link, ni título, ni pantalla del teléfono. Las dos rutas de la computadora redirigen a /copywriter y la del teléfono se
+  borró (como /m/reels). Lo que la IA lee de ellas sigue
+  igual, con los overrides ya guardados: la metodología y el swipe (lib/copywriting-metodo.ts) y los ángulos y las
+  estructuras (lib/guion-angulos-store.ts, lib/guion-estructuras-store.ts). tests/barra-sin-dev.test.ts (el 5) barre
+  app/, lib/ y components/ para que el nombre no vuelva.
 - **El teléfono:** `?nuevo=<tipo>` viaja a /m/copywriter (lib/movil-creacion.ts) y abre la hoja de templates con los de
   ese tipo primero, como en la computadora. YouTube Writer sigue «pronto» en el teléfono (key con `comingSoon`), como
   /ideas: retirarlos va con /m/stories.

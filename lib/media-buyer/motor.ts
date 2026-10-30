@@ -31,9 +31,13 @@
 //     (Madgicx: el Revive va 10-20% más holgado que el Stop Loss).
 //   · Calidad: 8 leads o más del CRM en 14 días y ninguna agenda, cuando la cuenta agenda 15% o más.
 //   · Ganador: 3 resultados o más en 7 días a ≤ el objetivo; una tanda de variaciones por anuncio por semana.
+//   · Hasta (la fecha de fin de la persona, zona.ts): pasada, se pausa la campaña; con menos de 3 días por delante, Surf
+//     no sube y Revive no prende lo que ya terminó. La ZONA no se mira acá (pide leer el público de cada conjunto): la
+//     filtra la corrida y la vuelve a mirar `lanzar` en vivo.
 // =============================================================================
 
 import type { TacticaAuto, TacticasResueltas } from './tacticas';
+import { finDeCampana, frenoPorFecha, pausasPorFecha, propuestaHasta } from './zona';
 import type {
   ConfigMediaBuyer, EstadoDecision, KpiMediaBuyer, NivelMeta, NumeroDecision, Propuesta, Tactica, TipoDecision,
 } from './tipos';
@@ -104,6 +108,11 @@ export type EntradaMotor = {
   fmt: (unidad: number) => string;
   /** El presupuesto diario más chico que se propone, en la moneda de la cuenta (Meta rechaza por debajo). */
   presupuestoMinimo: number;
+  /**
+   * El día de HOY del negocio (su zona horaria), para la fecha de fin. null = no se pudo leer: con una fecha puesta, «no sé»
+   * frena subir y prender (zona.ts → frenoPorFecha) y no pausa nada por fecha. Sin el campo, igual que null.
+   */
+  hoyNegocio?: string | null;
 };
 
 // ── Los números de las tácticas (ver la cabecera) ───────────────────────────
@@ -298,6 +307,12 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
     if (!p.tipo.startsWith('variaciones')) tomadas.add(p.entidadId);
     out.push(p);
   };
+  // La fecha de fin de lo que cuelga de `n` (la de su campaña, o la de toda la cuenta).
+  const hoyN = entrada.hoyNegocio ?? null;
+  const finDe = (n: NodoMB): string | null => finDeCampana(config, (n.nivel === 'campaign' ? n : campanaDe(ctx, n))?.id ?? null);
+
+  // ── 0. Hasta: lo que pasó su fecha de fin se pausa PRIMERO (es la regla de la persona, gana a todo lo demás) ──
+  for (const p of pausasPorFecha(entrada.arbol, config, hoyN)) poner(propuestaHasta(p));
   const clave = (t: Tactica, n: NodoMB) => `${t}:${n.nivel}:${n.id}:${hoy}`;
   const filaObjetivo = (c: number | null, ventana: string): NumeroDecision => ({
     condicion: `${nom.costo}, ${ventana}`,
@@ -457,9 +472,9 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
         }
       }
 
-      // Surf: subir
+      // Surf: subir. Nunca cerca de la fecha de fin (ni pasada): el salto se gastaría antes de rendir.
       const ritmo = c3.gasto / Math.max(presuUnidad * 3, 0.01);
-      if (on('surf') && cubre('surf', n) && k3 != null && k3 <= obj * surfCosto && r3 >= surfResultados && ritmo >= SURF_RITMO_MIN) {
+      if (on('surf') && cubre('surf', n) && !frenoPorFecha('subir_presupuesto', finDe(n), hoyN) && k3 != null && k3 <= obj * surfCosto && r3 >= surfResultados && ritmo >= SURF_RITMO_MIN) {
         const saltoPct = Math.min(config.subidaMaxPctDia, surfSalto);
         if (saltoPct <= 0) continue;
         const nuevo = redondear(n.presupuestoDia * (1 + saltoPct / 100));
@@ -492,6 +507,8 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
       if (d.tipo !== 'pausar' || d.estado !== 'aplicada' || !d.aplicadaAt) continue;
       const n = porId.get(d.entidadId);
       if (!n || n.configurado !== 'PAUSED' || !cubre('revive', n)) continue;
+      // Lo que pausó la fecha de fin no lo revive nadie, y lo que ya pasó su fecha tampoco se prende.
+      if (d.tactica === 'hasta' || frenoPorFecha('activar', finDe(n), hoyN)) continue;
       // Que nadie la haya vuelto a tocar después (una persona la pausó también, o la prendió y la volvió a pausar).
       const ultima = ultimaAplicada(ctx, n.id);
       if (ultima && ultima.aplicadaAt !== d.aplicadaAt) continue;

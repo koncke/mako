@@ -27,6 +27,33 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
+
+**El pedido** (Leandro, ticket #25, levantado por MaKo a las 05:50): «que el flujo arranque solo cuando el comentario contiene
+una palabra… y, si se puede, elegir en qué publicación o Reel». Lo de la palabra ya estaba (#17, desplegado DESPUÉS de que
+escribiera: por eso «no lo encontramos»); faltaba la publicación. Ahora el CRON de comentario elige «Cualquier publicación» o
+una de las últimas 25 de la cuenta, con su miniatura (lib/publicacion-cron.ts, `PublicacionDelCron` en el editor).
+
+- **El id es el MISMO en los dos lados, y está dicho en la doc de Zernio** (OpenAPI v1.416.0): el comentario trae
+  `comment.platformPostId` (el id NATIVO) y GET /v1/accounts/{id}/posts devuelve «the 25 most recent posts that exist on the
+  platform… including posts that were never created through Zernio», con `id` = «The platform's own post id». No hace falta
+  un id de Zernio (el `post.id` del webhook viene null en lo que no se publicó por Zernio).
+- **La trampa del #17 vuelve con cada campo nuevo del CRON:** el PRIMER disparador se rearma de las COLUMNAS
+  (`disparadoresDe`) y pierde lo que las columnas no tienen. La publicación va en la misma lista que las palabras
+  (`palabras: g0.palabras, …, publicacion: g0.publicacion`); el test lo prueba por el webhook con la fila como la guarda la base.
+- **Dos lugares deciden, y los dos miran la publicación:** `hayQuienEscuche` (si nace el lead de quien comentó) y
+  `dispararEventoSocial` (si se inscribe). Con uno solo, quien comentó otra publicación quedaba como lead sin automatización.
+- **Un comentario que no dice de qué publicación es no dispara** un CRON con publicación (como el texto vacío con palabras):
+  nunca «entonces todos».
+- **La API de MaKo toma el LINK del Reel** (`resolverPublicaciones`, chatbot.run.ts): se busca entre las últimas por el código
+  del link («/reel/X» y «/p/X» son la misma; con o sin «www.» y «?igsh=»). La descripción del campo es CORTA a propósito
+  (el presupuesto del turno, ver el #29 más abajo); la guía de /docs lo explica.
+
+**Sin hacer:** una publicación más vieja que las últimas 25 no se puede elegir en la pantalla (sí por la API, con su id).
+Las miniaturas son links de Instagram que vencen: si la lista se abre días después, se vuelven a pedir (la visita no las
+guarda). Por el token (HTTP) los CRON todavía no se cambian (`cambiar_crons_secuencia` no es HTTP). No se probó con una
+cuenta real de Instagram: el test usa el Zernio de mentira con la forma de la doc.
+
 ## «Ya te sigo» no hacía nada: el motor SÍ volvía a la tarjeta de antes (29/10/2026, ticket #29 de Leandro)
 
 **El síntoma** (Leandro, `mako_doer_conv` 1716): el «Seguinos» tiene «Ya te sigo», que vuelve a «¿Te sigue en Instagram?»;

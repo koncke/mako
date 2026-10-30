@@ -21,7 +21,7 @@ export async function getEstructurasGuion(): Promise<EstructuraGuion[]> {
   return soloDeAnuncios(await getEstructurasTodas());
 }
 
-/** TODA la biblioteca (anuncios, reels y stories): la del Copywriter y la que edita el super admin en /admin/guiones. */
+/** TODA la biblioteca (anuncios, reels y stories): la del Copywriter, con el override guardado (su pantalla de edición se fue el 29/10/2026). */
 export async function getEstructurasTodas(): Promise<EstructuraGuion[]> {
   const raw = await runWithWorkspace(OWNER_WS, () => getSetting(KEY));
   if (!raw) return ESTRUCTURAS_GUION_DEFAULT;
