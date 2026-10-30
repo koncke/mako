@@ -9282,3 +9282,15 @@ código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esa
 
 **Vive en:** el método de investigación (docs/plantillas-reales/README.md, sección 5)
 
+## Leer un Gmail con el conector oficial: la búsqueda no trae fechas (30/10/2026)
+
+- **Síntoma:** al cosechar el Gmail de Martín (40 remitentes, unos 4.300 emails), `search_threads` devolvió los hilos sin fecha y
+  sin resumen, aunque su descripción dice que la vista mínima trae `date` y `snippet`.
+- **Causa:** el conector (gmailmcp.googleapis.com) no llena esos campos en la búsqueda; sólo `get_thread` trae el contenido.
+- **La regla:** para ordenar o filtrar por fecha sin abrir cada hilo, la fecha sale del ID del hilo: los primeros 11 dígitos
+  hexadecimales son milisegundos desde 1970 (`int(id, 16) >> 20`), y coinciden al segundo con la fecha real.
+- **Además:** el conector conectado a la cuenta de claude.ai queda «pending» en la sesión hasta el turno siguiente; sus herramientas
+  aparecen recién ahí (ver session_connectors_status). Y sólo se usan las de lectura: el conector también trae enviar, reenviar,
+  etiquetar y borrar.
+- **Vive en:** las herramientas de la sesión del Cerebro (no es código de MaKo). La cosecha: docs/conocimiento/patrones-email.md.
+
