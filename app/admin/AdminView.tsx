@@ -46,6 +46,7 @@ import { DIAS_PLAN_A_MANO } from '@/lib/plan-a-mano-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
+import { PedidosDeIngreso } from './PedidosDeIngreso';
 import { ROLES_ALTA, ROTULO_ROL } from '@/lib/agencia-altas';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { PlanBoard } from '../plan/PlanBoard';
@@ -504,6 +505,8 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   /** El alta dejo de ser un formulario clavado arriba de la lista y pasó a ser
    *  la primera tarjeta + un modal, igual que en la cartera. */
   const [altaAbierta, setAltaAbierta] = useState(false);
+  /** Cambia al crear un cliente: «Quieren entrar» se vuelve a leer (el que tiene cuenta sale solo). */
+  const [vueltaPedidos, setVueltaPedidos] = useState(0);
   const [renombrando, setRenombrando] = useState<Workspace | null>(null);
   const [nombreEdit, setNombreEdit] = useState('');
   const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
@@ -538,6 +541,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
       if (!j.ok) { setErrCrear(j.error ?? 'No se pudo crear el cliente.'); return; }
       const email = adminEmail.trim();
       setNombre(''); setAdminEmail(''); setAdminNombre('');
+      setVueltaPedidos((n) => n + 1);
       // El texto sale de `avisoInvitacion`, que es el mismo que usa /equipo. Antes acá
       // decía en verde «cuando su admin entre con Google, la cuenta se activa sola» —
       // cierto, y falso como mensaje: nadie le había pasado la URL.
@@ -935,6 +939,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ── Lo que una agencia pidió mirar, y todavía no firmaste ──────────── */}
       <AprobacionesDeAgencia workspaces={workspaces} recargar={recargar} estado={agenciasEstado} />
+      {/* ── Quien quiere entrar y no tiene cuenta (30/10/2026): abre el alta de siempre, ya cargada ── */}
+      <PedidosDeIngreso vuelta={vueltaPedidos} onDarDeAlta={(a) => {
+        setNombre(a.nombre); setAdminEmail(a.adminEmail); setAdminNombre(a.adminNombre);
+        setErrCrear(null); setHintCrear(null); setAltaAbierta(true);
+      }} />
 
       {errAccion && <div style={bannerError}>{errAccion}</div>}
 
