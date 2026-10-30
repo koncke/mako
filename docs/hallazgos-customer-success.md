@@ -6121,6 +6121,14 @@ app/classroom, app/customer-success, app/_cursos, app/_comunidad, app/compartido
 
 ## Clients y Members, UNA sub-tab: «Miembros» es una vista del selector del CRM (29/10/2026)
 
+**La guarda de privacidad, después de unir las dos (30/10/2026).** Esta unión quedó afuera de un tren por 4 tests rojos, y uno se leía
+como «el super admin ya puede ver fichas sin impersonar». **Ese diagnóstico era el equivocado.** La guarda vieja decía «el redirect a
+/customers va antes de leer `?cliente=`»: era una forma de escribir «no hay fichas», y al cambiar el redirect (ahora sólo para un link
+que nombra a un cliente) se puso roja sin que se abriera nada. La plataforma ya veía Members antes (`seccionesDe` sólo le sacaba
+`clients`), con la misma `miembrosAction`. La guarda ahora fija lo que importa (tests/cs-kanban-ficha-ui.test.ts, 5 roturas, 5 rojos):
+la rama del super admin corta ANTES de leer un solo lead, un `?cliente=` sigue yendo a Customers, y lo que dibuja importa sólo el
+directorio. **Regla:** una guarda de privacidad fija lo que NO se puede leer, no el orden de dos líneas.
+
 **El pedido, textual** (Martín, por el Cerebro): «dentro de la pestaña de Classroom… unificar la tab de clientes con la tab de
 miembros, porque al fin y al cabo es el típico botón que tenemos en el CRM u otros lugares, del botón de Kanban o botón de
 lista. Son lo mismo, no deberían ser dos tabs». Supera la D1 de [diseno-clients.md](diseno-clients.md) («Members no se fusiona

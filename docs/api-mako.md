@@ -19092,7 +19092,7 @@ curl -L \
 
 ### `POST /api/v1/calendario/eventos` — Agendar un evento en el Calendario
 
-Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo o una llamada. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.
+Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo, una llamada de venta o una reunión de entrega del servicio. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.
 
 - **Ruta por operación:** `POST /api/v1/calendario/crear_evento_calendario`
 - **Token detallado:** permiso `calendario=write` (Lectura y escritura en «Calendario»)
@@ -19108,11 +19108,11 @@ Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post,
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `titulo` | string | sí | Qué es, corto («Reel del caso de éxito», «Escribir guiones»). |
-| `tipo` | string (publicacion \\| bloque \\| llamada \\| otro) | sí | publicacion, bloque (de trabajo), llamada u otro. |
+| `tipo` | string (publicacion \\| bloque \\| llamada \\| otro \\| entrega) | sí | publicacion, bloque (de trabajo), llamada (de venta), entrega (una reunión de entrega del servicio a un cliente) u otro. |
 | `formato` | string (story \\| reel \\| post \\| ad \\| email \\| video \\| otro) | no | Sólo si es una publicación: story, reel, post, ad, email, video u otro. |
 | `fecha` | string | sí | YYYY-MM-DD, en la zona del negocio. |
 | `hora` | string | no | HH:MM en 24 horas, en la zona del negocio. Si se omite, es de todo el día. |
-| `duracionMin` | number | no | Cuánto dura, en minutos (para bloques y llamadas). |
+| `duracionMin` | number | no | Cuánto dura, en minutos (para bloques, llamadas y entregas). |
 | `notas` | string | no | Notas opcionales. |
 
 ```bash
