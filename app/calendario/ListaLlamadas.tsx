@@ -212,7 +212,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
         </main>
         <aside className="gl-tareas" aria-labelledby="gl-tareas-titulo">
           <h3 id="gl-tareas-titulo">Tareas con fecha</h3>
-          <p className="gl-sub">Del Plan, las que vencen pronto.</p>
+          <p className="gl-sub">Del Plan: las vencidas en las últimas dos semanas y las del próximo mes.</p>
           {fallos.tareas && <p className="gl-error" role="alert">No pudimos leer el Plan. <ReportarASoporte /></p>}
           {proximasTareas.length === 0
             ? <div className="gl-vacio"><b>Nada por vencer</b>Las tareas del Plan con fecha aparecen aquí.</div>

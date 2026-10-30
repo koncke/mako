@@ -487,3 +487,17 @@ Entrega), la tarjeta (editar, borrar, hecho, abrir en Google, ir a la ficha o al
 app/calendario/comun.ts (`USOS_CALENDARIO`, `TIPOS_RAPIDO`) · app/calendario/gc-css.ts · app/calendario/page.tsx ·
 lib/calendario-modelo.ts (`entrega`, `capaDeTipo`) · supabase/migrations/0352_calendario_entregas.sql ·
 lib/api-mako/areas/calendario.def.ts · tests/calendario-cuatro-usos.test.ts (seis roturas, seis rojos). *29/10/2026, claude3.*
+
+## El recorrido visual del 30/10: lo del Calendario (K1 a K5)
+
+- **K1 y la mitad de K2 ya no existen con la rama de los cuatro usos**: eran la barra lateral copiada de Google (no se plegaba a
+  1024 y su casilla de Google quedaba bajo el botón de MaKo). La otra mitad de K2 era el botón: ver docs/hallazgos-chat.md.
+- **K3, el corte sin «…»:** en un evento de una línea el título pasa a `inline` (`.gc-ev--uno b`), y `text-overflow` no corta un
+  inline: lo corta el BLOQUE que lo contiene. El `…` va en `.gc-ev--uno` (con `white-space: nowrap`); la hora (`.gc-ev i`) también
+  corta con «…».
+- ⚠️ **K4 («-» gris el sábado y el domingo) es un DATO, no la pantalla.** Un evento de Google sin título se dibuja «(Sin título)»
+  (lib/calendario-google-modelo.ts); un guion es el título que tiene el evento en la agenda conectada. No se tocó nada.
+- **K5:** el subtítulo de «Tareas con fecha» decía «las que vencen pronto» y la página lee de 14 días atrás a 31 adelante: mostraba
+  vencidas. Ahora dice la ventana, y el test cruza el texto con la lectura (`sumarDias(hoy, -14)`, `sumarDias(hoy, 31)`).
+
+**Vive en:** app/calendario/gc-css.ts · app/calendario/ListaLlamadas.tsx · tests/recorrido-k-3010.test.ts. *30/10/2026, claude3.*

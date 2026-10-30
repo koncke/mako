@@ -61,8 +61,8 @@ export const CSS_GC = `
 .gc-ev{position:absolute;z-index:2;border-radius:6px;padding:2px 6px;overflow:hidden;color:#fff;font-size:12px;line-height:1.3;cursor:pointer;border:1px solid var(--gc-hoja);text-align:left;font-family:inherit;user-select:none;-webkit-user-select:none}
 .gc-ev:focus-visible{outline:2px solid var(--gc-tinta);outline-offset:1px}
 .gc-ev b{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gc-ev i{font-style:normal;opacity:.92;white-space:nowrap}
-.gc-ev--uno b{display:inline}
+.gc-ev i{font-style:normal;opacity:.92;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-ev--uno{white-space:nowrap;text-overflow:ellipsis}.gc-ev--uno b,.gc-ev--uno i{display:inline}
 .gc-ev--hecho{opacity:.6}
 .gc-ev--hecho b{text-decoration:line-through}
 .gc-ev--rechazado{background:var(--gc-hoja)!important;border:1px solid currentColor!important;background-image:repeating-linear-gradient(-45deg,transparent 0 6px,color-mix(in srgb,currentColor 12%,transparent) 6px 7px)!important}
