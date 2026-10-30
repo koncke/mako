@@ -54,7 +54,9 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
     ['/ai-avatar/inventada', null],
     // Reels y Carousels se retiraron el 29/10/2026: sus rutas de escritorio redirigen y el teléfono no las traduce.
     ['/reels', null], ['/stories', '/m/stories'], ['/carousels', null],
-    ['/admin/copywriting', '/m/admin/copywriting'],
+    // El método de redacción del super admin se fue el 29/10/2026 (Martín: «no quiero ninguna mención en todo MaKo»): su
+    // ruta redirige al Copywriter y el teléfono no la traduce.
+    ['/admin/copywriting', null],
     // Las «Coming soon» de una tab con secciones van a la pantalla «pronto» de Mobile 2, no a una de acá.
     // (Image Generator se retiró el 29/10/2026: ya no es «pronto» de nadie, su ruta redirige a Image.)
     ['/image-generator', null], ['/youtube-writer', '/m/pronto/youtube-writer'],
@@ -87,7 +89,8 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y l
     const pagina = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;
     assert.ok(existsSync(join(RAIZ, pagina)), `${pagina} no existe`);
     if (s.superAdmin) {
-      // Copy Method: una herramienta del super admin (ADMIN_NAV), con la puerta de escritorio.
+      // Una herramienta del super admin (ADMIN_NAV), con la puerta de escritorio (hoy ninguna: el método de redacción se fue
+      // el 29/10/2026).
       assert.ok(ADMIN_NAV.some((i) => i.key === s.navKey), `${s.id}: la key «${s.navKey}» no es de ADMIN_NAV`);
       assert.ok(leer(pagina).includes('await getSesionAdmin()'), `${pagina}: sin getSesionAdmin(), la puerta de escritorio`);
       continue;

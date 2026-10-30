@@ -116,8 +116,8 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
     // 29/10/2026: Video Generator queda oculta (una plantilla de Video); Reels y Carousels se retiraron.
+    // 29/10/2026: la fila oculta del método de redacción del super admin se fue (Martín: «no quiero ninguna mención»).
     ['video-generator', 'video-generator', null, true], ['stories', 'stories', null, true],
-    ['admin-copywriting', 'admin-copywriting', null, true],
   ]);
 });
 

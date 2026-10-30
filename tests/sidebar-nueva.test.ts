@@ -289,12 +289,16 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
-  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts); /admin/guiones (las bibliotecas
-  // de Ads Writer, que vivían en la página de Dev) fue desde ese día una sección de Copywriting. /admin/cobros y /admin/agente
-  // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts).
+  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts). /admin/cobros y /admin/agente
+  // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts). /admin/copywriting y
+  // /admin/guiones (el método de redacción y las bibliotecas de guiones) se fueron el 29/10/2026 (Martín: «Elimina esto
+  // […], no quiero ninguna mención en todo MaKo»): redirigen al Copywriter y NO tienen casa a propósito (abajo).
   // /mensajes (MaKo Messages) salió el 26/10/2026 (Martín: «elimina eso»): redirige a Automations (tests/mensajes-mako-retirado).
-  const RUTAS = ['/admin/copywriting', '/admin/guiones', '/admin/estrategia',
-    '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
+  const RUTAS = ['/admin/estrategia', '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
+  for (const ruta of ['/admin/copywriting', '/admin/guiones']) {
+    assert.ok(![...ADMIN_NAV, ...SUPERADMIN_MENU, ...ARRIBA, ...FAMILIAS.flatMap(itemsDe)].some((i) => i.href === ruta), `${ruta} volvió a tener un ítem`);
+    assert.match(sinComentarios(leer(`app${ruta}/page.tsx`)), /redirect\(await rutaConWs\('\/copywriter'\)\);/, `${ruta} no redirige al Copywriter`);
+  }
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');
@@ -303,20 +307,14 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // SuperAdmin»): su casa es el pie de la lista de ofertas, que la pantalla dibuja sólo para el super admin.
   const offer = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'offer')!;
   const pieOffer = sinComentarios(leer('app/offer/OfferApp.tsx')).match(/pieLista=\{superAdmin \? \(([\s\S]*?)\) : undefined\}/)?.[1] ?? '';
-  // Copy Method y Angles & Structures, lo mismo en Copywriting (29/10/2026, el Copywriter sin pestañas): al pie de su lista
-  // de páginas, sólo para el super admin (docs/diseno-copywriter.md, D15).
-  const copy = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'copywriter')!;
-  const pieCopy = sinComentarios(leer('app/copywriter/Copywriter.tsx')).match(/\{deLaPlataforma && \(([\s\S]*?)\)\}/)?.[1] ?? '';
   for (const ruta of RUTAS) {
     const arriba = ARRIBA.find((i) => i.href === ruta);
     const enTab = secciones.find(({ s }) => s.href === ruta);
     const enMenu = SUPERADMIN_MENU.find((i) => i.href === ruta);
     const enPie = pieOffer.includes(`<Link href="${ruta}">`) ? ADMIN_NAV.find((i) => i.href === ruta) : undefined;
-    const enPieCopy = pieCopy.includes(`<Link href="${ruta}">`) ? ADMIN_NAV.find((i) => i.href === ruta) : undefined;
-    const item = arriba ?? enTab?.s ?? enMenu ?? enPie ?? enPieCopy;
-    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto, ni al pie de Offer o del Copywriter`);
+    const item = arriba ?? enTab?.s ?? enMenu ?? enPie;
+    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto, ni al pie de Offer`);
     if (enPie) assert.equal(offer.match(ruta), true, `${ruta}: estando ahí, la barra no marca Offer`);
-    if (enPieCopy) assert.equal(copy.match(ruta), true, `${ruta}: estando ahí, la barra no marca Copywriting`);
     assert.equal(item.adminOnly, true, `${ruta} la vería un cliente`);
     assert.equal(puedeVerItem(item, SUPER), true, `${ruta}: el super admin no la ve`);
     assert.equal(puedeVerItem(item, CLIENTE), false, `${ruta}: el admin de un cliente la ve`);

@@ -226,7 +226,7 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
-  // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
+  // secciones), así que puedeVerKey diría que no.
   // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
   // Video desde el 29/10/2026: una sola pantalla, el editor (como en escritorio: nav.ts → 'video-editor', sin secciones). El
   // Video Generator (/m/video) quedó como su plantilla «Generar con IA», con fila oculta (lib/movil-creacion.ts).
@@ -458,9 +458,6 @@ export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
   // /email es la CONFIGURACIÓN del canal desde el 17/10/2026 (los emails se leen en Chats): el dominio son registros DNS y
   // las secuencias, un editor por etapa. Chats del teléfono ya dice «Conectar canales · En la computadora».
   email: 'Conectar el dominio y armar las secuencias se hace en la computadora. Los emails se leen y contestan en Chats.',
-  // Las bibliotecas de Ads Writer (25/10/2026, vivían en la página de Dev): cada ángulo y cada estructura es un texto largo
-  // con varios campos.
-  'admin-guiones': 'Los ángulos y las estructuras con que escribe Ads Writer son textos largos con varios campos: se editan en la computadora.',
 };
 
 /**
