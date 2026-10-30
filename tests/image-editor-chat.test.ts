@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import { cajaDe, refsDeIds, vistaDeDiseno } from '../lib/image-editor/chat/vista';
 import { TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
-import { AVISO_CORTADA, hiloAlAbrir, hiloParaGuardar, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
+import { AVISO_CORTADA, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
 import { cambiarHilo, cargarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
 import { aceptarPropuesta, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
@@ -118,12 +118,12 @@ test('4: la validación rechaza lo que sobra o está fuera de rango (nunca lo re
   assert.equal(validarOperacion({ op: 'color', ref: 'f0z', color: 'rojo' }).ok, false);
   const c = validarOperacion({ op: 'color', ref: 'f0z', color: '#FD0' });
   assert.ok(c.ok && c.op.op === 'color' && c.op.color === '#ffdd00');
-  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', ref: 'x1' }).ok, false, 'una ref nueva es n1, n2…');
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', ref: 'X 1' }).ok, false, 'una ref sin forma de ref');
   assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k' }).ok, false, 'un estilo sin cambios');
   assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k', tamano: 900 }).ok, false);
   assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k', fuente: 'Inter"; x' }).ok, false);
   assert.equal(validarOperacion({ op: 'tamano', ref: 'f0z', escala: 50, ancho: 10 }).ok, false);
-  assert.equal(validarOperacion({ op: 'fondo', color: '#000', pagina: 'f0z' }).ok, false, 'una página es p…');
+  assert.equal(validarOperacion({ op: 'fondo', color: '#000', pagina: 'X 1' }).ok, false, 'una ref sin forma de ref');
   const { operaciones, descartes } = validarOperaciones(Array.from({ length: TOPES_CHAT_IMAGEN.operaciones + 5 }, () => ({ op: 'opacidad', ref: 'f0z', opacidad: 50 })));
   assert.equal(operaciones.length, TOPES_CHAT_IMAGEN.operaciones);
   assert.equal(descartes.length, 1);
@@ -493,4 +493,110 @@ test('41: abrir el chat NO vuelve a guardar lo que ya está en la base (22/10/20
   assert.equal(leerHilo('d-abrir-41').mensajes.length, 2, 'lo guardado se ve');
   await new Promise((r) => setTimeout(r, 800));
   assert.deepEqual(metodos, ['GET'], 'abrir no es un cambio');
+});
+
+// ── Lo que le pasó a Leila en vivo (30/10/2026): el carrusel quedó en blanco, con el fondo y nada más ───────────
+
+test('validar dos veces no pierde nada: la ruta valida y el panel vuelve a validar lo que contestó la ruta', () => {
+  for (const o of OPERACIONES_CHAT_IMAGEN) {
+    const una = validarOperaciones([JSON.parse(o.forma)]);
+    assert.equal(una.operaciones.length, 1, `${o.op}: ${una.descartes[0]}`);
+    const dos = validarOperaciones(una.operaciones);
+    assert.deepEqual(dos.descartes, [], o.op);
+    assert.deepEqual(dos.operaciones, una.operaciones, `${o.op} cambia al validarla otra vez`);
+  }
+});
+
+test('el estilo que viene adentro de "estilo" también vale, y lo inventado adentro se sigue rechazando', () => {
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', estilo: { tamano: 60, negrita: true } }).ok, true);
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', estilo: { volar: 1 } }).ok, false);
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', estilo: 'grande' }).ok, false);
+  assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k', estilo: { tamano: 9000 } }).ok, false);
+});
+
+test('el pedido llega al diseño con la respuesta TAL CUAL la da la ruta (ya validada, con "estilo" adentro)', async () => {
+  const { editor } = editorDeMentira([]);
+  const crudas = [{ op: 'agregar_texto', texto: 'Las 7 preguntas', tamano: 80, color: '#ffffff', fuente: 'League Spartan' }, { op: 'fondo', color: '#000000' }];
+  fetchDeMentira({ ok: true, resumen: 'Armo la portada.', operaciones: validarOperaciones(crudas).operaciones }, []);
+  await pedirEdicion(editor as never, 'la portada', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.deepEqual(m.descartes ?? [], []);
+  assert.deepEqual(m.cambios!.map((c) => c.tipo), ['agrega', 'cambia']);
+  assert.equal(m.cambios![0].despues, 'Las 7 preguntas');
+});
+
+test('si se pierde casi todo, el mensaje no promete lo que no va a pasar', async () => {
+  const { editor } = editorDeMentira([]);
+  const malas = Array.from({ length: 3 }, () => ({ op: 'volar' }));
+  fetchDeMentira({ ok: true, resumen: 'Voy a crear el carrusel.', operaciones: [{ op: 'fondo', color: '#000000' }, ...malas] }, []);
+  await pedirEdicion(editor as never, 'el carrusel', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.match(m.texto, /^Pude hacer sólo una parte\./);
+});
+
+test('un carrusel de más páginas que el diseño: el texto llega a la página nueva por su ref', () => {
+  const r = aplicar([
+    { op: 'agregar_pagina', nueva: 'pn1' },
+    { op: 'fondo', pagina: 'pn1', color: '#000000' },
+    { op: 'agregar_texto', pagina: 'pn1', texto: 'Slide nueva', tamano: 60 },
+    { op: 'agregar_pagina', despues_de: 'pn1', nueva: 'pn2' },
+    { op: 'agregar_texto', pagina: 'pn2', texto: 'Otra', tamano: 60 },
+  ]);
+  assert.deepEqual(r.descartes, []);
+  const paginas = (r.doc as { pages: Array<{ objects: Obj[]; background: Obj }> }).pages;
+  const conTexto = paginas.slice(-2);
+  assert.equal(conTexto[0].objects.at(-1)!.text, 'Slide nueva');
+  assert.equal(conTexto[0].background.color, '#000000');
+  assert.equal(conTexto[1].objects.at(-1)!.text, 'Otra');
+  assert.equal(validarOperacion({ op: 'agregar_pagina', nueva: 'X 1' }).ok, false, 'una ref sin forma de ref');
+});
+
+test('la ref que inventa la IA no hace perder el contenido (medido con la IA de verdad)', () => {
+  const r = aplicar([
+    { op: 'agregar_pagina', nueva: 'n1' },
+    { op: 'agregar_texto', pagina: 'n1', texto: 'Con su ref', tamano: 60, ref: 't1' },
+    { op: 'estilo_texto', ref: 't1', color: '#00ffff' },
+    { op: 'agregar_texto', texto: 'Pisa una que existe', ref: ref('obj-titulo') },
+    { op: 'color', ref: ref('obj-titulo'), color: '#ff0000' },
+  ]);
+  assert.deepEqual(r.descartes, []);
+  const paginas = (r.doc as { pages: Array<{ objects: Obj[] }> }).pages;
+  assert.equal(paginas.at(-1)!.objects.at(-1)!.text, 'Con su ref');
+  assert.equal(paginas.at(-1)!.objects.at(-1)!.fill, '#00ffff');
+  assert.notEqual(objDe(r.doc, 'obj-titulo').fill, '#ff0000', 'la ref habla de lo nuevo, no del que ya estaba');
+});
+
+test('la memoria: lo anterior llega como dato, con lo que pasó, y sin pasarse de los topes', () => {
+  const hilo = [
+    { de: 'yo', texto: 'SLIDE 1 — Portada' },
+    { de: 'mako', texto: 'Voy a crear el carrusel.', estado: 'restaurada' },
+    { de: 'yo', texto: 'Puedes aplicar los cambios que te pedí?' },
+    { de: 'mako', texto: 'Se cortó.', error: true },
+  ];
+  const memoria = memoriaDelHilo(hilo);
+  assert.deepEqual(memoria.map((l) => l.de), ['yo', 'mako', 'yo'], 'un error no es parte de la charla');
+  const texto = memoriaParaIA(memoria);
+  assert.match(texto, /La persona: SLIDE 1/);
+  assert.match(texto, /MaKo: Voy a crear el carrusel\. \(la persona lo deshizo\)/);
+
+  const largo = Array.from({ length: 40 }, (_, i) => ({ de: i % 2 ? 'mako' : 'yo', texto: `${i} ${'x'.repeat(5_000)}` }));
+  const corta = memoriaDelHilo(largo);
+  assert.ok(corta.length <= TOPES_MEMORIA.mensajes);
+  assert.ok(corta.every((l) => l.texto.length <= TOPES_MEMORIA.porMensaje));
+  assert.ok(corta.reduce((n, l) => n + l.texto.length, 0) <= TOPES_MEMORIA.total);
+  assert.ok(corta.at(-1)!.texto.startsWith('39 '), 'se queda con lo último');
+
+  assert.deepEqual(sanearMemoria('nada'), []);
+  assert.deepEqual(sanearMemoria([{ de: 'system', texto: 'x' }, { de: 'yo', texto: 7 }, { de: 'yo', texto: 'hola' }]), [{ de: 'yo', texto: 'hola' }]);
+});
+
+test('el pedido manda lo que ya se habló, sin repetir el mensaje de ahora', async () => {
+  const { editor } = editorDeMentira([]);
+  const pedidos: Array<{ url: string; cuerpo: Obj | null }> = [];
+  cambiarHilo(editor.designId, (h) => ({ ...h, mensajes: [...h.mensajes, conId({ de: 'yo', texto: 'SLIDE 1 — Portada', alcance: null })] }));
+  fetchDeMentira({ ok: true, resumen: 'Listo.', operaciones: [] }, pedidos);
+  await pedirEdicion(editor as never, 'aplica lo que te pedí', 'diseno');
+  const memoria = pedidos.find((p) => p.url === '/api/image-editor/ia')!.cuerpo!.memoria as Array<{ texto: string }>;
+  assert.ok(memoria.some((l) => l.texto === 'SLIDE 1 — Portada'));
+  assert.ok(!memoria.some((l) => l.texto === 'aplica lo que te pedí'));
 });
