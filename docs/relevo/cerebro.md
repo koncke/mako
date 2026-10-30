@@ -166,6 +166,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
 - **tren-ai (rama `tren-ai` de wt-push-q, armado y en chequeo; 30/10, Integración al 92%, con el OK de Martín: «te alcanza para seguir»):**
   - **Lleva, los clientes primero:**
     - el #34 de Código Inmobiliario (Zernio `43897f1df`): un 429 es una pausa, no una conexión rota;
+    - el #35 de Código Inmobiliario (`7d51f24c2`): la ficha del lead trae la hora de la reunión;
     - el #33 de Automations (`da015ebd5`): el botón de un DM viejo y el postback que no va a la pausa;
     - el despachante de MaKo en WhatsApp (`cc2aaa6ce`, el #30 de Leandro).
       - Control de Integración: la guarda del «hazlo» quedó al revés (`DELEGADO_SEGURO` más vetos de plata, envío y borrado, más el
@@ -176,7 +177,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - Video, pasos 1 y 2 (`0e27cb66f`);
     - los emails del Cerebro (`2b9b9d7b7`).
   - **NO lleva:**
-    - el #35 de MaKo en WhatsApp (`8319854ec`, contiene `cc2aaa6ce`): espera el VERDE de su chat;
+    - (el #35 ya ENTRÓ: `7d51f24c2`, la hora de la reunión en la zona del negocio)
     - Agency y Newsletter: volvieron a sus chats.
 - **N3 lo decidió Martín (30/10 ~10:15):** «Sí, cualquiera en el grupo puede». Pausar o prender campañas y anuncios desde el grupo de
   un negocio lo puede pedir cualquiera, con la confirmación de siempre y sobre la cuenta de ese negocio. Está en memoria como
