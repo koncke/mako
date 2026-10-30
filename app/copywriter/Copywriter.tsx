@@ -23,7 +23,7 @@
 
 import './notion.css';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link, { useRouter } from '@/app/_ui/Link';
+import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
@@ -55,8 +55,6 @@ export type PropsCopywriter = {
   tipoInicial?: TipoGuion | null;
   /** «Nueva página» desde afuera (`?nueva`): la pantalla arranca en «¿Qué vas a crear hoy?». */
   nuevaInicial?: boolean;
-  /** El super admin: al pie de la lista, sus dos herramientas de redacción (eran pestañas de la barra hasta el 29/10). */
-  deLaPlataforma?: boolean;
 };
 
 /** «Nueva página»: los templates (la misma ruta de la tab con `?nueva`). */
@@ -70,7 +68,7 @@ const FORMATO: Readonly<Record<TipoGuion, string>> = {
 /** Lo que se escribe solo en la caja de «¿Qué vas a crear hoy?». */
 const EJEMPLOS = ['Un guion de reel sobre el error que todos cometen…', 'Un email de bienvenida para los que se registran…', 'El copy de un anuncio para…', 'Una VSL para vender mi programa…'];
 
-export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false, deLaPlataforma = false }: PropsCopywriter) {
+export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false }: PropsCopywriter) {
   const router = useRouter();
   const [paginas, setPaginas] = useState<PaginaCopy[]>(iniciales);
   const [editor, setEditor] = useState<DocVivo | null>(null);
@@ -182,16 +180,8 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   })), [paginas, rutaDe, crear, enBlanco, avisar, papelera]);
 
   const enPapelera = dePapelera(paginas);
-  // Lo que el super admin edita para todos (nav.ts → HERRAMIENTAS, mismos nombres) va al pie, como Strategy y Offer
-  // Playbook en Offer: Copywriting ya no tiene pestañas (D15).
-  const pieLista: ReactNode = (
-    <>
-      <PapeleraCopy paginas={enPapelera} onRestaurar={restaurar} />
-      {deLaPlataforma && (
-        <span className="nt-pie-admin"><Link href="/admin/copywriting">Copy Method</Link> · <Link href="/admin/guiones">Angles & Structures</Link></span>
-      )}
-    </>
-  );
+  // Al pie, sólo la Papelera. Las herramientas de redacción del super admin no tienen mención desde el 29/10/2026 (D15).
+  const pieLista: ReactNode = <PapeleraCopy paginas={enPapelera} onRestaurar={restaurar} />;
 
   const chat = (volver: ReactNode) => (
     <div className="nt" data-en-tarjeta="">

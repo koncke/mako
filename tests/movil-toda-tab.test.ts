@@ -78,7 +78,9 @@ function estadoDe(it: NavItem): Estado {
 
 test('toda tab que dibuja el escritorio tiene pantalla en el teléfono, o una marca con su motivo', (t) => {
   const items = itemsDelNav();
-  assert.ok(items.length >= 50, `se recorrieron ${items.length} keys: el barrido no está mirando nav.ts`);
+  // Un piso para saber que el barrido lee nav.ts (eran 51; el 29/10/2026 se fueron las dos herramientas de redacción del
+  // super admin y quedaron 49). No es la cuenta exacta: sólo que no se vacíe sin avisar.
+  assert.ok(items.length >= 40, `se recorrieron ${items.length} keys: el barrido no está mirando nav.ts`);
   const sinNada: string[] = [];
   const rotas: string[] = [];
   for (const it of items) {

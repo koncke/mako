@@ -31,7 +31,7 @@ export const INFO_TIPO: Readonly<Record<TipoGuion, { label: string; emoji: strin
 };
 
 /**
- * Los tipos con MÉTODO (ángulo, estructura y duración, de la biblioteca /admin/guiones): los que se graban o se pautan.
+ * Los tipos con MÉTODO (ángulo, estructura y duración, de la biblioteca de guiones): los que se graban o se pautan.
  * Un email, un post o una página en blanco no los tienen: su página no muestra esas propiedades (Notion no muestra
  * propiedades en una página suelta).
  */
