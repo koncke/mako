@@ -219,12 +219,13 @@ test('el editor de video del teléfono esconde la cabecera y la fila de abajo de
   // Si el motor les cambia la clase, el teléfono las vuelve a mostrar: el tiempo HH:MM:SS:FF y los cuatro menús no entran
   // en 390 px y se pisan con ▶ (medido 17/10/2026). Este test lo dice antes.
   const css = readFileSync(join(RAIZ, 'app/m/video-editor/video-editor.css'), 'utf8');
-  const motor: Array<[string, string]> = [
-    ['app/video-editor/_opencut/preview/components/cabecera.tsx', 'bg-[var(--cc-panel-head)]'],
-    ['app/video-editor/_opencut/preview/components/toolbar.tsx', 'grid-cols-[1fr_auto_1fr]'],
+  // La fila de abajo cambia de clases según su ancho (30/10/2026): se la elige por su marca, no por una clase.
+  const motor: Array<[string, string, string]> = [
+    ['app/video-editor/_opencut/preview/components/cabecera.tsx', 'bg-[var(--cc-panel-head)]', '[class~="bg-[var(--cc-panel-head)]"]'],
+    ['app/video-editor/_opencut/preview/components/toolbar.tsx', 'data-barra-reproductor=""', '[data-barra-reproductor]'],
   ];
-  for (const [archivo, clase] of motor) {
-    assert.ok(readFileSync(join(RAIZ, archivo), 'utf8').includes(clase), `${archivo} ya no usa «${clase}»: el teléfono la mostraría`);
-    assert.ok(css.includes(`.m-video-editor-escenario [class~="${clase}"]`), `video-editor.css no esconde «${clase}»`);
+  for (const [archivo, marca, selector] of motor) {
+    assert.ok(readFileSync(join(RAIZ, archivo), 'utf8').includes(marca), `${archivo} ya no lleva «${marca}»: el teléfono la mostraría`);
+    assert.ok(css.includes(`.m-video-editor-escenario ${selector}`), `video-editor.css no esconde «${selector}»`);
   }
 });

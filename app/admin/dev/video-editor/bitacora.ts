@@ -316,4 +316,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '30 oct', hora: '02:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de abajo del reproductor ya no se encima a ningún ancho',
+    puntos: [
+      'Con el reproductor angosto (un video vertical, o el chat abierto), el tiempo, el botón de reproducir, «Completa», la lupa, «Relación» y pantalla completa se encimaban. Ahora la barra se acomoda a su ancho.',
+      'Ancha, como siempre. Más angosta, el tiempo se acorta (00:12 / 01:00) y los botones pasan a íconos que dicen su valor al pasar el mouse. Si tampoco entra, va en dos o tres filas.',
+      'Probado de 120 a 700 px de panel, con un video de un minuto y otro de más de una hora: nada encimado ni cortado.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/preview/barra-niveles.ts — los niveles por ancho, puros',
+      'app/video-editor/_opencut/preview/components/toolbar.tsx — la barra, que mide su ancho',
+      'app/m/video-editor/video-editor.css — el teléfono la sigue escondiendo, por su marca',
+      'tests/video-editor-barra-reproductor.test.ts — 5 roturas',
+    ],
+    revisar: '/video-editor',
+  },
 ];

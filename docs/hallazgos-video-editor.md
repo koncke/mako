@@ -2012,6 +2012,35 @@ pantalla**: `tabbar.tsx` daba `w-[58px]` a cada pestaña y `truncate` al rótulo
 Ahora `min-w-[58px]` + el rótulo entero (`whitespace-nowrap`); lo que no entra lo siguen corriendo las flechas ‹ ›.
 Captura comparada (main y ahora, a 300/360/460 de panel): C:/dev/revisiones/create-qa-2910/despues-barras-1440.png.
 
+## La fila de abajo del reproductor se encimaba de 460 px para abajo: tres columnas `1fr` y botones de texto fijos (30/10/2026, claude3)
+
+Martín mandó una captura de un 9:16 con el reproductor a ~500 px: «00:00:00:00 / 00:00:00…», ▶, «Completa ▾», la lupa,
+«Relación ▾» y pantalla completa encimados, y el total cortado debajo de «Completa». La barra era
+`grid-cols-[1fr_auto_1fr]` con la derecha en `min-w-0`: la derecha (~215 px de botones de texto) no se achica ni cambia de
+forma, así que con menos lugar se desborda hacia la izquierda, sobre el ▶ y el tiempo. Y el reproductor puede bajar al 18 %
+del editor (`editor-page.tsx`): ~155 px a 1280 con el chat abierto, ~124 con la barra lateral fija.
+
+- **La regla:** una barra adentro de un panel que se redimensiona decide su forma por SU ancho (un `ResizeObserver` → un
+  nivel puro, `preview/barra-niveles.ts`), nunca por la ventana. Cada botón de texto tiene su forma de ícono con el valor
+  en el tooltip y en el `aria-label`; lo que tampoco entra pasa a otra fila. Sin `container-type`: el tooltip del editor
+  no va en portal y una contención en el ancestro le cambia el bloque contenedor.
+- ⚠️ **El teléfono escondía esta barra por su CLASE de Tailwind** (`[class~="grid-cols-[1fr_auto_1fr]"]`,
+  `app/m/video-editor/video-editor.css`): cambiarle las clases la habría vuelto a mostrar en el celular, encimada. Ahora la
+  elige por la marca `data-barra-reproductor`; lo fija tests/m-creacion.test.ts.
+- **Cómo se midió sin abrir el editor** (que en el banco no sale de «Cargando…» y en Chrome real pesa 5 GB): la barra REAL
+  compilada con esbuild y el `globals.css` real con Tailwind mirando sólo `app/video-editor` (liviano), y lo que habla con
+  el motor (`use-editor`, `wasm`, `wasm/opencut`, `preview-viewport`, `navegacion`, `atajos-reproductor`) reemplazado por
+  un stub con datos inventados; Chrome sin ventana, una fila por ancho, de 120 a 700 px. El banco quedó en
+  `C:/dev/revisiones/editor-pantalla-3010/banco/` (fuera del repo).
+- ⚠️ **Medir por la caja da falsos «se pisa»:** el tiempo editable tiene `-mx-1 px-1` (el fondo del hover) y su caja se
+  mete bajo la «/» sin que las letras se toquen. Se mide lo que se VE: un `Range` sobre el contenido de cada pieza.
+- Medido: antes, de 460 px para abajo el ▶ pisa «Completa», de 380 para abajo el total se corta y de 230 para abajo
+  «Completa» sale del panel. Después, de 120 a 700 px nada encimado, afuera ni cortado, con un video de 60 s y otro de
+  1 h 02 min. Capturas en `C:/dev/revisiones/editor-pantalla-3010/`.
+
+**Vive en:** `preview/barra-niveles.ts` (puro) · `preview/components/toolbar.tsx` · `app/m/video-editor/video-editor.css` ·
+tests/video-editor-barra-reproductor.test.ts · tests/m-creacion.test.ts.
+
 ## SIN RESOLVER: el editor no carga en un Chrome sin ventana (el banco), se queda en «Cargando…» (29/10/2026)
 
 Para el QA visual se armó un banco (las pantallas reales compiladas con esbuild, sin `next dev`). El editor de Video crea el
