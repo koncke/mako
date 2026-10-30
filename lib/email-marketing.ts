@@ -22,7 +22,7 @@ import { enTandas } from '@/lib/ids-con-filas';
 import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
 import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA, TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
-import { segmentoNewsletter, segmentoDeNewsletter, ETAPAS_NEWSLETTER, ETAPAS_NEWSLETTER_KEYS, ETAPA_BAJA } from '@/lib/newsletter-reglas';
+import { repartirVencidas, segmentoNewsletter, segmentoDeNewsletter, ETAPAS_NEWSLETTER, ETAPAS_NEWSLETTER_KEYS, ETAPA_BAJA } from '@/lib/newsletter-reglas';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -905,12 +905,23 @@ export async function procesarBroadcastsProgramados(): Promise<{ procesados: num
   const supabase = (await getTenantDb());
   const hace10min = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const [prog, stuck] = await Promise.all([
-    supabase.from('email_broadcasts').select('id').eq('estado', 'programado').lte('programado_at', ahoraISO()),
+    supabase.from('email_broadcasts').select('id, segmento, programado_at').eq('estado', 'programado').lte('programado_at', ahoraISO()),
     supabase.from('email_broadcasts').select('id').eq('estado', 'enviando').lt('updated_at', hace10min),
   ]);
   if (prog.error) throw new Error(`procesarBroadcastsProgramados: ${prog.error.message}`);
+  // Las ediciones del newsletter tienen su propia regla (`repartirVencidas`, lib/newsletter-reglas.ts): las demás, como siempre.
+  const vencidas = (prog.data ?? []) as Array<{ id: number; segmento: string; programado_at: string | null }>;
+  let crms: ReadonlySet<number> | null = new Set<number>();
+  if (vencidas.some((r) => segmentoNewsletter(r.segmento))) {
+    crms = await (await import('@/lib/funnels')).listarFunnels().then((fs) => new Set(fs.map((f) => f.id)))
+      .catch((e: unknown) => { console.error(`[email] no pude leer los CRM del newsletter: ${e instanceof Error ? e.message : String(e)}`); return null; });
+  }
+  const { salen, aBorrador, cancelar } = repartirVencidas(vencidas, crms, Date.now());
+  // Condicional en el estado: si alguien la desprogramó o la tomó recién, no se la pisa.
+  if (aBorrador.length) await supabase.from('email_broadcasts').update({ estado: 'borrador', programado_at: null, updated_at: ahoraISO() }).in('id', aBorrador).eq('estado', 'programado');
+  if (cancelar.length) await supabase.from('email_broadcasts').update({ estado: 'cancelado', updated_at: ahoraISO() }).in('id', cancelar).eq('estado', 'programado');
   const ids = [...new Set([
-    ...((prog.data ?? []) as Array<{ id: number }>).map((r) => r.id),
+    ...salen,
     ...((stuck.data ?? []) as Array<{ id: number }>).map((r) => r.id),
   ])];
   const detalle: ResultadoBroadcast[] = [];

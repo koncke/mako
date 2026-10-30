@@ -87,6 +87,42 @@ export function segmentoNewsletter(s: unknown): SegmentoNewsletter | null {
 export const segmentoDeNewsletter = (funnelId: number, etapa?: EtapaNewsletter | null): string =>
   `${PREFIJO_SEGMENTO_NEWSLETTER}${funnelId}${etapa ? `:${etapa}` : ''}`;
 
+/** Más vencida que esto, una edición programada ya no sale sola: su texto («este viernes…») quedó viejo. Es más que la noche del cron (de 13 a 23 UTC). */
+export const VENCIDA_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Qué hace el cron con las programadas que ya vencieron (la revisión del 30/10/2026, M3 y M4). Lo que no es una edición sale
+ * como siempre. De las ediciones:
+ *   · su CRM se archivó (M4): `cancelar`. El negocio lo sacó para dejar de mandarlo; sin esto seguían saliendo a toda la lista.
+ *   · venció hace más de un día (M3: se programó con el envío apagado, y lo prendieron un mes después): `aBorrador`.
+ *   · varias vencidas del mismo CRM: sale SÓLO la última, y las otras `aBorrador`. Si salieran todas, la primera quemaba a las
+ *     demás: el guard de 20 h las marca «saltado» para todos y quedan como enviadas sin haber salido.
+ * `crmsActivos` null = no se pudieron leer: las ediciones esperan a la próxima corrida (ni salen ni se tocan), y las demás siguen.
+ */
+export function repartirVencidas(
+  filas: ReadonlyArray<{ id: number; segmento: string; programado_at: string | null }>,
+  crmsActivos: ReadonlySet<number> | null,
+  ahoraMs: number,
+): { salen: number[]; aBorrador: number[]; cancelar: number[] } {
+  const salen: number[] = [];
+  const aBorrador: number[] = [];
+  const cancelar: number[] = [];
+  const ultimaDeCrm = new Map<number, { id: number; t: number }>();
+  for (const f of filas) {
+    const seg = segmentoNewsletter(f.segmento);
+    if (!seg) { salen.push(f.id); continue; }
+    if (!crmsActivos) continue;
+    if (!crmsActivos.has(seg.funnelId)) { cancelar.push(f.id); continue; }
+    const t = f.programado_at ? Date.parse(f.programado_at) : Number.NaN;
+    if (!Number.isFinite(t) || ahoraMs - t > VENCIDA_MS) { aBorrador.push(f.id); continue; }
+    const ya = ultimaDeCrm.get(seg.funnelId);
+    if (!ya) { ultimaDeCrm.set(seg.funnelId, { id: f.id, t }); continue; }
+    if (t > ya.t) { aBorrador.push(ya.id); ultimaDeCrm.set(seg.funnelId, { id: f.id, t }); } else aBorrador.push(f.id);
+  }
+  for (const u of ultimaDeCrm.values()) salen.push(u.id);
+  return { salen, aBorrador, cancelar };
+}
+
 /** ¿Este broadcast es una edición del newsletter? Se deriva del segmento (ver la cabecera). */
 export const esEdicion = (segmento: unknown): boolean => segmentoNewsletter(segmento) != null;
 

@@ -6949,6 +6949,7 @@ El newsletter: cada cuánto sale y de qué trata, su CRM de suscriptos (cuántos
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
+- **Solo la plataforma (MaKo).**
 - **Solo el administrador del workspace.**
 - **Requiere la tab:** newsletters
 
@@ -7193,6 +7194,7 @@ Propone fijar cada cuánto sale el newsletter del negocio, de qué trata y cuán
 - **Escribe:** guarda newsletter.config en app_settings y, la primera vez, crea el CRM «Newsletter» en funnels (sin producto)
 - **Reversible:** sí
 - **Costo:** gratis
+- **Solo la plataforma (MaKo).**
 - **Solo el administrador del workspace.**
 - **Requiere la tab:** newsletters
 
@@ -7217,6 +7219,7 @@ Propone crear una edición del newsletter en BORRADOR, para todo el CRM «Newsle
 - **Escribe:** inserta un broadcast en estado borrador en email_broadcasts con el segmento del CRM del newsletter
 - **Reversible:** sí
 - **Costo:** gratis
+- **Solo la plataforma (MaKo).**
 - **Solo el administrador del workspace.**
 - **Requiere la tab:** newsletters
 

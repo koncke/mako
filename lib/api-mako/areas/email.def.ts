@@ -37,7 +37,9 @@ const TAB_ADMIN = { tab: 'email', rolMinimo: 'admin' } as const;
 // El Newsletter (29/10/2026): su tab abre con `requireRolWs([])`, así que cada operación pide el admin (AGENTS.md, «Una
 // capacidad nueva de MaKo se DECLARA en el registro de la API»). Una EDICIÓN es un broadcast: programarla, probarla y
 // enviarla van por las de broadcast, con su id.
-const TAB_NEWSLETTER = { tab: 'newsletters', rolMinimo: 'admin' } as const;
+// ⚠️ `soloPlataforma` mientras esté en PRONTO (la revisión del 30/10/2026, M1): `tab` deja pasar al admin de cualquier negocio
+// con capa completo o agencia. Se saca junto con la puerta de la tab (app/newsletters/puerta.ts), en el go-live del email.
+const TAB_NEWSLETTER = { tab: 'newsletters', rolMinimo: 'admin', soloPlataforma: true } as const;
 /** Las etapas del CRM del newsletter a las que se le escribe (lib/newsletter-reglas.ts; la baja no). */
 const ETAPAS_NEWSLETTER_API = ['lead', 'nl_lee', 'nl_dormido', 'ganado'] as const;
 const CANALES_TODOS = ['whatsapp', 'app', 'http'] as const;

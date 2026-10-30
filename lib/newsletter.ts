@@ -157,6 +157,9 @@ export type LeadDestinoNewsletter = { id: number; nombre: string | null; email: 
  * `leadsDeSegmento` (lib/email-marketing.ts): el envío, el conteo de la pantalla y la API usan ESTA lista.
  */
 export async function destinatariosDeNewsletter(seg: SegmentoNewsletter): Promise<LeadDestinoNewsletter[]> {
+  // ⚠️ UN CRM ARCHIVADO NO TIENE A QUIÉN ESCRIBIRLE (la revisión del 30/10/2026, M4): archivarlo apaga `activo` y nada más, los
+  // leads siguen colgados de él. Sin esto, lo que estaba programado seguía saliendo a toda la lista.
+  if (!(await existeCrm(seg.funnelId))) return [];
   const subs = await suscriptosDe(seg.funnelId);
   return subs
     .filter((s) => !s.optOut && entraEnSegmento(seg, s.etapa))
