@@ -237,7 +237,7 @@ test('el modal: una pantalla, `onCerrar` fijo que no cierra con un guardado en v
   assert.match(src, /export function ConfiguracionesModal\(\{ secuenciaId, onCerrar \}: PropsConfiguraciones\) \{/);
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
   // Quien lo abre le pasa un `onCerrar` de identidad FIJA (el lienzo y la lista).
-  assert.match(fuente('app/automations/SecuenciaPerfil.tsx'), /const cerrarConfig = useCallback\(\(\) => setConfigAbierta\(false\), \[\]\);/);
+  assert.match(fuente('app/automations/SecuenciaPerfil.tsx'), /const cerrarConfig = useCallback\(\(\) => \{ setConfigAbierta\(false\); alCerrarConfig\.current\(\); \}, \[\]\);/);
   assert.match(fuente('app/automations/SimuladorWhatsApp.tsx'), /const cerrarConfigDe = useCallback\(\(\) => setConfigDe\(null\), \[\]\);/);
   assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+" sinFiletes>/, 'el modal salta de alto');
   assert.match(src, /createPortal\(\s*<Modal /);
