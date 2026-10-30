@@ -38,6 +38,7 @@ import {
   ticketsQueNombran,
 } from '../lib/tickets-reglas';
 import { bloqueDePedidos } from '../lib/pedidos-del-negocio';
+import { paraElCliente } from '../lib/tickets-reglas';
 import { mensajePedidoDelegado, mensajeTicketNuevo } from '../lib/tickets-aviso';
 
 const RAIZ = join(__dirname, '..');
@@ -314,8 +315,22 @@ test('13. A2: el pedido delegado con plata, envíos o borrados, o de alguien sin
     ['Mándales un WhatsApp a los 30 leads de ayer', /manda o publica/],
     ['Publica el post en Instagram', /manda o publica/],
     ['Borra los leads duplicados', /borra/],
-    ['Dale de baja a la automatización vieja', /borra/],
+    ['Dale de baja a la tarea vieja', /borra/],
   ] as const) assert.match(delegadoQueDecideMartin(pedido, admin) ?? '', motivo, pedido);
+  // La re-verificación de d49539722 (N1): con una lista de lo PROHIBIDO, 15 de 23 frases dichas de otra manera salían con el «hazlo».
+  // Ahora va AL REVÉS: sólo lo de `DELEGADO_SEGURO`. Rota: sacar el `!hay(DELEGADO_SEGURO, t)` → «subile a 50 por día la campaña» sale.
+  for (const pedido of [
+    'subile a 50 por día la campaña', 'duplicá la campaña ganadora y ponela a correr', 'escalá la campaña al doble', 'poné 30 lucas en el conjunto',
+    'hacele un descuento del 20%', 'escribile a todos los leads', 'avisale a Juan por WhatsApp', 'activá la secuencia de nutrición',
+    'inscribí a los 40 leads en la secuencia', 'prendé la automatización de cumpleaños', 'contestale a la lead', 'respondé los comentarios de Instagram',
+    'recordales a los que no vinieron', 'sacá a Juan del CRM', 'limpiá los contactos duplicados',
+    'pausá la campaña vieja y activá la secuencia de seguimiento', 'hay que activar la nutrición la semana que viene',
+    // Con una palabra segura al lado, el veto igual gana.
+    'armá un borrador y escribile a todos los leads', 'duplicá la landing y poné 30 lucas',
+  ]) assert.ok(delegadoQueDecideMartin(pedido, admin), `«${pedido}» sale con el «hazlo»`);
+  for (const pedido of ['duplicá la landing del webinar', 'armame las tareas del lanzamiento', 'agregale una nota al proyecto', 'haceme un guion para el reel', 'analizá la landing de ventas', 'haceme un reporte de la semana']) {
+    assert.equal(delegadoQueDecideMartin(pedido, admin), null, `«${pedido}» es de lo seguro`);
+  }
   // Quien pide: un admin del negocio o un admin de MaKo. Un teléfono que no está en un perfil, un `@lid` (su nombre) o un closer, no.
   for (const quien of [
     { usuarioId: null, email: 'whatsapp:+5491122334455', rol: 'por WhatsApp' },
@@ -357,6 +372,10 @@ test('14. M1: de lo que escribe el Cerebro, al grupo del cliente sólo llega lo 
   assert.equal(linkDelNegocio('ver https://hola-mako.com/landings/3?ws=11 y https://hola-mako.com/landings/4?ws=10.', 10), 'https://hola-mako.com/landings/4?ws=10');
   assert.equal(linkDelNegocio('https://hola-mako.com/landings/3', 10), 'https://hola-mako.com/landings/3');
   assert.equal(linkDelNegocio('https://otra.com/x', 10), null);
+  // Otro negocio por su NOMBRE (la re-verificación, N2): «Leila Fittipaldi» y «Mauricio Durán» pasaban. Rota: sin `nombraAAlguien`.
+  assert.equal(sinLoInterno('Lo armé como el de Leila Fittipaldi. ¿Qué título le pongo?', { id: 8 }), '¿Qué título le pongo?');
+  assert.equal(sinLoInterno('Mauricio Durán pidió lo mismo.', { id: 8 }), '');
+  assert.equal(sinLoInterno('Lo ves en el Media Buyer de MaKo.', { id: 8 }), 'Lo ves en el Media Buyer de MaKo.', 'una pantalla de MaKo no es una persona');
   assert.ok(sinLoInterno('a. '.repeat(300), { id: 8 }).length <= 401);
 });
 
@@ -374,4 +393,30 @@ test('15. M3: el DEBUG lo habilita quien escribe (con su teléfono), y `diagnost
   // El modelo nunca la tiene: las herramientas del turno salen de `sinDiagnostico`.
   assert.ok(doer.includes('const sinDiagnostico = conFuncion.filter((t) => t.name !== DIAGNOSTICAR_NEGOCIO);'));
   assert.doesNotMatch(doer.slice(doer.indexOf('const leidas = '), doer.indexOf('const tools = leidas;')), /conFuncion/);
+});
+
+test('16. M1 por las otras dos puertas: lo que escribe el Cerebro de un pedido delegado no va crudo al turno ni a /tickets', () => {
+  // La re-verificación de d49539722 (N2). El turno del grupo: el bloque de pedidos llevaba 160 caracteres crudos de la respuesta.
+  // Rota: `bloqueDePedidos` sin mirar `delegado` → «Hecho en ws11…» va al system de cada turno 3 días.
+  const ahora = new Date('2026-10-30T10:00:00Z');
+  const p = { id: 8, titulo: 'Duplicar la landing', estado: 'resuelto' as const, respuesta: 'Hecho en ws11 con el script de Leila.', updated_at: '2026-10-30T09:00:00Z' };
+  assert.match(bloqueDePedidos([p], ahora, 'UTC'), /el equipo dijo: «Hecho en ws11/, 'el bloque de un ticket de siempre cambió');
+  assert.doesNotMatch(bloqueDePedidos([{ ...p, delegado: true }], ahora, 'UTC'), /ws11|el equipo dijo/);
+  assert.match(sinComentarios(leer('lib/mako-doer-in.ts')), /\.\.\.\(esPedidoDelegado\(t\.contexto\) \? \{ delegado: true as const \} : \{\}\)/);
+  // /tickets y /m/tickets (`paraElCliente`): el «listo» es el del aviso, y lo demás del equipo pasa por `sinLoInterno`.
+  // Rota: `paraElCliente` sin `delEquipo` → el dueño lee «Hecho en ws11…» tal cual.
+  const fila = {
+    id: 8, titulo: 'Duplicar la landing', descripcion: 'ACCIÓN DELEGADA', tipo: 'pedido' as const, estado: 'resuelto' as const, created_at: '2026-10-30T08:00:00Z',
+    updated_at: '2026-10-30T09:00:00Z', respuesta: 'Hecho en ws11 con el script de Leila. https://hola-mako.com/landings/4?ws=10', despacho: 'runner', decidido_at: null,
+    resuelto_at: '2026-10-30T09:00:00Z', duplicado_de: null, contexto: { delegado: true }, workspace_id: 10,
+  };
+  const eventos = [{ at: '2026-10-30T08:30:00Z', actor: 'equipo', tipo: 'comentario', texto: 'Lo copié del de Mauricio Durán. ¿Le dejo el mismo título?', datos: null }];
+  const c = paraElCliente(fila, eventos as never);
+  assert.equal(c.respuesta, 'Listo: ya quedó tu pedido #8 («Duplicar la landing»). Lo ves aquí: https://hola-mako.com/landings/4?ws=10');
+  const delEquipo = c.lineas.filter((l) => l.quien === 'equipo').map((l) => l.texto).join('\n');
+  assert.doesNotMatch(delEquipo, /ws11|Leila|Mauricio Durán|script/, delEquipo);
+  assert.match(delEquipo, /¿Le dejo el mismo título\?/);
+  // Un ticket de siempre (no delegado): la respuesta de Martín, tal cual.
+  const comun = paraElCliente({ ...fila, contexto: {}, respuesta: 'Te lo arreglé, Juan Pérez ya lo ve.' });
+  assert.equal(comun.respuesta, 'Te lo arreglé, Juan Pérez ya lo ve.');
 });

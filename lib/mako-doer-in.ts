@@ -32,7 +32,7 @@ import { cuantasClavesDeIA } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
-import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { errorParaTicket, esPedidoDelegado, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude, type TicketNoPude } from '@/lib/no-pude-server';
@@ -1683,7 +1683,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const pedidosDelNegocio: PedidoDelNegocio[] = leidos?.ok
       ? leidos.datos.map((t) => {
         const desplegado = t.estado === 'resuelto' ? hitos?.get(t.id) : undefined;
-        return { id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at, ...(desplegado ? { desplegado } : {}) };
+        return { id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at, ...(desplegado ? { desplegado } : {}), ...(esPedidoDelegado(t.contexto) ? { delegado: true as const } : {}) };
       })
       : [];
     const ctxPedidos = bloqueDePedidos(pedidosDelNegocio, new Date(), tzGrupo);

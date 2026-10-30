@@ -138,11 +138,16 @@ test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo 
   assert.equal(t.contexto.clasificacion?.clase, 'ACCION');
   assert.match(t.descripcion, /^ACCIÓN DELEGADA: /);
   assert.match(t.descripcion, /«créame una automatización que le dé la bienvenida a los leads nuevos»/);
-  // Lo pidió Leandro: admin de su negocio por el teléfono de su perfil (que en un grupo de `@lid` viene en `participantAlt`), y no
-  // toca plata: su regla lo lleva al Runner con el «hazlo».
+  // Lo pidió Leandro (admin de su negocio, por el teléfono de su perfil, que en un grupo de `@lid` viene en `participantAlt`), pero
+  // una automatización le escribe sola a los leads: no es de lo seguro, espera a Martín (la re-verificación de d49539722, N1).
   assert.equal(t.email, 'leandro@fiesta.test', 'el pedido no quedó a nombre de quien lo escribió');
-  assert.equal(t.estado, 'en_curso', t.porque);
-  assert.equal(t.despacho, 'runner');
+  assert.equal(t.estado, 'esperando_decision', t.porque);
+  assert.match(t.porque, /que decide Martín: manda o publica algo/);
+  // Lo seguro (una landing), del mismo admin: su regla lo lleva al Runner con el «hazlo».
+  const s = escena('delegadoSeguro');
+  assert.equal(s.tickets.length, 1, 'no quedó el pedido delegado');
+  assert.equal(s.tickets[0].estado, 'en_curso', s.tickets[0].porque);
+  assert.equal(s.tickets[0].despacho, 'runner');
 });
 
 test('8. el #30 de Leandro: una pregunta por un arreglo ve lo que salió en producción, y nunca sale «pídemelo otra vez y lo hago»', () => {

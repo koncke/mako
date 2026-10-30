@@ -161,6 +161,9 @@ async function main() {
   // ACCIÓN que MaKo no hizo (ni propuso ni escribió nada): no sale su texto, se DELEGA como pedido.
   await correr('accionDelegada', { clase: '{"clase":"ACCION","resumen":"Crear una automatización de bienvenida para los leads nuevos","reenviado":false}', respuesta: 'Listo, ya quedó creada la automatización de bienvenida.' },
     'créame una automatización que le dé la bienvenida a los leads nuevos');
+  // Lo SEGURO (una landing), pedido por un admin del negocio (Leandro): sigue por su regla, con el «hazlo».
+  await correr('delegadoSeguro', { clase: '{"clase":"ACCION","resumen":"Duplicar la landing del webinar con el título Masterclass","reenviado":false}', respuesta: 'Listo, ya quedó duplicada la landing.' },
+    'duplícame la landing del webinar con el título Masterclass');
   // A2 (la revisión de privacidad): un pedido delegado con PLATA espera a Martín aunque el negocio tenga su regla (Leandro).
   await correr('delegadoPlata', { clase: '{"clase":"ACCION","resumen":"Subirle el presupuesto a la campaña Verano a 50 dólares","reenviado":false}', respuesta: 'Listo, ya le subí el presupuesto a 50 dólares.' },
     'súbele el presupuesto a la campaña Verano a 50 dólares por día');
