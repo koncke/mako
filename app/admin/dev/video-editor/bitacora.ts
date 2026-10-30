@@ -346,4 +346,18 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '30 oct', hora: '04:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los paneles del editor ya no se achican hasta no leerse',
+    puntos: [
+      'Arrastrando los divisores, la biblioteca y el panel de la derecha podían quedar tan angostos que «Importar» y los datos del proyecto se cortaban. Ahora cada panel tiene un ancho mínimo en el que todo se lee.',
+      'En los datos del proyecto, los nombres largos («Cuadros por segundo») pasan a dos renglones en vez de cortarse.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/components/editor/minimos-paneles.ts — los mínimos en píxeles',
+      'app/video-editor/_opencut/editor-page.tsx · panels/properties/detalles.tsx',
+      'tests/video-editor-paneles-minimos.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];
