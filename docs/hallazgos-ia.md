@@ -7388,3 +7388,8 @@ que falte el autor en la memoria.
   Quedaron en `HOMOGRAFOS`.
 - **Sin hacer:** el alcance es la lista de verbos. Un verbo que no está (por ejemplo «chequear») no se ve conjugado. Se
   suma en `REGULARES` o `IRREGULARES` de lib/voseo.ts.
+- ⚠️ **Mudar el léxico a `lib/` lo pone bajo el guard que lo usa** (tren-ag, Integración, 30/10). `lib/voseo.ts` nombra
+  `vos`, `acá` y `laburo` para BUSCARLOS, y `tests/puente-panel-copy.test.ts` lo frenó como copy. En el árbol del chat pasó
+  porque el guard lista con `git ls-files` y el archivo nuevo todavía no estaba en el índice. Ahora está en la lista de los que
+  pueden nombrar el voseo (`512f49af5`). **Regla:** un archivo nuevo que el guard tiene que ver se commitea ANTES de correr
+  el guard.
