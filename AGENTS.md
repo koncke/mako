@@ -1776,6 +1776,12 @@ código nuevo:
   cierre) se borra sólo si MaKo dice que ENTRÓ (`cierresIds`): con el buzón compartido, «se subió» no es «entró».
   ⚠️ Nunca se copian las `.key` de `<carpeta>/sessions/` a otra carpeta para «hacerlo andar»: es la protección contra
   un canal que nadie avaló.
+- **LO QUE CORRE SIN UN CHAT NO LATE COMO RUNNER, NO RECLAMA Y LO DICE** (30/10/2026; `cartero.mjs servicio`, 1.25.0). Manda
+  `entregables: []` (la lista vacía: sin ella, MaKo reclama todos los vivos), `abre: []` y `servicio: { version, desde }`. No llama a
+  `latir` ni a `vuelta`, y a `carpetasConRunner` le pasa `null`: un chat con nombre y sin cron (lo que deja un `/clear`) no cuenta.
+  Una vuelta a la vez en la PC (`tomarVuelta`, `vuelta.lock`): quien lo encuentra tomado saltea, y `vigilar` la reintenta. Todo el
+  que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ `visto_at` deja de querer decir «hay un Runner» cuando el
+  servicio está instalado: lo que el servidor tiene que cambiar, en docs/diseno-cartero-servicio.md §2.6, va ANTES de instalarlo.
 - **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
   cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
   tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:

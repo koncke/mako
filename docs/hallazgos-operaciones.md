@@ -3091,8 +3091,8 @@ aviso de mudanza.
   `cartero.mjs medir` con lo que da `get_usage`, y ese paso no estaba en el prompt. Ahora es el paso 0. Con la app en otra
   cuenta, `medir` no anota: la huella del reinicio semanal lo frena (`problemaDeHuella`).
 
-**Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10 (`cartero.mjs` no tiene ese comando).
-Por eso el Runner sigue dependiendo de un chat abierto: estuvo parado del 24/10 al 30/10.
+**Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10. Por eso el Runner estuvo parado del 24/10
+al 30/10. El comando existe desde el 30/10 (cartero 1.25.0), sin instalar: ver «El servicio no le saca pedidos al Runner».
 
 ## Un pedido a un chat cerrado se pierde en silencio, con 15 días de retraso (30/10/2026)
 
@@ -3148,6 +3148,40 @@ dice «78% · medido hace 6 días». Lo que engaña es el renglón de al lado, �
 en que se midió, y lo que se muestra al lado no la contradice.
 
 **Sin hacer:** cambiar ese texto cuando la medición está vieja (`textoRunner` en `app/admin/operaciones/Uso.tsx`).
+
+## El servicio no le saca pedidos al Runner: lo que miente es `visto_at` (30/10/2026)
+
+**El temor:** el servicio sube con `entregables: []` cada 2 minutos. ¿Deja al Runner sin pedidos?
+
+**El diagnóstico obvio era el equivocado.** `entregables` no se guarda en ningún lado: vale sólo en ese POST. `hayParaElCartero`
+dice «entregables» en su comentario y lee `chats` (`vivo`, `runner`), que el servicio sube honesto. Lo que se rompe es otra cosa:
+`carteroVivo` lee `visto_at` como «hay un Runner». Con el servicio, `visto_at` queda fresco sin ningún Runner, y **el Ops Center
+dice «Activo» justo en el caso que el servicio venía a mostrar.** Se arregla en el servidor, con la lista exacta en
+docs/diseno-cartero-servicio.md §2.6. **Por eso el servidor se despliega ANTES de `instalar-servicio`.**
+
+**Lo que cuesta caro no ver, medido en el código:**
+- **Hay dos reclamos, no uno.** `abre` le da los chats nuevos a quien lo declara, aparte de `entregables`. Con el permiso prendido,
+  mandar sólo `entregables: []` deja un chat nuevo tomado que nadie abre.
+- **`[]` no es lo mismo que no mandarla.** Sin la lista, `sanearEntregables` reclama todos los vivos (un cartero de antes).
+- **`carpetasConRunner` cuenta siempre la carpeta de quien la llama.** Basta con pasarle una carpeta al servicio para que un chat
+  sin cron cuente como vivo, sin llamar nunca a `latir`.
+- **Un proceso largo pisa la `version`.** Con la versión de cuando arrancó, le bajaría la del Runner en la fila cada 2 minutos.
+  Por eso el bucle lanza un proceso por vuelta.
+- **Un lock de toda la PC puede dejar sin subir a un Runner.** Antes, los de carpetas distintas corrían a la vez. Con «quien lo
+  encuentra tomado saltea», y los crons en el mismo minuto, el segundo no subía nunca su cuenta. `vigilar` reintenta la salteada.
+  Y sin el servicio instalado también aplica: el lock ya está en la vuelta del Runner.
+- **El servicio hace correr lo que antes frenaba la PC apagada:** vencer `escrito` a los 15 días y `tomado` a las 2 horas corre en
+  cualquier POST. Antes, sin Runner no vencía nada. Vencer es mudo: el cartel 2 tiene que salir antes.
+
+**La regla:** lo que corre sin un chat no late como Runner, no reclama, y no se presenta como uno. Y un campo que significaba «hay
+Runner» porque sólo un Runner lo escribía deja de significarlo el día que otro lo escribe: al sumar un escritor, se revisa quién lo lee.
+
+**Sin hacer:** todo el lado del servidor (§2.6) y los dos carteles · el `.exe`, con la pregunta en §2.4 · el hook `SessionStart` y
+aflojar `exigirRunner` (§2.3) · probarlo en la PC de verdad (§3.5). **Ni el lanzador ni la clave Run corrieron nunca fuera de un
+test**, y eso es decisión de Martín.
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`vueltaDelServicio`, `tomarVuelta`, `carpetasConRunner`) · `lib/operaciones.ts`
+(`cicloCartero`, `hayParaElCartero`) · `lib/operaciones-reglas.ts` (`carteroVivo`, `sanearEntregables`)
 
 ## Una cosecha sin subir es una cosecha perdida (30/10/2026)
 

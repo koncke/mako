@@ -77,13 +77,17 @@
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
 //   uso                            lo corre la BARRA DE ESTADO del Runner (runner-settings.json): anota la cuota de
 //                                  la cuenta de su terminal y escribe la línea de la barra
+//   servicio [--una-vez]           (1.25.0) lo que arranca con Windows: mide y sube cada 2 minutos, sin chat. NUNCA reclama ni
+//                                  entrega, y no late como Runner (docs/diseno-cartero-servicio.md)
+//   instalar-servicio              (1.25.0) lo corre MARTÍN, en su PC: copia este archivo y escribe la clave Run «MaKo Cartero»
+//   quitar-servicio                (1.25.0) saca la clave Run y apaga el que está corriendo
 // =============================================================================
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 // 1.17.1 = la 1.17.0 (lo adjuntado en la app) + la 1.16.1 (la huella de la semana en `medir`), juntas (20/10/2026).
 // 1.17.2: el cierre con `wrap_up` sube su resumen como turno y su pregunta como formulario (cierreWrapUp, 20/10/2026).
@@ -127,7 +131,11 @@ import { spawnSync } from 'node:child_process';
 //         distinto de un ticket. Lo marca el servidor (`delegado`) SÓLO en `tickets`, la cola de lo que el triage APROBÓ: lo que espera
 //         la decisión de Martín (`ticketsNuevos`) viaja siempre con el texto de ticket nuevo (la revisión de privacidad, A2). Uno de
 //         antes lo manda con el texto de siempre. Se suma a la lista de textos fijos que no se suben como conversación.
-export const VERSION = '1.24.0';
+// 1.25.0: EL SERVICIO DE LA PC (30/10/2026; el Runner estuvo parado del 24/10 al 30/10 y nadie se enteró). `servicio` mide y sube
+//         cada 2 minutos sin un chat abierto, con `entregables: []` y `abre: []`, y dice `servicio: { version, desde }` en el POST
+//         (un servidor de antes lo ignora). Una vuelta a la vez en la PC (`vuelta.lock`): una vuelta que lo encuentra tomado saltea.
+//         `vigilar` reintenta la que salteó, para que un Runner no se quede sin subir su cuenta.
+export const VERSION = '1.25.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1156,9 +1164,11 @@ function sesionesVivas(configDir) {
 
 /** Las carpetas con un Runner abierto: una sesión viva que se llama Runner (o Cartero). El registro trae el nombre
  *  de las dos clases de sesión (el de la app y el de `claude -n Runner`). La de quien corre esto cuenta siempre:
- *  el que da la vuelta ES el Runner de su carpeta. */
+ *  el que da la vuelta ES el Runner de su carpeta.
+ *  ⚠️ El servicio pasa `propio = null` (1.25.0): no es un chat ni tiene carpeta. Si contara la suya, cada chat de esa carpeta
+ *  subiría `runner: true` sin nadie que le entregue, que es lo que deja un `/clear` (un chat con nombre y sin cron). */
 function carpetasConRunner(cfg, propio) {
-  const out = new Set([resolver(propio).toLowerCase()]);
+  const out = new Set(propio ? [resolver(propio).toLowerCase()] : []);
   for (const d of carpetasDe(cfg)) {
     // Con el nombre no alcanza: un chat llamado Runner al que nadie le pegó las instrucciones no da vueltas, y MaKo le
     // reclamaría trabajos que se vencerían en el buzón. Cuenta si además dio una vuelta hace poco (su latido).
@@ -1507,7 +1517,7 @@ function listar(dir) {
   try { return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => path.join(dir, f)); } catch { return []; }
 }
 
-async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = carpetasConRunner(cfg, propio)) {
+async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = carpetasConRunner(cfg, propio), servicio = null) {
   if (!cfg.token) throw new Error('falta el token: node cartero.mjs token <mkop_…>');
   const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
   const spkis = claves();
@@ -1550,7 +1560,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const deArchivos = archivosPregunta.map((f) => leerJson(f, null)).filter(Boolean);
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
-  const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
+  // ⚠️ El servicio manda la lista VACÍA, nunca sin mandarla: sin la lista, MaKo reclama todos los vivos (`sanearEntregables`).
+  const entregables = servicio ? [] : [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
   // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
   const delaVuelta = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
   // Más las de los cierres con `wrap_up` (1.17.2): la última de cada chat, sin repetir una que el chat también hizo con
@@ -1577,7 +1588,12 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       // El nombre y el email de esta cuenta, de cuentas.tsv (1.15.2, la G): el Uso los muestra; un servidor de antes los ignora.
       ...(titularDe(cuenta) ? { titular: titularDe(cuenta) } : {}),
       // Las cuentas en las que esta PC abre chats (1.11.0): MaKo le da un trabajo «nuevo» sólo a quien lo declara.
-      abre: puedeAbrir(cfg, cuenta) ? [cuenta] : [],
+      // ⚠️ El servicio no declara ninguna (1.25.0): `abre` reclama aparte de `entregables`, y un «nuevo» tomado sin nadie que
+      // corra `abrir` se perdería.
+      abre: !servicio && puedeAbrir(cfg, cuenta) ? [cuenta] : [],
+      // Quién da esta vuelta (1.25.0): MaKo separa «hay noticias de la PC» de «hay un Runner que entrega». Un servidor de antes
+      // no lo lee.
+      ...(servicio ? { servicio } : {}),
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -1616,6 +1632,15 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     escribirJson(path.join(ACUSES, `${id}.json`), { id, estado: 'no_entregado', motivo });
     log(`[${cuenta}] RECHAZO ${id}: ${motivo}`);
   };
+  // El servicio no reclama: con `entregables: []` y `abre: []` MaKo no le da nada. Si igual le diera algo, ya está `tomado` allá:
+  // se devuelve con su motivo en vez de dejarlo en un buzón que quizá nadie mire (el limbo, docs/hallazgos-operaciones.md).
+  if (servicio) {
+    const ajenos = [salida.pedidos, salida.avisos, salida.tickets, salida.ticketsNuevos].flatMap((l) => (Array.isArray(l) ? l : []));
+    for (const x of ajenos) if (typeof x?.id === 'string' && UUID_RE.test(x.id)) rechazarId(x.id, 'Nadie entrega en la PC: abre el Runner y vuelve a mandarlo');
+    limpiarAdjuntos();
+    limpiarAperturas();
+    return { vencidos: Number(salida.vencidos) || 0, acuses: Number(salida.acuses) || 0, cierres: Number(salida.cierres) || 0, devueltos: ajenos.length };
+  }
   for (const { id, firmado, firma } of salida.pedidos ?? []) {
     if (typeof id !== 'string' || !UUID_RE.test(id)) { log(`[${cuenta}] pedido con id inválido`); continue; }
     const rechazar = (motivo) => rechazarId(id, motivo);
@@ -1941,8 +1966,53 @@ function acuse(cuenta, id, resultado, motivo) {
   log(`[${c}] ACUSE ${id} ${ok ? 'ok' : `error: ${motivo}`}`);
 }
 
+// ── una vuelta a la vez en la PC (1.25.0, 30/10/2026) ────────────────────────────────────────────────────────────────
+// El servicio y los Runners tocan los mismos archivos (las marcas de los turnos, los acuses). `vuelta.lock` dice quién la está
+// dando: el pid del proceso que corre la vuelta. Vale 3 minutos desde que se tocó el archivo; quien lo encuentra tomado y
+// vigente, saltea. La vigencia se mide por la fecha del archivo, no por su contenido: renovarla no reescribe nada, así nadie
+// lee un archivo a medio escribir. Un pid que ya no existe no retiene nada (a la vuelta la cortó el tope de Bash, o la PC).
+const LOCK = path.join(DIR, 'vuelta.lock');
+export const LOCK_VENCE_MS = 3 * 60 * 1000;
+
+function lockVigente(f, ahora) {
+  try {
+    if (ahora - fs.statSync(f).mtimeMs >= LOCK_VENCE_MS) return false;
+    const l = leerJson(f, null);
+    // Sin pid legible (recién creado, a medio escribir): vale lo que dice su fecha.
+    return !Number.isInteger(l?.pid) || vive(l.pid);
+  } catch { return false; }
+}
+
+/** Toma la vuelta de la PC. Devuelve con qué soltarla, o null si la tiene otro. */
+export function tomarVuelta(quien, ahora = Date.now()) {
+  fs.mkdirSync(DIR, { recursive: true });
+  const crear = () => {
+    try { fs.writeFileSync(LOCK, JSON.stringify({ pid: process.pid, quien, at: new Date(ahora).toISOString() }), { flag: 'wx' }); return true; } catch { return false; }
+  };
+  if (!crear()) {
+    if (lockVigente(LOCK, ahora)) return null;
+    // Vencido: se quita con un rename (sólo uno lo logra) y se mira lo que se quitó: entre mirar y mover, otro pudo haberlo
+    // tomado de nuevo, y a ése no se le saca.
+    const quitado = `${LOCK}.${process.pid}`;
+    try { fs.renameSync(LOCK, quitado); } catch { return null; }
+    if (lockVigente(quitado, ahora)) { try { fs.renameSync(quitado, LOCK); } catch { /* lo retomó otro: sigue su vuelta */ } return null; }
+    fs.rmSync(quitado, { force: true });
+    if (!crear()) return null;
+  }
+  // Una vuelta larga (adjuntos, varias cuentas) no pierde el lock: lo renueva mientras este proceso siga vivo.
+  const renovar = setInterval(() => { const t = new Date(); try { fs.utimesSync(LOCK, t, t); } catch { /* la próxima */ } }, LOCK_VENCE_MS / 3);
+  renovar.unref();
+  return {
+    soltar() {
+      clearInterval(renovar);
+      if (leerJson(LOCK, null)?.pid === process.pid) fs.rmSync(LOCK, { force: true });
+    },
+  };
+}
+
 /** Una vuelta de ESTE Runner: por cada cuenta con una fuente en su carpeta (o la que se le pida), y después lo
- *  que le toca entregar. Si una cuenta falla, las otras siguen. */
+ *  que le toca entregar. Si una cuenta falla, las otras siguen. Si otra vuelta está corriendo en la PC, ésta no sube nada
+ *  (`salteada`), pero late igual y entrega lo que ya tiene en el buzón: el Runner sigue vivo. */
 async function vuelta(cuenta) {
   const cfg = config();
   const propio = dirPropio(cfg);
@@ -1953,12 +2023,18 @@ async function vuelta(cuenta) {
   if (!cuentas.length) {
     throw new Error(`esta carpeta (${rotuloDir(propio)}) no es de ninguna cuenta: node cartero.mjs cartero <claudeN> cli ${rotuloDir(propio)}`);
   }
-  if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio), aperturas: listar(APERTURAS).length };
-  const porCuenta = {};
-  for (const c of cuentas) {
-    try { porCuenta[c] = await ciclo(c, cfg, propio, runners); } catch (e) { porCuenta[c] = { error: e.message }; log(`[${c}] CICLO falló: ${e.message}`); }
+  const lock = tomarVuelta('runner');
+  if (!lock) return { salteada: true, ...(cuenta ? {} : { carpeta: rotuloDir(propio), cuentas: {} }), entregar: pendientes(cuenta ?? null, propio), aperturas: listar(APERTURAS).length };
+  try {
+    if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio), aperturas: listar(APERTURAS).length };
+    const porCuenta = {};
+    for (const c of cuentas) {
+      try { porCuenta[c] = await ciclo(c, cfg, propio, runners); } catch (e) { porCuenta[c] = { error: e.message }; log(`[${c}] CICLO falló: ${e.message}`); }
+    }
+    return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio), aperturas: listar(APERTURAS).length };
+  } finally {
+    lock.soltar();
   }
-  return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio), aperturas: listar(APERTURAS).length };
 }
 
 /**
@@ -2138,6 +2214,7 @@ function estado(cuenta) {
     version: VERSION, dir: DIR, url: cfg.url ?? null,
     token: cfg.token ? `…${String(cfg.token).slice(-4)}` : null,
     claves: claves().map(claveId), carteros: cfg.carteros ?? {}, carpetas: cfg.carpetas ?? {},
+    servicio: leerJson(SERVICIO, null),
   };
   // En qué carpeta corre este Runner, por qué cuentas da la vuelta y en qué carpetas hay un Runner abierto.
   const propio = dirPropio(cfg);
@@ -2169,6 +2246,8 @@ const CADA_VIGILAR_MS = Math.max(100, Number(process.env.CARTERO_VIGILAR_MS) || 
 const ENTRE_VUELTAS_MS = Math.max(CADA_VIGILAR_MS, Number(process.env.CARTERO_ENTRE_VUELTAS_MS) || 30_000);
 /** El tope de todo `vigilar`: el Bash del Runner corta a los 120 s. */
 export const TOPE_VIGILAR_SEG = 105;
+/** Lo que se supone que tarda una vuelta cuando la anterior salteó y no se pudo medir (las reales: 30-80 s). */
+const VUELTA_SUPUESTA_MS = 30_000;
 
 /** La consulta liviana: cuántos trabajos esperan a las cuentas de esta carpeta (o a la pedida). */
 async function hayAlgo(cuenta, cfg = config(), propio = dirPropio(cfg)) {
@@ -2200,7 +2279,9 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
   let t0 = ahora();
   let r = await vuelta(cuenta);
   let ultima = ahora();
-  let dura = Math.max(ultima - t0, 2000);
+  // Una vuelta salteada no tarda nada, y eso no dice cuánto tarda una de verdad: se supone lo que suele tardar una.
+  const duraDe = (x, ms) => (x.salteada ? VUELTA_SUPUESTA_MS : Math.max(ms, 2000));
+  let dura = duraDe(r, ultima - t0);
   let consultas = 0;
   const hayQueEntregar = (x) => (x.entregar?.length ?? 0) > 0 || (x.aperturas ?? 0) > 0;
   let otraVez = false;
@@ -2231,13 +2312,15 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     const entraVuelta = ahora() + dura * 1.5 <= fin;
     // Hay algo NUEVO y la vuelta completa no entra en este Bash: sale ya y lo dice; el Runner corre `vigilar` otra vez.
     if (!entraVuelta && hay > (base ?? 0)) { otraVez = true; break; }
-    if ((hay > 0 || fallo || crecio) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
+    // La que salteó porque otra vuelta tenía la PC (1.25.0) se reintenta: si no, con varios Runners en el mismo minuto, el que
+    // llega segundo nunca subiría su cuenta ni reclamaría lo suyo.
+    if ((hay > 0 || fallo || crecio || r.salteada) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
       t0 = ahora();
       r = await vuelta(cuenta);
       ultima = ahora();
-      dura = Math.max(ultima - t0, 2000);
+      dura = duraDe(r, ultima - t0);
       base = null; // lo que esta vuelta no reclamó es la base nueva
-      if (!hayQueEntregar(r) && hay > 0) { // dijo que sí y no reclamó nada: espera antes de otra vuelta completa
+      if (!hayQueEntregar(r) && hay > 0 && !r.salteada) { // dijo que sí y no reclamó nada: espera antes de otra vuelta completa
         const hasta = ahora() + ENTRE_VUELTAS_MS;
         while (ahora() < hasta && ahora() + CADA_VIGILAR_MS + dura * 1.5 <= fin) {
           await new Promise((ok) => setTimeout(ok, CADA_VIGILAR_MS));
@@ -2265,8 +2348,176 @@ async function esperar(cuenta, maxSeg) {
   process.exit(2);
 }
 
+// ── el servicio de la PC (1.25.0, 30/10/2026): medir y subir sin un chat abierto ─────────────────────────────────────────
+// El Runner estuvo parado del 24/10 al 30/10: lo disparaba un chat, y sin ese chat no se midió ni se subió nada. Diseño y por
+// qué: docs/diseno-cartero-servicio.md. Lo que hace:
+//   · cada 2 minutos, una vuelta por TODAS las cuentas de la PC, con `entregables: []` y `abre: []`. Nunca toca el buzón.
+//   · ⚠️ NO LATE COMO RUNNER: no llama a `latir` (ni a `vuelta`, ni a `exigirRunner`, que son de los chats) y deja su latido
+//     aparte, en `servicio.json`. Si latiera, un chat «Runner» abierto y sin cron (lo que deja un `/clear`) contaría como vivo.
+//   · ⚠️ UN PROCESO POR VUELTA: el bucle sólo espera y lanza. Lo que puede fallar (la red, un archivo roto, una versión a medio
+//     copiar) falla en el hijo, y el bucle reintenta. Además cada vuelta corre el código que está en disco: un proceso de días,
+//     con la versión de hace días, le pisaría a la fila de la cuenta la `version` del Runner cada 2 minutos.
+const SERVICIO = path.join(DIR, 'servicio.json');
+const SERVICIO_APAGAR = path.join(DIR, 'servicio.apagar');
+const VBS = path.join(DIR, 'mako-cartero.vbs');
+/** La clave de inicio de Windows. El valor es otro que el de `mako-pc` («MaKo»): ese programa es de los clientes, éste no. */
+const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+export const VALOR_RUN = 'MaKo Cartero';
+const CADA_SERVICIO_MS = Math.max(100, Number(process.env.CARTERO_SERVICIO_MS) || 120_000);
+/** Una vuelta que tarda más que esto se corta. Menos que los 3 minutos del lock: el hijo muere antes de que venza. */
+const TOPE_VUELTA_SERVICIO_MS = 150_000;
+/** Un servicio que no latió en este rato no cuenta como corriendo. */
+const SERVICIO_VENCE_MS = 6 * 60 * 1000;
+/** Sin red no gira: espera esto, y a la próxima (copia de scripts/ia-pc/mako-pc.mjs → ESPERAS_SIN_RED_MS: mako-pc es de los
+ *  clientes y no lleva este código, ni éste importa nada de allá). */
+const ESPERAS_SIN_RED_MS = [5_000, 10_000, 30_000, 60_000];
+export const esperaSinRed = (fallas) => ESPERAS_SIN_RED_MS[Math.min(Math.max(0, fallas), ESPERAS_SIN_RED_MS.length - 1)];
+
+/** Quien corre desde un chat no es el servicio: Claude Code les pone estas variables a sus comandos. */
+export const esUnChat = (env = process.env) => Boolean(env.CLAUDE_PID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDECODE);
+
+/** LA DOBLE LLAVE: sin el token de los carteros y sin una clave de firma, esta PC no tiene a quién hablarle. Ninguna de las dos
+ *  existe en la PC de un cliente. Devuelve qué falta, o null. */
+export function faltaLlave(cfg = config(), spkis = claves()) {
+  if (!/^mkop_[A-Za-z0-9_-]{20,}$/.test(String(cfg?.token ?? ''))) return 'Falta el token de la PC: pégalo con «cartero.mjs token» (sale de /admin/operaciones)';
+  if (!spkis.length) return 'Falta una clave de firma: pégala con «cartero.mjs clave»';
+  return null;
+}
+
+/** Las cuentas por las que da la vuelta el servicio: todas las que tienen de dónde sacar chats en esta PC. */
+export const cuentasDelServicio = (cfg) => Object.keys(cfg?.carteros ?? {}).filter((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).length > 0);
+
+/** El servicio que está corriendo (otro que éste), según su latido: su pid vive y latió hace poco. */
+export function servicioVivo(ahora = Date.now()) {
+  const s = leerJson(SERVICIO, null);
+  const at = Date.parse(s?.at ?? '');
+  return Number.isInteger(s?.pid) && s.pid !== process.pid && vive(s.pid) && ahora - at < SERVICIO_VENCE_MS ? s : null;
+}
+
+/** Una vuelta del servicio: mide y sube, por todas las cuentas. Si una falla, las otras siguen. `fallaron`: todas. */
+export async function vueltaDelServicio(desdeCrudo) {
+  const cfg = config();
+  const falta = faltaLlave(cfg);
+  if (falta) throw new Error(falta);
+  const desde = Number.isFinite(Date.parse(desdeCrudo ?? '')) ? new Date(desdeCrudo).toISOString() : new Date().toISOString();
+  const lock = tomarVuelta('servicio');
+  if (!lock) return { salteada: true };
+  try {
+    const runners = carpetasConRunner(cfg, null);
+    const cuentas = cuentasDelServicio(cfg);
+    const porCuenta = {};
+    for (const c of cuentas) {
+      try { porCuenta[c] = await ciclo(c, cfg, null, runners, { version: VERSION, desde }); } catch (e) { porCuenta[c] = { error: textoRemoto(e.message) }; }
+    }
+    const fallaron = cuentas.length > 0 && cuentas.every((c) => porCuenta[c].error);
+    return { cuentas: porCuenta, ...(fallaron ? { fallaron: true } : {}) };
+  } finally {
+    lock.soltar();
+  }
+}
+
+/** Corre una vuelta en un proceso aparte, con su tope. Nunca tira. */
+const vueltaAparte = (desde) => new Promise((ok) => {
+  let salida = '';
+  const anotar = (d) => { if (salida.length < 64_000) salida += d; };
+  const p = spawn(process.execPath, [archivoDeEsteModulo(), 'servicio', '--una-vez', '--desde', desde], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: TOPE_VUELTA_SERVICIO_MS });
+  p.stdout.on('data', anotar);
+  p.stderr.on('data', anotar);
+  p.on('error', (e) => ok({ ok: false, detalle: textoRemoto(e.message) }));
+  p.on('close', (codigo) => ok({ ok: codigo === 0, detalle: textoRemoto(salida) }));
+});
+
+/**
+ * El bucle del servicio: lo que arranca con Windows. NUNCA sale por un error (ni la red, ni la base, ni un token que cambió:
+ * cada vuelta relee la configuración, y el token nuevo vale sin reiniciar nada). Sale sólo si: falta una llave al arrancar, ya hay
+ * otro corriendo, o `quitar-servicio` lo pidió.
+ */
+export async function servicio() {
+  const falta = faltaLlave();
+  if (falta) throw new Error(falta);
+  const otro = servicioVivo();
+  if (otro) return { yaCorre: true, pid: otro.pid, desde: otro.desde };
+  fs.rmSync(SERVICIO_APAGAR, { force: true });
+  // El molde de mako-pc: lo que se escapa se anota, y el bucle sigue.
+  process.on('uncaughtException', (e) => log(`SERVICIO error suelto: ${e instanceof Error ? e.message : String(e)}`));
+  process.on('unhandledRejection', (e) => log(`SERVICIO error suelto: ${e instanceof Error ? e.message : String(e)}`));
+  const desde = new Date().toISOString();
+  log(`SERVICIO arrancó (${VERSION})`);
+  let fallas = 0;
+  for (;;) {
+    try {
+      if (fs.existsSync(SERVICIO_APAGAR)) {
+        fs.rmSync(SERVICIO_APAGAR, { force: true });
+        fs.rmSync(SERVICIO, { force: true });
+        log('SERVICIO apagado');
+        return { apagado: true };
+      }
+      escribirJson(SERVICIO, { pid: process.pid, version: VERSION, desde, at: new Date().toISOString() });
+      const r = await vueltaAparte(desde);
+      if (r.ok && fallas) log('SERVICIO volvió la conexión');
+      if (!r.ok && !fallas) log(`SERVICIO sin poder subir, reintenta solo: ${r.detalle}`);
+      fallas = r.ok ? 0 : fallas + 1;
+    } catch (e) {
+      if (!fallas) log(`SERVICIO falló, reintenta solo: ${e instanceof Error ? e.message : String(e)}`);
+      fallas++;
+    }
+    await new Promise((listo) => setTimeout(listo, fallas ? Math.min(CADA_SERVICIO_MS, esperaSinRed(fallas - 1)) : CADA_SERVICIO_MS));
+  }
+}
+
+/** Con qué se escribe el registro: `reg.exe`, sin PowerShell. Un test lo cambia con CARTERO_REG (el molde de CARTERO_ABRIDOR).
+ *  ⚠️ Con CARTERO_DIR y sin CARTERO_REG no corre: una PC de prueba jamás escribe el registro de verdad. */
+export function programaReg(env = process.env) {
+  if (env.CARTERO_REG) {
+    const a = JSON.parse(env.CARTERO_REG);
+    if (!Array.isArray(a) || !a.length || !a.every((x) => typeof x === 'string')) throw new Error('CARTERO_REG inválido');
+    return a;
+  }
+  if (env.CARTERO_DIR) throw new Error('CARTERO_DIR sin CARTERO_REG: una PC de prueba no escribe el registro');
+  return ['reg.exe'];
+}
+
+function correrReg(args) {
+  const [programa, ...antes] = programaReg();
+  const r = spawnSync(programa, [...antes, ...args], { windowsHide: true, timeout: 15_000, stdio: 'ignore' });
+  if (r.error || r.status == null) throw new Error(`No pude correr ${programa}: ${r.error?.message ?? 'se cortó'}`);
+  return r.status;
+}
+
+/** El lanzador: arranca el servicio sin ventana, que con `node` directo en la clave Run quedaría una consola abierta. En UTF-16
+ *  con BOM: es como Windows Script Host lee una ruta con tildes. */
+export const archivoVbs = (node, script) => `﻿' MaKo Cartero: arranca el servicio de la PC sin ventana. Lo escribe cartero.mjs instalar-servicio.\r\nCreateObject("WScript.Shell").Run """${node}"" ""${script}"" servicio", 0, False\r\n`;
+/** Lo que se escribe en la clave Run. */
+export const valorDeRun = (vbs) => `wscript.exe //B //Nologo "${vbs}"`;
+
+/** Lo corre MARTÍN, en su PC: escribir en el registro es decisión suya. */
+export function instalarServicio(cfg = config(), spkis = claves()) {
+  const falta = faltaLlave(cfg, spkis);
+  if (falta) throw new Error(falta);
+  if (!cuentasDelServicio(cfg).length) throw new Error('Esta PC no tiene cuentas: súmalas con «cartero.mjs cartero»');
+  instalar();
+  fs.writeFileSync(VBS, Buffer.from(archivoVbs(process.execPath, ESTE), 'utf16le'));
+  const valor = valorDeRun(VBS);
+  if (correrReg(['add', RUN_KEY, '/v', VALOR_RUN, '/t', 'REG_SZ', '/d', valor, '/f']) !== 0) {
+    fs.rmSync(VBS, { force: true });
+    throw new Error('Windows no dejó escribir la clave de inicio');
+  }
+  fs.rmSync(SERVICIO_APAGAR, { force: true });
+  return { ok: true, clave: `${RUN_KEY}\\${VALOR_RUN}`, valor, arranca: 'Con el próximo inicio de Windows', paraNoEsperar: `explorer.exe "${VBS}"` };
+}
+
+/** Saca la clave Run y el lanzador, y le pide al que está corriendo que se apague (en su próxima vuelta: hasta 2 minutos). */
+export function quitarServicio() {
+  const estaba = correrReg(['query', RUN_KEY, '/v', VALOR_RUN]) === 0;
+  if (estaba && correrReg(['delete', RUN_KEY, '/v', VALOR_RUN, '/f']) !== 0) throw new Error('Windows no dejó sacar la clave de inicio');
+  fs.rmSync(VBS, { force: true });
+  const corriendo = servicioVivo();
+  if (corriendo) fs.writeFileSync(SERVICIO_APAGAR, '');
+  return { ok: true, estaba, seApaga: Boolean(corriendo) };
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────
-const esMain = (() => { try { return path.resolve(process.argv[1] ?? '') === archivoDeEsteModulo(); } catch { return false; } })();
+const esMain =(() => { try { return path.resolve(process.argv[1] ?? '') === archivoDeEsteModulo(); } catch { return false; } })();
 
 if (esMain) {
   const todos = process.argv.slice(2);
@@ -2349,8 +2600,22 @@ if (esMain) {
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
+      case 'servicio': {
+        // Desde un chat se quedaría colgado para siempre, y no es lo que arranca con Windows.
+        if (esUnChat()) throw new Error('El servicio no corre desde un chat: arranca con Windows (cartero.mjs instalar-servicio)');
+        if (resto.includes('--una-vez')) {
+          const i = resto.indexOf('--desde');
+          const r = await vueltaDelServicio(i >= 0 ? resto[i + 1] : undefined);
+          imprimir(r);
+          if (r.fallaron) process.exitCode = 1;
+          break;
+        }
+        imprimir(await servicio()); break;
+      }
+      case 'instalar-servicio': imprimir(instalarServicio()); break;
+      case 'quitar-servicio': imprimir(quitarServicio()); break;
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | vigilar | esperar | uso\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | vigilar | esperar | uso | servicio | instalar-servicio | quitar-servicio\n');
         process.exit(1);
     }
   } catch (e) {

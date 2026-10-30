@@ -57,6 +57,22 @@ Runner abierto, no corre nada: ni se mide, ni se sube, ni se entrega. **Ése es 
   actualizarse y no lo mira nadie. Lo que dice la ausencia es `visto_at` del lado del servidor, con su hora (el cartel 1 de
   §2.2), y lo alimenta el POST del SERVICIO cada 2 minutos, no el chat.
 
+**Cómo quedó construido (30/10/2026, cartero 1.25.0; hay cosas que el diseño no había visto):**
+- **`abre: []` además de `entregables: []`.** Son dos reclamos aparte: con `abre` lleno, MaKo le da los chats nuevos, y un chat
+  nuevo tomado sin nadie que corra `abrir` se pierde.
+- **La lista vacía, nunca sin mandarla.** Sin la lista, `sanearEntregables` reclama todos los vivos (un cartero de antes).
+- **Un proceso por vuelta.** El bucle sólo espera y lanza `servicio --una-vez`. Lo que falla, falla en el hijo. Y cada vuelta corre
+  el código que está en disco: un proceso de días, con la versión de hace días, le pisaría la `version` al Runner cada 2 minutos.
+- **`carpetasConRunner(cfg, null)`.** Un Runner cuenta su propia carpeta siempre. El servicio no tiene carpeta: si contara una,
+  sus chats subirían `runner: true` sin nadie que les entregue.
+- **Si igual le dan trabajo, lo devuelve** con «Nadie entrega en la PC», sin tocar el buzón.
+- **`vigilar` reintenta la vuelta que salteó.** El lock es de TODA la PC, y antes los Runners de carpetas distintas corrían a la
+  vez: sin el reintento, el que llega segundo en el mismo minuto no sube nunca su cuenta. Vale aunque el servicio no esté instalado.
+- **Vence por la fecha del archivo, no por su contenido:** renovar no reescribe, y nadie lee un lock a medio escribir. Un pid
+  que ya no existe no retiene. Quien lo vence se lo quita con un rename y mira lo que se quitó.
+- **Un chat no corre el servicio** (`esUnChat`: se quedaría colgado), y `exigirRunner` no cambió: `servicio` no pasa por `vuelta()`.
+  Lo de §2.3 (dejar pasar a cualquier chat si no hay Runner) sigue sin hacer.
+
 ### 2.2 La AUSENCIA se ve, y se mide desde el SERVIDOR
 
 Una PC trabada o apagada no puede avisar que se cayó: su silencio se tiene que notar desde otro lado. MaKo ya guarda cuándo
@@ -108,6 +124,13 @@ Center son de este chat. Para que no aparezcan dos formas de arrancar algo con W
   acuña /admin/operaciones, sólo el super admin) y `claves.txt`. En la PC de un cliente no existe ninguno de los dos: aunque
   alguien copiara el ejecutable, no tiene a quién hablarle.
 
+**Mientras no haya `.exe` (30/10/2026):** `instalar-servicio` escribe la clave Run con un lanzador,
+`wscript.exe //B //Nologo "~/.claude/operaciones/mako-cartero.vbs"`, que abre `node cartero.mjs servicio` sin ventana. Con `node`
+directo en la clave Run queda una consola abierta. Sirve porque el servicio es sólo de la PC de Martín, que ya tiene Node. El
+límite: Windows está retirando VBScript. El código se probó con el registro simulado: **ni el lanzador ni la clave corrieron en la
+PC de verdad.** Si se arma el `.exe`, `vueltaAparte` tiene que relanzarse a sí mismo, y se pierde «cada vuelta corre lo que está en
+disco». **La primera pregunta para ese chat: ¿hace falta el `.exe`, o alcanza con esto?**
+
 **Para decidir con el chat de IA del cliente** (no está abierto el 24/10; va en su relevo):
 1. ¿Se reusa `publicar-binarios.mts` para armar `mako-cartero.exe`, o el cartero arma el suyo con el mismo Bun?
    La propuesta: un objetivo más del mismo script, que NO lo sube a las descargas públicas.
@@ -123,7 +146,45 @@ Center son de este chat. Para que no aparezcan dos formas de arrancar algo con W
   (el cartel 2) y que el primer chat que se abra entrega (2.3).
 - **Sin la PC prendida, tampoco.** El cartel 1 lo dice desde el servidor.
 
+## 2.6 El contrato del POST y lo que tiene que hacer MaKo (30/10/2026)
+
+**Lo que manda una vuelta del servicio.** Lo mismo que una de Runner, con tres diferencias: `entregables: []`, `abre: []` y
+`servicio: { version: '1.25.0', desde: '<ISO: cuándo arrancó el proceso>' }`. Una de Runner nunca trae `servicio`. La PC no
+espera nada nuevo en la respuesta. Un servidor de hoy ignora el campo (`cicloCartero` no lo lee): no se rompe, **pero miente**.
+
+**Lo que pisa esa vuelta en `operaciones_carteros`, medido en `cicloCartero`:**
+
+| Campo | Qué pasa | ¿Problema? |
+|---|---|---|
+| `entregables` | No se guarda: sólo vale en ese POST. El Runner manda los suyos en su vuelta | No |
+| `chats` | La misma foto. `runner` sale honesto (nombre + latido fresco), y es lo que lee `hayParaElCartero` | No |
+| `claves`, `titular`, `pasos` | Los mismos archivos de la PC | No |
+| `cuota` | Se manda con su `medido`. El servicio no mide: eso sólo lo hace un chat con `get_usage` | No |
+| acuses, cierres, preguntas, turnos | Se suben y se borran igual, bajo el lock | No |
+| **`visto_at`** | Queda fresco sin ningún Runner, y **`carteroVivo` lo lee como «hay Runner»** | **SÍ** |
+| **`version`** | La pisa el servicio. Hoy es la misma (el mismo archivo); con un `.exe` podría no serlo | **SÍ** |
+| vencer | Un `escrito` de 15 días y un `tomado` de 2 horas vencen en cualquier POST. Antes, sin Runner no vencía nada | **Avisar** |
+
+**Lo que necesita MaKo, y va ANTES de `instalar-servicio`:**
+1. Migración (sólo agrega): `operaciones_carteros.runner_visto_at timestamptz` y `servicio jsonb`, con
+   `runner_visto_at = visto_at` en lo que ya hay.
+2. `cicloCartero`: sanear `e.servicio` (version corta, `desde` con fecha válida; si no es un objeto, no es del servicio). Sin él,
+   como hoy y además `runner_visto_at`. Con él: `visto_at`, `chats`, `claves` y `cuota` como hoy, más `servicio: { version, desde,
+   visto_at }`, y **sin tocar `version` ni `runner_visto_at`**. Un upsert que no los nombra los deja como están.
+3. Separar las dos preguntas. **«¿Hay noticias de la PC?»** sigue con `visto_at`: `sinNoticiasDesde`, que pasa a ser el cartel 1.
+   **«¿Hay un Runner?»** pasa a `runner_visto_at`: `PanelRunner.tsx` (82, 99), `Uso.tsx` (175, 243), `CentroAppMovil.tsx` (37),
+   `operaciones.run.ts` (83), `lib/centro-chats.ts` (`envioDe` 1067, `porQue` 1123), `lib/centro-cuentas.ts` (38) y
+   `lib/operaciones-reglas.ts` (887). `leerCarteros` tiene que leer las columnas nuevas.
+4. Los dos carteles de §2.2. El cartel 2 sale ANTES de vencer: con el servicio, vencer corre siempre, y vencer es mudo.
+
+**`hayParaElCartero` no cambia:** su comentario dice «entregables», pero lee `chats` (`vivo`, `runner`), y eso el servicio lo
+sube honesto. Un Runner vivo sigue recibiendo sus pedidos, y un chat sin cron cuenta 0.
+
 ## 3. El plan del lunes (26/10)
+
+**Estado (30/10/2026):** el 1 y la parte de código del 3 están hechos (`scripts/operaciones/cartero.mjs` 1.25.0,
+`tests/cartero-servicio.test.ts`). Falta el 2 (§2.6), el `.exe` (§2.4), el 4 y el 5.
+
 
 1. `cartero.mjs servicio`: la vuelta de medir y subir, con `entregables: []`, el `vuelta.lock` y su test (medir sin
    reclamar; dos vueltas a la vez, una espera).
