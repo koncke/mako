@@ -1151,3 +1151,15 @@ test('validar dos veces no pierde nada', () => {
     assert.deepEqual(dos.operaciones, una.operaciones, `${o.op} cambia al validarla otra vez`);
   }
 });
+
+// Lo que la revisión encontró al abrirle el paso a estas operaciones (30/10/2026).
+test('lo heredado del prototipo no es un valor válido, y un array no pasa por texto', () => {
+  assert.equal(validarOperacion({ op: 'transformar', ref: 't1', mezcla: 'constructor' }).ok, false);
+  assert.equal(validarOperacion({ op: 'transformar', ref: 't1', mezcla: '__proto__' }).ok, false);
+  assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't1', mayusculas: ['titulo'] }).ok, false);
+});
+
+test('PanelChat muestra lo que tiró la ruta, no sólo lo que tira su segunda pasada', () => {
+  const fuente = readFileSync(new URL('../app/video-editor/_opencut/chat/PanelChat.tsx', import.meta.url), 'utf8');
+  assert.match(fuente, /const descartes = \[\.\.\.\(r\.descartes \?\? \[\]\), \.\.\.deForma, \.\.\.revision\.descartes\];/);
+});

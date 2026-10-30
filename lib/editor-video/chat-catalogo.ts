@@ -506,7 +506,7 @@ function validarEstilo(raw: Record<string, unknown>): { ok: true; estilo: Estilo
   }
   for (const k of ['negrita', 'cursiva', 'subrayado'] as const) if (!bool(k)) return mal(k);
   if (raw.mayusculas !== undefined) {
-    if (!['ninguno', 'mayusculas', 'minusculas', 'titulo'].includes(String(raw.mayusculas))) return mal('mayusculas');
+    if (typeof raw.mayusculas !== 'string' || !['ninguno', 'mayusculas', 'minusculas', 'titulo'].includes(raw.mayusculas)) return mal('mayusculas');
     e.mayusculas = raw.mayusculas as EstiloTextoChat['mayusculas'];
   }
   if (raw.alineacion !== undefined) {
@@ -549,7 +549,7 @@ function validarTransformar(raw: Record<string, unknown>): { ok: true; cambios: 
   if (!tomar('opacidad', 0, 100, Math.round)) return mal('opacidad');
   if (raw.mezcla !== undefined) {
     const m = String(raw.mezcla).trim().toLowerCase();
-    if (!(m in MEZCLAS)) return { ok: false, motivo: `«${m.slice(0, 30)}» no es un modo de mezcla` };
+    if (!Object.hasOwn(MEZCLAS, m)) return { ok: false, motivo: `«${m.slice(0, 30)}» no es un modo de mezcla` };
     c.mezcla = m;
   }
   if (!Object.keys(c).length) return { ok: false, motivo: 'un transformar sin cambios' };
@@ -699,7 +699,7 @@ export function validarOperacion(crudo: unknown): Validada {
     case 'normalizar': {
       if (!esRef(ref) || typeof raw.activo !== 'boolean') return { ok: false, motivo: 'un «normalizar» incompleto' };
       const objetivo = raw.objetivo === undefined ? undefined : String(raw.objetivo).trim().toLowerCase();
-      if (objetivo !== undefined && !(objetivo in OBJETIVOS_NORMALIZAR)) return { ok: false, motivo: `«${objetivo.slice(0, 20)}» no es una intensidad objetivo` };
+      if (objetivo !== undefined && !Object.hasOwn(OBJETIVOS_NORMALIZAR, objetivo)) return { ok: false, motivo: `«${objetivo.slice(0, 20)}» no es una intensidad objetivo` };
       return { ok: true, op: { op: 'normalizar', ref, activo: raw.activo, ...(objetivo ? { objetivo: objetivo as ObjetivoNormalizar } : {}) } };
     }
     case 'separar_audio': {

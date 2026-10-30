@@ -47,8 +47,7 @@ import {
 } from '../lib/editor-landing/lectura-reglas';
 import { MOTIVOS_EN_NAVEGADOR } from '../lib/editor-landing/lectura-tipos';
 import {
-  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, configDeReplica, formatoReplicar,
-} from '../lib/editor-landing/replicar-reglas';
+  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, configDeReplica, formatoReplicar, baseDeDocumento } from '../lib/editor-landing/replicar-reglas';
 import { PARTES_REPLICA } from '../lib/editor-landing/replicar-partes';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
@@ -263,4 +262,11 @@ test('analizar_landing dice el motivo nuevo cuando la página se lee en el naveg
   const bloque = run.slice(i, i + 3500);
   assert.match(bloque, /en_navegador: true, motivo: r\.motivo/);
   assert.match(bloque, /Web Generator → Diagnóstico/);
+});
+
+test('la base del documento: lo mismo que el navegador, también con un <base> comentado o sin href', () => {
+  const final = 'https://sitio.com/inmersion/';
+  assert.equal(baseDeDocumento('<!-- <base href="https://viejo.example/"> --><img src="a.png">', final), final);
+  assert.equal(baseDeDocumento('<base target="_blank"><base href="/sub/">', final), 'https://sitio.com/sub/');
+  assert.equal(baseDeDocumento('<base href="/sub/"><base href="/otra/">', final), 'https://sitio.com/sub/');
 });

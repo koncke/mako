@@ -348,7 +348,8 @@ export function tituloDeDocumento(html: string, respaldo: string): string {
  * apuntar a otra ruta u otro dominio.
  */
 export function baseDeDocumento(html: string, urlFinal: string): string {
-  const declarada = atributo(/<base\b[^>]*>/i.exec(html)?.[0] ?? '', 'href');
+  // El primero CON href y fuera de un comentario, como el navegador.
+  const declarada = atributo(/<base\b[^>]*\bhref\s*=[^>]*>/i.exec(html.replace(/<!--[\s\S]*?-->/g, ''))?.[0] ?? '', 'href');
   if (declarada) {
     try {
       const u = new URL(declarada, urlFinal);

@@ -62,7 +62,10 @@ export function fuenteDelEditor(doc: unknown): (nombre: string) => string | null
 const rotuloSeleccion = (n: number) => (n === 1 ? '1 elemento elegido' : `${n} elementos elegidos`);
 export { rotuloSeleccion };
 
-type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
+type Respuesta = { ok: true; resumen: string; operaciones: unknown[]; descartes?: string[] } | { ok: false; error: string };
+
+/** Lo que no se perdió aunque se descarte: ya estaba así, o sólo faltó la fuente y el texto entró con otra. */
+const NO_SE_PERDIO = /\bya (dice|está)\b|^la fuente /;
 
 async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
   const plazo = new AbortController();
@@ -143,13 +146,15 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     doc, operaciones, vista: refsDe(propuesta), nuevoId: nuevoIdObjeto, activePageId,
     soloRefs: alcanceReal === 'seleccion' ? new Set(elegidos) : null, fuente: fuenteDelEditor(doc),
   });
-  const descartes = [...deForma, ...prueba.descartes];
+  // `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
+  const descartes = [...(r.descartes ?? []), ...deForma, ...prueba.descartes];
+  const perdidas = descartes.filter((d) => !NO_SE_PERDIO.test(d)).length;
   if (!prueba.aplicadas) {
-    terminar({ de: 'mako', texto: r.resumen || 'Sin cambios.', ...(descartes.length ? { descartes } : {}) });
+    terminar({ de: 'mako', texto: `${perdidas ? 'No pude hacerlo. ' : ''}${r.resumen || 'Sin cambios.'}`, ...(descartes.length ? { descartes } : {}) });
     return;
   }
   // Si se perdió más de lo que queda, el resumen de la IA promete de más («Voy a crear el carrusel») y sólo cambia el fondo.
-  const parcial = descartes.length > prueba.aplicadas ? 'Pude hacer sólo una parte. ' : '';
+  const parcial = perdidas > prueba.aplicadas ? 'Pude hacer sólo una parte. ' : '';
   terminar({
     de: 'mako', texto: `${parcial}${r.resumen || 'Listo.'}`, estado: 'pendiente', cambios: prueba.cambios,
     ...(descartes.length ? { descartes } : {}), propuesta,

@@ -648,8 +648,21 @@ Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjet
 
 **Trampa con el tope de la respuesta:** con `maxTokens` en 8.000 se cortó dos veces a los 90 s; con 4.000 armó las páginas. Son pocas corridas y Gemini también se cortó con 4.000, así que no está probado que el tope sea la causa: quedó en 4.000 porque es lo único que anduvo.
 
+**Lo que encontró la revisión que intentó refutar el arreglo (tres lecturas independientes). El arreglo mismo había abierto dos:**
+
+- ⚠️ **Aceptar cualquier ref abrió un choque:** las refs de la vista son prefijo + 0 o 1 + un carácter (`t11`, `p10`), así que un «t11» inventado puede ser un texto de la persona. Si lo nuevo no se agregaba, el `borrar` siguiente caía sobre lo suyo. Ahora, lo que se anunció como nuevo nunca cae sobre lo que ya estaba (`declaradas` en aplicar.ts, `caidas` en catalogo.ts).
+- **La segunda validación ahora siempre da vacío:** el panel mostraba sólo sus descartes y nunca los de la ruta, que vienen aparte. Lo que tiraba la ruta no se decía. Imagen y Video leen `r.descartes`.
+- **Una fuente que el editor no tiene tiraba el texto entero:** el mismo síntoma por otra vía. Helvetica, Arial, Futura, Georgia y otras no están en `FUENTES`. Ahora el texto entra con otra y se avisa.
+- **Los topes tienen que cuadrar entre sí:** a la densidad de ese carrusel, más de unos 4.000 caracteres no entran en los 4.000 tokens de la respuesta (estimado, no medido contra el modelo). La instrucción, la memoria y el hilo quedaron en 4.000, y los cambios guardados en 80, como las operaciones. Lo fija un test.
+- Una ref repetida entre slides hacía perder el segundo título: ahora vale la última.
+- Video: al abrirle el paso a `transformar`, `mezcla: 'constructor'` llegaba a los params por usar `in` sobre el catálogo: `Object.hasOwn`.
+
 **Lo que quedó SIN hacer:**
 
+- **Video, ahora que esas tres operaciones llegan al editor por primera vez:** `cambiar_texto` sobre un texto de plantilla lo devuelve a su ancla y deshace un `transformar` anterior sin avisar (`app/video-editor/_opencut/chat/comandos.ts`). `opacidad_fondo` o `grosor_trazo` sueltos pueden no hacer nada, o prender un trazo que la revisión no muestra (`linea.ts`). Una propuesta vieja que sólo tenía esas operaciones puede reaparecer una vez al abrir el proyecto (no se midió si hay alguna).
+- **Dos propuestas pendientes:** pedir de nuevo no cierra la anterior; aceptar las dos duplica las páginas. Pide dos clics y sale el aviso «Cambiaste el diseño».
+- `contenidoNoConfiable` (lib/prompt-render-pure.ts) no neutraliza `</etiqueta >` con un espacio. Lo usan todos los prompts, y en este chat el texto es de la misma persona.
+- En un enlace de sólo lectura, una página angosta también pierde el tamaño.
 - **Poner fotos desde el chat:** `NO_SE_PUEDE_CHAT_IMAGEN` (catalogo.ts). Es una función que falta, no parte de este bug.
 - **La marca completa:** el chat no conoce colores ni logo del negocio. Depende del brand board (pendientes-30-10.md, 2.9).
 - **Los motivos de «No se aplica»** están escritos para el programador (««estilo» no es algo de…»).

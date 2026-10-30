@@ -21,8 +21,9 @@ export const TOPES_CHAT_IMAGEN = {
   tamanoMax: 20_000,
   fuenteMin: 4,
   fuenteMax: 800,
-  // Un carrusel se pega entero: el de Leila (30/10/2026) ya andaba por 1.800.
-  instruccion: 8_000,
+  // Un carrusel se pega entero: el de Leila (30/10/2026) ya andaba por 1.800. Más de 4.000 no entra en la respuesta de la IA
+  // (`maxTokens` de ./ia.ts), y es lo mismo que guarda el hilo (TOPES_HILO.texto).
+  instruccion: 4_000,
   vistaMax: 60_000,
 } as const;
 
@@ -349,19 +350,45 @@ export function validarOperacion(crudo: unknown): Validada {
   }
 }
 
+/** La ref que anuncia una operación que agrega algo («ref» de un texto o una forma, «nueva» de una copia o una página). */
+function refQueAgrega(raw: unknown): string | null {
+  if (!esObjeto(raw)) return null;
+  const x = raw.op === 'agregar_texto' || raw.op === 'agregar_forma' ? raw.ref : raw.op === 'duplicar' || raw.op === 'agregar_pagina' ? raw.nueva : null;
+  return typeof x === 'string' ? x : null;
+}
+
+/** Las refs de las que depende una operación: el elemento, los elementos y la página. */
+function refsQueUsa(raw: unknown): string[] {
+  if (!esObjeto(raw)) return [];
+  const agrega = raw.op === 'agregar_texto' || raw.op === 'agregar_forma';
+  return [...(agrega ? [] : [raw.ref]), ...(Array.isArray(raw.refs) ? raw.refs : []), raw.pagina, raw.despues_de].filter((x): x is string => typeof x === 'string');
+}
+
 /** Todas las de la respuesta: las válidas, en orden, y por qué se descartó cada otra. */
 export function validarOperaciones(raw: unknown): { operaciones: OperacionImagen[]; descartes: string[] } {
   const lista = Array.isArray(raw) ? raw : [];
   const operaciones: OperacionImagen[] = [];
   const descartes: string[] = [];
+  // Lo que iba a agregar algo que se cayó: lo que sigue hablando de esa ref se va con ella, porque la IA puede llamar a lo
+  // nuevo como a algo que ya está, y un «borrar» caería sobre lo de la persona (la revisión del 30/10/2026).
+  const caidas = new Set<string>();
   for (const r of lista) {
     if (operaciones.length >= TOPES_CHAT_IMAGEN.operaciones) {
       descartes.push(`más de ${TOPES_CHAT_IMAGEN.operaciones} cambios de una vez`);
       break;
     }
+    const nueva = refQueAgrega(r);
     const v = validarOperacion(r);
-    if (v.ok) operaciones.push(v.op);
-    else descartes.push(v.motivo);
+    if (!v.ok) {
+      if (nueva) caidas.add(nueva);
+      descartes.push(v.motivo);
+    } else if (refsQueUsa(r).some((x) => caidas.has(x))) {
+      if (nueva) caidas.add(nueva);
+      descartes.push('algo que dependía de un elemento que no se pudo agregar');
+    } else {
+      if (nueva) caidas.delete(nueva);
+      operaciones.push(v.op);
+    }
   }
   return { operaciones, descartes };
 }

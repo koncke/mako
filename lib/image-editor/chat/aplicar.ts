@@ -169,6 +169,10 @@ export function aplicarOperaciones(p: {
   const fuentes = new Set<string>();
   const nuevas = new Map<string, string>();
   const paginasNuevas = new Map<string, string>();
+  // Lo que una operación anunció que iba a agregar. La IA puede llamar a lo nuevo como a algo que ya está: si lo nuevo no se
+  // pudo agregar, lo que sigue no tiene que caer sobre lo de la persona (lo encontró la revisión del 30/10/2026).
+  const declaradas = new Set<string>();
+  const paginasDeclaradas = new Set<string>();
   let aplicadas = 0;
   let pagina: string | null = null;
   const anchoDe = (pg: Pagina) => num(pg.width, num(doc.width));
@@ -184,6 +188,7 @@ export function aplicarOperaciones(p: {
   const tituloDe = (ref: string, o: Obj) => p.vista.elementos.get(ref)?.titulo ?? (tipoDe(o) === 'texto' ? `«${String(o.text ?? '').replace(/\s+/g, ' ').slice(0, 40)}»` : String(o.name ?? PALABRA_TIPO[tipoDe(o)]));
   /** El elemento de una ref, listo para cambiar; o el motivo por el que no. */
   const elemento = (ref: string, op: { bloqueadoVale?: boolean } = {}): { pg: Pagina; i: number; o: Obj; titulo: string } | string => {
+    if (declaradas.has(ref) && !nuevas.has(ref)) return `«${ref}» no se pudo agregar`;
     // Primero lo agregado en este pedido: si la IA le puso una ref que ya existe, de ahí en más habla de lo nuevo.
     const id = nuevas.get(ref) ?? p.vista.elementos.get(ref)?.id;
     if (!id) return `«${ref}» no está en el diseño`;
@@ -195,6 +200,7 @@ export function aplicarOperaciones(p: {
     return { ...b, titulo };
   };
   const paginaDe = (ref?: string): Pagina | null => {
+    if (ref && paginasDeclaradas.has(ref) && !paginasNuevas.has(ref)) return null;
     const id = ref ? (paginasNuevas.get(ref) ?? p.vista.paginas.get(ref)) : (p.activePageId ?? doc.pages[0]?.id);
     return doc.pages.find((pg) => pg.id === id) ?? (ref ? null : doc.pages[0] ?? null);
   };
@@ -206,6 +212,14 @@ export function aplicarOperaciones(p: {
     return f ? { ...e, fuente: f } : `la fuente «${e.fuente}» no está en el editor`;
   };
   const deLaPagina = (que: string) => `${que} es de la página, no de lo elegido`;
+  /** La fuente que falta se dice y se saca: el texto y el resto del estilo siguen. */
+  const sinFuenteQueFalta = (e: EstiloTexto): EstiloTexto => {
+    const r = conFuente(e);
+    if (typeof r !== 'string') return r;
+    descartes.push(r);
+    const { fuente: _fuente, ...resto } = e;
+    return resto;
+  };
 
   for (const op of p.operaciones) {
     switch (op.op) {
@@ -223,19 +237,18 @@ export function aplicarOperaciones(p: {
         const e = elemento(op.ref);
         if (typeof e === 'string') { descartes.push(e); break; }
         if (tipoDe(e.o) !== 'texto') { descartes.push(`${e.titulo} no es un texto`); break; }
-        const estilo = conFuente(op.estilo);
-        if (typeof estilo === 'string') { descartes.push(estilo); break; }
+        const estilo = sinFuenteQueFalta(op.estilo);
+        if (!Object.keys(estilo).length) break;
         const r = ponerEstilo(e.o, estilo);
         if (r.fuente) fuentes.add(r.fuente);
         hecho({ tipo: 'cambia', titulo: `Estilo de ${e.titulo}`, antes: r.antes.join(' · '), despues: r.despues.join(' · ') });
         break;
       }
       case 'agregar_texto': {
-        const estilo = conFuente(op.estilo);
-        if (typeof estilo === 'string') { descartes.push(estilo); break; }
+        if (op.ref) declaradas.add(op.ref);
+        const estilo = sinFuenteQueFalta(op.estilo);
         const pg = paginaDe(op.pagina);
         if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
-        if (op.ref && nuevas.has(op.ref)) { descartes.push(`«${op.ref}» ya se usó en este pedido`); break; }
         const w = anchoDe(pg);
         const h = altoDe(pg);
         const tamano = estilo.tamano ?? Math.max(12, Math.round(Math.min(w, h) * 0.05));
@@ -343,8 +356,8 @@ export function aplicarOperaciones(p: {
       }
       case 'duplicar': {
         const e = elemento(op.ref, { bloqueadoVale: true });
+        if (op.nueva) declaradas.add(op.nueva);
         if (typeof e === 'string') { descartes.push(e); break; }
-        if (op.nueva && nuevas.has(op.nueva)) { descartes.push(`«${op.nueva}» ya se usó en este pedido`); break; }
         const copia = conIdsNuevos(e.o, p.nuevoId);
         copia.locked = false;
         if (typeof copia.name === 'string') copia.name = `${copia.name} (copia)`.slice(0, 100);
@@ -401,6 +414,7 @@ export function aplicarOperaciones(p: {
         break;
       }
       case 'agregar_pagina': {
+        if (op.nueva) paginasDeclaradas.add(op.nueva);
         if (p.soloRefs) { descartes.push(deLaPagina('Una página nueva')); break; }
         if (doc.pages.length >= POR_DEFECTO.maxPaginas) { descartes.push(`el diseño ya tiene ${POR_DEFECTO.maxPaginas} páginas`); break; }
         const base = op.despues_de ? paginaDe(op.despues_de) : null;
@@ -432,9 +446,9 @@ export function aplicarOperaciones(p: {
         break;
       }
       case 'agregar_forma': {
+        if (op.ref) declaradas.add(op.ref);
         const pg = paginaDe(op.pagina);
         if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
-        if (op.ref && nuevas.has(op.ref)) { descartes.push(`«${op.ref}» ya se usó en este pedido`); break; }
         const circulo = op.forma === 'circulo';
         const o: Obj = {
           type: circulo ? 'ellipse' : 'rect', shapeKind: circulo ? 'ellipse' : 'rect', id: p.nuevoId(), name: circulo ? 'Círculo' : 'Rectángulo',
