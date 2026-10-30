@@ -8,13 +8,18 @@
 --
 --   · `repetir`   — la regla (RRULE). Sólo en una Publicación: una llamada o un bloque no se programan en una red.
 --   · `serie_de`  — en cada Publicación que nace de una regla, el id del molde. Con su `inicio`, único: dos pasadas del cron a la
---                   vez no crean la misma vez dos veces (la segunda choca acá y no se programa).
+--                   vez no crean la misma vez dos veces (la segunda choca acá y no se programa). Una vez NO lleva regla: «Repetir»
+--                   en una vez armaba una segunda serie, dos posts por día (revisión de privacidad, 29/10, A2).
+--   · `repetir_hasta` — en el molde, el último día de la serie que el cron ya atendió (nació, o su hora ya había pasado). Nunca
+--                   se crea un día anterior: sin esto, las veces se contaban por las filas que EXISTEN, y borrar o mover una la
+--                   hacía renacer y se programaba sola (A1).
 --
 -- Sólo agrega: ninguna fila cambia y nada que hoy anda deja de andar. Idempotente.
 -- =============================================================================
 
 alter table calendario_eventos add column if not exists repetir text;
 alter table calendario_eventos add column if not exists serie_de text;
+alter table calendario_eventos add column if not exists repetir_hasta date;
 
 do $$
 begin
@@ -25,6 +30,10 @@ begin
   if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_serie_de_ok') then
     alter table calendario_eventos add constraint calendario_eventos_serie_de_ok
       check (serie_de is null or char_length(serie_de) between 1 and 40);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'calendario_eventos_vez_sin_regla') then
+    alter table calendario_eventos add constraint calendario_eventos_vez_sin_regla
+      check (repetir is null or serie_de is null);
   end if;
 end $$;
 
@@ -37,3 +46,5 @@ comment on column calendario_eventos.repetir is
   'La regla de una Publicación que se repite (RRULE, lib/plan-recurrentes.ts). El cron le crea cada vez una igual y la programa (mig 0349).';
 comment on column calendario_eventos.serie_de is
   'En una Publicación que nació de una regla: el id de la Publicación con la regla (mig 0349).';
+comment on column calendario_eventos.repetir_hasta is
+  'En el molde: el último día de la serie que el cron ya atendió. Borrar o mover una vez no la hace renacer (mig 0349).';

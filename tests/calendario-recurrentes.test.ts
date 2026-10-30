@@ -7,8 +7,11 @@
 //
 //   1. CADA VEZ NACE IGUAL AL MOLDE (la hora, la cuenta, el texto) con SU copia del archivo, y se programa por «Programar».
 //   2. NADA HACIA ATRÁS y sólo dos días adelante; una segunda pasada no duplica, y dos pasadas a la vez tampoco (índice único).
+//      Lo que el cron ya atendió (`repetir_hasta`) no vuelve: borrar o mover una vez NO la hace renacer (revisión de privacidad,
+//      29/10, A1).
 //   3. EL CALENDARIO DIBUJA LAS PRÓXIMAS que no nacieron, desde ahora, en la capa «Se repite», de sólo lectura y llevando al molde.
-//   4. LA REGLA es la del Plan, sólo en una Publicación; sin la mig 0349, el Calendario sigue andando.
+//   4. LA REGLA es la del Plan, sólo en una Publicación y nunca en una vez de una serie (A2: dos posts por día), con el molde completo
+//      (texto incluido, M5) y CONFIRMADA en la pantalla; sin la mig 0349, el Calendario sigue andando.
 //
 // Probado ROMPIÉNDOLO (29/10/2026): ver el pie de este archivo.
 //
@@ -19,7 +22,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { faltaParaRepetir, HORIZONTE_DIAS, reglaDePublicacion, vecesACrear, vecesADibujar } from '../lib/calendario-recurrentes-reglas';
+import { ES_UNA_VEZ_DE_LA_SERIE, faltaParaRepetir, HORIZONTE_DIAS, reglaDePublicacion, vecesACrear, vecesADibujar } from '../lib/calendario-recurrentes-reglas';
 
 const RAIZ = join(__dirname, '..');
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_calendario-recurrentes-hijo.ts')], {
@@ -46,16 +49,29 @@ test('cada vez nace igual al molde, con SU copia del archivo, y se programa por 
   }
   assert.deepEqual(R.a.copias, ['3/calendario/evmolde1/abcdef1234567890.mp4', '3/calendario/evmolde1/abcdef1234567890.mp4'], 'el archivo del molde se copia');
   assert.deepEqual(R.a.programadas, [2], 'las dos, en una sola llamada a «Programar»');
+  assert.equal(R.a.hasta, '2026-10-31', 'el molde anota hasta dónde nació');
+});
+
+test('borrar o mover una vez NO la hace renacer, ni se dibuja; al día siguiente nace sólo la que toca (A1)', () => {
+  assert.deepEqual(R.g.r, { moldes: 1, creadas: 0, programadas: 0, incompletos: 0, fallidas: [] });
+  assert.deepEqual(R.g.dibujadas, ['serie:evmolde1:2026-11-01'], 'ni la del 30 ni la del 31: ya se atendieron');
+  assert.deepEqual(R.g.r2, { moldes: 1, creadas: 1, programadas: 1, incompletos: 0, fallidas: [] });
+  // La del 1/11 de la serie y la movida (20:00 UTC); ni la del 30 ni la del 31. ⚠️ La zona de la prueba es la por defecto (Tijuana:
+  // `mako.timezone` no está cargada), y el 1/11 termina su horario de verano: la MISMA hora local del molde es 14:00 UTC, no 13:00.
+  assert.deepEqual(R.g.veces, ['2026-11-01T14:00:00.000Z', '2026-11-01T20:00:00.000Z']);
 });
 
 test('una segunda pasada no duplica; dos pasadas a la vez tampoco (el índice único), y un molde incompleto no nace', () => {
   assert.deepEqual(R.b.r, { moldes: 1, creadas: 0, programadas: 0, incompletos: 0, fallidas: [] });
   assert.equal(R.b.total, 3);
-  assert.deepEqual(R.f, { r: { moldes: 1, creadas: 1, programadas: 1, incompletos: 0, fallidas: [] }, programadas: [1], borradas: 1 });
+  assert.deepEqual(R.f, { r: { moldes: 1, creadas: 1, programadas: 1, incompletos: 0, fallidas: [] }, programadas: [1], borradas: 1, hasta: '2026-10-31' });
   assert.deepEqual(R.c, { moldes: 1, creadas: 0, programadas: 0, incompletos: 1, fallidas: [] });
-  assert.equal(faltaParaRepetir({ red: 'instagram', cuenta_red: null, archivo: 'x', dia_completo: false }), 'Elige la cuenta donde se publica.');
-  assert.equal(faltaParaRepetir({ red: 'instagram', cuenta_red: 'a', archivo: 'x', dia_completo: true }), 'Ponle una hora: cada vez sale a esa hora.');
-  assert.equal(faltaParaRepetir({ red: 'instagram', cuenta_red: 'a', archivo: 'x', dia_completo: false }), null);
+  assert.deepEqual(R.c2, { moldes: 1, creadas: 0, programadas: 0, incompletos: 1, fallidas: [] }, 'sin el texto no sale sola (M5)');
+  const completo = { red: 'instagram', cuenta_red: 'a', archivo: 'x', dia_completo: false, texto: 'El pie' };
+  assert.equal(faltaParaRepetir({ ...completo, cuenta_red: null }), 'Elige la cuenta donde se publica.');
+  assert.equal(faltaParaRepetir({ ...completo, dia_completo: true }), 'Ponle una hora: cada vez sale a esa hora.');
+  assert.equal(faltaParaRepetir({ ...completo, texto: ' ' }), 'Escribe el texto: cada vez sale con él.');
+  assert.equal(faltaParaRepetir(completo), null);
 });
 
 test('el Calendario dibuja las próximas que no nacieron, desde ahora, de sólo lectura y llevando al molde', () => {
@@ -69,15 +85,20 @@ test('el Calendario dibuja las próximas que no nacieron, desde ahora, de sólo 
   assert.match(leer('lib/calendario.ts'), /import\('\.\/calendario-recurrentes'\)\.then\(\(m\) => m\.seriesParaDibujar\(desde, hasta, desdeIso, tz\)\)/);
 });
 
-test('las reglas: el molde es la primera vez, nada hacia atrás, dos días adelante, y las que nacieron no se repiten', () => {
+test('las reglas: el molde es la primera vez, nada hacia atrás, dos días adelante, y lo atendido no vuelve', () => {
   assert.equal(HORIZONTE_DIAS, 2);
-  const nada = new Set<string>();
-  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-29', hoy: '2026-10-29', nacidas: nada }), ['2026-10-30', '2026-10-31']);
-  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-20', hoy: '2026-10-29', nacidas: nada }), ['2026-10-29', '2026-10-30', '2026-10-31']);
-  assert.deepEqual(vecesACrear({ regla: 'FREQ=WEEKLY;BYDAY=MO', ancla: '2026-10-26', hoy: '2026-10-29', nacidas: nada }), []);
-  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-29', hoy: '2026-10-29', nacidas: new Set(['2026-10-30']) }), ['2026-10-31']);
-  assert.deepEqual(vecesADibujar({ regla: 'FREQ=DAILY', ancla: '2026-10-20', desde: '2026-10-26', hasta: '2026-10-31', hoy: '2026-10-29', nacidas: nada }),
+  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-29', hoy: '2026-10-29', atendidaHasta: null }), ['2026-10-30', '2026-10-31']);
+  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-20', hoy: '2026-10-29', atendidaHasta: null }), ['2026-10-29', '2026-10-30', '2026-10-31']);
+  assert.deepEqual(vecesACrear({ regla: 'FREQ=WEEKLY;BYDAY=MO', ancla: '2026-10-26', hoy: '2026-10-29', atendidaHasta: null }), []);
+  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-29', hoy: '2026-10-29', atendidaHasta: '2026-10-30' }), ['2026-10-31']);
+  // Lo atendido no vuelve aunque su fila ya no esté (la borraron o la movieron): A1.
+  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-29', hoy: '2026-10-29', atendidaHasta: '2026-10-31' }), []);
+  // Una marca vieja (de antes de hoy) no corre nada: nada hacia atrás igual.
+  assert.deepEqual(vecesACrear({ regla: 'FREQ=DAILY', ancla: '2026-10-20', hoy: '2026-10-29', atendidaHasta: '2026-10-25' }), ['2026-10-29', '2026-10-30', '2026-10-31']);
+  assert.deepEqual(vecesADibujar({ regla: 'FREQ=DAILY', ancla: '2026-10-20', desde: '2026-10-26', hasta: '2026-10-31', hoy: '2026-10-29', atendidaHasta: null }),
     ['2026-10-29', '2026-10-30', '2026-10-31'], 'nada del pasado');
+  assert.deepEqual(vecesADibujar({ regla: 'FREQ=DAILY', ancla: '2026-10-20', desde: '2026-10-26', hasta: '2026-10-31', hoy: '2026-10-29', atendidaHasta: '2026-10-30' }),
+    ['2026-10-31'], 'ni lo que el cron ya atendió');
   assert.equal(reglaDePublicacion('cualquier cosa'), null);
   assert.equal(reglaDePublicacion('FREQ=WEEKLY;BYDAY=MO'), 'FREQ=WEEKLY;BYDAY=MO');
 });
@@ -85,7 +106,11 @@ test('las reglas: el molde es la primera vez, nada hacia atrás, dos días adela
 test('la regla: sólo en una Publicación, válida, y se saca; sin la mig 0349 se dice en palabras', () => {
   assert.deepEqual(R.e, {
     pone: { ok: true }, guardada: 'FREQ=WEEKLY;BYDAY=MO', mala: { ok: false, error: 'Esa repetición no es válida.' },
-    bloque: { ok: false, error: 'Sólo una Publicación se repite.' }, saca: { ok: true }, sacada: null,
+    bloque: { ok: false, error: 'Sólo una Publicación se repite.' },
+    hija: { ok: false, error: ES_UNA_VEZ_DE_LA_SERIE }, hijaRegla: null,
+    sinTexto: { ok: false, error: 'Escribe el texto: cada vez sale con él.' },
+    saca: { ok: true }, sacada: null,
+    deLaHija: { regla: null, disponible: true, serieHref: '/calendario?vista=semana&fecha=2026-10-22&evento=evmolde1' },
   });
   const s = leer('lib/calendario-recurrentes.ts');
   assert.match(s, /if \(esSinMigracion\(error\.message\) \|\| \/repetir\/\.test\(error\.message\)\) return \{ ok: false, error: FALTA_MIGRACION_RECURRENTES \};/);
@@ -95,11 +120,16 @@ test('la regla: sólo en una Publicación, válida, y se saca; sin la mig 0349 s
   const mig = leer('supabase/migrations/0349_calendario_publicaciones_que_se_repiten.sql');
   assert.match(mig, /check \(repetir is null or \(tipo = 'publicacion' and char_length\(repetir\) between 1 and 200\)\)/);
   assert.match(mig, /create unique index if not exists calendario_eventos_serie_vez_uidx\n\s+on calendario_eventos \(workspace_id, serie_de, inicio\) where serie_de is not null;/);
+  // A2 en la base: una vez no lleva regla. A1: el molde anota hasta dónde atendió.
+  assert.match(mig, /check \(repetir is null or serie_de is null\)/);
+  assert.match(mig, /alter table calendario_eventos add column if not exists repetir_hasta date;/);
 });
 
 test('el «Repetir» del evento, sus acciones con el guard, y el cron registrado', () => {
   const p = leer('app/calendario/PublicarEnRed.tsx');
-  assert.match(p, /\{repeticion\?\.disponible && \(/, 'sin la mig 0349 el control no se muestra');
+  assert.match(p, /\{repeticion\?\.disponible && !repeticion\.serieHref && \(/, 'sin la mig 0349, o en una vez de una serie, el control no se muestra');
+  // M5: elegir una regla (o sacarla) se CONFIRMA antes de guardarla.
+  assert.match(p, /if \(!\(await confirm\(pregunta, \{ title: valor \? 'Repetir la publicación' : 'Que no se repita'[^\n]*\n\s+const r = await guardarRepeticionAction\(id, valor \|\| null\);/);
   assert.match(p, /<Select label="Repetir" value=\{repeticion\.regla \?\? ''\}/);
   assert.match(p, /\{ value: '', label: 'No se repite' \},\n\s+\.\.\.PRESETS\.map/);
   const a = leer('app/calendario/actions.ts');
@@ -129,3 +159,13 @@ test('el «Repetir» del evento, sus acciones con el guard, y el cron registrado
 //   · se dibujan veces del pasado                              → 28 / 1
 //   · un molde incompleto igual nace                           → 28 / 1
 //   · el «Repetir» sin el guard                                → 28 / 1
+//
+// ROTO 29/10 noche (la revisión de privacidad, A1, A2 y M5; este test solo: 8 / 0 como está). Una por vez:
+//   · A1: el cron no anota hasta dónde nació                   → 5 / 3
+//   · A1: la marca no corre lo ya atendido                     → 5 / 3
+//   · A2: «Repetir» en una vez de una serie                    → 7 / 1
+//   · A2: la base deja una regla en una vez                    → 7 / 1
+//   · A2: la vez muestra el Select de Repetir                  → 7 / 1
+//   · M5: un molde sin texto sale solo                         → 6 / 2
+//   · M5: la regla se guarda sin mirar lo que falta            → 7 / 1
+//   · M5: la regla se guarda sin confirmar                     → 7 / 1

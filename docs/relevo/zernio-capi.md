@@ -3,6 +3,19 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 29/10/2026 noche, cuarta tanda (cuenta `claude3`) — la revisión de privacidad de Integración (M1-M6, A1, A2)
+
+Integración (informe: `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`) frenó `ce56bd693` del tren-af hasta
+arreglar M1-M4 (el barrido de leads) y pidió A1, A2, M5 y M6 antes de aplicar la 0349. Hecho en esta tanda:
+- **Barrido:** cada lead se descarta en memoria si su cuenta no es del negocio, con cualquier clave (M1, M2), y si es más viejo que la
+  ventana (B1); sólo crea (`soloCrear` → `noTocarExistente` en `upsertLeadFromMeta`, M3); la papelera por `leerTodo` y, si falla, corta (M4).
+- **Repetidas (mig 0349 cambiada, NO aplicada):** `repetir_hasta` en el molde (A1), `calendario_eventos_vez_sin_regla` y el rechazo en
+  `guardarRepeticion` (A2), confirmación y texto obligatorio (M5), el 409 que no se comparte (M6, en `programarPublicaciones`).
+- Cosecha: docs/hallazgos-integraciones.md (la entrada del 2.º Instagram y los leads) y docs/hallazgos-calendario.md (la de las repetidas).
+**Sin hacer (de la revisión):** B2 (`?dias=90` resucita lo purgado), B3 (la pasada diaria reactiva el webhook pausado), B4 (los
+prestados nunca se barren), B5 (no reintenta), B6 (`rutaValida` al copiar), B7 (aviso de cobro al reconectar la misma cuenta);
+propagar al molde corregido / cancelar al sacar la regla; los dos huecos en `pollMetaLeads`.
+
 ## ESTADO 29/10/2026 noche, tercera tanda (cuenta `claude3`) — WhatsApp en /integraciones
 
 Pedido del Cerebro (Martín: «En Integraciones falta el logo de WhatsApp... con el QR obvio, con las múltiples líneas»): la tarjeta

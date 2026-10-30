@@ -7,8 +7,11 @@
 //
 //   1. EL BARRIDO CARGA SÓLO LO QUE FALTA: ni lo que ya está, ni lo de la PAPELERA, ni un lead de menos de 5 minutos (es del webhook),
 //      ni uno de LinkedIn. Uno que falla no tumba a los demás.
-//   2. CADA CLAVE CON LA SUYA, y con la clave de la plataforma SÓLO las cuentas del negocio (sin el filtro, vería los leads de otro).
-//      Sin el complemento de anuncios (403), se dice.
+//   2. CADA CLAVE CON LA SUYA, y SÓLO las cuentas del negocio: en el pedido (`accountIds`) Y lead por lead en memoria, con cualquier
+//      clave (revisión de privacidad, 29/10, M1 y M2: si Zernio ignora el filtro, o la clave propia lista el equipo entero, entraban
+//      los leads de otro). Sin el complemento de anuncios (403), se dice.
+//   2b. SÓLO CREA (M3): la persona que ya es un lead no se toca. LA PAPELERA, entera o nada (M4).
+//   (El M3 con la carga REAL, `upsertLeadFromMeta`, lo corre tests/_zernio-leads-barrido-real-hijo.ts.)
 //   3. EL CRON: cada 30 minutos y en la pasada diaria; en la diaria, el webhook asegurado donde no escucha los leads.
 //   4. EL AVISO en «Anuncios de Meta»: sin permiso o sin webhook, se dice qué hacer.
 //
@@ -29,19 +32,27 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
+const salidaReal = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_zernio-leads-barrido-real-hijo.ts')], {
+  cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'], timeout: 120_000,
+});
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const REAL = JSON.parse(salidaReal.slice(salidaReal.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
 const leer = (p: string): string => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
 
 test('el hijo corrió entero y no salió a la red', () => {
   assert.equal(R.tiro, undefined, String(R.tiro));
   assert.deepEqual(R.red, []);
+  assert.equal(REAL.tiro, undefined, String(REAL.tiro));
+  assert.deepEqual(REAL.red, []);
 });
 
-test('el barrido carga SÓLO lo que falta: ni lo que está, ni la papelera, ni uno del webhook, ni LinkedIn', () => {
-  assert.deepEqual(R.a.r, { vistos: 6, cargados: 1, yaEstaban: 2, delWebhook: 1, ignorados: 1, errores: 0, motivo: null });
+test('el barrido carga SÓLO lo que falta: ni lo que está, ni la papelera, ni uno del webhook, ni LinkedIn, ni uno fuera de la ventana', () => {
+  assert.deepEqual(R.a.r, { vistos: 7, cargados: 1, yaEstaban: 2, delWebhook: 1, ignorados: 2, ajenos: 0, errores: 0, motivo: null });
   assert.deepEqual(R.a.cargados, ['10000000000003'], 'el repetido en la lista se carga una vez');
   assert.deepEqual(R.a.anunciados, ['10000000000003']);
-  // Con su propia clave (byok), todo el equipo es del negocio: sin filtro de cuentas, desde hace 1 día, de a 100.
-  assert.deepEqual(R.a.pedidos, ['/ads/leads?platform=meta&since=1793210400&limit=100']);
+  assert.deepEqual(R.a.opciones, [{ soloCrear: true }], 'el barrido sólo crea: la persona que ya es un lead no se toca');
+  // También con su propia clave (byok), sólo las cuentas del negocio, desde hace 1 día, de a 100.
+  assert.deepEqual(R.a.pedidos, ['/ads/leads?platform=meta&since=1793210400&limit=100&accountIds=acc_fb_1']);
   assert.equal(1793210400, Math.floor((Date.parse('2026-10-29T18:00:00Z') - 86_400_000) / 1000));
 });
 
@@ -55,11 +66,43 @@ test('con dos claves, cada una se barre con la suya; sin el complemento de anunc
 test('uno que falla no tumba a los demás; sin páginas no se pregunta nada', () => {
   assert.equal(R.d.r.errores, 1);
   assert.deepEqual(R.d.cargados, ['40000000000002']);
-  assert.deepEqual(R.e, { r: { vistos: 0, cargados: 0, yaEstaban: 0, delWebhook: 0, ignorados: 0, errores: 0, motivo: 'sin-paginas' }, pedidosLeads: 0 });
+  assert.deepEqual(R.e, { r: { vistos: 0, cargados: 0, yaEstaban: 0, delWebhook: 0, ignorados: 0, ajenos: 0, errores: 0, motivo: 'sin-paginas' }, pedidosLeads: 0 });
 });
 
-test('con la clave de la PLATAFORMA, sólo las cuentas del negocio (sin el filtro vería los leads de otro)', () => {
+test('con la clave de la PLATAFORMA, sólo las cuentas del negocio, y si Zernio ignora el filtro, se descarta en memoria (M1)', () => {
   assert.deepEqual(R.f.pedidos, ['/ads/leads?platform=meta&since=1793210400&limit=100&accountIds=acc_fb_1']);
+  assert.deepEqual(R.f.cargados, ['50000000000001'], 'ni el de la página de otro negocio ni uno que no dice de qué cuenta es');
+  assert.equal(R.f.r.ajenos, 2);
+});
+
+test('con clave PROPIA, lo mismo: sólo los de sus cuentas de Facebook y de anuncios (M2)', () => {
+  assert.deepEqual(R.g.cargados, ['60000000000001']);
+  assert.equal(R.g.r.ajenos, 2);
+});
+
+test('la persona que ya era un lead no se toca: ni la ficha, ni otra conversión, ni otro aviso (M3)', () => {
+  assert.deepEqual(R.h.anunciados, []);
+  assert.equal(R.h.r.yaEstaban, 1);
+  assert.equal(R.h.r.cargados, 0);
+  // Con la carga REAL (`upsertLeadFromMeta`): Ana llenó el formulario A y el B, y su ficha tiene el id de B. Tres pasadas: la ficha
+  // no cambia de id, no pierde la campaña, no hay conversión de más y sigue siendo una sola. La persona nueva sí entra.
+  for (const v of REAL.vueltas) {
+    assert.equal(v.meta_lead_id, '90000000000002');
+    assert.equal(v.meta_ad_name, 'Anuncio de octubre');
+    assert.equal(v.meta_campaign_name, 'Campaña X');
+  }
+  assert.deepEqual(REAL.conv, ['90000000000003'], 'la conversión, sólo de la persona nueva y una vez');
+  assert.equal(REAL.fichas, 2);
+  assert.equal(REAL.vueltas[0].r.cargados, 1);
+  assert.equal(REAL.vueltas[1].r.cargados, 0);
+});
+
+test('la papelera: entera aunque pase de 1000, y si no se puede leer el barrido corta (M4)', () => {
+  assert.deepEqual(R.i.cargados, ['80000000009999'], 'el borrado número 1200 no vuelve');
+  assert.equal(R.j.tiro, true);
+  assert.match(R.j.mensaje, /leads_papelera/);
+  assert.deepEqual(R.j.cargados, []);
+  assert.deepEqual(R.j.anunciados, []);
 });
 
 test('el lector del REST: el fieldData crudo de Meta primero, la fecha es createdTime, y LinkedIn no entra', () => {
@@ -114,3 +157,15 @@ test('el aviso en «Anuncios de Meta»: sin permiso o sin webhook, se dice qué 
 //   · el 403 del complemento tumba el barrido               → 24 / 5
 //   · el lector del REST ignora el fieldData crudo          → 28 / 1
 //   · el aviso de leads no se muestra                       → 28 / 1
+//
+// ROTO 29/10 noche (la revisión de privacidad de Integración, 2910-revision-privacidad-zernio-leads-ce56bd693.md; este test solo,
+// con el hijo de la carga REAL: 11 / 0 como está). Una por vez:
+//   · M1/M2: no se descarta en memoria el lead de otra cuenta        → 9 / 2
+//   · M1/M2: un lead que no dice de qué cuenta es, pasa              → 10 / 1
+//   · M2: con clave propia, el pedido sin accountIds                 → 10 / 1
+//   · B1: un lead fuera de la ventana entra (Zernio ignora since)    → 10 / 1
+//   · M3: el barrido no pide «sólo crear»                            → 9 / 2
+//   · M3: la persona que ya era lead recibe conversión y aviso       → 10 / 1
+//   · M3: upsertLeadFromMeta ignora noTocarExistente                 → 10 / 1
+//   · M4: la papelera sin paginar (corta en 1000)                    → 10 / 1
+//   · M4: con la papelera caída se sigue igual                       → 10 / 1

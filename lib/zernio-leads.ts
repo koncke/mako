@@ -44,7 +44,8 @@ export type LeadCargado = {
   conversion: boolean;
 };
 
-export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date()): Promise<LeadCargado> {
+/** `soloCrear`: el barrido. La persona que ya es un lead (por teléfono o email) no se toca (`noTocarExistente`, lib/leads.ts). */
+export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date(), opc: { soloCrear?: boolean } = {}): Promise<LeadCargado> {
   const { created, lead } = await upsertLeadFromMeta({
     email: l.email,
     nombre: l.nombre,
@@ -58,7 +59,7 @@ export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date
     meta_field_data: l.fieldData.length ? l.fieldData : null,
     meta_created_at: l.creadoEn,
     meta_campos_no_reconocidos: l.noReconocidos,
-  });
+  }, { noTocarExistente: opc.soloCrear === true });
   return {
     leadId: lead.id,
     nombre: lead.nombre,

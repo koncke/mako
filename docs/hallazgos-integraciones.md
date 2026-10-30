@@ -2370,12 +2370,25 @@ tests/zernio-leads-barrido.test.ts.
   cada 15 minutos para recuperar lo que su webhook perdió (`meta.lastCheckedAt`). El barrido recupera un `lead.received` que Zernio NO
   le entregó a MaKo; un lead que Meta no le entregó a Zernio lo recupera Zernio. Pedir más seguido que cada 15 minutos no trae nada.
   ⚠️ Trae `fieldData` CRUDO de Meta (la forma del webhook de Meta) y la fecha es `createdTime` (no `createdAt` como el webhook).
-- ⚠️ **Lo que ya está NO se toca:** `upsertLeadFromMeta` también ACTUALIZA un lead existente (los nombres de campaña quedan en null,
-  punto 4 de «Los leads de Meta por Zernio»). Se carga sólo el `meta_lead_id` que no está en `leads` NI en la papelera (mig 0340: la
-  papelera guarda la FOTO y BORRA el lead, así que un lead borrado «no está» y el barrido lo resucitaba con su primer mensaje). ⚠️ **El
-  poll de Meta de siempre (`pollMetaLeads`) tiene el mismo hueco de la papelera y NO se tocó:** es de Ads/CRM.
-- ⚠️ **Con la clave de la PLATAFORMA (`byok: false`), sólo las cuentas del negocio** (`accountIds` de su perfil): sin el filtro,
-  `GET /v1/ads/leads` lista TODO el equipo y un negocio vería los leads de otro. Con su propia clave, todo el equipo es suyo.
+- ⚠️ **Lo que ya está NO se toca, y «ya está» no es sólo el `meta_lead_id`:** `upsertLeadFromMeta` también ACTUALIZA un lead que
+  encuentra por teléfono o email (pisa el `meta_lead_id`, deja la campaña en null y avisa «lead fusionado»). El barrido carga sólo el
+  `meta_lead_id` que no está en `leads` NI en la papelera, y además con `soloCrear` (`noTocarExistente`): la persona que ya es un lead
+  se deja como está, sin conversión ni aviso. **El diagnóstico obvio era el equivocado:** «ya está» por id parecía alcanzar, y una
+  persona con DOS formularios (la ficha tiene el id de B) hacía que cada barrido cargara A, la fusionara, y la vez siguiente B: la
+  ficha iba y venía cada 30 minutos (revisión de privacidad del 29/10, M3; lo prueba tests/_zernio-leads-barrido-real-hijo.ts con la
+  carga REAL). Lo que se pierde a sabiendas: la conversión del 2.º formulario cuyo webhook se perdió. ⚠️ **El poll de Meta de siempre
+  (`pollMetaLeads`) tiene los dos huecos (papelera y fusión) y NO se tocó:** es de Ads/CRM.
+- ⚠️ **La papelera se lee ENTERA o el barrido corta** (`leerTodo`; M4): PostgREST corta en 1000 sin avisar, y una agencia que limpia
+  1.500 leads basura los veía volver con su primer WhatsApp. «Si no se puede leer, se sigue: perder un lead nuevo es peor» era el
+  razonamiento equivocado: lo que se pierde es una pasada; lo que se gana sin la papelera es un mensaje a quien el negocio borró.
+- ⚠️ **Sólo las cuentas del negocio, en el pedido Y lead por lead en memoria, con CUALQUIER clave** (M1 y M2): `accountIds` va en el
+  pedido, y cada lead cuyo `accountId` no es una de las cuentas de Facebook o de anuncios del negocio (o que no trae ninguno) se
+  descarta (`ajenos`). Lo mismo con `since` (un lead más viejo que la ventana no entra). **Lo que parecía y no era:** «con su propia
+  clave todo el equipo es suyo». No: el equipo de Zernio del cliente tiene páginas que el negocio desconectó y otros perfiles, y la
+  clave de MaKo pegada como «propia» en otro negocio (`byok` es «tiene fila y no es el ws1», lib/zernio.ts) listaba los leads de
+  TODOS los negocios prestados. Y con la de la plataforma, el filtro del pedido solo dependía de que Zernio lo respete (sin medir).
+  Es la regla del webhook, que rutea cada lead por su cuenta y descarta el ajeno: el barrido no puede ser más laxo que la puerta
+  que copia. **Regla:** un filtro que va en la URL de un tercero no es una red; se re-verifica en memoria.
 - **Un lead de menos de 5 minutos es del webhook** (`esDelWebhookTodavia`, la regla del poll de Meta), uno que falla no tumba a los
   demás (la clave única GLOBAL de `meta_lead_id`), y un 403 (sin el complemento de anuncios) se dice y se sigue con la otra clave.
 - **El aviso** (en «Anuncios de Meta» del modal de Zernio): `leadsEnElWebhook(ws, conexión)` mira el webhook de la CLAVE de la conexión
@@ -2401,8 +2414,10 @@ tests/zernio-leads-barrido.test.ts.
    de Graph (de eso depende que un lead que entra por las dos puertas sea UNO) y si `lead.received` llega sin el complemento de anuncios.
 5. Borrar el lead de prueba del CRM (y el de Meta, con el `DELETE` de arriba).
 
-- **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. El hueco de la papelera
-  en el poll de Meta.
+- **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. Los huecos de la papelera
+  y de la fusión en el poll de Meta. La clave de MaKo pegada como propia sigue contando como `byok` en lo demás (perfiles, redes): el
+  barrido ya no filtra de más, pero detectarla al pegarla no se hizo. El `?dias=90` del cron (backfill) también barre Zernio 90 días
+  y puede traer leads que la papelera ya purgó (revisión, B2). Los negocios con la cuenta prestada nunca se barren (B4).
 
 ## WhatsApp vuelve a /integraciones: la tarjeta de las líneas por QR (29/10/2026)
 

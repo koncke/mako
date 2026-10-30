@@ -21,6 +21,7 @@ import { Button } from '@/app/_ui/Button';
 import { Select } from '@/app/_ui/Select';
 import { TextField } from '@/app/_ui/Field';
 import { useConfirm } from '@/app/_ui/Confirm';
+import Link from '@/app/_ui/Link';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import {
@@ -53,13 +54,20 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
   const { confirm, confirmNode } = useConfirm();
   // «Se repite» (29/10/2026, la llamada con Thiago: «podés programarte publicaciones recurrentes»): la regla de esta Publicación.
   // `disponible: false` = la base todavía no la tiene (mig 0349): el control no se muestra.
-  const [repeticion, setRepeticion] = useState<{ regla: string | null; disponible: boolean } | null>(null);
+  // `serieHref`: es una de las veces de una serie; la regla se cambia en la primera (revisión de privacidad, 29/10, A2).
+  const [repeticion, setRepeticion] = useState<{ regla: string | null; disponible: boolean; serieHref: string | null } | null>(null);
   useEffect(() => { void repeticionAction(id).then(setRepeticion).catch(() => setRepeticion(null)); }, [id]);
   const cambiarRepeticion = async (valor: string) => {
     setError(null);
+    // ⚠️ SE CONFIRMA (M5): la regla programa sola, sin preguntar cada vez; elegirla sin querer era un post por día.
+    const pregunta = valor
+      ? [`${textoDeRegla(valor) ?? 'Se repite'}, a esta hora: cada vez nace una igual y se programa sola, sin preguntarte.`,
+        'Cambiar el texto o el archivo vale para las que nazcan después.'].join(' ')
+      : 'Deja de repetirse. Las que ya están programadas (hasta dos días adelante) salen igual: cancélalas una por una si no quieres que salgan.';
+    if (!(await confirm(pregunta, { title: valor ? 'Repetir la publicación' : 'Que no se repita', confirmLabel: valor ? 'Repetir' : 'Que no se repita', danger: false }))) return;
     const r = await guardarRepeticionAction(id, valor || null);
     if (!r.ok) { setError(r.error); return; }
-    setRepeticion({ regla: valor ? reglaDePublicacion(valor) : null, disponible: true });
+    setRepeticion({ regla: valor ? reglaDePublicacion(valor) : null, disponible: true, serieHref: null });
     onCambio();
   };
   const cargarRef = useRef<() => void>(() => {});
@@ -244,7 +252,12 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
             onClick={() => void programar()}>Programar</Button>
         </>
       )}
-      {repeticion?.disponible && (
+      {repeticion?.disponible && repeticion.serieHref && (
+        <span style={DIM}>
+          Es una de las veces de una publicación que se repite. La repetición se cambia en <Link href={repeticion.serieHref}>la primera</Link>.
+        </span>
+      )}
+      {repeticion?.disponible && !repeticion.serieHref && (
         <>
           <Select label="Repetir" value={repeticion.regla ?? ''} disabled={ocupado}
             onChange={(v) => void cambiarRepeticion(v)}
@@ -256,7 +269,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
                 ? [{ value: repeticion.regla, label: textoDeRegla(repeticion.regla) ?? repeticion.regla }] : []),
             ]} />
           {repeticion.regla && (
-            <span style={DIM}>Cada vez nace una publicación igual, a esta hora, con la misma cuenta, el archivo y el texto, y se programa sola en la red. Las próximas se ven en «Se repite».</span>
+            <span style={DIM}>Cada vez nace una publicación igual, a esta hora, con la misma cuenta, el archivo y el texto, y se programa sola en la red. Las próximas se ven en «Se repite». Las ya programadas (hasta dos días) salen como están: un cambio acá vale para las que nazcan después.</span>
           )}
         </>
       )}

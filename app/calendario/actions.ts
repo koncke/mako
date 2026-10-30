@@ -217,11 +217,11 @@ export async function publicacionDesdeCrearAction(p: { origen: string; titulo?: 
 }
 
 /** La regla de una Publicación que se repite (29/10/2026, mig 0349). `disponible: false` = la base todavía no la tiene. */
-export async function repeticionAction(id: string): Promise<{ regla: string | null; disponible: boolean }> {
+export async function repeticionAction(id: string): Promise<{ regla: string | null; disponible: boolean; serieHref: string | null }> {
   await guard();
   try { return await repeticionDelEvento(idDe(id)); } catch (e) {
     console.error('[calendario] repetición:', e instanceof Error ? e.message : e);
-    return { regla: null, disponible: false };
+    return { regla: null, disponible: false, serieHref: null };
   }
 }
 

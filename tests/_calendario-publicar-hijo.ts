@@ -290,6 +290,11 @@ async function main() {
   db.calendario_eventos.push(evento('evl'));
   proximoPost = '409';
   out.j = { r: await enWs(() => P.programarPublicaciones(['evl'])), fila: fila('evl') };
+  // (j2) Y si ese post ya es de OTRA publicación (dos veces iguales de una serie, M6): ésta no se lo queda.
+  reset();
+  db.calendario_eventos.push(evento('evl'), evento('evl2', { publicacion: 'programada', post_id: 'post_ya' }));
+  proximoPost = '409';
+  out.j2 = { r: await enWs(() => P.programarPublicaciones(['evl'])), fila: fila('evl') };
 
   // (k) LA CUENTA ES DEL NEGOCIO: una de otro negocio (otro perfil de la misma cuenta de Zernio) no se guarda ni se programa,
   //     aunque ya esté escrita en la fila; la red sale de la cuenta, no de lo que manda el navegador; y si las cuentas no se

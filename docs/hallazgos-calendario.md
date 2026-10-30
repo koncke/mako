@@ -421,9 +421,22 @@ mig 0349 · tests/calendario-recurrentes.test.ts.
 - ⚠️ **El archivo se COPIA, no se comparte:** `rutaValida` exige `<ws>/calendario/<evento>/…`, así que el archivo del molde no
   pasaba para otra fila, y compartirlo dejaba que borrar una vez se llevara el del molde. Cada vez nace con su copia (Storage `copy`).
 - **Nada hacia atrás y dos días adelante:** con el cron caído, la vez que pasó no se publica tarde; la de hoy cuya hora pasó, tampoco.
-  Cada 6 horas (no una vez por día): una vez que falló se reintenta en el día, y como crea dos días adelante ninguna llega justa.
-- **Una vez es una vez:** índice único (`workspace_id, serie_de, inicio`). Dos pasadas a la vez: la segunda choca, borra su copia y no
-  programa (lo prueba el test con una escritura en el medio).
+  Cada 6 horas (no una vez por día), y como crea dos días adelante ninguna llega justa. ⚠️ Una vez que NACIÓ y cuyo «Programar» falló
+  NO se reintenta sola: queda en el Calendario con su motivo (la versión anterior de esta línea decía que se reintentaba; no era cierto).
+- ⚠️ **Lo que el cron atendió se anota en el MOLDE (`repetir_hasta`), no se cuenta por las filas que existen.** La primera versión
+  contaba las veces por las hijas que había: borrar la de mañana la hacía RENACER y programarse sola, y moverla al sábado dejaba las
+  dos (revisión de privacidad del 29/10, A1). Ahora nunca se crea un día en o antes de la marca, y la capa «Se repite» tampoco lo
+  dibuja. La marca se escribe ANTES de programar. Dos pasadas a la vez, igual: índice único (`workspace_id, serie_de, inicio`); la
+  segunda choca, borra su copia y no programa.
+- ⚠️ **Una vez de una serie NO lleva regla** (A2): su «Repetir» decía «No se repite» y, al elegir otra, armaba una segunda serie con la
+  misma cuenta, archivo y hora: dos posts por día, para siempre. `guardarRepeticion` lo rechaza, la base también
+  (`calendario_eventos_vez_sin_regla`), y la pantalla muestra «se cambia en la primera» con el link al molde.
+- ⚠️ **La regla se CONFIRMA y pide el molde completo, TEXTO incluido** (M5): el Select guardaba al tocarlo y un borrador sin el pie
+  salía así cada día. Lo que ya nació (hasta dos días) sale como está: un cambio en el molde vale para las que nazcan después, y
+  sacar la regla no cancela las ya programadas. La pantalla lo dice; no se automatizó.
+- ⚠️ **Un 409 de Zernio no se comparte entre dos publicaciones** (M6, sospecha sin medir): el 409 es «el mismo contenido en 24 h» y
+  devuelve el post que ya estaba. Las veces iguales de una serie se programan juntas: si el post ya es de OTRA publicación, ésta queda
+  en `fallo` con su motivo, en vez de quedarse con el mismo `post_id` (una sola salía, y cancelar una cancelaba la de las otras).
 - ⚠️ **Lo que se dibuja es desde AHORA:** la primera versión dibujaba como «próximas» las veces de la semana que ya habían pasado sin
   nacer, que no iban a salir nunca. Las próximas van en la capa «Se repite», de SÓLO LECTURA (`fuente: 'plan'`, como las recurrentes
   del Plan), y llevan al molde con `?evento=`.
@@ -431,5 +444,8 @@ mig 0349 · tests/calendario-recurrentes.test.ts.
   la lectura principal pidiera `repetir`, PostgREST rechazaba la consulta ENTERA y el Calendario quedaba vacío hasta la migración.
 - **Sin hacer:** «Personalizado…» (sólo los presets del Plan: todos los días, cada semana, cada mes, cada año, días laborables; una
   regla puesta por la API se muestra igual); cambiar UNA vez sin tocar el molde (cada vez es una Publicación normal: se edita como
-  cualquiera); avisar en el Calendario que un molde está incompleto (hoy sólo lo cuenta el log del cron). **La mig 0349 está escrita,
-  NO aplicada** (la pide el Cerebro). No se vio en un navegador.
+  cualquiera); avisar en el Calendario que un molde está incompleto (hoy sólo lo cuenta el log del cron); corregir el molde y que se
+  corrijan las ya programadas; cancelar las programadas al sacar la regla o borrar el molde; reintentar una vez cuyo «Programar»
+  falló (B5); `rutaValida` como segunda red al copiar el archivo del molde (B6). **La mig 0349 está escrita, NO aplicada** (la pide el
+  Cerebro; se le sumaron `repetir_hasta` y `calendario_eventos_vez_sin_regla` el 29/10 a la noche, antes de aplicarla). No se vio
+  en un navegador.

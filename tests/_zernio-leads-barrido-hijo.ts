@@ -14,12 +14,27 @@ const pedidos: Array<{ key: string; ruta: string }> = [];
 const red: string[] = [];
 let leadsDe: Record<string, unknown[]> = {};
 let prohibido403 = new Set<string>();
+let papeleraCaida = false;
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
-  if (u.host === 'supa.test') return pg.responder(u, init);
+  if (u.host === 'supa.test') {
+    if (u.pathname.endsWith('/leads_papelera')) {
+      if (papeleraCaida) return json(500, { code: 'XX000', message: 'la papelera no responde' });
+      // PostgREST corta en 1000 filas SIN avisar (max-rows) y el de mentira no: acá se corta como el de verdad, con el `offset` y el
+      // `limit` de `.range()`.
+      const desde = Number(u.searchParams.get('offset') ?? 0);
+      const limite = Math.min(Number(u.searchParams.get('limit') ?? 1000) || 1000, 1000);
+      const sin = new URL(u.href);
+      sin.searchParams.delete('offset');
+      sin.searchParams.delete('limit');
+      const filas = (await (await pg.responder(sin, init)).json()) as unknown[];
+      return json(200, filas.slice(desde, desde + limite));
+    }
+    return pg.responder(u, init);
+  }
   if (u.host === 'zernio.com') {
     const ruta = u.pathname.replace(/^\/api\/v1/, '');
     const key = (new Headers(init.headers).get('authorization') ?? '').replace(/^Bearer /, '');
@@ -72,16 +87,20 @@ async function main() {
 
   const cargados: string[] = [];
   const anunciados: string[] = [];
+  const opciones: unknown[] = [];
+  let creaLaCarga = true;
   const deps = {
-    cargar: async (l: { leadgenId: string; creadoEn: string | null }) => {
+    cargar: async (l: { leadgenId: string; creadoEn: string | null }, _ahora: Date, opc: unknown) => {
       cargados.push(l.leadgenId);
-      return { leadId: cargados.length, nombre: 'x', telefono: null, email: null, creado: true, nuevo: true, conversion: true };
+      opciones.push(opc);
+      return { leadId: cargados.length, nombre: 'x', telefono: null, email: null, creado: creaLaCarga, nuevo: creaLaCarga, conversion: true };
     },
     alNacer: async (_ws: number, _c: unknown, l: { leadgenId: string }) => { anunciados.push(l.leadgenId); },
   };
   const reset = (claves: string[]) => {
     pg.vaciar();
-    pedidos.length = 0; cargados.length = 0; anunciados.length = 0; leadsDe = {}; prohibido403 = new Set();
+    pedidos.length = 0; cargados.length = 0; anunciados.length = 0; opciones.length = 0; leadsDe = {}; prohibido403 = new Set();
+    papeleraCaida = false; creaLaCarga = true;
     Z.olvidarClavesZernio(WS);
     db.workspaces.push({ id: WS, nombre: 'Prueba', capa: 'cliente' }, { id: 9, nombre: 'MaKo', capa: 'superadmin' });
     claves.forEach((k, i) => {
@@ -99,8 +118,13 @@ async function main() {
   leadsDe.sk_uno = [
     lead('10000000000001', 60), lead('10000000000002', 60), lead('10000000000003', 60), lead('10000000000004', 2),
     lead('urn:li:leadFormResponse:9', 60), lead('10000000000003', 60),
+    // Tres días: fuera de la ventana de 1 día. Si Zernio ignora `since`, no se carga igual (B1).
+    lead('10000000000006', 3 * 24 * 60),
   ];
-  out.a = { r: await barrer(), cargados: [...cargados], anunciados: [...anunciados], pedidos: pedidos.filter((p) => p.ruta.startsWith('/ads/leads')).map((p) => p.ruta) };
+  out.a = {
+    r: await barrer(), cargados: [...cargados], anunciados: [...anunciados], opciones: [...opciones],
+    pedidos: pedidos.filter((p) => p.ruta.startsWith('/ads/leads')).map((p) => p.ruta),
+  };
 
   // (b) Con DOS claves: cada una se lee con la suya (la 2 tiene la conexión de anuncios); sin el complemento (403) se dice y se sigue.
   reset(['sk_uno', 'sk_dos']);
@@ -132,9 +156,42 @@ async function main() {
   db.workspaces.push({ id: OWNER, nombre: 'Dueño', capa: 'cliente' });
   db.credenciales.push({ workspace_id: OWNER, clave: 'ZERNIO_API_KEY', valor_enc: cifrar('sk_uno', OWNER, 'ZERNIO_API_KEY'), servicio: 'zernio' });
   Z.olvidarClavesZernio(OWNER);
-  leadsDe.sk_uno = [lead('50000000000001', 60)];
+  // ⚠️ Y SI ZERNIO IGNORA EL FILTRO (revisión de privacidad, M1): vuelven también el lead de la página de otro negocio y uno que no
+  // dice de qué cuenta es. Se descartan en memoria: el ws1 se queda SÓLO con el suyo.
+  leadsDe.sk_uno = [lead('50000000000001', 60), lead('50000000000002', 60, { accountId: 'acc_fb_ws7' }), lead('50000000000003', 60, { accountId: undefined })];
   const rF = await runWithWorkspace(OWNER, () => barrerLeadsDeZernio(OWNER, 1, AHORA, deps as never));
-  out.f = { r: rF, pedidos: pedidos.filter((p) => p.ruta.startsWith('/ads/leads')).map((p) => p.ruta) };
+  out.f = { r: rF, cargados: [...cargados], pedidos: pedidos.filter((p) => p.ruta.startsWith('/ads/leads')).map((p) => p.ruta) };
+
+  // (g) Con clave PROPIA, lo mismo (M2): el equipo de Zernio del cliente puede tener páginas que el negocio desconectó u otros perfiles.
+  // Sólo entran los de SUS cuentas de Facebook y de anuncios (ni la de Instagram, que no tiene formularios).
+  reset(['sk_uno']);
+  leadsDe.sk_uno = [lead('60000000000001', 60), lead('60000000000002', 60, { accountId: 'acc_fb_que_ya_no_es_mia' }), lead('60000000000003', 60, { accountId: 'acc_ig_1' })];
+  out.g = { r: await barrer(), cargados: [...cargados] };
+
+  // (h) La persona YA era un lead (la carga no lo crea, M3): ni conversión ni aviso.
+  reset(['sk_uno']);
+  creaLaCarga = false;
+  leadsDe.sk_uno = [lead('70000000000001', 60)];
+  out.h = { r: await barrer(), cargados: [...cargados], anunciados: [...anunciados] };
+
+  // (i) La papelera con MÁS de 1000 filas (M4): el borrado número 1200 tampoco vuelve.
+  reset(['sk_uno']);
+  for (let i = 1; i <= 1500; i++) {
+    db.leads_papelera.push({ id: i, workspace_id: WS, lead_id: 1000 + i, foto: { v: 1, filas: { leads: [{ id: 1000 + i, meta_lead_id: String(80000000000000 + i) }] } } });
+  }
+  leadsDe.sk_uno = [lead('80000000001200', 60), lead('80000000009999', 60)];
+  out.i = { r: await barrer(), cargados: [...cargados] };
+
+  // (j) La papelera no se pudo leer (M4): el barrido corta, no carga nada a ciegas.
+  reset(['sk_uno']);
+  papeleraCaida = true;
+  leadsDe.sk_uno = [lead('81000000000001', 60)];
+  try {
+    await barrer();
+    out.j = { tiro: false, cargados: [...cargados] };
+  } catch (e) {
+    out.j = { tiro: true, mensaje: e instanceof Error ? e.message : String(e), cargados: [...cargados], anunciados: [...anunciados] };
+  }
 
   out.red = [...red];
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`, () => process.exit(0));

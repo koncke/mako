@@ -46,6 +46,11 @@ export type LeadDeZernio = {
   formularioId: string | null;
   formularioNombre: string | null;
   esOrganico: boolean;
+  /**
+   * La cuenta conectada de Zernio de la que vino (`accountId` del REST, `AdLead`). Sólo la trae el BARRIDO: con ella descarta en
+   * memoria lo que no es del negocio (el webhook rutea por su propia puerta). Null si no vino o no tiene forma de id.
+   */
+  cuentaId?: string | null;
 };
 
 /**
@@ -184,6 +189,7 @@ export function leerLeadDelRest(item: unknown): LeadDeZernio | IgnoradoZernio {
     formularioId: idDe(lead.formId),
     formularioNombre: txt(lead.formName, MAX_NOMBRE),
     esOrganico: lead.isOrganic === true,
+    cuentaId: idDe(lead.accountId),
   };
 }
 
