@@ -54,6 +54,35 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | Web Generator (este chat) | W2 | **A** | Landing copiada | Las 27 imágenes de una landing copiada daban 404. **Arreglado en esta rama, falta correr sus tests** (abajo). | lib/landing-fetch.ts, lib/editor-landing/replicar-reglas.ts |
 | Iniciativa (T4 a T8) | CH1 | M | AI Avatar siempre; Video e Image mientras no hay un proyecto abierto (Copywriting y Offer tienen chat propio) | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo: `PantallaCrear` no le pasa `apertura`. La conversación compartida es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17; regla «UN chat en toda la app»): el defecto es que no haya pregunta arriba. ⚠️ **T4 sola no lo arregla:** sólo agrega el reenvío de `apertura`, y hoy ninguna de las tres tabs pasa una. AI Avatar la recibe en T15 (última, sobre la tarjeta del Cerebro, sin chat propio). T11 y T12 son para Video e Image con un proyecto abierto: **sin proyecto abierto, ninguna tanda les da pregunta.** | docs/mako-iniciativa/plan.md:376, :383-384, :387 |
 
+## Las aperturas de Create: decisiones del Cerebro (30/10) y texto para el plan
+
+**Decidido:**
+
+- **Video e Image sin proyecto abierto: va una apertura nueva al plan.** Es donde Martín vio el problema y hoy no la cubre ninguna tanda. Hasta que exista, no se tacha CH1.
+- **AI Avatar queda en T15, la última: no se vende** (`AI_AVATAR_SE_VENDE = false`) y el plan la deja para cuando el motor genere un look en producción. **Vale hasta que entren a AI Avatar los
+  estudios de `open-generative-ai`,** que Martín pidió hoy y se están construyendo en la nube. Con eso la tab pasa a ser una pantalla que la gente usa, y T15 deja de poder ser la última: hay que
+  volver a decidir.
+- **No se le agrega un chat propio a AI Avatar:** va contra la regla de Martín «UN chat en toda la app» y contra el plan (:334).
+- **La pregunta no queda arriba de lo viejo.** En la tarjeta del Cerebro, con historia, va después del último mensaje, sin guardarse (plan :109): la charla vieja sigue arriba, como historial.
+
+**El texto para `docs/mako-iniciativa/plan.md`** (`plan.md` no es de este chat; lo reparte el Cerebro):
+
+Una tanda nueva después de T4, porque usa su reenvío de `apertura`:
+
+| Tanda | Chat | Qué | Archivos | Listo cuando |
+|---|---|---|---|---|
+| T4b | **Video Editor e Image** (después de T4) | La apertura de la portada, sin proyecto abierto. Sin `corto`: el centro ya dibuja «¿Qué vas a crear hoy?» (el mismo criterio que Dashboard, :326) | `app/video-editor/VideoEditorCliente.tsx` (:158-168), `app/image-editor/ImageEditorCliente.tsx` (:151-165), `lib/aperturas/video.ts` y `lib/aperturas/image.ts` (los de T11 y T12: los crea el que llegue primero) | En ws3, sin nada abierto, cada tab abre con su pregunta y sus botones andan sin la app; contestada en la portada, no se repite adentro del proyecto; también con la tarjeta plegada |
+
+Y dos filas en la tabla de aperturas:
+
+| Dónde | Cuándo | Pregunta | Botones | Se va |
+|---|---|---|---|---|
+| **Video** · portada de Create | Sin proyecto abierto | «¿Ya grabaste tu video?» (la de :328, misma clave) | [Sí, lo subo ★] (`hacer`: el proyecto nuevo, como el lienzo de `usarPlantilla`, VideoEditorCliente.tsx:140-147, y la biblioteca) · [Todavía no] → «Te escribo qué decir.» (`ir` /copywriter) | — |
+| **Image** · portada de Create | Sin diseño abierto | «¿Dónde lo vas a publicar?» (la de :329, misma clave) | [Historia] [Carrusel] [Anuncio] [Miniatura] → `hacer`: `crearDisenoNuevoAction` con `historia`, `carrusel_instagram`, `anuncio_facebook` o `miniatura_youtube` | — |
+
+**Sin decidir, para el que la implemente:** el tamaño del proyecto de [Sí, lo subo], porque el código pide uno y la pregunta no lo averigua. Y contestada la pregunta, la portada vuelve a callar: con la
+charla vieja a la vista otra vez. Es como funcionan todas las aperturas, pero es la misma pantalla que Martín reportó: conviene mirarla con él.
+
 ## Cerrados o que esperan en otra rama
 
 K1 a K5, P1, C3 y D4 (el botón de MaKo que tapaba y lo del Calendario) los cierra `recorrido-k-3010` @ 246bae899, que espera a
