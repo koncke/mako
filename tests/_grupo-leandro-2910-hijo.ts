@@ -162,6 +162,24 @@ async function main() {
       message: { conversation: `${FIRMA_DESARROLLADOR}\nLeandro, ¿nos confirmás si el flujo es el de pruebafm?` } } as never);
     return manejarEntranteDoer(LINEA, texto('3EB0A1A2A3A4A5A6A7A8A9', 1793253500, 'Quiero que cuando comenten guía les mande el PDF por DM') as never);
   });
+  // Lo REENVIADO (29/10/2026, el grupo de SuperAdmin): el mensaje de otra persona, con la marca de WhatsApp donde la trae Evolution
+  // v2 (arriba). El turno lo lee como de otra persona.
+  // Sin la pregunta del equipo que deja viva la escena `alta2` (lo que el equipo escribió en el grupo): con ella, el reenvío se toma
+  // por la respuesta de Leandro al equipo, y esta escena mide la marca de lo reenviado, no la ALTA 2 (29/10, tests-afectados).
+  await correr('reenvio', {}, () => {
+    for (let i = pg.db.app_settings.length - 1; i >= 0; i--) if (String(pg.db.app_settings[i].key).startsWith('mako.equipo.')) pg.db.app_settings.splice(i, 1);
+    return manejarEntranteDoer(LINEA, texto('3EB0FWD0000000000000R1', 1793253600, 'Che Tincho, le doy a conectar Facebook y no me hace nada',
+      { contextInfo: { isForwarded: true, forwardingScore: 1 } }) as never);
+  });
+  // Una captura y un texto JUNTOS (29/10/2026, el reenvío de Martín: el audio y la captura del cliente): un lote de dos. La captura
+  // se baja y se lee como una suelta; antes decía «llegó junto a otros mensajes y no la pudiste mirar».
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  await correr('loteImagen', { respuesta: NEUTRA }, async () => {
+    pg.db.mako_doer_buffer.push({ id: ++n, workspace_id: WS, grupo_jid: JID, wa_message_id: '3EB0IMG00000000000000I1', texto: '', tiene_media: true, estado: 'pendiente',
+      payload: real('3EB0IMG00000000000000I1', 1793253700, { imageMessage: { mimetype: 'image/png', caption: '' } }, { base64: PNG, messageType: 'imageMessage' }),
+      created_at: new Date(Date.now() - 12_000).toISOString() });
+    return manejarEntranteDoer(LINEA, texto('3EB0IMG00000000000000T1', 1793253712, 'mirá esta captura, no me deja conectar') as never);
+  });
   process.stdout.write(`@@LEANDRO@@${JSON.stringify(out)}\n`);
 }
 

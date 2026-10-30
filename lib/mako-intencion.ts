@@ -66,7 +66,13 @@ export type Intencion =
   | 'consultar'  // pedir un dato que MaKo tiene.
   | 'actuar'     // escribir sobre la cuenta (mover un lead, pausar una campaña).
   | 'pensar'     // análisis, opinión, copy. Lo único que se contesta largo.
-  | 'charlar';   // saludo, gracias, emoji.
+  | 'charlar'    // saludo, gracias, emoji.
+  // Las del grupo de WhatsApp (29/10/2026, Martín: «Que sepa cuándo es un ticket, cuándo es una pregunta, o una acción dentro de
+  // MaKo»). Las decide el clasificador con IA (lib/mako-intencion-ia.ts), nunca una regla sola: con reglas, TICKET dio 0 de 11 en el
+  // banco de casos reales.
+  | 'ticket'     // pide arreglar o cambiar algo de MaKo, o reporta que algo no anda: el ticket lo abre el CÓDIGO, sin turno.
+  | 'debug'      // SÓLO en el grupo de SuperAdmin y del dueño: mirar con datos qué le pasa a un negocio cliente.
+  | 'no_reply';  // no es para MaKo (le habla a otra persona): silencio, sin reacción.
 
 export type VeredictoIntencion = {
   intencion: Intencion;
@@ -82,6 +88,11 @@ export type VeredictoIntencion = {
   /** De qué área habla, cuando la regla que la clasificó lo sabe (un pedido de agenda es
    *  CRM aunque diga «movela al viernes»). Se suma a `areasDelMensaje`. */
   areas?: Area[];
+  /** Además hay que ABRIR UN TICKET, con este resumen (lib/mako-intencion-ia.ts): el TICKET puro (`intencion: 'ticket'`), o el que
+   *  viene con una pregunta («¿cuántos leads entraron? y el botón de pagar no anda»): primero se contesta, después se abre. */
+  ticket?: { resumen: string };
+  /** Lo decidió el clasificador con IA (`ia`) o sólo las reglas (`reglas`, sin IA o porque falló). Va al registro de la decisión. */
+  fuente?: 'ia' | 'reglas';
   /** Palabras que se suman a la relevancia del presupuesto de herramientas. «movela al
    *  viernes» no comparte ninguna raíz con el título de la herramienta de mover, y sin esto
    *  quedaba afuera de los 12.000 caracteres frente al resto del CRM (08/10/2026). */
@@ -1452,6 +1463,11 @@ export const CONTRATO: Record<Intencion, ContratoIntencion> = {
   actuar:    { tools: null, forzarTool: false, exigeBorrador: false },
   pensar:    { tools: null, forzarTool: false, exigeBorrador: false },
   charlar:   { tools: [], forzarTool: false, exigeBorrador: false },
+  // El ticket lo abre el código (lib/mako-doer-in.ts), sin turno del modelo: ninguna herramienta.
+  ticket:    { tools: [], forzarTool: false, exigeBorrador: false },
+  // Sólo lecturas: las de su área y la que mira OTRO negocio (`diagnosticar_negocio`); las suma lib/doer-herramientas.ts.
+  debug:     { tools: null, forzarTool: false, exigeBorrador: false },
+  no_reply:  { tools: [], forzarTool: false, exigeBorrador: false },
 };
 
 /**

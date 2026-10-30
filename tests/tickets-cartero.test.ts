@@ -81,7 +81,8 @@ test('el cartero valida lo que viene de MaKo y arma el texto él; el aviso no es
   assert.match(cuerpo, /Number\.isInteger\(t\.numero\)/);
   assert.match(cuerpo, /DESTINO_RE\.test\(t\.destino\)/);
   assert.match(cuerpo, /yaSalio\(id\)/);
-  assert.match(cuerpo, /mensaje: mensajeTicket\(t\.numero, repo, typeof t\.regla === 'string' \? t\.regla : null\)/);
+  // Desde la 1.24.0 (29/10/2026), un pedido delegado desde el grupo lleva su propio texto fijo (tests/tickets-al-cerebro.test.ts).
+  assert.match(cuerpo, /mensaje: t\.delegado === true \? mensajePedidoDelegado\(t\.numero, repo\) : mensajeTicket\(t\.numero, repo, typeof t\.regla === 'string' \? t\.regla : null\)/);
   assert.doesNotMatch(cuerpo, /\bt\.(texto|titulo|descripcion|mensaje)\b/, 'el cartero no usa ningún texto que venga de MaKo');
   assert.match(c, /\/\^Un cliente levantó el ticket #\/\.test\(cuerpo\)/, 'el aviso al Cerebro no se muestra como lo que dijo un chat');
 });

@@ -2308,6 +2308,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+- **Y una línea que escribe el CÓDIGO tampoco promete lo imposible** (29/10/2026, el ticket #30 de Leandro: «No tengo acceso…
+  pídemelo otra vez y lo hago»). Un texto fijo que dice «lo hago» mira antes si es algo que MaKo puede hacer (`noLoPuedeHacer`);
+  si no, no va.
 - **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
@@ -2316,6 +2319,27 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   el texto por `enviarTextoVozMaKo` (que usan `enviarAGrupoJid`, el grupo SuperAdmin y la bienvenida), y `enviarAlGrupoMaKo` y
   `enviarPartesAJid` anotan lo suyo. Un envío nuevo a un grupo pasa por ahí, o anota su id. Si no, su eco vuelve como un `fromMe`
   que nadie mandó: el doer lo toma por el dueño escribiendo y le contesta a su propio aviso (28/10/2026). Un DM no es un grupo.
+
+## Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla (29/10/2026)
+
+Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp». El prompt del grupo ya decía «no inventes», «no
+prometas», «sin muletillas», y el modelo lo hacía igual. Cada regla de ese tipo tiene DOS capas: la frase en el prompt y un
+chequeo en el código que corre al salir (`sanearSalida`, `sinLoQueMaKoNoDice`, `sinMuletillas`, `numerosSinFuente` en
+lib/doer-salida.ts). Una regla nueva de lo que MaKo no dice llega con su chequeo y su test; si no se puede chequear, se dice así.
+
+- **MaKo en el grupo es un DESPACHANTE (lib/despacho-grupo.ts).** La clase la decide `clasificarConIA` (lib/mako-intencion-ia.ts)
+  y el texto de TICKET, DEBUG y de una acción delegada lo escribe el CÓDIGO, con el número del ticket: el modelo no corre. Una
+  escritura que MaKo hace sola entra a `ACCIONES_SIMPLES` (una fila o un evento, reversible) con su test por el turno real; si mueve
+  plata y tiene pantalla, a `ACCIONES_CON_PANTALLA`; un WhatsApp a un lead, a `SE_APRUEBAN_EN_LA_APP` (lib/confirmacion-pura.ts:
+  se aprueba con un toque en la app, nunca con un «sí» por WhatsApp). Lo demás se delega al Cerebro como «pedido delegado» y el
+  «listo» vuelve al grupo al cerrarlo; un pedido compuesto delega lo que no hizo. En la duda, se delega.
+- **El banco de casos reales (tests/fixtures/banco-grupos-2910.json) se corre antes de tocar el clasificador**
+  (`scripts/banco-clases.mts`): los ejemplos del prompt salen sólo del 60 % de ajuste; el 40 % retenido no se mira.
+- **Lo que mira un PERMISO en el grupo se lee con QUIÉN escribe, no con el grupo (30/10/2026, la revisión de privacidad).** En
+  `procesarDoer` es `quienPide`: el teléfono de `participantAlt` en un grupo de `@lid` (sin él, todo queda con el pushName y nadie es
+  usuario del negocio), y nadie en un lote de varios. El «hazlo» de un pedido delegado lo decide `delegadoQueDecideMartin`
+  (lib/tickets-reglas.ts: admin del negocio, sin plata, envíos ni borrados); el DEBUG, un admin de MaKo. Lo que llega al grupo de un
+  cliente desde el Cerebro o una bitácora pasa por el filtro de ESE negocio (`hitosDelNegocio`, `sinLoInterno`), nunca tal cual.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -5224,6 +5248,12 @@ nuevo:
   (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
   del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
+- **Y el turno de texto de los GRUPOS de WhatsApp, desde el 28/10/2026** (Martín: «habilites las API que tenemos disponibles
+  con todas las cuentas de planes 200»). Sólo `FEATURE_DE_LOS_GRUPOS` (`mako-doer-in`), sólo si el negocio no tiene su Claude
+  (el suyo gana), con Haiku, nunca después de una herramienta y nunca el Plan; el gasto lleva «(cuenta N)», y el interruptor
+  `ia.credito_grupos` de la plataforma lo apaga. ⚠️ **Las cuentas son UNA lista, la del Uso** (`CUENTAS_DEL_CREDITO`,
+  lib/credito-api.ts → `CLAVES_CREDITO_DE_LOS_GRUPOS`): una cuenta nueva es una línea ahí, nunca otra copia de nombres. Una
+  cuenta que paga y el Uso no conoce es gasto que no se ve.
 - **Y lo que lo gasta pasa por la GUARDIA del onboarding** (17/10/2026, `frenoDeIa`, lib/onboarding-guardia-server.ts:
   ráfaga por usuario e IP, un tope de turnos y documentos por onboarding en la base, el troleo que no llega a la IA y
   el bloqueo con aviso al equipo). Una acción nueva de /api/offer que pague IA se suma a `tipoIa` antes del `switch`;

@@ -49,8 +49,9 @@ test('getFunnelDeLead usa la CASA del lead, la lee si no viene, y cae al del neg
 test('MaKo: buscar_leads le da a cada lead las etapas de SU casa, y ficha_lead las del lead', () => {
   const t = leer('lib/mako-tools.ts');
   const buscar = entre(t, "case 'buscar_leads':", "case 'ficha_lead':");
-  assert.match(buscar, /await etapasDeLeads\(encontrados\.map\(\(l\) => l\.id\)\)/);
-  assert.match(buscar, /resumenLead\(l, etapas\?\.get\(l\.id\) \?\? null\)/, 'las etapas se leen y no se usan');
+  // Desde el 30/10/2026 junto con la zona del negocio (la hora de las reuniones, el ticket #35: tests/mako-ficha-lead.test.ts).
+  assert.match(buscar, /etapasDeLeads\(encontrados\.map\(\(l\) => l\.id\)\)/);
+  assert.match(buscar, /resumenLead\(l, etapas\?\.get\(l\.id\) \?\? null, tz\)/, 'las etapas se leen y no se usan');
   assert.doesNotMatch(buscar, /getPipelineStagesDefault|getFunnelDefault/, 'las etapas del negocio para todos, otra vez');
   const ficha = entre(t, "case 'ficha_lead':", "case 'historial_whatsapp':");
   assert.match(ficha, /getPipelineStagesDeLead\(lead\)/);

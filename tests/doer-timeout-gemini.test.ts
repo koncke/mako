@@ -193,7 +193,8 @@ test('El cartel dice qué IA tardó, que lo cortamos, que lo mande de nuevo, y q
 });
 
 test('⚠️ WA1 SIGUE SIN CLAUDE DESPUÉS DE UNA HERRAMIENTA: si cambia, el cartel de `ia_lenta` puede ofrecerlo', () => {
-  assert.match(DOER, /if \(!respuesta && suIA && !linkBorrador && corridasDelTurno === 0\) \{/,
+  // (Y «Claude primero», desde el 28/10/2026, corta igual con `corridasDelTurno > 0`: tests/doer-su-ia.test.ts, test 4.)
+  assert.match(DOER, /if \(!respuesta && suIA && !linkBorrador && corridasDelTurno === 0 && !claudeProbado\) \{/,
     'cambió cuándo entra su Claude en WhatsApp: revisar CUBREN_EL_TURNO en lib/fallo-ia-texto.ts');
 });
 

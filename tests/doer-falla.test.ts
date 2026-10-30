@@ -52,7 +52,7 @@ test('3. el doer: con un reporte, el ticket viaja aunque el turno no sea «actua
   assert.match(doer, /const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno\.some\(\(t\) => t\.name === LEVANTAR_TICKET\) \? \[\.\.\.delTurno, \.\.\.TICKET_TOOLS\] : delTurno;/);
   assert.match(doer, /const conAgenda = pideVerAgenda\(sinPrefijoDeLote\(texto\)\) && !conTicket\.some\(\(t\) => t\.name === AGENDA_DEL_DIA\) \? \[\.\.\.conTicket, \.\.\.AGENDA_TOOLS\] : conTicket;/);
   // (Y un pedido de funcionalidad trae sus tickets y su nota: test 16.)
-  assert.match(doer, /const ctxFalla = \(reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : ''\)\n\s*\+ \(pideFuncion \? `\\n\\n\$\{NOTA_PEDIDO_DE_FUNCION\}` : ''\);/);
+  assert.match(doer, /const ctxFalla = \(reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : ''\)\n\s*\+ \(pideFuncion \? `\\n\\n\$\{NOTA_PEDIDO_DE_FUNCION\}` : ''\)(?:\n\s*\+ bloqueDeLaClase\(intencion\))?;/);
   assert.match(doer, /\$\{ctxFalla\}\$\{conMemoria\}`;/);
 });
 
@@ -140,7 +140,7 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [], sinEstas: [] });
   assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [], sinEstas: [] });
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n(?:\s*\/\/[^\n]*\n)*\s*const intencion = enElGrupoSinSenal\(correccion\.veredicto, texto, pedidoDelHilo\(historial\)\?\.areas \?\? \[\]\);/);
+  assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n(?:\s*\/\/[^\n]*\n)*\s*const (?:intencion|porReglas) = enElGrupoSinSenal\(correccion\.veredicto, texto, pedidoDelHilo\(historial\)\?\.areas \?\? \[\]\);/);
   assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools\.filter\(\(t\) => !correccion\.sinEstas\.includes\(t\.name\)\), \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 
@@ -366,5 +366,5 @@ test('16. un pedido de FUNCIONALIDAD no se contesta con un consejo: trae sus tic
   assert.match(NOTA_PEDIDO_DE_FUNCION, /mis_tickets/);
   assert.match(NOTA_PEDIDO_DE_FUNCION, /\[\[no-existe: /);
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const pideFuncion = pideUnaFuncionalidad\(sinPrefijoDeLote\(texto\)\);\n\s*const tools = pideFuncion && !conAgenda\.some\(\(t\) => t\.name === MIS_TICKETS\) \? \[\.\.\.conAgenda, \.\.\.MIS_TICKETS_TOOLS\] : conAgenda;/);
+  assert.match(doer, /const pideFuncion = pideUnaFuncionalidad\(sinPrefijoDeLote\(texto\)\);\n\s*const (?:tools|conFuncion) = pideFuncion && !conAgenda\.some\(\(t\) => t\.name === MIS_TICKETS\) \? \[\.\.\.conAgenda, \.\.\.MIS_TICKETS_TOOLS\] : conAgenda;/);
 });

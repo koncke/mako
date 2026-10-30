@@ -24,6 +24,7 @@
 // «arregla» solo es una feature que nadie decidió. Lo contrario (un bug que espera a Martín) cuesta un clic.
 
 import { lineaDeAdjuntos } from './tickets-adjuntos';
+import { taparClaves } from './claves-en-el-chat';
 
 /** Los tres tipos, con las palabras de la pantalla (las mismas en el formulario y en la bandeja de Martín). */
 
@@ -105,6 +106,12 @@ export type ContextoTicket = {
   /** Un ticket automático (lib/no-pude.ts): por qué no se pudo y dónde. Lo pone el código, nunca la persona. */
   causa?: CausaNoPude;
   superficie?: Superficie;
+  /** El TICKET que abrió el clasificador del grupo (lib/tickets-del-grupo.ts, 29/10/2026): qué clase decidió, por qué y si fue la
+   *  IA o las reglas. Para que se vea por qué se abrió. Lo pone el código. */
+  clasificacion?: { clase: string; porque: string; fuente: string };
+  /** Una ACCIÓN que MaKo delegó al Cerebro desde el grupo (lib/despacho-grupo.ts): el Runner la lleva como «Pedido delegado #N» y
+   *  el aviso del «listo» dice qué quedó hecho (`textoDelAviso`). */
+  delegado?: boolean;
   /** La hora del dispositivo, su zona, el navegador, la pantalla y el idioma. */
   hora?: string;
   zona?: string;
@@ -141,6 +148,12 @@ export function sanearContexto(x: unknown): ContextoTicket {
   if (o.noExiste === true) c.noExiste = true;
   if (esCausaNoPude(o.causa)) c.causa = o.causa;
   if (esSuperficie(o.superficie)) c.superficie = o.superficie;
+  if (o.clasificacion && typeof o.clasificacion === 'object' && !Array.isArray(o.clasificacion)) {
+    const k = o.clasificacion as Record<string, unknown>;
+    const clase = txt(k.clase, 20);
+    if (clase && /^[A-Z_]+$/.test(clase)) c.clasificacion = { clase, porque: txt(k.porque, 300) ?? '', fuente: k.fuente === 'ia' ? 'ia' : 'reglas' };
+  }
+  if (o.delegado === true) c.delegado = true;
   const hora = txt(o.hora, 40);
   if (hora && Number.isFinite(Date.parse(hora))) c.hora = new Date(hora).toISOString();
   return c;
@@ -214,6 +227,58 @@ export function estimaMasDeUnDia(tipo: TipoTicket, e: Pick<EntradaTriage, 'titul
   if (tipo !== 'pedido') return false;
   return `${e.titulo}\n${e.descripcion}`.length > 1500 || hay(MAS_DE_UN_DIA, norm(`${e.titulo}\n${e.descripcion}`));
 }
+/**
+ * ¿Quien pide tiene permiso en ese negocio? Un usuario de MaKo de ESE negocio con rol de admin (el `rol_ws` nulo es admin, como en
+ * el resto del producto), o un admin de MaKo. Por WhatsApp, el teléfono del que escribe tiene que estar en UN perfil del negocio
+ * (`identidadDelActor`): un `@lid` sin teléfono, uno que no está en ningún perfil o un closer/setter, no.
+ */
+export const conPermisoEnElNegocio = (q: { usuarioId: number | null; email: string; rol: string | null }): boolean =>
+  q.usuarioId != null && !!q.email && !q.email.startsWith('whatsapp:') && (q.rol === 'admin' || q.rol === 'admin de MaKo');
+
+/** Lo que un PEDIDO DELEGADO no lleva con el «hazlo»: plata, envíos a terceros y borrados (abajo, `delegadoQueDecideMartin`). */
+const DELEGADO_PLATA = [
+  /\b(presupuest\w*|gast(o|os|ar|a|e|en|amos)|invert\w*|inversion\w*|monto\w*|precio\w*|cobr\w*|pag(o|os|ar|a|ue|uen|amos)|reembols\w*|factur\w*|tarjeta\w*|plata|dinero|usd|dolar\w*|pesos|mxn|ars|euros?|suscripci\w*|puja\w*|cancel\w*)\b/,
+  /\$\s*\d|\d\s*(usd|us\$|dolares|pesos|mxn|ars|eur)\b/,
+  // Prender un anuncio, un conjunto o una campaña es gastar.
+  /\b(prend\w*|activ\w*|encend\w*|lanz\w*|reactiv\w*|despaus\w*)\b.{0,40}\b(campanas?|anuncios?|conjuntos?|ads?)\b/,
+  /\b(escal\w*|descuent\w*|lucas?|cupon\w*|promo|promos|promocion\w*)\b|\d+\s*(k|mil|lucas?)\b/,
+];
+// Lo que le LLEGA a alguien: un mensaje, un correo, una secuencia o una automatización que escribe sola, una publicación.
+const DELEGADO_ENVIO = [/\b(mand\w*|envi\w*|reenvi\w*|difund\w*|difusion\w*|masiv\w*|newsletter\w*|public\w*|publiqu\w*|poste\w*|escrib\w*|contest\w*|respond\w*|avis\w*|record\w*|inscrib\w*|invit\w*|notific\w*|whatsapp|correo\w*|mail\w*|email\w*|sms|dm|mensaje\w*|secuencia\w*|nutricion|automatizaci\w*)\b/];
+const DELEGADO_BORRADO = [/\b(borr\w*|elimin\w*|suprim\w*|vaci\w*|quit\w*|sac\w*|limpi\w*|de baja)\b/];
+/**
+ * LO ÚNICO QUE UN PEDIDO DELEGADO HACE SIN MARTÍN: una lista CERRADA de cosas que quedan adentro del negocio y no le llegan a nadie
+ * (la re-verificación de d49539722, N1: con una lista de lo PROHIBIDO, 15 de 23 frases dichas de otra manera salían con el «hazlo»:
+ * «subile a 50 por día», «activá la secuencia de nutrición», «escribile a todos los leads»). Una landing (armarla, duplicarla,
+ * cambiarle un texto), las tareas y el plan, una nota, un borrador de copy o un guion, un reporte o un análisis. Lo que no nombra
+ * nada de esto, aunque suene inocente, va a Martín.
+ */
+const DELEGADO_SEGURO = [
+  /\b(landing|landings|pagina de (venta|ventas|captura|gracias|registro))\b/,
+  /\b(tarea|tareas|plan|planes|proyecto|proyectos|pendiente|pendientes)\b/,
+  /\b(nota|notas)\b/,
+  /\b(copy|copys|copies|guion|guiones|idea|ideas|hook|hooks|titular|titulares|borrador|borradores)\b/,
+  /\b(reporte|reportes|informe|informes|analisis|analiz\w*)\b/,
+];
+
+/**
+ * ⚠️ EL «HAZLO» DEL PEDIDO DELEGADO RESPETA EL TRIAGE (la revisión de privacidad de 85a0d9ead, A2; el Cerebro, 30/10/2026: «Con plata,
+ * envíos o borrados, el pedido delegado va a la decisión de Martín… nunca como «hazlo». Y quien lo pide tiene que ser alguien con
+ * permiso en ese negocio, no cualquiera del grupo»). Por qué este pedido delegado lo decide Martín, o null si puede seguir por la
+ * vía de siempre (la regla del negocio). Desde la re-verificación (30/10, N1) va AL REVÉS: sigue sólo lo que cae en `DELEGADO_SEGURO`
+ * y no nombra plata, envíos ni borrados; lo demás, Martín. Sin IA, como el resto del triage. Lo usa `crearTicket` (lib/tickets-db.ts)
+ * antes de `clasificar`, también para lo que falta de un pedido compuesto.
+ */
+export function delegadoQueDecideMartin(pedido: string, quien: { usuarioId: number | null; email: string; rol: string | null }): string | null {
+  if (!conPermisoEnElNegocio(quien)) return 'lo pidió alguien del grupo que no es admin de ese negocio en MaKo';
+  const t = norm(pedido);
+  if (hay(DELEGADO_PLATA, t)) return 'toca plata (un presupuesto, un cobro, un gasto o prender anuncios)';
+  if (hay(DELEGADO_ENVIO, t)) return 'manda o publica algo (un mensaje, un correo, una publicación)';
+  if (hay(DELEGADO_BORRADO, t)) return 'borra o da de baja algo';
+  if (!hay(DELEGADO_SEGURO, t)) return 'no es de lo que se hace sin Martín (landings, tareas, notas, borradores de copy, reportes)';
+  return null;
+}
+
 /** Lo que, aun aprobado por regla, escribe en producción: eso lo decide Martín. */
 const ESCRIBE_EN_PRODUCCION = [/\b(migraci\w*|base de datos|tabla(s)?|corr\w+ (los|mis) datos|arregl\w+ (los|mis) datos|carg\w+ (los|mis) (datos|contactos|leads)|import\w+ (los|mis)|cambi\w+ (mi|el) plan)\b/];
 
@@ -286,7 +351,7 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
  * `deTercero` = lo escribió alguien de AFUERA del negocio (el alumno de un curso, 27/10/2026): nunca va solo al arreglo, ni
  * con la regla del negocio. La regla es de Leandro y su equipo, no de cualquiera que tenga el link de su curso.
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean; automatico?: boolean } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean; automatico?: boolean; decideMartin?: string | null } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   if (e.adjuntos) porque.push(`Trae ${e.adjuntos === 1 ? 'un adjunto' : `${e.adjuntos} adjuntos`}: mirarlos con scripts/tickets.ts ver.`);
@@ -349,6 +414,13 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   // ── de afuera del negocio (27/10/2026): el texto lo escribió un tercero sin cuenta, así que lo decide Martín, siempre ──
   if (opts.deTercero) {
     porque.push('Lo reportó alguien de afuera del negocio (un alumno de su curso): no se arregla solo, lo decide Martín.');
+    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
+  }
+  // ── un pedido delegado desde el grupo con plata, envíos o borrados, o de alguien sin permiso (`delegadoQueDecideMartin`) ──
+  // GUARDA DURA, como la del tercero: ni la regla del negocio lo saca de la decisión de Martín, y sin `en_curso` el Runner no lo
+  // lleva con el «hazlo» (`ticketsParaElCartero`): le llega al Cerebro como un ticket nuevo que espera a Martín.
+  if (opts.decideMartin?.trim()) {
+    porque.push(`Pedido delegado desde el grupo que decide Martín: ${opts.decideMartin.trim()}.`);
     return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
   }
   // ── automático (27/10/2026, lib/no-pude.ts): lo levantó MaKo solo, no una persona ──
@@ -491,6 +563,8 @@ type FilaParaCliente = {
   id: number; titulo: string; descripcion: string; tipo: TipoTicket; estado: EstadoTicket; created_at: string; updated_at: string;
   respuesta: string | null; despacho: string | null; decidido_at: string | null; resuelto_at: string | null; duplicado_de: number | null;
   despachado_at?: string | null; arreglado_at?: string | null; canal?: string | null;
+  /** Para saber si es un PEDIDO DELEGADO (lo del Cerebro no va tal cual, M1) y de qué negocio son sus links. */
+  contexto?: unknown; workspace_id?: number;
 };
 
 /** Por dónde se levantó, como lo dice el cliente. */
@@ -530,24 +604,29 @@ function textoConSusArchivos(texto: string, datos: Record<string, unknown> | nul
 export function paraElCliente(t: FilaParaCliente, eventos: readonly EventoParaCliente[] = []): TicketCliente {
   const estado = estadoParaElCliente(t.estado);
   const lineas: LineaCliente[] = [{ at: t.created_at, quien: 'tu', texto: t.descripcion || t.titulo }];
+  // ⚠️ DE UN PEDIDO DELEGADO, LO DEL EQUIPO LO ESCRIBE EL CEREBRO (la re-verificación de d49539722, N2: /tickets y /m/tickets lo
+  // mostraban crudo). El «listo» es el mismo texto fijo del aviso (`textoDelAviso`) y lo demás pasa por `sinLoInterno`.
+  const delegado = esPedidoDelegado(t.contexto);
+  const delEquipo = (s: string): string => (delegado ? sinLoInterno(s, { id: t.id, ws: t.workspace_id }) : s);
+  const respuesta = !delegado ? t.respuesta : t.estado === 'resuelto' ? textoDelAviso(t) : (t.respuesta && delEquipo(t.respuesta)) || null;
   if (t.despacho === 'runner') lineas.push({ at: t.created_at, quien: 'equipo', texto: 'Lo vimos como algo que debería andar: ya se está arreglando.' });
   for (const e of eventos) {
-    if (e.tipo === 'comentario' && e.texto) lineas.push({ at: e.at, quien: e.actor === 'cliente' ? 'tu' : 'equipo', texto: e.actor === 'cliente' ? textoConSusArchivos(e.texto, e.datos) : e.texto });
+    if (e.tipo === 'comentario' && e.texto && (e.actor === 'cliente' || delEquipo(e.texto))) lineas.push({ at: e.at, quien: e.actor === 'cliente' ? 'tu' : 'equipo', texto: e.actor === 'cliente' ? textoConSusArchivos(e.texto, e.datos) : delEquipo(e.texto) });
     if (e.tipo === 'decidido') {
       const d = (e.datos as { decision?: string } | null)?.decision;
-      if (e.texto) lineas.push({ at: e.at, quien: 'equipo', texto: e.texto });
+      if (e.texto && delEquipo(e.texto)) lineas.push({ at: e.at, quien: 'equipo', texto: delEquipo(e.texto) });
       else if (d === 'arreglar' || d === 'hacer') lineas.push({ at: e.at, quien: 'equipo', texto: 'El equipo lo tomó: ya lo está trabajando.' });
       else if (d === 'duplicado' && t.duplicado_de) lineas.push({ at: e.at, quien: 'equipo', texto: `Ya lo teníamos en el ticket #${t.duplicado_de}: lo seguimos ahí.` });
     }
   }
   // El cierre automático no deja una decisión: la línea sale de la respuesta y la fecha.
-  if (t.estado === 'resuelto' && t.resuelto_at && t.respuesta && !lineas.some((l) => l.texto === t.respuesta)) {
-    lineas.push({ at: t.resuelto_at, quien: 'equipo', texto: t.respuesta });
+  if (t.estado === 'resuelto' && t.resuelto_at && respuesta && !lineas.some((l) => l.texto === respuesta)) {
+    lineas.push({ at: t.resuelto_at, quien: 'equipo', texto: respuesta });
   }
   lineas.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   return {
     id: t.id, titulo: t.titulo, descripcion: t.descripcion, tipo: t.tipo, estado, rotulo: ROTULO_ESTADO_CLIENTE[estado],
-    creado: t.created_at, actualizado: t.updated_at, respuesta: t.respuesta,
+    creado: t.created_at, actualizado: t.updated_at, respuesta,
     puedeResponder: estado !== 'resuelto' && estado !== 'cerrado', lineas,
     historial: historialDelTicket(t), canal: (t.canal && CANAL_PARA_EL_CLIENTE[t.canal as Canal]) ?? null,
   };
@@ -646,6 +725,49 @@ export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora
   return m;
 }
 
+/**
+ * LO QUE SALIÓ EN PRODUCCIÓN para cada ticket (29/10/2026, el #30 de Leandro: «¿lo actualizaste en la documentación API?»): el
+ * título del hito y sus primeros puntos, en una línea cada uno, sin el `**` de la bitácora. Con esto, MaKo contesta el ESTADO de un
+ * arreglo leyendo lo desplegado, no «no tengo acceso para editar eso». El mismo recorrido que `ticketsDeHitos`. Cada uno lleva TODOS
+ * los tickets que nombra su hito: a un turno nunca va esto entero, sino lo que deja `hitosDelNegocio`.
+ */
+export type HitoDeLosTickets = { titulo: string; puntos: string[]; tickets: number[] };
+export function hitosDeLosTickets(
+  registros: ReadonlyArray<{ bitacora: ReadonlyArray<{ titulo: string; puntos?: readonly string[]; tickets?: readonly number[] }> }>,
+  maxPuntos = 3,
+): Map<number, HitoDeLosTickets> {
+  const m = new Map<number, HitoDeLosTickets>();
+  const limpio = (s: string): string => s.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 220);
+  for (const r of registros) {
+    for (const h of r.bitacora) {
+      const tickets = (h.tickets ?? []).filter((n) => Number.isInteger(n) && n > 0);
+      for (const n of tickets) {
+        if (!m.has(n)) m.set(n, { titulo: limpio(h.titulo), puntos: (h.puntos ?? []).slice(0, maxPuntos).map(limpio).filter(Boolean), tickets: [...tickets] });
+      }
+    }
+  }
+  return m;
+}
+
+/** Los tickets que nombran los hitos de `ids` (los suyos y los de al lado): de ésos hay que saber de quién son. */
+export const ticketsQueNombran = (hitos: ReadonlyMap<number, HitoDeLosTickets>, ids: readonly number[]): number[] =>
+  [...new Set(ids.flatMap((id) => hitos.get(id)?.tickets ?? []))];
+
+/**
+ * ⚠️ UN NEGOCIO SÓLO VE LO SUYO (la revisión de privacidad de 85a0d9ead, A1; el Cerebro, 30/10/2026: «filtrá por workspace ANTES de
+ * armar el texto»). Un hito va al turno de un negocio sólo si TODOS los tickets que nombra son de ese negocio (`suyos`, leído de la
+ * base). En main, el hito de `tickets: [13, 26]` le daba al ws1 (el #26) un punto sobre el plan de Leila (el #13) con su monto: ese
+ * hito, ahora, no le llega a ninguno de los dos. Sin poder leer de quién son, `suyos` vacío: no va ninguno.
+ */
+export function hitosDelNegocio(hitos: ReadonlyMap<number, HitoDeLosTickets>, ids: readonly number[], suyos: ReadonlySet<number>): Map<number, { titulo: string; puntos: string[] }> {
+  const m = new Map<number, { titulo: string; puntos: string[] }>();
+  for (const id of ids) {
+    const h = hitos.get(id);
+    if (h && suyos.has(id) && h.tickets.every((n) => suyos.has(n))) m.set(id, { titulo: h.titulo, puntos: h.puntos });
+  }
+  return m;
+}
+
 // ── El aviso al cliente ───────────────────────────────────────────────────────────────────────────────────────────
 /**
  * El texto del aviso al GRUPO del negocio cuando un error del sistema ya está arreglado: qué se rompió (el título, que
@@ -663,12 +785,85 @@ export function pruebaDeProduccion(p: { ticket: number; hito: string; area: stri
   return `ticket #${p.ticket} cerrado porque el deploy ${p.deploy ? `https://${p.deploy}` : '(sin url)'} (commit ${p.commit ? p.commit.slice(0, 9) : '?'}) trae el hito «${p.hito}» del área ${p.area}`.slice(0, 300);
 }
 
-export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null };
+export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null; contexto?: unknown; workspace_id?: number };
+
+/** Un link a una pantalla de MaKo (el dominio de la app): de lo que escribe el Cerebro, al grupo sólo pasan éstos. */
+const LINK_DE_MAKO = /https:\/\/(?:[\w-]+\.)?hola-mako\.com(?:\/[^\s<>«»"')]*)?/gi;
+/** Lo que delata que una oración habla de la base, del código o de otro negocio (M1, abajo). */
+const LO_INTERNO = [
+  /\bws\s*\d+/i, /\bworkspace\b/i, /\b(otro|otra|otros|otras) (negocio|cliente|cuenta)s?\b/i,
+  /\b(lead|contacto|usuario|conv|conversaci[oó]n|negocio)\s*(#|id\b|n[º°o]\.?)?\s*:?\s*\d{2,}/i, /\bid\s*[:#=]?\s*\d+/i, /\buuid\b/i,
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i, /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/i, /`/, /\b[\w-]+\/[\w./-]+\.(ts|tsx|js|mjs|sql|json)\b/i,
+  /\b(nota interna|commit|deploy|rama|branch|supabase|migraci[oó]n|base de datos|script|cerebro|runner)\b/i,
+];
+
+/**
+ * ⚠️ LO QUE ESCRIBE EL CEREBRO NO LLEGA TAL CUAL AL GRUPO (la revisión de privacidad de 85a0d9ead, M1: «Hecho en ws11 con el script…;
+ * copié la automatización de Leila (lead 2605)» salía entero). Del texto de un PEDIDO DELEGADO se queda sólo con las oraciones que no
+ * hablan de la base, del código ni de otro negocio (`LO_INTERNO`), sin claves, sin `#N` que no sea el suyo, sin links que no sean de
+ * MaKo o que lleven otro `ws`, y con tope. Lo que no pasa, no va: el aviso dice lo suyo con texto fijo.
+ */
+export function sinLoInterno(texto: string, propio: { id: number; ws?: number }): string {
+  const oraciones = taparClaves(texto ?? '').texto.split(/(?<=[.!?])\s+|\n+/).map((o) => o.trim()).filter(Boolean);
+  const quedan = oraciones.filter((o) => {
+    if (LO_INTERNO.some((r) => r.test(o))) return false;
+    if (nombraAAlguien(o)) return false;
+    if ([...o.matchAll(/#\s*(\d+)/g)].some((m) => Number(m[1]) !== propio.id)) return false;
+    const links = o.match(/https?:\/\/\S+/gi) ?? [];
+    return links.every((l) => linkDelNegocio(l, propio.ws) === l.replace(/[.,;:!?)»]+$/, ''));
+  });
+  const out = quedan.join(' ').trim();
+  return out.length > 400 ? `${out.slice(0, 400).replace(/\s+\S*$/, '')}…` : out;
+}
+
+/** ¿Es un PEDIDO DELEGADO desde el grupo (lib/despacho-grupo.ts)? Lo dice su contexto, y sólo `true`. */
+export const esPedidoDelegado = (contexto: unknown): boolean =>
+  !!contexto && typeof contexto === 'object' && (contexto as { delegado?: unknown }).delegado === true;
+
+/** Las palabras con mayúscula que no son una persona: lo de MaKo y de las plataformas que se nombran en un «listo». */
+const NO_SON_PERSONAS = new Set(['mako', 'media', 'buyer', 'google', 'ads', 'manager', 'meta', 'facebook', 'instagram', 'whatsapp', 'web', 'generator',
+  'video', 'editor', 'second', 'brain', 'black', 'friday', 'cyber', 'monday', 'business', 'chat', 'agent', 'tiktok', 'youtube', 'zernio', 'canva', 'notion']);
+/**
+ * ¿La oración nombra a una PERSONA con nombre y apellido («Leila Fittipaldi», «Mauricio Durán»)? La re-verificación de d49539722
+ * (N2) mostró que el filtro no reconocía a otro negocio por su nombre. Sin la lista de los negocios (es pura), se va toda oración
+ * con dos palabras seguidas con mayúscula que no son de `NO_SON_PERSONAS`. En la duda, la oración no va: un nombre de pila suelto
+ * («lo de Leila») todavía pasa.
+ */
+function nombraAAlguien(o: string): boolean {
+  for (const m of o.matchAll(/(\p{Lu}\p{Ll}+)\s+(\p{Lu}\p{Ll}+)/gu)) {
+    if (!NO_SON_PERSONAS.has(m[1].toLowerCase()) || !NO_SON_PERSONAS.has(m[2].toLowerCase())) return true;
+  }
+  return false;
+}
+
+/** El primer link a MaKo de `texto` que sea de ESTE negocio (sin `ws=` o con el suyo), o null. */
+export function linkDelNegocio(texto: string, ws?: number): string | null {
+  for (const m of (texto ?? '').matchAll(LINK_DE_MAKO)) {
+    const link = m[0].replace(/[.,;:!?)»]+$/, '');
+    const suWs = /[?&]ws=(\d+)/.exec(link)?.[1];
+    if (suWs == null || (ws != null && Number(suWs) === ws)) return link;
+  }
+  return null;
+}
 
 /** El texto del aviso: dice QUÉ pasó con SU ticket, con el número y el título, y lo que le escribió el equipo. */
 export function textoDelAviso(t: AvisoCliente): string {
   const cual = `tu ticket #${t.id} («${t.titulo}»)`;
   const r = (t.respuesta ?? '').trim();
+  // El «listo» de un PEDIDO DELEGADO desde el grupo (29/10/2026, lib/despacho-grupo.ts): corto, QUÉ quedó hecho y dónde verlo, no
+  // «tu ticket está resuelto». Desde el 30/10 (M1, arriba) el «listo» es FIJO —lo que pidió, con sus palabras (el título), y el link
+  // de MaKo si el Cerebro lo dejó— y lo demás del Cerebro pasa por `sinLoInterno`.
+  if (esPedidoDelegado(t.contexto)) {
+    const suyo = `tu pedido #${t.id} («${t.titulo}»)`;
+    if (t.estado === 'resuelto') {
+      const link = linkDelNegocio(r, t.workspace_id);
+      return `Listo: ya quedó ${suyo}.${link ? ` Lo ves aquí: ${link}` : ''}`;
+    }
+    const limpio = sinLoInterno(r, { id: t.id, ws: t.workspace_id });
+    if (t.estado === 'esperando_cliente') return limpio ? `Sobre ${suyo}, el equipo te pregunta: ${limpio}` : `Sobre ${suyo}, el equipo necesita un dato más: escríbelo aquí.`;
+    if (t.estado === 'duplicado') return `Sobre ${suyo}: ya lo teníamos en el #${t.duplicado_de}. Te avisamos cuando esté.`;
+    return `Cerramos ${suyo}.${limpio ? ` ${limpio}` : ''}`;
+  }
   if (t.estado === 'resuelto') return `Listo: ${cual} está resuelto.${r ? ` ${r}` : ''}`;
   if (t.estado === 'esperando_cliente') return `Sobre ${cual}, el equipo te pregunta: ${r}`;
   if (t.estado === 'duplicado') return `Sobre ${cual}: ya lo teníamos en el ticket #${t.duplicado_de}. Te avisamos cuando esté.`;

@@ -32,6 +32,7 @@ import { clasificarIntencion } from '../lib/mako-intencion';
 import { ESCUCHO_AUDIOS, SIN_BORRAR, SIN_SABER_DEL_PRODUCTO, sinLoQueMaKoNoDice } from '../lib/doer-salida';
 import { bloqueParaElEquipo, noEsParaMaKo, paraAlguienDelEquipo } from '../lib/doer-para-quien';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR } from '../lib/audio-citado';
+import { MARCA_REENVIADO } from '../lib/doer-reenvio';
 import { NUCLEO_GRUPO } from '../lib/nucleo-grupo';
 
 type Escena = {
@@ -177,6 +178,23 @@ test('7. (la ALTA 2) con una pregunta del equipo a Leandro viva, lo que él le P
   assert.match(e.modelo[0].persona, /les mande el PDF por DM/);
   assert.ok(e.salio.some((s: string) => s.includes('la automatización 680 está activa')), `la respuesta de MaKo no salió: ${JSON.stringify(e.salio)}`);
   assert.ok(!e.salio.some((s: string) => /Respuesta al equipo/.test(s)), 'se avisó como respuesta al equipo');
+});
+
+test('8. lo REENVIADO llega al turno como de otra persona (el «Che Tincho…» del grupo de SuperAdmin)', () => {
+  const e = escena('reenvio');
+  assert.equal(e.modelo.length, 1, 'el turno no corrió');
+  assert.ok(e.modelo[0].persona.startsWith(MARCA_REENVIADO), `el turno no sabe que es de otra persona: ${e.modelo[0].persona.slice(0, 120)}`);
+  assert.match(e.modelo[0].persona, /Che Tincho, le doy a conectar Facebook/);
+});
+
+test('9. una captura que llega JUNTO a un texto (un lote) se mira, como una suelta', () => {
+  const e = escena('loteImagen');
+  assert.ok(e.modelo.length >= 1, 'el turno no corrió');
+  // La última llamada es el turno (antes puede ir la que lee la imagen, `archivoATexto`).
+  const turno = e.modelo[e.modelo.length - 1].persona;
+  assert.match(turno, /\(en este mensaje mandé una imagen; la tienes abajo\./, `el turno no tiene la captura: ${turno.slice(0, 300)}`);
+  assert.doesNotMatch(turno, /no la pudiste mirar/, 'la captura del lote se tiró otra vez');
+  assert.match(turno, /no me deja conectar/);
 });
 
 // ── Probado rompiéndolo (29/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────

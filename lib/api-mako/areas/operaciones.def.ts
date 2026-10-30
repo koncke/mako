@@ -72,4 +72,18 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'el ✓ del último «Completado» de ese chat (operaciones.ya-vistos, en la plataforma); marcar sólo avanza',
     canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
+  // ── DEBUG de un negocio desde el grupo de SuperAdmin (29/10/2026, Martín: «mira el grupo de SuperAdmin cuando le pedí que
+  // debuguee cosas») ── Le reenvió a MaKo la consulta de un cliente que no podía conectar Facebook, y MaKo le dio un consejo
+  // genérico: ninguna herramienta podía leer OTRO negocio (todas usan el del grupo). Ésta lee, de uno: su plan y su estado, sus
+  // integraciones, su IA, su conexión de Meta (Zernio), sus errores de la app de 7 días y sus tickets abiertos. Sólo lectura, sólo
+  // la plataforma, sin HTTP: son datos de cualquier negocio.
+  {
+    id: 'diagnosticar_negocio', area: 'operaciones', tipo: 'lectura',
+    titulo: 'Diagnosticar un negocio',
+    descripcion: 'Sólo para la plataforma: mira con datos el estado de UN negocio cliente para debuguear lo que le pasa: su plan y su estado (en riesgo, días sin entrar, onboarding), sus integraciones con su estado, su IA, su conexión de Meta por Zernio (cuenta, píxel, página), los errores que la app registró en sus pantallas en 7 días y sus tickets abiertos. Úsala cuando Martín pide ver qué le pasa a un cliente o reenvía la consulta de uno. Si el nombre calza con varios, devuelve los candidatos: pregunta cuál.',
+    parametros: [
+      { nombre: 'negocio', rotulo: 'Negocio', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el número del negocio («11») o su nombre o el de su dueño («Leila», «Fiesta Music»).', ejemplo: 'Leila' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
 ];

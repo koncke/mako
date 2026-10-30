@@ -21,7 +21,7 @@ import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import {
-  TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
+  TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
   ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
@@ -276,8 +276,11 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
 
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
+  // Un PEDIDO DELEGADO desde el grupo con plata, envíos o borrados, o de alguien sin permiso en el negocio, lo decide Martín (A2 de
+  // la revisión de privacidad): por lo que pidió (el título y lo que escribió), no por la descripción, que trae lo de antes.
+  const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\n${contexto.pedido ?? ''}`, n.identidad) : null;
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref,
@@ -352,6 +355,29 @@ export async function ticketsDelNegocio(ws: number, diasResueltos = 3, tope = 8)
     .order('updated_at', { ascending: false }).limit(tope);
   if (error) return { ok: false, faltaTabla: faltaTabla(error), error: error.message };
   return { ok: true, datos: (data ?? []).map((f) => aFila(f as Record<string, unknown>)) };
+}
+
+/**
+ * De los tickets `ids`, los que son del negocio `ws` (A1 de la revisión de privacidad: un hito va al turno de un negocio sólo si
+ * TODOS los tickets que nombra son suyos, `hitosDelNegocio`). Si no se pudo leer, tira: quien llama no muestra ningún hito.
+ */
+export async function ticketsDelNegocioEntre(ws: number, ids: readonly number[]): Promise<Set<number>> {
+  if (!ids.length) return new Set();
+  const { data, error } = await getSupabaseServer().from(T).select('id').eq('workspace_id', ws).in('id', [...ids]);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((f) => Number(f.id)));
+}
+
+/**
+ * ¿Ese teléfono es de un ADMIN DE MaKo (`usuarios.rol = 'admin'`, no suspendido)? El DEBUG del grupo de la plataforma lo habilita
+ * QUIEN escribe, no el grupo (M3 de la revisión de privacidad): en los grupos de prueba de la allowlist escribe más gente. Sin
+ * teléfono (un `@lid`) o sin leer la base, no.
+ */
+export async function esAdminDeMaKoPorTelefono(telefono: string | null | undefined): Promise<boolean> {
+  if (!telefono) return false;
+  const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('rol', 'admin').neq('estado', 'suspendido').limit(50);
+  if (error) return false;
+  return (data ?? []).some((u) => mismoTelefono((u.perfil as { telefono?: string } | null)?.telefono, telefono));
 }
 
 /**

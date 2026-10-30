@@ -505,6 +505,26 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'dinero', gating: G_META_ADMIN,
   },
   {
+    // «Súbeme este anuncio» desde el grupo (29/10/2026, la llamada con Thiago; lib/anuncio-desde-archivo.ts). Detrás de
+    // ZERNIO_ANUNCIOS_PROBADO: con la bandera apagada, contesta que falta la prueba y no baja nada.
+    id: 'proponer_anuncio_desde_archivo', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Subir un anuncio desde un archivo',
+    descripcion: 'PROPONE crear un anuncio EN PAUSA dentro de un conjunto existente con un archivo NUEVO: la imagen o el video que mandaron en el mensaje (origen mensaje) o el que está en un link de Google Drive o un link https directo (origen link). MaKo baja el archivo y lo guarda; al aprobarlo en la pantalla de revisión, el anuncio se crea por Zernio, en pausa. Sólo con los anuncios por Zernio probados y conectados; si no, lo dice.',
+    escribe: 'guarda el archivo y, al aprobarlo, crea un anuncio EN PAUSA por Zernio en la cuenta de Meta del negocio',
+    parametros: [
+      P_ADSET,
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del anuncio.' },
+      { nombre: 'origen', tipo: 'string', obligatorio: true, enum: ['mensaje', 'link'], descripcion: 'mensaje = la imagen o el video que mandaron en este mensaje; link = el archivo de un link (Google Drive o https directo).' },
+      { nombre: 'link', tipo: 'string', max: 2000, descripcion: 'solo origen link: el link del archivo (compartido con «cualquiera con el enlace» si es de Drive).' },
+      { nombre: 'primary_text', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'texto principal del anuncio.' },
+      { nombre: 'headline', tipo: 'string', max: 255, descripcion: 'título.' },
+      { nombre: 'cta_type', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'SUBSCRIBE', 'GET_OFFER', 'CONTACT_US', 'APPLY_NOW', 'SHOP_NOW', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE', 'NO_BUTTON'], descripcion: 'el botón.' },
+      { nombre: 'destination_url', tipo: 'string', max: 1000, descripcion: 'URL de destino (landing), exacta con https.' },
+    ],
+    // Sin HTTP: el archivo es el del MENSAJE (o un link pegado en el grupo); por la API, proponer_agregar_anuncio con el creativo ya subido.
+    canales: SIN_HTTP, costo: 'dinero', gating: G_META_ADMIN,
+  },
+  {
     id: 'proponer_editar_textos_anuncio', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     titulo: 'Editar los textos de un anuncio',
     descripcion: 'PROPONE cambiar textos de un anuncio publicado (texto principal, título, descripción, botón o URL de destino); los campos que no se mandan se conservan. Meta crea un creativo nuevo y vuelve a revisar el anuncio: deja de entregar mientras tanto y pierde las interacciones del post anterior. Se confirma en una pantalla. Antes: ver_textos_anuncio_meta (dice si es editable).',
