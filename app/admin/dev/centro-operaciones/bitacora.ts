@@ -2037,4 +2037,22 @@ export const BITACORA: Hito[] = [
       'tests/centro-nuevo-con-adjuntos.test.ts (10 y 11) · tests/ticketera-subidas.test.ts · tests/caja-lee-por-conversacion.test.ts',
     ],
   },
+  {
+    fecha: '30 oct', hora: '16:30', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo que espera un chat cerrado se ve arriba y se dice antes de firmar, y el Uso muestra la cuenta en uso',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cartel rojo, en la computadora y el teléfono:** cuántos mensajes tuyos esperan un chat cerrado y de hace cuánto el más viejo. Por cada uno, «Mandárselo a otro chat» (lo firmas de nuevo) o «Descartar». Lo vencido sigue ahí hasta que decidas.',
+      '⚠️ **La lista los escondía:** traía los últimos 100, y lo que espera es justo lo que se va quedando viejo. Ahora lo que no salió se lee aparte.',
+      '**Antes de firmar:** la bandeja de tickets busca un Cerebro que reciba; si no hay, dice «El Cerebro está cerrado» y el ticket queda aprobado. La tarjeta de preguntas lo dice arriba y no firma.',
+      '**El Uso:** el botón es la cuenta medida más recientemente, con su nombre («9% · Cuenta 1»), no la más usada. «Runner activo» sólo si se midió hace menos de 30 minutos; si no, «No se mide ahora».',
+      '**Sin mirar como super admin:** probado en un arnés con las piezas reales, a 1280 y 390.',
+    ],
+    archivos: [
+      'lib/operaciones.ts — listarPedidos, descartarDelLimbo · lib/operaciones-reglas.ts — pedidosSinChatVivo · lib/centro-limbo.ts · CartelLimbo.tsx',
+      'app/tickets/bandeja/cerebro.ts · lib/centro-chats.ts — preguntaDeChatCerrado · lib/centro-uso.ts · Uso.tsx',
+      'tests/centro-limbo.test.ts y tests/avisar-antes-de-firmar.test.ts (17 roturas)',
+    ],
+  },
 ];

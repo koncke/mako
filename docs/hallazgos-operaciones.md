@@ -3478,3 +3478,53 @@ reglas que sirven para cualquier caja:
 **Vive en:** `scripts/operaciones/cartero.mjs` (`ciclo` → `DESTINO_NUEVO`, `abrir`, `adjuntosEnLaPc`, `primerMensaje`) ·
 `lib/operaciones-reglas.ts` (`aceptaAdjuntosEnNuevo`) · `app/admin/operaciones/useCentro.ts` (`abrirChat`, `mandarTextoA`) ·
 `ChatNuevo.tsx` · `CajaChatNuevo.tsx` · `tests/centro-nuevo-con-adjuntos.test.ts`
+
+## Un mensaje a un chat cerrado se perdía en silencio, y la lista lo escondía por recorte (30/10/2026)
+
+**Vive en:** `lib/operaciones.ts` (`listarPedidos`, el vencimiento) · `lib/operaciones-reglas.ts` (`pedidosSinChatVivo`, la comparte el vigía
+del Runner) · `lib/centro-limbo.ts` · `app/admin/operaciones/CartelLimbo.tsx` · `app/tickets/bandeja/cerebro.ts` · `lib/centro-chats.ts`
+(`preguntaDeChatCerrado`) · tests/centro-limbo.test.ts · tests/avisar-antes-de-firmar.test.ts.
+
+**El síntoma.** 11 mensajes de Martín `escrito` hacia chats cerrados, el más viejo del 24/10, las primeras respuestas a punto de vencer
+el 08/11. Nadie se enteró nunca.
+
+**Las causas, que no eran una.**
+- **`listarPedidos` trae los últimos 100, y había 170 filas.** Un mensaje que espera es justo el que se va quedando viejo: sale de la
+  ventana sin haber salido nunca. Parecía que faltaba un cartel; también era una lista que mentía por recorte. Lo sin terminar se lee aparte.
+- **`envio.puede` también vale con `espera: 'chat_cerrado'`.** «Aprobar y mandar» de la bandeja y la tarjeta de preguntas firmaban hacia un
+  chat cerrado sin decir nada: «puede» significa «la firma sale», no «le llega».
+- **Lo único que avisaba estaba adentro del chat cerrado**, y vencer pasaba a `no_entregado` sin avisar a nadie.
+- **`cancelarPedido` sólo mira `escrito`:** lo vencido no se podía dar de baja.
+
+**Trampas.**
+- **Un chat del Centro junta sesiones de varias cuentas.** Una pregunta se mira por SU sesión (`p.local`), no por el estado del chat: el
+  chat puede estar abierto en otra cuenta y la respuesta quedarse en la cerrada.
+- **La firma fija el destino.** «Mandárselo a otro chat» no mueve nada: firma uno nuevo en el dispositivo de Martín y recién entonces da de
+  baja el viejo. Los adjuntos no se reenvían, y la fila lo dice.
+- **Con la PC callada no se sabe.** `vivo` es de la última vuelta: `preguntaDeChatCerrado` no dice «cerrado» si el cartero de esa cuenta no
+  da noticias, y `pedidosSinChatVivo` no se apoya en que la PC conteste.
+
+**La regla.** Una lista con un tope no puede ser la que diga qué está pendiente: lo pendiente se lee aparte, sin tope de antigüedad. Y antes de
+firmar se mira `espera`, no sólo `puede`.
+
+**Sin mirar en pantalla como super admin:** se probó en un arnés con las piezas reales y clics de verdad, a 1280 y 390; la hoja del teléfono
+(`SheetM`) no se montó ahí. El Chrome disponible estaba con la sesión de Leandro, y /admin/operaciones lo manda a /second-brain.
+
+**SIN hacer:** los carteles de ausencia del Runner («la PC no da noticias», «nadie entrega») van en el mismo lugar que éste.
+
+## El botón del Uso mostraba un número cierto de otra cuenta, y «Runner activo» con una medición de hace 6 días (30/10/2026)
+
+**Vive en:** `lib/centro-uso.ts` (`usoPrincipal`, `estadoRunnerUso`) · `app/admin/operaciones/Uso.tsx` · `app/m/operaciones/CentroAppMovil.tsx`.
+
+**El síntoma.** Martín: «aun en ops center no se mide el uso». La cuenta 1 estaba al día en la base (9% semanal, medido hace minutos).
+
+**El diagnóstico obvio era el equivocado, dos veces.** No era que faltara la cuenta: `cuentasDeUso` parte del registro y las dibuja a las
+cinco. Y escribir `~/.claude/operaciones/uso/claude1.json` a mano no arregla la pantalla: corre en Vercel y lee
+`operaciones_carteros.cuota`, que sube la vuelta del Runner. Lo que se veía era el botón: la semana MÁS usada, «95% · Cuenta 3»,
+trabajando en la 1, con un número que no se movía con nada (regla del 16/10, de cuando varias cuentas andaban a la vez).
+
+**La misma trampa dos veces: un dato cierto que se lee como si fuera de otra cosa.** `visto_at` lo refresca la vuelta para TODAS las cuentas, así que
+«Runner activo» con punto verde salía al lado de «78% · medido hace 6 días». Ahora el botón es la cuenta medida más recientemente, con su
+nombre también en el teléfono, y «Runner activo» es sólo si se midió hace menos de 30 minutos; si no, «No se mide ahora».
+
+**Queda:** recién cambiada de cuenta, la anterior sigue «activa» hasta 30 minutos: es cierto que se midió, y el botón ya muestra la nueva.

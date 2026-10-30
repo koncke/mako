@@ -60,7 +60,7 @@ export type WaDeConversacion = {
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onGrabada, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
+  preguntasChat = [], onResponder, avisoCerrado, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
 }: {
   /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
   pasos?: readonly PasoDelTurno[];
@@ -78,6 +78,8 @@ export function Conversacion({
   /** Las preguntas del chat como formulario en su conversación (17/10/2026), y cómo se contestan (useCentro.ts). */
   preguntasChat?: readonly PreguntaChatT[];
   onResponder?: Responder;
+  /** Si el chat de una pregunta está cerrado, lo que dice su tarjeta antes de firmar (30/10/2026). */
+  avisoCerrado?: (p: PreguntaChatT) => string | null;
   /** Los Runners: con ellos cada trabajo dice en qué está y por qué tarda (Hilo.tsx → VivoDelHilo). */
   carteros?: readonly CarteroP[];
   /** Las fotos y los PDF de la caja (17/10/2026): elegirlos, pegarlos con Ctrl+V y quitarlos (useCentro.ts). */
@@ -234,7 +236,7 @@ export function Conversacion({
         <BloqueCompletado key={`ya-${chat.clave}`} chat={chat} lineas={lineas} yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
           hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={wa ? feedback : undefined} />
         <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
-          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} />
+          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} avisoCerrado={avisoCerrado} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
         {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (

@@ -148,10 +148,11 @@ function Barra({ titulo, v, ahora, edad }: { titulo: string; v: UsoVentana | nul
 }
 
 /** Lo que dice el renglón del Runner de una cuenta: sin Runner declarado es «Sin Runner todavía», sin botón ni comando.
- *  Una cuenta que da vueltas es «Runner activo» la recorra su terminal o el Runner de la app (17/10/2026: «Sin el Runner de
- *  su terminal» se repetía aunque el Runner anduviera, y lo que importa —si se midió la de 5 horas— ya lo dice su barra). */
+ *  «Runner activo» sólo si se midió hace poco; si no, «No se mide ahora» (30/10/2026): `visto_at` lo refresca la vuelta para todas las
+ *  cuentas, y decía «activo» con punto verde al lado de «medido hace 6 días». */
 function textoRunner(estado: EstadoRunnerUso, vistoAt: string | null, ahora: number, conCuota: boolean): string {
-  if (estado !== 'apagado') return 'Runner activo';
+  if (estado === 'mide') return 'Runner activo';
+  if (estado === 'sin_terminal') return 'No se mide ahora';
   // Sin Runner pero con un número: se midió a mano (la cuenta 1, 17/10/2026).
   return vistoAt ? `Runner sin conexión · ${hace(Date.parse(vistoAt), ahora)}` : conCuota ? 'Sin Runner · se mide a mano' : 'Sin Runner todavía';
 }
@@ -173,7 +174,6 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
     <div className="co-uso__lista">
       {cuentas.map((k) => {
         const estado = estadoRunnerUso(carteroVivo(k, ahora), k.cuota, ahora);
-        const vivo = estado !== 'apagado';
         const u = usoDeCuenta(k.cuota, ahora);
         const plan = k.cuota?.plan ?? null;
         // «Medido hace X» SIEMPRE que haya un número (17/10/2026, Martín: el Uso mostraba datos viejos como de ahora): al día,
@@ -195,7 +195,7 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
                 </span>
               </span>
               <span className="co-uso__runner">
-                <span className={`co-punto co-punto--${vivo ? 'trabajando' : 'viejo'}`} aria-hidden />
+                <span className={`co-punto co-punto--${estado === 'mide' ? 'trabajando' : 'viejo'}`} aria-hidden />
                 {textoRunner(estado, k.vistoAt, ahora, !!k.cuota)}
               </span>
             </div>
@@ -241,7 +241,7 @@ export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiar
   const [abierto, setAbierto] = useState(false);
   const principal = usoPrincipal(cuentas, ahora);
   const estados = cuentas.map((k) => estadoRunnerUso(carteroVivo(k, ahora), k.cuota, ahora));
-  const activos = estados.filter((e) => e !== 'apagado').length;
+  const activos = estados.filter((e) => e === 'mide').length;
   return (
     <div className="co-uso">
       {abierto && (
@@ -255,12 +255,12 @@ export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiar
         </Modal>
       )}
       <button type="button" className="co-acceso" aria-haspopup="dialog" aria-expanded={abierto} onClick={() => setAbierto(true)}
-        title={`${activos} de ${cuentas.length} Runners activos`}>
+        title={`${activos} de ${cuentas.length} cuentas midiendo ahora`}>
         <Icon name="config" size={17} />Uso
         <span className={`co-uso__principal${principal?.viejo ? ' co-uso__principal--viejo' : ''}`}>{principal ? `${principal.pct}%` : '—'}</span>
         {principal && <span className="co-uso__de">{principal.viejo && principal.medido != null ? `${nombreCuenta(principal.cuenta)} · ${hace(principal.medido, ahora)}` : nombreCuenta(principal.cuenta)}</span>}
         <span className="co-carteros" aria-hidden>
-          {cuentas.map((k, i) => <span key={k.cuenta} className={`co-punto co-punto--${estados[i] !== 'apagado' ? 'trabajando' : 'viejo'}`} />)}
+          {cuentas.map((k, i) => <span key={k.cuenta} className={`co-punto co-punto--${estados[i] === 'mide' ? 'trabajando' : 'viejo'}`} />)}
         </span>
       </button>
     </div>
