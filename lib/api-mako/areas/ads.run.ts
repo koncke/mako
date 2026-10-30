@@ -23,6 +23,9 @@ import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ej
 import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaMB } from '@/lib/media-buyer/datos';
 import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
+import { crearCampana as crearCampanaMB, prepararCampana as prepararCampanaMB } from '@/lib/media-buyer/campana';
+import type { LugarZona as LugarZonaMB } from '@/lib/media-buyer/zona';
+import { resolverLugares as resolverLugaresMB } from '@/lib/media-buyer/publico';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
 import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambiarAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
@@ -51,6 +54,7 @@ import {
 } from '@/lib/meta-ads-create';
 import { cambiosDesdeEntrada, entradaDesdeApi, resumenDeCambios, type EntradaPublico } from '@/lib/publico-cambios';
 import { lugaresDesdeMeta } from '@/lib/meta-geo';
+import { publicoParaZernio } from '@/lib/zernio-publico';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
@@ -843,7 +847,7 @@ export const RUNNERS: Runners = {
     },
   },
   proponer_editar_publico_conjunto: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       if (!(await metaConectada())) return { error: SIN_META };
       const adsetId = str(input, 'adsetId');
       if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
@@ -854,6 +858,13 @@ export const RUNNERS: Runners = {
       // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
       if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
         return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };
+      }
+      // Por la conexión de Facebook (Zernio) se escribe en SU forma: lo que no se puede mandar (Advantage+, un barrio) se dice
+      // antes del «sí», no al confirmar (lib/zernio-publico.ts).
+      const { canalMeta } = await import('@/lib/meta-via');
+      if ((await canalMeta(ctx.ws)).via === 'zernio') {
+        try { publicoParaZernio(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada)); }
+        catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
       }
       const cambios = resumenDeCambios(cambiosDesdeEntrada(actual.targeting, entrada));
       return { payload: { adsetId, entrada }, resumen: `Cambiar el público del conjunto «${actual.name}» (${adsetId}): ${cambios.join(' · ')}. Lo demás se conserva. Vuelve a revisión de Meta y reinicia el aprendizaje.` };
@@ -999,6 +1010,8 @@ export const RUNNERS: Runners = {
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
         metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
         cuentaPublicitaria: config.cuentaPublicitaria,
+        // DÓNDE y HASTA (zona_media_buyer, hasta_media_buyer): dónde prende y sube, y cuándo termina cada campaña.
+        zona: config.zona, hasta: config.hasta, hastaCampanas: config.hastaCampanas,
         ultimaCorrida: config.ultimaCorrida,
         // Los agentes, como el panel «N activos» de la pantalla (app/ads-manager/Agentes.tsx).
         agentes: AGENTES_MAKO.map((a) => ({ agente: a, nombre: NOMBRE_AGENTE[a], que: QUE_HACE[a], estado: estadoDeAgente(a, r), tacticas: TACTICAS_DE[a] })),
@@ -1352,6 +1365,78 @@ export const RUNNERS: Runners = {
         mejores: (vista?.mejores ?? []).map((a) => ({ adId: a.adId, nombre: a.nombre, campana: a.campana, gastoMes: a.gasto, resultadosMes: a.resultados, costoMes: a.costo })),
         lanzados: decisiones.filter((d) => d.estado === 'aplicada' && (esVariacion(d) || d.tipo === 'crear_anuncios')).map(corta),
       });
+    },
+  },
+  // DÓNDE, HASTA y «lánzame una campaña» (29/10/2026): lib/media-buyer/zona.ts y campana.ts, la misma puerta que la pantalla.
+  zona_media_buyer: {
+    preparar: async (input, ctx) => {
+      const v = validarCambioMB({ zona: (Array.isArray(input.zona) ? input.zona : []) as never });
+      if (!v.ok) return { error: v.error };
+      // Cada lugar confirmado contra Meta (su id con su nombre): la confirmación muestra lo que dice Meta, no lo que mandó el modelo.
+      const r = await resolverLugaresMB(ctx.ws, v.fila.zona as LugarZonaMB[]);
+      if (!r.ok) return { error: r.error, ...(r.error.startsWith('No pude') ? { falla: true as const } : {}) };
+      const zona = r.lugares;
+      return { payload: { zona }, resumen: zona.length ? `El Media Buyer prende y sube presupuestos sólo en: ${zona.map((l) => l.nombre).join(', ')}.` : 'El Media Buyer trabaja en toda la cuenta (sin zona).' };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { zona: payload.zona as LugarZonaMB[] }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Zona del Media Buyer guardada.' };
+    },
+  },
+  hasta_media_buyer: {
+    preparar: async (input, ctx) => {
+      const hasta = str(input, 'hasta') || null;
+      const campanaId = str(input, 'campanaId') || null;
+      const v = validarCambioMB(campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta });
+      if (!v.ok) return { error: v.error };
+      let nombre: string | null = null;
+      if (campanaId) {
+        // La campaña tiene que ser de la cuenta: se busca en la lectura del Media Buyer (la misma de la pantalla).
+        const datos = await leerDatosCuentaMB(ctx.ws).catch(() => null);
+        const c = datos?.arbol.find((n) => n.nivel === 'campaign' && n.id === campanaId);
+        if (!datos) return { error: 'No pude leer tu cuenta de Meta para encontrar esa campaña.', falla: true };
+        if (!c) return { error: `La campaña ${campanaId} no está en tu cuenta (míralas con ver_campanas_media_buyer).` };
+        nombre = c.nombre;
+      }
+      const que = nombre ? `la campaña «${nombre}»` : 'toda la cuenta';
+      const fecha = hasta ? `${hasta.slice(8, 10)}/${hasta.slice(5, 7)}/${hasta.slice(0, 4)}` : null;
+      return {
+        payload: { hasta, campanaId },
+        resumen: fecha ? `Fecha de fin de ${que}: el ${fecha}. Pasada, MaKo la pausa; desde 3 días antes no sube presupuestos.` : `Sin fecha de fin para ${que}.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const hasta = (payload.hasta as string | null) ?? null;
+      const campanaId = (payload.campanaId as string | null) ?? null;
+      await guardarConfigMB(ctx.ws, campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Fecha de fin guardada.' };
+    },
+  },
+  proponer_crear_campana: {
+    preparar: async (input, ctx) => {
+      // Los parámetros planos de la API (lo que se edita en /mako/revisar) → la entrada de la pantalla «Nueva campaña».
+      const tipo = str(input, 'creativoTipo');
+      const creativo = tipo === 'anuncio' ? { tipo, adId: str(input, 'anuncioId') }
+        : tipo === 'video_cuenta' ? { tipo, videoId: str(input, 'videoId') }
+          : tipo === 'video' ? { tipo, url: str(input, 'videoUrl') }
+            : { tipo, url: str(input, 'imagenUrl') };
+      const entrada: Record<string, unknown> = {
+        nombre: str(input, 'nombre'), objetivo: str(input, 'objetivo'), presupuestoDia: num(input, 'presupuestoDia'),
+        lugares: Array.isArray(input.lugares) ? input.lugares : [], hasta: str(input, 'hasta') || null,
+        edadMin: num(input, 'edadMin'), edadMax: num(input, 'edadMax'),
+        formularioId: str(input, 'formularioId') || null, pixelId: str(input, 'pixelId') || null, evento: str(input, 'evento') || null,
+        url: str(input, 'url') || null, creativo, texto: str(input, 'texto'), titulo: str(input, 'titulo') || null,
+        boton: str(input, 'boton') || null, enPausa: input.enPausa === true,
+      };
+      const p = await prepararCampanaMB(ctx.ws, entrada);
+      if (!p.ok) return { error: p.error, ...(p.faltan ? { faltan: p.faltan } : {}), ...(p.falla ? { falla: true as const } : {}) };
+      return { payload: { entrada }, resumen: p.resumen };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await crearCampanaMB(ctx.ws, (payload.entrada ?? {}) as Record<string, unknown>, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return r.ok
+        ? { ok: true, resumen: `Campaña lanzada en Meta (${r.campaignId}). ${r.resumen}`, datos: { campaignId: r.campaignId, adSetId: r.adSetId, adId: r.adId, decisionId: r.decisionId } }
+        : { ok: false, resumen: r.error };
     },
   },
 };

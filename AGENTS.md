@@ -3815,6 +3815,10 @@ sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o e
   (lib/meta-escribir-zernio.ts: lee de quién es el id y si está borrado ANTES de escribir) y NUNCA por el token de respaldo. Un
   `graphPost` nuevo con el token deja afuera a todo negocio sin token: si hace falta escribir otra cosa, se le suma su rama de
   Zernio. Borrar el último anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña: se avisa antes del «sí».
+- **Lo que el Media Buyer PRENDE o SUBE pasa por `lanzar` (lib/media-buyer/ejecutar.ts)**, que además de los topes mira la ZONA y
+  la FECHA DE FIN del negocio con el público leído en vivo (lib/media-buyer/zona.ts; «no sé» es fuera). Un camino nuevo que prende
+  o sube por su cuenta se saltea «en tal zona, solamente hasta tal fecha» (29/10/2026, docs/hallazgos-ads.md → «DÓNDE, HASTA…»).
+  Y por Zernio, cambiar UN lugar de un conjunto reemplaza TODOS: se mandan todos, o ninguno (lib/zernio-publico.ts).
 - **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
 - **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
 - **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.

@@ -11,17 +11,22 @@
 //   4. Se escribe por Zernio si el negocio conectó su Zernio con esta cuenta, o con su token de Meta. Un canal por
 //      escritura, sin «si falla uno, probar el otro»: un error a mitad de camino puede haber escrito, y reintentar por
 //      otro lado duplicaría.
+//   Lo que SUBE el gasto (prender, subir) pasa antes por la ZONA y la FECHA DE FIN del negocio (lib/media-buyer/zona.ts), con
+//   el público leído en vivo: es la promesa «en tal zona, solamente hasta tal fecha», y vale para el piloto, una persona, la
+//   API de MaKo y un Deshacer que vuelve a prender.
 // Deshacer es lo mismo al revés, con el `antes` que quedó guardado al lanzar.
 // =============================================================================
 
 import 'server-only';
 import { metaWrite } from '@/lib/meta-write';
-import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
+import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, borrarCampanaPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
 import { aplicarTopes, presupuestoYaCambiado, seEstaCreando } from './topes';
 import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
 import { fmtDinero } from '@/lib/format';
-import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar } from './store';
-import { leerDatosCuenta, fmtUnidad, type DatosCuenta } from './datos';
+import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar, guardarConfig, type ConfigGuardada } from './store';
+import { leerDatosCuenta, fmtUnidad, hoyDelNegocio, type DatosCuenta } from './datos';
+import { lectorDeZona } from './publico';
+import { finDeCampana, frenoPorFecha, motivoZona } from './zona';
 import type { Decision, EstadoEntidad, NivelMeta } from './tipos';
 import type { NodoMB } from './motor';
 import { BORRADO, estaBorrado } from './senales';
@@ -52,6 +57,21 @@ async function conAnuncioEnVivo(ws: number, datos: DatosCuenta, nodo: NodoMB): P
   const v = await anuncioEnVivoPorZernio(ws, nodo.id).catch(() => null);
   if (v && estaBorrado(v.estado, v.entrega)) nodo.configurado = BORRADO;
   else if (v?.configurado === 'ACTIVE' || v?.configurado === 'PAUSED') nodo.configurado = v.configurado;
+}
+
+/**
+ * ¿La zona o la fecha de fin del negocio frenan esto? Sólo lo que SUBE el gasto (prender, subir). La campaña de la entidad
+ * sale del árbol; el público, en vivo (publico.ts). Devuelve el motivo, o null si pasa.
+ */
+async function frenoDeZonaYFecha(ws: number, config: ConfigGuardada, datos: DatosCuenta, nodo: NodoMB, tipo: 'activar' | 'subir_presupuesto'): Promise<string | null> {
+  const porId = new Map(datos.arbol.map((n) => [n.id, n] as const));
+  let camp: NodoMB | undefined = nodo;
+  while (camp && camp.nivel !== 'campaign') camp = camp.parentId ? porId.get(camp.parentId) : undefined;
+  const fin = finDeCampana(config, camp?.id ?? null);
+  const porFecha = fin ? frenoPorFecha(tipo, fin, await hoyDelNegocio(ws)) : null;
+  if (porFecha) return porFecha;
+  if (!config.zona.length) return null;
+  return motivoZona(await lectorDeZona(ws, datos, config.zona)(nodo.nivel, nodo.id), nodo.nombre, config.zona);
 }
 
 /** El presupuesto con el que la entidad empezó HOY: el `antes` de la primera subida aplicada hoy (Tijuana ≈ UTC-7). */
@@ -112,6 +132,7 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
   // Una subida de creativos se lanza desde «Subir creativos» (lib/media-buyer/subir.ts): por acá caía en el camino de
   // presupuesto, quedaba «aplicada» sin crear nada y no se podía deshacer (verificación de tren-m, falla 8).
   if (d.tipo === 'crear_anuncios') return { ok: false, error: 'Los creativos se vuelven a subir desde «Subir creativos».' };
+  if (d.tipo === 'crear_campana') return { ok: false, error: 'Una campaña nueva se lanza desde «Nueva campaña».' };
 
   const nodo = datos.arbol.find((n) => n.id === d.entidadId);
   if (!nodo) {
@@ -155,6 +176,18 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
     } else if (d.antes.presupuesto && Math.abs(actual.presupuesto - d.antes.presupuesto) / d.antes.presupuesto > 0.01) {
       despues = { presupuesto: Math.round(actual.presupuesto * (d.despues.presupuesto / d.antes.presupuesto) * 100) / 100 };
       ajuste = 'El presupuesto había cambiado desde la propuesta: se aplicó el mismo porcentaje sobre el de hoy.';
+    }
+  }
+
+  // La zona y la fecha de fin, con el público leído en vivo: lo que sube el gasto fuera de la zona o pasada la fecha no se
+  // escribe, lo lance quien lo lance. Queda «bloqueada» con el motivo, como un tope.
+  const sube = d.tipo === 'activar' || despues.estado === 'ACTIVE' ? 'activar' as const
+    : despues.presupuesto != null && actual.presupuesto != null && despues.presupuesto > actual.presupuesto ? 'subir_presupuesto' as const : null;
+  if (sube) {
+    const freno = await frenoDeZonaYFecha(ws, config, datos, nodo, sube);
+    if (freno) {
+      await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'bloqueada', error: freno });
+      return { ok: false, error: freno };
     }
   }
 
@@ -267,6 +300,27 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   if (!d) return { ok: false, error: 'Esa decisión no existe en este negocio.' };
   if (d.estado !== 'aplicada') return { ok: false, error: 'Sólo se deshace lo que está aplicado.' };
 
+  // Una campaña que lanzó MaKo: deshacerla es BORRARLA (con su conjunto y su anuncio), por la Zernio del negocio. Se lee la
+  // cuenta primero: sin la conexión no se borra nada (no hay otro camino, y otro canal podría ser otra cuenta).
+  if (d.tipo === 'crear_campana') {
+    if (!/^[1-9]\d*$/.test(d.entidadId)) return { ok: false, error: 'No tengo el id de esa campaña en Meta (la creación no terminó): búscala y bórrala en el Administrador de anuncios.' };
+    const datos = await leerDatosCuenta(ws);
+    if (!datos.conexion) return { ok: false, error: 'Para borrar la campaña hace falta tu cuenta conectada por Zernio.' };
+    const tomada = await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString() });
+    if (!tomada) return { ok: false, error: 'Otra persona ya la está deshaciendo.' };
+    try {
+      await borrarCampanaPorZernio(ws, d.entidadId, datos.conexion.accountId);
+    } catch (e) {
+      const z = leerErrorDeZernio(e);
+      const msg = z ? `Zernio: ${z.mensaje}` : e instanceof Error ? e.message : String(e);
+      await actualizar(ws, id, { estado: 'aplicada', deshecha_por: null, deshecha_at: null, error: `No se pudo borrar: ${msg}`.slice(0, 1000) });
+      return { ok: false, error: msg };
+    }
+    // Su fecha de fin ya no tiene campaña: se saca (best-effort; si falla, queda una fecha de una campaña borrada, inocua).
+    if (config.hastaCampanas[d.entidadId]) await guardarConfig(ws, { hastaCampana: { campanaId: d.entidadId, fecha: null } }, quien).catch(() => null);
+    return { ok: true, decision: tomada, ajuste: 'La campaña se borró en Meta, con su conjunto y su anuncio.' };
+  }
+
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios') {
     // «aplicada» con `creados` vacío es una a MITAD de su lanzamiento (los ids se guardan todos juntos al final).
     if (seEstaCreando(d)) return { ok: false, error: 'Todavía se están creando los anuncios: prueba de nuevo en unos segundos.' };
@@ -300,7 +354,13 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
     await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString(), nota: 'Ya estaba como antes.' });
     return { ok: false, error: 'Ya estaba como antes: no hubo nada que deshacer.' };
   }
-  const t = aplicarTopes(volver.estado === 'ACTIVE' ? 'activar' : volver.presupuesto != null && volver.presupuesto > (actual.presupuesto ?? 0) ? 'subir_presupuesto' : 'bajar_presupuesto', volver, {
+  const tipoVuelta = volver.estado === 'ACTIVE' ? 'activar' as const : volver.presupuesto != null && volver.presupuesto > (actual.presupuesto ?? 0) ? 'subir_presupuesto' as const : 'bajar_presupuesto' as const;
+  // Volver a prender o volver a subir también respeta la zona y la fecha de fin (un Deshacer no es una puerta trasera).
+  if (tipoVuelta !== 'bajar_presupuesto') {
+    const freno = await frenoDeZonaYFecha(ws, config, datos, nodo, tipoVuelta);
+    if (freno) return { ok: false, error: freno };
+  }
+  const t = aplicarTopes(tipoVuelta, volver, {
     config, actual, inicioDelDia: null, totalActivo: datos.totalActivo,
     presupuestoQueSuma: presupuestoQueSuma(datos, nodo), aUnidad: datos.conversor.aUsdNum, deUnidad: deUnidadDe(datos), fmt: fmtUnidad(datos),
   }, { deshacer: true });

@@ -67,9 +67,10 @@ test('lo que propone un agente propio: sólo entidades que existen, cambios acot
   assert.equal(ps[0].campanaNombre, 'Campaña A');
   assert.equal(agenteDeClave(ps[0].clave), 'ag-1234');
   assert.deepEqual(propuestasDeAgente('no es json', a, arbol, '2026-10-26'), []);
-  // Y la corrida no lanza lo `manual` con el piloto (corrida.ts → `automaticas`).
+  // Y la corrida no lanza lo `manual` con el piloto (corrida.ts → `automaticas`). Lo único que sale solo sin ser una táctica
+  // automática es la fecha de fin (`hasta`, la regla de la persona: zona.ts), nunca lo `manual`.
   const corrida = readFileSync(join(import.meta.dirname, '..', 'lib', 'media-buyer', 'corrida.ts'), 'utf8');
-  assert.match(corrida, /nuevas\.filter\(\(d\) => d\.tactica !== 'manual' && tacticas\[d\.tactica\]\.estado === 'automatica'\)/);
+  assert.match(corrida, /nuevasMotor\.filter\(\(d\) => d\.tactica !== 'manual' && d\.tactica !== 'hasta' && tacticas\[d\.tactica\]\.estado === 'automatica'\)/);
 });
 
 const S = (adId: string, x: Partial<SenalMB>): SenalMB => ({ adId, gasto: 0, leadsMeta: 0, leadsCrm: 0, agendasMeta: 0, agendasCrm: 0, cierres: 0, caja: 0, impresiones: 0, frecuencia: null, diasCorriendo: 3, esVideo: false, miniatura: null, ...x });

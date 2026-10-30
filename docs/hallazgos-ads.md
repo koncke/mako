@@ -4920,7 +4920,7 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
 **Sin hacer, con su archivo:** filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
 (`FALTA` en `tests/media-buyer-api.test.ts`); `validate_only` antes de
-escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
+escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hecho el 29/10: el vigía del día, abajo; antes decidía con el día de ayer
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
@@ -5165,11 +5165,11 @@ la Zernio del negocio».
   uno: vino el crudo de Meta, `id`, `name`, `status`); `POST /ads/lead-forms` los crea con el contenido en
   `platformSpecificData`, que se arma DESDE `paramsFormulario` (mismas preguntas y pantalla final, sin una segunda copia de la
   regla); `DELETE /ads/lead-forms/{id}` los archiva. Zernio parsea estricto: un campo con el nombre de la Graph API es un 400.
-- **Editar el público por Zernio NO está hecho:** `PUT /ads/ad-sets/{id}` recibe SU forma de segmentación (`TargetingSpec`,
+- **(29/10: hecho para los cambios de la API, ver «DÓNDE, HASTA…» abajo; el crudo entero de la ruta `adset-targeting` sigue sin camino.) Editar el público por Zernio NO estaba hecho:** `PUT /ads/ad-sets/{id}` recibe SU forma de segmentación (`TargetingSpec`,
   con fusión de claves), no el crudo de Meta que arma `editarPublicoConjunto`. Sin token, se dice así (`sinPublicoPorZernio`).
 - **Un negocio sin token ya no oye «configura META_ACCESS_TOKEN»:** el token está deprecado y no se pide. Lo que todavía no
   tiene camino por Zernio dice eso y manda al Administrador de anuncios (`cred`, lib/meta-ads-create.ts).
-- **«Crear una campaña» no tiene pantalla, ni con token ni con Zernio.** El asistente se borró con la vista vieja del Ads
+- **(29/10: ya la tiene, «Nueva campaña» por Zernio: ver «DÓNDE, HASTA…» abajo.) «Crear una campaña» no tenía pantalla, ni con token ni con Zernio.** El asistente se borró con la vista vieja del Ads
   Manager (25/10); las rutas `campaign-create`, `adset-add`, `ad-add` y `ad-edit` no las llama ninguna pantalla, y la API de
   MaKo no declara crear campañas. Lo único que crea desde la app es «Subir creativos» del Media Buyer (un anuncio por archivo
   en un conjunto que ya existe, por Zernio).
@@ -5192,3 +5192,71 @@ app/dashboard/graficos/ReproductorAnuncio.tsx). Duplicar campañas y
 conjuntos tampoco existe en MaKo (con token, en ningún lado; el Media Buyer duplica anuncios por Zernio).
 
 *26/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## DÓNDE, HASTA, «lánzame una campaña» y el Stop Loss del día: lo prometido a la agencia de Thiago (29/10/2026)
+
+**Vive en:** `lib/media-buyer/zona.ts` (la regla pura: zona y fecha de fin) · `lib/media-buyer/publico.ts` (el público en vivo y
+los lugares confirmados contra Meta) · `lib/media-buyer/campana-reglas.ts` + `campana.ts` (la campaña nueva) · `del-dia.ts` +
+`vigia.ts` + `app/api/cron/media-buyer-vigia/route.ts` (cada dos horas) · `lib/zernio-publico.ts` (el público en la forma de
+Zernio) · `app/ads-manager/NuevaCampana.tsx`, `ElegirLugares.tsx` · `supabase/migrations/0350_media_buyer_donde_hasta.sql` ·
+`tests/media-buyer-donde-hasta.test.ts`, `tests/media-buyer-del-dia-y-campana.test.ts`. La lista de promesas:
+`docs/promesas/2910-llamada-thiago.md` (los items 3 y 4 de «no existe», y 12:19 y 29:15 de «a medias»).
+
+- ⚠️ **El diagnóstico obvio de la zona («filtrar por el país del conjunto en el árbol») era el equivocado: el árbol no trae el
+  público.** Ni el de Meta ni `/ads/tree` de Zernio. Se lee en vivo por conjunto (`GET /ads/ad-sets/{id}?fields=targeting`, el
+  paso directo) y SÓLO de lo que se va a prender o subir: unas pocas lecturas por corrida. La corrida filtra antes del cupo, y
+  `lanzar` y `deshacer` lo vuelven a mirar al escribir (`frenoDeZonaYFecha`, ejecutar.ts): entre proponer y lanzar alguien pudo
+  cambiar el público.
+- **«No sé» es FUERA, y una ciudad con radio es «no sé».** Un punto sin país, un `country_groups`, un geo que meta-geo no
+  entiende o un conjunto que no se pudo leer no se prenden ni se suben. «Madrid +80 km» llega a Toledo: con radio, sólo un PAÍS
+  de la zona lo contiene (revisión adversarial, hallazgo 6). Para la demo: con zona «Madrid», un conjunto «Madrid +17 km» no se
+  escala; con zona «España», sí.
+- ⚠️ **Una pausa con clave SIN día que no salió la primera vez no salía nunca** (revisión adversarial, hallazgo 1). La clave de la
+  pausa por fecha es `hasta:campaign:<id>:<fecha>` (una vez por fecha: si una persona la vuelve a prender, gana la persona) y
+  `guardarPropuestas` ignora los duplicados. Si Zernio fallaba, la corrida se cortaba o un «mirá la cuenta» por chat sólo
+  proponía, la fila quedaba abierta y la campaña gastaba pasada su fecha para siempre. Ahora se relanza lo guardado
+  (`pausasPendientes`), la pausa por fecha no vence, sale también con `soloProponer`, y el vigía la lanza PRIMERO, antes de lo
+  que puede fallar. **Regla:** una decisión automática deduplicada por una clave sin día se relanza desde la fila guardada.
+- ⚠️ **Zernio IGNORA EN SILENCIO el `endDate` de un conjunto de Meta** (OpenAPI v1.416.0): el de arriba del cuerpo es «Reddit
+  only… every other platform ignores it: nothing is written and no error». En Meta va en `platformSpecificData.endDate`. Por eso
+  la fecha de fin de lo que ya corre la hace cumplir MaKo (corrida y vigía), y sólo la campaña NUEVA lleva `endDate` al crearse.
+- **El público por Zernio, leído sólo en la OpenAPI (SIN medir con una cuenta):** «only the keys you send change», pero «setting
+  any location replaces every location list». Un lugar que Zernio no recibe (barrio, localidad, partido, una dirección sin
+  coordenadas), algo que meta-geo no entendió o un `location_types` distinto de `home,recent` frenan el cambio de lugares ENTERO:
+  mandar los otros borraría ése y el público crecería. Advantage+ no tiene campo al editar (sólo al crear). `placements`
+  reemplaza el set: se reenvían las posiciones de cada plataforma que queda. Con Zernio se escribe SIEMPRE por Zernio, aunque el
+  negocio conserve el token de antes (antes, con respaldo, escribía por el token).
+- **Los lugares que manda quien llama no deciden nada** (hallazgo 3): una ciudad con el id de Rosario y el nombre «Madrid» pasaba
+  por adentro de una zona «Madrid», y la confirmación decía «Madrid». `resolverLugares` busca cada nombre en Meta y exige el
+  mismo id; vale lo que dice Meta.
+- **Crear una campaña: el registro va ANTES** (con la entidad en 0, se completa al volver Zernio): sin la 0350 el CHECK de `tipo`
+  rechaza la fila y no se crea nada sin su Deshacer. ⚠️ **La clave de idempotencia sale de lo PEDIDO, no del cuerpo:** un archivo
+  subido se firma de nuevo en cada pedido, y con la clave del cuerpo dos clics eran dos campañas. La clave cuenta las veces que la
+  misma se deshizo o se rechazó (con la misma clave Zernio devuelve la respuesta de la primera vez, aunque esté borrada), y un
+  corte por tiempo o un 5xx queda `CREACION_INCIERTA`: la misma campaña no se vuelve a crear hasta que alguien mire la cuenta
+  (hallazgo 2). `status: PAUSED` sólo pausa lo de arriba: «en pausa» manda los cuatro estados.
+- **El Stop Loss del día sólo existe por Zernio:** el cron de Meta trae el día de ayer; el gasto de HOY lo da `/ads/tree` con
+  hoy. Un negocio sólo con el token (deprecado) no lo tiene, y el vigía lo dice. No pausa lo que viene rindiendo (la semana
+  dentro del objetivo) ni lo que MaKo tocó en 24 h, y su objetivo es el del resultado de HOY: el de la última corrida pudo
+  calcularse con otro (hallazgo 5).
+- **Un campo de fecha que guarda en cada tecla manda `0002-11-05` mientras se escribe el año** (hallazgo 4): existe, y pausaba la
+  campaña en la próxima vuelta del vigía. Se guarda al salir del campo, `fechaValida` pide un año entre 2020 y 2100 y el servidor
+  no acepta una fecha que ya pasó.
+- **Lo guardado se lee entrada por entrada** (hallazgo 8): una fecha rota ya no se lleva las otras 299, y una zona ilegible no se
+  lee como «sin zona» (que sería subir en todos lados) sino como una zona que no contiene nada.
+
+**Sin hacer, con su archivo:**
+- **Medir en la cuenta de MaKo** (con el OK de Martín: escribe en una cuenta real, en pausa y con gasto 0): `PUT /ads/ad-sets/{id}`
+  con `targeting` y con `placements`, y `POST /ads/create` con `endDate`, `promotedObject`, `leadGenFormId`, `existingCreativeId`
+  y los cuatro estados en pausa. El patrón está en `scripts/media-buyer-medir-zernio.mts`. Nada de esto se probó contra Zernio.
+- **La fecha de fin escrita en Meta** (`platformSpecificData.endDate` en cada conjunto): hoy la cumple MaKo; si MaKo no corre,
+  Meta no corta sola.
+- **MaKo Mobile** (`app/m/ads/MediaBuyerM.tsx`): no tiene Dónde, Hasta ni «Nueva campaña».
+- **El merge de `hasta_campanas` no es atómico** (`guardarConfig`, store.ts: lee, mezcla y escribe): una campaña nueva y un
+  cambio en Campañas al mismo tiempo pueden perder una fecha. Pide un `update` en SQL.
+- **La zona no se mira al editar el público por la API** (`proponer_editar_publico_conjunto`): agregar un pin fuera de la zona a
+  un conjunto vivo es una acción de la persona, confirmada en /mako/revisar; después, Surf no lo escala.
+- **«Lanzar una campaña» de Hoy** (`app/ads-manager/Hoy.tsx`) sigue abriendo el arranque con la calculadora; «Nueva campaña» se
+  abre desde la cabecera del Media Buyer.
+
+*29/10/2026, chat «Media Buyer de Thiago» (`claude3`).*
