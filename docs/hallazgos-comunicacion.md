@@ -12063,6 +12063,9 @@ lib/mako-doer-in.ts) · `textoDe` (el videoMessage)
 - **Sin hacer (al 29/10):** con la bandera prendida, el camino entero (la bajada, el bucket, el link firmado y Zernio) no corrió en
   ningún test por la entrada: sí, cada pieza por separado. El video del mensaje citado (no el del mismo mensaje) no se toma. Un
   Drive grande (más de 100 MB) se rechaza: va desde el Media Buyer.
+- **ANTES de prender la bandera (la re-verificación de Integración, 30/10):** acepta cualquier link https, no sólo Drive; sin el largo
+  en la respuesta no hay tope de tamaño (el de 100 MB mira el encabezado); y el reset del negocio no borra
+  `ads-creatives/grupo/<ws>/`. Se arregla con la prueba de Zernio, no antes.
 
 ## La revisión de privacidad del despachante: un hito de varios negocios, el «hazlo» sin el triage y quién escribe (29–30/10/2026, claude3)
 
@@ -12082,7 +12085,9 @@ entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
   texto de ticket nuevo (d30862b59) no cubría lo peor: con la regla de Leandro, Leila o Mauricio, un pedido delegado de PLATA («súbele
   el presupuesto») salía `en_curso` y el Runner lo llevaba con el «hazlo». Ahora `crearTicket` mira cada delegado
   (`delegadoQueDecideMartin`): plata, envíos, borrados, o quien pide sin ser admin de ese negocio → lo decide Martín, como un tercero
-  (guarda dura, ni la regla lo saca). Por las palabras de lo que pidió, sin IA: «mándame el reporte» también va a Martín.
+  (guarda dura, ni la regla lo saca). Por las palabras de lo que pidió, sin IA: «mándame el reporte» también va a Martín. La
+  re-verificación (30/10) mostró que la lista de lo PROHIBIDO dejaba pasar 15 de 23 frases dichas de otra manera: ahora va al revés,
+  sólo una lista CERRADA de lo seguro (`DELEGADO_SEGURO`). El detalle, en docs/hallazgos-ticketera.md.
 - ⚠️ **El diagnóstico obvio era el equivocado: el «quién pide» no existía.** En los grupos con `addressingMode: 'lid'` (el de Leandro,
   el de la plataforma) `participant` es un `@lid` sin número y el teléfono viene en `participantAlt`, que el doer no leía: todo
   ticket del grupo quedaba con el pushName, nadie era un usuario del negocio. Con el permiso de A2 encima, TODO pedido delegado se iba
@@ -12091,7 +12096,11 @@ entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
   quién pidió (para el permiso, nadie).
 - **M1:** el «listo» de un delegado ya no es el texto del Cerebro: es fijo (lo que pidió, con el título, y el link de MaKo de ESE
   negocio si lo dejó). La pregunta del equipo y el cierre pasan por `sinLoInterno` (sin oraciones con `ws`, ids, commits, rutas,
-  «otro negocio», links ajenos o de otro `ws`).
+  «otro negocio», links ajenos o de otro `ws`, y desde la re-verificación un «Nombre Apellido»). ⚠️ El aviso era UNA de tres
+  puertas: el bloque de pedidos del turno del grupo y /tickets mostraban la respuesta cruda. Ahora el turno no la ve en un delegado,
+  y /tickets usa el mismo «listo» fijo y el mismo filtro.
+- **N3 (lo decide Martín, no se tocó):** desde el grupo, pausar o prender una campaña o un anuncio lo puede pedir y confirmar
+  cualquiera: el turno corre con `rol: 'admin'` fijo (lib/mako-doer-in.ts, `ctxApi`). Integración se lo pasó al Cerebro.
 - **M3:** el DEBUG lo habilita QUIEN escribe: el dueño desde su línea (`fromMe` que no es eco) o un admin de MaKo por su teléfono.
   Y `diagnosticar_negocio` salió de las herramientas del modelo: la corre sólo el código del DEBUG (en una PREGUNTA del grupo de la
   plataforma el modelo la podía llamar igual).

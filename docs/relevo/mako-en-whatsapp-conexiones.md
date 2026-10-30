@@ -37,6 +37,12 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
   **Entregado (30/10 ~03:30):** Integración recibió 8ab517c12 con el tsc; lo re-verifica (arreglo por arreglo, más la plata de
   pausar/prender campañas y subir anuncios) y, si da bien, va en el tren-ah. Si Integración devuelve algo, se arregla acá y se le
   pasa el sha nuevo. El worktree de verificación ya se sacó. El VERDE está en la carpeta compartida del Cerebro.
+- **La re-verificación de d49539722 (30/10 ~04:00, C:/dev/revisiones/3010-reverificacion-wa-despachante-d49539722.md): «entra con
+  bajas», sin ALTA.** Pidió dos cosas, hechas en fa0ad711a: N1, el «hazlo» del delegado sólo con una lista CERRADA de lo seguro
+  (`DELEGADO_SEGURO`; las 23 frases de la re-verificación van a Martín), y N2, lo del Cerebro filtrado también en el bloque del turno
+  y en /tickets (más «Nombre Apellido» en `sinLoInterno`). Roturas D38–D42. Cosecha en hallazgos-ticketera y hallazgos-comunicacion.
+  NO tocar (lo decide Martín, N3): pausar o prender campañas desde el grupo lo pide cualquiera (`rol: 'admin'` fijo). Cuando
+  Integración tenga el sha con la verificación, va en el tren-ai.
 - **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
   mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
   `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
