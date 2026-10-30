@@ -153,32 +153,33 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   - ⚠️ **La 0349 sigue SIN aplicar:** N1 (deshacer el borrado de una vez de la serie le saca `serie_de` y vuelve a abrir A2).
     El chat de Zernio estaba archivado cuando se le devolvió. El Cerebro se la pide a Martín recién cuando Integración la dé
     por buena.
-- **tren-ah (sin armar). Va en este orden, cada pieza con lo que le falta:**
-  - **Agency/Planes de Thiago:** `agency-thiago-2910` en `28cc3e2cb`. Re-verificación «entra con bajas», sin ALTA
-    (`C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md`). Lista para entrar; el informe dice que le faltan 19
-    commits de main, y el merge sale limpio. Cosechar en `docs/hallazgos-agencias.md`:
-    - la MEDIA 1, una fila de cartera cargada a mano sobre el ws1 o sobre un Pro directo (hoy no hay ninguna);
-    - las dos bajas de H5.
-  - **Calendario y Classroom:** `cal-classroom-2910` en `7162c94aa`. Lleva la mig **0352**, que va ANTES del código y
-    espera el sí de Martín (ya pedido al Cerebro). Puede chocar con lo del Calendario de Zernio.
-  - **La iniciativa del Ops Center (T1 + G1):** `iniciativa-base-2910` en `88d2cf0db`. Sin migración. Toca `app/layout.tsx` y
-    AGENTS.md. Revisado por encima: no manda nada afuera.
-  - **Newsletter:** `newsletter-2910` en `85d2206c9`. Lleva la mig **0351**, que va ANTES del deploy y espera el sí de Martín
-    (ya pedido). Su revisión de envíos y privacidad está corriendo; el informe va a
-    `C:/dev/revisiones/2910-revision-privacidad-newsletter-85d2206c9.md`.
-  - **El despachante de MaKo en WhatsApp (#30 de Leandro):** `wa-fallas-2710` en `8ab517c12`. Dice que arregló A1, A2, M1,
-    M3 y parte de M2. Le falta una RE-VERIFICACIÓN de privacidad y plata: además de A1 y A2, desde el grupo pausa y prende
-    campañas y sube anuncios. La mezcla con main da 2 choques de conservar los dos lados (`docs/hallazgos.md` y
-    `tests/links-con-ws.test.ts`); hay una referencia en la rama `tren-ae-con-wa`. Después del deploy:
-    `cartero.mjs instalar` (Runner 1.24.0).
-    Su tsc de 8ab517c12 dio 0 errores propios.
-  - **Zernio, N1 y N8:** `zernio-token-2910` en `7da5d9ec3` (sobre lo que sube en el tren-ag). En el tren-ah: leer el diff de
-    `borrarEvento`/`restaurarEvento` y correr `tests/calendario-recurrentes.test.ts`. Si da bien, avisar al Cerebro que
-    pida la 0349 a Martín. La 0349 no cambió.
-  - **Video, la barra del Reproductor:** `editor-pantalla-3010` en `d121a5e6f` (pedido de Martín con captura). Su hito de la
-    bitácora choca con el de `d5baaa302`: quedan los dos.
-  - **El relevo del Cerebro:** `relevo-cerebro-3010` en `7af7751ce`, sólo `docs/relevo/cerebro.md`. Se une limpio con `4b3cfc751`.
-    Después llega el re-commit de `docs/conocimiento/patrones-email.md`.
+- **tren-ah (rama `tren-ah`, chequeado y SUBIENDO):**
+  - **Lleva:**
+    - la iniciativa del Ops Center (`88d2cf0db`);
+    - la barra del Reproductor (`d121a5e6f`);
+    - Zernio N1 y N8 (`7da5d9ec3`), verificado con el código y `calendario-recurrentes` 20/20;
+    - el relevo del Cerebro (`7af7751ce`).
+  - **Barrido:** 6475 tests en verde, con 3 flaky que pasan aislados. Las guardas en verde.
+  - **La 0349 se aplica DESPUÉS del Ready del tren-ah.** Antes no: en producción está `da3cff9f7`, sin N1.
+  - **Agency SALIÓ del tren-ah** por tres rojos suyos. Uno es una guarda de `/api/auth/me` (`agenciaDeCliente`). La mezcla
+    está en la rama `tren-ah-con-agency`, y la devolución en la carpeta del Cerebro (`integracion-agency-thiago-devuelto.md`).
+- **tren-ai (sin armar). Para quien siga:**
+  - **El despachante de MaKo en WhatsApp (#30 de Leandro):** `wa-fallas-2710` en `cc2aaa6ce`. La re-verificación de
+    `d49539722` dio «entra con bajas», sin ALTA (`C:/dev/revisiones/3010-reverificacion-wa-despachante-d49539722.md`).
+    `cc2aaa6ce` dice que hizo las dos bajas:
+    - N1: la guarda al revés, con `DELEGADO_SEGURO`;
+    - N2: las dos puertas del texto del Cerebro.
+    Control chico antes de que entre: leer `delegadoQueDecideMartin` y `DELEGADO_SEGURO`, y correr
+    `scratchpad/ah/triage-ah.mts` contra la punta nueva. N3 (quién puede pausar campañas desde el grupo) es una pregunta del
+    Cerebro a Martín. Mezcla con main: 2 choques de conservar los dos lados. Después del deploy, `cartero.mjs instalar`
+    (1.24.0).
+  - **Video, pasos 1 y 2:** `editor-pantalla-3010` en `0e27cb66f`: la barra de la línea de tiempo y los paneles en su mínimo.
+    Su hito va al final de la bitácora y quedan todos.
+  - **Del Cerebro, sólo docs:** `conocimiento-email-3010` en `2b9b9d7b7`.
+  - **Agency:** cuando su chat arregle los tres rojos (ver arriba).
+  - **Calendario y Classroom:** `cal-classroom-2910` en `7162c94aa`. Espera el sí de Martín para la 0352, que va ANTES del código.
+  - **Newsletter:** `newsletter-2910`. Espera M1, la puerta abierta a cualquier admin, y el sí de Martín para la 0351. La
+    devolución está en `integracion-newsletter-devuelto.md`.
 - **Para quien siga:**
   - Lo que aprendió esta tanda está cosechado en `docs/hallazgos-infra.md`, en la entrada «Un número por migración, y el push
     que falla por RAM…».
