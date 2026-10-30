@@ -58,12 +58,13 @@ const ES_RESPUESTA: ReadonlySet<EventoSocial['subtipo']> = new Set(['mensaje', '
  * (`escuchaElEvento`, lib/disparadores.ts): la misma pregunta que hace el motor al inscribir. Un CRON
  * «comenta tu publicación» crea el lead de quien comenta, y no el de quien manda un DM.
  */
-export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial['subtipo'], texto?: string | null): Promise<boolean> {
+export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial['subtipo'], texto?: string | null, publicacion?: string | null): Promise<boolean> {
   const sub = subtipoDelEvento(canal, subtipo);
   if (!sub) return false;
   const { getSecuenciasActivas } = await import('./nutricion');
-  // Con lo que COMENTÓ (ticket #17): un CRON con palabras clave no crea el lead de quien comentó otra cosa.
-  return escuchaElEvento(await getSecuenciasActivas(), canal, { subtipo: sub, texto: texto ?? null });
+  // Con lo que COMENTÓ (ticket #17) y DÓNDE (ticket #25): un CRON con palabras clave, o con su publicación, no crea el lead
+  // de quien comentó otra cosa u otra publicación.
+  return escuchaElEvento(await getSecuenciasActivas(), canal, { subtipo: sub, texto: texto ?? null, publicacion: publicacion ?? null });
 }
 
 /**
@@ -71,12 +72,12 @@ export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial[
  * `disparaPorEvento` (lib/disparadores.ts): el subtipo, en las palabras del CRON (`subtipoDelEvento`).
  * Un evento que ningún CRON escucha (una mención en una historia) no inscribe a nadie.
  */
-export async function dispararEventoSocial(leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo'], texto?: string | null): Promise<number> {
+export async function dispararEventoSocial(leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo'], texto?: string | null, publicacion?: string | null): Promise<number> {
   const sub = subtipoDelEvento(canal, subtipo);
   if (!sub) return 0;
   const { enrolarPorEvento } = await import('./nutricion');
-  // El texto de ESTE comentario (ticket #17): las palabras clave del CRON se miran en cada uno, no en el que creó el lead.
-  return enrolarPorEvento(leadId, canal, { subtipo: sub, texto: texto ?? null });
+  // El texto de ESTE comentario (ticket #17) y su publicación (ticket #25): se miran en cada uno, no en el que creó el lead.
+  return enrolarPorEvento(leadId, canal, { subtipo: sub, texto: texto ?? null, publicacion: publicacion ?? null });
 }
 
 /**
@@ -186,7 +187,7 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
 
   let leadId = yaEraLead;
   if (leadId == null) {
-    if (!(await hayQuienEscuche(e.canal, e.subtipo, e.texto))) return { accion: `${accion}_sin_automatizacion`, leadId: null, disparar: false, pausar: false };
+    if (!(await hayQuienEscuche(e.canal, e.subtipo, e.texto, e.postId))) return { accion: `${accion}_sin_automatizacion`, leadId: null, disparar: false, pausar: false };
     leadId = await crearLeadDe(e, fila.id);
     accion = `${accion}_lead_nuevo`;
   }

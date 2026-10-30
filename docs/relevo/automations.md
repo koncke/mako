@@ -4,7 +4,20 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 29/10/2026 tarde, cuenta 3 (claude3), sesión local_7f005343: el ticket #29 de Leandro
+## LO ÚLTIMO: 29/10/2026 noche, cuenta 3 (claude3), sesión local_7f005343: el ticket #25 de Leandro
+
+**Lo pedido** (el Cerebro, con el #25 aprobado por Martín): elegir la publicación o el Reel en el CRON de comentario, en la
+pantalla y en la API, y que el motor arranque sólo con esa. Lo demás del #25 (palabra clave, respuesta pública, espacios del
+botón, /docs) ya estaba en main. «Pedir un dato en el DM y guardarlo en la ficha» es el #20: no se mezcló.
+
+**Lo hecho** (aut-2510 al día con main en 7ed7e17c6; la cosecha en docs/hallazgos-chatbot.md): `publicacion` en el disparador
+(lib/publicacion-cron.ts), el motor la mira en los dos lugares (si nace el lead y si se inscribe), el selector con las
+últimas 25 de la cuenta (GET /v1/accounts/{id}/posts) en app/automations/EditorDisparadores.tsx, la API de MaKo con el link o
+el id (descripción corta, por el presupuesto del turno), y la guía de /docs. Test por el webhook de verdad:
+tests/comentario-publicacion.test.ts (escenario 'publicacion' de tests/_boton-vuelve-hijo.ts). Hito con `tickets: [25]`.
+**Sin hacer:** probarlo con la cuenta de Leandro después del deploy (elegir el Reel de la 680 y comentar en otro).
+
+## 29/10/2026 tarde, cuenta 3 (claude3), sesión local_7f005343: el ticket #29 de Leandro
 
 **Lo pedido** (el Cerebro, con `mako_doer_conv` 1716): «Ya te sigo» vuelve a «¿Te sigue en Instagram?» y no hace nada; y que
 /docs explique las palabras clave del disparador. El punto 3 (MaKo le contestó con un borrador del Plan) es del chat de MaKo
