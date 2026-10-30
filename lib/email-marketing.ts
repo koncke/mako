@@ -23,6 +23,7 @@ import { enTandas } from '@/lib/ids-con-filas';
 import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type LeadResiduo } from '@/lib/nutricion-residuo';
 import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA, TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
+import { segmentoNewsletter, segmentoDeNewsletter, ETAPAS_NEWSLETTER, ETAPAS_NEWSLETTER_KEYS, ETAPA_BAJA } from '@/lib/newsletter-reglas';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -369,10 +370,11 @@ export const SEGMENTOS: Segmento[] = [
 ];
 const SEGMENTO_VALIDO = new Set(SEGMENTOS.map((s) => s.value));
 /**
- * ¿Es un segmento que se sabe resolver? Los fijos de arriba y `etiqueta:<id>` (mig 0224). La FORMA:
- * que la etiqueta exista en este negocio lo mira `validarSegmento`, que lee la base.
+ * ¿Es un segmento que se sabe resolver? Los fijos de arriba, `etiqueta:<id>` (mig 0224) y el CRM del newsletter
+ * (`newsletter:<funnelId>[:<etapa>]`, lib/newsletter-reglas.ts). La FORMA: que la etiqueta o el CRM existan en este
+ * negocio lo mira `validarSegmento`, que lee la base.
  */
-export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s) || etiquetaDeSegmento(s) != null;
+export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s) || etiquetaDeSegmento(s) != null || segmentoNewsletter(s) != null;
 
 /**
  * El segmento, validado CONTRA LA BASE, o un error que lo dice.
@@ -394,6 +396,11 @@ export async function validarSegmento(segmento: unknown): Promise<string> {
     if (!e) throw new Error('Esa etiqueta no existe en este negocio.');
     if (e.archivada_at) throw new Error('Esa etiqueta está archivada.');
   }
+  const nl = segmentoNewsletter(s);
+  if (nl) {
+    const { existeCrm } = await import('@/lib/newsletter');
+    if (!(await existeCrm(nl.funnelId))) throw new Error('Ese CRM del newsletter no existe en este negocio (o está archivado).');
+  }
   return s;
 }
 
@@ -410,10 +417,33 @@ export async function segmentosDisponibles(): Promise<Segmento[]> {
     const deEtiquetas = ((data ?? []) as Array<{ id: number; nombre: string }>).map((e) => ({
       value: `${PREFIJO_SEGMENTO_ETIQUETA}${Number(e.id)}`, label: `Etiqueta «${e.nombre}»`, descripcion: 'Leads con esa etiqueta',
     }));
-    return [...SEGMENTOS, ...deEtiquetas];
+    return [...SEGMENTOS, ...deEtiquetas, ...await segmentosDelNewsletter()];
   } catch (e) {
     console.error(`[email] segmentos de etiquetas: ${e instanceof Error ? e.message : String(e)}`);
-    return SEGMENTOS;
+    return [...SEGMENTOS, ...await segmentosDelNewsletter()];
+  }
+}
+
+/**
+ * Los segmentos del CRM del newsletter, si el negocio tiene uno: todo el CRM y cada etapa a la que se le escribe (la baja
+ * no). Así una edición se ve con su nombre en /email, y desde ahí también se le puede escribir a la lista. Nunca tira:
+ * sin poder leerlo, no se ofrece.
+ */
+async function segmentosDelNewsletter(): Promise<Segmento[]> {
+  try {
+    const { crmDelNewsletter } = await import('@/lib/newsletter');
+    const crm = await crmDelNewsletter();
+    if (!crm) return [];
+    return [
+      { value: segmentoDeNewsletter(crm.id), label: `${crm.nombre}: todos`, descripcion: 'Los suscriptos del newsletter, menos las bajas' },
+      ...ETAPAS_NEWSLETTER_KEYS.filter((k) => k !== ETAPA_BAJA).map((k) => {
+        const label = ETAPAS_NEWSLETTER.find((e) => e.key === k)?.label ?? k;
+        return { value: segmentoDeNewsletter(crm.id, k), label: `${crm.nombre}: ${label}`, descripcion: `Los suscriptos en «${label}»` };
+      }),
+    ];
+  } catch (e) {
+    console.error(`[email] segmentos del newsletter: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
   }
 }
 
@@ -459,6 +489,9 @@ export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> 
   if (segmento === SEGMENTO_RESIDUO) return leadsDelResiduo(supabase);
   const etiquetaId = etiquetaDeSegmento(segmento);
   if (etiquetaId != null) return leadsDeEtiqueta(supabase, etiquetaId);
+  // El CRM del newsletter: su casa Y sus agregados, en la etapa pedida y sin las bajas (lib/newsletter.ts).
+  const nl = segmentoNewsletter(segmento);
+  if (nl) return (await import('@/lib/newsletter')).destinatariosDeNewsletter(nl);
   // Paginado por `id`. Es el destinatario de un envío: el segmento "activos" de
   // ws1 son 1044 leads, el `.select()` suelto devolvía 1000 y el broadcast le
   // llegaba a 1000 — mientras `contarSegmento` (count exact, que sí cuenta bien)
@@ -534,8 +567,8 @@ export async function contarSegmento(segmento: string): Promise<number> {
   // `count` del prefiltro contaría también a quien tiene un pago en `pagos`: la
   // pantalla prometería N y el broadcast le llegaría a menos, sin decir por qué.
   if (segmento === SEGMENTO_RESIDUO) return (await leadsDeSegmento(segmento)).length;
-  // Lo mismo una etiqueta: el conteo es el largo de los destinatarios.
-  if (etiquetaDeSegmento(segmento) != null) return (await leadsDeSegmento(segmento)).length;
+  // Lo mismo una etiqueta y el newsletter: el conteo es el largo de los destinatarios.
+  if (etiquetaDeSegmento(segmento) != null || segmentoNewsletter(segmento) != null) return (await leadsDeSegmento(segmento)).length;
   const supabase = (await getTenantDb());
   const q = supabase.from('leads').select('id', { count: 'exact', head: true });
   const { count, error } = await filtroSegmento(q as unknown as LeadFilter, segmento) as unknown as { count: number | null; error: { message: string } | null };
@@ -671,6 +704,24 @@ export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Pr
   return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
+/**
+ * El HTML de un broadcast como lo va a ver un lead: el mismo render que la prueba y el envío, con un lead de ejemplo y un
+ * link de baja que no da de baja a nadie. No manda nada (la vista previa de la tab Newsletters).
+ */
+export async function vistaPreviaBroadcast(id: number): Promise<{ ok: true; asunto: string; html: string } | { ok: false; error: string }> {
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase.from('email_broadcasts').select('asunto, preheader, cuerpo').eq('id', id).single();
+  if (error) return { ok: false, error: error.message };
+  const b = data as { asunto: string; preheader: string | null; cuerpo: string };
+  const vars = valoresVariablesLead({ nombre: 'Ana', empresa: 'Tu negocio' });
+  const asunto = aplicarVariables(b.asunto, vars) || '(sin asunto)';
+  const html = renderEmailHtml({
+    subject: asunto, bodyText: aplicarVariables(b.cuerpo, vars), preheader: aplicarVariables(b.preheader ?? '', vars) || undefined,
+    unsubscribeUrl: '#', fromName: await firmaDelNegocioActual(),
+  });
+  return { ok: true, asunto, html };
+}
+
 // Tope de seguridad por broadcast. EXPORTADO porque la API de MaKo
 // (lib/api-mako/areas/email.run.ts) se niega a enviar/programar por encima: pasado
 // este número el resto se trunca (`truncado`), el broadcast queda «enviado» y no hay
@@ -794,7 +845,8 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
     const vars = valoresVariablesLead(lead, { noSon });
     const asunto = aplicarVariables(b.asunto, vars) || '(sin asunto)';
     const cuerpo = aplicarVariables(b.cuerpo, vars);
-    const unsubUrl = buildUnsubscribeUrl(lead.id);
+    // Con el broadcast: la baja queda atribuida a ESTE envío (`baja_at`, las métricas de cada edición del newsletter).
+    const unsubUrl = buildUnsubscribeUrl(lead.id, id);
 
     let estado: 'enviado' | 'simulado' | 'fallo' = 'simulado';
     let proveedorId: string | null = null;
@@ -864,7 +916,13 @@ export async function procesarBroadcastsProgramados(): Promise<{ procesados: num
     ...((stuck.data ?? []) as Array<{ id: number }>).map((r) => r.id),
   ])];
   const detalle: ResultadoBroadcast[] = [];
-  for (const id of ids) detalle.push(await enviarBroadcast(id));
+  for (const id of ids) {
+    // Una edición del newsletter escrita en el Copywriter sale con lo último que tiene su guion (lib/newsletter.ts). Si
+    // el guion no se puede leer, sale con lo que la edición ya tenía: no se frena un envío programado por eso.
+    await (await import('@/lib/newsletter')).traerEdicionDelCopy(id)
+      .catch((e: unknown) => console.error(`[email] la edición ${id} con su guion del Copywriter: ${e instanceof Error ? e.message : String(e)}`));
+    detalle.push(await enviarBroadcast(id));
+  }
   return { procesados: ids.length, detalle };
 }
 
