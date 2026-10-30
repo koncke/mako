@@ -56,7 +56,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
 - **tren-ae SUBIDO: main = `4b8f8145d` (29/10 21:42). READY 21:45: hola-mako.com sirve `mako-gv9vfmoz3`
   (dpl_E2uWxgoB…).** Avisado el Cerebro; Create y el Copywriter estaban archivados.
-- **tren-af (rama `tren-af`, subiendo):**
+- **tren-af SUBIDO: main = `c9070ea0d` (30/10 01:11). READY 01:15: hola-mako.com sirve `mako-bcacs3b3m`.** Subió al tercer intento: el primero se rindió por RAM (ver hallazgos-infra, 30/10).
   - **Lleva:**
     - El Media Buyer de Thiago (`b4ee3c411`): dónde, hasta, y «lánzame una campaña», que nace en PAUSA y se relee. La mig 0350
       está APLICADA (21:50).
@@ -68,7 +68,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - `revisar-fijo`: los ids con que se arma la campaña quedan fijos al revisar (`c9d23904c`);
     - el aviso de la campaña creada lleva «Reportar a Soporte» (`13562c8a8`).
   - **Chequeo:** 9351 tests, más el delta, más las guardas. Los únicos rojos fueron los `todo` de siempre.
-- **tren-ag (sin armar):**
+- **tren-ag (rama `tren-ag`, armado y en chequeo):**
   - **Lleva:**
     - PRIORIDAD: los tickets #31 y #32 de Leila (`editor-leila-2810`, `3b6a9b3ee`: quitar silencios en el Video Editor).
     - Las tarjetas del Copywriter (`plantillas-tarjeta-2910`, `6713868bb`).
