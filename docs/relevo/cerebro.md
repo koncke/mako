@@ -103,6 +103,9 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     campañas y sube anuncios. La mezcla con main da 2 choques de conservar los dos lados (`docs/hallazgos.md` y
     `tests/links-con-ws.test.ts`); hay una referencia en la rama `tren-ae-con-wa`. Después del deploy:
     `cartero.mjs instalar` (Runner 1.24.0).
+    Su tsc de 8ab517c12 dio 0 errores propios.
+  - **El relevo del Cerebro:** `relevo-cerebro-3010` en `7af7751ce`, sólo `docs/relevo/cerebro.md`. Se une limpio con `4b3cfc751`.
+    Después llega el re-commit de `docs/conocimiento/patrones-email.md`.
 - **Para quien siga:**
   - Lo que aprendió esta tanda está cosechado en `docs/hallazgos-infra.md`, en la entrada «Un número por migración, y el push
     que falla por RAM…».
