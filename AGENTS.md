@@ -4286,8 +4286,8 @@ hacer?**» y «**Tocá** el botón», con los siete prompts pidiendo acento
   decir lleva su bloque de idioma explícito.** La pregunta al escribir un writer nuevo no
   es «¿qué le pido al modelo?» sino **«¿de quién es la voz de lo que sale?»**.
 - **Y la segunda capa mide la salida**, porque el prompt solo no alcanza: `marcasDeVoseo()`
-  (`lib/puestas-data.ts`, sin `server-only` para que se pueda testear) marca el texto y la
-  pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
+  (`lib/puestas-data.ts`, que la re-exporta de `lib/voseo.ts`, sin `server-only` para que se
+  pueda testear) marca el texto y la pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
   avisa y se rehace.
 - **Cuando el texto lo va a DECIR una persona, el acento es un campo, no un default.**
   No se puede adivinar, y equivocarlo no se nota al leer: se nota cuando alguien
@@ -4326,6 +4326,10 @@ escribió, nunca el verbo que todavía no usó nadie. La conjugación voseante e
 del infinitivo; lo único que se escribe es lo irregular del lado NEUTRO (`tener` → tienes).
 Al ampliarlo aparecieron **224 casos vivos en 96 archivos**. Cuando un chequeo se queda
 corto, la pregunta no es «¿qué le falta a la lista?» sino **«¿por qué hay una lista?»**.
+**Y el generador vive en `lib/voseo.ts`, no en el test:** hasta el 29/10/2026 estaba adentro de
+`tests/puente-panel-copy.test.ts` y la segunda capa de la IA seguía con una lista de 21 palabras
+(«escribime», «agendá», «mandame» pasaban). **Un detector que usan un test y el código de
+producción vive en `lib/` y el test lo importa.**
 
 ⚠️ **Y ese mismo guard daba verde sobre código que NUNCA MIRÓ.** Un `text/*` —un MIME con
 comodín, adentro de un comentario `//`— abría un bloque `/* … */` que se cerraba 71 líneas
