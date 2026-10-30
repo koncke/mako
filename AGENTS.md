@@ -10912,3 +10912,19 @@ en el CRM del teléfono «no hacía nada»). **Regla para código nuevo:** `setA
 router.push(url))` (app/m/_ui/hoja-historial.ts, exportado por `app/m/_ui`), o dejar que la hoja se desmonte con la
 página nueva sin cerrarla. Lo fija tests/m-hoja-navegar-al-cerrar.test.ts, que barre app/m; el porqué, en
 docs/hallazgos-mobile.md.
+
+# Una edición del newsletter es un BROADCAST del CRM «Newsletter» (29/10/2026)
+
+Martín aprobó el modelo el 29/10/2026 («Sí, armalo así»): los suscriptos son un CRM «Newsletter» (Suscripto → Lee →
+Dormido → Dado de baja) y las ediciones viven en la tab `/newsletters`. **Regla para código nuevo:**
+- **Una edición es un broadcast** (`email_broadcasts`) con segmento `newsletter:<funnelId>[:<etapa>]`: crear, probar,
+  programar y enviar pasan por lib/email-marketing.ts, nunca por un envío propio. Que sea una edición se DERIVA del
+  segmento (`segmentoNewsletter`, lib/newsletter-reglas.ts); no hay columna aparte.
+- **Los suscriptos se leen con `suscriptosDe`** (lib/newsletter.ts): la casa (`leads.funnel_id`) Y los agregados
+  (`lead_funnel`). «Suscripto» es la clave canónica `lead`.
+- **Lee y Dormido se CALCULAN** (`etapaPorLectura`): sólo cuentan los envíos `enviado`, una edición sin NINGUNA apertura no
+  mide (key propia o webhook sin configurar) y la baja, «Compró» y las salidas no las mueve la lectura.
+- **El newsletter no es una automatización.** La única es la bienvenida: la plantilla `email-newsletter` de la galería,
+  con el CRON en la etapa «Suscripto». Nada crea esa fila solo (`tests/automatizaciones-solo-plantillas.test.ts`).
+- **Con el envío apagado no se «envía»** (quema la edición: queda `enviado` con todo `simulado`): se prueba al email de
+  quien la pide y se programa. Lo fija tests/newsletter.test.ts; el porqué, en docs/hallazgos-newsletters.md.

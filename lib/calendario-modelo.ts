@@ -8,7 +8,7 @@
 // "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 // "templates" y que no sea restrictivo».
 //
-// UNA PANTALLA, SIETE CAPAS (`CAPAS_CALENDARIO`), cada una con su color y su interruptor:
+// UNA PANTALLA, OCHO CAPAS (`CAPAS_CALENDARIO`), cada una con su color y su interruptor:
 //   · Publicaciones — lo que la persona planea publicar (Story, Reel, Post, Anuncio, Email, Video). Propio.
 //   · Llamadas      — las reuniones del CRM (R1/R2 con su hora, de Calendly/Cal.com), la agenda de Google y las
 //                     llamadas sueltas que se agendan acá.
@@ -17,6 +17,7 @@
 //   · Se repite     — las PRÓXIMAS veces de las tareas que se repiten (14/10/2026), según su ritmo: se dibujan, no se
 //                     crean filas (la instancia la sigue creando el generador el día que toca, y se ve en «Plan»).
 //   · Cobros        — las cuotas sin cobrar que vencen (14/10/2026), de las fichas del CRM.
+//   · Newsletter    — las ediciones del newsletter programadas y enviadas (29/10/2026), de `email_broadcasts`.
 //   · Objetivos     — dónde empieza y termina el Quarter, y los objetivos que cierran con él.
 //
 // ⚠️ SÓLO LO PROPIO SE GUARDA ACÁ (`calendario_eventos`, mig 0271). El CRM, Google, el Plan y el Q se LEEN de donde
@@ -56,6 +57,8 @@ export const CAPAS_CALENDARIO = [
   { id: 'recurrentes', nombre: 'Se repite', color: 'var(--warn-fill)' },
   // 14/10/2026: las cuotas sin cobrar que vencen, de las fichas del CRM (`pagos`). Lleva a la ficha del lead.
   { id: 'cobros', nombre: 'Cobros', color: 'var(--good)' },
+  // 29/10/2026 (el Newsletter que aprobó Martín: «queda en el Calendario»): cada edición programada o enviada.
+  { id: 'newsletters', nombre: 'Newsletter', color: 'var(--accent)' },
   { id: 'objetivos', nombre: 'Objetivos', color: 'var(--ink)' },
 ] as const;
 export type CapaCalendario = (typeof CAPAS_CALENDARIO)[number]['id'];
@@ -65,7 +68,7 @@ export const colorDeCapa = (c: CapaCalendario): string => CAPAS_CALENDARIO.find(
 export const capaDeTipo = (t: TipoEvento): CapaCalendario => (t === 'publicacion' ? 'publicaciones' : t === 'llamada' ? 'llamadas' : 'bloques');
 
 /** De dónde salió un renglón del calendario. Sólo `propio` se edita desde acá. */
-export type FuenteCalendario = 'propio' | 'crm' | 'google' | 'plan' | 'objetivo' | 'cobro';
+export type FuenteCalendario = 'propio' | 'crm' | 'google' | 'plan' | 'objetivo' | 'cobro' | 'newsletter';
 
 /** Un renglón del calendario, venga de donde venga. */
 export type ItemCalendario = {
@@ -565,6 +568,25 @@ export type CuotaCalendario = { id: number; leadId: number; numero: number; mont
 
 /** «US$1,500»: el monto de una cuota, en dólares (es lo que guarda `monto_usd`). */
 export const usdCorto = (n: number): string => `US$${Math.round(n).toLocaleString('en-US')}`;
+
+// ── Las ediciones del newsletter (29/10/2026) ────────────────────────────────────────────────
+
+/** Una edición del newsletter, como la lee el Calendario de `email_broadcasts` (las de segmento `newsletter:`). */
+export type EdicionCalendario = { id: number; asunto: string; estado: string; programadoAt: string | null; enviadoAt: string | null };
+
+/**
+ * El renglón de una edición: cuándo sale (o salió) y su asunto. Un borrador sin fecha no se dibuja (`null`): todavía no
+ * está en ningún día. Lleva a la edición en la tab Newsletters.
+ */
+export function itemDeEdicion(e: EdicionCalendario): ItemCalendario | null {
+  const enviada = !!e.enviadoAt;
+  const inicio = e.enviadoAt ?? (e.estado === 'programado' ? e.programadoAt : null);
+  if (!inicio) return null;
+  return {
+    id: `newsletter:${e.id}`, fuente: 'newsletter', capa: 'newsletters', titulo: e.asunto.trim() || 'Edición sin asunto', inicio, fin: null,
+    diaCompleto: false, href: `/newsletters?edicion=${e.id}`, detalle: enviada ? 'Newsletter · enviada' : 'Newsletter · programada', hecho: enviada,
+  };
+}
 
 /** El renglón de una cuota que vence: a quién cobrarle, cuál y cuánto. Lleva a la ficha del lead. */
 export function itemDeCuota(c: CuotaCalendario, nombre: string | null, inicio: string): ItemCalendario {

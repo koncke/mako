@@ -44,6 +44,7 @@ export const COLOR_CAPA: Record<CapaCalendario, string> = {
   plan: '#f4511e',
   recurrentes: '#7986cb',
   cobros: '#0b8043',
+  newsletters: '#e67c73',
   objetivos: '#616161',
 };
 
@@ -55,6 +56,7 @@ export const NOMBRE_CAPA: Record<CapaCalendario, string> = {
   plan: 'Plan',
   recurrentes: ROTULO_RECURRENTE,
   cobros: 'Cobros',
+  newsletters: 'Newsletter',
   objetivos: 'Objetivos',
 };
 
@@ -122,7 +124,8 @@ export const nombreCalendarioDe = (it: ItemCalendario, calendarios: readonly Cal
 
 /** El rótulo del link que lleva a donde vive un renglón que no es de acá (la ficha, el Plan, General). */
 export const rotuloDeIr = (it: ItemCalendario): string =>
-  it.fuente === 'crm' || it.fuente === 'cobro' ? 'Abrir la ficha' : it.fuente === 'plan' ? 'Abrir en el Plan' : it.fuente === 'objetivo' ? 'Ver en General' : 'Abrir';
+  it.fuente === 'crm' || it.fuente === 'cobro' ? 'Abrir la ficha' : it.fuente === 'plan' ? 'Abrir en el Plan' : it.fuente === 'objetivo' ? 'Ver en General'
+    : it.fuente === 'newsletter' ? 'Abrir la edición' : 'Abrir';
 
 // ── Crear (el «crear en el lugar» de Google) ────────────────────────────────────────────────────────────────────────
 

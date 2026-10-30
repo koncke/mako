@@ -604,16 +604,18 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       mako('er_mk', 'Te escribieron por email: {{nombre_completo}}.\n👉 {{link_lead}}', null),
     ],
   },
-  // El newsletter SEMANAL no está: un lead entra UNA vez a cada automatización (mig 0034), así que un Recurrente semanal
-  // le llegaría una sola vez a cada suscriptor. Lo que existe es el envío masivo de /email.
+  // El newsletter NO es una automatización (Martín, 29/10/2026: «Sí, armalo así»): una automatización tiene final y un
+  // lead entra UNA vez a cada una (mig 0034); las EDICIONES viven en la tab Newsletters (lib/newsletter.ts). Acá queda
+  // SÓLO la bienvenida, y desde ese día arranca con la etapa «Suscripto» del CRM Newsletter: antes pedía una etiqueta,
+  // y a los suscriptos no los etiqueta nadie (entran al CRM por la landing, la importación o desde otro CRM).
   {
     id: 'email-newsletter',
     nombre: 'Alguien Se Suscribió',
     emoji: '📰',
-    linea: 'Tres correos de bienvenida a quien se suscribe: el saludo, a los 2 días y a los 5.',
+    linea: 'Tres correos de bienvenida a quien entra a tu newsletter: el saludo, a los 2 días y a los 5.',
     origen: 'galería v2 (décima tanda)',
     objetivo: 'captar',
-    cron: { pide: 'etiqueta', ayuda: 'La etiqueta que le pones a quien se suscribe.' },
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa «Suscripto» de tu CRM Newsletter.' },
     pasos: [
       email('nl_1', '¡Gracias por suscribirte!', 'Esto es lo que vas a recibir.',
         'Hola {{nombre}}:\n\nGracias por suscribirte. Cada tanto te vamos a escribir con ideas y novedades que te pueden servir.\n\nSi tienes una pregunta, responde este correo: lo leemos.', 'nl_espera_2d', { revisar: false }),

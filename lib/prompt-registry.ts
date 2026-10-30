@@ -67,6 +67,7 @@ import {
 import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
 import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
 import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
+import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
@@ -806,6 +807,30 @@ export const REGISTRY: Group[] = [
         variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el diseño o los elementos elegidos'), v('diseno', 'el diseño: páginas y elementos con su referencia, medidas, textos y colores')], scope: 'full', sensitive: false,
         default: CHAT_IMAGEN_USER_TEMPLATE,
         context: 'Le pasa a MaKo la instrucción y el diseño actual. Conserva los slots: {{instruccion}} y {{diseno}} llegan delimitados como dato no confiable.',
+      },
+    ],
+  },
+  {
+    // El Newsletter (29/10/2026, lib/newsletter-ia.ts; los defaults viven en lib/newsletter-ia-reglas.ts). Las keys y los
+    // slots los fija tests/newsletter.test.ts contra PROMPTS_NEWSLETTER.
+    group: 'Newsletter',
+    icon: '📰',
+    blurb: 'MaKo en la tab Newsletters: cuando la persona contesta de qué trata su newsletter, propone el asunto y la idea de la próxima edición. Nunca manda nada: la edición se escribe en el Copywriter.',
+    entries: [
+      {
+        key: PROMPTS_NEWSLETTER.propuestaSystem.key, source: 'override',
+        label: 'La próxima edición (system)', kind: 'system', dynamic: false,
+        variables: [], scope: 'full', sensitive: false,
+        default: PROMPTS_NEWSLETTER.propuestaSystem.tpl,
+        context: 'Cómo propone MaKo la próxima edición. Conserva la forma del JSON ({"asunto","idea"}) y la regla de no inventar datos del negocio.',
+      },
+      {
+        key: PROMPTS_NEWSLETTER.propuestaUser.key, source: 'override',
+        label: 'Tema + negocio (user)', kind: 'user', dynamic: true,
+        variables: [v('tema', 'de qué trata el newsletter, con las palabras del negocio'), v('frecuencia', 'cada cuánto sale'), v('anteriores', 'los asuntos de las ediciones anteriores'), v('negocio', 'lo que hace falta del Second Brain')],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_NEWSLETTER.propuestaUser.tpl,
+        context: 'Le pasa a MaKo el tema y el negocio. Conserva los slots: llegan delimitados como dato no confiable.',
       },
     ],
   },
