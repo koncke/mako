@@ -279,7 +279,7 @@ test('(8) el primer mensaje es el de la SALIDA (saltando esperas), no una respue
 test('(8) la pantalla pregunta al ACTIVAR, y al PUBLICAR sólo si ya está activa; no frena', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): Activar compara lo PUBLICADO (`abiertoPublicado`).
-  assert.match(perfil, /onClick=\{\(\) => \(activa \? void toggle\(\) : conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void toggle\(\)\), abiertoPublicado\)\)\}/);
+  assert.match(perfil, /onClick=\{\(\) => \(activa \? void toggle\(\) : conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void conRitmo\(\(\) => void toggle\(\)\)\), abiertoPublicado\)\)\}/);
   assert.match(perfil, /onClick=\{\(\) => conAvisoProspeccion\(\(\) => conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)\)\}/);
   assert.match(perfil, /if \(!rolAdmin \|\| !vaAMandar\) \{ seguir\(\); return; \}/);
   // Lo de AHORA de ésta (el lienzo y sus CRON) contra lo PUBLICADO de las otras.
