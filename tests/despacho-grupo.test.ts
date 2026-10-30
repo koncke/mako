@@ -138,17 +138,31 @@ test('5. el «listo» del pedido delegado dice QUÉ quedó hecho; el texto al Ce
   }
 });
 
-test('6. el pedido delegado del ws1 lo dice en su ticket; el Runner lo marca por su contexto', () => {
+test('6. el pedido delegado del ws1 lo dice en su ticket; el «hazlo» sale SÓLO para lo que el triage aprobó', () => {
   assert.equal(WS_CON_CUIDADO, 1);
   const g = sinComentarios(leer('lib/tickets-del-grupo.ts'));
   assert.match(g, /t\.ws === WS_CON_CUIDADO \? '⚠️ Es del ws1 \(Mauricio\): se ejecuta con el cuidado del ws1\.'/);
   assert.match(g, /tipo: t\.delegado \? 'pedido' : null/);
   assert.match(g, /\.\.\.\(t\.delegado \? \{ delegado: true \} : \{\}\)/);
   const r = sinComentarios(leer('lib/tickets-runner.ts'));
-  // Los dos lados del Runner (los bugs y los nuevos) leen el contexto y pasan la marca.
-  assert.equal(r.split("...(esDelegado(f.contexto) ? { delegado: true as const } : {})").length - 1, 2);
+  // Rota (la revisión de privacidad de 85a0d9ead, A2): marcar `delegado` también en la cola de lo que espera a Martín → un reembolso
+  // o una baja que el triage dejó para Martín le llega al Cerebro con «hazlo».
+  // Sólo la cola de lo APROBADO (despacho runner) lee el contexto y pasa la marca; la de los nuevos, nunca.
+  assert.equal(r.split("...(esDelegado(f.contexto) ? { delegado: true as const } : {})").length - 1, 1);
   assert.match(r, /select\('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos, triage, contexto'\)/);
-  assert.match(r, /select\('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos, contexto'\)/);
+  assert.match(r, /select\('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos'\)/);
+  const nuevos = r.slice(r.indexOf('export async function ticketsNuevosParaElCartero('), r.indexOf('export async function ticketsNuevosSinEntregar('));
+  assert.doesNotMatch(nuevos, /delegado/, 'la cola de lo que espera a Martín marca delegado');
+  // Y el cartero, en esa cola, manda siempre el texto de ticket nuevo.
+  const c = sinComentarios(leer('scripts/operaciones/cartero.mjs'));
+  assert.match(c, /mensaje: mensajeTicketNuevo\(t\.numero, repo\),/);
+  assert.equal(c.split('mensajePedidoDelegado(t.numero, repo)').length - 1, 1, 'el «hazlo» del delegado sale en más de una cola');
+  // El texto del delegado aprobado: plata, terceros, borrados y otro negocio vuelven a Martín; el «listo» lo lee el cliente.
+  const d = mensajePedidoDelegado(9, '/r');
+  assert.match(d, /el triage lo aprobó/);
+  assert.match(d, /en SU negocio y nada más: ni leer ni copiar de otro/);
+  assert.match(d, /plata \(un cobro, un reembolso, una baja, un presupuesto\), un envío a terceros o un borrado/);
+  assert.match(d, /sin ids de la base, sin otros negocios y sin notas del equipo/);
 });
 
 test('7. el #30 de Leandro: «pídemelo otra vez y lo hago» nunca ante lo que MaKo no puede hacer', () => {
@@ -180,7 +194,14 @@ test('8. lo que salió en producción para cada pedido: el hito de la bitácora,
   const m = hitosDeLosTickets([
     { bitacora: [{ titulo: '**A** se arregló', puntos: ['uno **dos**', 'tres', 'cuatro', 'cinco'], tickets: [30, 31] }, { titulo: 'B', tickets: [30] }] },
   ]);
-  assert.deepEqual(m.get(30), { titulo: 'A se arregló', puntos: ['uno dos', 'tres', 'cuatro'] }, 'el primero gana, sin ** y con 3 puntos');
+  // Un hito con VARIOS tickets va sin puntos (la revisión de privacidad de 85a0d9ead, A1: en main, `tickets: [13, 26]` le daba al ws1
+  // un punto sobre el plan de Leila, con su monto). Rota: sacar `varios` de `hitosDeLosTickets` → el #31 trae los puntos del #30.
+  assert.deepEqual(m.get(30), { titulo: 'A se arregló', puntos: [] }, 'un hito de varios tickets mostró sus puntos');
+  assert.deepEqual(m.get(31), { titulo: 'A se arregló', puntos: [] });
+  const uno = hitosDeLosTickets([{ bitacora: [{ titulo: '**C** salió', puntos: ['uno **dos**', 'tres', 'cuatro', 'cinco'], tickets: [40] }] }]);
+  assert.deepEqual(uno.get(40), { titulo: 'C salió', puntos: ['uno dos', 'tres', 'cuatro'] }, 'un hito de UN ticket: sin ** y con 3 puntos');
+  const main = hitosDeLosTickets([{ bitacora: [{ titulo: 'El plan de pagos por tramos', puntos: ['Ticket #13 (Leila): 6 meses de $12.000 MXN'], tickets: [13, 26] }] }]);
+  assert.doesNotMatch(JSON.stringify(main.get(26)), /Leila|12\.000/, 'el ws1 ve lo de Leila');
   assert.equal(m.get(32), undefined);
   const ahora = new Date('2026-10-29T21:00:00Z');
   const pedidos = [{ id: 30, titulo: 'Documentación', estado: 'resuelto' as const, respuesta: 'Ya está arreglado.', updated_at: '2026-10-29T20:30:00Z', desplegado: { titulo: 'La guía de palabras clave', puntos: ['está en /api-mako?art=instagram-palabras-botones'] } }];

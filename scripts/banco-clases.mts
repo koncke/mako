@@ -43,8 +43,10 @@ const CORRIDAS = Math.max(1, Math.min(3, Number(valor('--corridas', '1')) || 1))
 const MODELO = valor('--modelo', process.env.MODELO_BANCO || 'claude-haiku-4-5');
 const SIN_IA = args.includes('--sin-ia');
 const SALIDA = valor('--salida', '');
-const CLAVE = process.env.ANTHROPIC_CREDITO_CUENTA1 || process.env.ANTHROPIC_CREDITO_CUENTA2 || '';
-if (!SIN_IA && !CLAVE) { console.error('Falta ANTHROPIC_CREDITO_CUENTA1 (o la 2) en el entorno: corre con --env-file del .env.local del clon.'); process.exit(2); }
+// La 2 primero (la revisión de privacidad de 85a0d9ead, M2): el crédito de la cuenta 1 es el que el veto le asigna al ws1 de Mauricio
+// (lib/veto-claude.ts), y el banco no es del ws1.
+const CLAVE = process.env.ANTHROPIC_CREDITO_CUENTA2 || process.env.ANTHROPIC_CREDITO_CUENTA1 || '';
+if (!SIN_IA && !CLAVE) { console.error('Falta ANTHROPIC_CREDITO_CUENTA2 (o la 1) en el entorno: corre con --env-file del .env.local del clon.'); process.exit(2); }
 
 const { casos: todos } = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'tests', 'fixtures', 'banco-grupos-2910.json'), 'utf8')) as { casos: Caso[] };
 /** `--solo conv:1728,conv:1712`: sólo esos casos (un caso nuevo se mide con UNA llamada, sin volver a correr el banco). */

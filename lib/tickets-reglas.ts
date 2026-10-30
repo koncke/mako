@@ -671,8 +671,12 @@ export function hitosDeLosTickets(
   const limpio = (s: string): string => s.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 220);
   for (const r of registros) {
     for (const h of r.bitacora) {
+      // ⚠️ UN HITO QUE NOMBRA VARIOS TICKETS VA SIN SUS PUNTOS (la revisión de privacidad de 85a0d9ead, A1): pueden ser de negocios
+      // distintos, y sus puntos hablan de cada uno. En main, el hito de `tickets: [13, 26]` le daba al ws1 (el #26) un punto sobre el
+      // plan de Leila (el #13) con su monto. El título sí: es el aviso que ya recibe cada cliente de esos tickets (lib/tickets-cierre.ts).
+      const varios = (h.tickets ?? []).length > 1;
       for (const n of h.tickets ?? []) {
-        if (Number.isInteger(n) && n > 0 && !m.has(n)) m.set(n, { titulo: limpio(h.titulo), puntos: (h.puntos ?? []).slice(0, maxPuntos).map(limpio).filter(Boolean) });
+        if (Number.isInteger(n) && n > 0 && !m.has(n)) m.set(n, { titulo: limpio(h.titulo), puntos: varios ? [] : (h.puntos ?? []).slice(0, maxPuntos).map(limpio).filter(Boolean) });
       }
     }
   }

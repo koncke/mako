@@ -12063,3 +12063,22 @@ lib/mako-doer-in.ts) · `textoDe` (el videoMessage)
 - **Sin hacer (al 29/10):** con la bandera prendida, el camino entero (la bajada, el bucket, el link firmado y Zernio) no corrió en
   ningún test por la entrada: sí, cada pieza por separado. El video del mensaje citado (no el del mismo mensaje) no se toma. Un
   Drive grande (más de 100 MB) se rechaza: va desde el Media Buyer.
+
+## La revisión de privacidad del despachante: un hito de varios negocios y el «hazlo» sin el triage (29/10/2026, claude3)
+
+**Vive en:** `hitosDeLosTickets` (lib/tickets-reglas.ts) · `ticketsNuevosParaElCartero` (lib/tickets-runner.ts) · `mensajePedidoDelegado`
+(lib/tickets-aviso.ts y su copia en scripts/operaciones/cartero.mjs). Los hallazgos completos: C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md,
+y la entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
+
+- ⚠️ **A1: en la rama sola no se veía.** Todos los hitos con `tickets` de esta rama nombraban uno. En main hay `tickets: [13, 26]`
+  (Leila y Mauricio): el ws1 recibía en su turno un punto sobre el plan de Leila, con el monto. Ahora un hito de VARIOS tickets va
+  sin sus puntos (el título sí: es el aviso que ya recibe cada cliente). **La regla:** lo que se muestra de una bitácora a un cliente
+  se piensa contra main, no contra la rama: las bitácoras de las demás áreas no están acá.
+- ⚠️ **A2: el texto «hazlo» no miraba el triage.** El pedido delegado salía con «hazlo» también en la cola de lo que ESPERA LA
+  DECISIÓN de Martín (un reembolso, una baja, un envío): justo lo que `ACCIONES_SIMPLES` deja afuera y por eso se delega. Ahora esa
+  cola manda siempre el texto de ticket nuevo, y el «hazlo» queda para lo que el triage aprobó, que además devuelve a Martín la plata,
+  los envíos a terceros, los borrados y lo de otro negocio.
+- **También:** el banco gasta primero la cuenta 2 (la 1 es el crédito del ws1, M2), y el texto crudo del DEBUG pasa por `taparClaves` (B3).
+- **Sin hacer (al 29/10):** M1, que el «listo» del Cerebro salga sin ids ni otros negocios, está sólo en el texto al Cerebro: no hay un
+  chequeo en el código. M3: el DEBUG lo habilita el grupo y no quién escribe. M2: no hay tope por negocio para el crédito de los
+  grupos. B1: notas internas del mismo negocio en los puntos de un hito de un ticket.

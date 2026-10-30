@@ -7,6 +7,8 @@
 // la plataforma) lo lee; esto decide CUÁL es, por su número o su nombre, sin adivinar entre dos.
 // =============================================================================
 
+import { taparClaves } from './claves-en-el-chat';
+
 export type NegocioConocido = { ws: number; nombre: string };
 
 const norm = (s: string): string => (s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -26,7 +28,8 @@ export function hechosDelDiagnostico(d: unknown): string[] {
     if (meta.via === 'sin_conexion') hechos.push('Meta sin conectar');
     else if (meta.via === 'conexion_anterior') hechos.push('Meta con la conexión anterior (el token), no por Facebook/Zernio');
     else if (meta.via === 'conexion_de_facebook') hechos.push(`Meta conectada por Facebook (Zernio)${meta.cuenta_elegida ? '' : ', sin cuenta publicitaria elegida'}`);
-    if (typeof meta.error === 'string' && meta.error) hechos.push(`Meta da error: ${meta.error.slice(0, 120)}`);
+    // El texto del proveedor, sin claves (la revisión de privacidad, B3): puede traer un token o una URL firmada.
+    if (typeof meta.error === 'string' && meta.error) hechos.push(`Meta da error: ${taparClaves(meta.error).texto.slice(0, 120)}`);
   }
   const ints = (o.integraciones as { integraciones?: unknown } | unknown[] | undefined);
   const lista = Array.isArray(ints) ? ints : Array.isArray((ints as { integraciones?: unknown })?.integraciones) ? (ints as { integraciones: unknown[] }).integraciones : [];

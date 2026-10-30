@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { SE_APRUEBAN_EN_LA_APP } from './confirmacion-pura';
+import { taparClaves } from './claves-en-el-chat';
 
 /**
  * Las escrituras SIMPLES: una sola fila o un solo evento, reversibles, con su confirmación de siempre. Lo que no está aquí se delega.
@@ -158,7 +159,8 @@ export function respuestaDelDebug(p: { pedido: string; leido: Record<string, unk
       : `No encontré un negocio que se llame «${p.pedido}». ¿Cuál es?`;
   }
   const nombre = negocioLeido(p.leido);
-  if (!nombre) return `No pude mirar ${p.pedido} ahora${p.crudo && !p.leido ? ` (${p.crudo.slice(0, 120)})` : ''}.`;
+  // El texto crudo de la lectura, sin claves (la revisión de privacidad, B3).
+  if (!nombre) return `No pude mirar ${p.pedido} ahora${p.crudo && !p.leido ? ` (${taparClaves(p.crudo).texto.slice(0, 120)})` : ''}.`;
   const loQueVeo = p.hechos.length ? `: ${p.hechos.join('; ')}` : '';
   return p.ticket
     ? `Lo pasé al Cerebro (ticket #${p.ticket}) con lo que veo de ${nombre}${loQueVeo}.`

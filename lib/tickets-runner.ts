@@ -95,13 +95,15 @@ export async function acusarTicket(a: { id: string; estado: 'entregado' | 'no_en
 // Los que esperan la decisión de Martín, con su propia marca (`cerebro_*`, mig 0343) y su texto fijo (`mensajeTicketNuevo`):
 // lib/tickets-aviso.ts dice por qué van aparte. El molde es el de arriba: compare-and-set sobre el intento anterior.
 
-/** Lo que el Runner entrega de un ticket nuevo: el id del intento (va al acuse), el número y a qué sesión. Nada más: el texto es fijo. */
-export type TicketNuevoParaEntregar = { id: string; numero: number; destino: string; delegado?: true };
+/** Lo que el Runner entrega de un ticket nuevo: el id del intento (va al acuse), el número y a qué sesión. Nada más: el texto es fijo.
+ *  ⚠️ Sin `delegado` (la revisión de privacidad de 85a0d9ead, A2): esta cola es la de lo que ESPERA LA DECISIÓN de Martín, y un pedido
+ *  delegado ahí (plata, envíos, borrados, algo nuevo) viaja con el texto de ticket nuevo, nunca con el «hazlo» del delegado. */
+export type TicketNuevoParaEntregar = { id: string; numero: number; destino: string };
 
 /** Los que esperan a Martín y no le llegaron al Cerebro, los más viejos primero. Sin la migración, tira (la vuelta lo dice). */
 async function nuevosSinEntregar(): Promise<Array<Record<string, unknown>>> {
   const { data, error } = await getSupabaseServer().from(T)
-    .select('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos, contexto')
+    .select('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos')
     .is('despacho', null).in('estado', [...ESTADOS_NUEVOS]).in('cerebro_estado', [...CEREBRO_SIN_ENTREGAR])
     .lt('cerebro_intentos', ENTREGA_MAX_INTENTOS).order('created_at', { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
@@ -133,7 +135,7 @@ export async function ticketsNuevosParaElCartero(
     q = f.cerebro_id ? q.eq('cerebro_id', f.cerebro_id as string) : q.is('cerebro_id', null);
     const { data, error: eUp } = await q.select('id');
     if (eUp) throw new Error(eUp.message);
-    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local, ...(esDelegado(f.contexto) ? { delegado: true as const } : {}) });
+    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local });
     if (out.length >= TICKETS_POR_VUELTA) break;
   }
   return out;
