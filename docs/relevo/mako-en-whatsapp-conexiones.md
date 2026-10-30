@@ -33,9 +33,10 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
   D28–D37 cazadas (D37 sólo por el cableado, el 15 del despacho), sin respaldos; despacho-grupo 15/15, clase-del-grupo 11/11, tsc
   acotado 0 propios (sobre 3f3b23eda antes del commit); tests-afectados `--rapido` de 3f3b23eda en `C:/dev/verif-3f3b23eda`: 11
   tandas verdes, barredoras con los 2 `todo` de siempre y `mako-en-whatsapp-pablo` (fijaba el actor viejo: arreglado en el commit
-  siguiente, que además lleva `participantAlt` y el lote de varios al rescate del cron). FALTA: el tsc acotado de ese último commit
-  (lib/mako-doer-in.ts; la pausa del Cerebro lo frenó), sacar `C:/dev/verif-3f3b23eda` (`cmd /c rmdir` del junction primero) y
-  mandarle el sha a Integración (local_6c54122e-…) para el tren-af. El borrador del VERDE está en la carpeta compartida del Cerebro.
+  siguiente, 8ab517c12, que además lleva `participantAlt` y el lote de varios al rescate del cron; su tsc acotado: 0 propios).
+  **Entregado (30/10 ~03:30):** Integración recibió 8ab517c12 con el tsc; lo re-verifica (arreglo por arreglo, más la plata de
+  pausar/prender campañas y subir anuncios) y, si da bien, va en el tren-ah. Si Integración devuelve algo, se arregla acá y se le
+  pasa el sha nuevo. El worktree de verificación ya se sacó. El VERDE está en la carpeta compartida del Cerebro.
 - **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
   mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
   `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
