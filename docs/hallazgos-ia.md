@@ -7364,3 +7364,27 @@ que falte el autor en la memoria.
 - La app y los gráficos siguen con la persona y el núcleo de siempre (lib/mako-turno-app.ts): no se tocó MAKO_NUCLEO.
 - ⚠️ NUCLEO_GRUPO no nombra la marca `[[ya-pedido]]`: todavía no existe, y el modelo la escribiría y le llegaría al cliente.
   Entra con F2b (los tickets del negocio en el system).
+
+## El detector de voseo de la IA era una lista de 21 palabras, y el bueno vivía adentro de un test (29/10/2026, Copywriter)
+
+- **Síntoma:** al romper a propósito un botón del Copywriter con «Escribime por mensaje», el test de voseo siguió verde.
+  «Agendá», «mandame» y «decime» también pasaban como neutros.
+- **El diagnóstico obvio era el equivocado.** Parecía que faltaban palabras en la lista de `marcasDeVoseo`
+  (lib/puestas-data.ts), pero un generador completo ya existía: el del guard del repo (tests/puente-panel-copy.test.ts).
+  Conjuga desde ~200 verbos (presente, imperativo, clíticos, la grafía sin tilde) y su lista de neutros descarta sola lo
+  que también es de tú. Como vivía en un test, la IA no lo podía usar. Eran dos detectores de lo mismo: el del repo veía
+  «escribime» en una pantalla, y el de la IA lo dejaba pasar en lo que escribía para un cliente.
+- **Una regla sólo por terminación no sirve, y no por falta de ganas:**
+  - el imperativo de vos de un -ir («elegí», «viví», «escribí») es igual al pretérito de 1.ª persona;
+  - «-rás» es el futuro de tú («verás», «tendrás»);
+  - «-és» trae gentilicios («inglés») y «después»;
+  - «-ar + te» cae encima del inglés («create», «validate»).
+
+  El generador parte de los verbos y deja escritas, con su porqué, las excepciones (`HOMOGRAFOS`).
+- **La regla que queda:** un detector que usan un test y el código de producción vive en `lib/` y el test lo importa.
+  `lib/voseo.ts` es la única fuente; `marcasDeVoseo` y el guard la comparten. Sumar un verbo trae sus ~30 formas a las dos
+  puntas.
+- **En lo que escribe la IA aparecen homógrafos que el copy del repo no tenía:** «Tomás» (un nombre) y «mandala».
+  Quedaron en `HOMOGRAFOS`.
+- **Sin hacer:** el alcance es la lista de verbos. Un verbo que no está (por ejemplo «chequear») no se ve conjugado. Se
+  suma en `REGULARES` o `IRREGULARES` de lib/voseo.ts.

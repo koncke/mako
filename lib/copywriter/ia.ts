@@ -46,7 +46,7 @@ import { FORMATO_EDITAR, PROMPTS_EDITAR, bibliotecaParaIA, estructuraParaIA } fr
 import { sanearOperaciones, aplicarTodo, type Descartada, type OperacionIA } from './operaciones';
 import { leerReferencias } from './referencias';
 import type { Referencia } from './referencias-reglas';
-import { textoDeNodo } from './doc';
+import { textoDeNodo, textoDelDoc } from './doc';
 import { PROMPTS_EXPERTO, pideParaIA } from './experto';
 import { plantillaPorId } from './plantillas';
 
@@ -233,7 +233,9 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       ejemplo: `${pl.ejemplo.negocio}, ${pl.ejemplo.rubro}`,
       pide: pideParaIA(pl.pide ?? []),
       guion: contenidoNoConfiable(guionParaIA(g.doc), 'guion'),
-      estructura: estructuraParaIA(estructura ?? sugerida, !estructura),
+      // Desde el 29/10/2026 la página nace con la estructura, no con el ejemplo: el ejemplo viaja acá, marcado ficticio,
+      // para que MaKo vea la forma (sin un slot nuevo: el override guardado no lo tendría).
+      estructura: `${estructuraParaIA(estructura ?? sugerida, !estructura)}EL EJEMPLO COMPLETO (de ${pl.ejemplo.negocio}, un negocio FICTICIO: sólo la forma, ningún dato):\n${textoDelDoc(pl.contenido())}\n\n`,
       negocio: bloqueNegocio(negocio),
       charla: `\n\nLA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable([charla, `LA PERSONA, AHORA: ${instruccion}`].filter(Boolean).join('\n'), 'charla')}`,
     }) : await renderPrompt(PROMPTS_EDITAR.editarUser.key, PROMPTS_EDITAR.editarUser.tpl, {

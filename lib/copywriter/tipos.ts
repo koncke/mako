@@ -50,8 +50,8 @@ export type PropsGuion = {
   /** En segundos. */
   duracion: number | null;
   /**
-   * La plantilla de la que nació la página (lib/copywriter/plantillas.ts, 29/10/2026): con ella MaKo sabe que el cuerpo
-   * es un EJEMPLO de un negocio ficticio y ofrece «Adaptar a mi negocio». No se muestra en las propiedades.
+   * La plantilla de la que nació la página (lib/copywriter/plantillas.ts, 29/10/2026): con ella la página ofrece «Ver ejemplo» y
+   * MaKo pregunta para qué es y a qué oferta adaptarla (./iniciativa.ts). No se muestra en las propiedades.
    */
   plantilla?: string | null;
 };
