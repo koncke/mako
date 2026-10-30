@@ -119,6 +119,22 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 - **Lo que pidió Joan y queda afuera de la plantilla:** el WhatsApp único al inmobiliario cuando entra un formulario (es
   una automatización) y el filtro por creativo.
 
+## «Puede mostrar datos de otro cliente» no era una fuga, y atrás había dos defectos de verdad (30/10/2026)
+
+- **Síntoma:** Agency salió del tren con un rojo en `tests/inspeccionar-primer-cuadro.test.ts`: `/api/auth/me` sumaba `agenciaDeCliente(ws)`, «una segunda cuenta de "a quién se mira" puede nombrar a otro cliente». En el pase de manos se volvió «puede mostrar datos de otro cliente».
+- **El diagnóstico obvio era el equivocado.** Medido con dos agencias, sus clientes y cuarenta pedidos intercalados sobre el código real, y en producción con los negocios de Código Inmobiliario: esa línea era un sí o un no sobre el MISMO negocio, y no nombraba a nadie. No hubo fuga. **Una guarda en rojo dice qué regla se rompió, no qué daño hizo: medir antes de llamarlo fuga.** Igual se sacó, porque la regla es buena.
+- **Lo que sí estaba mal:**
+  - **El cliente de DOS agencias seguía viendo MaKo Partners y «Pasar a Pro».** `agenciaDeCliente` contesta null con dos dueños: es lo correcto para la cadena (no inventar un padre), no para «¿la maneja una agencia?». Son dos preguntas: nació `esClienteDeAgencia`.
+  - **La agencia veía el plan de las cuentas no aprobadas, también de las que dio de baja.** Ya no son suyas, y el cliente puede haber elegido su plan. La regla, en `planQueVeLaAgencia`: la capa sólo de las aprobadas; de una pendiente, lo que eligió la propia agencia (sin eso no puede corregirlo antes de pagar); de una dada de baja, nada.
+- **«Faltan las zonas de México» tampoco era eso:** las zonas estaban. El barrido de `tests/zona-negocio.test.ts` no conocía esa lista como un dato.
+- **Trampa del arnés:** `mock.module` con `namedExports` tiene que declarar TODO lo que importan los demás, o el módulo no carga. `tests/_agencia-dos-negocios-hijo.ts` lee los nombres de la fuente y deja de mentira los que no usa.
+
+**Sin hacer:**
+- `app/agency/page.tsx`, `app/m/agency/page.tsx` y `lib/agency.ts` siguen preguntando con `agenciaDeCliente`: con dos dueños, ese cliente entra al Agency Dashboard. Hoy ningún cliente tiene dos.
+- De la re-verificación de plata de 28cc3e2cb (`C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md`), sin tocar: la MEDIA de una fila de cartera cargada a mano sobre un Pro directo, las tres BAJAS y lo abierto desde antes (el link viejo sin cerrar en `lib/cobros.ts`, la baja con la suscripción ya cancelada, H7).
+
+**Vive en:** `lib/agencia.ts` · `lib/vista-de-otro.ts` · `lib/agencia-cobro-reglas.ts` · `tests/agencia-dos-negocios.test.ts`.
+
 ## Lo prometido a Thiago: dar de baja, el plan de cada cuenta y el cobro por país (29/10/2026)
 
 La llamada con Thiago (agencia de España, 27 clientes; reunión del 5/11): docs/promesas/2910-llamada-thiago.md, lo marcado

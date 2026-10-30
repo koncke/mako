@@ -66,11 +66,11 @@ test('cuarenta pedidos a la vez, intercalados: ninguno contesta con el negocio d
 
 test('la cartera: sólo sus cuentas, y el plan sale de la capa SÓLO en las aprobadas', () => {
   assert.ok(Array.isArray(R.cartera), JSON.stringify(R.cartera));
-  const por = new Map(R.cartera.map((c: { ws: number }) => [c.ws, c]));
+  const por = new Map<number, { plan: string | null }>(R.cartera.map((c: { ws: number; plan: string | null }) => [c.ws, c]));
   assert.deepEqual([...por.keys()].sort(), [20, 22, 40, 50, 60, 61]);
   assert.ok(!por.has(21), 'el cliente de la otra agencia no aparece');
   assert.deepEqual(R.carteraDos.sort(), [21, 40]);
-  const plan = (ws: number) => (por.get(ws) as { plan: string | null }).plan;
+  const plan = (ws: number) => por.get(ws)?.plan;
   assert.equal(plan(20), 'MaKo Esencial');
   assert.equal(plan(22), 'Sin elegir (tiene todo lo de Pro)');
   assert.equal(plan(50), null, 'dada de baja: ni su capa ni la marca');
