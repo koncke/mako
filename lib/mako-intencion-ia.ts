@@ -68,7 +68,7 @@ export const SYSTEM_DE_CLASE = [
   '6. Si MaKo acaba de pedir un «sí» y la persona confirma, corrige o cancela eso, es ACCION.',
   '7. Un reporte dirigido a alguien del equipo por su nombre («Hola Martín, probamos X y falla Y») es TICKET. Un saludo o un gracias suelto a alguien del equipo es NO_REPLY.',
   '8. Un link o un archivo sin decir para qué es PREGUNTA (hay que ver qué es y preguntarle para qué lo manda).',
-  '9. Si pide VARIAS cosas («moveme la reunión y mandale un WhatsApp»), pon cada una en "partes", en pocas palabras. Si pide una sola, "partes" es null.',
+  '9. Si pide VARIAS cosas («muéveme la reunión y mándale un WhatsApp»), pon cada una en "partes", en pocas palabras. Si pide una sola, "partes" es null.',
   '',
   // Los ejemplos son del 60 % de AJUSTE del banco (tests/fixtures/banco-grupos-2910.json): el 40 % retenido no se mira al ajustar.
   'Ejemplos de grupos reales:',

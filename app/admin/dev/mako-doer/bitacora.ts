@@ -748,7 +748,7 @@ export const BITACORA: Hito[] = [
       'Cambiar un presupuesto (es plata) queda propuesto y se aprueba en /mako/revisar. Un WhatsApp a un lead queda propuesto y sale con un toque en la app: un «sí» en el grupo no lo manda.',
       'Si le pides varias cosas a la vez, hace las que puede y lo demás lo pasa al equipo con su número: no se pierde ninguna parte.',
       'Si nadie del equipo toma un pedido en 30 minutos, MaKo te avisa en el grupo.',
-      '**Cómo se prueba:** en el grupo de un negocio, «replícame esta landing https://…», «pausa la campaña X» y «moveme la reunión con Juan y mándale un WhatsApp».',
+      '**Cómo se prueba:** en el grupo de un negocio, «replícame esta landing https://…», «pausa la campaña X» y «muéveme la reunión con Juan y mándale un WhatsApp».',
     ],
     archivos: [
       'lib/despacho-grupo.ts — qué hace MaKo directo, qué va por pantalla, el pedido compuesto y el aviso de los 30 minutos',
