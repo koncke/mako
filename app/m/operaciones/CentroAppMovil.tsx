@@ -17,11 +17,12 @@
 import { useState } from 'react';
 import { FilaM, ListaM, SheetM, useToastM } from '@/app/m/_ui';
 import { carteroVivo } from '@/lib/operaciones-reglas';
+import { nombreCuenta } from '@/lib/centro-chats';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
 import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
-import { usoPrincipal } from '@/lib/centro-uso';
+import { estadoRunnerUso, usoPrincipal } from '@/lib/centro-uso';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
@@ -34,7 +35,8 @@ export function CentroAppMovil(datos: DatosCentro) {
   // Los tickets de los usuarios que esperan a Martín (el mismo número que el botón de la computadora). null = leyendo.
   const tickets = useTicketsPorDecidir(true);
 
-  const activos = carteros.filter((c) => carteroVivo(c, ahora)).length;
+  // «Midiendo» y no «con noticias»: `visto_at` lo refresca la vuelta para TODAS las cuentas (30/10/2026, lib/centro-uso.ts).
+  const activos = carteros.filter((c) => estadoRunnerUso(carteroVivo(c, ahora), c.cuota ?? null, ahora) === 'mide').length;
   const principal = usoPrincipal(carteros.map((c) => ({ cuenta: c.cuenta, cuota: c.cuota ?? null })), ahora);
 
   return (
@@ -51,7 +53,7 @@ export function CentroAppMovil(datos: DatosCentro) {
             lista). Dice siempre el número (Uso.tsx, la de la computadora). */}
         {/* «Uso», como la del cliente (23/10/2026, Martín: «"USO de IA" sea IGUAL que en los clientes, sólo que SuperAdmin tiene
             más configuraciones»): abre «Tus cuentas de IA» y, debajo, lo suyo (las cuentas de Claude Code, la API, los Runners). */}
-        <FilaM icono="config" titulo="Uso" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
+        <FilaM icono="config" titulo="Uso" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''} · ${nombreCuenta(principal.cuenta)}` : null, `${activos} de ${carteros.length} midiendo ahora`].filter(Boolean).join(' · ')}
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
       <ChatsMDelCentro centro={k} />

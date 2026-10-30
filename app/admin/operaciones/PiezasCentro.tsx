@@ -238,7 +238,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
   return (
     <Conversacion
       turnos={k.turnosDe(chat)} carteros={k.carteros}
-      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)}
+      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)} avisoCerrado={(p) => k.avisoDePregunta(chat, p)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
       // El ✓ de sus «Completado» (18/10/2026): guardado en MaKo, vale en el teléfono.

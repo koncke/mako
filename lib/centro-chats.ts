@@ -1133,6 +1133,21 @@ function porQueTarda(
 }
 
 /**
+ * ¿Contestar esta pregunta firmaría hacia un chat cerrado? (30/10/2026) Lo dice ANTES de firmar: la tarjeta lo muestra y
+ * `contestarPregunta` no sale. Una respuesta a un chat cerrado se quedaba `escrito` hasta vencer, sin que nadie se enterara. Mira la
+ * SESIÓN de la pregunta, no el chat: un chat del Centro junta sesiones de varias cuentas, y puede estar abierto en otra.
+ * Con la cuenta sin noticias, no se sabe (`vivo` es de la última vuelta): null, como `comoSale`. null = sale.
+ */
+export function preguntaDeChatCerrado(
+  local: string, cuenta: string | null, carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats'>[], ahora: number,
+): string | null {
+  if (carteros.some((k) => k.chats.some((c) => c.local === local && c.vivo))) return null;
+  if (!carteroVivo(carteros.find((k) => k.cuenta === cuenta), ahora)) return null;
+  const n = cuenta?.replace(/^claude/, '');
+  return `Este chat está cerrado: ábrelo${n ? ` en la cuenta ${n}` : ''} para contestarle.`;
+}
+
+/**
  * El chat está trabado en una pregunta de la app de Claude (un AskUserQuestion abierto, `preguntasDeLaApp`): mientras espera
  * no le entra ningún mensaje (medido el 22/10 en 27 casos), y desde el Ops Center no se contesta. Lo dice EN EL ACTO, sin
  * esperar `TARDA_MS`: es lo que pasó el 24/10, cuando Martín escribió desde el teléfono, no pasó nada y concluyó «no se envió».
