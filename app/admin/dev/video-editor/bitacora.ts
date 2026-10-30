@@ -332,4 +332,18 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '30 oct', hora: '03:45', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de herramientas de la línea de tiempo ya no esconde herramientas',
+    puntos: [
+      'Con el chat abierto, en pantallas de 1366 o menos, las últimas herramientas de la barra de la línea de tiempo (el zoom, «Acercar») quedaban fuera de la vista. Ahora, si falta lugar, primero se esconde el deslizador del zoom (− y + siguen) y, si aun así no entra, la barra pasa a dos filas.',
+      'Probado a 1280, 1366 y 1440, con el chat abierto y plegado: todas las herramientas a la vista.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/timeline/components/timeline-toolbar.tsx — la barra, que se parte',
+      'app/video-editor/_opencut/timeline/barra-ancho.ts — desde qué ancho entra lo prescindible',
+      'tests/video-editor-barra-linea.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

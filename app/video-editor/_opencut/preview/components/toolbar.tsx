@@ -13,7 +13,8 @@
 // botones de texto pasan a íconos con su valor en el tooltip, y si tampoco
 // entran, van en otra fila. El reproductor puede bajar al 18 % del editor.
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAncho } from "@/app/video-editor/_opencut/hooks/use-ancho";
 import { Pause, Play } from "lucide-react";
 import { formatTimecode } from "@/app/video-editor/_opencut/wasm/opencut";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -63,20 +64,6 @@ import { formatoDelTiempo, nivelDeBarra } from "@/app/video-editor/_opencut/prev
 /** Los botones de texto de la derecha («Completa», «Relación»): chicos, grises, sin borde. */
 const BOTON_TEXTO =
 	"inline-flex h-6 cursor-pointer items-center gap-0.5 rounded px-1.5 text-[12px] text-[var(--cc-text-2)] outline-none hover:bg-[var(--cc-raised)] hover:text-[var(--cc-text)] focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-[var(--cc-raised)] data-[state=open]:text-[var(--cc-text)]";
-
-/** El ancho de la barra, medido antes de pintar y cada vez que cambia el panel. 0 = todavía sin medir. */
-function useAncho(ref: RefObject<HTMLDivElement | null>): number {
-	const [ancho, setAncho] = useState(0);
-	useLayoutEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		setAncho(el.getBoundingClientRect().width);
-		const observador = new ResizeObserver(([e]) => setAncho(e.contentRect.width));
-		observador.observe(el);
-		return () => observador.disconnect();
-	}, [ref]);
-	return ancho;
-}
 
 export function PreviewToolbar({ pantalla }: { pantalla: PantallaCompleta }) {
 	const ref = useRef<HTMLDivElement>(null);
