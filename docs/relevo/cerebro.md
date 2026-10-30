@@ -3,7 +3,31 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 30/10/2026 ~11:30, el Cerebro de claude3 (`local_428051c1`, semana al 94 %)
+## ⏩ LEER PRIMERO — 30/10/2026 ~14:30, el Cerebro de claude3 (`local_428051c1`, CIERRE al 95 %)
+
+**ACTUALIZACIÓN 30/10 ~14:30, CIERRE de claude3 (semana al 95 %): esto pisa lo de abajo donde choque.**
+- **tren-ai EN PRODUCCIÓN** (mako-gr9maew7i, main 9e24e7935): #33, #34, #35, el despachante de WhatsApp (#30), Video pasos 1
+  y 2, y los emails.
+- **Calendario/Classroom quedó AFUERA** por 4 rojos de Clients; uno es una guarda: el super admin sin impersonar no ve fichas.
+  - Devolución: `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-cal-classroom-devuelto.md`.
+  - `recorrido-k-3010` @ 246bae899 (K2 ALTO, el botón de MaKo que tapa en 4 pantallas) sale de esa rama y espera detrás.
+- **Los tickets con hito se cierran y AVISAN SOLOS** (miralo en `avisado_at`). No se manda aviso manual de esos.
+  - Leila (#31/#32) quedó avisada a las 06:45Z, y su aviso manual se canceló.
+  - Falta confirmar `avisado_at` de #33, #34 y #35.
+- **Hecho:**
+  - el cartero 1.24.0, instalado;
+  - las migraciones 0349, 0351, 0352 y 0331, y el índice de la 0048, aplicadas.
+- **Leandro:** Automations (local_7f005343) está soltando sus 8 inscripciones con 8 compare-and-set, aprobados: 703-707 vuelven
+  a «activa», y 660, 708 y 709 a «completada». Hay que verificar su tabla y archivarlo.
+- **La fila, en orden:**
+  1. Calendario, con su devolución, y después recorrido-k;
+  2. Agency;
+  3. Newsletter;
+  4. T2 Onboarding y las tandas por tab;
+  5. los workflows pausados;
+  6. la cabecera del Video;
+  7. el resto del recorrido.
+  El detalle está en por-repartir.md.
 
 El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`: lo último, abajo, despacho por despacho.
 **SP** = `C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/`.
