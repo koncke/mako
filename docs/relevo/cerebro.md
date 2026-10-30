@@ -127,6 +127,30 @@ preguntes: hacé esto en orden.
 
 ## Integración — los TRENES de claude3 (29/10 desde ~02:30 ART; lo arma el chat «Cerebro › Integración»)
 
+
+- **⛔ CIERRE DE INTEGRACIÓN AL 95% (30/10 ~14:20 hora del log, claude3). Lo que sigue es para la próxima cuenta.**
+  - **Producción:** main = `9e24e7935` (tren-ai, `mako-gr9maew7i`), más este cierre de docs. Ningún workflow ni agente de
+    Integración queda corriendo.
+  - **Árbol del tren:** `C:/dev/wt-push-q`. Se sube con `node C:/dev/revisiones/subir-tren.mjs <log> 150`, SIN `SUBIR_UN_LUGAR`
+    (ver hallazgos-infra, 30/10). Un worktree nuevo necesita la junction de `node_modules` a `C:/dev/wt-copywriter-notion/node_modules`.
+  - **El próximo tren (tren-aj). Entra cada pieza cuando su chat la arregle:**
+    1. **Calendario y Classroom** (`cal-classroom-2910` en `7162c94aa`): cuatro rojos de Clients, uno es una guarda del super
+       admin. La devolución está en `integracion-cal-classroom-devuelto.md`. Su recorrido visual (`recorrido-k-3010` en
+       `246bae899`) va detrás y no corrió tests-afectados.
+    2. **Agency de Thiago** (`agency-thiago-2910` en `28cc3e2cb`): tres rojos, uno es una guarda de `/api/auth/me`. La
+       devolución está en `integracion-agency-thiago-devuelto.md`. La re-verificación de plata ya dio «entra con bajas».
+    3. **Newsletter** (`newsletter-2910` en `85d2206c9`): cerrar M1, porque la tab y la API las pasa cualquier admin. La
+       devolución está en `integracion-newsletter-devuelto.md`. La 0351 ya está aplicada.
+    Las tres devoluciones están en la carpeta compartida del Cerebro:
+    `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/`.
+    Los chats de las tres estaban archivados.
+  - **Ramas de respaldo:** `tren-ah-con-agency` y `tren-ai-con-calendario` (la mezcla ya resuelta) y `tren-ae-con-wa`. Las
+    ramas viejas `tren-ab` a `tren-ai` se pueden borrar cuando main las tenga.
+  - **Abierto, sin dueño:**
+    - que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM;
+    - la BAJA de N1 en Zernio: si al borrar falla la lectura de la serie, el «Deshacer» la devuelve suelta;
+    - la BAJA del despachante: «plan» está en `DELEGADO_SEGURO`.
+
 Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node C:/dev/revisiones/subir-tren.mjs <log>`
 (`SUBIR_ARBOL` cambia el árbol; `SUBIR_UN_LUGAR=1` no espera el segundo lugar de tests). El Cerebro de claude3 es
 `local_428051c1`. Esto vale por encima del estado de claude4 de más abajo.
