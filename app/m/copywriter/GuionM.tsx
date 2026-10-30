@@ -19,15 +19,20 @@ import type { GuionAbierto, PaginaCopy } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { EditorGuion, type ApiPagina } from '@/app/copywriter/editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from '@/app/copywriter/PanelMaKo';
+import type { OfertaCorta } from '@/lib/copywriter/iniciativa';
 import { pedirPapelera, pedirRenombrar } from '@/app/copywriter/cliente';
 
 type Vista = 'guion' | 'mako';
 // (El id sigue siendo «guion»: lo usan el segmentado y las notas guardadas por vista.)
 
-export function GuionM({ ws, guion, catalogos }: { ws: number | null; guion: GuionAbierto; catalogos: CatalogosCopy }) {
+export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
+  ws: number | null; guion: GuionAbierto; catalogos: CatalogosCopy; ofertas?: readonly OfertaCorta[];
+  /** Recién creada desde una plantilla (`?mako`): abre en MaKo, que pregunta para qué es (lib/copywriter/iniciativa.ts). */
+  enMako?: boolean;
+}) {
   const router = useRouter();
   const toast = useToastM();
-  const [vista, setVista] = useState<Vista>('guion');
+  const [vista, setVista] = useState<Vista>(enMako ? 'mako' : 'guion');
   const [pagina, setPagina] = useState<PaginaCopy>(guion.pagina);
   const [editor, setEditor] = useState<DocVivo | null>(null);
   // «Preguntar a MaKo» con lo seleccionado: la cita entra en la caja de MaKo (la llena PanelMaKo).
@@ -61,7 +66,7 @@ export function GuionM({ ws, guion, catalogos }: { ws: number | null; guion: Gui
             avisar={avisar} onVivo={(v) => { vivo.current = v; }} onApi={(a) => { api.current = a; }} />
         </div>
         <div hidden={vista !== 'mako'} className="m-copywriter-vista">
-          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} />
+          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} ofertas={ofertas} />
         </div>
       </div>
     </div>

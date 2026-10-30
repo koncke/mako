@@ -23,14 +23,15 @@
 
 import './notion.css';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link, { useRouter } from '@/app/_ui/Link';
+import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
 import { aPapelera, cambiarPagina, dePapelera, enOrdenDeArbol, escondida, restaurar as restaurarEnArbol } from '@/lib/copywriter/arbol';
 import { INFO_TIPO, propsNuevas, SIN_TITULO, type GuionAbierto, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
 import { type CatalogosCopy } from '@/lib/copywriter/catalogos';
-import { plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
+import { chipsDe, extractoDe, plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
+import type { OfertaCorta } from '@/lib/copywriter/iniciativa';
 import type { DocVivo } from './editor/propuesta';
 import { pedirCrear, pedirPapelera, pedirRenombrar, pedirRestaurar, rutaGuion } from './cliente';
 import { guardarPedido } from './pedido-guardado';
@@ -55,8 +56,8 @@ export type PropsCopywriter = {
   tipoInicial?: TipoGuion | null;
   /** «Nueva página» desde afuera (`?nueva`): la pantalla arranca en «¿Qué vas a crear hoy?». */
   nuevaInicial?: boolean;
-  /** El super admin: al pie de la lista, sus dos herramientas de redacción (eran pestañas de la barra hasta el 29/10). */
-  deLaPlataforma?: boolean;
+  /** Las ofertas del negocio (la principal primero): MaKo pregunta a cuál adaptar la página nueva (PanelMaKo). */
+  ofertas?: readonly OfertaCorta[];
 };
 
 /** «Nueva página»: los templates (la misma ruta de la tab con `?nueva`). */
@@ -70,14 +71,12 @@ const FORMATO: Readonly<Record<TipoGuion, string>> = {
 /** Lo que se escribe solo en la caja de «¿Qué vas a crear hoy?». */
 const EJEMPLOS = ['Un guion de reel sobre el error que todos cometen…', 'Un email de bienvenida para los que se registran…', 'El copy de un anuncio para…', 'Una VSL para vender mi programa…'];
 
-export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false, deLaPlataforma = false }: PropsCopywriter) {
+export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false, ofertas }: PropsCopywriter) {
   const router = useRouter();
   const [paginas, setPaginas] = useState<PaginaCopy[]>(iniciales);
   const [editor, setEditor] = useState<DocVivo | null>(null);
   // «Preguntar a MaKo» de la página: lo seleccionado entra como cita en la caja del chat (lo llena PanelMaKo).
   const citar = useRef<((seleccion?: string) => void) | null>(null);
-  // «Adaptar con MaKo» de la franja de la página: lo pide el chat (PanelMaKo), como el botón de su primer mensaje.
-  const adaptarRef = useRef<(() => void) | null>(null);
   const [pausa, setPausa] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const cajaMako = useRef<HTMLTextAreaElement | null>(null);
@@ -120,10 +119,11 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     creando.current = true;
     const { tipo } = plantilla;
     const titulo = pedido ? pedido.replace(/\s+/g, ' ').slice(0, 80) : '';
-    // Con un ejemplo, la página recuerda de qué plantilla nació: MaKo ofrece adaptarlo (PanelMaKo) y la página avisa lo
-    // que queda del negocio ficticio (EditorGuion).
+    // La página nace con la ESTRUCTURA (sus secciones y una guía corta en cada una), no con el ejemplo: el ejemplo de un
+    // negocio ficticio parecía el guion que MaKo había escrito para el negocio (Martín, 29/10/2026). Con un ejemplo, la
+    // página recuerda de qué plantilla nació: «Ver ejemplo» (EditorGuion) y las preguntas de MaKo (PanelMaKo).
     const props = propsNuevas(tipo, plantilla.estructura, { plantilla: plantilla.ejemplo ? plantilla.id : null, duracion: plantilla.duracion });
-    const r = await pedirCrear({ tipo, padre, titulo, props, contenido: plantilla.contenido() });
+    const r = await pedirCrear({ tipo, padre, titulo, props, contenido: plantilla.esqueleto() });
     creando.current = false;
     if (!r.ok) return `No se pudo crear la página: ${r.error}`;
     setPaginas(r.paginas);
@@ -166,7 +166,14 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const plantillas = useMemo((): PlantillaCrear[] => {
     const visibles = plantillasVisibles(todas);
     const orden = tipoInicial ? [...visibles.filter((x) => x.tipo === tipoInicial), ...visibles.filter((x) => x.tipo !== tipoInicial)] : visibles;
-    return orden.map((x) => ({ id: x.id, nombre: x.nombre, formato: FORMATO[x.tipo], rotulo: x.insignia ?? `${x.emoji} ${INFO_TIPO[x.tipo].label}` }));
+    // La tarjeta muestra lo que se va a crear (Martín, 29/10/2026: «no pueden haber miniaturas en blanco»): el gancho real
+    // del ejemplo como hoja, las secciones como chips, la insignia y la cinta «Ejemplo». Sin ejemplo, la descripción.
+    return orden.map((x) => ({
+      id: x.id, nombre: x.nombre, formato: FORMATO[x.tipo], grupo: x.grupo, ayuda: x.descripcion,
+      rotulo: x.insignia ?? `${x.emoji} ${INFO_TIPO[x.tipo].label}`, insignia: x.insignia ?? `${x.emoji} ${INFO_TIPO[x.tipo].label}`,
+      extracto: extractoDe(x) || x.descripcion, chips: chipsDe(x),
+      ...(x.ejemplo ? { ejemplo: x.ejemplo.negocio } : {}),
+    }));
   }, [todas, tipoInicial]);
 
   // La lista de páginas en el orden del árbol: las subpáginas debajo de la suya, con «↳».
@@ -182,21 +189,13 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   })), [paginas, rutaDe, crear, enBlanco, avisar, papelera]);
 
   const enPapelera = dePapelera(paginas);
-  // Lo que el super admin edita para todos (nav.ts → HERRAMIENTAS, mismos nombres) va al pie, como Strategy y Offer
-  // Playbook en Offer: Copywriting ya no tiene pestañas (D15).
-  const pieLista: ReactNode = (
-    <>
-      <PapeleraCopy paginas={enPapelera} onRestaurar={restaurar} />
-      {deLaPlataforma && (
-        <span className="nt-pie-admin"><Link href="/admin/copywriting">Copy Method</Link> · <Link href="/admin/guiones">Angles & Structures</Link></span>
-      )}
-    </>
-  );
+  // Al pie, sólo la Papelera. Las herramientas de redacción del super admin no tienen mención desde el 29/10/2026 (D15).
+  const pieLista: ReactNode = <PapeleraCopy paginas={enPapelera} onRestaurar={restaurar} />;
 
   const chat = (volver: ReactNode) => (
     <div className="nt" data-en-tarjeta="">
       <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos}
-        campo={cajaMako} onPausa={setPausa} avisar={avisar} citarRef={citar} adaptarRef={adaptarRef} volver={volver} />
+        campo={cajaMako} onPausa={setPausa} avisar={avisar} citarRef={citar} volver={volver} ofertas={ofertas} />
     </div>
   );
 
@@ -209,7 +208,7 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
           <div className="nt" data-en-crear="">
             <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
               onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
-              onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} onAdaptar={() => adaptarRef.current?.()} pausa={pausa}
+              onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} pausa={pausa}
               avisar={avisar} onVivo={ponerVivo} onApi={ponerApi} onCompartir={() => setCompartiendo(true)} />
           </div>
         ) : error ? (

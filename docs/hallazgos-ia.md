@@ -7364,3 +7364,15 @@ que falte el autor en la memoria.
 - La app y los gráficos siguen con la persona y el núcleo de siempre (lib/mako-turno-app.ts): no se tocó MAKO_NUCLEO.
 - ⚠️ NUCLEO_GRUPO no nombra la marca `[[ya-pedido]]`: todavía no existe, y el modelo la escribiría y le llegaría al cliente.
   Entra con F2b (los tickets del negocio en el system).
+
+## El detector de voseo es una lista fija: «escribime», «agendá» y «mandame» pasan limpios (29/10/2026, Copywriter)
+
+- **Síntoma:** al romper a propósito un botón del Copywriter con «Escribime por mensaje», el test de voseo siguió verde.
+- **Causa:** `marcasDeVoseo` (lib/puestas-data.ts) busca una lista de palabras (`vos`, `tenés`, `contame`, `mandá`…), no
+  la forma del verbo. No ve los imperativos con pronombre pegado ni los que no están en la lista: «escribime», «mandame»,
+  «decime», «agendá». Medido el 29/10: «Decime qué querés» marca sólo «querés».
+- **Dónde pesa:** es la segunda capa de la voz en el Copywriter, el Video Planner, flujo-ia, mako-redacta y las
+  variaciones del Media Buyer. Lo que escribe la IA con esas formas pasa como neutro.
+- **La regla:** un test de «sin voseo» se prueba rompiéndolo con una forma que la lista conoce («tenés»). Si hace falta
+  más, se suman formas a la lista, mirando que no choquen con palabras neutras (`sos` ya es un riesgo con «SOS»).
+- **Sin hacer:** sumar a `VOSEO` los imperativos con enclítico (-me, -nos, -le) y los agudos que faltan (lib/puestas-data.ts).

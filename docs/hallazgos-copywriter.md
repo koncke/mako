@@ -310,13 +310,59 @@ lib/copywriter/texto.ts · lib/copywriter/tipos.ts · lib/avisos/
 
 **Vive en:** lib/copywriter/contexto.ts · lib/cerebro-para-chat.ts
 
+## «Ninguna mención en todo MaKo»: un nombre vivía en ocho lugares (29/10/2026)
+
+Martín: «Elimina esto "Copy Method · Angles & Structures", no quiero ninguna mención en todo MaKo».
+- **Dónde estaba el nombre:** el pie de la lista del Copywriter, las dos `HERRAMIENTAS` de nav.ts (y el `match` de la fila
+  de Copywriting), el `metadata.title` de /admin/guiones, la fila oculta del teléfono (lib/movil-creacion.ts, también en
+  `IdCreacion` y en `RUTAS_CREACION`), la razón de «en la computadora» (`SOLO_ESCRITORIO['admin-guiones']`), los títulos
+  que fijaban dos tests y los comentarios. Sacar «la fila» dejaba seis.
+- **Regla:** un pedido de «que no aparezca» se fija con un BARRIDO (tests/barra-sin-dev.test.ts, el 5: `git ls-files`
+  de app/, lib/ y components/), no con un test por archivo: el próximo lugar donde alguien lo escriba no tiene test.
+- **Lo que no se tocó, a propósito:** lo que la IA lee (lib/copywriting-metodo.ts, los stores de ángulos y estructuras,
+  sus rutas de datos y los overrides guardados). La pantalla y el dato son cosas distintas: borrar la pantalla no cambia
+  cómo escribe MaKo.
+- **Consecuencia que hay que saber:** esas bibliotecas y el método ya no tienen dónde editarse desde la app (sólo sus
+  rutas de datos). Si Martín quiere cambiarlas, es código o un pedido a un chat.
+- **Una página del teléfono que sólo redirige no pasa los barridos del teléfono** (movil-mismas-rutas: toda /m tiene su URL
+  de escritorio; movil-refrescar: toda /m dibuja PantallaM). Se borra, como /m/reels: el link de escritorio redirige solo.
+
+**Vive en:** app/_components/nav.ts · app/copywriter/Copywriter.tsx · app/admin/{copywriting,guiones}/page.tsx ·
+lib/movil-creacion.ts · lib/movil-rutas.ts · tests/barra-sin-dev.test.ts
+
+## Sacar el ejemplo de la página apagaba a MaKo y dejaba a la IA sin modelo (29/10/2026)
+
+- **Crear con el esqueleto parecía un cambio de una línea, y no lo era.** El primer mensaje de MaKo («¿Lo adapto?») salía
+  sólo si `restosDelEjemplo(página) > 0`, o sea, si la página todavía era el ejemplo. Con la página naciendo vacía, esa
+  condición da 0 siempre: el mensaje no volvía a salir, y sin un error. Las preguntas nuevas dependen de que la página
+  recuerde su plantilla (`props.plantilla`) y de que el chat esté vacío, no de lo que tenga escrito.
+- **La IA de «adaptar» leía el ejemplo de la página.** Con el esqueleto, el modelo recibía secciones vacías y nada que
+  imitar. El ejemplo va ahora dentro del slot `estructura` de `copywriter.adaptar.user`, marcado como forma y no como
+  dato. No se agrega un slot: un override guardado desde /configuraciones-prompts no lo tendría.
+- **Una guía con la etiqueta mal escrita no se ve nunca.** `GUIAS` se busca por la etiqueta de la sección
+  (`attrs.seccion`). Si la clave no coincide (un acento, un plural), esa sección queda sin guía y sin error. El test exige
+  una guía debajo de cada sección y que cada clave sea una sección real.
+- **`ofertas = []` como default de una prop rehace los `useMemo` en cada render**: es un arreglo nuevo cada vez. Va una
+  constante fija (`SIN_OFERTAS`).
+- **En el teléfono se ve una vista por vez**: las preguntas en la vista de MaKo quedaban detrás de «Página». La página
+  recién creada desde una plantilla abre en MaKo (`?mako`).
+- **Trampa del entorno:** un heredoc de Bash con un script de Node que lleva comillas simples y backticks se cortó
+  («unexpected EOF while looking for matching `''»). Los scripts de edición van a un archivo con Write y se corren con
+  `node archivo.cjs`.
+
+**Vive en:** lib/copywriter/iniciativa.ts · lib/copywriter/plantillas-guias.ts · lib/copywriter/plantillas.ts
+(`conGuias`) · lib/copywriter/ia.ts · app/copywriter/PanelMaKo.tsx · app/copywriter/editor/EditorGuion.tsx ·
+app/m/copywriter/GuionM.tsx
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
-- La tarjeta con contenido real (el extracto, los chips, la insignia y el «cuándo usarla» como `title`): `extractoDe`,
-  `chipsDe` e `insignia` ya están (lib/copywriter/plantillas.ts); falta pasarlos a `PlantillaCrear` cuando la tanda 0 de
-  Create sume esos campos (app/_crear/reglas.ts), en app/copywriter/Copywriter.tsx. Hoy la insignia va en el `rotulo`.
+- Mudar las preguntas de MaKo al patrón común «MaKo toma la iniciativa» cuando el Cerebro lo arme: hoy los pasos salen de
+  lib/copywriter/iniciativa.ts y PanelMaKo los dibuja. Y app/_crear/ejemplo.ts (de Create) todavía dice que el
+  Copywriter abre con «Adaptar a mi negocio» y «Solo la estructura»: el Copywriter ya no lo usa.
+- La calidad de las guías de cada sección (lib/copywriter/plantillas-guias.ts) se revisó a ojo: el test fija que estén,
+  que sean cortas y sin voseo, no que digan lo correcto.
 - Los `evals` del experto (un pedido, la salida esperada y sus verificaciones): la calidad de «adaptar» no tiene prueba
   automática. Y los ejemplos de las VSL ocultas (`vsl-anti-solucion`, `vsl-diagnostico`, `vsl-historia-fundador`).
 - Las cifras de los ejemplos contra la tabla del elenco (docs/plantillas-reales/README.md, 2.2) se revisaron a ojo: no

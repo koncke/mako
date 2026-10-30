@@ -22,7 +22,7 @@
 import type { DefSeccionMas } from './movil-rutas';
 
 /** Las pantallas de creación del teléfono con fila en SECCIONES_MAS (OCULTA, menos «image», que es fila de More). */
-export type IdCreacion = 'image' | 'video-generator' | 'stories' | 'admin-copywriting';
+export type IdCreacion = 'image' | 'video-generator' | 'stories';
 
 /**
  * Las filas OCULTAS de More (`oculta: true`): no son filas ni suben a la barra, pero le dan a cada pantalla su
@@ -45,9 +45,8 @@ export const SECCIONES_CREACION: readonly DefSeccionMas[] = [
   { id: 'video-generator', label: 'Video Generator', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: null, oculta: true },
   // Copywriting (tab unificada; su Ads Writer es la fila «Copywriting»): Stories.
   { id: 'stories', label: 'Stories', href: '/m/stories', icon: 'stories', navKey: 'stories', familia: null, oculta: true },
-  // Copy Method (Copywriting › Method): una herramienta del SUPER ADMIN (nav.ts → HERRAMIENTAS.copywriting). `superAdmin`,
-  // como las de Mobile 2 (/m/cobros): su page se cuida con `getSesionAdmin()`, no con `requireMovil({ navKey })`.
-  { id: 'admin-copywriting', label: 'Copy Method', href: '/m/admin/copywriting', icon: 'escribir', navKey: 'admin-copywriting', familia: null, oculta: true, superAdmin: true },
+  // El método de redacción del super admin ya no tiene fila (29/10/2026, Martín: «no quiero ninguna mención en todo
+  // MaKo»): su pantalla del teléfono se borró; /admin/copywriting redirige al Copywriter.
 ];
 
 /**
@@ -77,8 +76,6 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   { base: '/ai-avatar', query: ['avatar', 'plantilla'], sub: ['avatares', 'voces', 'plantillas'], querySub: { avatares: ['plantilla'] } },
   // /reels y /carousels se retiraron el 29/10/2026 (redirigen: al Copywriter y a Image); sus /m también.
   { base: '/stories' },
-  // Copy Method (Copywriting › Method), la herramienta del super admin: su carpeta es app/m/admin/copywriting.
-  { base: '/admin/copywriting' },
   // El Copywriter (28/10/2026, docs/diseno-copywriter.md): la lista y cada página (/copywriter/<id>); desde el 29/10 es
   // Copywriting, para todos. Sin fila oculta: More la arma desde la barra. `?nuevo=<tipo>` abre los templates de ese tipo
   // (lo traen /reels, /stories y «Abrir en Copywriter»), en los dos lados.
