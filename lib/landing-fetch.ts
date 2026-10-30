@@ -303,13 +303,24 @@ export async function htmlDePagina(urlInput: string, opts: { talCual?: boolean }
 }
 
 /**
+ * Lo mismo, con la dirección FINAL de la página, después de las redirecciones: es contra ÉSA que se resuelve lo relativo.
+ * Medido el 30/10/2026: se pegó `…/inmersion`, el sitio redirige a `…/inmersion/`, y `kit-marca/x.webp` resuelto contra la
+ * dirección pegada perdía la carpeta de la página: las 27 imágenes de la copia daban 404. Quien copie, muestre o lea una
+ * página con sus rutas usa ésta, no `htmlDePagina`.
+ */
+export async function paginaConDireccion(urlInput: string, opts: { talCual?: boolean } = {}): Promise<{ html: string; final: string }> {
+  const r = await bajarHtml(opts.talCual ? urlTalCual(urlInput) : claveDeLanding(urlInput));
+  return { html: r.html, final: r.final };
+}
+
+/**
  * Lo mismo que `htmlDePagina`, más lo que la respuesta dice sobre el MARCO (`X-Frame-Options` y la CSP):
  * la vista del Diagnóstico lo necesita para saber si la página real se va a ver adentro de MaKo
  * (`dejaEmbeberse`, lib/landing-marco.ts). Con la URL tal cual, como la vista previa.
  */
-export async function paginaParaVer(urlInput: string): Promise<{ html: string; marco: CabecerasDeMarco }> {
+export async function paginaParaVer(urlInput: string): Promise<{ html: string; marco: CabecerasDeMarco; final: string }> {
   const r = await bajarHtml(urlTalCual(urlInput));
-  return { html: r.html, marco: r.marco };
+  return { html: r.html, marco: r.marco, final: r.final };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

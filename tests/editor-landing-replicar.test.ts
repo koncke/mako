@@ -30,7 +30,7 @@
 //   · configDeReplica de 'presentacion' sin proporción 16:9                            -> 10 / 1
 //   · formatoReplicar ignora el `modo` viejo                                           -> 10 / 1
 //   · ia.ts importa con `extraerLanding(url, {})` (sin talCual: pierde el www)         -> 10 / 1
-//   · replicar.ts baja con `htmlDePagina(url, {})` (sin talCual)                       -> 10 / 1
+//   · replicar.ts baja con `paginaConDireccion(url, {})` (sin talCual)                       -> 10 / 1
 //   · la ruta del diagnóstico sin pasar `lectura`                                      -> 10 / 1
 //   · landing-fetch con 16 KB de cabeceras                                             -> 10 / 1
 //   · replicar_landing con canal http                                                  -> 10 / 1
@@ -192,7 +192,7 @@ test('Replicar: el formato y la lectura llegan a replicar(), y la copia idéntic
   // 28/10/2026: y lo de replicar por partes (tests/web-generator-replicar-partes.test.ts).
   assert.match(ruta, /replicar\(\{ url: body\.url, formato: body\.formato, modo: body\.modo, lectura: body\.lectura, texto: body\.texto, partes: body\.partes, tema: body\.tema, angulos: body\.angulos, adaptar: body\.adaptar, foto: body\.foto \}\)/);
   const rep = sinComentarios(leer('lib/editor-landing/replicar.ts'));
-  assert.match(rep, /htmlDePagina\(url, \{ talCual: true \}\)/);
+  assert.match(rep, /paginaConDireccion\(url, \{ talCual: true \}\)/);
   assert.match(rep, /configDeReplica\(formato, url, \{ adaptar: p\.adaptar === true \}\)/);
   assert.match(rep, /crear\(\{ accion: 'crear', titulo, contenido, config \}\)/, 'la landing nace con el formato y el origen de su receta');
   assert.doesNotMatch(rep, /buscarYCopiar|fuenteImagenes: 'stock'/);
