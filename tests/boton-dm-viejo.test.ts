@@ -20,10 +20,12 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { metadataParaGuardar, TOPE_METADATA_ZERNIO } from '../lib/canal-social';
+
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
-type Paso = { llego: string[]; estados?: string[] };
+type Paso = { llego: string[]; estados?: string[]; metadataZernio?: Array<Record<string, unknown> | null> };
 const correr = (esc: string): Record<string, Paso> => {
   const out = execFileSync(process.execPath, ['--conditions=react-server', '--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx',
     join(RAIZ, 'tests/_boton-vuelve-hijo.ts'), esc], { cwd: RAIZ, encoding: 'utf8', timeout: 150_000, maxBuffer: 32 * 1024 * 1024 });
@@ -48,8 +50,37 @@ for (const [esc, como] of [
     assert.deepEqual(p['1_toca_el_viejo'].estados, ESPERADO);
     assert.ok(!p['1_toca_el_viejo'].estados!.some((e) => e.includes(':respondio:')), 'un toque no es «respondió»');
     assert.deepEqual(p['1_toca_el_viejo'].llego.slice(5), [SEGUINOS], 'le llega el «Seguinos» de LISTA, uno');
+    // LO QUE MANDÓ INSTAGRAM QUEDA GUARDADO: la falla de producción no se pudo reconstruir porque esto no estaba.
+    const guardado = p['1_toca_el_viejo'].metadataZernio!.at(-1) as { metadata?: { postbackPayload?: string; postbackTitle?: string } } | null;
+    if (esc === 'duplicadas_texto') assert.equal(guardado, null, 'sin metadata no se guarda nada');
+    else {
+      assert.equal(guardado?.metadata?.postbackTitle, 'Obtener recurso');
+      if (esc === 'duplicadas_ajeno') assert.equal(guardado?.metadata?.postbackPayload, 'OBTENER_RECURSO');
+      else assert.match(String(guardado?.metadata?.postbackPayload), /^mako:b:/);
+    }
   });
 }
+
+test('lo que vino con el mensaje: lo que no se lee en otro lado, aunque el payload venga con otro nombre; con tope', () => {
+  const cuerpo = (metadata: unknown, message: Record<string, unknown> = {}) => ({ event: 'message.received', metadata, message: { id: 'm1', text: 'Hola', platform: 'instagram', sender: { id: '1' }, attachments: [], ...message } });
+  assert.equal(metadataParaGuardar(cuerpo(null)), null, 'un mensaje escrito sin nada más no guarda nada');
+  assert.equal(metadataParaGuardar(cuerpo({ standby: false, storyReply: { url: 'https://firmada' } })), null, 'lo ya leído y la URL que vence, no');
+  assert.deepEqual(metadataParaGuardar(cuerpo({ payload: 'OTRO_NOMBRE' })), { metadata: { payload: 'OTRO_NOMBRE' } }, 'la duda es si vino con otro nombre');
+  assert.deepEqual(metadataParaGuardar(cuerpo(null, { quickReply: { payload: 'X' } })), { mensaje: { quickReply: { payload: 'X' } } });
+  assert.equal(metadataParaGuardar({ event: 'comment.received', metadata: { x: 1 } }), null);
+  const largo = metadataParaGuardar(cuerpo({ postbackPayload: 'P', postbackTitle: 'T', relleno: 'x'.repeat(TOPE_METADATA_ZERNIO * 2) }))!;
+  assert.equal(largo.recortado, true);
+  assert.equal(largo.payload, 'P', 'recortado, el payload y el título no se pierden');
+  assert.equal(largo.titulo, 'T');
+  assert.ok(JSON.stringify(largo).length < TOPE_METADATA_ZERNIO + 200);
+});
+
+test('guardarlo nunca rompe el webhook: escritura aparte, y un error sólo se loguea', () => {
+  const e = leer('lib/zernio-entrante.ts');
+  assert.match(e, /texto: e\.texto, adjuntos: adjuntosDe\(body\), zernio_message_id: e\.mensajeId,\n/, 'el upsert del mensaje no lleva la columna: sin ella, se perdería');
+  assert.match(e, /const \{ error: eMeta \} = await db\.from\('ig_mensajes'\)\.update\(\{ metadata_zernio: metadata \}\)\.eq\('zernio_message_id', e\.mensajeId\);\n\s+if \(eMeta\) console\.error/);
+  assert.match(leer('supabase/migrations/0353_ig_mensajes_metadata_zernio.sql'), /alter table ig_mensajes add column if not exists metadata_zernio jsonb;/);
+});
 
 test('el cableado: un postback nunca va a la pausa, y con el payload va el título', () => {
   const ruta = leer('app/api/webhooks/zernio/route.ts');
@@ -64,3 +95,7 @@ test('el cableado: un postback nunca va a la pausa, y con el payload va el títu
 // ROTURAS (30/10/2026, una por vez, restaurando byte a byte; base 4 / 0):
 //   el payload ajeno vuelve a ser 'no_es' (lo de producción) → 2 / 2 · el webhook no manda el título con el payload → 2 / 2 ·
 //   el postback no resuelto vuelve a la pausa → 3 / 1 · varias con el mismo título, la más nueva primero → 1 / 3.
+
+// ROTURAS de lo que vino con el mensaje (30/10/2026; base 6 / 0): sólo guarda si viene postbackPayload → 5 / 1 · guarda la URL que
+// vence → 5 / 1 · sin tope → 5 / 1 · el webhook no guarda → 4 / 2 · la columna va en el upsert del mensaje → 5 / 1. Y la corrida
+// real encontró lo que el test puro no: un mensaje común guardaba `platformMessageId` e `isRead`.

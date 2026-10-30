@@ -80,6 +80,8 @@ import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador }
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { estadoCanalesDisparo, estadoMedios, publicacionesParaElCron } from '@/lib/disparadores-canales';
+import { ZernioError } from '@/lib/zernio';
+import { errorDeLecturaZernio } from '@/lib/zernio-redes';
 import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
@@ -127,6 +129,8 @@ export async function GET(req: NextRequest) {
       return publicaciones ? Response.json({ ok: true, publicaciones }) : Response.json({ ok: false, error: 'No pude leer tus publicaciones' });
     } catch (e) {
       console.error(`[api:setting/secuencias GET publicaciones] ${msg(e)}`);
+      // Un 429 es una pausa, no un «no pude» (ticket #34): lo dice y la pantalla relee sola después de la espera.
+      if (e instanceof ZernioError && e.status === 429) return Response.json({ ok: false, ...errorDeLecturaZernio(e.status, e.esperaMs) }, { status: 429 });
       return Response.json({ ok: false, error: 'No pude leer tus publicaciones' }, { status: 500 });
     }
   }

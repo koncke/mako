@@ -88,7 +88,7 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Landing / Pixel** — Código Inmobiliario, Leila, P2P y el ws4 no graban visitas hasta pegar la línea nueva del Pixel (escribirles o hacerlo nosotros). _sin grabaciones ni mapa de calor; P2P no tiene canal para el aviso_ · chico · **depende de Martín** · `docs/hallazgos-landing.md (14/10); docs/relevo/pixel-clarity-landing.md §4.1; docs/relevo/integraciones.md`
 - **MaKo en WhatsApp** — Código Inmobiliario tiene una sola key de IA: si Google se satura, MaKo no contesta; sumar otra key o una red paga de último recurso. _es gasto de IA y lo decidís vos_ · chico · **depende de Martín** · `docs/relevo/mako-en-whatsapp.md §4; memory/ia-red-audio-y-openai-sin-credito.md`
 - **Plan / Reuniones** — Cambiar la key de Gemini de Mauricio (Google la bloqueó) y extraer a mano sus reuniones del 8 al 15/10. _sus compromisos de esas reuniones no llegaron al Plan_ · chico · **depende de Martín** · `docs/hallazgos-ia.md → «Quién sigue llamando a la Gemini muerta del ws1»; docs/hallazgos-plan.md (15/10)`
-- **Video / Ads** — Montar el servidor que arma los videos (y el alta en Epidemic Sound): dos montajes de Mauricio y Leila nunca se procesaron. _el anuncio armado del cliente queda trabado_ · medio · **depende de Martín** · `docs/hallazgos-ads.md → #797; docs/hallazgos-video-pipeline.md §13`
+- **Video / Ads** — Montar un anuncio desde el chat (la API sólo lee el montaje) y el render en servidor de un video del Video Editor; y el alta en Epidemic Sound. La cola de montaje ya anda por cron (probada el 30/10). _sin esto, un video pedido por chat no sale armado_ · grande · `docs/hallazgos-video-pipeline.md §14`
 
 ## Plata, seguridad y envíos (42)
 

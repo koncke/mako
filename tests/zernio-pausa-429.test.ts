@@ -67,6 +67,21 @@ test('el sondeo de conectar: la pausa espera lo que pidió Zernio y no cuenta co
   assert.match(z, /new ZernioConectarError\(r\.motivo, r\.texto \?\? undefined, r\.pagoUrl, r\.motivo === 'pausa' \? e\.esperaMs : null\)/);
 });
 
+test('Automations: el selector de publicaciones dice la pausa y relee solo; la ruta le pasa la espera', () => {
+  const r = leer('app/api/chat-agent/secuencias/route.ts');
+  assert.match(r, /if \(e instanceof ZernioError && e\.status === 429\) return Response\.json\(\{ ok: false, \.\.\.errorDeLecturaZernio\(e\.status, e\.esperaMs\) \}/);
+  const p = leer('app/automations/EditorDisparadores.tsx');
+  assert.match(p, /espera = setTimeout\(\(\) => setVuelta\(\(v\) => v \+ 1\), x\.reintentarEnMs\);/);
+  assert.match(p, /if \(relecturas\.current >= RELECTURAS_TRAS_PAUSA\) \{ setLectura\(\{ \.\.\.x, pausa: MENSAJES_DE_MOTIVO\.pausa \}\); return; \}/, 'sin más relecturas no promete «lo vuelvo a leer»');
+  assert.match(p, /lista === null \? \(lectura\?\.pausa \?\? 'No pude leer tus publicaciones\.'\) : null;/);
+});
+
+test('Calendario: leer las cuentas en pausa lo dice y no ofrece «Conectar»', () => {
+  const p = leer('app/calendario/PublicarEnRed.tsx');
+  assert.match(p, /cuentas\.motivo === 'pausa' \? MENSAJES_DE_MOTIVO\.pausa : 'No pude leer tus cuentas conectadas\.'/);
+  assert.match(p, /\{cuentas\.motivo === 'pausa'\n\s+\? <Button [^\n]*onClick=\{\(\) => void cargar\(\)\}>Probar de nuevo<\/Button>\n\s+: <Button [^\n]*integracion\.abrir\('zernio'\)/);
+});
+
 // ── Probado ROMPIÉNDOLO (30/10/2026) ──────────────────────────────────────────
 // Corrido junto con tests/zernio-conectar-redes.test.ts: 28 pases y 0 fallos. Rota, una por vez:
 //   · un 429 vuelve a ser «no contestó»              → 26 / 2
@@ -79,3 +94,7 @@ test('el sondeo de conectar: la pausa espera lo que pidió Zernio y no cuenta co
 //   · la ruta no pasa la espera                      → 27 / 1
 //   · el error de conectar pierde la espera          → 27 / 1
 //   · «Probar» manda a reconectar                    → 27 / 1
+
+//   Automations y Calendario (30/10/2026; base 6 / 0): la ruta no dice la pausa → 5 / 1 · la pantalla no relee → 5 / 1 · promete
+//   releer cuando ya no relee → 5 / 1 · Calendario ofrece Conectar en la pausa → 5 / 1. Las que corren de verdad: en
+//   tests/comentario-publicacion.test.ts y tests/calendario-publicar.test.ts.

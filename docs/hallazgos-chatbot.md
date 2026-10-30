@@ -42,12 +42,30 @@ del evento no se guarda (`zernio_eventos` tiene sólo el id): qué payload mand�
 el payload viaja el título: si el payload no se lee, se resuelve por el título, como un botón que no se vio. Varias esperando el
 mismo título: la MÁS VIEJA (antes, el orden de la base). La regla: **un toque de botón no es una respuesta**, se resuelva o no.
 
-**Sin hacer:** (1) Por la API (`inscripciones_lead`), una inscripción sin tarjeta (`nodo_actual` null: terminada o en
-«respondió») nombra su paso por la POSICIÓN del array (`paso_actual`), no por lo último que salió: GANCHOS decía «Todavía no te
-veo…» cuando le había salido el recurso (lib/automatizaciones-del-lead.ts, `enAutomatizacionesDe`; hace falta leer el último
-envío). (2) Guardar el cuerpo del postback (o al menos el payload) para ver qué manda Zernio en el DM viejo. (3) Las ocho
-inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta (escritura en producción: con el
-«dale»).
+**La API decía cualquier cosa sobre en qué paso está un lead (lo que quedó del #33).** El 70 % de las inscripciones vivas sin tarjeta
+nombraba otra tarjeta que la última que les salió, en la API y en la ficha. Nadie lo vio porque cada caso suelto parece un detalle.
+La consulta, sólo lectura, por si hay que volver a medir: `select i.id, i.estado, i.paso_actual, s.pasos, (select e.nodo_id from
+nutricion_envios e where e.inscripcion_id = i.id and e.estado in ('enviado','accion','simulado') order by e.created_at desc limit 1)
+from nutricion_inscripciones i join nutricion_secuencias s on s.id = i.secuencia_id where i.nodo_actual is null and i.estado in
+('activa','respondio')`, comparando `pasos[paso_actual].id` con ese último nodo.
+
+**`paso_actual` sin tarjeta NO es una posición.** Al terminar el flujo el motor deja `nodo_actual` null y
+`paso_actual` en el índice SIGUIENTE (`avanceDesde`), y el #788 la pasa a «respondió»: ese número es lo que sigue en el array, y por
+eso GANCHOS decía «Todavía no te veo…» con el recurso ya enviado. Medido el 30/10 en producción, de 150 vivas sin tarjeta: 106
+nombraban OTRA tarjeta que la última que les salió, 4 sin envíos, 2 fuera del array, 1 acertaba; las 37 activas sin tarjeta están
+en la entrada, y ésas sí valen. **La regla:** todo lo que lee «la tarjeta de ahora» pasa por `indiceDeLaFila`
+(lib/automatizaciones-del-lead-reglas.ts), no por `indiceActual`: también los botones que espera, que leían los de una tarjeta
+ajena. Sin tarjeta, la API y la ficha nombran lo último que SALIÓ (`paso_es` lo dice en la API); el tablero del CRM no paga esa
+lectura y se queda sin nombre, porque sólo muestra el paso de las activas. La ficha no necesita leer nada más: ya tiene los envíos.
+
+**Lo que manda Instagram queda guardado: `ig_mensajes.metadata_zernio` (migración 0353).** ⚠️ NO sólo cuando viene
+`postbackPayload`: la duda de este ticket es justamente si vino, o vino con otro nombre, y el mensaje sin ese campo es el que hay
+que poder mirar. Se escribe APARTE del mensaje y sin tirar: si fuera en el upsert, una columna que todavía no está haría perder el
+mensaje. **La duda sigue abierta:** con el próximo toque de un DM viejo, mirar esa columna. Hasta entonces, «era un payload ajeno»
+es lo que se dedujo, no lo que se vio.
+
+**Sin hacer:** las ocho inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta. Un dato que
+rompió un bug nuestro se repara al desplegarse el arreglo (lib/nutricion.ts, el toque del #33).
 
 ## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
 

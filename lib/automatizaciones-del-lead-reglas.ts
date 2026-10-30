@@ -20,8 +20,11 @@ export type EnAutomatizacion = {
   /** false = la automatización está PAUSADA: el lead quedó congelado en su paso y no le sale nada hasta que se active. */
   automatizacionActiva: boolean;
   estado: 'activa' | 'respondio';
-  /** La tarjeta en la que está, como la nombra el lienzo («WHATSAPP: Hola {{nombre}}, soy…»). null = no se pudo ubicar. */
-  paso: { numero: number; titulo: string } | null;
+  /**
+   * La tarjeta en la que está, como la nombra el lienzo («WHATSAPP: Hola {{nombre}}, soy…»). null = no se pudo ubicar.
+   * `ultimoEnviado`: no está parada en ninguna (`sinTarjeta`) y ésta es lo último que le salió (`ultimoNodo`).
+   */
+  paso: { numero: number; titulo: string; ultimoEnviado?: true } | null;
   proximoEnvioAt: string | null;
   link: string;
   /**
@@ -47,7 +50,7 @@ export function botonesQueEspera(f: Pick<FilaInscripcion, 'estado' | 'proximo_en
 /** Las inscripciones que siguen vivas: corriendo, o frenadas porque contestó. */
 export const ESTADOS_VIVOS = ['activa', 'respondio'] as const;
 
-export type FilaInscripcion = { lead_id: number; secuencia_id: number; estado: string; paso_actual: number | null; nodo_actual: string | null; proximo_envio_at: string | null };
+export type FilaInscripcion = { id?: number; lead_id: number; secuencia_id: number; estado: string; paso_actual: number | null; nodo_actual: string | null; proximo_envio_at: string | null };
 export type FilaAutomatizacion = { id: number; nombre: string | null; activa: boolean | null; archivada_at: string | null; pasos: unknown; instance_name?: string | null };
 
 /** El canal del MENSAJE que le toca (null = una acción, una condición, una espera, o no se pudo ubicar). */
@@ -58,8 +61,26 @@ export function canalDelPaso(p: PasoGrafo | undefined): string | null {
 /** Lo que `frenoDe` sabe de cada fila (lo arma lib/automatizaciones-del-lead.ts con el contexto del negocio). */
 export type FrenoDeFila = (f: FilaInscripcion, s: FilaAutomatizacion, canal: string | null) => FrenoDelEnvio | null;
 
-/** Lo leído → lo de cada lead. Sin las archivadas ni las inscripciones que ya no corren. */
-export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: readonly FilaAutomatizacion[], frenoDe?: FrenoDeFila): Map<number, EnAutomatizacion[]> {
+/** Lo que de verdad salió (una omitida o un borrador no): con esto se dice «lo último que le salió». */
+export const ESTADOS_DE_ENVIO_QUE_SALIO: readonly string[] = ['enviado', 'accion', 'simulado'];
+
+/**
+ * ¿NO ESTÁ PARADA EN NINGUNA TARJETA? (ticket #33 de Leandro, 30/10/2026). Al terminar el flujo el motor deja `nodo_actual` null y
+ * `paso_actual` en el índice SIGUIENTE (`avanceDesde`), y el #788 la pasa de 'completada' a 'respondio': ese número no es donde
+ * está, es lo que sigue en el array, y GANCHOS decía «Todavía no te veo…» cuando le había salido el recurso. Medido el 30/10 en
+ * producción: de 150 vivas sin tarjeta, 106 nombraban OTRA tarjeta que la última que les salió, y sólo 1 acertaba. En curso
+ * ('activa', 'pendiente', 'pausada') la posición sí vale: es la entrada, o una automatización de antes del grafo.
+ */
+export const sinTarjeta = (f: Pick<FilaInscripcion, 'estado' | 'nodo_actual'>): boolean => !f.nodo_actual && !ESTADOS_EN_CURSO.includes(f.estado);
+
+/** Dónde está parada, o -1. ⚠️ Lo usa TODO lo que lee «la tarjeta de ahora» (el paso, los botones que espera, el canal). */
+export function indiceDeLaFila(pasos: readonly PasoGrafo[], f: FilaInscripcion): number {
+  if (!pasos.length || sinTarjeta(f)) return -1;
+  return indiceActual(pasos, { paso_actual: f.paso_actual ?? 0, nodo_actual: f.nodo_actual });
+}
+
+/** Lo leído → lo de cada lead. Sin las archivadas ni las inscripciones que ya no corren. `ultimoNodo`: lo último que le salió a cada inscripción sin tarjeta (por su id). */
+export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: readonly FilaAutomatizacion[], frenoDe?: FrenoDeFila, ultimoNodo?: ReadonlyMap<number, string>): Map<number, EnAutomatizacion[]> {
   const porId = new Map(secs.filter((s) => s.archivada_at == null).map((s) => [Number(s.id), s]));
   const out = new Map<number, EnAutomatizacion[]>();
   for (const f of filas) {
@@ -67,13 +88,15 @@ export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: re
     const s = porId.get(Number(f.secuencia_id));
     if (!s) continue;
     const pasos = (Array.isArray(s.pasos) ? s.pasos : []) as PasoGrafo[];
-    const i = pasos.length ? indiceActual(pasos, { paso_actual: f.paso_actual ?? 0, nodo_actual: f.nodo_actual }) : -1;
+    const i = indiceDeLaFila(pasos, f);
+    const nodoSalido = i < 0 && f.id != null && sinTarjeta(f) ? ultimoNodo?.get(Number(f.id)) : undefined;
+    const salido = nodoSalido ? pasos.findIndex((p, k) => idDe(p, k) === nodoSalido) : -1;
     const lista = out.get(Number(f.lead_id)) ?? [];
     lista.push({
       secuenciaId: Number(s.id), nombre: s.nombre?.trim() || `Automatización #${s.id}`, automatizacionActiva: s.activa === true,
       // En palabras de persona (24/10/2026: «ninguna palabra del motor sale a la pantalla»): lo leen el tablero del CRM, el
       // teléfono y el bloque de la ficha. Sin el nombre del lead (la lista es de muchos): «Hola, si no me das…».
-      estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: pasoEnPalabras(pasos[i], null).que } : null,
+      estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: pasoEnPalabras(pasos[i], null).que } : salido >= 0 ? { numero: salido + 1, titulo: pasoEnPalabras(pasos[salido], null).que, ultimoEnviado: true } : null,
       proximoEnvioAt: f.proximo_envio_at, link: `/automations?sec=${s.id}`,
       ...(frenoDe ? { frenado: frenoDe(f, s, canalDelPaso(i >= 0 ? pasos[i] : undefined)) } : {}),
       ...((() => { const t = botonesQueEspera(f, i >= 0 ? pasos[i] : undefined); return t ? { esperaToque: t } : {}; })()),
@@ -300,7 +323,13 @@ export function detalleDe(o: {
     const finAt = f.desenlace_at ?? f.updated_at ?? f.inscripto_at;
     if (!vive && (!finAt || Date.parse(finAt) < desde)) continue;
     const pasos = (Array.isArray(s.pasos) ? s.pasos : []) as PasoGrafo[];
-    const i = pasos.length ? indiceActual(pasos, { paso_actual: f.paso_actual ?? 0, nodo_actual: f.nodo_actual }) : -1;
+    const i = indiceDeLaFila(pasos, f);
+    // Sin tarjeta, la ficha nombra lo último que le salió (los envíos ya están leídos), nunca la posición del array.
+    const nodoSalido = i < 0 && sinTarjeta(f)
+      ? o.envios.filter((e) => Number(e.inscripcion_id) === Number(f.id) && e.nodo_id && ESTADOS_DE_ENVIO_QUE_SALIO.includes(e.estado))
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]?.nodo_id
+      : null;
+    const salido = nodoSalido ? pasos.findIndex((p, k) => idDe(p, k) === nodoSalido) : -1;
     const titulo = (k: number) => nombreDeTarjeta(pasos, idDe(pasos[k], k));
     const canal = canalDelPaso(i >= 0 ? pasos[i] : undefined);
     const modo = o.reentradaDe(Number(s.id));
@@ -319,7 +348,7 @@ export function detalleDe(o: {
       automatizacionActiva: s.activa === true && s.archivada_at == null, estado: f.estado,
       desde: f.inscripto_at, termino: !vive && TERMINO[f.estado] && finAt ? { at: finAt, texto: TERMINO[f.estado] } : null,
       reentrada: modo, reentradaTexto: ROTULO_REENTRADA[modo],
-      paso: vive && i >= 0 ? { numero: i + 1, titulo: titulo(i), total: pasos.length } : null,
+      paso: vive && (i >= 0 || salido >= 0) ? { numero: (i >= 0 ? i : salido) + 1, titulo: titulo(i >= 0 ? i : salido), total: pasos.length } : null,
       proximo: f.estado === 'activa' && f.proximo_envio_at && i >= 0
         ? { at: f.proximo_envio_at, titulo: titulo(i), canal, que: pasoEnPalabras(pasos[i], o.nombreDelLead ?? null) } : null,
       frenado: o.frenoDe && f.estado === 'activa' ? o.frenoDe(f, s, canal) : null,
