@@ -37,8 +37,9 @@ import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatosParaEquipo } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, conPublicacion, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
 import { textoDePalabras } from '@/lib/palabras-clave';
+import { buscarPublicacion, esLinkDePublicacion, textoDePublicacion } from '@/lib/publicacion-cron';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
@@ -301,11 +302,35 @@ function textoDeUnCron(d: Disparador): string {
   // resumían igual, y lo que se confirma por WhatsApp es sólo esto.
   if (evento) {
     const palabras = conPalabras(d.trigger_tipo, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
-    return palabras ? `${evento} ${palabras}` : evento;
+    // Y la publicación (ticket #25): «la de la guía» y «cualquiera» no se pueden resumir igual.
+    const publicacion = conPublicacion(d.trigger_tipo, d.subtipo) ? textoDePublicacion(d.publicacion) : '';
+    return [evento, publicacion, palabras].filter(Boolean).join(' ');
   }
   if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
   if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
   return nombre;
+}
+
+/**
+ * LA PUBLICACIÓN QUE LLEGA COMO TEXTO (ticket #25): el LINK o el id del Reel, en `crons[].publicacion`. Se busca entre las
+ * últimas de la cuenta (`publicacionesParaElCron`) y se guarda con su id y su nombre. Un link que no está ahí es un error
+ * (adivinar el id de un link no se puede); un id que no está entre las últimas se guarda igual, sin nombre.
+ */
+async function resolverPublicaciones(crons: unknown): Promise<{ crons: unknown } | { error: string }> {
+  if (!Array.isArray(crons)) return { crons };
+  const out: unknown[] = [];
+  for (const c of crons) {
+    const v = c && typeof c === 'object' ? (c as { publicacion?: unknown }).publicacion : undefined;
+    if (typeof v !== 'string' || !v.trim()) { out.push(c); continue; }
+    const red = (c as { trigger_tipo?: unknown }).trigger_tipo === 'messenger' ? 'messenger' : 'instagram';
+    const { publicacionesParaElCron } = await import('@/lib/disparadores-canales');
+    const lista = await publicacionesParaElCron(red).catch(() => null);
+    const p = lista ? buscarPublicacion(v, lista) : null;
+    if (p) out.push({ ...(c as object), publicacion: { id: p.id, ...(p.texto ? { texto: p.texto } : {}) } });
+    else if (esLinkDePublicacion(v)) return { error: lista ? 'No encontré esa publicación entre las últimas 25 de la cuenta: pasa su id.' : 'No pude leer las publicaciones de la cuenta para encontrar ese link: pasa su id.' };
+    else out.push(c);
+  }
+  return { crons: out };
 }
 
 /**
@@ -1570,7 +1595,10 @@ export const RUNNERS: Runners = {
       // `ignorar` y `cron.dias` llegan como textos (el validador no tiene listas de números): el saneador
       // del CRON (`sanearDisparador` / `sanearCron`) ya los convierte, como con lo que manda la pantalla.
       try {
-        const { lista, previos } = await prepararDisparadores(id, input.crons);
+        // La publicación por su link o su id (ticket #25): resuelta ANTES de sanear, que sólo guarda un id.
+        const resueltos = await resolverPublicaciones(input.crons);
+        if ('error' in resueltos) return { error: resueltos.error };
+        const { lista, previos } = await prepararDisparadores(id, resueltos.crons);
         if (firmaLista(lista) === firmaLista(previos)) return { error: `«${s.nombre}» ya arranca por esos CRON.`, yaEstaba: true };
         // Sin leer la zona del negocio: `tzDeWorkspace` la ESCRIBE si falta, y preparar() no escribe.
         const textos = lista.map(textoDeUnCron);

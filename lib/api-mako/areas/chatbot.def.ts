@@ -642,6 +642,8 @@ export const DEFS: readonly OperacionDef[] = [
           // (tests/ops-center-bateria). Cómo se comparan, con ejemplos, está en la guía de /docs (app/api-mako/Articulos.tsx).
           { nombre: 'palabras', tipo: 'string[]', max: 20, descripcion: 'con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario.' },
           { nombre: 'coincidencia', tipo: 'string', enum: ['contiene', 'exacta'], descripcion: 'con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra).' },
+          // Ticket #25 (29/10/2026): la publicación o el Reel. Corta, como las de arriba; la guía de /docs lo explica.
+          { nombre: 'publicacion', tipo: 'string', max: 300, descripcion: 'con subtipo comentario: el link o el id de la publicación o Reel. Vacío = cualquiera.' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
             campos: [
