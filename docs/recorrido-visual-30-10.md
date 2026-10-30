@@ -63,8 +63,11 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
   estudios de `open-generative-ai`,** que Martín pidió hoy y se están construyendo en la nube. Con eso la tab pasa a ser una pantalla que la gente usa, y T15 deja de poder ser la última: hay que
   volver a decidir.
 - **No se le agrega un chat propio a AI Avatar:** va contra la regla de Martín «UN chat en toda la app» y contra el plan (:334).
-- **La pantalla abre mostrando la pregunta, no el final de una charla vieja.** Hoy, con historia, la pregunta va después del último mensaje, sin guardarse (plan :109), y el hilo abre abajo: la charla
-  de octubre se sigue viendo arriba de la pregunta, con apertura y todo. Lo anterior queda accesible, para subir a leerlo. No toca la regla del UN chat: la conversación es la misma, cambia dónde empieza la vista.
+- **La tarjeta de Create abre SIEMPRE abajo del historial, sin condición de fecha.** Con pregunta, muestra la pregunta; sin pregunta, la caja vacía para escribir. Lo anterior se sube a leer. Hoy, con
+  historia, la pregunta va después del último mensaje (plan :109) y la charla de octubre se sigue viendo arriba de ella. No toca la regla del UN chat: la conversación es la misma, cambia dónde empieza la vista.
+  **Por qué sin fecha:** un corte por tiempo falla de los dos lados. «Es de hoy» deja a quien escribió a la mañana en el Ops Center justo en la charla ajena, que es la queja.
+- **Sólo en la tarjeta de Create.** `ConversacionCerebro` es también el de la estrella: cambiarlo para las dos es otra decisión, no un efecto.
+- **El proyecto de [Sí, lo subo] toma el tamaño del video que sube.** Si no se puede leer, 9:16, como la primera tarjeta de Nuevo video.
 
 **El texto para `docs/mako-iniciativa/plan.md`** (`plan.md` no es de este chat; lo reparte el Cerebro):
 
@@ -78,16 +81,19 @@ Y dos filas en la tabla de aperturas:
 
 | Dónde | Cuándo | Pregunta | Botones | Se va |
 |---|---|---|---|---|
-| **Video** · portada de Create | Sin proyecto abierto | «¿Ya grabaste tu video?» (la de :328, misma clave) | [Sí, lo subo ★] (`hacer`: el proyecto nuevo, igual que «Nuevo proyecto» del Menú, `_opencut/components/editor/editor-header.tsx:108`, con su tamaño de siempre, `DEFAULT_CANVAS_SIZE`, y la biblioteca) · [Todavía no] → «Te escribo qué decir.» (`ir` /copywriter) | — |
+| **Video** · portada de Create | Sin proyecto abierto | «¿Ya grabaste tu video?» (la de :328, misma clave) | [Sí, lo subo ★] (`hacer`: el proyecto nuevo y la biblioteca; el tamaño, abajo) · [Todavía no] → «Te escribo qué decir.» (`ir` /copywriter) | — |
 | **Image** · portada de Create | Sin diseño abierto | «¿Dónde lo vas a publicar?» (la de :329, misma clave) | [Historia] [Carrusel] [Anuncio] [Miniatura] → `hacer`: `crearDisenoNuevoAction` con `historia`, `carrusel_instagram`, `anuncio_facebook` o `miniatura_youtube` | — |
 
-**Para el que implemente la vista** (`ConversacionCerebro`, app/_chat/MakoEnLaTab.tsx:305; el mismo componente de la estrella):
+**Para el que implemente la vista** (`ConversacionCerebro`, app/_chat/MakoEnLaTab.tsx:305):
 
 - ⚠️ **Hoy el hilo baja sólo cuando cambia `k.items.length` o `k.trabajo`, no cuando llega la apertura.** La apertura llega después, cuando carga la memoria: con historia larga puede quedar abajo, fuera de la vista.
-- **Llevar la pregunta arriba del hilo pide lugar abajo de ella:** sin eso, el navegador no puede subirla y la charla vieja sigue arriba.
+- **Dejar el historial fuera de la vista pide lugar abajo de él:** sin eso, el navegador no puede subirlo y la charla vieja sigue a la vista.
+- **Se ve bien con poco historial y falla con el largo:** probarlo con una conversación larga, como la de Martín.
 
-**Sin decidir: con la pregunta ya contestada no hay pregunta en la que empezar.** Lo mismo con «Ahora no» (14 días) y con 3 vistas sin respuesta: la pantalla vuelve a abrir en la charla vieja. Por eso conviene que la
-vista no dependa de la apertura.
+**Para el que implemente el tamaño:** el editor ya hace casi todo. Sin `relacion` fijada, el primer clip con medidas pone el lienzo (`_opencut/commands/timeline/element/insert-element.ts:90-107`).
+
+- ⚠️ **El 9:16 no se puede poner con la tarjeta `lienzo:reel`:** esa guarda `relacion: '9:16'`, y con una relación fija el primer clip ya no cambia el lienzo. Con eso nunca se usaría el tamaño del video.
+- **Lo que corresponde:** crear el proyecto con `canvasSize` 1080×1920 y sin `relacion`. Leído en el código, sin correr.
 
 **La prueba final, al desplegar:** Martín abre Video, Image y AI Avatar y no ve la charla de octubre, también después de contestar. Hasta entonces, CH1 sigue abierto.
 
