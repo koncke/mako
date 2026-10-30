@@ -13,18 +13,33 @@
 /** El setting del negocio con su vencimiento (JSON: `PlanAMano`). */
 export const CLAVE_PLAN_A_MANO = 'plan.a_mano';
 
-/** Los días que se pueden dar desde Customers (se eligen, no se escriben). */
-export const DIAS_PLAN_A_MANO = [7, 14, 30] as const;
+/**
+ * LOS 6 MESES GRATIS (30/10/2026, lo que Martín le ofreció a Gabriela: «acceso a la app gratis por 6 meses»). NO son una prueba
+ * larga: los topes de la prueba (3 videos, 1 avatar, 1 landing, sin exportar: `TOPES_PRUEBA`) son para probar, y seis meses con
+ * eso no es lo que se prometió. Mientras dura tiene su plan entero; lo único que comparte con la prueba es el aviso al vencer,
+ * y vencido sin resolver queda como una prueba vencida. 183 días para no quedar nunca cortos de los seis meses.
+ */
+export const DIAS_REGALO = 183;
 
-export type PlanAMano = { desde: string; hasta: string; avisadoAt: string | null };
+/** Los días que se pueden dar desde Customers (se eligen, no se escriben). */
+export const DIAS_PLAN_A_MANO = [7, 14, 30, DIAS_REGALO] as const;
+
+/** Cómo se ve cada opción. */
+export const rotuloDeDias = (d: number): string => (d === DIAS_REGALO ? '6 meses gratis' : `${d} días`);
+
+export type PlanAMano = { desde: string; hasta: string; avisadoAt: string | null; regalo?: true };
+
+/** ¿Valen los topes de la prueba? Sí, salvo los 6 meses gratis mientras duran. */
+export const llevaTopesDePrueba = (p: PlanAMano, ahoraMs: number): boolean => !(p.regalo && Date.parse(p.hasta) > ahoraMs);
 
 const DIA_MS = 86_400_000;
 const iso = (v: unknown): string | null => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null);
 
-/** El plan a mano que vence a los `dias` desde ahora. Tira con días que no son un entero entre 1 y 60. */
+/** El plan a mano que vence a los `dias` desde ahora. Tira con días que no son un entero entre 1 y 60 (o los 6 meses gratis). */
 export function planAManoNuevo(dias: number, ahoraMs: number): PlanAMano {
-  if (!Number.isInteger(dias) || dias < 1 || dias > 60) throw new Error(`días inválidos para un plan a mano: ${dias}`);
-  return { desde: new Date(ahoraMs).toISOString(), hasta: new Date(ahoraMs + dias * DIA_MS).toISOString(), avisadoAt: null };
+  const regalo = dias === DIAS_REGALO;
+  if (!regalo && (!Number.isInteger(dias) || dias < 1 || dias > 60)) throw new Error(`días inválidos para un plan a mano: ${dias}`);
+  return { desde: new Date(ahoraMs).toISOString(), hasta: new Date(ahoraMs + dias * DIA_MS).toISOString(), avisadoAt: null, ...(regalo ? { regalo: true as const } : {}) };
 }
 
 /** Lo guardado, o null si no hay o no se entiende (tolerante: un setting roto es «sin plan a mano»). */
@@ -34,7 +49,7 @@ export function leerPlanAMano(crudo: string | null | undefined): PlanAMano | nul
     if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
     const desde = iso(o.desde), hasta = iso(o.hasta);
     if (!desde || !hasta) return null;
-    return { desde, hasta, avisadoAt: iso(o.avisadoAt) };
+    return { desde, hasta, avisadoAt: iso(o.avisadoAt), ...(o.regalo === true ? { regalo: true as const } : {}) };
   } catch {
     return null;
   }
@@ -46,9 +61,32 @@ export const tocaAvisarPlanAMano = (p: PlanAMano, ahoraMs: number): boolean => D
 const fecha = (isoTxt: string): string => new Date(isoTxt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', timeZone: 'America/Argentina/Buenos_Aires' });
 
 /** Los dos avisos del vencimiento: a la persona (qué sigue) y a Martín (qué hacer en Customers). */
-export function avisosPlanAManoVencido(p: { negocio: string; plan: string; hasta: string; linkPlan: string; linkCustomers: string }): {
+export function avisosPlanAManoVencido(p: { negocio: string; plan: string; hasta: string; linkPlan: string; linkCustomers: string; regalo?: boolean }): {
   persona: { asunto: string; cuerpo: string }; martin: { asunto: string; cuerpo: string };
 } {
+  if (p.regalo) {
+    return {
+      persona: {
+        asunto: 'Terminaron tus 6 meses gratis de MaKo',
+        cuerpo: [
+          'Hola,',
+          '',
+          `Tus 6 meses gratis de ${p.plan} para ${p.negocio} terminaron el ${fecha(p.hasta)}.`,
+          'Tu cuenta sigue como está, con todo lo que cargaste. Para seguir con el plan completo, escríbenos o entra a «Tu plan»:',
+          p.linkPlan,
+        ].join('\n'),
+      },
+      martin: {
+        asunto: `Terminaron los 6 meses gratis de ${p.negocio}`,
+        cuerpo: [
+          `Los 6 meses gratis de ${p.plan} que le diste a ${p.negocio} terminaron el ${fecha(p.hasta)}.`,
+          'No se pausó nada (el corte de acceso está apagado): desde hoy sigue con los topes de la prueba hasta que lo resuelvas.',
+          'Desde Customers le das más días, le dejas el plan sin vencimiento o lo pausas:',
+          p.linkCustomers,
+        ].join('\n'),
+      },
+    };
+  }
   return {
     persona: {
       asunto: 'Terminó tu prueba de MaKo',

@@ -24,6 +24,8 @@
 // =============================================================================
 
 import 'server-only';
+import { registrarPedido } from './pedidos-ingreso';
+import { pedidoLimpio } from './pedidos-ingreso-reglas';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
@@ -228,6 +230,8 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     // El diagnóstico de la puerta del Acelerador (lib/compra-plan-reglas.ts): con eso arranca la llamada.
     const diag = p.diagnostico ? ` Diagnóstico: ${diagnosticoEnTexto(p.diagnostico)}.` : '';
     await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}${diag}`, 'Planes de MaKo').catch(() => {});
+    // También en «Quieren entrar» (30/10/2026), para darle de alta sin ir a buscarlo al CRM. Con el rótulo de correo sin verificar.
+    await registrarPedido(pedidoLimpio({ email: p.email, nombre: p.nombre, origen: 'planes', verificado: false, detalle: `Quiere ${nombrePlan}`, whatsapp: p.whatsapp, leadId: lead.leadId }));
     // El aviso al equipo, en el momento: el domingo nadie tiene que estar mirando el CRM para enterarse. Best effort.
     await avisarDePlataforma({
       to: EMAIL_MAKO, tag: 'planes-pedido', asunto: `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',

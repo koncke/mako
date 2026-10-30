@@ -241,7 +241,7 @@ test('el teléfono: /m/customers con la puerta de escritorio y los MISMOS datos;
 // ── 6. La API ────────────────────────────────────────────────────────────────────
 
 test('la API: dos lecturas, sólo la plataforma y su admin, sin HTTP; el runner repregunta la plataforma', () => {
-  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {
     const d = DEFS.find((x) => x.id === id);
     assert.ok(d, `falta ${id}`);
     assert.equal(d.tipo, 'lectura');
@@ -250,7 +250,7 @@ test('la API: dos lecturas, sólo la plataforma y su admin, sin HTTP; el runner 
     assert.ok(!d.canales.includes('http' as never), `${id}: datos de todos los negocios, no salen por HTTP`);
   }
   const run = leer('lib/api-mako/areas/cobros.run.ts');
-  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {
     const i = run.indexOf(`${id}: {`);
     assert.ok(i > 0, `falta el runner de ${id}`);
     assert.match(run.slice(i, i + 300), /if \(ctx\.ws !== \(await wsSuperAdmin\(\)\)\) return fallo\(/, `${id}: el runner no repregunta`);
@@ -303,7 +303,7 @@ test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no
   assert.doesNotMatch(app + movil, /haceTxt\((f|c)\.sinEntrar\)/, 'la «Última vez» se dice con ultimaVezTxt en las dos pantallas');
   // 8. En la app, el super admin GLOBAL (como la pantalla), no el admin del workspace de la plataforma.
   const run = leer('lib/api-mako/areas/cobros.run.ts');
-  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {
     const i = run.indexOf(`${id}: {`);
     assert.match(run.slice(i, i + 400), /if \(ctx\.canal === 'app' && !\(await esSuperAdmin\(\)\)\) return fallo\(/, `${id}: sin el super admin`);
   }
