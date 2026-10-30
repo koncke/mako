@@ -3,6 +3,14 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 30/10/2026 madrugada, quinta tanda (cuenta `claude3`) — N1 de la re-verificación
+
+La re-verificación de `da3cff9f7` (`C:/dev/revisiones/2910-reverificacion-zernio-leads-da3cff9f7.md`) dio «entra con bajas» y va en
+el tren-ag con la 0349 SIN aplicar; antes de pedirle la 0349 a Martín faltaba N1. Hecho: el «Deshacer» devuelve `serie_de` (y la
+marca del molde, N8), validados (`lib/calendario.ts`: `serieDelEvento`, `serieParaVolver`). La 0349 NO cambió esta vez.
+**Sin hacer (anotado en los hallazgos):** N2 (409 por contenido: se publica de menos), N3 (lo que se pierde de la persona que ya era
+lead), N4, N5, N6 (dependen de Zernio), N7 (borrar el molde no avisa).
+
 ## ESTADO 29/10/2026 noche, cuarta tanda (cuenta `claude3`) — la revisión de privacidad de Integración (M1-M6, A1, A2)
 
 Integración (informe: `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`) frenó `ce56bd693` del tren-af hasta

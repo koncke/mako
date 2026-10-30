@@ -2376,7 +2376,10 @@ tests/zernio-leads-barrido.test.ts.
   se deja como está, sin conversión ni aviso. **El diagnóstico obvio era el equivocado:** «ya está» por id parecía alcanzar, y una
   persona con DOS formularios (la ficha tiene el id de B) hacía que cada barrido cargara A, la fusionara, y la vez siguiente B: la
   ficha iba y venía cada 30 minutos (revisión de privacidad del 29/10, M3; lo prueba tests/_zernio-leads-barrido-real-hijo.ts con la
-  carga REAL). Lo que se pierde a sabiendas: la conversión del 2.º formulario cuyo webhook se perdió. ⚠️ **El poll de Meta de siempre
+  carga REAL). ⚠️ **Lo que se pierde a sabiendas es más que la conversión** (re-verificación del 29/10, N3): cuando el webhook se
+  perdió, a la persona que ya era lead el barrido no le guarda NADA del formulario: ni las respuestas, ni la campaña, ni la suma al
+  embudo de esa campaña (#893), ni el aviso, ni la conversión (y la cuenta como `yaEstaban` cada pasada). A ella no le llega nada de
+  más; lo que pierde el negocio es enterarse de que alguien conocido pidió otro producto. ⚠️ **El poll de Meta de siempre
   (`pollMetaLeads`) tiene los dos huecos (papelera y fusión) y NO se tocó:** es de Ads/CRM.
 - ⚠️ **La papelera se lee ENTERA o el barrido corta** (`leerTodo`; M4): PostgREST corta en 1000 sin avisar, y una agencia que limpia
   1.500 leads basura los veía volver con su primer WhatsApp. «Si no se puede leer, se sigue: perder un lead nuevo es peor» era el
@@ -2417,7 +2420,14 @@ tests/zernio-leads-barrido.test.ts.
 - **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. Los huecos de la papelera
   y de la fusión en el poll de Meta. La clave de MaKo pegada como propia sigue contando como `byok` en lo demás (perfiles, redes): el
   barrido ya no filtra de más, pero detectarla al pegarla no se hizo. El `?dias=90` del cron (backfill) también barre Zernio 90 días
-  y puede traer leads que la papelera ya purgó (revisión, B2). Los negocios con la cuenta prestada nunca se barren (B4).
+  y puede traer leads que la papelera ya purgó (revisión, B2). Los negocios con la cuenta prestada nunca se barren (B4). De la
+  re-verificación del 29/10 (sospechas que dependen de cómo contesta Zernio, sin medir):
+  - **N4:** un lead SIN `createdTime` (o ilegible) pasa el filtro de la ventana y sale como nuevo (`queHacerConElLead` lo toma como
+    recién llegado: el WhatsApp de bienvenida). El filtro sólo frena cuando hay fecha.
+  - **N5:** el filtro en memoria confía en `GET /accounts`: una cuenta que vuelve SIN `profileId` se queda (`leerCuentasDeZernio`) y
+    sus leads entran.
+  - **N6:** si el `accountId` del `AdLead` no es el `_id` de `/accounts`, el barrido no carga NADA (falla cerrado) y el log del cron
+    no lo dice: imprime `vistos` y `cargados`, no `ajenos`.
 
 ## WhatsApp vuelve a /integraciones: la tarjeta de las líneas por QR (29/10/2026)
 
