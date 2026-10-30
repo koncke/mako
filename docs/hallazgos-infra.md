@@ -9293,6 +9293,15 @@ código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esa
   aparecen recién ahí (ver session_connectors_status). Y sólo se usan las de lectura: el conector también trae enviar, reenviar,
   etiquetar y borrar.
 - **Vive en:** las herramientas de la sesión del Cerebro (no es código de MaKo). La cosecha: docs/conocimiento/patrones-email.md.
+- **La primera pasada se quedó corta y nadie lo vio (30/10):** el guion del inventario pedía «hasta 40 remitentes». Martín
+  extrañó a los que conocía, y dos de los tres que nombró ya estaban, pero escondidos: uno escribe desde el dominio de su
+  marca, sin su nombre en el remitente, y otra tiene además un newsletter en otra plataforma, con otro nombre y otro dominio.
+  **La regla:** el inventario no lleva tope (se busca hasta que dos rondas seguidas no traen remitentes nuevos), y a cada
+  persona se la busca por su nombre, por su marca y por el nombre de su newsletter, no sólo por la dirección. La segunda
+  pasada llevó la cosecha a 70 remitentes y unos 5.050 emails.
+- **Quedó sin ficha:** los posteos de comunidades (Skool) de dos o tres autores que ya tienen ficha por sus emails, un segundo
+  dominio de un autor en inglés (~120 emails) y la «sección B» del primer inventario (marketing que sirve menos). La lista
+  está en `remitentes-lista.md`, en el scratchpad de la sesión del Cerebro 4d1a09d4.
 
 ## Un número por migración, y el push que falla por RAM le regala la RAM a los demás (30/10/2026, Integración)
 
