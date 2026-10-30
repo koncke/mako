@@ -115,3 +115,8 @@ test('4. el toque, y el estado: pregunta → objetivo → «Listo. ¿Algo más?�
   s.fijarPresenciaParaPruebas(null);
 });
 
+// PROBADO ROMPIÉNDOLO (29/10/2026, base 4/0):
+//   · otra pregunta que la de Martín                → 3/1 (1)
+//   · lo que aparece con su «antes» no se ofrece    → 2/2 (2, 4)
+//   · pregunta sin saber si ya la vio               → 3/1 (3)
+//   · escribirle a MaKo pausa la guía               → 3/1 (4)

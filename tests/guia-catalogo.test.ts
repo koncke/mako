@@ -109,3 +109,8 @@ test('4. el Ops Center la usa: su guía, el «?» que la ofrece, y fuera el reco
   assert.match(leer('app/_chat/MakoEnLaTab.tsx'), /className=\{apartado \? 'ch-tab-panel ch-tab-panel--apartado' : 'ch-tab-panel'\}[^>]*data-mako-chat=""/);
   assert.match(leer('app/admin/operaciones/PanelChat.tsx'), /<section className="co-panel"[^>]*data-mako-chat=""/);
 });
+
+// PROBADO ROMPIÉNDOLO (29/10/2026, base 4/0):
+//   · voseo en el catálogo                          → 3/1 (1)
+//   · un ancla sin marcar (sb-buscar)               → 3/1 (2)
+//   · el panel del chat sin su hueco                → 3/1 (4)

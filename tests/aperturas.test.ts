@@ -182,7 +182,8 @@ test('5. la ruta: la fila de la SESIÓN, la clave con el workspace que arma ella
   assert.match(r, /getUsuarioActual\(\)/);
   assert.match(r, /\.from\('usuarios'\)\.select\('id, perfil, updated_at'\)\.eq\('email', email\)/, 'la fila es la de la sesión, no la del negocio mirado');
   assert.match(r, /if \(!claveValida\(body\.clave\)\)/, 'la clave del navegador se valida (y viene sin workspace)');
-  assert.match(r, /perfilConApertura\(fila\.perfil, ws, clave, d, ahora, extra\)/, 'el workspace lo pone la ruta');
+  assert.equal((r.match(/perfilConApertura\(fila\.perfil, ws, clave, d, ahora, extra\)/g) ?? []).length, 2, 'el workspace lo pone la ruta, con y sin compare-and-set');
+  assert.doesNotMatch(r, /perfilConApertura\(fila\.perfil, (?!ws, )/, 'ninguna escritura sin el workspace');
   assert.match(r, /memoriaDelNegocio\(fila\.perfil, ws\)/, 'la pantalla ve sólo lo de este negocio');
   assert.match(r, /q\.eq\('updated_at', fila\.updated_at\)/, 'compare-and-set: otro escritor del perfil no se pisa');
   assert.match(r, /status: 503/, 'una lectura caída no es «nunca vio nada»');
@@ -206,7 +207,8 @@ test('6. el montaje: en el Cerebro, en lugar de la portada (también sin la app)
   // Cerrada: no monta el motor; pide la memoria y la app y la IA, y se abre sola una vez por tab.
   const cerrada = estrella.slice(estrella.indexOf('function useEstrellaCerrada('), estrella.indexOf('export function MakoEnLaTab('));
   assert.doesNotMatch(cerrada, /useChatCliente/, 'cerrada no monta el motor');
-  assert.match(cerrada, /fetch\('\/api\/mako\/chat\?suIA=1'/);
+  assert.match(cerrada, /void leerAppYIA\(\)\.then/, 'la app y la IA, de la memoria compartida (sin pedidos propios en la estrella)');
+  assert.match(sinComentarios(leer('app/_chat/aperturas-memoria.ts')), /const r = await fetch\('\/api\/mako\/chat\?suIA=1'/, 'lo mismo que bloquea la caja');
   assert.match(cerrada, /const abrirSola = habla && !m!\[claveEstrella\(tab\)\];/);
   assert.match(estrella, /anotarApertura\(claveEstrella\(tab\), 'vista'\);\n\s*abrir\(\);/, 'abierta sola, queda anotada: no vuelve a abrirse sola en esa tab');
 });
@@ -244,4 +246,14 @@ test('8. las respuestas rápidas del hilo sin la app: dicen por qué y no se toc
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /sinMandar=\{k\.app === 'bloquea' \? FRASE_RESPONDER : null\}/, 'el Cerebro se lo pasa sin la app');
 });
 
-// PROBADO ROMPIÉNDOLO (29/10/2026, base 8/0): ver tests/aperturas.test.ts en la cosecha (docs/hallazgos-chat.md).
+// PROBADO ROMPIÉNDOLO (29/10/2026, base 8/0):
+//   · el paso 3 pregunta una acción («¿Quieres que la conecte?»)    → 7/1 (1)
+//   · el teléfono recibe el paso de instalar                       → 7/1 (1)
+//   · `PREGUNTA_DE_ACCION` sin la primera del plural               → 7/1 (2)
+//   · dos «Ahora no» no callan para siempre                         → 7/1 (3)
+//   · lo de negocio habla varias veces por día                      → 7/1 (3)
+//   · sin la app, la oferta con texto libre                         → 7/1 (4)
+//   · la ruta escribe sin el workspace (una de sus dos escrituras)  → 7/1 (5)
+//   · con historia, el hilo sin la apertura                         → 7/1 (6)
+//   · el recomendado sin marcar                                     → 7/1 (7)
+//   · sin la app, las respuestas rápidas se tocan y no dicen nada   → 7/1 (8)

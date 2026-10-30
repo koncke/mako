@@ -52,7 +52,7 @@ import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente, useAperturaDelCerebro } from '@/app/second-brain/PiezasCliente';
 import { useGuia, useGuiaEnElChat } from '@/app/_ui/guia/store';
 import { GloboDeLaEstrella } from './GloboDeLaEstrella';
-import { anotarApertura, useMemoriaAperturas } from './aperturas-memoria';
+import { anotarApertura, appYIAReciente, leerAppYIA, useMemoriaAperturas } from './aperturas-memoria';
 import { aperturaOps, type HechosOps } from '@/lib/aperturas/ops';
 import { CLAVE_CORTO, claveApertura, claveEstrella, puedeHablar, respuestasDeMemoria } from '@/lib/aperturas/reglas';
 import { ESPERA_PREGUNTA_MS } from '@/lib/guia/reglas';
@@ -97,9 +97,6 @@ function useBordeDeLaBarra(visible = false): number {
 
 /** Las tabs con su propio arranque a la vista (plan.md D3): ahí la estrella no se abre sola ni dice su corto. */
 const CON_SU_ARRANQUE: ReadonlySet<string> = new Set(['Media Buyer', 'Calendario', 'Clientes', 'Dashboard', 'General']);
-/** La app y la IA de la última pregunta (`?suIA=1`), para no repetirla en cada tab: pasar de una tab a otra no la cambia. */
-let suIAReciente: { at: number; h: HechosOps } | null = null;
-const SUIA_VIGENTE_MS = 120_000;
 
 /**
  * Lo que la estrella CERRADA tiene para decir (lib/aperturas/ops.ts, la escalera del Cerebro): sin el motor, con la memoria de la
@@ -109,17 +106,11 @@ const SUIA_VIGENTE_MS = 120_000;
 function useEstrellaCerrada(tab: string, cerrada: boolean): { corto: string | null; abrirSola: boolean; dijo: () => void; callar: () => void } {
   const propio = CON_SU_ARRANQUE.has(tab);
   const mem = useMemoriaAperturas();
-  const [hechos, setHechos] = useState<HechosOps | null>(() => (suIAReciente && Date.now() - suIAReciente.at < SUIA_VIGENTE_MS ? suIAReciente.h : null));
+  const [hechos, setHechos] = useState<HechosOps | null>(appYIAReciente);
   useEffect(() => {
     if (!cerrada || propio || hechos) return;
     let vivo = true;
-    void fetch('/api/mako/chat?suIA=1', { cache: 'no-store' }).then((r) => r.json().catch(() => null).then((j) => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => {
-        if (!ok || !j?.ok) return;
-        const app = j.app === 'bloquea' || j.app === 'en-la-computadora' ? j.app : 'tiene';
-        suIAReciente = { at: Date.now(), h: { app, iaConectada: j.conectada !== false } };
-        if (vivo) setHechos(suIAReciente.h);
-      }).catch(() => {});
+    void leerAppYIA().then((h) => { if (vivo && h) setHechos(h); });
     return () => { vivo = false; };
   }, [cerrada, propio, hechos]);
   const [ahora] = useState(() => Date.now());
@@ -233,7 +224,7 @@ export function MakoEnLaTab({ tab, apertura = null, arriba = null, preguntas = n
   return abierto
     ? <PanelDelCerebro tab={tab} izquierda={borde} apertura={apertura} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} apartado={guia.apartar} />
     : (<>
-      <button type="button" className="ch-tab-mako" style={{ left: bordeVisible + 16, ...(zEstrella ? { zIndex: zEstrella } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
+      <button type="button" className="ch-tab-mako" style={{ left: bordeVisible + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
         title="MaKo" onClick={abrir} data-mako-chat="">
         <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={espera} />
       </button>

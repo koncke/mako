@@ -397,7 +397,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
 export function NuevoChatCentro({ onNuevo, actual }: { onNuevo: () => void; actual: boolean }) {
   return (
     // Con el diseño de «＋ Nueva automatización» (feedback 4, 22/10/2026): la fila punteada con el ＋ que gira (`.co-nueva`).
-    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} onClick={onNuevo} data-recorrido="sb-nuevo">
+    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} data-recorrido="sb-nuevo" onClick={onNuevo}>
       <span aria-hidden className="co-nueva__mas">＋</span>
       <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
     </button>

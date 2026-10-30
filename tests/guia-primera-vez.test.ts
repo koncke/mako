@@ -41,3 +41,7 @@ test('3. las marcas pasan la validación de /api/recorridos (viven en perfil.rec
   }
   assert.ok(idRecorridoValido(ID_NINGUNA));
 });
+
+// PROBADO ROMPIÉNDOLO (29/10/2026, base 3/0):
+//   · quien hizo el tutorial viejo recibe la pregunta → 2/1 (1)
+//   · tres «Ya sé usarla» no apagan la pregunta     → 2/1 (2)

@@ -10,8 +10,12 @@
 // decidido en este navegador vale igual, como el de los recorridos (lib/recorridos.ts → claveLocal).
 // ⚠️ MIENTRAS NO SE SABE (`memoria` null), NINGUNA APERTURA HABLA: si no, a quien ya dijo «Ahora no» se la mostraría un instante.
 // SIN CSS ni componentes: lo importan motores que los tests cargan en node.
+// Y LA APP Y LA IA PARA LA ESTRELLA CERRADA (`leerAppYIA`): la estrella sin el motor no hace pedidos propios
+// (tests/ops-center-cliente.test.ts); lo lee acá, `?suIA=1` de /api/mako/chat (lo mismo que bloquea la caja), una vez cada 2
+// minutos por página: pasar de una tab a otra no lo cambia.
 
 import { useSyncExternalStore } from 'react';
+import type { HechosOps } from '@/lib/aperturas/ops';
 import { anotar, type AnotacionApertura, type DecisionApertura, type MemoriaAperturas } from '@/lib/aperturas/reglas';
 
 export type EstadoMemoria = {
@@ -91,4 +95,23 @@ export function anotarApertura(clave: string, d: DecisionApertura, extra: { valo
       body: JSON.stringify({ clave, d, ...extra }),
     }).catch(() => {});
   } catch { /* sin red: queda en el navegador */ }
+}
+
+/** La app y la IA de la última lectura, si es reciente (null = hay que leer). */
+let appYIA: { at: number; h: HechosOps } | null = null;
+const APP_Y_IA_VIGENTE_MS = 120_000;
+export const appYIAReciente = (): HechosOps | null => (appYIA && Date.now() - appYIA.at < APP_Y_IA_VIGENTE_MS ? appYIA.h : null);
+
+/** ¿Hay app de escritorio y su IA? Para la apertura del Cerebro con la estrella cerrada. null = no se pudo saber (calla). */
+export async function leerAppYIA(): Promise<HechosOps | null> {
+  const reciente = appYIAReciente();
+  if (reciente) return reciente;
+  try {
+    const r = await fetch('/api/mako/chat?suIA=1', { cache: 'no-store' });
+    const j = await r.json().catch(() => null) as { ok?: boolean; conectada?: boolean; app?: string } | null;
+    if (!r.ok || !j?.ok) return null;
+    const app = j.app === 'bloquea' || j.app === 'en-la-computadora' ? j.app : 'tiene';
+    appYIA = { at: Date.now(), h: { app, iaConectada: j.conectada !== false } };
+    return appYIA.h;
+  } catch { return null; }
 }

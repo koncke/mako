@@ -65,3 +65,8 @@ test('3. el velo, por fuente: máscara con huecos, el --scrim, sin color-mix, si
   assert.match(v, /if \(n\.scroll && !ancla\?\.sinScroll\) el\.scrollIntoView/, 'scroll sólo si no se ve, y nunca en un lienzo');
   assert.match(v, /if \(performance\.now\(\) - \(tocoAntes \|\| inicio\) > espera\) noEsta\(/, 'nunca un velo sobre la nada');
 });
+
+// PROBADO ROMPIÉNDOLO (29/10/2026, base 3/0):
+//   · el ancla adentro del chat suma hueco          → 2/1 (1)
+//   · la frase encima del chat                      → 2/1 (2)
+//   · el velo se come los clics                     → 2/1 (3)
