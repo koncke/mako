@@ -6943,6 +6943,9 @@ código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallaz
   puedo» con el botón ahí al lado fue el caso de Leila con «Borrar silencios».
 - **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
   uno de los 10 «no puedo» de Leila era algo que no existía.
+- **El `forma` (el ejemplo) de una operación del catálogo lo COPIA el modelo: un parámetro opcional no va en el ejemplo.**
+  Con `{"op":"borrar_silencios","ref":"v1"}` el modelo nombraba siempre un clip, y a Leila le buscó silencios en uno de 0,9 s
+  cuando pedía el video (ticket 31, 29/10/2026). Cuándo SÍ usarlo lo dice el `para`.
 
 # Un ticket resuelto se CIERRA y se AVISA en el grupo del cliente, sin preguntarle a Martín (Martín, 28/10/2026)
 
