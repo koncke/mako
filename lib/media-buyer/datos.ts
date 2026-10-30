@@ -79,6 +79,21 @@ async function arbolDeMeta(ws: number): Promise<{ arbol: NodoMB[]; moneda: strin
 // ── La lectura entera ───────────────────────────────────────────────────────
 
 /**
+ * El día de HOY del negocio, para la fecha de fin (zona.ts). null si no se pudo leer su zona: la estricta, porque la fecha
+ * DECIDE (pausar, no subir) y un 5xx no puede valer como «la zona por defecto» (AGENTS.md, «La zona del negocio»).
+ */
+export async function hoyDelNegocio(ws: number): Promise<string | null> {
+  try {
+    const { zonaDelNegocioEstricta } = await import('@/lib/timezone');
+    const { hoyEnTz } = await import('@/lib/date-utils');
+    return hoyEnTz(await zonaDelNegocioEstricta(ws));
+  } catch (e) {
+    console.warn(`[media-buyer] ws=${ws}: no pude leer la zona del negocio:`, e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
+/**
  * La cuenta publicitaria con la que opera el negocio: la de Integraciones (Meta) y, si no tiene, la que eligió en los
  * Ajustes del Media Buyer (la de MaKo es ese caso: se opera por la Zernio de la plataforma, sin credencial de Meta).
  */

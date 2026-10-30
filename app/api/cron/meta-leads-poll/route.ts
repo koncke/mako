@@ -22,7 +22,8 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { pollMetaLeads } from '@/lib/meta-leads';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
-import { ventanaDelPoll } from '@/lib/meta-leads-poll-reglas';
+import { DIAS_PASADA_DIARIA, ventanaDelPoll } from '@/lib/meta-leads-poll-reglas';
+import { tocaBarrerZernio } from '@/lib/zernio-lead';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,24 @@ export async function GET(request: NextRequest) {
     return r;
   });
 
+  // Los leads de Meta por ZERNIO (29/10/2026): la misma red de seguridad para el negocio que conectó sus anuncios por Zernio y no
+  // tiene token de Meta (lib/zernio-leads-barrido.ts). Cada 30 minutos y en la pasada diaria. En la diaria, además, el webhook de
+  // cada negocio se asegura (`asegurarWebhook`, idempotente): uno registrado antes de que MaKo escuchara `lead.received` no lo
+  // escucha hasta pasar por ahí (docs/hallazgos-integraciones.md, «Los leads de Meta por Zernio», punto 8).
+  const diaria = dias >= DIAS_PASADA_DIARIA;
+  const zernio = tocaBarrerZernio(new Date(), diaria)
+    ? await correrPorWorkspace('zernio', async (ws) => {
+      const { barrerLeadsDeZernio } = await import('@/lib/zernio-leads-barrido');
+      if (diaria) {
+        const { asegurarWebhook, leadsEnElWebhook } = await import('@/lib/zernio');
+        if ((await leadsEnElWebhook(ws).catch(() => null)) !== true) await asegurarWebhook(ws).catch((e) => console.warn(`[cron:meta-leads-poll] webhook de Zernio ws${ws}: ${e instanceof Error ? e.message : e}`));
+      }
+      const r = await barrerLeadsDeZernio(ws, dias);
+      console.log(`[cron:meta-leads-poll] zernio ws${ws} dias=${dias} vistos=${r.vistos} cargados=${r.cargados} ya=${r.yaEstaban} del_webhook=${r.delWebhook} ignorados=${r.ignorados} motivo=${r.motivo ?? '-'}`);
+      return r;
+    })
+    : [];
+
   const ms = Date.now() - tStart;
-  return Response.json({ ok: true, dias, workspaces, ms });
+  return Response.json({ ok: true, dias, workspaces, zernio, ms });
 }

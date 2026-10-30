@@ -35,6 +35,8 @@ type Pagina = { id: string; nombre: string | null };
 export type EstadoMetaZernio = {
   activo: boolean; conexion: string | null; cuentas: Cuenta[]; pixeles: Pixel[]; cuenta: string | null; pixel: string | null; error: string | null;
   paginas: Pagina[]; pagina: { pageId: string | null; preguntar: boolean; sugerida: string | null };
+  /** ¿Le llegan a MaKo los leads de los formularios? (lib/meta-conexion-zernio.ts, 29/10/2026). Sin el campo acá, no tipaba. */
+  leads?: 'si' | 'sin-permiso' | 'sin-webhook' | null;
 };
 
 const ID_PAGINA = /^\d{5,20}$/;
@@ -192,6 +194,17 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
         </span>
       )}
 
+      {/* Los leads de los formularios (29/10/2026): si no le llegan a MaKo, se dice por qué y qué hacer (`leadsEnElWebhook`). */}
+      {conectada && estado.leads === 'sin-permiso' && (
+        <span role="status" data-leads-zernio="sin-permiso" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--warn)' }}>
+          Los leads de tus formularios no le llegan a MaKo: tu cuenta de Zernio necesita su complemento de anuncios. Actívalo en zernio.com y vuelve a conectar.
+        </span>
+      )}
+      {conectada && estado.leads === 'sin-webhook' && (
+        <span role="status" data-leads-zernio="sin-webhook" style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--warn)' }}>
+          MaKo todavía no recibe los leads de tus formularios: toca «Volver a conectar».
+        </span>
+      )}
       {error && <span role="alert" style={{ fontSize: 12.5, color: 'var(--bad)' }}>{error}<ReportarASoporte /></span>}
       <EstadoConexion z={z} />
       {z.modal}

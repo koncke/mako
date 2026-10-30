@@ -124,3 +124,20 @@ export async function escribirPorZernio(c: Canal, body: MetaWriteBody): Promise<
     return fallo(e, 'Zernio rechazó la escritura');
   }
 }
+
+/**
+ * Cambia el PÚBLICO de un conjunto por la Zernio del negocio (`PUT /ads/ad-sets/{id}` con `targeting` y/o `placements`, en la
+ * forma de Zernio: lib/zernio-publico.ts). Zernio lee el público en vivo, mezcla SÓLO las claves que llegan y lo reescribe
+ * entero; si no puede leerlo contesta 502 y no escribe nada. Antes se mira de qué cuenta es y si está borrado, como el resto.
+ */
+export async function publicoPorZernio(c: Canal, adSetId: string, cuerpo: { targeting?: Record<string, unknown>; placements?: Record<string, unknown> | null }): Promise<MetaWriteResult> {
+  const leida = await fueraDeLaCuenta(c, 'adset', adSetId);
+  if (!('entidad' in leida)) return leida;
+  if (siYaEstaBorrada(leida.entidad, 'status') === 'no_existe') return { ok: false, message: 'Ese conjunto está borrado en Meta: no se puede cambiar.', status: 404 };
+  try {
+    await zFetch<unknown>(c.clave, `/ads/ad-sets/${encodeURIComponent(adSetId)}`, { method: 'PUT', body: JSON.stringify({ platform: 'facebook', ...cuerpo }) }, 60_000);
+    return { ok: true, id: adSetId, applied: {}, status: 200 };
+  } catch (e) {
+    return fallo(e, 'Zernio rechazó el cambio de público');
+  }
+}

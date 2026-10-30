@@ -32,6 +32,7 @@ import { REALES, sinAcentos } from './_reales';
 const catalogos = catalogosLite(ANGULOS_GUION_DEFAULT, conVsl(ESTRUCTURAS_GUION_DEFAULT));
 const plantillas = plantillasDe(catalogos);
 const secciones = (doc: Parameters<typeof bloquesDelDoc>[0]) => bloquesDelDoc(doc).filter((b) => b.tipo === 'seccion').map((b) => b.seccion);
+const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
 
 test('los templates: ids únicos, tipos que existen y los grupos en su orden', () => {
   const ids = plantillas.map((p) => p.id);
@@ -187,6 +188,49 @@ test('el esqueleto: las mismas secciones que el ejemplo y nada del negocio ficti
   const reel = plantillaPorId(catalogos, 'reel')!;
   const adaptado = docDeEjemplo('GANCHO\n- **Frase hablada:** [DATO: el tema que enseñas]\nCTA\n[DATO: la palabra clave]');
   assert.deepEqual(restosDelEjemplo(adaptado, reel), { bloques: 0, datos: 2 });
+});
+
+test('la página nace con la estructura: debajo de cada sección, una guía corta en itálica (y ninguna guía de más)', () => {
+  // Martín (29/10/2026): «Poné la estructura, la misma». Una sección sin guía es un título suelto que no dice qué va ahí.
+  for (const p of plantillas.filter((x) => x.ejemplo)) {
+    const bloques = p.esqueleto().content ?? [];
+    const conGuia = new Set<string>();
+    bloques.forEach((b, i) => {
+      if (b.type !== 'heading' || typeof b.attrs?.seccion !== 'string') return;
+      const guia = bloques[i + 1];
+      const texto = guia?.content?.[0];
+      assert.equal(guia?.type, 'paragraph', `${p.id}: «${b.attrs.seccion}» sin su guía`);
+      assert.ok(texto?.marks?.some((m) => m.type === 'italic'), `${p.id}: la guía de «${b.attrs.seccion}» no va en itálica`);
+      assert.ok((texto?.text ?? '').length > 10 && (texto?.text ?? '').length <= 130, `${p.id}: la guía de «${b.attrs.seccion}» es de una línea`);
+      conGuia.add(b.attrs.seccion);
+    });
+    assert.ok(conGuia.size > 0, `${p.id}: el esqueleto no tiene secciones con guía`);
+    assert.deepEqual(marcasDeVoseo(textoDelDoc(p.esqueleto())), [], `${p.id}: voseo en las guías`);
+    assert.ok(!/[A-ZÁÉÍÓÚÑ]{4,} [A-ZÁÉÍÓÚÑ]{4,}/.test(bloques.filter((b) => b.type === 'paragraph').map((b) => textoDelDoc({ type: 'doc', content: [b] })).join(' ')), `${p.id}: una guía en MAYÚSCULAS`);
+  }
+  // Una etiqueta de GUIAS que no es una sección del esqueleto es un error de tipeo: esa guía no se ve nunca.
+  const fuente = leer('lib/copywriter/plantillas-guias.ts');
+  for (const p of plantillas.filter((x) => x.ejemplo)) {
+    const ini = fuente.indexOf(`${/^[a-z]+$/.test(p.id) ? p.id : `'${p.id}'`}: {`);
+    assert.ok(ini >= 0, `${p.id}: sin guías`);
+    const bloque = fuente.slice(ini, fuente.indexOf('\n  },', ini));
+    const claves = [...bloque.matchAll(/^\s+(?:'([^']+)'|([A-ZÁÉÍÓÚÑ0-9]+)):/gm)].map((m) => m[1] ?? m[2]);
+    const reales = new Set(secciones(p.esqueleto()));
+    for (const k of claves) assert.ok(reales.has(k), `${p.id}: la guía «${k}» no es una sección`);
+  }
+});
+
+test('las tarjetas: ninguna miniatura en blanco (Martín, 29/10/2026)', () => {
+  // «las miniaturas de todos los templates reflejen de manera visual y fácilmente lo que estoy a punto de crear».
+  for (const p of plantillasVisibles(plantillas)) {
+    assert.ok(p.insignia, `${p.id}: sin insignia`);
+    assert.ok([...p.insignia!].length <= 18, `${p.id}: la insignia «${p.insignia}» no entra arriba de la miniatura`);
+    assert.ok((extractoDe(p) || p.descripcion).length > 10, `${p.id}: la hoja de la tarjeta quedaría en blanco`);
+  }
+  const copy = leer('app/copywriter/Copywriter.tsx');
+  assert.match(copy, /extracto: extractoDe\(x\) \|\| x\.descripcion, chips: chipsDe\(x\)/, 'la tarjeta lleva el gancho y las secciones');
+  assert.match(copy, /\.\.\.\(x\.ejemplo \? \{ ejemplo: x\.ejemplo\.negocio \} : \{\}\)/, 'y la cinta «Ejemplo»');
+  assert.match(copy, /grupo: x\.grupo, ayuda: x\.descripcion/);
 });
 
 test('docDeEjemplo lee destacados, tablas y negritas; bloquesDeTexto (la API) sigue sin leerlos', () => {

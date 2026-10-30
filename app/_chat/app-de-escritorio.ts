@@ -14,6 +14,8 @@ export const FRASE_APP = 'Instala MaKo para escribir';
 /** El paso siguiente, ya descargado (con lo que dice el sistema al abrirlo, en el `title` del botón). */
 /** Tocado «Instalar MaKo» (27/10/2026): que se está bajando, y abrirlo al terminar. Lo que frena Chrome va en el aviso del botón. */
 export const FRASE_INSTALAR = 'Se está descargando: ábrelo al terminar';
+/** Una respuesta rápida del hilo sin la app (29/10/2026): tocarla no mandaba nada y no lo decía. El botón está en la caja. */
+export const FRASE_RESPONDER = 'Para contestar, instala MaKo: el botón está abajo, en la caja.';
 
 /** Lo que dijo el servidor. null = todavía no se sabe (no bloquea: decide el servidor, no la espera). */
 let estado: AppDeEscritorio | null = null;

@@ -54,7 +54,9 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
     ['/ai-avatar/inventada', null],
     // Reels y Carousels se retiraron el 29/10/2026: sus rutas de escritorio redirigen y el teléfono no las traduce.
     ['/reels', null], ['/stories', '/m/stories'], ['/carousels', null],
-    ['/admin/copywriting', '/m/admin/copywriting'],
+    // El método de redacción del super admin se fue el 29/10/2026 (Martín: «no quiero ninguna mención en todo MaKo»): su
+    // ruta redirige al Copywriter y el teléfono no la traduce.
+    ['/admin/copywriting', null],
     // Las «Coming soon» de una tab con secciones van a la pantalla «pronto» de Mobile 2, no a una de acá.
     // (Image Generator se retiró el 29/10/2026: ya no es «pronto» de nadie, su ruta redirige a Image.)
     ['/image-generator', null], ['/youtube-writer', '/m/pronto/youtube-writer'],
@@ -87,7 +89,8 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y l
     const pagina = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;
     assert.ok(existsSync(join(RAIZ, pagina)), `${pagina} no existe`);
     if (s.superAdmin) {
-      // Copy Method: una herramienta del super admin (ADMIN_NAV), con la puerta de escritorio.
+      // Una herramienta del super admin (ADMIN_NAV), con la puerta de escritorio (hoy ninguna: el método de redacción se fue
+      // el 29/10/2026).
       assert.ok(ADMIN_NAV.some((i) => i.key === s.navKey), `${s.id}: la key «${s.navKey}» no es de ADMIN_NAV`);
       assert.ok(leer(pagina).includes('await getSesionAdmin()'), `${pagina}: sin getSesionAdmin(), la puerta de escritorio`);
       continue;
@@ -216,12 +219,13 @@ test('el editor de video del teléfono esconde la cabecera y la fila de abajo de
   // Si el motor les cambia la clase, el teléfono las vuelve a mostrar: el tiempo HH:MM:SS:FF y los cuatro menús no entran
   // en 390 px y se pisan con ▶ (medido 17/10/2026). Este test lo dice antes.
   const css = readFileSync(join(RAIZ, 'app/m/video-editor/video-editor.css'), 'utf8');
-  const motor: Array<[string, string]> = [
-    ['app/video-editor/_opencut/preview/components/cabecera.tsx', 'bg-[var(--cc-panel-head)]'],
-    ['app/video-editor/_opencut/preview/components/toolbar.tsx', 'grid-cols-[1fr_auto_1fr]'],
+  // La fila de abajo cambia de clases según su ancho (30/10/2026): se la elige por su marca, no por una clase.
+  const motor: Array<[string, string, string]> = [
+    ['app/video-editor/_opencut/preview/components/cabecera.tsx', 'bg-[var(--cc-panel-head)]', '[class~="bg-[var(--cc-panel-head)]"]'],
+    ['app/video-editor/_opencut/preview/components/toolbar.tsx', 'data-barra-reproductor=""', '[data-barra-reproductor]'],
   ];
-  for (const [archivo, clase] of motor) {
-    assert.ok(readFileSync(join(RAIZ, archivo), 'utf8').includes(clase), `${archivo} ya no usa «${clase}»: el teléfono la mostraría`);
-    assert.ok(css.includes(`.m-video-editor-escenario [class~="${clase}"]`), `video-editor.css no esconde «${clase}»`);
+  for (const [archivo, marca, selector] of motor) {
+    assert.ok(readFileSync(join(RAIZ, archivo), 'utf8').includes(marca), `${archivo} ya no lleva «${marca}»: el teléfono la mostraría`);
+    assert.ok(css.includes(`.m-video-editor-escenario ${selector}`), `video-editor.css no esconde «${selector}»`);
   }
 });

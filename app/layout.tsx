@@ -23,6 +23,7 @@ import { ModoDelUsuario } from './_components/ModoDelUsuario';
 import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
 import { ReportadorDeErrores } from './_components/ReportarErrores';
+import { VeloGuia } from './_ui/guia/VeloGuia';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
@@ -281,6 +282,9 @@ export default async function RootLayout({
                   ⚠️ Y TAMBIÉN EN EL TELÉFONO (21/10/2026): adentro de <HideOnPublicLanding>, que apaga el cromo de escritorio en
                   un teléfono, no se montaba nunca ahí, y la Ticketera no tenía ni un error de MaKo Mobile. */}
               {sesion && <FueraDeLoPublico><ReportadorDeErrores /></FueraDeLoPublico>}
+              {/* La guía de cada pestaña (29/10/2026, «MaKo te enseña señalando»): el velo con sus huecos, UNA vez para toda la
+                  app. Sin una tab que registre su guía (app/_ui/guia/useGuiaDeLaTab.ts) no dibuja nada. */}
+              {sesion && <VeloGuia />}
               {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
                   25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
               {sesion && <CartelPagoCliente />}

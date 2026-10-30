@@ -25,7 +25,6 @@ import { cerebroQueSeDibuja, quienOpera } from '@/lib/second-brain-opera';
 import { resumenDelRecolector } from '@/lib/recolector';
 import { estaImpersonando } from '@/lib/workspace';
 import { AprendeSolo } from './AprendeSolo';
-import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
@@ -92,8 +91,7 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}
       <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)}
         opcionArmar={OPCION_ARMAR} centro={centro}
-        centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio}
-        tutorialInicio={q.recorrido === RECORRIDO_INICIO} />
+        centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio} />
     </Pagina>
   );
 }

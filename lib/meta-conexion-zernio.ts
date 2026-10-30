@@ -14,7 +14,7 @@
 import 'server-only';
 import { auditarCredencial, credWs, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
 import { claveZernioAnuncios } from './zernio-ads';
-import { zFetch, ZernioError } from './zernio';
+import { zFetch, ZernioError, leadsEnElWebhook } from './zernio';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { canalMeta, zernioMetaActivo } from './meta-via';
 import {
@@ -93,6 +93,12 @@ export type EstadoMetaZernio = {
   pixel: string | null;
   /** Lo que no se pudo leer (Zernio caído, la conexión vencida): la pantalla lo dice, no lo esconde. */
   error: string | null;
+  /**
+   * ¿Le llegan a MaKo los leads de los formularios? (29/10/2026, `leadsEnElWebhook`): `si`; `sin-permiso` = el webhook de MaKo está y
+   * NO escucha `lead.received` (Zernio lo rechazó: falta su complemento de anuncios); `sin-webhook` = MaKo no tiene su webhook en esa
+   * cuenta de Zernio; null = sin conexión, o no se pudo leer (no se afirma nada).
+   */
+  leads?: 'si' | 'sin-permiso' | 'sin-webhook' | null;
 };
 
 /** Lo que muestra el modal de Meta: si está activo, la conexión guardada, las cuentas y los píxeles que ve, y los elegidos. */
@@ -111,8 +117,12 @@ export async function estadoMetaZernio(ws: number): Promise<EstadoMetaZernio> {
   if (!conexion) return conPaginas;
   if (!clave) return { ...conPaginas, error: 'Falta tu clave de Zernio.' };
   try {
-    const [cuentas, pixeles] = await Promise.all([cuentasPorZernio(clave, conexion), pixelesPorZernio(clave, conexion).catch(() => [] as PixelZernio[])]);
-    return { ...conPaginas, cuentas, pixeles };
+    const [cuentas, pixeles, escucha] = await Promise.all([
+      cuentasPorZernio(clave, conexion), pixelesPorZernio(clave, conexion).catch(() => [] as PixelZernio[]),
+      leadsEnElWebhook(ws, conexion).catch(() => undefined),
+    ]);
+    const leads = escucha === true ? 'si' : escucha === false ? 'sin-permiso' : escucha === null ? 'sin-webhook' : null;
+    return { ...conPaginas, cuentas, pixeles, leads };
   } catch (e) {
     return { ...conPaginas, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : e instanceof Error ? e.message : String(e) };
   }

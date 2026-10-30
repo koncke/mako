@@ -2967,3 +2967,17 @@ de la capa de funciones); `indice` y `recuperar` entre las herramientas de siemp
 y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen. Los sinónimos del negocio:
 «¿Qué anuncios puedo hacer y para qué avatar?» no trae nada, porque ningún nodo del negocio se llama «avatar» (es el cliente
 ideal) ni «anuncios».
+
+## La memoria de las aperturas: por PERSONA, con el workspace en la clave (29/10/2026, claude3)
+
+Lo que la persona decide con una apertura (lib/aperturas/reglas.ts) vive en `usuarios.perfil.aperturas`, al lado de
+`recorridos` (mig 0056, sin migración), por /api/aperturas (una copia de /api/recorridos).
+- **El super admin mirando un cliente escribe en SU perfil.** La fila sale del email de la SESIÓN, como /api/recorridos; el
+  negocio es el que se mira. Por eso la clave lleva el workspace (`<ws>:<id>[|<entidad>]`): sin él, el «Ahora no» de una agencia
+  en un negocio callaba a MaKo en todos, y el de Martín mirando el ws3 le callaba la suya al dueño. La clave la arma la RUTA:
+  desde el navegador llega sin el workspace (`claveValida`), así que no se puede escribir la de otro negocio.
+- **«Ahora no» 14 días, el segundo para siempre; lo de negocio, una vez por día; tres días ignorada, 14 días** (`puedeHablar`).
+  Lo contestado no baja a «vista» (`anotar`). Se recuerda sólo lo DECIDIDO y el hecho contestado: el estado se lee vivo.
+- **Decisión: las recomendaciones plegadas NO callan la apertura.** El plan pide callar «con algo en el bloque de preguntas»;
+  las de `RecomendacionesDeMako` esperan plegadas, y lo que pide la escalera (su IA) es lo que deja correr a casi todas. Lo de la
+  tab que pregunta abierto (las sugerencias del CRM, `preguntas`) sí la calla.

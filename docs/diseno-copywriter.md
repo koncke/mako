@@ -295,9 +295,14 @@ El Copywriter la usa así (app/copywriter/Copywriter.tsx), y reemplaza al armaz�
 - La página va a la derecha (`children`), dentro de `<Pagina style={ESTILO_PAGINA_CREAR}>` como Video y Offer.
 - ⚠️ **Lo que se perdió del árbol de Notion:** arrastrar para reordenar y anidar (la lista del shell es plana). Las migas de
   la página siguen navegando el árbol, y una subpágina se crea desde el ⋯.
-- **Las herramientas del super admin** («Copy Method», /admin/copywriting, y «Angles & Structures», /admin/guiones) eran
-  pestañas de Copywriting sólo para él. Sin pestañas, van al pie de la lista, debajo de la Papelera, sólo si
-  `deLaPlataforma` (las páginas lo leen de `getSesionAdmin`). La barra sigue marcando Copywriting en esas rutas.
+- **Las herramientas del super admin** (el método de redacción, /admin/copywriting, y las bibliotecas de ángulos y
+  estructuras, /admin/guiones) fueron pestañas de Copywriting y, por unas horas, dos links al pie de la lista.
+  **29/10/2026, Martín: sin ninguna mención** («Elimina esto […], no quiero ninguna mención en todo MaKo»): ni fila, ni
+  link, ni título, ni pantalla del teléfono. Las dos rutas de la computadora redirigen a /copywriter y la del teléfono se
+  borró (como /m/reels). Lo que la IA lee de ellas sigue
+  igual, con los overrides ya guardados: la metodología y el swipe (lib/copywriting-metodo.ts) y los ángulos y las
+  estructuras (lib/guion-angulos-store.ts, lib/guion-estructuras-store.ts). tests/barra-sin-dev.test.ts (el 5) barre
+  app/, lib/ y components/ para que el nombre no vuelva.
 - **El teléfono:** `?nuevo=<tipo>` viaja a /m/copywriter (lib/movil-creacion.ts) y abre la hoja de templates con los de
   ese tipo primero, como en la computadora. YouTube Writer sigue «pronto» en el teléfono (key con `comingSoon`), como
   /ideas: retirarlos va con /m/stories.
@@ -325,8 +330,33 @@ YouTube… así MaKo al entrar te da el template y te puede ir ayudando a crearl
   en los prompts de antes.
 - **MaKo escribe tablas** (el bloque `tabla` de las operaciones): sin eso, adaptar el Reel, las Stories, el Carrusel o
   los Ganchos las volvía párrafos.
-- **Falta** (hallazgos-copywriter, «Qué quedó»): la tarjeta con el extracto y los chips (espera los campos de la tanda 0
-  de Create en `PlantillaCrear`) y los evals del experto.
+- **Falta** (hallazgos-copywriter, «Qué quedó»): los evals del experto. (La tarjeta con el extracto y los chips: D17.)
+- **Cambiado el 29/10/2026 (D17):** la página ya no nace con el ejemplo, y el primer mensaje y sus dos botones se fueron.
+
+## D17 · La página nace con la estructura; el ejemplo se ve aparte y MaKo pregunta (29/10/2026)
+
+Martín: «al crear un template ya te crea un guion de ejemplo; eso es confuso porque el usuario piensa que es el guion que
+MaKo le creó para su negocio. Poné la estructura, la misma, y en algún lado un botón de "ver ejemplo"… Y automáticamente,
+cuando se crea un copy, MaKo le pregunta: "¿cuál es el objetivo de esto? ¿quieres que lo adapte?"». Y: «las miniaturas de
+todos los templates reflejen de manera visual y fácilmente lo que estoy a punto de crear. No pueden haber miniaturas en
+blanco».
+- **La página nace con el esqueleto** (`plantilla.esqueleto()`): las secciones del ejemplo y, debajo de cada título, una
+  guía corta en itálica (lib/copywriter/plantillas-guias.ts, `GUIAS`). Lo mismo en el teléfono (ListaGuionesM).
+- **«Ver ejemplo»** está en la franja de la página (EditorGuion): abre el ejemplo en un Modal que dice «Negocio
+  ficticio», de solo lectura. Al documento entra sólo con «Usar como base», en un paso de deshacer y con «Deshacer» en el
+  aviso. «Adaptar con MaKo» y «Solo la estructura» se fueron de la página y del chat.
+- **MaKo toma la iniciativa** (lib/copywriter/iniciativa.ts, PanelMaKo): con el chat vacío, «¿Para qué es este guion?»
+  (los `OBJETIVOS` de la plantilla, o lo que escriba) y «¿Lo adapto a tu oferta? ¿A cuál?» (las ofertas activas del
+  negocio, la principal primero, hasta 4; sin ofertas, «¿Lo adapto a tu negocio?»), siempre con «No, lo escribo yo». Las
+  preguntas se arman sin IA; la última respuesta pide «adaptar» con «Es para: … Adáptalo a mi oferta «…».». En el
+  teléfono, la página recién creada abre en la vista de MaKo (`?mako`).
+- **La IA recibe el ejemplo aparte**: como la página ya no lo trae, va dentro del slot `estructura` de
+  `copywriter.adaptar.user`, marcado «sólo la forma, ningún dato» (ningún slot nuevo).
+- **Las tarjetas** llevan el gancho real del ejemplo (`extractoDe`), las secciones (`chipsDe`), la insignia, el grupo, la
+  cinta «Ejemplo» y la descripción como `title`. «Página en blanco» muestra su descripción: ninguna queda vacía.
+- **Para mudar al patrón común**: los pasos son datos (`PasoIniciativa`: pregunta, botones, si acepta texto) y el pedido
+  sale de una función de las respuestas. La pantalla sólo dibuja pasos.
+
 
 ## Qué queda para después
 

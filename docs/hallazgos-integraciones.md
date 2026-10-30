@@ -2348,7 +2348,125 @@ tests/zernio-varias-claves.test.ts y tests/zernio-todas-las-redes.test.ts.
   post de LinkedIn, X, Threads ni Google Business. El consumo de mensajes (`usoZernioDelCiclo`) cuenta lo que manda el negocio
   entero contra el ciclo y el tope de la clave 1: con varias claves avisa antes de tiempo (cada clave tiene sus 10.000).
 
+## El 2.º Instagram que se cobraba sin aviso, y los leads de Meta por Zernio: el barrido, el aviso y cómo probar uno real (29/10/2026)
+
+La llamada de Martín con una agencia de 27 clientes (29/10, docs/promesas/2910-llamada-thiago.md en `promesas-thiago-2910`): «le
+entran acá los leads» de los formularios de Meta [15:12]. Y el Cerebro: un 2.º Instagram puede cobrarle US$6 por mes al cliente sin aviso.
+
+**Vive en:** `lib/zernio-redes.ts` (`avisoDeCobroZernio` con `otra`, `claveConLugar`, `textoAvisoCobro` con `otraDe`) ·
+`lib/zernio-conectar.ts` (`claveParaConectar`) · `lib/zernio-lead.ts` (`leerLeadDelRest`, `tocaBarrerZernio`) ·
+`lib/zernio-leads-barrido.ts` · `app/api/cron/meta-leads-poll/route.ts` · `lib/zernio.ts` (`leadsEnElWebhook` con la cuenta de anuncios) ·
+`lib/meta-conexion-zernio.ts` (`leads`) · `app/integraciones/ConectarMetaZernio.tsx` · tests/zernio-varias-claves.test.ts y
+tests/zernio-leads-barrido.test.ts.
+
+- ⚠️ **El 2.º Instagram: el atajo «ya tiene esa red = volver a entrar» era el hueco.** `avisoDeCobroZernio` no avisaba si la red ya tenía
+  una cuenta activa (volver a entrar con la MISMA cuenta no suma: Zernio conserva su id). Pero «Conectar otra» sobre un Instagram ya
+  conectado es OTRA cuenta: con la clave en 2, la 3.ª se cobraba sin decir nada (y con varias claves, el atajo además la mandaba
+  derecho a la clave que ya tenía esa red). **Regla:** sin `reconectarId` (eso ya vuelve antes), conectar una red que la clave tiene
+  es «otra» (`claveConLugar(…, { otra: true })`), y el aviso lo dice: «Otra cuenta de Instagram cuenta como una red más».
+- **El barrido de leads (`barrerLeadsDeZernio`), dentro del cron de leads que ya corre cada 10 minutos** (cada 30 y en la pasada diaria:
+  `tocaBarrerZernio`). Lee `GET /v1/ads/leads` (OpenAPI v1.416, medida el 29/10) y carga lo que falta por la MISMA puerta del webhook.
+  ⚠️ **Lo que el REST realmente es:** la CACHÉ de Zernio, que se llena con el `leadgen` de Meta y que Zernio mismo relee de cada página
+  cada 15 minutos para recuperar lo que su webhook perdió (`meta.lastCheckedAt`). El barrido recupera un `lead.received` que Zernio NO
+  le entregó a MaKo; un lead que Meta no le entregó a Zernio lo recupera Zernio. Pedir más seguido que cada 15 minutos no trae nada.
+  ⚠️ Trae `fieldData` CRUDO de Meta (la forma del webhook de Meta) y la fecha es `createdTime` (no `createdAt` como el webhook).
+- ⚠️ **Lo que ya está NO se toca, y «ya está» no es sólo el `meta_lead_id`:** `upsertLeadFromMeta` también ACTUALIZA un lead que
+  encuentra por teléfono o email (pisa el `meta_lead_id`, deja la campaña en null y avisa «lead fusionado»). El barrido carga sólo el
+  `meta_lead_id` que no está en `leads` NI en la papelera, y además con `soloCrear` (`noTocarExistente`): la persona que ya es un lead
+  se deja como está, sin conversión ni aviso. **El diagnóstico obvio era el equivocado:** «ya está» por id parecía alcanzar, y una
+  persona con DOS formularios (la ficha tiene el id de B) hacía que cada barrido cargara A, la fusionara, y la vez siguiente B: la
+  ficha iba y venía cada 30 minutos (revisión de privacidad del 29/10, M3; lo prueba tests/_zernio-leads-barrido-real-hijo.ts con la
+  carga REAL). ⚠️ **Lo que se pierde a sabiendas es más que la conversión** (re-verificación del 29/10, N3): cuando el webhook se
+  perdió, a la persona que ya era lead el barrido no le guarda NADA del formulario: ni las respuestas, ni la campaña, ni la suma al
+  embudo de esa campaña (#893), ni el aviso, ni la conversión (y la cuenta como `yaEstaban` cada pasada). A ella no le llega nada de
+  más; lo que pierde el negocio es enterarse de que alguien conocido pidió otro producto. ⚠️ **El poll de Meta de siempre
+  (`pollMetaLeads`) tiene los dos huecos (papelera y fusión) y NO se tocó:** es de Ads/CRM.
+- ⚠️ **La papelera se lee ENTERA o el barrido corta** (`leerTodo`; M4): PostgREST corta en 1000 sin avisar, y una agencia que limpia
+  1.500 leads basura los veía volver con su primer WhatsApp. «Si no se puede leer, se sigue: perder un lead nuevo es peor» era el
+  razonamiento equivocado: lo que se pierde es una pasada; lo que se gana sin la papelera es un mensaje a quien el negocio borró.
+- ⚠️ **Sólo las cuentas del negocio, en el pedido Y lead por lead en memoria, con CUALQUIER clave** (M1 y M2): `accountIds` va en el
+  pedido, y cada lead cuyo `accountId` no es una de las cuentas de Facebook o de anuncios del negocio (o que no trae ninguno) se
+  descarta (`ajenos`). Lo mismo con `since` (un lead más viejo que la ventana no entra). **Lo que parecía y no era:** «con su propia
+  clave todo el equipo es suyo». No: el equipo de Zernio del cliente tiene páginas que el negocio desconectó y otros perfiles, y la
+  clave de MaKo pegada como «propia» en otro negocio (`byok` es «tiene fila y no es el ws1», lib/zernio.ts) listaba los leads de
+  TODOS los negocios prestados. Y con la de la plataforma, el filtro del pedido solo dependía de que Zernio lo respete (sin medir).
+  Es la regla del webhook, que rutea cada lead por su cuenta y descarta el ajeno: el barrido no puede ser más laxo que la puerta
+  que copia. **Regla:** un filtro que va en la URL de un tercero no es una red; se re-verifica en memoria.
+- **Un lead de menos de 5 minutos es del webhook** (`esDelWebhookTodavia`, la regla del poll de Meta), uno que falla no tumba a los
+  demás (la clave única GLOBAL de `meta_lead_id`), y un 403 (sin el complemento de anuncios) se dice y se sigue con la otra clave.
+- **El aviso** (en «Anuncios de Meta» del modal de Zernio): `leadsEnElWebhook(ws, conexión)` mira el webhook de la CLAVE de la conexión
+  de anuncios (con varias claves, la 1 no es la que recibe). `false` → falta el complemento de anuncios de Zernio; `null` → MaKo no tiene
+  su webhook ahí («Volver a conectar» lo registra). **En la pasada diaria del cron**, `asegurarWebhook` corre en cada negocio con Zernio
+  cuyo webhook no escucha los leads: uno registrado antes de que MaKo escuchara `lead.received` lo empieza a escuchar sin tocar nada.
+- ⚠️ **La trampa de siempre, otra vez:** `ConectarMetaZernio.tsx` tiene su PROPIO tipo `EstadoMetaZernio` (copia del de
+  lib/meta-conexion-zernio.ts) y el campo nuevo (`leads`) no estaba ahí: los tests por texto pasaban y lo vio el tsc acotado (TS2339).
+  Es lo mismo que el 24/10 («Conectada ✓» con el webhook sin registrar). Un campo nuevo del estado se suma en los DOS tipos.
+
+### Cómo probar un lead REAL por Zernio (nunca llegó uno)
+
+1. Un negocio de prueba con su clave de Zernio, «Anuncios de Meta» conectado y una página con un formulario instantáneo (Martín conecta
+   con su Facebook: es un login). ⚠️ **Un lead de prueba de Meta ES un lead para MaKo:** entra al CRM y dispara el aviso, los flujos y
+   las automatizaciones (el WhatsApp de bienvenida al teléfono del formulario). Usar un negocio sin automatizaciones de lead nuevo, o
+   un teléfono propio en el formulario de prueba.
+2. Crear el lead de prueba: `POST /v1/ads/lead-forms/{formId}/test-leads` con `{ accountId, fieldData: [{ name, values }] }` (la
+   conexión de Facebook o de anuncios; OpenAPI v1.416), o la «Lead Ads Testing Tool» de Meta sobre esa página. Meta deja UNO por
+   formulario: para otro, `DELETE /v1/ads/lead-forms/{formId}/test-leads?accountId&leadId`.
+3. Mirar, en orden: el log del webhook de Zernio (`[webhook:zernio]` con `lead.received`), el lead en el CRM con origen `instant_form` y
+   `meta_lead_id` = el `leadgenId`, y su historial. Si en 30 minutos no está, el barrido debería traerlo (`[cron:meta-leads-poll] zernio`).
+4. Lo que esa prueba mide y hoy no se sabe: si `lead.fields` trae las claves de Meta (`full_name`) o los rótulos, si `leadgenId` es el id
+   de Graph (de eso depende que un lead que entra por las dos puertas sea UNO) y si `lead.received` llega sin el complemento de anuncios.
+5. Borrar el lead de prueba del CRM (y el de Meta, con el `DELETE` de arriba).
+
+- **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. Los huecos de la papelera
+  y de la fusión en el poll de Meta. La clave de MaKo pegada como propia sigue contando como `byok` en lo demás (perfiles, redes): el
+  barrido ya no filtra de más, pero detectarla al pegarla no se hizo. El `?dias=90` del cron (backfill) también barre Zernio 90 días
+  y puede traer leads que la papelera ya purgó (revisión, B2). Los negocios con la cuenta prestada nunca se barren (B4). De la
+  re-verificación del 29/10 (sospechas que dependen de cómo contesta Zernio, sin medir):
+  - **N4:** un lead SIN `createdTime` (o ilegible) pasa el filtro de la ventana y sale como nuevo (`queHacerConElLead` lo toma como
+    recién llegado: el WhatsApp de bienvenida). El filtro sólo frena cuando hay fecha.
+  - **N5:** el filtro en memoria confía en `GET /accounts`: una cuenta que vuelve SIN `profileId` se queda (`leerCuentasDeZernio`) y
+    sus leads entran.
+  - **N6:** si el `accountId` del `AdLead` no es el `_id` de `/accounts`, el barrido no carga NADA (falla cerrado) y el log del cron
+    no lo dice: imprime `vistos` y `cargados`, no `ajenos`.
+
+## WhatsApp vuelve a /integraciones: la tarjeta de las líneas por QR (29/10/2026)
+
+Martín: «En Integraciones falta el logo de WhatsApp para que aparezca eso también, con el QR obvio, con las múltiples líneas, claro».
+La de Chatwoot (el oficial) se fue el 09/10 (tests/sin-chatwoot.test.ts); WhatsApp se conectaba por QR (Evolution) sólo desde
+/configuraciones › Teléfonos, /whatsapp y Automations, y no tenía tarjeta.
+
+**Vive en:** `lib/integraciones-catalogo.ts` (la tarjeta `whatsapp`) · `lib/integraciones.ts` (`estadoWhatsApp`) ·
+`app/integraciones/LineasWhatsApp.tsx` (las líneas y «Agregar línea») · `lib/lineas-whatsapp-tarjeta.ts` (el texto del estado) ·
+`app/api/whatsapp/evolution/route.ts` (`deMaKo`) · `app/integraciones/IntegracionesBoard.tsx` · `app/m/configuraciones/integraciones/IntegracionesM.tsx` ·
+`lib/servicio-slides.ts` · tests/whatsapp-tarjeta.test.ts.
+
+- ⚠️ **`integracionConectada('whatsapp')` es la pregunta del OFICIAL** (lo que mandaba Chatwoot) en la API de MaKo
+  (lib/api-mako/areas/whatsapp.run.ts, nueve lugares). Sale del catálogo de MÉTODOS, no de la grilla: por eso la tarjeta nueva entra
+  SÓLO a `DEFS` (lib/integraciones-catalogo.ts) y NO a lib/metodo-catalogo.ts. Si entrara, esa pregunta empezaría a contestar algo
+  y la API de MaKo creería que hay un oficial. Lo fija el test.
+- **Ninguna conexión nueva:** «Agregar línea» monta el MISMO `EvolutionConnect` con `nueva` de /whatsapp y de Automations (el QR,
+  el tope del plan, la línea que nace al pedirlo). El estado de cada línea se MIDE (`GET /api/whatsapp/evolution?linea=`), porque la
+  fila miente en las dos direcciones; lo que nadie midió dice «sin comprobar», nunca un verde.
+- **La línea de MaKo (la del grupo, `mako_superadmin*`) no es del negocio:** la regla vive en un lugar (`esLineaDeMaKo`); la ruta
+  la marca (`deMaKo`) y la tarjeta la saca, en el estado de la grilla y en la lista del modal.
+- **El teléfono:** la hoja muestra las líneas (la misma pieza, `soloLectura`) y «Agregar una línea en la computadora». Un QR no
+  se escanea con el mismo teléfono que lo muestra.
+- ⚠️ **Una tarjeta nueva entra sola a OTRO catálogo:** lib/conexiones-catalogo.ts (lo que la API de MaKo y el doer ofrecen para
+  conectar) se monta sobre `DEFS`, y ya tenía «Tu número de WhatsApp» con la key `whatsapp` y el link de contrato
+  `/chats?conectar=whatsapp` (el QR en un paso). La tarjeta iba primero y lo pisaba: MaKo mandaba al modal en vez de al QR. Lo vio
+  tests/conexiones-api.test.ts en tests-afectados, no el test de la tarjeta. **Regla:** antes de sumar una key a `DEFS`, buscarla en
+  `FUERA_DE_LAS_TARJETAS`; la de WhatsApp se saca del mapeo y queda la de afuera.
+- **Capturas sin levantar la app:** un banco de esbuild con el `IntegracionesBoard` real y la ruta simulada (el molde del banco de
+  Create, docs/hallazgos-ui.md): `C:/dev/revisiones/whatsapp-tarjeta-2910/`. El CSS del teléfono no viene en `globals.css`: el
+  banco tiene que importar `app/m/m.css` y `app/m/configuraciones/configuraciones.css`, o la hoja sale sin estilos.
+- **Sin hacer:** renombrar, desvincular o elegir la de por defecto desde la tarjeta (sigue en /whatsapp); el código de vinculación
+  (`pairingCode`) que permitiría agregar una línea desde el teléfono (el tipo existe en `EvolutionConnect`, la pantalla no lo muestra).
+
 ## El barrido de leads de Meta por Zernio: el filtro va en memoria, no sólo en la URL (29/10/2026, Integración)
+
+> **Estado (29/10 noche):** arreglado en `zernio-token-2910` (`a745e4eb3`): el descarte en memoria por cuenta (con cualquier clave),
+> sólo crear, y la papelera entera o el barrido corta. Ver «El 2.º Instagram… y los leads de Meta por Zernio», arriba. Prender el
+> interruptor de la cuenta de la plataforma lo decide Integración.
 
 La revisión de privacidad de `zernio-token-2910` (`ce56bd693`, `lib/zernio-leads-barrido.ts`) frenó la punta antes del tren-af y
 volvió a su chat. El informe está en `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`, y las pruebas en
@@ -2376,4 +2494,11 @@ volvió a su chat. El informe está en `C:/dev/revisiones/2910-revision-privacid
   - El 2.º Instagram no cruza negocios.
 - **Sin hacer (B4):** los negocios con la cuenta prestada nunca se barren, porque el cron sólo recorre los que tienen clave
   guardada. El interruptor `zernio.cuenta_de_la_plataforma` queda APAGADO hasta que el filtro en memoria esté.
-
+- **La re-verificación de `da3cff9f7`** (Integración, 30/10) dio «entra con bajas»: M1 a M4 están y funcionan. Se corrieron las
+  pruebas viejas contra la punta nueva, y `noTocarExistente` no cambia nada para el webhook ni para el poll de Meta. Quedan abiertos:
+  - **N4 (B1 a medias):** un lead sin fecha pasa el `since` (`lib/zernio-leads-barrido.ts`).
+  - **N3:** a la persona que ya era lead y perdió su webhook, el barrido no le guarda nada (respuestas, campaña, embudo) y la
+    cuenta como «ya estaban». No es una regresión contra main.
+  - **N5 y N6 (sospechas, dependen de Zernio):** una cuenta que vuelve sin `profileId` pasa el filtro, y un id de cuenta en otra
+    forma deja el barrido en cero sin que el log lo diga.
+  - El interruptor `zernio.cuenta_de_la_plataforma` sigue apagado.
