@@ -348,7 +348,9 @@ export function pasoDeAcceso(v: Vigencia, estadoWs: 'activo' | 'pausado', corte:
   // Pagó de nuevo (o ya no hay nada que vencer): se reabre SÓLO lo que cortó el cobro. Una pausa a mano no la toca.
   // ⚠️ La cuenta que una agencia dio de baja la reabre SÓLO un plan que el cliente paga (al día): el mes que la agencia ya había
   // pagado queda «cubierto» y, sin esto, la reabría sola (29/10/2026).
-  if (corte?.motivo === 'sin-agencia' && v.estado !== 'al-dia') return { tipo: 'nada' };
+  // `cubierto` también (verificación independiente, H5): pagó su plan pero el aviso de Mercado Pago llegó sin el id del
+  // preapproval y la suscripción no quedó `activa`. Se mide con SUS cobros (lib/plan-acceso.ts), así que lo que cubre es suyo.
+  if (corte?.motivo === 'sin-agencia' && v.estado !== 'al-dia' && v.estado !== 'cubierto') return { tipo: 'nada' };
   if (vigente && estadoWs === 'pausado') return { tipo: 'reabrir' };
   if (vigente && estadoWs === 'activo') return { tipo: 'soltar' };
   return { tipo: 'nada' };

@@ -201,26 +201,27 @@ export async function aplicarSubidasPendientes(): Promise<{ subidas: number; err
     .filter((x) => x.cambio?.pendiente && x.cambio.plan === 'pro');
   if (!pendientes.length) return out;
   const plataforma = await wsSuperAdmin();
-  const pro = (await planesMako()).find((x) => x.id === 'pro') ?? null;
   for (const { ws, cambio } of pendientes) {
     try {
       // También la cuenta que su agencia soltó (H3 de la verificación independiente): si la pagaba el cliente, su suscripción
       // pasó a ser suya (`alta_ws`, sin `cliente_ws`) con el monto de Pro, y saltearla la dejaba pagando Pro en Esencial.
-      const { data: subs, error: eSubs } = await db.from('cobros').select('id').eq('workspace_id', plataforma).or(`cliente_ws.eq.${ws},alta_ws.eq.${ws}`)
+      const { data: subs, error: eSubs } = await db.from('cobros').select('id, monto, moneda').eq('workspace_id', plataforma).or(`cliente_ws.eq.${ws},alta_ws.eq.${ws}`)
         .eq('tipo', 'suscripcion').eq('plan_mako', 'pro').limit(50);
       if (eSubs) throw new Error(eSubs.message);
-      const ids = ((subs ?? []) as Array<{ id: number }>).map((x) => x.id);
-      if (!ids.length) continue;
-      const { data: pagos, error: ePagos } = await db.from('pagos').select('fecha_pago, monto_usd, moneda, monto_original').eq('workspace_id', plataforma).in('cobro_id', ids).eq('pagado', true).limit(200);
+      const deLaSub = new Map(((subs ?? []) as Array<{ id: number; monto: number; moneda: string }>).map((x) => [Number(x.id), x]));
+      if (!deLaSub.size) continue;
+      const { data: pagos, error: ePagos } = await db.from('pagos').select('cobro_id, fecha_pago, monto_usd, moneda, monto_original').eq('workspace_id', plataforma).in('cobro_id', [...deLaSub.keys()]).eq('pagado', true).limit(200);
       if (ePagos) throw new Error(ePagos.message);
-      // Un pago de AL MENOS el precio de Pro en su moneda (tercera pasada, hallazgo 2): si la pasarela no tomó el monto nuevo,
-      // el cobro de Esencial no sube la capa.
-      const conMonto = await Promise.all(((pagos ?? []) as Array<{ fecha_pago: string | null; monto_usd: number | null; moneda: string | null; monto_original: number | null }>).map(async (x) => {
+      // Un pago de AL MENOS lo que se le puso a ESA suscripción al subirla (tercera pasada, hallazgo 2: si la pasarela no tomó el
+      // monto nuevo, el cobro de Esencial no sube la capa). Contra el monto de la suscripción y no el precio de Pro del día
+      // (verificación independiente, H4): si el precio sube antes del cobro, el pago quedaba debajo y Pro no llegaba nunca.
+      const conMonto = ((pagos ?? []) as Array<{ cobro_id: number; fecha_pago: string | null; monto_usd: number | null; moneda: string | null; monto_original: number | null }>).map((x) => {
+        const sub = deLaSub.get(Number(x.cobro_id));
         const moneda = (x.moneda ?? 'USD').toUpperCase();
         const monto = moneda === 'USD' ? Number(x.monto_usd) : Number(x.monto_original);
-        const precio = pro ? await precioDelPlanEn(pro, moneda) : null;
-        return { fecha_pago: x.fecha_pago, alcanza: precio != null && Number.isFinite(monto) && monto >= precio - 0.01 };
-      }));
+        const alcanza = !!sub && moneda === String(sub.moneda ?? 'USD').toUpperCase() && Number.isFinite(monto) && monto >= Number(sub.monto) - 0.01;
+        return { fecha_pago: x.fecha_pago, alcanza };
+      });
       if (!subidaCobrada(cambio, conMonto)) continue;
       const { error: eCapa } = await db.from('workspaces').update({ capa: CAPA_DE_PLAN.pro }).eq('id', ws);
       if (eCapa) throw new Error(eCapa.message);

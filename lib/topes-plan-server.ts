@@ -11,10 +11,14 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { suscripcionDeMakoDe } from './cobros';
 import { rigeElPlanDeAgenciaEn, soltadaPorSuAgencia } from './plan-esencial';
+import { WS_SIN_PLAN_DE_PASARELA } from './plan-esencial-reglas';
 
 /** true = se le aplican los topes de su plan: MaKo le cobra el plan por la pasarela, es la cuenta de un cliente de agencia, o
  *  una que su agencia soltó (`sin-agencia`). */
 export async function aplicanTopes(ws: number): Promise<boolean> {
+  // El ws1 (el acuerdo de Mauricio) nunca, esté donde esté (verificación independiente, H6): los topes del CRM y del equipo no
+  // tenían guarda propia, y una fila suya en una cartera alcanzaba para toparlo.
+  if (WS_SIN_PLAN_DE_PASARELA.has(ws)) return false;
   if ((await suscripcionDeMakoDe(ws)) != null) return true;
   const { data, error } = await getSupabaseServer().from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
   if (error) throw new Error(`No pude leer si es cliente de una agencia: ${error.message}`);

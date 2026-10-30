@@ -173,7 +173,11 @@ export const abreRenovacionStripe = (inicioIso: string, ahoraMs: number): boolea
 // DAR DE BAJA (29/10/2026, lib/agencia-baja.ts): qué se hace con cada cobro, y hasta cuándo pagó el cliente
 // =============================================================================
 
-export type CobroEnLaBaja = { tipo: 'unico' | 'suscripcion'; estado: string; suscripcion_estado: string | null; pagado_at: string | null };
+export type CobroEnLaBaja = {
+  tipo: 'unico' | 'suscripcion'; estado: string; suscripcion_estado: string | null; pagado_at: string | null;
+  /** La fecha del ÚLTIMO pago de esa suscripción (de `pagos`): las renovaciones no mueven `pagado_at`. */
+  ultimo_pago?: string | null;
+};
 
 /**
  * Qué se hace con un cobro de la cuenta al darla de baja:
@@ -210,7 +214,9 @@ export function finDeLoQuePago(cobros: readonly CobroEnLaBaja[], onboardingCompl
   let fin: string | null = null;
   for (const c of cobros) {
     if (c.estado !== 'pagado' || !c.pagado_at) continue;
-    const desde = c.tipo === 'unico' ? desdeDelMes({ onboardingCompletoAt, pagadoAt: c.pagado_at }) ?? c.pagado_at : c.pagado_at;
+    // Una suscripción, desde su último pago (verificación independiente, H8: desde el primero cortaba hasta un mes antes).
+    const ultimo = c.ultimo_pago && c.ultimo_pago > c.pagado_at ? c.ultimo_pago : c.pagado_at;
+    const desde = c.tipo === 'unico' ? desdeDelMes({ onboardingCompletoAt, pagadoAt: c.pagado_at }) ?? c.pagado_at : ultimo;
     const hasta = unMesDespues(desde);
     if (!fin || hasta > fin) fin = hasta;
   }

@@ -8,13 +8,19 @@
 //     que pasen a Esencial). Una cuenta abierta desde hoy nace con el plan elegido.
 //   · H2: una cuenta sin ningún cobro (aprobada a mano) pasaba a Pro gratis.
 //   · H3: con una subida a Pro pendiente, si su agencia la soltaba, el cliente pagaba Pro y quedaba en Esencial para siempre.
+// Y las MEDIA chicas: H4 (la subida pendiente contra el precio de Pro del día), H5 (el soltado que pagó y queda pausado), la
+// guarda del ws1 de H6 y H8 (el fin de lo pagado desde el primer pago). H7 (el país de la pasarela) queda anotado.
 //
-// Probado rompiéndolo (29/10/2026; base 5 / 0). Una rotura por vez, restaurando (pasan / fallan):
-//   · las cuentas sin elegir rigen como Esencial (la línea en `false` sin decirlo el test)   -> 4 / 1
-//   · los candados no miran si el plan está elegido                                         -> 4 / 1
-//   · abrir la cuenta sin dejar la marca del plan elegido                                   -> 4 / 1
-//   · «Pasar a Pro» sin ningún cobro                                                        -> 4 / 1
-//   · la subida pendiente saltea a la cuenta que su agencia soltó                           -> 4 / 1
+// Probado rompiéndolo (29/10/2026; base 9 / 0). Una rotura por vez, restaurando (pasan / fallan):
+//   · las cuentas sin elegir rigen como Esencial (la línea en `false` sin decirlo el test)   -> 8 / 1
+//   · los candados no miran si el plan está elegido                                         -> 8 / 1
+//   · abrir la cuenta sin dejar la marca del plan elegido                                   -> 8 / 1
+//   · «Pasar a Pro» sin ningún cobro                                                        -> 8 / 1
+//   · la subida pendiente saltea a la cuenta que su agencia soltó                           -> 8 / 1
+//   · la subida pendiente contra el precio de Pro del día                                   -> 8 / 1
+//   · el soltado cubierto por lo que pagó no se reabre                                      -> 8 / 1
+//   · el ws1 con topes si aparece en una cartera                                            -> 8 / 1
+//   · el fin de lo pagado desde el primer pago de la suscripción                            -> 8 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -22,7 +28,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO, rigeElPlanDeAgencia } from '../lib/plan-esencial-reglas';
-import { subeEnElActo } from '../lib/agencia-cobro-reglas';
+import { finDeLoQuePago, subeEnElActo } from '../lib/agencia-cobro-reglas';
+import { pasoDeAcceso, type CorteGuardado } from '../lib/plan-acceso-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -69,4 +76,30 @@ test('H3: la subida pendiente sigue a la suscripción aunque la agencia suelte l
   const cron = plan.slice(plan.indexOf('export async function aplicarSubidasPendientes('));
   assert.match(cron, /\.or\(`cliente_ws\.eq\.\$\{ws\},alta_ws\.eq\.\$\{ws\}`\)/, 'también la que pasó a ser del cliente (`alta_ws`)');
   assert.doesNotMatch(cron, /neq\('estado', 'revocado'\)/, 'no saltea a la cuenta dada de baja');
+});
+
+test('H4: la subida pendiente se compara con el monto de ESA suscripción, no con el precio de Pro del día', () => {
+  const plan = fuente('lib/agencia-plan.ts');
+  const cron = plan.slice(plan.indexOf('export async function aplicarSubidasPendientes('));
+  assert.match(cron, /const alcanza = !!sub && moneda === String\(sub\.moneda \?\? 'USD'\)\.toUpperCase\(\) && Number\.isFinite\(monto\) && monto >= Number\(sub\.monto\) - 0\.01;/);
+  assert.doesNotMatch(cron, /precioDelPlanEn/, 'no relee el precio del día');
+});
+
+test('H5: la cuenta soltada que pagó su plan se reabre aunque su suscripción no haya quedado activa (cubierto)', () => {
+  const corte: CorteGuardado = { cobroId: 0, hasta: '2026-10-29', motivo: 'sin-agencia', desde: '2026-10-29T00:00:00.000Z', vigente: true };
+  assert.deepEqual(pasoDeAcceso({ estado: 'cubierto', cobroId: 7, hasta: '2026-11-29', motivo: 'baja' }, 'pausado', corte), { tipo: 'reabrir' });
+  assert.deepEqual(pasoDeAcceso({ estado: 'sin-pasarela' }, 'pausado', corte), { tipo: 'nada' }, 'sin nada suyo, sigue pausada');
+});
+
+test('H6: el ws1 nunca tiene topes, aunque aparezca en una cartera', () => {
+  const t = fuente('lib/topes-plan-server.ts');
+  const guarda = t.indexOf('if (WS_SIN_PLAN_DE_PASARELA.has(ws)) return false;');
+  assert.ok(guarda > 0 && guarda < t.indexOf('await suscripcionDeMakoDe(ws)'), 'antes de mirar nada');
+});
+
+test('H8: el fin de lo que pagó quien pagaba él cuenta desde el ÚLTIMO pago de su suscripción', () => {
+  const sus = { tipo: 'suscripcion' as const, estado: 'pagado', suscripcion_estado: 'cancelada', pagado_at: '2026-07-02T10:00:00.000Z' };
+  assert.equal(finDeLoQuePago([{ ...sus, ultimo_pago: '2026-10-02' }], null), '2026-11-02T00:00:00.000Z');
+  assert.equal(finDeLoQuePago([sus], null), '2026-08-02T10:00:00.000Z', 'sin pagos anotados, desde el primero');
+  assert.match(fuente('lib/agencia-baja.ts'), /if \(c && x\.fecha_pago && \(!c\.ultimo_pago \|\| x\.fecha_pago > c\.ultimo_pago\)\) c\.ultimo_pago = x\.fecha_pago;/);
 });

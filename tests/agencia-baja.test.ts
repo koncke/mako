@@ -46,7 +46,12 @@ test('la cartera revocada corta «Inspeccionar»', () => {
 
 test('la cuenta pausada por la baja la reabre SÓLO un plan que paga el cliente', () => {
   const corte: CorteGuardado = { cobroId: 0, hasta: '2026-10-29', motivo: 'sin-agencia', desde: '2026-10-29T10:00:00Z', vigente: true };
-  assert.deepEqual(pasoDeAcceso({ estado: 'cubierto', cobroId: 3, hasta: '2026-11-20', motivo: 'baja' }, 'pausado', corte), { tipo: 'nada' }, 'el mes que pagó la agencia no la reabre');
+  // El mes que pagó la agencia no la reabre: la vigencia de la cuenta soltada se mide SÓLO con sus cobros (lib/plan-acceso.ts).
+  // Sin nada suyo es `sin-pasarela` y sigue pausada; lo que pagó ella (`cubierto` o `al-dia`) la reabre (verificación
+  // independiente, H5: `cubierto` es su plan pagado sin la suscripción marcada activa).
+  assert.match(fuente('lib/plan-acceso.ts'), /const deEl = corte\?\.motivo === 'sin-agencia' \|\| propios\.some\(\(c\) => c\.tipo === 'suscripcion'\) \? propios : suyos;/, 'el mes que pagó la agencia no la reabre');
+  assert.deepEqual(pasoDeAcceso({ estado: 'sin-pasarela' }, 'pausado', corte), { tipo: 'nada' });
+  assert.deepEqual(pasoDeAcceso({ estado: 'cubierto', cobroId: 3, hasta: '2026-11-20', motivo: 'baja' }, 'pausado', corte), { tipo: 'reabrir' });
   assert.deepEqual(pasoDeAcceso({ estado: 'al-dia', cobroId: 8 }, 'pausado', corte), { tipo: 'reabrir' });
   assert.match(textoDelCorte(corte).titulo, /agencia/);
   assert.match(textoDelCorte(corte).detalle, /datos están guardados/);

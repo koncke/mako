@@ -93,6 +93,15 @@ export async function darDeBajaClienteDeAgencia(p: { agenciaWs: number; clienteW
   let pagaCliente: boolean;
   try { [cobros, pagaCliente] = await Promise.all([cobrosDelLugar(plataforma, agenciaWs, clienteWs), laPagaElCliente(clienteWs)]); }
   catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  // El último pago de cada suscripción (H8 de la verificación independiente): de ahí cuenta lo que ya pagó quien paga él.
+  if (pagaCliente) {
+    const subs = cobros.filter((c) => c.tipo === 'suscripcion').map((c) => c.id);
+    const { data: pagos } = subs.length ? await db.from('pagos').select('cobro_id, fecha_pago').eq('workspace_id', plataforma).in('cobro_id', subs).eq('pagado', true).limit(500) : { data: [] };
+    for (const x of (pagos ?? []) as Array<{ cobro_id: number; fecha_pago: string | null }>) {
+      const c = cobros.find((y) => y.id === Number(x.cobro_id));
+      if (c && x.fecha_pago && (!c.ultimo_pago || x.fecha_pago > c.ultimo_pago)) c.ultimo_pago = x.fecha_pago;
+    }
+  }
   let cancelados = 0;
   let pasados = 0;
   for (const c of cobros) {
