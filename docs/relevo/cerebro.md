@@ -68,17 +68,46 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - `revisar-fijo`: los ids con que se arma la campaña quedan fijos al revisar (`c9d23904c`);
     - el aviso de la campaña creada lleva «Reportar a Soporte» (`13562c8a8`).
   - **Chequeo:** 9351 tests, más el delta, más las guardas. Los únicos rojos fueron los `todo` de siempre.
-- **tren-ag (rama `tren-ag`, armado y en chequeo):**
+- **⏩ RELEVO AL 87% DE LA SEMANAL (30/10 06:06, claude3).** Quien siga lee esto primero. Si la cuenta corta, el que retome
+  arranca por el estado del push del tren-ag: `git -C C:/dev/wt-push-q fetch && git log -1 origin/main`. Si main es
+  `3076925cf` o posterior, el tren-ag subió y queda confirmar el Ready.
+- **tren-ag (rama `tren-ag`, SUBIENDO desde ~06:00; el log es `push-tren-ag.log` en el scratchpad de esta sesión):**
   - **Lleva:**
-    - PRIORIDAD: los tickets #31 y #32 de Leila (`editor-leila-2810`, `3b6a9b3ee`: quitar silencios en el Video Editor).
-    - Las tarjetas del Copywriter (`plantillas-tarjeta-2910`, `6713868bb`).
-    - Zernio `da3cff9f7`: la re-verificación dio «entra con bajas».
-    - Los docs del Cerebro (`iniciativa-plan-2910`).
-    - La guarda de los números de migración, que está en el scratchpad de Integración.
-  - ⚠️ **La 0349 sigue sin aplicar:** N1, deshacer el borrado de una vez de la serie, le saca `serie_de` y vuelve a abrir A2.
-  - **Agency/Planes (`4b42b6a7f`): NO entra** hasta la decisión de Martín sobre H1, y hasta que estén H2 y H3. La devolución
-    está en la carpeta compartida (`integracion-agency-thiago-devuelto.md`).
-  - **El despachante de WhatsApp (`72fb49d6d`): NO entra.** A1 y A2 siguen sin arreglar.
+    - PRIORIDAD, cliente roto: los tickets #31 y #32 de Leila (`d5baaa302`; el tsc encontró un error real que arregló el chat).
+    - El Copywriter: las tarjetas con la guía y «Ver ejemplo», y el detector de voseo con el generador del guard (`85119f019`,
+      que contiene `6713868bb`).
+    - Zernio `da3cff9f7`: leads filtrados en memoria, las publicaciones que se repiten (inertes sin la 0349) y la tarjeta de
+      WhatsApp. La re-verificación dio «entra con bajas».
+    - Del Cerebro, sólo docs: `iniciativa-plan-2910` y `conocimiento-email-2910`.
+    - La guarda `tests/migraciones-numero-unico.test.ts` (`f71bb1a63`).
+  - **Rojo del barrido, arreglado en el tren:** el guard de voseo leía el léxico de `lib/voseo.ts` (`512f49af5`).
+  - **Al estar Ready, avisar:** al Cerebro (Leila primero) y al chat de Video (`local_2f82a70c`).
+  - ⚠️ **La 0349 sigue SIN aplicar:** N1 (deshacer el borrado de una vez de la serie le saca `serie_de` y vuelve a abrir A2).
+    El chat de Zernio estaba archivado cuando se le devolvió. El Cerebro se la pide a Martín recién cuando Integración la dé
+    por buena.
+- **tren-ah (sin armar). Va en este orden, cada pieza con lo que le falta:**
+  - **Agency/Planes de Thiago:** `agency-thiago-2910` en `28cc3e2cb`. Re-verificación «entra con bajas», sin ALTA
+    (`C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md`). Lista para entrar; el informe dice que le faltan 19
+    commits de main, y el merge sale limpio. Cosechar en `docs/hallazgos-agencias.md`:
+    - la MEDIA 1, una fila de cartera cargada a mano sobre el ws1 o sobre un Pro directo (hoy no hay ninguna);
+    - las dos bajas de H5.
+  - **Calendario y Classroom:** `cal-classroom-2910` en `7162c94aa`. Lleva la mig **0352**, que va ANTES del código y
+    espera el sí de Martín (ya pedido al Cerebro). Puede chocar con lo del Calendario de Zernio.
+  - **La iniciativa del Ops Center (T1 + G1):** `iniciativa-base-2910` en `88d2cf0db`. Sin migración. Toca `app/layout.tsx` y
+    AGENTS.md. Revisado por encima: no manda nada afuera.
+  - **Newsletter:** `newsletter-2910` en `85d2206c9`. Lleva la mig **0351**, que va ANTES del deploy y espera el sí de Martín
+    (ya pedido). Su revisión de envíos y privacidad está corriendo; el informe va a
+    `C:/dev/revisiones/2910-revision-privacidad-newsletter-85d2206c9.md`.
+  - **El despachante de MaKo en WhatsApp (#30 de Leandro):** `wa-fallas-2710` en `8ab517c12`. Dice que arregló A1, A2, M1,
+    M3 y parte de M2. Le falta una RE-VERIFICACIÓN de privacidad y plata: además de A1 y A2, desde el grupo pausa y prende
+    campañas y sube anuncios. La mezcla con main da 2 choques de conservar los dos lados (`docs/hallazgos.md` y
+    `tests/links-con-ws.test.ts`); hay una referencia en la rama `tren-ae-con-wa`. Después del deploy:
+    `cartero.mjs instalar` (Runner 1.24.0).
+- **Para quien siga:**
+  - Lo que aprendió esta tanda está cosechado en `docs/hallazgos-infra.md`, en la entrada «Un número por migración, y el push
+    que falla por RAM…».
+  - Cuando el push falla por RAM, se reintenta enseguida SIN `SUBIR_UN_LUGAR`.
+  - Antes de cada push, el Cerebro frena sus workflows.
 - **Detalle del tren-ae:**
   - **Lleva:**
     - Create: la QA visual (`95ac56201`) y la base de las plantillas reales (`390229c3d`, que la contiene).
