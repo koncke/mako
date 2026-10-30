@@ -231,7 +231,8 @@ export function finDeLoQuePago(cobros: readonly CobroEnLaBaja[], onboardingCompl
 //     subida pendiente.
 // Se guarda en la cuenta del CLIENTE, como quién paga.
 
-export const KEY_PLAN_CAMBIADO = 'agency.plan_cambiado';
+// La clave vive en lib/plan-esencial-reglas.ts (la leen los candados de cada página, que no pueden cargar este módulo).
+export { KEY_PLAN_CAMBIADO } from './plan-esencial-reglas';
 
 export type CambioDePlan = { at: string; plan: PlanCuenta; pendiente: boolean };
 
@@ -243,9 +244,13 @@ export function leerCambioDePlan(crudo: unknown): CambioDePlan | null {
   } catch { return null; }
 }
 
-/** ¿La subida a Pro se aplica ya? Sólo si la pasarela cobró la diferencia ahora, o si la cuenta todavía no pagó nada. */
-export function subeEnElActo(p: { diferenciaCobrada: boolean; algoPagado: boolean }): boolean {
-  return p.diferenciaCobrada || !p.algoPagado;
+/**
+ * ¿La subida a Pro se aplica ya? Sólo si la pasarela cobró la diferencia ahora, o si la cuenta todavía no pagó nada Y tiene
+ * qué cobrar (su link del primer mes, que se rehace a precio de Pro). Sin ningún cobro, no: era Pro gratis (la verificación
+ * independiente, H2; quien llama además lo rechaza).
+ */
+export function subeEnElActo(p: { diferenciaCobrada: boolean; algoPagado: boolean; hayQueCobrar: boolean }): boolean {
+  return p.diferenciaCobrada || (!p.algoPagado && p.hayQueCobrar);
 }
 
 /**

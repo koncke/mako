@@ -83,9 +83,9 @@ test('la baja (1): el corte `sin-agencia` pausa aunque el corte general esté ap
 });
 
 test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () => {
-  assert.equal(subeEnElActo({ diferenciaCobrada: true, algoPagado: true }), true, 'Stripe cobró la diferencia');
-  assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: false }), true, 'todavía no pagó nada: el link se rehace a Pro');
-  assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: true }), false, 'Mercado Pago, o el primer mes ya pagado: pendiente');
+  assert.equal(subeEnElActo({ diferenciaCobrada: true, algoPagado: true, hayQueCobrar: true }), true, 'Stripe cobró la diferencia');
+  assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: false, hayQueCobrar: true }), true, 'todavía no pagó nada: el link se rehace a Pro');
+  assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: true, hayQueCobrar: true }), false, 'Mercado Pago, o el primer mes ya pagado: pendiente');
   const cambio = leerCambioDePlan(JSON.stringify({ at: '2026-10-29T12:00:00.000Z', plan: 'pro', pendiente: true }));
   assert.ok(cambio?.pendiente);
   assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-10-29', alcanza: true }]), false, 'un pago del mismo día pudo ser el de antes');
@@ -93,7 +93,7 @@ test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () 
   assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29', alcanza: false }]), false, 'un cobro de Esencial (la pasarela no tomó el monto) no sube');
   assert.equal(subidaCobrada({ ...cambio!, pendiente: false }, [{ fecha_pago: '2026-11-29', alcanza: true }]), false);
   const plan = fuente('lib/agencia-plan.ts');
-  assert.match(plan, /const enElActo = p\.plan === 'esencial' \|\| subeEnElActo\(\{ diferenciaCobrada: diferenciaCobrada && vivas\.every\(\(c\) => c\.proveedor === 'stripe'\), algoPagado \}\);\n\s*if \(enElActo\) \{/);
+  assert.match(plan, /const enElActo = p\.plan === 'esencial' \|\| yaTeniaPro \|\| subeEnElActo\(\{ diferenciaCobrada: diferenciaCobrada && vivas\.every\(\(c\) => c\.proveedor === 'stripe'\), algoPagado, hayQueCobrar \}\);\n\s*if \(enElActo\) \{/);
   // El cron la aplica con el primer pago de una suscripción anotada en Pro.
   assert.match(plan, /\.eq\('tipo', 'suscripcion'\)\.eq\('plan_mako', 'pro'\)/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await aplicarSubidasPendientes\(\)/);
@@ -133,10 +133,10 @@ test('la renovación (2d, 3a, 10, 11): sin precio del plan no se crea, la devuel
 test('los candados de Pro (4): el Esencial de una cuenta de agencia los tiene, por su cartera', () => {
   const e = fuente('lib/plan-esencial.ts');
   assert.match(e, /if \(!capaVendida\) \{\n\s*const \{ data: cart, error: eCart \} = await getSupabaseServer\(\)\.from\('agencia_clientes'\)\.select\('cliente_ws'\)\.eq\('cliente_ws', ws\)\.neq\('estado', 'revocado'\)/);
-  assert.match(e, /if \(cart\?\.length\) capaVendida = capa \?\? null;/);
+  // Con el plan elegido (H1 de la verificación independiente: tests/verificacion-plata-agency-2910.test.ts).
+  assert.match(e, /if \(\(cart\?\.length \|\| \(await soltadaPorSuAgencia\(ws\)\)\) && \(await rigeElPlanDeAgenciaEn\(ws\)\)\) capaVendida = capa \?\? null;/);
   // Y la que su agencia soltó y todavía usa lo que pagó (tercera pasada): candados y topes.
-  assert.match(e, /else if \(await soltadaPorSuAgencia\(ws\)\) capaVendida = capa \?\? null;/);
-  assert.match(fuente('lib/topes-plan-server.ts'), /if \(\(data \?\? \[\]\)\.length > 0\) return true;\n[^\n]*\n\s*return soltadaPorSuAgencia\(ws\);/);
+  assert.match(fuente('lib/topes-plan-server.ts'), /if \(!\(data \?\? \[\]\)\.length && !\(await soltadaPorSuAgencia\(ws\)\)\) return false;/);
   // B (segunda pasada): el ex cliente que paga su propio Esencial (sin `alta_capa`) también.
   assert.match(e, /if \(!capaVendida && data\) capaVendida = capa \?\? null;/);
 });

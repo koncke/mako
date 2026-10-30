@@ -23,6 +23,12 @@
 //   · VIVA ES TAMBIÉN LA PAGADA SIN `suscripcion_estado` (`esSuscripcionViva`): un aviso de Mercado Pago sin el id la dejaba
 //     sin marcar, y su precio no cambiaba aunque la capa sí.
 //   · Si la cuenta LA PAGA EL CLIENTE, se le avisa por mail: lo que cambia es lo que se cobra en su tarjeta.
+//
+// LO QUE ENCONTRÓ LA VERIFICACIÓN INDEPENDIENTE (29/10/2026, C:/dev/revisiones/2910-verificacion-plata-agency-4b42b6a7f.md):
+//   · H2: SIN NINGÚN COBRO NO SE PASA A PRO. Una cuenta que MaKo aprobó a mano (o sin link del primer mes) no tiene qué cobrar,
+//     y «sin nada pagado» la subía en el acto, gratis. Se pide por MaKo.
+//   · H1: LAS CUENTAS DE ANTES, SIN EL PLAN ELEGIDO, SIGUEN COMO PRO (lib/plan-esencial-reglas.ts). Elegirles Esencial deja la
+//     marca y el precio de Esencial; elegirles Pro no les quita nada mientras se cobra (ya tenían todo lo de Pro).
 // ⚠️ Sólo la agencia DUEÑA de la fila de la cartera, y nunca con la cuenta dada de baja.
 // =============================================================================
 
@@ -41,6 +47,7 @@ import { KEY_QUIEN_PAGA, quienPagaDe } from './agency-reglas';
 import { precioDelPlanEn, rehacerPrimerMes } from './agencia-cobro';
 import { adminsDeCuenta } from './agencia-baja';
 import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, esSuscripcionViva, leerCambioDePlan, planDeCapa, subeEnElActo, subidaCobrada, type PlanCuenta } from './agencia-cobro-reglas';
+import { rigeElPlanDeAgencia } from './plan-esencial-reglas';
 
 type Fila = {
   id: number; tipo: 'unico' | 'suscripcion'; estado: string; suscripcion_estado: string | null; proveedor: 'stripe' | 'mercadopago';
@@ -67,15 +74,19 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
   if ((fila as { estado: string }).estado === 'revocado') return { ok: false, error: 'Esa cuenta está dada de baja.' };
   let pagaCliente = false;
   let pendiente: ReturnType<typeof leerCambioDePlan> = null;
+  let elegido = false;
   try {
     const [cambio, quien] = await Promise.all([leerSetting(p.clienteWs, KEY_PLAN_CAMBIADO), leerSetting(p.clienteWs, KEY_QUIEN_PAGA)]);
     pendiente = leerCambioDePlan(cambio);
+    elegido = cambio != null;
     pagaCliente = quienPagaDe(quien) === 'cliente';
   } catch (e) {
     return { ok: false, error: `No pude leer su plan: ${e instanceof Error ? e.message : String(e)}` };
   }
   const { data: w } = await db.from('workspaces').select('capa').eq('id', p.clienteWs).maybeSingle();
-  if (planDeCapa((w as { capa?: string } | null)?.capa) === p.plan) {
+  // Las de antes, sin el plan elegido, tienen todo lo de Pro (H1): «Elegir Esencial» SÍ hace algo aunque su capa ya sea Esencial.
+  const yaTeniaPro = !rigeElPlanDeAgencia(elegido);
+  if (planDeCapa((w as { capa?: string } | null)?.capa) === p.plan && !yaTeniaPro) {
     if (!pendiente?.pendiente) return { ok: true, resumen: 'Ya tiene ese plan.' };
   } else if (p.plan === 'pro' && pendiente?.pendiente && pendiente.plan === 'pro') {
     return { ok: true, resumen: 'Ya pasa a Pro con su próximo cobro.' };
@@ -94,6 +105,9 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
   const primerMesSinPagar = filas.filter((c) => c.tipo === 'unico' && (c.estado === 'pendiente' || c.estado === 'fallido'));
   const primerMesPagado = filas.find((c) => c.tipo === 'unico' && c.estado === 'pagado') ?? null;
   const algoPagado = !!primerMesPagado || vivas.some((c) => c.estado === 'pagado' || c.estado === 'reembolsado');
+  // H2: sin NINGÚN cobro (la aprobó MaKo a mano, o no salió su link) no hay qué cobrar: a Pro no se pasa gratis.
+  const hayQueCobrar = vivas.length > 0 || primerMesSinPagar.length > 0 || !!primerMesPagado;
+  if (p.plan === 'pro' && !hayQueCobrar) return { ok: false, error: 'Esta cuenta no tiene un cobro de MaKo (la aprobó MaKo a mano): para pasarla a Pro, escríbenos.' };
 
   // El precio en la moneda de la cuenta, ANTES de tocar nada (la renovación del cron lo va a necesitar también).
   const precios = new Map<string, number>();
@@ -143,7 +157,7 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
   // 2. El plan en el primer mes pagado (de ahí lo lee la renovación que el cron crea).
   if (primerMesPagado) await db.from('cobros').update({ plan_mako: plan.id }).eq('id', primerMesPagado.id).eq('workspace_id', plataforma);
   // 3. La capa: en el acto, salvo una subida que todavía no se cobró (queda pendiente y la sube el cron con ese pago).
-  const enElActo = p.plan === 'esencial' || subeEnElActo({ diferenciaCobrada: diferenciaCobrada && vivas.every((c) => c.proveedor === 'stripe'), algoPagado });
+  const enElActo = p.plan === 'esencial' || yaTeniaPro || subeEnElActo({ diferenciaCobrada: diferenciaCobrada && vivas.every((c) => c.proveedor === 'stripe'), algoPagado, hayQueCobrar });
   if (enElActo) {
     const { error: eCapa } = await db.from('workspaces').update({ capa: CAPA_DE_PLAN[p.plan] }).eq('id', p.clienteWs);
     if (eCapa) return { ok: false, error: `Se cambió lo que se cobra, pero no su plan en MaKo: ${eCapa.message}` };
@@ -190,9 +204,9 @@ export async function aplicarSubidasPendientes(): Promise<{ subidas: number; err
   const pro = (await planesMako()).find((x) => x.id === 'pro') ?? null;
   for (const { ws, cambio } of pendientes) {
     try {
-      const { data: cart } = await db.from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
-      if (!cart?.length) continue; // dada de baja: su plan ya no lo maneja la agencia
-      const { data: subs, error: eSubs } = await db.from('cobros').select('id').eq('workspace_id', plataforma).eq('cliente_ws', ws)
+      // También la cuenta que su agencia soltó (H3 de la verificación independiente): si la pagaba el cliente, su suscripción
+      // pasó a ser suya (`alta_ws`, sin `cliente_ws`) con el monto de Pro, y saltearla la dejaba pagando Pro en Esencial.
+      const { data: subs, error: eSubs } = await db.from('cobros').select('id').eq('workspace_id', plataforma).or(`cliente_ws.eq.${ws},alta_ws.eq.${ws}`)
         .eq('tipo', 'suscripcion').eq('plan_mako', 'pro').limit(50);
       if (eSubs) throw new Error(eSubs.message);
       const ids = ((subs ?? []) as Array<{ id: number }>).map((x) => x.id);

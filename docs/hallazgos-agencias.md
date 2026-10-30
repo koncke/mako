@@ -124,7 +124,9 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 La llamada con Thiago (agencia de España, 27 clientes; reunión del 5/11): docs/promesas/2910-llamada-thiago.md, lo marcado
 *(Agency)* y *(Planes y Partners)*. Chat «Suscripción y Partners», cuenta 3. Pasó una revisión adversarial de plata en tres
 pasadas (un revisor sobre 33c131f6b, 13 hallazgos; el mismo sobre los arreglos, 5 nuevos; y una corta, 3 más). Lo
-arreglado lo fija tests/revision-plata-agency-2910.test.ts.
+arreglado lo fija tests/revision-plata-agency-2910.test.ts. Después, una **verificación independiente** de otro chat sobre
+4b42b6a7f (C:/dev/revisiones/2910-verificacion-plata-agency-4b42b6a7f.md): H1, H2 y H3, en
+tests/verificacion-plata-agency-2910.test.ts.
 
 - **«Dar de baja» no borra nada ni deja la cuenta gratis** (`darDeBajaClienteDeAgencia`, lib/agencia-baja.ts). Primero la
   plata: se cancela en la pasarela TODA suscripción viva de esa cuenta (`esSuscripcionViva`: la marcada `activa`, que es la
@@ -173,7 +175,18 @@ arreglado lo fija tests/revision-plata-agency-2910.test.ts.
   Pro (`esEsencialDe`: las tabs de Pro, las automatizaciones, el piloto automático, el scraper), preguntaban por la suscripción
   PROPIA, y la cuenta de una agencia no tiene. El Esencial de US$47 tenía todo Pro. Ahora `aplicanTopes`
   (lib/topes-plan-server.ts) y `esEsencialDe` (lib/plan-esencial.ts) miran también la cartera no revocada. El candado del
-  cliente de una agencia dice «De MaKo Pro», sin «Pasar a Pro». Y una suscripción propia SIN `alta_capa` (la que se le pasa
+  cliente de una agencia dice «De MaKo Pro», sin «Pasar a Pro».
+- **Trampa: ese arreglo alcanzaba DE MÁS** (la verificación independiente, H1). Las cuentas de agencia que ya existían se
+  abrieron con la capa por defecto, `completo`, que ahora es Esencial: al desplegar habrían perdido de golpe todo lo de Pro
+  (en producción, 6 de la agencia ws13), sin aviso. Las tres pasadas del mismo revisor no lo vieron: miraban la plata de
+  las cuentas NUEVAS. Ahora rige el plan sólo de la cuenta con el plan ELEGIDO (la marca `agency.plan_cambiado`, que
+  escriben abrir la cuenta y cambiar el plan); las de antes siguen como Pro hasta que su agencia elija («Elegir Esencial» /
+  «Elegir Pro» en su ficha). Lo decide Martín: si dice que pasen a Esencial, es una línea
+  (`CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO`, lib/plan-esencial-reglas.ts), sin migración.
+- **Sin ningún cobro no se pasa a Pro** (H2): una cuenta que MaKo aprobó a mano no tiene qué cobrar, y «sin nada pagado»
+  la subía en el acto, gratis. Se pide por MaKo.
+- **La subida pendiente sigue a la suscripción** (H3): si la agencia soltaba la cuenta, la suscripción pasaba al cliente
+  con el monto de Pro y el cron ya no la miraba: pagaba Pro y quedaba en Esencial. Ahora busca por `cliente_ws` o `alta_ws`. Y una suscripción propia SIN `alta_capa` (la que se le pasa
   al cliente al soltarlo, o su primer plan propio) cuenta con su capa: si no, el ex cliente con Esencial volvía a tener Pro.
   Lo mismo la cuenta en pausa programada (`soltadaPorSuAgencia`): sin cartera ni plan propio, quedaba con Pro y sin topes.
 - **Cobro por país** (`cobroDeLaCuenta`, lib/agencia-cobro-reglas.ts): para España no salía ningún link (sólo cobraba Mercado
@@ -201,6 +214,13 @@ arreglado lo fija tests/revision-plata-agency-2910.test.ts.
   (`fecha_pago` puede venir sin hora) y uno de ese día pudo ser el de antes, a precio de Esencial.
 - **`finDeLoQuePago` puede cortar antes de tiempo** a quien pagaba él con una suscripción ya cancelada: las renovaciones no
   actualizan `pagado_at`, así que cuenta desde el primer pago. Y sin onboarding terminado, el mes corre desde el pago.
+- **De la verificación independiente, para después** (cada uno con su archivo, en el informe): la subida pendiente compara
+  con el precio de Pro de HOY y no con el que se le puso a la suscripción (H4); el cliente soltado que paga su plan por
+  Mercado Pago sin el id del preapproval queda pausado (el corte `sin-agencia` se levanta sólo `al-dia`, H5); el ws1 y los
+  negocios que ya existían dependen de no estar en ninguna cartera (H6); el país que decide la pasarela es el de la agencia,
+  no el del cliente que paga (H7); `primerPlanPropio` abierto a cualquier negocio sin plan propio; el cliente de agencia con
+  Pro se puede «Sumar como Agency»; la baja se traba si la pasarela ya canceló la suscripción; «Nuevo cliente» dice US$ aunque
+  cobre en EUR o ARS.
 - **PLAUSIBLE, vive en lib/cobros.ts (Cobros):** al rehacer el link del primer mes, el viejo se anula y su cierre en la
   pasarela es de mejor esfuerzo. Si no se cerró y alguien lo paga, pasarlo a `pagado` choca con el índice contra el link
   nuevo: la plata entra y el pago no queda anotado. Haría falta que `anularCobro` diga si la pasarela cerró el link.

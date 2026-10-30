@@ -10,7 +10,7 @@ import 'server-only';
 import { cache } from 'react';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getSupabaseServer } from './supabase';
-import { esEsencialPorPasarela } from './plan-esencial-reglas';
+import { KEY_PLAN_CAMBIADO, esEsencialPorPasarela, rigeElPlanDeAgencia } from './plan-esencial-reglas';
 import { FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
 import { CLAVE_CORTE, leerCorte } from './plan-acceso-reglas';
 
@@ -19,6 +19,17 @@ import { CLAVE_CORTE, leerCorte } from './plan-acceso-reglas';
  * pagó (la pausa programada), no tiene cartera ni plan propio, y sin esto quedaba con lo de Pro y sin topes (tercera pasada
  * de la revisión de plata). La usan `esEsencialDe` y `aplicanTopes` (lib/topes-plan-server.ts). Tira si no se puede leer.
  */
+/**
+ * ¿Rige el plan de esta cuenta de agencia? (H1 de la verificación independiente, lib/plan-esencial-reglas.ts): con el plan
+ * elegido (la marca `agency.plan_cambiado`), sí; las de antes, sin elegir, siguen como Pro mientras
+ * `CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO`. Tira si no se puede leer.
+ */
+export async function rigeElPlanDeAgenciaEn(ws: number): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('app_settings').select('workspace_id').eq('workspace_id', ws).eq('key', KEY_PLAN_CAMBIADO).limit(1);
+  if (error) throw new Error(error.message);
+  return rigeElPlanDeAgencia(!!data?.length);
+}
+
 export async function soltadaPorSuAgencia(ws: number): Promise<boolean> {
   const { data, error } = await getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_CORTE).maybeSingle();
   if (error) throw new Error(error.message);
@@ -55,8 +66,8 @@ export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promi
     if (!capaVendida) {
       const { data: cart, error: eCart } = await getSupabaseServer().from('agencia_clientes').select('cliente_ws').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
       if (eCart) throw new Error(eCart.message);
-      if (cart?.length) capaVendida = capa ?? null;
-      else if (await soltadaPorSuAgencia(ws)) capaVendida = capa ?? null;
+      // Las de antes, sin el plan elegido, siguen como Pro (H1 de la verificación independiente).
+      if ((cart?.length || (await soltadaPorSuAgencia(ws))) && (await rigeElPlanDeAgenciaEn(ws))) capaVendida = capa ?? null;
     }
     return esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida });
   } catch (e) {

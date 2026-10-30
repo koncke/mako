@@ -265,12 +265,19 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
             {abierta.plan && (
               <div><dt>Plan</dt><dd>{abierta.plan}
                 {/* Cambiar el plan (29/10/2026, lib/agencia-plan.ts): la agencia, con la cuenta no dada de baja. */}
-                {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && (
+                {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && abierta.planElegido && (
                   <button type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
                     onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: abierta.planId === 'pro' ? 'esencial' : 'pro', nombre: abierta.nombre })}>
                     {cambiandoPlan ? 'Cambiando…' : abierta.planId === 'pro' ? 'Pasar a Esencial' : 'Pasar a Pro'}
                   </button>
                 )}
+                {/* Las de antes del 29/10, sin el plan elegido, siguen como Pro hasta que la agencia lo elija (lib/plan-esencial-reglas.ts). */}
+                {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && !abierta.planElegido && (['esencial', 'pro'] as const).map((pl) => (
+                  <button key={pl} type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
+                    onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: pl, nombre: abierta.nombre })}>
+                    {cambiandoPlan ? 'Cambiando…' : pl === 'pro' ? 'Elegir Pro' : 'Elegir Esencial'}
+                  </button>
+                ))}
               </dd></div>
             )}
             <div><dt>En tu CRM</dt><dd>{abierta.lead ? <Link href={`/crm/${abierta.lead.id}`}>{abierta.lead.nombre} →</Link> : 'No está'}</dd></div>

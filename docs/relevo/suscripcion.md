@@ -119,6 +119,10 @@ pasadas; lo arreglado lo fija tests/revision-plata-agency-2910.test.ts. **Sin mi
 precio en EUR de cada plan en el setting `planes.mako` (`preciosLocales.EUR`): hoy no hay pantalla, y sin él España paga en
 USD; 3) en Stripe, revisar los reintentos de cobro (Smart Retries) y que la cuenta acepte tarjetas de afuera.
 
+**La decisión de Martín (H1 de la verificación independiente):** las cuentas de agencia que ya existían (6 de la agencia
+ws13) siguen como Pro hasta que su agencia les elija el plan. Si Martín dice que pasen a Esencial:
+`CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO = false` en lib/plan-esencial-reglas.ts (y el test que la fija), sin migración.
+
 **Lo que falta:** los carteles de tope con «Pasar a Pro» de otras áreas (CRM, WhatsApp, Equipo, Landings, Integraciones)
 también los ve el cliente de una agencia; el teléfono abre la cuenta sin elegir plan; la API no tiene «cambiar el plan»; el
 precio en EUR no tiene pantalla. El detalle, en hallazgos-agencias.md → «Lo que quedó SIN hacer (29/10)».
