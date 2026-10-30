@@ -855,6 +855,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   (`probe`, `t`, `check`, `out.json`) colisionan solos cuando hay tres sesiones trabajando.
   Lo mismo vale para cualquier archivo intermedio: va al directorio de scratchpad de la
   sesión, que es único por `sessionId`.
+  **Y al revés: lo que tiene que SOBREVIVIR no va al scratchpad.** Está en `%TEMP%`, que otras
+  sesiones podan y que vaciamos nosotros cuando falta disco (23/10), y es de UNA conversación:
+  después de un `/clear`, el mismo chat ya tiene otro. El 24/10 el vigía del cartero, su estado
+  y su relevo vivían en un scratchpad. Se mudaron a `~/.claude/operaciones/`, con el estado
+  copiado lleno, porque vacío habría vuelto a avisar los pedidos que ya había avisado.
 
 - ⚠️ **El próximo número de migración es un recurso COMPARTIDO, y dos sesiones eligen el
   mismo a la vez.** El 05/10 la sesión de Chatbot creó `0190_secuencia_cron.sql` mientras la
@@ -5943,6 +5948,14 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   trabada no avisa que se trabó, así que la ausencia la dice el servidor con «la última vez que llegó algo» (`visto_at`),
   en rojo y con lo que espera, nunca en un renglón gris. El diseño, en
   [docs/diseno-cartero-servicio.md](docs/diseno-cartero-servicio.md).
+  **El tercero, y el más limpio porque se predijo (24/10/2026, 19:04):** un `/clear` borra los crons de sesión. El chat
+  sigue en la barra con su título y su `local_…`, pero la conversación es otra y el `CronCreate` era de la vieja: el
+  cartero dejó de latir y nadie lo avisó, porque el que avisaba era ese mismo cron. El Cartero había marcado el riesgo
+  antes («si los mata, nadie lo avisa») y el Cerebro le puso un monitor afuera, sobre el latido: se vio a los 23 minutos y
+  no al otro día por Martín. **Cuando algo se vigila a sí mismo, su muerte es silenciosa: lo que corre siempre late, y ese
+  latido lo mira alguien que no es él.** Al limpiar un chat con cron: su prompt se guarda afuera de la conversación,
+  porque se va con ella, y después del `/clear` va `CronList` y se rearma. El caso, en
+  [docs/hallazgos-operaciones.md](docs/hallazgos-operaciones.md) → «El `/clear` borró el cron del Cartero».
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el

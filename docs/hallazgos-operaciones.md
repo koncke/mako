@@ -3046,6 +3046,54 @@ sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de a
 sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
 (§2.4).
 
+## El `/clear` borró el cron del Cartero, y el que avisaba era el cron (24/10/2026)
+
+**El síntoma:** el último latido del cartero (`~/.claude/operaciones/latidos/9471c6f25eb0eec0.json`) fue a las 19:04:41
+UTC. A las 19:27 iban 23 minutos sin una vuelta, contra una cada diez, y el chat «Cartero» tenía `CronList` vacío: el cron
+`0807f8d4` ya no existía.
+
+**La causa:** el Cerebro le había pedido al Cartero un `/clear`, porque arrastraba 525 mil tokens de otra tarea. El chat
+siguió en la barra con el mismo título y el mismo `local_60dde796…`, pero la conversación es otra (su scratchpad pasó de
+`8f83ea88…` a `9d083be4…`), y los jobs de `CronCreate` eran de la vieja. No lo avisa nada: el cron corría el vigía, y el
+vigía era el que avisaba.
+
+**Lo que lo salvó:** el riesgo se marcó ANTES, desde adentro («no sé si /clear mata los crons, y si los mata nadie lo
+avisa»), y el Cerebro lo dejó vigilado desde afuera, con un monitor sobre el latido. Así se vio a los 23 minutos. Los dos
+casos anteriores del mismo día los vio Martín a ojo: el vigía de grupos, tres días después, y el cartero con la PC apagada,
+quince horas después.
+
+**La regla:** cuando algo se vigila a sí mismo, su muerte es silenciosa. Lo que corre siempre late, y ese latido lo mira
+alguien que no es él (AGENTS.md, junto a la del vigía de grupos). Y para quien limpia un chat con cron: el prompt del cron
+se guarda afuera de la conversación, porque se va con ella. El del Cartero estaba palabra por palabra en `LEEME-cartero.md`,
+y por eso se rearmó igual. Después del `/clear`, `CronList`.
+
+**El código ya distinguía bien a ese chat:** `carpetasConRunner` (cartero.mjs) no cuenta a una sesión viva llamada
+«Cartero» sin latido fresco (6 minutos, `LATIDO_VENCE_MS`). Después del `/clear` el chat seguía vivo y con el nombre justo,
+y aun así dejó de contar como Runner. El nombre solo no alcanza, y este caso lo prueba.
+
+**Para cuando se construya el servicio:** hoy `vuelta()` llama siempre a `latir(propio)`. Si el servicio corre esa misma vuelta, va a
+latir como Runner y va a tapar justo este caso: un chat abierto, con su nombre y sin cron. Quedó escrito en
+docs/diseno-cartero-servicio.md §2.1: el servicio deja su latido aparte.
+
+**La misma trampa, una capa más abajo:** el prompt rearmado palabra por palabra seguía apuntando al scratchpad VIEJO
+(`8f83ea88…/scratchpad`), donde vivían `vigia.cjs`, `vigia-estado.json` y el propio LEEME. Andaba porque esa carpeta
+seguía en el disco, pero está en `%TEMP%`, y Temp lo vaciamos nosotros cuando falta disco (23/10, docs/hallazgos-infra.md).
+Fue la cuarta versión del error del día: algo que tiene que sobrevivir, viviendo en un lugar que no sobrevive. **Se mudó el
+mismo día, 19:37 UTC:** los tres archivos están en `~/.claude/operaciones/` y el cron nuevo apunta ahí. El
+estado se copió con su contenido y se comparó el hash: vacío, el vigía habría vuelto a avisar los 6 pedidos trabados. La
+primera vuelta desde la carpeta nueva dio `limboNuevos: []` con `limboTotal: 6`. En el scratchpad viejo quedó sólo un
+aviso de mudanza.
+
+**Seis días después (30/10/2026), dos más de la misma familia:**
+- **El cron vence a los 7 días y se borra solo.** El de las vueltas se iba el 31/10. Ahora un recordatorio de una sola vez,
+  creado junto con él, pide rearmarlo el día antes. Sólo sirve con el chat abierto, igual que el cron.
+- **El Uso del Ops Center se quedó sin dato porque el prompt no medía.** La cuota la sube cada vuelta, pero la escribe
+  `cartero.mjs medir` con lo que da `get_usage`, y ese paso no estaba en el prompt. Ahora es el paso 0. Con la app en otra
+  cuenta, `medir` no anota: la huella del reinicio semanal lo frena (`problemaDeHuella`).
+
+**Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10 (`cartero.mjs` no tiene ese comando).
+Por eso el Runner sigue dependiendo de un chat abierto: estuvo parado del 24/10 al 30/10.
+
 ## La onda «que se movía sola» ya seguía la voz: lo que mentía era el respaldo, y un anillo de CSS (24/10/2026)
 
 **El síntoma:** Martín: «la animación de ondas de grabando audios no sigue lo que está escuchando, es decir, es sólo una

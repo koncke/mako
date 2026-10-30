@@ -40,6 +40,14 @@ Runner abierto, no corre nada: ni se mide, ni se sube, ni se entrega. **Ése es 
   `~/.claude/operaciones/vuelta.lock`, con el pid y una vigencia de 3 minutos. Quien lo encuentra tomado y vigente, saltea
   su vuelta.
 - Sube `servicio: { version, desde }` en el POST. MaKo distingue «hay noticias de la PC» de «hay un Runner que entrega».
+- **El servicio NO late como Runner.** Hoy `vuelta()` llama a `latir(propio)` antes de todo, y ese latido es lo que hace
+  contar a un chat como Runner (`carpetasConRunner`: el nombre solo no alcanza). Si el servicio corre la misma vuelta, un
+  chat «Cartero» abierto y sin cron seguiría contando como vivo, y eso es justo lo que deja un `/clear` (medido el 24/10:
+  docs/hallazgos-operaciones.md, «El `/clear` borró el cron del Cartero»). El servicio deja su latido aparte, y el del
+  Runner lo escribe sólo la vuelta de un chat.
+- **Y el latido que vale es el que llega a MaKo, no el archivo.** Si la PC se apaga o se traba, `latidos/*.json` deja de
+  actualizarse y no lo mira nadie. Lo que dice la ausencia es `visto_at` del lado del servidor, con su hora (el cartel 1 de
+  §2.2), y lo alimenta el POST del SERVICIO cada 2 minutos, no el chat.
 
 ### 2.2 La AUSENCIA se ve, y se mide desde el SERVIDOR
 
