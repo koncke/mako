@@ -42,7 +42,7 @@ import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import { avisoAltaAMano } from '@/lib/plan-esencial-reglas';
-import { DIAS_PLAN_A_MANO } from '@/lib/plan-a-mano-reglas';
+import { DIAS_PLAN_A_MANO, rotuloDeDias } from '@/lib/plan-a-mano-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -919,13 +919,13 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
       }
       // La prueba a mano (28/10/2026): después del plan, así vence el plan que quedó.
       if (dias != null) {
-        const j = await postWs({ action: 'plan_a_mano', id: w.id, dias }) as { ok?: boolean; error?: string; planAMano?: { hasta: string } | null };
+        const j = await postWs({ action: 'plan_a_mano', id: w.id, dias }) as { ok?: boolean; error?: string; planAMano?: { hasta: string; regalo?: true } | null };
         if (!j.ok) { setErrAccion(j.error ?? 'No se pudo guardar la prueba a mano.'); return; }
         if (capa === w.capa) {
           setAvisoPlan({
             tono: 'ok',
             texto: j.planAMano
-              ? `${w.nombre}: prueba hasta el ${new Date(j.planAMano.hasta).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}.`
+              ? `${w.nombre}: ${j.planAMano.regalo ? 'gratis' : 'prueba'} hasta el ${new Date(j.planAMano.hasta).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', ...(j.planAMano.regalo ? { year: 'numeric' as const } : {}) })}.`
               : `${w.nombre}: su plan ya no vence.`,
           });
         }
@@ -1670,7 +1670,7 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
   nClientes: number;
   ocupado: boolean;
   onCancel: () => void;
-  /** `dias`: la prueba a mano (7, 14 o 30; 0 = sin vencimiento); null = no se toca. */
+  /** `dias`: la prueba a mano (7, 14, 30 o los 6 meses gratis; 0 = sin vencimiento); null = no se toca. */
   onConfirm: (capa: string, dias: number | null) => void;
 }) {
   // ⚠️ ACÁ NO VA `useCapaModal`: LO LLAMA `Modal`, con el `anidada` que se le pasa
@@ -1731,10 +1731,10 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
           vencer les avisa a Martín y al dueño; no pausa (el corte de acceso general está apagado). */}
       <div className="pm-mano">
         <b>Prueba a mano</b>
-        <span>Con los topes de la prueba. Al vencer, les avisamos a ti y al dueño.</span>
+        <span>Con los topes de la prueba, salvo los 6 meses gratis, con su plan entero. Al vencer, les avisamos a ti y al dueño.</span>
         <div className="pm-dias">
           {DIAS_PLAN_A_MANO.map((d) => (
-            <button key={d} type="button" className={`pm-dia${dias === d ? ' pm-on' : ''}`} onClick={() => setDias(dias === d ? null : d)}>{d} días</button>
+            <button key={d} type="button" className={`pm-dia${dias === d ? ' pm-on' : ''}`} onClick={() => setDias(dias === d ? null : d)}>{rotuloDeDias(d)}</button>
           ))}
           <button type="button" className={`pm-dia${dias === 0 ? ' pm-on' : ''}`} onClick={() => setDias(dias === 0 ? null : 0)}>Sin vencimiento</button>
         </div>

@@ -30,6 +30,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
 
+- «Quieren entrar» (rama `quieren-entrar-3010`), al desplegarse: la bandeja de Customers › Accounts, el cartel arriba de las pestañas, la lista en el teléfono, y el mensaje del login a quien rebota, que es lo único que ve esa persona
 - La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
 - El **«Creando…»** de los «+» del editor de etapas (se prueba en el **Cliente de Prueba**, nunca en un cliente real)
 - El **selector de funnel del teléfono**

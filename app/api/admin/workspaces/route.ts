@@ -74,7 +74,7 @@ type Body = {
   adminEmail?: string; adminNombre?: string;
   /** La cara del cliente (mig 0179). `null` en cualquiera = volver al default. */
   portada?: string | null; portadaY?: number | null; icono?: string | null; avatarY?: number | null;
-  /** El plan a mano con vencimiento (28/10/2026): 7, 14 o 30 días; 0 = sin vencimiento. */
+  /** El plan a mano con vencimiento (28/10/2026): 7, 14, 30 días o los 6 meses gratis; 0 = sin vencimiento. */
   dias?: number;
 };
 
@@ -157,8 +157,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, workspace, aviso });
       }
       /**
-       * EL PLAN A MANO CON VENCIMIENTO (28/10/2026, lib/plan-a-mano.ts): el plan que ya tiene, por 7, 14 o 30 días, con los topes
-       * de la prueba; al vencer, avisa (no pausa: el corte general está apagado). 0 = sin vencimiento. Nunca a la plataforma.
+       * EL PLAN A MANO CON VENCIMIENTO (28/10/2026, lib/plan-a-mano.ts): el plan que ya tiene, por 7, 14 o 30 días con los topes
+       * de la prueba, o 6 meses gratis sin ellos; al vencer, avisa (no pausa: el corte general está apagado). 0 = sin vencimiento. Nunca a la plataforma.
        */
       case 'plan_a_mano': {
         if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });

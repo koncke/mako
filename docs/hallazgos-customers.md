@@ -23,7 +23,6 @@ diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEE
 
 **Sin hacer:**
 - En el teléfono se ve y no se decide: no hay alta ni «Descartar» en `/m/customers`. Vive en `app/m/customers/page.tsx`.
-- La prueba a mano sólo da 7, 14 o 30 días (`DIAS_PLAN_A_MANO`, lib/plan-a-mano-reglas.ts): los 6 meses gratis que Martín le ofreció a Gabriela no tienen opción.
 - Quien intenta con contraseña sin tener cuenta sigue sin dejar rastro, a propósito (el correo no está confirmado).
 
 **Vive en:** `lib/pedidos-ingreso.ts` · `lib/pedidos-ingreso-reglas.ts` · `app/admin/PedidosDeIngreso.tsx` · `app/api/admin/pedidos-ingreso/route.ts` · `tests/pedidos-ingreso.test.ts`.
