@@ -206,6 +206,8 @@ test('si MaKo igual le da trabajo, no toca el buzón: lo devuelve con su motivo'
     avisos: [{ id: id(2), ref: 'una-tarjeta', destino: local(1) }],
     tickets: [{ id: id(3), numero: 7, destino: local(1) }],
     ticketsNuevos: [{ id: id(4), numero: 8, destino: local(1) }],
+    // Lo que espera un chat cerrado (1.26.0): trae ids de PEDIDOS que no están tomados. No es trabajo del servicio ni se acusa.
+    limbo: [{ id: id(5), cuenta: 'claude2', fecha: '2026-10-24T08:00:00.000Z', etapa: 'espera', destino: local(1) }],
   } : {}));
   const v = vivos(1);
   const cfg = pc.carpeta('a');

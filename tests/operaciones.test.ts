@@ -75,7 +75,9 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
 
 const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction', 'creditoApiAction', 'creditoDelNegocioAction', 'computadorasDelNegocioAction', 'desconectarComputadoraAction',
   // Lo terminado viejo de UN chat, al abrirlo (23/10/2026, `pedidosDelChatAction`): con la misma guarda que las demás.
-  'pedidosDelChatAction'];
+  'pedidosDelChatAction',
+  // Dar de baja lo que no salió (30/10/2026, CartelLimbo.tsx): con la misma guarda.
+  'descartarDelLimboAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));
@@ -402,7 +404,7 @@ test('MaKo reclama sólo lo que el cartero dice que la PC alcanza, y nunca un ch
   // Y el ciclo los usa para reclamar pedidos y avisos (no la lista de vivos).
   const src = sinComentarios(leer('lib/operaciones.ts'));
   const ciclo = src.slice(src.indexOf('export async function cicloCartero'));
-  assert.match(ciclo, /const vivos = sanearEntregables\(e\.entregables, chats\)/);
+  assert.match(ciclo, /const vivos = servicio \? \[\] : sanearEntregables\(e\.entregables, chats\)/);
   assert.match(ciclo, /\.in\('destino', vivos\)/);
   assert.match(src, /if \(!mio\?\.vivo \|\| !entregables\.has\(mio\.local\)\) continue;/);
 });

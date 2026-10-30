@@ -1624,7 +1624,9 @@ código nuevo:
   comando para leerla, y el bug del triage de un ticket de cliente (`mensajeTicket`, 1.15.0) lleva sólo el NÚMERO.
   Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra. Y si `hayParaElCartero` cuenta algo
   nuevo, lo cuenta sólo para un Runner de la versión que lo entrega: con uno de antes, `vigilar` saldría en cada
-  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts).
+  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts). **El aviso de lo que espera un chat cerrado (`mensajeLimbo`, 1.26.0) lleva el id, la cuenta y
+  la fecha, y lleva su PROPIO id:** un acuse con el id de un pedido le podría pisar el estado. Lo avisado lo sabe la PC, así que ni `hay` lo cuenta ni MaKo corta la lista
+  (lib/limbo-al-cerebro.ts, tests/limbo-al-cerebro.test.ts).
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 - **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,
@@ -1780,8 +1782,12 @@ código nuevo:
   `entregables: []` (la lista vacía: sin ella, MaKo reclama todos los vivos), `abre: []` y `servicio: { version, desde }`. No llama a
   `latir` ni a `vuelta`, y a `carpetasConRunner` le pasa `null`: un chat con nombre y sin cron (lo que deja un `/clear`) no cuenta.
   Una vuelta a la vez en la PC (`tomarVuelta`, `vuelta.lock`): quien lo encuentra tomado saltea, y `vigilar` la reintenta. Todo el
-  que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ `visto_at` deja de querer decir «hay un Runner» cuando el
-  servicio está instalado: lo que el servidor tiene que cambiar, en docs/diseno-cartero-servicio.md §2.6, va ANTES de instalarlo.
+  que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ El servidor y la migración 0355 van ANTES de instalarlo
+  (docs/diseno-cartero-servicio.md §2.6).
+- **EN LA BASE, `visto_at` ES «LLEGÓ ALGO» Y `runner_visto_at` ES «HAY UN RUNNER». EN EL CÓDIGO, `vistoAt` ES EL RUNNER** (30/10/2026). Quien pregunte
+  «¿hay quien entregue?» usa `carteroVivo`; quien pregunte «¿la PC está?» o «¿de cuándo es esta foto?», `noticiasAt` (`sinNoticiasDesde`). Una vuelta con `servicio` no escribe ni
+  `runner_visto_at` ni `version`, y no reclama nada (`filaDeLaVuelta`). Los carteles salen de una sola regla, `cartelDeLaPc`, y cualquier otro que hable de la PC va ahí,
+  no en otro componente.
 - **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
   cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
   tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:

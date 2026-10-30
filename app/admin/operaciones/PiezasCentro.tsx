@@ -23,7 +23,7 @@ import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
+  SECCION_CEREBRO, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats,
   type ChatCentro, type GrupoJefe,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -40,12 +40,12 @@ import { BotonUso } from './Uso';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { cuentasDeUso } from '@/lib/centro-uso';
 import { CartelLimbo } from './CartelLimbo';
+import { CartelPc } from './CartelPc';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
 
 /** «10:52», con el reloj de Argentina (el de Martín). */
-const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
 const VISIBLES = 14;
@@ -169,15 +169,12 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, k.esperas), [k.esperas]);
   const secciones = useMemo(() => seccionesDeChats(visibles, avisos, esperanRespuesta), [visibles, avisos, esperanRespuesta]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
-  // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
-  const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
   return (
     <>
+      {/* Sin la PC o sin Runner, lo de abajo es una foto: se dice arriba, en rojo (30/10/2026, CartelPc.tsx; antes, un renglón gris). */}
+      <CartelPc centro={k} conComando />
       {/* Lo que no salió, arriba de todo: un mensaje a un chat cerrado se perdía en silencio (30/10/2026, CartelLimbo.tsx). */}
       <CartelLimbo centro={k} />
-      {sinNoticias != null && (
-        <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
-      )}
       {secciones.map(({ clave, titulo, chats: lista }) => {
         const plegada = plegadas.has(clave) && !buscando;
         const todas = enteras.has(clave) || buscando;

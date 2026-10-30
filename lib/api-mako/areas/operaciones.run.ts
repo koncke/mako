@@ -82,6 +82,8 @@ export const RUNNERS: Runners = {
           cuenta: cuentaN(k.cuenta),
           vivo: carteroVivo(k, ahora),
           ultimaVuelta: k.vistoAt,
+          // Con el servicio de la PC, la PC da noticias sin Runner (30/10/2026): `vivo` y `ultimaVuelta` son del Runner.
+          ultimaNoticiaDeLaPc: k.noticiasAt ?? k.vistoAt,
           version: k.version,
           chatsAbiertos: k.chats.filter((c) => c.vivo).map((c) => c.titulo),
           clavesAceptadas: k.claves.length,

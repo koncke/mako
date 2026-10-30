@@ -1788,3 +1788,8 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-limbo__chat { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--r-sm); background: none; color: var(--ink); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
 .co-limbo__chat:hover { background: var(--surface-2); }
 .co-limbo__chat:disabled { opacity: .6; cursor: default; }
+
+/* El cartel de la PC (30/10/2026, CartelPc.tsx): la misma caja roja que el de arriba, y encima de él. No es un botón: dice qué hacer. */
+.co-cartel-pc { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--bad); border-radius: var(--r-md); background: var(--bad-bg); color: var(--bad); font-size: var(--fs-sm); line-height: 1.35; }
+.co-cartel-pc__texto { flex: 1 1 100%; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.co-cartel-pc__hacer { flex: 1 1 auto; min-width: 0; margin: 0; overflow-wrap: anywhere; }

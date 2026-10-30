@@ -180,10 +180,40 @@ espera nada nuevo en la respuesta. Un servidor de hoy ignora el campo (`cicloCar
 **`hayParaElCartero` no cambia:** su comentario dice «entregables», pero lee `chats` (`vivo`, `runner`), y eso el servicio lo
 sube honesto. Un Runner vivo sigue recibiendo sus pedidos, y un chat sin cron cuenta 0.
 
+**Cómo quedó construido (30/10/2026, sin desplegar):**
+- **Migración `0355_operaciones_runner_visto.sql`, sin aplicar.** Sin ella, todo anda como antes y `visto_at` responde las dos preguntas.
+- **En el código, `vistoAt` sigue siendo «el Runner»** y sale de `runner_visto_at` (`vistoDeLaFila`, lib/operaciones-reglas.ts). `noticiasAt` es
+  «la PC» o «de cuándo es la foto», y lo leen `sinNoticiasDesde`, `cartelDeLaPc`, el `viejo` de `completarChats` y `preguntaDeChatCerrado`. Es el revés de lo que proponía el
+  punto 3: en vez de cambiar nueve lectores de `vistoAt`, cambian esos. Los demás preguntan por el Runner, y uno que se olvide queda del lado seguro. **`carteroVivo` y los
+  demás renglones de la lista no se tocaron.**
+- **El servicio no reclama, aunque traiga la lista:** `cicloCartero` lo fuerza (`vivos = []`, sin `abre`). La PC igual lo devuelve.
+- **El cartel 2 cuenta TODOS los «escrito»**, también los de un chat abierto y los de un chat nuevo: sin Runner no sale ninguno. Sin pedidos, igual lo dice,
+  sin número. Lo de los chats cerrados con un Runner andando es del cartel de los mensajes (CartelLimbo.tsx, del chat Ops Center).
+- **El comando se copia sólo en la computadora** (`COMANDO_TERMINAL`, con su `tieneTerminal`). En el teléfono no hay dónde pegarlo.
+
+**Y el orden, sin moverse:** migración → deploy del servidor → `instalar-servicio`.
+
+## 2.7 Lo que espera un chat cerrado se lo dice el Runner al Cerebro (cartero 1.26.0, 30/10/2026)
+
+El cartel se lo dice a Martín; esto, al chat «Cerebro» vivo. Es el molde de `mensajeTicketNuevo` (texto FIJO que arma la PC, sin firma), con
+`pedidosSinChatVivo` (la regla del cartel). Vive en `lib/limbo-al-cerebro.ts` y en `cartero.mjs` (`mensajeLimbo`), con test diferencial.
+
+- **Sale una vez por pedido, y otra con 3 días para vencer.** El que aparece recién cerca de vencer sale una sola vez, con ese texto.
+- **Sólo id, cuenta y fecha.** La consulta ni lee el texto ni el título: no están firmados para este destino. El Cerebro lo lee con
+  `scripts/tickets.ts mensaje <id>`, que sólo lee, y si hace falta le pide a Martín que se lo mande desde el cartel: la firma fija el destino.
+- **Sin columnas: lo avisado lo sabe la PC.** MaKo ofrece la lista entera en cada vuelta (`limbo`), y la PC arma un id fijo por (pedido, etapa) y lo saltea si
+  ya está en el buzón o en `entregados/`. Por eso sale cuando el Cerebro esté, y no sale dos veces con dos Cerebros abiertos.
+- **El tope va en la PC** (5 por vuelta). Con un tope en MaKo, los primeros ya avisados tapan a los demás para siempre.
+- **`hayParaElCartero` no lo cuenta:** MaKo no sabe qué ya se avisó, y `vigilar` saldría en cada vuelta. No es urgente: sale en la vuelta del cron.
+- **Un Runner de antes no recibe nada** (`VERSION_CARTERO_LIMBO`), y una vuelta del servicio tampoco: no tiene entregables.
+- **Nunca un acuse con el id del pedido:** el aviso lleva su propio id. Con el del pedido, un acuse le podría pisar el estado si está `tomado`.
+
+**Lo que no resuelve:** si el aviso quedó sin acuse 30 minutos en el buzón (`BUZON_VENCE_MS`), se vuelve a ofrecer. Puede salir dos veces. Es un texto fijo: se prefirió eso a perderlo.
+
 ## 3. El plan del lunes (26/10)
 
-**Estado (30/10/2026):** el 1 y la parte de código del 3 están hechos (`scripts/operaciones/cartero.mjs` 1.25.0,
-`tests/cartero-servicio.test.ts`). Falta el 2 (§2.6), el `.exe` (§2.4), el 4 y el 5.
+**Estado (30/10/2026):** el 1, la parte de código del 3 y el 2 están hechos, sin subir (`scripts/operaciones/cartero.mjs` 1.26.0,
+`tests/cartero-servicio.test.ts`, `tests/centro-cartel-pc.test.ts`, `tests/limbo-al-cerebro.test.ts`). Falta el `.exe` (§2.4), el 4 y el 5.
 
 
 1. `cartero.mjs servicio`: la vuelta de medir y subir, con `entregables: []`, el `vuelta.lock` y su test (medir sin

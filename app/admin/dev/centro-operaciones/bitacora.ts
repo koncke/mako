@@ -2055,4 +2055,21 @@ export const BITACORA: Hito[] = [
       'tests/centro-limbo.test.ts y tests/avisar-antes-de-firmar.test.ts (17 roturas)',
     ],
   },
+  {
+    fecha: '30 oct', hora: '18:30', chat: CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Se ve si la PC no da noticias o si nadie entrega, y lo que espera un chat cerrado le llega al Cerebro',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Dos carteles rojos, arriba, en la computadora y el teléfono:** «La PC no da noticias desde las 23:47» y «Nadie entrega en la PC: 8 pedidos tuyos esperan (el más viejo, de hace 6 días)». Reemplazan al renglón gris.',
+      '**El Ops Center ya no dice «Activo» por una vuelta del servicio:** «llegó algo» y «hay un Runner» son dos datos. Hace falta aplicar una migración antes de instalar el servicio.',
+      '**El Cerebro se entera:** cada mensaje sin entregar le llega una vez, y otra cuando le faltan 3 días para vencer. Con el id, la cuenta y la fecha, nunca con el texto.',
+      '**Sin mirarlo en un navegador:** no se levantó el servidor, porque bootear local escribe en producción.',
+    ],
+    archivos: [
+      'lib/operaciones.ts — cicloCartero, leerCarteros · lib/operaciones-reglas.ts — filaDeLaVuelta, vistoDeLaFila · lib/centro-chats.ts — cartelDeLaPc · CartelPc.tsx',
+      'lib/limbo-al-cerebro.ts · scripts/operaciones/cartero.mjs 1.26.0 — mensajeLimbo · scripts/tickets.ts mensaje · supabase/migrations/0355_operaciones_runner_visto.sql',
+      'tests/centro-cartel-pc.test.ts y tests/limbo-al-cerebro.test.ts',
+    ],
+  },
 ];

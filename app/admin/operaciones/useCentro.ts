@@ -27,7 +27,7 @@ import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
-  claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  cartelDeLaPc, claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
   avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
@@ -737,6 +737,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   // ── Los mensajes que esperan un chat cerrado (30/10/2026, CartelLimbo.tsx) ──────────────────────────────────
   const limbo = useMemo(() => mensajesEnLimbo(cola, carteros, ahora), [cola, carteros, ahora]);
+  // Los carteles de la PC (30/10/2026, CartelPc.tsx): con lo mismo, sin pedirle nada a la PC.
+  const cartelPc = useMemo(() => cartelDeLaPc(carteros, cola, ahora), [cola, carteros, ahora]);
   /** Dar de baja uno. Devuelve el error, o null. */
   async function descartarDelLimbo(p: Pedido): Promise<string | null> {
     const r = await descartarDelLimboAction(p.id).catch(() => null);
@@ -855,7 +857,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, preguntasDe, tareasDe, contestarPregunta, avisoDePregunta, limbo, descartarDelLimbo, mandarDelLimbo, mirar,
+    turnosDe, preguntasDe, tareasDe, contestarPregunta, avisoDePregunta, limbo, descartarDelLimbo, mandarDelLimbo, cartelPc, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,

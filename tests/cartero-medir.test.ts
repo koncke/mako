@@ -99,5 +99,5 @@ test('MaKo tampoco guarda la cuota cuya semana es de otra cuenta vigente (frena 
   assert.equal(cuentaDeLaSemana('claude1', { semana: { pct: 2, reinicia: '2026-10-27T20:00:00Z' } }, [{ cuenta: 'claude4', cuota: { semana: { pct: 2, reinicia: '2026-10-19T20:00:00Z' } } }], ahora), null, 'la de otra ya vencida no cuenta');
   const ciclo = readFileSync(join(process.cwd(), 'lib/operaciones.ts'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(ciclo, /if \(de\) \{ console\.warn\(.*\); cuota = null; \}/, 'cicloCartero no la guarda');
-  assert.ok(ciclo.indexOf('cuentaDeLaSemana(') < ciclo.indexOf('.upsert({ cuenta, visto_at: ahoraIso'), 'antes de guardar');
+  assert.ok(ciclo.includes('.upsert(escribir.fila,') && ciclo.indexOf('cuentaDeLaSemana(') < ciclo.indexOf('.upsert(escribir.fila,'), 'antes de guardar');
 });

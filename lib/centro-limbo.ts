@@ -44,7 +44,7 @@ export function mensajesEnLimbo<P extends PedidoDeLimbo>(cola: readonly P[], car
 }
 
 /** «hace 6 días», «hace 3 horas», «hace 20 minutos». */
-function haceCuanto(ms: number): string {
+export function haceCuanto(ms: number): string {
   const d = Math.floor(ms / 86_400_000);
   if (d >= 1) return d === 1 ? 'hace 1 día' : `hace ${d} días`;
   const h = Math.floor(ms / 3_600_000);

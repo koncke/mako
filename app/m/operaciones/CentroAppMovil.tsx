@@ -23,6 +23,7 @@ import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
 import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
 import { CartelLimbo } from '@/app/admin/operaciones/CartelLimbo';
+import { CartelPc } from '@/app/admin/operaciones/CartelPc';
 import { estadoRunnerUso, usoPrincipal } from '@/lib/centro-uso';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
@@ -42,6 +43,8 @@ export function CentroAppMovil(datos: DatosCentro) {
 
   return (
     <>
+      {/* Sin la PC o sin Runner, arriba y en rojo, como en la computadora (30/10/2026, CartelPc.tsx). Sin comando: no hay PowerShell acá. */}
+      <CartelPc centro={k} />
       {/* Lo que no salió, arriba de todo, como en la computadora (30/10/2026, CartelLimbo.tsx). */}
       <CartelLimbo centro={k} Hoja={SheetM} />
       {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). Desde el
