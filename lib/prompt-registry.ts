@@ -66,6 +66,7 @@ import {
 } from './editor-landing/ia-reglas';
 import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
 import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
+import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
@@ -851,6 +852,25 @@ export const REGISTRY: Group[] = [
         ], scope: 'full', sensitive: false,
         default: COPYWRITER_EDITAR_USER,
         context: 'Le pasa a MaKo el pedido, el guion con los ids de cada bloque y todo lo que necesita para escribirlo. Conserva los slots.',
+      },
+      // El experto y «Adaptar a mi negocio» (29/10/2026, lib/copywriter/experto.ts; docs/plantillas-reales/copywriter.md).
+      // Keys NUEVAS a propósito: un slot nuevo en las de arriba no llegaría a quien ya las editó.
+      {
+        key: 'copywriter.experto', source: 'override',
+        label: 'El método del Copywriter', kind: 'instruction', dynamic: false, variables: [], scope: 'full', sensitive: false,
+        default: COPYWRITER_EXPERTO,
+        context: 'El método del Copywriter: se suma a Discutir y a Editar. Conserva la regla de no inventar y la de no usar los datos del ejemplo.',
+      },
+      {
+        key: 'copywriter.adaptar.user', source: 'override',
+        label: 'Adaptar una plantilla (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('plantilla', 'el nombre de la plantilla'), v('ejemplo', 'el negocio ficticio del ejemplo y su rubro'), v('pide', 'lo que el ejemplo usa del negocio, con su pregunta'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('estructura', 'la estructura y la guía de cada sección'), v('negocio', 'lo que hace falta del Second Brain'),
+          v('charla', 'lo último del chat, con lo que acaba de decir la persona'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_ADAPTAR_USER,
+        context: '«Adaptar a mi negocio»: va con el system de Editar y devuelve el mismo JSON. Conserva que el ejemplo es de un negocio ficticio y que lo que falta va como [DATO: …].',
       },
     ],
   },

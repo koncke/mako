@@ -21,12 +21,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PROMPTS_COPY } from '../lib/copywriter/ia-reglas';
 import { PROMPTS_EDITAR, FORMATO_EDITAR } from '../lib/copywriter/ia-editar';
+import { PROMPTS_EXPERTO } from '../lib/copywriter/experto';
 import { OPERACIONES_IA } from '../lib/copywriter/operaciones';
 import { slotsDe } from '../lib/editor-landing/ia-reglas';
 import { REGISTRO } from '../lib/api-mako/registro';
 
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('los prompts del Copywriter están en el registro editable, cada uno con TODAS sus ranuras', () => {
   const reg = leer('lib/prompt-registry.ts');
@@ -36,6 +38,49 @@ test('los prompts del Copywriter están en el registro editable, cada uno con TO
     const bloque = reg.slice(i, reg.indexOf('context:', i));
     for (const s of slotsDe(p.tpl)) assert.ok(bloque.includes(`v('${s}'`), `${p.key}: la ranura {{${s}}} no está declarada en el registro`);
   }
+});
+
+test('el experto y «Adaptar»: keys NUEVAS en el registro (sin slots nuevos en las de antes), el método en los dos system', () => {
+  const reg = leer('lib/prompt-registry.ts');
+  for (const p of Object.values(PROMPTS_EXPERTO)) {
+    const i = reg.indexOf(`key: '${p.key}'`);
+    assert.ok(i >= 0, `${p.key} no está en lib/prompt-registry.ts`);
+    const bloque = reg.slice(i, reg.indexOf('context:', i));
+    const declarados = [...bloque.matchAll(/v\('([a-z_]+)'/g)].map((m) => m[1]).sort();
+    assert.deepEqual(declarados, slotsDe(p.tpl).sort(), `${p.key}: el registro y el template no tienen las mismas ranuras`);
+  }
+  assert.deepEqual(slotsDe(PROMPTS_EXPERTO.experto.tpl), [], 'el método va entero: sin slots');
+  // Un slot nuevo en un prompt que alguien ya editó no llegaría nunca (su override no lo tiene): los de antes, intactos.
+  assert.deepEqual(slotsDe(PROMPTS_EDITAR.editarUser.tpl).sort(), ['adjuntos', 'angulo', 'biblioteca', 'charla', 'estructura', 'instruccion', 'metodologia', 'negocio', 'props', 'referencias', 'titulo', 'guion'].sort());
+  const ia = sinComentarios(leer('lib/copywriter/ia.ts'));
+  assert.equal((ia.match(/\$\{await metodo\(\)\}\\n\\n\$\{REGLA_NO_EXISTE\}/g) ?? []).length, 2, 'el método antes de la regla de lo que no existe, en Discutir y en Editar');
+  assert.match(ia, /const pl = p\.adaptar \? plantillaPorId\(lite, g\.props\.plantilla\) : null;/);
+  assert.match(ia, /guion: contenidoNoConfiable\(guionParaIA\(g\.doc\), 'guion'\),\n\s+estructura:/, 'el guion del ejemplo, como dato');
+  assert.match(leer('app/api/copywriter/ia/route.ts'), /case 'adaptar': \{[\s\S]*?adaptar: b\.accion === 'adaptar'/);
+  // El ejemplo nunca es un dato del negocio: el método y el pedido lo dicen.
+  assert.match(PROMPTS_EXPERTO.experto.tpl, /Usar los datos del ejemplo de una plantilla/);
+  assert.match(PROMPTS_EXPERTO.adaptarUser.tpl, /NINGUNO puede quedar en la versión nueva/);
+});
+
+test('«Adaptar a mi negocio» en la pantalla: el primer mensaje es LOCAL, la pregunta deja el panel adaptando y «Solo la estructura» se deshace', () => {
+  const panel = sinComentarios(leer('app/copywriter/PanelMaKo.tsx'));
+  // El primer mensaje no llama a la IA (no gasta la del negocio sin que lo pida): sale sólo si la página todavía es el ejemplo.
+  assert.match(panel, /mensajes\.length === 0 && id && plantilla && editor && restosDelEjemplo\(editor\.leer\(\), plantilla\)\.bloques > 0 \?/);
+  assert.match(panel, /Es un ejemplo de \{plantilla\.ejemplo!\.negocio\}, un negocio ficticio\. ¿Lo adapto a tu negocio\?/);
+  assert.match(panel, /onClick=\{adaptar\}>Adaptar a mi negocio</);
+  assert.match(panel, /leerApi\(\)\?\.soloLaEstructura\(\)\}>Solo la estructura</);
+  assert.match(panel, /accion: adaptar \? 'adaptar' : 'editar'/);
+  assert.match(panel, /setAdaptando\(adaptar && !cambiaAlgo\)/, 'una pregunta de MaKo deja el panel adaptando');
+  assert.match(panel, /const pedir = \(t: string, archivos: File\[\] = \[\], citadas: Referencia\[\] = \[\]\) => \(adaptando \? pedirEdicion\(t, archivos, citadas, true\)/);
+  assert.match(panel, /void pedirEdicion\(instruccion, \[\], citadas, !!adaptar\)/, 'reintentar una adaptación vuelve a adaptar');
+  const editor = sinComentarios(leer('app/copywriter/editor/EditorGuion.tsx'));
+  assert.match(editor, /doc\.poner\(plantilla\.esqueleto\(\), \{ historial: true \}\)/, 'solo la estructura, en un paso de deshacer');
+  assert.match(editor, /p\.avisar\('Quedó solo la estructura', \(\) => \{ if \(doc\.poner\(antes, \{ historial: true \}\)\)/, 'con «Deshacer»');
+  assert.match(editor, /Todavía tiene \$\{queda\.bloques === 1/, 'copiar avisa lo que queda del ejemplo');
+  assert.match(editor, /\{p\.onAdaptar && <button type="button" className="nt-miga" disabled=\{pausa\} onClick=\{p\.onAdaptar\}>Adaptar con MaKo<\/button>\}/);
+  // La página recuerda de qué plantilla nació (sólo las que traen un ejemplo).
+  assert.match(leer('app/copywriter/Copywriter.tsx'), /plantilla: plantilla\.ejemplo \? plantilla\.id : null, duracion: plantilla\.duracion/);
+  assert.match(leer('app/m/copywriter/ListaGuionesM.tsx'), /plantilla: pl\.ejemplo \? pl\.id : null, duracion: pl\.duracion/);
 });
 
 test('«Editar» le pasa al modelo las herramientas (el {{formato}}) y el catálogo entero está en el formato', () => {

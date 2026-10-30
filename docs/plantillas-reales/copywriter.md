@@ -887,4 +887,4 @@ Los tiempos son de un video de 12 minutos: en otro largo se escalan en proporci�
 - El «Reel de historia (BAB)» de Voz de Líder de la investigación pasa a la tab Video.
 - Los `evals` del experto (un pedido, la salida esperada y las verificaciones, como marketingskills): `tests/copywriter-ia.test.ts` solo fija keys y slots. La calidad de la adaptación no tiene prueba automática.
 - Verificar la galería de Canva en el navegador (dio 403) y los anuncios de vivienda de Meta en México.
-- **Leer el negocio con `grafoParaChat`.** Ya está en main desde el 28/10 (`c272b97dd`, `lib/cerebro-para-chat.ts:33`), y lo usa `lib/api-mako/areas/negocio.run.ts`. Lo que falta es cambiar `const GRAFO = () => construirCerebro()` (`lib/copywriter/contexto.ts:24`) y su comentario de cabecera (líneas 12 a 15), que todavía dice que vive en otra rama. El `lib/` común de la tanda 0 (README, sección 6) nace leyendo `grafoParaChat`.
+- **Leer el negocio con `grafoParaChat`.** Hecho en la tanda 0 (29/10/2026): `contextoDelNegocio` vive en `lib/negocio-para-crear.ts` y lee `grafoParaChat`; `lib/copywriter/contexto.ts` quedó como re-exportación, así que los imports del Copywriter no cambian.

@@ -164,3 +164,35 @@ test('con muchísimos bloques, los cuadros respetan el tope y el último es el r
   const fin = aplicarTodo(doc, ops).doc;
   assert.deepEqual(bloquesDelDoc(cuadros[cuadros.length - 1]).map((b) => b.texto), bloquesDelDoc(fin).map((b) => b.texto));
 });
+
+// ── La tabla (29/10/2026, plantillas reales: docs/plantillas-reales/copywriter.md, trampa 2) ──────────────────
+// Sin el bloque `tabla`, «adaptar» la HISTORIA del Reel, el CONTEXTO de las Stories, las SLIDES del Carrusel o los
+// GANCHOS convertía la tabla en párrafos, sin un error.
+
+test('la tabla de la IA: se sanea con sus topes, las filas cortas se completan y lo vacío se cae', () => {
+  const r = sanearOperaciones([
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'tabla', filas: [['Escena', 'Locución', 'Cámara'], [1, 'Hola'], ['', '', ''], 'no es fila'] }] },
+    { op: 'escribir_seccion', seccion: 'CTA', bloques: [{ tipo: 'tabla', filas: [] }] },
+    { op: 'escribir_seccion', seccion: 'PROBLEMA', bloques: [{ tipo: 'tabla', filas: Array.from({ length: 50 }, () => Array.from({ length: 12 }, () => 'x'.repeat(1_500))) }] },
+  ], guionPas(), cat);
+  assert.equal(r.ops.length, 2, 'una tabla sin filas no es un bloque');
+  const b0 = (r.ops[0] as { bloques: { filas: string[][] }[] }).bloques[0];
+  assert.deepEqual(b0.filas, [['Escena', 'Locución', 'Cámara'], ['1', 'Hola', '']]);
+  const grande = (r.ops[1] as { bloques: { filas: string[][] }[] }).bloques[0].filas;
+  assert.deepEqual([grande.length, grande[0].length, grande[0][0].length], [30, 8, 1_000]);
+});
+
+test('la tabla sale con la forma de las de las plantillas, pasa el saneo, y escribir la sección la deja tabla', () => {
+  const doc = guionPas();
+  const tabla = bloqueAJson({ tipo: 'tabla', filas: [['Slide', 'Texto'], ['1 · Portada', '7 preguntas']] });
+  assert.deepEqual(tabla.content?.map((f) => f.content?.map((c) => c.type)), [['tableHeader', 'tableHeader'], ['tableCell', 'tableCell']]);
+  const fin = aplicarTodo(doc, [{ op: 'escribir_seccion', seccion: 'PROBLEMA', bloques: [{ tipo: 'tabla', filas: [['Slide', 'Texto'], ['1 · Portada', '7 preguntas']] }] }]).doc;
+  const s = sanearContenido(fin);
+  assert.ok(s.ok);
+  const enProblema = bloquesDelDoc(s.ok ? s.doc : fin).filter((b) => b.seccion === 'PROBLEMA' && b.tipo !== 'seccion');
+  assert.deepEqual(enProblema.map((b) => b.tipo), ['tabla'], 'la tabla se volvía párrafos');
+  assert.match(enProblema[0].texto, /Slide \| Texto\n1 · Portada \| 7 preguntas/);
+  // Construyéndose: la tabla aparece con todas sus celdas y el texto crece.
+  const medio = truncarBloque(tabla, 0.34);
+  assert.deepEqual(medio.content?.map((f) => f.content?.length), [2, 2]);
+});

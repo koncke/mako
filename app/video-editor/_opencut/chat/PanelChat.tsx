@@ -8,7 +8,8 @@
 // la fuente es el del Landing Generator (app/web-generator/editor/paneles/
 // PanelAgente.tsx, copiado de Gamma 5) y se copia su comportamiento:
 //   · mensajes del agente en burbuja gris a la izquierda y de la persona a la derecha;
-//   · sugerencias en píldoras; input al pie «Envía un mensaje al agente…» con el enviar
+//   · sugerencias en píldoras; input al pie «Escribe a MaKo» (29/10/2026: «Envía un mensaje al agente…» se partía en dos
+//     renglones en la tarjeta de 340 px) con el enviar
 //     redondo; mientras la IA trabaja, «Espera a que la IA termine» y el cuadrado de detener;
 //   · el alcance en chips: «Todo el video» o lo elegido en la línea de tiempo;
 //   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado», que se acepta o se
@@ -635,7 +636,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				{/* La caja única (app/_chat/CajaChat.tsx), con los tokens de MaKo tal cual. */}
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
 						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion} />
 				</div>
 			</footer>

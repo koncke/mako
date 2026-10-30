@@ -1715,7 +1715,11 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   - Tampoco dicen que los videos se pagan con los créditos de Google Flow del cliente (hasta 15 por toma), ni que piden Chrome
     de computadora.
   - **Regla:** la puerta y la promesa en la tabla son dos decisiones. La promesa espera a que el motor ande en producción,
-    salvo que Martín diga que se vende igual. Lo decide el Cerebro.
+    salvo que Martín diga que se vende igual.
+  - **Decidido (el Cerebro, 29/10: «sacar»; subió en tren-ad y salió en tren-ae):** la fila depende de `AI_AVATAR_SE_VENDE`
+    (`lib/planes-comparacion.ts`, hoy `false`), y el renglón de Esencial volvió al de antes. Vuelve a `true` cuando Martín
+    genere un look real en el ws3 y la tienda tenga la extensión 0.69 o más. Ese día, `tests/planes-tres-bloques.test.ts`
+    pide que la fila diga «Google Flow», y mientras tanto frena cualquier fila o renglón que diga «avatar».
 - ⚠️ **El setting `planes.mako` corta cada renglón a 80 letras.**
   - El corte está en `planValido` → `texto(x, 80)`, en `lib/planes-mako.ts`. `guardarPrecioLocal` escribe el setting con los
     planes de fábrica la primera vez que se carga un precio en pesos.

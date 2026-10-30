@@ -1,3 +1,19 @@
+# Relevo — Copywriter: plantillas reales y su experto (cuenta claude3, 29/10/2026, tarde)
+
+Rama `plantillas-copywriter-2910` (worktree `C:/dev/wt-copywriter-notion`), desde origin/main `ff908e645` con el plan
+`plantillas-reales-2910` (da6d07dee, sólo docs) mergeado. Pedido del Cerebro: la §5 de
+[plantillas-reales/copywriter.md](../plantillas-reales/copywriter.md), en su orden. **No pusheo: Integración arma el tren.**
+
+- **Hecho** (afe1be537): el bloque `tabla` de la IA; los 12 ejemplos y sus esqueletos; `youtube-retencion` con su aviso;
+  la API con el esqueleto; `copywriter.experto` y `copywriter.adaptar.user`; «Adaptar a mi negocio», «Solo la
+  estructura», la franja de restos y el aviso al copiar. Diseño: D16. Cosecha: hallazgos-copywriter.
+- **No tocado, a propósito** (lo cambia Create en su tanda 0): app/_crear y lib/copywriter/contexto.ts. Cuando llegue a
+  main: pasar `extractoDe`, `chipsDe`, `insignia` y `descripcion` (como `ayuda`) a `PlantillaCrear` en
+  app/copywriter/Copywriter.tsx (hoy la insignia va en el `rotulo`), y leer el negocio con `grafoParaChat`.
+- **Avisos:** lib/avisos/LICENSE-{CLAUDE-YOUTUBE,MARKETINGSKILLS,PROFOUND}, texto literal; Create avisado (misma carpeta).
+
+---
+
 # Relevo — chat «Copywriter = Notion» (cuenta claude3, 29/10/2026)
 
 Rama `copywriter-notion-2910`, worktree `C:/dev/wt-copywriter-notion`. **Sale de origin/main (7f36fa9c6) con

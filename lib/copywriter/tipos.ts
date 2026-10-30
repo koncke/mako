@@ -49,6 +49,11 @@ export type PropsGuion = {
   estructura: string | null;
   /** En segundos. */
   duracion: number | null;
+  /**
+   * La plantilla de la que nació la página (lib/copywriter/plantillas.ts, 29/10/2026): con ella MaKo sabe que el cuerpo
+   * es un EJEMPLO de un negocio ficticio y ofrece «Adaptar a mi negocio». No se muestra en las propiedades.
+   */
+  plantilla?: string | null;
 };
 
 /** Un nodo de ProseMirror como JSON (lo que guarda TipTap con `getJSON()`). */
@@ -125,8 +130,8 @@ export const TOPES = {
 export const SIN_TITULO = 'Sin título';
 
 /** Las propiedades de una página nueva de ese tipo. */
-export function propsNuevas(tipo: TipoGuion, estructura: string | null = null): PropsGuion {
-  return { tipo, angulo: null, estructura, duracion: INFO_TIPO[tipo].duracion };
+export function propsNuevas(tipo: TipoGuion, estructura: string | null = null, extra: { plantilla?: string | null; duracion?: number | null } = {}): PropsGuion {
+  return { tipo, angulo: null, estructura, duracion: extra.duracion ?? INFO_TIPO[tipo].duracion, plantilla: extra.plantilla ?? null };
 }
 
 /** Lee las propiedades a la defensiva (lo que vino de la base o de un pedido). */
@@ -135,5 +140,5 @@ export function sanearProps(v: unknown, tipoPorDefecto: TipoGuion = 'ad'): Props
   const tipo = esTipoGuion(o.tipo) ? o.tipo : tipoPorDefecto;
   const id = (x: unknown) => (typeof x === 'string' && /^[a-z0-9-]{1,60}$/.test(x) ? x : null);
   const d = typeof o.duracion === 'number' && Number.isFinite(o.duracion) ? Math.round(o.duracion) : null;
-  return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null };
+  return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null, plantilla: id(o.plantilla) };
 }

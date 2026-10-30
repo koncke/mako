@@ -18,8 +18,7 @@ import 'server-only';
 // `navKeys: null`, `superadmin` por `userNavKeys: null`; `pm` no, igual que el Video
 // Editor).
 //
-// ⚠️ El crédito de Doory (editor/CreditoDoory.tsx) lo ve desde ese día cada negocio
-// que abra el editor: lo exige su licencia mientras haya código de Doory adentro.
+// El crédito de Doory: 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.
 
 import { requireRolWs } from '@/lib/tab-access';
 

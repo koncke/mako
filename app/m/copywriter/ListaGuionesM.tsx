@@ -16,7 +16,7 @@ import { FilaM, ListaM, PieFijoM, SeccionM, SheetM, VacioM, useToastM } from '@/
 import { enOrdenDeArbol } from '@/lib/copywriter/arbol';
 import { INFO_TIPO, propsNuevas, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
-import { plantillasDe, type Plantilla } from '@/lib/copywriter/plantillas';
+import { plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
 import { pedirCrear } from '@/app/copywriter/cliente';
 
 export function ListaGuionesM({ paginas, catalogos, tipoInicial = null }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy; tipoInicial?: TipoGuion | null }) {
@@ -26,12 +26,13 @@ export function ListaGuionesM({ paginas, catalogos, tipoInicial = null }: { pagi
   const [creando, setCreando] = useState(false);
   const filas = enOrdenDeArbol(paginas);
 
-  const todas = plantillasDe(catalogos);
+  const todas = plantillasVisibles(plantillasDe(catalogos));
   const plantillas = tipoInicial ? [...todas.filter((x) => x.tipo === tipoInicial), ...todas.filter((x) => x.tipo !== tipoInicial)] : todas;
   const crear = async (pl: Plantilla) => {
     if (creando) return;
     setCreando(true);
-    const r = await pedirCrear({ tipo: pl.tipo, props: propsNuevas(pl.tipo, pl.estructura), contenido: pl.contenido() });
+    const props = propsNuevas(pl.tipo, pl.estructura, { plantilla: pl.ejemplo ? pl.id : null, duracion: pl.duracion });
+    const r = await pedirCrear({ tipo: pl.tipo, props, contenido: pl.contenido() });
     setCreando(false);
     if (!r.ok) { toast(`No se pudo crear: ${r.error}`); return; }
     router.push(`/m/copywriter/${r.pagina.id}`);
