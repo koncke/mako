@@ -20,6 +20,45 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## ¿Qué pasó con estos leads? La papelera andaba; lo que no existía era el renglón (30/10/2026)
+
+**Vive en:** supabase/migrations/0356_leads_bajas.sql (aplicada el 30/10) · lib/leads-bajas.ts · lib/leads-bajas-reglas.ts · la API
+`ver_bajas_de_leads` · tests/crm-leads-bajas.test.ts (24 roturas, 24 rojos).
+
+- **El síntoma:** 4.457 filas de historial son de 1.371 leads que ya no existen, sin decir quién los borró, y la papelera tenía 0 filas
+  en todos los negocios. Se leía como «la papelera no anda y lleva días sin registrar nada». **Ese diagnóstico era el equivocado.**
+  Medido en producción, en el Cliente de Prueba y con un lead propio: la foto, la salida de `leads`, la vuelta con el mismo id,
+  todo funciona. Tampoco hay ninguna línea «Papelera» en el historial, y el código está en main desde el 29/10 a las 11:53. Lo más
+  probable es que nadie haya eliminado desde entonces. Pero eso no se podía probar, porque nada registraba los borrados: ése era
+  el agujero de verdad.
+- **Por qué un trigger de la base y no una línea en el código:** un camino nuevo, un script o el SQL a mano no pasan por el código.
+  Es a nivel de sentencia (un lote es un renglón por negocio), y anotar **nunca frena un borrado**: se probó rompiendo la tabla
+  adentro de una transacción que se deshizo, y el lead se borró igual, con un warning.
+- ⚠️ **Sólo guarda ids, a propósito: no le agreguen el nombre.** Parece una mejora obvia, y no lo es. Este registro no se purga: con
+  nombres sería un lugar que guarda datos personales para siempre, justo de la gente que pidió irse. Los datos siguen en la foto de
+  la papelera, con sus 30 días.
+- **Quién y por qué camino sólo se pueden decir desde una función de la base.** Desde PostgREST cada pedido es su propia transacción:
+  un `set_config` antes del `.delete()` no llega. Por eso `borrar_lead_anotado`. Sin ella el renglón dice `sin_camino`, y `rol` dice de
+  dónde vino (`service_role` es la app; `postgres` es un script o SQL a mano).
+- **Los dos caminos que no pasan por la papelera, y no deben:**
+  - unificar: todo lo que colgaba ya se mudó, así que recuperarla devolvería una ficha duplicada y vacía;
+  - el huérfano de Zernio: nació segundos antes en la misma corrida y nadie lo vio.
+  Quedan anotados con su camino. `deleteLead` se fue (no tenía quién la llamara), y un test barre `lib/` y `app/` para que no aparezca
+  un tercer `from('leads').delete()`.
+- ⚠️ **`leads_bajas` es de inquilino, y borrar `leads` escribe ahí.** Vaciarla en su lugar de la lista dejaba un residuo: por eso
+  `vaciarTablas` la barre otra vez al final.
+- ⚠️ **Último autor no es quién borró.** Para los 1.371 de antes, lo único que queda es la última línea del historial. Es una pista, no un
+  hecho. Medido el 30/10 (los de octubre): Leila 112 (28/10), Martín 25 (27/10) y 606 (26/10), tejadomartin@gmail.com 440 (26/10) y 173
+  (25/10). Quien pregunte por esos lee esto: el registro arranca el 30/10, y la API lo avisa siempre.
+
+**Quedó SIN hacer:**
+- El botón «Eliminar» no se probó en pantalla (faltaba la sesión). Se leyó el código, y las funciones se midieron por PostgREST.
+- Lo que se borró no se ve en ninguna pantalla: se contesta por la API de MaKo. Si hace falta, va al lado de la papelera
+  (app/crm/PapeleraLeads.tsx).
+- El borrado de cuentas viejas y el reset quedan como `sin_camino`, con rol `service_role`, si algún día hay que mirarlos.
+
+*30/10/2026, chat «CRM» (claude1).*
+
 ## «Solucionar» un dato que la ficha no dibuja: el asistente no sabía CUÁL (29/10/2026, claude3)
 
 **El síntoma.** Leila (ws11, lead Fabi Pedraza, 26/10): «me dice que no tengo los datos fiscales pero cuando los quiero

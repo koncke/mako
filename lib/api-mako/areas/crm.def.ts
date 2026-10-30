@@ -1425,6 +1425,13 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
   },
   {
+    id: 'ver_bajas_de_leads', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver lo que se borró del CRM',
+    descripcion: 'Quién, cuándo, cuántos y por qué camino se borraron leads de este negocio (eliminar, unificar, un duplicado automático). Queda para siempre, también después de que la papelera purga. Sirve para contestar «¿qué pasó con estos leads?». Sólo trae ids; se registra desde el 30/10/2026.',
+    parametros: [{ nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'lo que pasó con UN lead, por su id.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
     id: 'recuperar_de_papelera_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
     titulo: 'Recuperar de la papelera',
     descripcion: 'PROPONE devolver leads de la papelera del CRM tal cual estaban (sus mismos ids, pagos, funnels, etiquetas y mensajes), con UNA confirmación (queda pendiente hasta el «sí»). Los ids salen de ver_papelera_crm; con todos=true, todos los de la papelera. Uno que volvió a llegar con sus mismos datos queda en la papelera y se dice. Solo el administrador.',

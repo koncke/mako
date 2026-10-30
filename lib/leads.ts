@@ -1424,15 +1424,6 @@ export async function enriquecerLead(
 }
 
 /**
- * Borra un lead. Hard delete — no hay soft delete en el esquema actual.
- */
-export async function deleteLead(id: number): Promise<void> {
-  const supabase = (await getTenantDb());
-  const { error } = await supabase.from('leads').delete().eq('id', id);
-  if (error) throw new Error(`Error borrando lead ${id}: ${error.message}`);
-}
-
-/**
  * Normaliza un teléfono a solo dígitos (sin +, espacios, guiones, paréntesis).
  * Llave de match entre instant form (Meta) y Calendly.
  * @returns null si no quedan dígitos.
