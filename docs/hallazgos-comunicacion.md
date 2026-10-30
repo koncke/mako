@@ -12064,21 +12064,39 @@ lib/mako-doer-in.ts) · `textoDe` (el videoMessage)
   ningún test por la entrada: sí, cada pieza por separado. El video del mensaje citado (no el del mismo mensaje) no se toma. Un
   Drive grande (más de 100 MB) se rechaza: va desde el Media Buyer.
 
-## La revisión de privacidad del despachante: un hito de varios negocios y el «hazlo» sin el triage (29/10/2026, claude3)
+## La revisión de privacidad del despachante: un hito de varios negocios, el «hazlo» sin el triage y quién escribe (29–30/10/2026, claude3)
 
-**Vive en:** `hitosDeLosTickets` (lib/tickets-reglas.ts) · `ticketsNuevosParaElCartero` (lib/tickets-runner.ts) · `mensajePedidoDelegado`
-(lib/tickets-aviso.ts y su copia en scripts/operaciones/cartero.mjs). Los hallazgos completos: C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md,
-y la entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
+**Vive en:** `hitosDelNegocio`, `delegadoQueDecideMartin`, `conPermisoEnElNegocio`, `sinLoInterno` y `textoDelAviso`
+(lib/tickets-reglas.ts) · `hitosDesplegadosDelNegocio` (lib/tickets-cierre.ts) · `ticketsDelNegocioEntre`, `esAdminDeMaKoPorTelefono` y
+`crearTicket` (lib/tickets-db.ts) · `participante`/`quienPide`, `escribeElDueno` y `sinDiagnostico` en `procesarDoer` (lib/mako-doer-in.ts) ·
+`ticketsNuevosParaElCartero` (lib/tickets-runner.ts) · `mensajePedidoDelegado` (lib/tickets-aviso.ts y su copia en
+scripts/operaciones/cartero.mjs). Los hallazgos completos: C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md, y la
+entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
 
 - ⚠️ **A1: en la rama sola no se veía.** Todos los hitos con `tickets` de esta rama nombraban uno. En main hay `tickets: [13, 26]`
-  (Leila y Mauricio): el ws1 recibía en su turno un punto sobre el plan de Leila, con el monto. Ahora un hito de VARIOS tickets va
-  sin sus puntos (el título sí: es el aviso que ya recibe cada cliente). **La regla:** lo que se muestra de una bitácora a un cliente
-  se piensa contra main, no contra la rama: las bitácoras de las demás áreas no están acá.
-- ⚠️ **A2: el texto «hazlo» no miraba el triage.** El pedido delegado salía con «hazlo» también en la cola de lo que ESPERA LA
-  DECISIÓN de Martín (un reembolso, una baja, un envío): justo lo que `ACCIONES_SIMPLES` deja afuera y por eso se delega. Ahora esa
-  cola manda siempre el texto de ticket nuevo, y el «hazlo» queda para lo que el triage aprobó, que además devuelve a Martín la plata,
-  los envíos a terceros, los borrados y lo de otro negocio.
+  (Leila y Mauricio): el ws1 recibía en su turno un punto sobre el plan de Leila, con el monto. Sacarle los puntos al hito de varios
+  (la primera versión, d30862b59) no alcanzaba: el título también puede nombrar al otro. Ahora un hito va al turno de un negocio sólo
+  si TODOS los tickets que nombra son de ese negocio (se lee de la base; sin poder leerlo, ninguno). **La regla:** lo que se muestra
+  de una bitácora a un cliente se filtra por negocio ANTES de armar el texto, y se piensa contra main, no contra la rama.
+- ⚠️ **A2: el «hazlo» no miraba el triage, y la regla del negocio lo dejaba pasar.** Que la cola de lo que espera a Martín mande el
+  texto de ticket nuevo (d30862b59) no cubría lo peor: con la regla de Leandro, Leila o Mauricio, un pedido delegado de PLATA («súbele
+  el presupuesto») salía `en_curso` y el Runner lo llevaba con el «hazlo». Ahora `crearTicket` mira cada delegado
+  (`delegadoQueDecideMartin`): plata, envíos, borrados, o quien pide sin ser admin de ese negocio → lo decide Martín, como un tercero
+  (guarda dura, ni la regla lo saca). Por las palabras de lo que pidió, sin IA: «mándame el reporte» también va a Martín.
+- ⚠️ **El diagnóstico obvio era el equivocado: el «quién pide» no existía.** En los grupos con `addressingMode: 'lid'` (el de Leandro,
+  el de la plataforma) `participant` es un `@lid` sin número y el teléfono viene en `participantAlt`, que el doer no leía: todo
+  ticket del grupo quedaba con el pushName, nadie era un usuario del negocio. Con el permiso de A2 encima, TODO pedido delegado se iba
+  a Martín, y el DEBUG de M3 no habría reconocido a Martín. Los hijos de los tests ya tenían la forma real (`participantAlt`); el código
+  no. **La regla:** quién escribe en un grupo se lee con el teléfono de `participantAlt` si está, y un lote de VARIOS no prueba
+  quién pidió (para el permiso, nadie).
+- **M1:** el «listo» de un delegado ya no es el texto del Cerebro: es fijo (lo que pidió, con el título, y el link de MaKo de ESE
+  negocio si lo dejó). La pregunta del equipo y el cierre pasan por `sinLoInterno` (sin oraciones con `ws`, ids, commits, rutas,
+  «otro negocio», links ajenos o de otro `ws`).
+- **M3:** el DEBUG lo habilita QUIEN escribe: el dueño desde su línea (`fromMe` que no es eco) o un admin de MaKo por su teléfono.
+  Y `diagnosticar_negocio` salió de las herramientas del modelo: la corre sólo el código del DEBUG (en una PREGUNTA del grupo de la
+  plataforma el modelo la podía llamar igual).
 - **También:** el banco gasta primero la cuenta 2 (la 1 es el crédito del ws1, M2), y el texto crudo del DEBUG pasa por `taparClaves` (B3).
-- **Sin hacer (al 29/10):** M1, que el «listo» del Cerebro salga sin ids ni otros negocios, está sólo en el texto al Cerebro: no hay un
-  chequeo en el código. M3: el DEBUG lo habilita el grupo y no quién escribe. M2: no hay tope por negocio para el crédito de los
-  grupos. B1: notas internas del mismo negocio en los puntos de un hito de un ticket.
+- **Sin hacer (al 30/10):** M2, el tope por negocio del crédito de los grupos (cuánto, es plata: lo decide Martín; y hace falta un
+  contador, no hay uno por negocio). B1: notas internas del mismo negocio en los puntos de un hito de un ticket. B2: `sanearContexto`
+  acepta `delegado: true` venga de donde venga (hoy ningún camino del cliente lo deja pasar). B4: el banco versiona nombres reales.
+  Si el perfil de Martín no tiene su teléfono, su DEBUG baja a una PREGUNTA hasta cargarlo.

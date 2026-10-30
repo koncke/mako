@@ -40,7 +40,7 @@ import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
 import { armarPrompt, esperaDelTurno, pcUsable, RESERVA_RESPALDO_MS } from '@/lib/ia-pc-reglas';
 import { registrarError } from '@/lib/errores-app';
-import { identidadDelActor } from '@/lib/tickets-db';
+import { esAdminDeMaKoPorTelefono, identidadDelActor } from '@/lib/tickets-db';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, soloElTurno, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
 import { listarPendientes, confirmarPendiente } from '@/lib/api-mako/acciones';
@@ -225,7 +225,7 @@ async function abrirVentana(ws: number, jid: string): Promise<void> {
 // ── parseo del mensaje entrante ───────────────────────────────────────────────
 /** `loteDeVarios`: el lote junta mensajes de MÁS de una persona (o de alguien sin teléfono): nunca va a la computadora del dueño. */
 type MsgIn = {
-  key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean;
+  key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string; participantAlt?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean;
   /** Un lote: para quién era cada mensaje, ya decidido (lib/doer-para-quien.ts, `paraQuienDelLote`). */
   paraQuien?: ParaQuienDelLote;
   /** Un lote: las imágenes y los PDF que traía, ya bajados (`adjuntoDelLote`). Van como bloques al turno. */
@@ -1196,7 +1196,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     const autores = new Set(lote.quedan.map((m) => m.payload.key?.participant ?? ''));
     const sintetico: MsgIn = {
       // `participant`: quién escribió (el ticket lo lee, lib/doer-ticket.ts). Sin esto se perdía en todo lote.
-      key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
+      key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant, participantAlt: ultimo.key?.participantAlt },
       pushName: ultimo.pushName,
       message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
       paraQuien: { ...lote.decision, leHabla: !!lote.quedan[lote.quedan.length - 1]?.leHabla },
@@ -1341,6 +1341,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
   try {
     const key = data.key;
     const jid = key?.remoteJid ?? ''; // manejarEntranteDoer ya validó que es un grupo
+    // QUIÉN ESCRIBE, CON SU TELÉFONO (30/10/2026, la revisión de privacidad: el pedido delegado y el DEBUG miran quién es). En un grupo
+    // con `addressingMode: 'lid'` (el de Leandro, el de la plataforma) `participant` es un `@lid` sin número y el teléfono viene en
+    // `participantAlt`: sin esto, nadie era un usuario del negocio y todo quedaba con su pushName.
+    const participante = telefonoDelParticipante(key?.participantAlt) ? key?.participantAlt : key?.participant;
+    /** Quién PIDE, para lo que mira el permiso (el pedido delegado, el DEBUG): un lote de VARIOS no prueba quién pidió lo de arriba. */
+    const quienPide = data.loteDeVarios ? undefined : participante;
     const textoDirecto = textoDe(data).trim();
     const audio = audioDe(data);
     const adjunto = adjuntoDe(data); // imagen o PDF
@@ -1399,7 +1405,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // la instancia si el webhook no lo adjuntó inline).
     /** Dónde pasó, para el ticket automático de lo que MaKo no pudo (lib/no-pude-server.ts): este grupo y quien escribe. */
     const dondeDelGrupo = (pedido: string): DondeNoPude => ({
-      ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido,
+      ws: wsData, actor: actorDeWhatsApp(participante, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido,
     });
     // El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): «@MaKo sí» es un «sí», para el clasificador y para la puerta.
     // En la línea del dueño, la @ a la línea es él: no se saca (`esLineaDelDueno`).
@@ -1459,7 +1465,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // quien se le ofrece. Como un cartel, no entra al historial (es del sistema, no un turno de MaKo: tests/doer-aviso-no-es-
     // turno.test.ts); deja su fila `ayuda-doer` para contar cuántas guías y tickets salieron.
     if (texto && !adjunto) {
-      const ayuda = await atenderAyuda(wsData, jid, sinPrefijoDeLote(texto), actorDeWhatsApp(key?.participant, data.pushName));
+      const ayuda = await atenderAyuda(wsData, jid, sinPrefijoDeLote(texto), actorDeWhatsApp(participante, data.pushName));
       if (ayuda) {
         const env = await enviarAGrupoJid(jid, ayuda);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
@@ -1593,11 +1599,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // acción dentro de MaKo»; lib/mako-intencion-ia.ts) ── Sobre todo lo que pasó la capa 0 (eco, equipo, acuse, el «sí»), no sólo
     // lo dudoso: con reglas, TICKET dio 0 de 11 en el banco de casos reales. Las reglas son el piso: sin IA, mandan ellas.
     const esElGrupoDeLaPlataforma = wsData === (await wsSuperAdmin().catch(() => null));
+    // ⚠️ EL DEBUG LO HABILITA QUIEN ESCRIBE, NO EL GRUPO (la revisión de privacidad de 85a0d9ead, M3): el grupo de SuperAdmin y los de
+    // prueba de la allowlist dan la plataforma, y en ésos escribe más gente. Es el dueño si escribe desde SU línea (un `fromMe` que no
+    // fue eco: arriba) o un admin de MaKo por su teléfono (`participantAlt` en un grupo con `@lid`). Sin teléfono, o en un lote de varios
+    // (no prueba quién pidió), no: el DEBUG baja a una PREGUNTA.
+    const escribeElDueno = esElGrupoDeLaPlataforma && !data.loteDeVarios
+      && (key?.fromMe === true || (await esAdminDeMaKoPorTelefono(telefonoDelParticipante(quienPide)).catch(() => false)));
     const { veredicto: intencion, clase: claseDeLaIA } = await clasificarConIA({
       texto,
       historial: historial.slice(-6).map((r) => ({ rol: r.role === 'user' ? 'persona' as const : 'mako' as const, texto: typeof r.content === 'string' ? r.content : '' })),
-      // DEBUG, sólo en el grupo de SuperAdmin (lo integra el equipo de la plataforma): en cualquier otro, el deny gana.
-      esSuperAdmin: esElGrupoDeLaPlataforma, escribeElDueno: esElGrupoDeLaPlataforma,
+      // DEBUG, sólo en el grupo de SuperAdmin (lo integra el equipo de la plataforma) y sólo si escribe el dueño: si no, el deny gana.
+      esSuperAdmin: esElGrupoDeLaPlataforma, escribeElDueno,
       pendiente: vigentes.length > 0, preguntaDelEquipo: null, quien: data.pushName ?? null,
     }, porReglas, clasificadorDelGrupo(sinPrefijoDeLote(texto).slice(0, 60)));
     // La decisión queda registrada (sin migración: el registro del gasto), con su porqué.
@@ -1609,7 +1621,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // UN TICKET: lo abre el código, con los pasos y la clase, y la respuesta es fija (el número lo escribe el código).
     if (intencion.intencion === 'ticket') {
       const abierto = await abrirTicketDelGrupo({
-        ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+        ws: wsData, actor: actorDeWhatsApp(participante, data.pushName) ?? null, jid, msgId,
         resumen: intencion.ticket?.resumen || claseDeLaIA?.resumen || '', pedido: sinPrefijoDeLote(texto),
         ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
         clasificacion: { clase: 'TICKET', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' },
@@ -1663,8 +1675,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Lo que salió en PRODUCCIÓN para los resueltos (29/10/2026, el #30 de Leandro: «¿lo actualizaste en la documentación API?» se
     // contestó con «no tengo acceso»): el hito de la bitácora que nombra cada ticket. Sólo si hay alguno resuelto, con un import
     // aparte (las bitácoras de todas las áreas no viajan en cada turno), y sin poder leerlo, sin eso.
-    const hitos = leidos?.ok && leidos.datos.some((t) => t.estado === 'resuelto')
-      ? await import('@/lib/tickets-cierre').then((m) => m.hitosDesplegados()).catch(() => null)
+    // Y sólo los hitos cuyos tickets son TODOS de este negocio (A1 de la revisión de privacidad, `hitosDelNegocio`).
+    const resueltos = leidos?.ok ? leidos.datos.filter((t) => t.estado === 'resuelto').map((t) => t.id) : [];
+    const hitos = resueltos.length
+      ? await import('@/lib/tickets-cierre').then((m) => m.hitosDesplegadosDelNegocio(wsData, resueltos)).catch(() => null)
       : null;
     const pedidosDelNegocio: PedidoDelNegocio[] = leidos?.ok
       ? leidos.datos.map((t) => {
@@ -1749,7 +1763,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const ctxApi: CtxApi = {
       ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto, enElGrupo,
       // Quién escribe, para el ticket: el doer no sabe su email (lib/doer-ticket.ts).
-      actor: actorDeWhatsApp(key?.participant, data.pushName),
+      actor: actorDeWhatsApp(participante, data.pushName),
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
         pedido: texto,
@@ -1804,7 +1818,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         const nombre = negocioLeido(leido);
         if (nombre) {
           const abierto = await abrirTicketDelGrupo({
-            ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+            ws: wsData, actor: actorDeWhatsApp(participante, data.pushName) ?? null, jid, msgId,
             resumen: claseDeLaIA?.resumen || `Debug de ${nombre}`, pedido: sinPrefijoDeLote(texto),
             ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
             clasificacion: { clase: 'DEBUG', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' }, evidencia: crudo,
@@ -1866,8 +1880,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Una ACCIÓN que decidió la IA (lib/despacho-grupo.ts): las lecturas, las escrituras SIMPLES, el presupuesto (se confirma en
     // /mako/revisar) y el WhatsApp a un lead (se aprueba en la app). Lo otro se delega.
     const esAccionIA = intencion.fuente === 'ia' && (intencion.intencion === 'actuar' || intencion.intencion === 'capturar');
-    const leidas = soloLeer ? conFuncion.filter((t) => !escribe(t.name))
-      : esAccionIA ? conFuncion.filter((t) => !escribe(t.name) || viajaEnLaAccion(t.name)) : conFuncion;
+    // M3 (la revisión de privacidad): `diagnosticar_negocio` (los datos de CUALQUIER negocio) la corre SÓLO el código del DEBUG, que
+    // mira quién escribe. El modelo nunca la tiene: en una PREGUNTA del grupo de la plataforma la podía llamar igual.
+    const sinDiagnostico = conFuncion.filter((t) => t.name !== DIAGNOSTICAR_NEGOCIO);
+    const leidas = soloLeer ? sinDiagnostico.filter((t) => !escribe(t.name))
+      : esAccionIA ? sinDiagnostico.filter((t) => !escribe(t.name) || viajaEnLaAccion(t.name)) : sinDiagnostico;
     const tools = leidas;
     const { ofrece } = turno;
     const ctxFalla = (reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '')
@@ -2913,7 +2930,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         leyo: leyoDelTurno, afirmaHecho: (sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, enElGrupo: { respaldado: false, propuesto: false, leyo: false } }).sinRespaldo ?? []).length > 0,
       })) {
       const abierto = await abrirTicketDelGrupo({
-        ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+        ws: wsData, actor: actorDeWhatsApp(quienPide, data.pushName) ?? null, jid, msgId,
         resumen: claseDeLaIA?.resumen || sinPrefijoDeLote(texto).slice(0, 120), pedido: sinPrefijoDeLote(texto),
         ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
         clasificacion: { clase: 'ACCION', porque: intencion.porque, fuente: 'ia' }, delegado: true,
@@ -3032,7 +3049,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // anda»): primero se contestó, ahora se abre; la línea la escribe el código. Si el turno ya dejó uno (una marca), no se abre otro.
     if (respuesta && !avisoDeSistema && intencion.ticket && !/\bticket\s+#\d+/i.test(respuesta)) {
       const abierto = await abrirTicketDelGrupo({
-        ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+        ws: wsData, actor: actorDeWhatsApp(participante, data.pushName) ?? null, jid, msgId,
         resumen: intencion.ticket.resumen, pedido: sinPrefijoDeLote(texto), ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
         clasificacion: { clase: 'TICKET', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' },
       }).catch(() => null);
@@ -3044,7 +3061,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const partes = claseDeLaIA?.partes ?? [];
     if (esAccionIA && respuesta && !avisoDeSistema && !textoFijo && faltaAlgunaParte(partes, escriturasDelTurno.length)) {
       const abierto = await abrirTicketDelGrupo({
-        ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, jid, msgId,
+        ws: wsData, actor: actorDeWhatsApp(quienPide, data.pushName) ?? null, jid, msgId,
         resumen: `Lo que faltó de: ${partes.join('; ')}`.slice(0, 200), pedido: sinPrefijoDeLote(texto),
         ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
         clasificacion: { clase: 'ACCION', porque: intencion.porque, fuente: 'ia' }, delegado: true, hecho: escriturasDelTurno,

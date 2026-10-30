@@ -54,7 +54,9 @@ export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbie
   if (!identidad) return null;
   const titulo = t.resumen.trim() || t.pedido.trim().slice(0, 120);
   const descripcion = [
-    t.delegado ? 'ACCIÓN DELEGADA: la pidieron en el grupo y MaKo no la hace sola (no es una de sus escrituras simples). Elige el jefe, el modelo y el esfuerzo; al terminar, cierra el ticket con la respuesta: qué quedó hecho y el link de MaKo donde verlo (le llega al grupo).' : '',
+    // Sin «hazlo» acá (A2 de la revisión de privacidad): la descripción la lee también un pedido que espera a Martín. La orden de
+    // hacerlo va SÓLO en el texto del Runner para lo que el triage aprobó (`mensajePedidoDelegado`, lib/tickets-aviso.ts).
+    t.delegado ? 'ACCIÓN DELEGADA: la pidieron en el grupo y MaKo no la hace sola (no es una de sus escrituras simples). Si el triage la aprobó, el Runner la lleva con su texto; si espera a Martín, no se toca sin su sí. Al cerrarla, el grupo recibe un «listo» fijo con lo que pidió y el link de MaKo que dejes en la respuesta (nada más de lo que escribas).' : '',
     t.ws === WS_CON_CUIDADO ? '⚠️ Es del ws1 (Mauricio): se ejecuta con el cuidado del ws1.' : '',
     `Lo que escribió en el grupo de WhatsApp, tal cual: «${t.pedido.trim().slice(0, 2500)}»`,
     t.ultimoDeMaKo ? `Lo que MaKo había dicho justo antes: «${t.ultimoDeMaKo.trim().slice(0, 800)}»` : '',

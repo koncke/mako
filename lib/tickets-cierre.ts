@@ -19,9 +19,9 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
-import { anotarDelCerebro } from './tickets-db';
+import { anotarDelCerebro, ticketsDelNegocioEntre } from './tickets-db';
 import { HORAS_MAX_SIN_TOMAR, MIN_SIN_TOMAR, delegadosParaAvisar, textoDelegadoSinTomar, type DelegadoSinTomar } from './despacho-grupo';
-import { aprobadoPorRegla, hitosDeLosTickets, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
+import { aprobadoPorRegla, hitosDeLosTickets, hitosDelNegocio, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
@@ -71,9 +71,16 @@ export async function avisarDelegadosSinTomar(ahoraMs = Date.now()): Promise<num
   return salieron;
 }
 
-/** Lo que salió en ESTE build para cada ticket, con sus puntos: lo lee el turno del grupo (`PedidoDelNegocio.desplegado`). */
-export function hitosDesplegados(): Map<number, { titulo: string; puntos: string[] }> {
-  return hitosDeLosTickets(REGISTROS_SLUGS.map((slug) => ({ bitacora: registroDe(slug).bitacora })));
+/**
+ * Lo que salió en ESTE build para los tickets `ids` del negocio `ws`, con sus puntos: lo lee el turno del grupo
+ * (`PedidoDelNegocio.desplegado`). Sólo los hitos cuyos tickets son TODOS de ese negocio (A1 de la revisión de privacidad,
+ * `hitosDelNegocio`): de quién son los que nombran se lee de la base, y sin poder leerlo tira (el turno sigue sin hitos).
+ */
+export async function hitosDesplegadosDelNegocio(ws: number, ids: readonly number[]): Promise<Map<number, { titulo: string; puntos: string[] }>> {
+  const hitos = hitosDeLosTickets(REGISTROS_SLUGS.map((slug) => ({ bitacora: registroDe(slug).bitacora })));
+  const nombrados = ticketsQueNombran(hitos, ids);
+  if (!nombrados.length) return new Map();
+  return hitosDelNegocio(hitos, ids, await ticketsDelNegocioEntre(ws, nombrados));
 }
 
 /**

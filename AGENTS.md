@@ -2292,6 +2292,11 @@ lib/doer-salida.ts). Una regla nueva de lo que MaKo no dice llega con su chequeo
   «listo» vuelve al grupo al cerrarlo; un pedido compuesto delega lo que no hizo. En la duda, se delega.
 - **El banco de casos reales (tests/fixtures/banco-grupos-2910.json) se corre antes de tocar el clasificador**
   (`scripts/banco-clases.mts`): los ejemplos del prompt salen sólo del 60 % de ajuste; el 40 % retenido no se mira.
+- **Lo que mira un PERMISO en el grupo se lee con QUIÉN escribe, no con el grupo (30/10/2026, la revisión de privacidad).** En
+  `procesarDoer` es `quienPide`: el teléfono de `participantAlt` en un grupo de `@lid` (sin él, todo queda con el pushName y nadie es
+  usuario del negocio), y nadie en un lote de varios. El «hazlo» de un pedido delegado lo decide `delegadoQueDecideMartin`
+  (lib/tickets-reglas.ts: admin del negocio, sin plata, envíos ni borrados); el DEBUG, un admin de MaKo. Lo que llega al grupo de un
+  cliente desde el Cerebro o una bitácora pasa por el filtro de ESE negocio (`hitosDelNegocio`, `sinLoInterno`), nunca tal cual.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 

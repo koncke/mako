@@ -775,4 +775,20 @@ export const BITACORA: Hito[] = [
       'tests/anuncio-desde-archivo.test.ts y tests/clase-del-grupo.test.ts (10, por el turno real)',
     ],
   },
+  {
+    fecha: '30 oct', hora: '01:00', chat: 'MaKo en WhatsApp', sesion: 'local_cf058ed5-4fbb-41b8-b1f9-93030d11d1a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Desde el grupo, MaKo sólo te muestra lo tuyo, y lo que toca plata, envíos o borrados lo aprueba Martín',
+    puntos: [
+      'Lo que salió en producción para tus pedidos te lo cuenta sólo si es tuyo: un arreglo que también era de otro negocio no aparece en tu grupo.',
+      'Un pedido que mueve plata (un presupuesto, un cobro, prender anuncios), manda o publica algo, o borra algo, pasa por Martín antes de hacerse, aunque tu negocio tenga la vía rápida. Lo mismo si lo pide alguien del grupo que no es admin de tu negocio en MaKo.',
+      'Cuando el equipo termina un pedido tuyo, el «listo» dice lo que pediste y el link para verlo, sin notas del equipo.',
+      '**Cómo se prueba:** en el grupo de un negocio con vía rápida, «súbele el presupuesto a la campaña X» queda esperando a Martín; «duplica la landing X», pedido por un admin del negocio, sale directo.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — `hitosDelNegocio`, `delegadoQueDecideMartin`, `sinLoInterno`',
+      'lib/mako-doer-in.ts — quién escribe (`participantAlt`), el DEBUG por persona, `diagnosticar_negocio` fuera del modelo',
+      'tests/despacho-grupo.test.ts (13–15) y tests/clase-del-grupo.test.ts (11, por el turno real)',
+    ],
+  },
 ];

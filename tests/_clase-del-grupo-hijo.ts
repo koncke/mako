@@ -27,12 +27,16 @@ const PLATAFORMA = 9;
 const LINEA = 'mako_superadmin_x';
 const LID = '70000000000010@lid';
 const ALT = '5491100000010@s.whatsapp.net';
+/** El teléfono de Martín (admin de MaKo): el DEBUG lo habilita quien escribe (M3 de la revisión de privacidad), no el grupo. */
+const ALT_MARTIN = '5491100000001@s.whatsapp.net';
+/** Alguien del grupo cuyo teléfono no está en ningún perfil: sin permiso para el «hazlo» de un pedido delegado (A2). */
+const ALT_SIN_PERFIL = '5491199999999@s.whatsapp.net';
 const CREDITO2 = `sk-ant-api03-credito-cuenta2-${'d'.repeat(40)}`;
 
 let n = 0;
 const pg = crearPostgrest({
   tablas: ['app_settings', 'workspaces', 'credenciales', 'mako_doer_buffer', 'mako_doer_lock', 'mako_doer_conv', 'mako_doer_enviados', 'anthropic_usage',
-    'errores_app', 'tickets', 'ticket_eventos', 'mako_acciones_pendientes', 'ia_cuotas', 'ia_rebotes', 'ia_pc_dispositivos', 'no_pude', 'mako_turnos'],
+    'errores_app', 'tickets', 'ticket_eventos', 'mako_acciones_pendientes', 'ia_cuotas', 'ia_rebotes', 'ia_pc_dispositivos', 'no_pude', 'mako_turnos', 'usuarios'],
   defaults: (t, f) => ({ id: ++n, created_at: new Date().toISOString(), ...(t === 'mako_doer_buffer' ? { estado: 'pendiente', workspace_id: WS } : {}), ...(t === 'tickets' ? { estado: 'esperando_decision' } : {}), ...f }),
   unicos: [{ tabla: 'mako_doer_buffer', columnas: ['grupo_jid', 'wa_message_id'], donde: (f) => f.wa_message_id !== '', nombre: 'ux_doer_buffer_msg' }],
   candado: true,
@@ -72,8 +76,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
 }) as typeof fetch;
 
 const VIDEO_B64 = Buffer.from('video de prueba').toString('base64');
-const real = (id: string, ts: number, t: string, jid = JID, video = false) => ({
-  key: { id, fromMe: false, remoteJid: jid, participant: LID, addressingMode: 'lid', participantAlt: ALT },
+const real = (id: string, ts: number, t: string, jid = JID, video = false, alt = ALT) => ({
+  key: { id, fromMe: false, remoteJid: jid, participant: LID, addressingMode: 'lid', participantAlt: alt },
   source: 'web', status: 'DELIVERY_ACK',
   message: video ? { videoMessage: { caption: t, mimetype: 'video/mp4', base64: VIDEO_B64 }, messageContextInfo: { threadId: [] } } : { conversation: t, messageContextInfo: { threadId: [] } },
   instance: LINEA, pushName: 'Leandro', instanceId: 'e0000000-0000-0000-0000-000000000010', messageType: 'conversation', messageTimestamp: ts,
@@ -82,6 +86,11 @@ const real = (id: string, ts: number, t: string, jid = JID, video = false) => ({
 async function main() {
   pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, { id: WS, capa: 'cliente', nombre: 'Fiesta Music' }, { id: 1, capa: 'cliente', nombre: 'Dueño' });
   pg.db.app_settings.push({ workspace_id: WS, key: 'mako.grupo_jid', value: JID }, { workspace_id: PLATAFORMA, key: 'mako.grupo_jid', value: JID_PLATAFORMA }, { workspace_id: 1, key: 'mako.voz.instancia', value: LINEA });
+  // Martín (admin de MaKo) y Leandro (admin de su negocio): los teléfonos en el perfil, como producción (`identidadDelActor`).
+  pg.db.usuarios.push(
+    { id: 501, email: 'martin@mako.test', nombre: 'Martín', rol: 'admin', estado: 'activo', workspace_id: PLATAFORMA, rol_ws: null, perfil: { telefono: '+54 9 11 0000-0001' } },
+    { id: 510, email: 'leandro@fiesta.test', nombre: 'Leandro', rol: 'usuario', estado: 'activo', workspace_id: WS, rol_ws: 'admin', perfil: { telefono: '+54 9 11 0000-0010' } },
+  );
   const { cifrarSecreto } = await import('../lib/credenciales');
   const OPENAI = `sk-proj-${'T3BlbkFJ'.repeat(4)}${'x9Y8z7W6'.repeat(5)}`;
   pg.db.credenciales.push(
@@ -106,18 +115,21 @@ async function main() {
     return { modelo: b.model ?? '', clave: x.clave, mensaje: JSON.stringify(b.messages?.[0]?.content ?? '').slice(0, 400) };
   });
   let ts = 1793260000;
-  const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes, video = false }: { limpiar?: boolean; jid?: string; antes?: () => void; video?: boolean } = {}) => {
+  const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes, video = false, alt = ALT }: { limpiar?: boolean; jid?: string; antes?: () => void; video?: boolean; alt?: string } = {}) => {
     Object.assign(escena, { clase: '', claseCaida: false, respuesta: '', herramienta: undefined }, e);
     llamadasAlTurno = 0;
     red.splice(0);
     if (limpiar) { pg.db.mako_doer_conv.splice(0); pg.db.tickets.splice(0); }
     antes?.();
     pg.db.mako_doer_lock.splice(0);
-    const r = await manejarEntranteDoer(LINEA, real(`3EB0CLASE${String(++ts).slice(-10)}`, ts, texto, jid, video) as never);
+    const r = await manejarEntranteDoer(LINEA, real(`3EB0CLASE${String(++ts).slice(-10)}`, ts, texto, jid, video, alt) as never);
     out[k] = {
       r, salio: salio(), turno: turno(), clasificador: clasificador(),
       reacciones: red.filter((x) => x.camino.includes('/message/sendReaction/')).length,
-      tickets: pg.db.tickets.map((t) => ({ id: t.id, tipo: t.tipo ?? null, titulo: t.titulo, descripcion: t.descripcion, contexto: t.contexto })),
+      tickets: pg.db.tickets.map((t) => ({
+        id: t.id, tipo: t.tipo ?? null, titulo: t.titulo, descripcion: t.descripcion, contexto: t.contexto, estado: t.estado, despacho: t.despacho ?? null,
+        email: t.usuario_email ?? null, porque: ((t.triage as { porque?: string[] } | null)?.porque ?? []).join(' '),
+      })),
       pendientes: pg.db.mako_acciones_pendientes.map((p) => ({ tipo: p.tipo, resumen: p.resumen })),
     };
   };
@@ -149,11 +161,21 @@ async function main() {
   // ACCIÓN que MaKo no hizo (ni propuso ni escribió nada): no sale su texto, se DELEGA como pedido.
   await correr('accionDelegada', { clase: '{"clase":"ACCION","resumen":"Crear una automatización de bienvenida para los leads nuevos","reenviado":false}', respuesta: 'Listo, ya quedó creada la automatización de bienvenida.' },
     'créame una automatización que le dé la bienvenida a los leads nuevos');
+  // A2 (la revisión de privacidad): un pedido delegado con PLATA espera a Martín aunque el negocio tenga su regla (Leandro).
+  await correr('delegadoPlata', { clase: '{"clase":"ACCION","resumen":"Subirle el presupuesto a la campaña Verano a 50 dólares","reenviado":false}', respuesta: 'Listo, ya le subí el presupuesto a 50 dólares.' },
+    'súbele el presupuesto a la campaña Verano a 50 dólares por día');
+  // …y uno sin plata, pedido por alguien del grupo que no está en ningún perfil del negocio: también espera a Martín.
+  await correr('delegadoSinPermiso', { clase: '{"clase":"ACCION","resumen":"Crear una automatización de bienvenida para los leads nuevos","reenviado":false}', respuesta: 'Listo, ya quedó creada la automatización de bienvenida.' },
+    'créame una automatización que le dé la bienvenida a los leads nuevos', { alt: ALT_SIN_PERFIL });
   // DEBUG en el grupo de SuperAdmin: sin decir de qué negocio, lo pregunta el código (sin turno).
   await correr('debugSinNegocio', { clase: '{"clase":"DEBUG","resumen":"Ver por qué a un cliente no le conecta Facebook","reenviado":true,"negocio":null}', respuesta: 'Te doy un consejo genérico.' },
-    'Che Tincho, te hago una consulta: pegué el token del pixel y le doy a conectar Facebook y no me hace nada', { jid: JID_PLATAFORMA });
+    'Che Tincho, te hago una consulta: pegué el token del pixel y le doy a conectar Facebook y no me hace nada', { jid: JID_PLATAFORMA, alt: ALT_MARTIN });
   // DEBUG con el negocio: lo mira `diagnosticar_negocio` (con la base de mentira, no lo encuentra) y lo dice el código.
   await correr('debugNegocio', { clase: '{"clase":"DEBUG","resumen":"Ver qué le pasa a Leila con Facebook","reenviado":false,"negocio":"Leila"}', respuesta: 'Te doy un consejo genérico.' },
+    'fíjate por qué a Leila no le conecta Facebook', { jid: JID_PLATAFORMA, alt: ALT_MARTIN });
+  // M3 (la revisión de privacidad): en el grupo de la plataforma, el DEBUG de alguien que NO es admin de MaKo es una PREGUNTA, y el
+  // modelo no tiene `diagnosticar_negocio` (los grupos de prueba de la allowlist también dan la plataforma).
+  await correr('debugDeOtro', { clase: '{"clase":"DEBUG","resumen":"Ver qué le pasa a Leila con Facebook","reenviado":false,"negocio":"Leila"}', respuesta: 'No lo puedo ver desde aquí.' },
     'fíjate por qué a Leila no le conecta Facebook', { jid: JID_PLATAFORMA });
   // Un DEBUG fuera del grupo de SuperAdmin es una PREGUNTA (el deny gana): corre el turno, sólo con lecturas.
   await correr('debugAfuera', { clase: '{"clase":"DEBUG","resumen":"Ver qué le pasa a Leila","reenviado":false,"negocio":"Leila"}', respuesta: 'No lo puedo ver desde acá.' },

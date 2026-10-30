@@ -17,7 +17,9 @@
 //   8. el #30 de Leandro: la pregunta por un arreglo ve lo que salió en producción, y «pídemelo otra vez y lo hago» no sale ante
 //      lo que MaKo no puede hacer;
 //   9. la llamada con Thiago (docs/promesas/2910-llamada-thiago.md): replicar una landing la hace MaKo (corre la herramienta, deja
-//      la pendiente, no delega); pausar/prender y el presupuesto viajan en la ACCIÓN; un pedido compuesto delega lo que no hace.
+//      la pendiente, no delega); pausar/prender y el presupuesto viajan en la ACCIÓN; un pedido compuesto delega lo que no hace;
+//  11. la revisión de privacidad (A2 y M3): el «hazlo» de un pedido delegado sólo para un admin del negocio y sin plata, envíos ni
+//      borrados; el DEBUG sólo si escribe un admin de MaKo (por su teléfono, en `participantAlt` si el grupo es de `@lid`).
 //
 // Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base 7/7; restaurado con .rotura-bak): sin la delegación
 // → 6 · la ACCIÓN con todas las escrituras → 6 · sin el chequeo de los números → 5 · el DEBUG sin el deny → 7 · el DEBUG con el turno
@@ -35,7 +37,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ACCIONES_SIMPLES } from '../lib/despacho-grupo';
 
-type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[]; deHerramientas: string[]; usuario: string }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; pendientes: Array<{ tipo: string; resumen: string }>; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } } }> };
+type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[]; deHerramientas: string[]; usuario: string }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; pendientes: Array<{ tipo: string; resumen: string }>; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } }; estado: string; despacho: string | null; email: string | null; porque: string }> };
 let cache: Record<string, Escena> | null = null;
 function escena(k: string): Escena {
   if (!cache) {
@@ -136,6 +138,11 @@ test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo 
   assert.equal(t.contexto.clasificacion?.clase, 'ACCION');
   assert.match(t.descripcion, /^ACCIÓN DELEGADA: /);
   assert.match(t.descripcion, /«créame una automatización que le dé la bienvenida a los leads nuevos»/);
+  // Lo pidió Leandro: admin de su negocio por el teléfono de su perfil (que en un grupo de `@lid` viene en `participantAlt`), y no
+  // toca plata: su regla lo lleva al Runner con el «hazlo».
+  assert.equal(t.email, 'leandro@fiesta.test', 'el pedido no quedó a nombre de quien lo escribió');
+  assert.equal(t.estado, 'en_curso', t.porque);
+  assert.equal(t.despacho, 'runner');
 });
 
 test('8. el #30 de Leandro: una pregunta por un arreglo ve lo que salió en producción, y nunca sale «pídemelo otra vez y lo hago»', () => {
@@ -165,6 +172,30 @@ test('7. DEBUG: lo resuelve el código en el grupo de SuperAdmin, sin turno; afu
   const a = escena('debugAfuera');
   assert.equal(a.turno.length, 1, 'afuera del grupo de SuperAdmin, un DEBUG no es un DEBUG');
   assert.deepEqual(a.turno[0].tools.filter((t) => t === 'diagnosticar_negocio' || ESCRIBEN.test(t)), []);
+});
+
+test('11. A2 y M3 por la entrada real: el «hazlo» sólo para un admin del negocio y sin plata; el DEBUG, sólo si escribe un admin de MaKo', () => {
+  // Rota: `clasificar` sin `decideMartin` → el presupuesto de Leandro sale con el «hazlo» (en_curso, al Runner), por su regla.
+  const p = escena('delegadoPlata');
+  assert.equal(p.tickets.length, 1, 'no quedó el pedido delegado');
+  assert.equal((p.tickets[0].contexto as { delegado?: unknown }).delegado, true);
+  assert.equal(p.tickets[0].estado, 'esperando_decision', 'un pedido con plata salió con el «hazlo»');
+  assert.equal(p.tickets[0].despacho, null);
+  assert.match(p.tickets[0].porque, /que decide Martín: toca plata/);
+  // Alguien del grupo cuyo teléfono no está en ningún perfil del negocio: sin plata, igual espera a Martín.
+  const s = escena('delegadoSinPermiso');
+  assert.equal(s.tickets.length, 1);
+  assert.equal(s.tickets[0].estado, 'esperando_decision', 'un pedido de alguien sin permiso salió con el «hazlo»');
+  assert.match(s.tickets[0].porque, /no es admin de ese negocio/);
+  // M3. Rota: `escribeElDueno: esElGrupoDeLaPlataforma` → el DEBUG de alguien que no es admin de MaKo lo resuelve el código y lee
+  // otro negocio. Ahora es una PREGUNTA, y el modelo nunca tiene `diagnosticar_negocio`.
+  // (En la base de mentira la IA de la plataforma no contesta: el turno corre y sale el cartel de siempre, y eso basta para ver que
+  // NO fue el DEBUG. Las herramientas del modelo, en tests/despacho-grupo.test.ts, el 15.)
+  const d = escena('debugDeOtro');
+  assert.doesNotMatch(d.salio.join('\n'), /^(¿De qué negocio es|No encontré un negocio|«Leila» calza|No pude mirar|Lo pasé al Cerebro|Miré )/m,
+    `el DEBUG de alguien que no es admin de MaKo lo resolvió el código: ${JSON.stringify(d.salio)}`);
+  assert.ok(!d.tickets.some((t) => t.contexto.clasificacion?.clase === 'DEBUG'), 'abrió el ticket del DEBUG con la evidencia');
+  for (const t of d.turno) assert.ok(!t.tools.includes('diagnosticar_negocio'), 'el modelo tiene diagnosticar_negocio');
 });
 
 test('9. la llamada con Thiago: replicar una landing y las campañas se hacen desde el grupo; un pedido compuesto no pierde una parte', () => {

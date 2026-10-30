@@ -8,7 +8,9 @@
 //   3. el DEBUG: qué dice MaKo según lo que leyó `diagnosticar_negocio`, y los 2 o 3 hechos que nombra;
 //   4. una consulta no afirma un número que no vio (`numerosSinFuente`), sin marcar las horas, las fechas ni los teléfonos reescritos;
 //   5. el «listo» de un pedido delegado dice QUÉ quedó hecho; el texto al Cerebro es el MISMO en el cartero y en el servidor;
-//   6. un pedido delegado del ws1 lo dice en su ticket.
+//   6. un pedido delegado del ws1 lo dice en su ticket;
+//  13–15. la revisión de privacidad de 85a0d9ead: el «hazlo» del delegado respeta el triage (A2), lo del Cerebro no llega tal cual al
+//      cliente (M1) y el DEBUG lo habilita quien escribe (M3). A1 (un negocio sólo ve sus hitos) va en el 8.
 //
 // Probado rompiéndolo (29/10/2026, `roturas-despacho.mjs` del scratchpad, base verde; restaurado con .rotura-bak): la delegación sin
 // mirar si pregunta un dato → 2 · la delegación sin la red de la lectura → 2 · los teléfonos sin los últimos 8 dígitos → 4 · el
@@ -31,7 +33,10 @@ import { rechazoSiNoEsConfirmacionPura } from '../lib/confirmacion-pura';
 import { leerClase } from '../lib/mako-intencion-ia';
 import { hechosDelDiagnostico } from '../lib/diagnostico-negocio';
 import { numerosSinFuente, noLoPuedeHacer, sanearSalida, SIN_HACER, SIN_HACER_SIN_PROMESA } from '../lib/doer-salida';
-import { hitosDeLosTickets, textoDelAviso, sanearContexto } from '../lib/tickets-reglas';
+import {
+  clasificar, delegadoQueDecideMartin, estadoInicial, hitosDeLosTickets, hitosDelNegocio, linkDelNegocio, sanearContexto, sinLoInterno, textoDelAviso,
+  ticketsQueNombran,
+} from '../lib/tickets-reglas';
 import { bloqueDePedidos } from '../lib/pedidos-del-negocio';
 import { mensajePedidoDelegado, mensajeTicketNuevo } from '../lib/tickets-aviso';
 
@@ -116,10 +121,22 @@ test('4. una consulta no afirma un número que no vio; las horas, las fechas y l
 
 test('5. el «listo» del pedido delegado dice QUÉ quedó hecho; el texto al Cerebro es el mismo en los dos lados', async () => {
   // Rota: `textoDelAviso` sin mirar `delegado` → «Listo: tu ticket #8 («…») está resuelto.».
-  const base = { id: 8, titulo: 'Crear la automatización de bienvenida', estado: 'resuelto', duplicado_de: null };
-  assert.equal(textoDelAviso({ ...base, respuesta: 'Quedó la automatización de bienvenida → https://hola-mako.com/chatbot/81', contexto: { delegado: true } }),
-    'Listo: Quedó la automatización de bienvenida → https://hola-mako.com/chatbot/81');
-  assert.equal(textoDelAviso({ ...base, respuesta: null, contexto: { delegado: true } }), 'Listo: ya quedó lo que pediste (pedido #8).');
+  const base = { id: 8, titulo: 'Crear la automatización de bienvenida', estado: 'resuelto', duplicado_de: null, workspace_id: 10 };
+  const listo = 'Listo: ya quedó tu pedido #8 («Crear la automatización de bienvenida»).';
+  assert.equal(textoDelAviso({ ...base, respuesta: 'Quedó la automatización de bienvenida → https://hola-mako.com/chatbot/81?ws=10', contexto: { delegado: true } }),
+    `${listo} Lo ves aquí: https://hola-mako.com/chatbot/81?ws=10`);
+  assert.equal(textoDelAviso({ ...base, respuesta: null, contexto: { delegado: true } }), listo);
+  // M1 (la revisión de privacidad): el «listo» es FIJO. Rota: el «listo» con el texto del Cerebro tal cual → al grupo del cliente le
+  // llega «Hecho en ws11 con el script…; copié la automatización de Leila (lead 2605)», y el link de OTRO negocio.
+  const interno = 'Hecho en ws11 con el script; copié la automatización de Leila (lead 2605). https://hola-mako.com/chatbot/77?ws=11';
+  assert.equal(textoDelAviso({ ...base, respuesta: interno, contexto: { delegado: true } }), listo);
+  // La pregunta del equipo y el cierre pasan por `sinLoInterno`: se van las oraciones que hablan de la base o de otro negocio.
+  assert.equal(textoDelAviso({ ...base, estado: 'esperando_cliente', respuesta: 'Lo miré en la base de datos del ws10. ¿Qué texto quieres en el saludo?', contexto: { delegado: true } }),
+    'Sobre tu pedido #8 («Crear la automatización de bienvenida»), el equipo te pregunta: ¿Qué texto quieres en el saludo?');
+  assert.equal(textoDelAviso({ ...base, estado: 'esperando_cliente', respuesta: 'Lo copié del ws11.', contexto: { delegado: true } }),
+    'Sobre tu pedido #8 («Crear la automatización de bienvenida»), el equipo necesita un dato más: escríbelo aquí.');
+  assert.equal(textoDelAviso({ ...base, estado: 'rechazado', respuesta: 'Eso choca con el ticket #13 de otra cuenta. No se puede desde el grupo.', contexto: { delegado: true } }),
+    'Cerramos tu pedido #8 («Crear la automatización de bienvenida»). No se puede desde el grupo.');
   assert.equal(textoDelAviso({ ...base, respuesta: null, contexto: {} }), 'Listo: tu ticket #8 («Crear la automatización de bienvenida») está resuelto.');
   // La marca sobrevive al saneo del contexto, y sólo `true`.
   assert.equal(sanearContexto({ delegado: true }).delegado, true);
@@ -194,15 +211,22 @@ test('8. lo que salió en producción para cada pedido: el hito de la bitácora,
   const m = hitosDeLosTickets([
     { bitacora: [{ titulo: '**A** se arregló', puntos: ['uno **dos**', 'tres', 'cuatro', 'cinco'], tickets: [30, 31] }, { titulo: 'B', tickets: [30] }] },
   ]);
-  // Un hito con VARIOS tickets va sin puntos (la revisión de privacidad de 85a0d9ead, A1: en main, `tickets: [13, 26]` le daba al ws1
-  // un punto sobre el plan de Leila, con su monto). Rota: sacar `varios` de `hitosDeLosTickets` → el #31 trae los puntos del #30.
-  assert.deepEqual(m.get(30), { titulo: 'A se arregló', puntos: [] }, 'un hito de varios tickets mostró sus puntos');
-  assert.deepEqual(m.get(31), { titulo: 'A se arregló', puntos: [] });
-  const uno = hitosDeLosTickets([{ bitacora: [{ titulo: '**C** salió', puntos: ['uno **dos**', 'tres', 'cuatro', 'cinco'], tickets: [40] }] }]);
-  assert.deepEqual(uno.get(40), { titulo: 'C salió', puntos: ['uno dos', 'tres', 'cuatro'] }, 'un hito de UN ticket: sin ** y con 3 puntos');
-  const main = hitosDeLosTickets([{ bitacora: [{ titulo: 'El plan de pagos por tramos', puntos: ['Ticket #13 (Leila): 6 meses de $12.000 MXN'], tickets: [13, 26] }] }]);
-  assert.doesNotMatch(JSON.stringify(main.get(26)), /Leila|12\.000/, 'el ws1 ve lo de Leila');
+  assert.deepEqual(m.get(30), { titulo: 'A se arregló', puntos: ['uno dos', 'tres', 'cuatro'], tickets: [30, 31] }, 'sin ** y con 3 puntos');
   assert.equal(m.get(32), undefined);
+  // A1 (la revisión de privacidad de 85a0d9ead; el Cerebro: «filtrá por workspace ANTES de armar el texto, y probalo con un hito que
+  // nombra tickets de dos negocios»). En main, el hito de `tickets: [13, 26]` (el #13 de Leila, el #26 del ws1) le daba al ws1 un
+  // punto sobre el plan de Leila con su monto. Rota: `hitosDelNegocio` sin mirar que TODOS sean suyos → el ws1 ve lo de Leila.
+  const main = hitosDeLosTickets([{ bitacora: [{ titulo: 'El plan de pagos por tramos', puntos: ['Ticket #13 (Leila): 6 meses de $12.000 MXN'], tickets: [13, 26] }] }]);
+  assert.deepEqual(ticketsQueNombran(main, [26]), [13, 26], 'de quién son se pregunta por TODOS los que nombra');
+  assert.equal(hitosDelNegocio(main, [26], new Set([26])).size, 0, 'el ws1 ve el hito que nombra un ticket de Leila');
+  assert.equal(hitosDelNegocio(main, [13], new Set([13])).size, 0, 'Leila ve el hito que nombra un ticket del ws1');
+  // Con todos suyos va entero; sin poder leer de quién son (vacío), ninguno; y nunca el de un ticket que no es suyo.
+  assert.deepEqual(hitosDelNegocio(m, [30, 31], new Set([30, 31])).get(31), { titulo: 'A se arregló', puntos: ['uno dos', 'tres', 'cuatro'] });
+  assert.equal(hitosDelNegocio(m, [30], new Set()).size, 0);
+  assert.equal(hitosDelNegocio(m, [30], new Set([31])).size, 0);
+  // Y el turno los lee SÓLO así: por negocio, con los resueltos de ese negocio. El mapa entero no se exporta.
+  assert.match(sinComentarios(leer('lib/mako-doer-in.ts')), /m\.hitosDesplegadosDelNegocio\(wsData, resueltos\)/);
+  assert.doesNotMatch(leer('lib/tickets-cierre.ts'), /export function hitosDesplegados\(/);
   const ahora = new Date('2026-10-29T21:00:00Z');
   const pedidos = [{ id: 30, titulo: 'Documentación', estado: 'resuelto' as const, respuesta: 'Ya está arreglado.', updated_at: '2026-10-29T20:30:00Z', desplegado: { titulo: 'La guía de palabras clave', puntos: ['está en /api-mako?art=instagram-palabras-botones'] } }];
   const b = bloqueDePedidos(pedidos, ahora, 'America/Argentina/Buenos_Aires');
@@ -276,4 +300,78 @@ test('12. un pedido delegado que nadie tomó en 30 minutos: un aviso en su grupo
   const c = sinComentarios(leer('lib/tickets-cierre.ts'));
   assert.match(c, /export async function avisarDelegadosSinTomar\(/);
   assert.match(c, /await db\.from\('ticket_eventos'\)\.insert\(\{\n\s*ticket_id: f\.id, actor: 'sistema', tipo: TIPO_DEMORA_AVISADA,/);
+});
+
+test('13. A2: el pedido delegado con plata, envíos o borrados, o de alguien sin permiso, lo decide Martín (nunca el «hazlo»)', () => {
+  const admin = { usuarioId: 7, email: 'leandro@fiesta.test', rol: 'admin' };
+  // Lo que sigue por la regla del negocio: sin plata, sin envíos y sin borrados, y pedido por un admin.
+  assert.equal(delegadoQueDecideMartin('Duplica la landing del webinar con el título nuevo', admin), null);
+  for (const [pedido, motivo] of [
+    ['Súbele el presupuesto a 50 dólares a la campaña de leads', /plata/],
+    ['Prende la campaña del webinar', /plata/],
+    ['Hazle un reembolso a Juan', /plata/],
+    ['Cambia el precio del curso a $97', /plata/],
+    ['Mándales un WhatsApp a los 30 leads de ayer', /manda o publica/],
+    ['Publica el post en Instagram', /manda o publica/],
+    ['Borra los leads duplicados', /borra/],
+    ['Dale de baja a la automatización vieja', /borra/],
+  ] as const) assert.match(delegadoQueDecideMartin(pedido, admin) ?? '', motivo, pedido);
+  // Quien pide: un admin del negocio o un admin de MaKo. Un teléfono que no está en un perfil, un `@lid` (su nombre) o un closer, no.
+  for (const quien of [
+    { usuarioId: null, email: 'whatsapp:+5491122334455', rol: 'por WhatsApp' },
+    { usuarioId: null, email: 'whatsapp:juan', rol: 'por WhatsApp' },
+    { usuarioId: 9, email: 'closer@fiesta.test', rol: 'closer' },
+  ]) assert.match(delegadoQueDecideMartin('Duplica la landing', quien) ?? '', /no es admin de ese negocio/, quien.email);
+  assert.equal(delegadoQueDecideMartin('Duplica la landing', { usuarioId: 1, email: 'martin@mako.test', rol: 'admin de MaKo' }), null);
+  // El triage: con la regla del negocio (Leandro), lo que decide Martín NO va al Runner. Rota: `clasificar` sin mirar `decideMartin`
+  // → el presupuesto sale `en_curso`, y el Runner se lo lleva al Cerebro con el «hazlo».
+  const e = { tipoDeclarado: 'pedido' as const, declaradoPor: 'persona' as const, titulo: 'Súbele el presupuesto a 50 dólares', descripcion: 'ACCIÓN DELEGADA', contexto: { delegado: true }, adjuntos: 0 };
+  assert.equal(clasificar({ ...e, titulo: 'Duplica la landing del webinar' }, { aprobadoPorRegla: 'Leandro' }).autoArreglo, true, 'sin plata, la regla de Leandro lo lleva');
+  assert.equal(clasificar(e, { aprobadoPorRegla: 'Leandro' }).autoArreglo, true, 'el agujero de A2: la regla sola deja pasar la plata');
+  const plata = clasificar(e, { aprobadoPorRegla: 'Leandro', decideMartin: delegadoQueDecideMartin(e.titulo, admin) });
+  assert.equal(plata.autoArreglo, false);
+  assert.equal(estadoInicial(plata), 'esperando_decision');
+  assert.equal(plata.regla, undefined);
+  assert.match(plata.porque.join(' '), /Pedido delegado desde el grupo que decide Martín: toca plata/);
+  // Y `crearTicket` lo calcula para todo delegado, con lo que pidió (no con la descripción, que trae lo de antes).
+  const db = sinComentarios(leer('lib/tickets-db.ts'));
+  assert.ok(db.includes("const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\\n${contexto.pedido ?? ''}`, n.identidad) : null;"), 'crearTicket no lo calcula');
+  assert.ok(db.includes('hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin })'), 'crearTicket no se lo pasa al triage');
+  // La descripción del ticket no dice «hazlo»: la lee también el pedido que espera a Martín.
+  assert.doesNotMatch(sinComentarios(leer('lib/tickets-del-grupo.ts')), /Elige el jefe, el modelo y el esfuerzo/);
+});
+
+test('14. M1: de lo que escribe el Cerebro, al grupo del cliente sólo llega lo que no es interno', () => {
+  // Rota: `sinLoInterno` sin `LO_INTERNO` → «Lo hice con el commit 85a0d9ead…» le llega al cliente.
+  assert.equal(sinLoInterno('Listo. Lo hice con el commit 85a0d9ead en lib/tickets-reglas.ts. Te quedó en tu CRM.', { id: 8, ws: 10 }), 'Listo. Te quedó en tu CRM.');
+  assert.equal(sinLoInterno('Se resolvió junto con el ticket #13. Ya anda.', { id: 8 }), 'Ya anda.', 'un #N que no es el suyo');
+  assert.equal(sinLoInterno('Mira tu pedido #8.', { id: 8 }), 'Mira tu pedido #8.');
+  assert.equal(sinLoInterno('Lo copié de otro negocio.', { id: 8 }), '');
+  assert.equal(sinLoInterno('El lead 2605 ya está.', { id: 8 }), '');
+  assert.equal(sinLoInterno('Usé el id: 4411.', { id: 8 }), '');
+  assert.doesNotMatch(sinLoInterno(`Quedó con la clave sk-ant-api03-${'A'.repeat(90)} puesta.`, { id: 8 }), /sk-ant-api03-A{20}/);
+  // Los links: sólo los de MaKo y de ESE negocio.
+  assert.equal(sinLoInterno('Lo ves en https://hola-mako.com/crm?ws=10.', { id: 8, ws: 10 }), 'Lo ves en https://hola-mako.com/crm?ws=10.');
+  assert.equal(sinLoInterno('Lo ves en https://hola-mako.com/crm?ws=11.', { id: 8, ws: 10 }), '');
+  assert.equal(sinLoInterno('Mira https://mi-supabase.co/tabla.', { id: 8, ws: 10 }), '');
+  assert.equal(linkDelNegocio('ver https://hola-mako.com/landings/3?ws=11 y https://hola-mako.com/landings/4?ws=10.', 10), 'https://hola-mako.com/landings/4?ws=10');
+  assert.equal(linkDelNegocio('https://hola-mako.com/landings/3', 10), 'https://hola-mako.com/landings/3');
+  assert.equal(linkDelNegocio('https://otra.com/x', 10), null);
+  assert.ok(sinLoInterno('a. '.repeat(300), { id: 8 }).length <= 401);
+});
+
+test('15. M3: el DEBUG lo habilita quien escribe (con su teléfono), y `diagnosticar_negocio` sólo la corre el código', () => {
+  const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
+  // Rota: `escribeElDueno: esElGrupoDeLaPlataforma` → cualquiera de un grupo de prueba de la allowlist mira cualquier negocio.
+  assert.ok(doer.includes('const escribeElDueno = esElGrupoDeLaPlataforma && !data.loteDeVarios\n      && (key?.fromMe === true || (await esAdminDeMaKoPorTelefono(telefonoDelParticipante(quienPide)).catch(() => false)));'),
+    'el DEBUG no mira quién escribe');
+  assert.ok(doer.includes('esSuperAdmin: esElGrupoDeLaPlataforma, escribeElDueno,\n'));
+  // Quién escribe: el teléfono de `participantAlt` en un grupo de `@lid`; y en un lote de varios, nadie (no prueba quién pidió).
+  assert.ok(doer.includes('const participante = telefonoDelParticipante(key?.participantAlt) ? key?.participantAlt : key?.participant;'));
+  assert.ok(doer.includes('const quienPide = data.loteDeVarios ? undefined : participante;'));
+  assert.equal(doer.split('actorDeWhatsApp(quienPide, data.pushName)').length - 1, 2, 'las dos delegaciones van con quien pide');
+  assert.ok(!doer.includes('actorDeWhatsApp(key?.participant, data.pushName)'), 'un actor sin el teléfono de participantAlt');
+  // El modelo nunca la tiene: las herramientas del turno salen de `sinDiagnostico`.
+  assert.ok(doer.includes('const sinDiagnostico = conFuncion.filter((t) => t.name !== DIAGNOSTICAR_NEGOCIO);'));
+  assert.doesNotMatch(doer.slice(doer.indexOf('const leidas = '), doer.indexOf('const tools = leidas;')), /conFuncion/);
 });
