@@ -1,5 +1,5 @@
 // =============================================================================
-// image-editor/chat/propuestas — lo que la API PROPONE en un diseño del Image Editor (`image_editor_propuestas`, 0340)
+// image-editor/chat/propuestas — lo que la API PROPONE en un diseño del Image Editor (`image_editor_propuestas`, 0344)
 // =============================================================================
 // El espejo de lib/editor-video/propuestas.ts para el Image Editor (27/10/2026). Cada acción del chat en la API
 // (./api.ts) deja su operación en una PROPUESTA del diseño; el editor la muestra en su chat «MaKo IA» y una persona la

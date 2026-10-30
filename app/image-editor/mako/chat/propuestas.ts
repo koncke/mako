@@ -4,7 +4,7 @@
 // mako/chat/propuestas — lo que la API de MaKo propuso en el diseño abierto, como un cambio más del chat «MaKo IA»
 // =============================================================================
 // El espejo de app/video-editor/_opencut/chat/propuestas.ts (27/10/2026). Las operaciones del chat pasan a la API
-// (lib/image-editor/chat/api.ts) y cada una deja su cambio en una PROPUESTA del diseño (mig 0340, por
+// (lib/image-editor/chat/api.ts) y cada una deja su cambio en una PROPUESTA del diseño (mig 0344, por
 // /api/image-editor/propuestas). El editor la trae y la pone en el hilo como una respuesta de MaKo con su revisión
 // «Original | Modificado»; se acepta con el MISMO «Aceptar» (./acciones.ts → aceptarPropuesta, que la prueba contra el
 // diseño de ahora con las refs de la propuesta) y, aceptada o descartada, se cierra en la base.

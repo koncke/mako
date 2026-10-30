@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0340 — Lo que la API de MaKo PROPONE en un diseño del Image Editor (se acepta en el editor)
+-- 0344 — Lo que la API de MaKo PROPONE en un diseño del Image Editor (se acepta en el editor)
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES o JUNTO con el deploy que trae las acciones del Image Editor en la API
 -- (`estilo_texto_imagen`, `mover_elemento_imagen`, `crear_imagen_ia`… lib/image-editor/chat/api.ts) y

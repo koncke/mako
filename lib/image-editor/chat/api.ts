@@ -9,7 +9,7 @@
 // devuelve a la forma del chat.
 //
 // ⚠️ NINGUNA EJECUTA. Cada una PROPONE (`confirmacion: 'pantalla'`, pantalla /image-editor) y se suma a la propuesta
-//    abierta de ese diseño en ese canal (`image_editor_propuestas`, mig 0340); una persona la mira y la acepta en el
+//    abierta de ese diseño en ese canal (`image_editor_propuestas`, mig 0344); una persona la mira y la acepta en el
 //    editor con el mismo «Aceptar» del chat (que la vuelve a probar contra el diseño de ese momento, por id). El diseño
 //    se guarda en la base, pero lo que el motor necesita para aplicar bien (las fuentes cargadas para medir el texto,
 //    la imagen con IA generada) vive en el navegador: por eso no se escribe directo como cambiar_textos_diseno_imagen.

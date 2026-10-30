@@ -5,7 +5,7 @@
 // PATCH json { id, estado: 'aplicada'|'descartada', descartes?, ops? } → { ok, quedan } | { ok:false, yaResuelta }
 //
 // El espejo de /api/video-editor/propuestas (27/10/2026): las acciones del Image Editor en la API
-// (lib/image-editor/chat/api.ts) dejan sus operaciones en una propuesta del diseño (mig 0340); el editor las muestra en
+// (lib/image-editor/chat/api.ts) dejan sus operaciones en una propuesta del diseño (mig 0344); el editor las muestra en
 // su chat «MaKo IA» y una persona las acepta o las descarta (app/image-editor/mako/chat/propuestas.ts). Nada se aplica
 // sin ese clic. Reglas: lib/image-editor/chat/propuestas.ts.
 //

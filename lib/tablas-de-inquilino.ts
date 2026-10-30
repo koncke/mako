@@ -43,7 +43,7 @@
  * del chat del Video Editor, `video_editor_chats`, mig 0298, la copia de sus proyectos, `video_editor_proyectos`, mig 0299, y lo
  * que la API propone en ellos, `video_editor_propuestas`, mig 0302, el 16/10; y `plan_reuniones_descartadas`, mig 0300, y
  * `plan_repriorizaciones`, mig 0301, el mismo día; y el hilo del chat del Image Editor, `image_editor_chats`, mig 0303, y lo que la API propone en sus diseños,
- * `image_editor_propuestas`, mig 0340, el 27/10; y el
+ * `image_editor_propuestas`, mig 0344, el 27/10; y el
  * canal email de Chats, `email_mensajes`, mig 0312, el 17/10; y los vínculos de «Vincular cobro», `cobro_etapa_vinculos`, mig 0326, el
  * 22/10), en orden alfabético.
  *
