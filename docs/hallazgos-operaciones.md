@@ -3133,6 +3133,20 @@ aviso al Cerebro por el Runner, con texto fijo (`mensajeLimbo`, «Las dos pregun
 queda encolado y llega después de la decisión que lo corrige. Lo cortó el chat que iba a escribirlo, preguntándole directo al
 otro «¿ya lo empezaste?». Antes de escribir algo que cambió de dueño, se le pregunta al otro chat, no al que repartió.
 
+**Y siguió pasando mientras se arreglaba:** el 30/10 a las 18:46 UTC, Martín contestó una tarjeta del Cerebro de otra cuenta, cerrado,
+y la respuesta quedó en «escrito». El vigía la vio a las 18:59. Se creyó que traía la decisión que destrababa a cuatro chats, y
+no: decía que la pregunta era vieja, y pedía la fecha en cada pedido o decisión y un botón «Ignorar». **Una tarjeta vieja sin
+fecha le gasta una respuesta a Martín**, y leer sólo el principio del mensaje hizo creer lo contrario.
+
+**Nunca le atribuyas a Martín una acción que no hizo.** `cancelarPedido` escribe «Lo canceló Martín» siempre. Al descartar tres
+pedidos ya resueltos por decisión del Cerebro, el motivo se escribió por script: «Lo descartó el Cerebro: ya estaba resuelto (…)».
+Descartar un pedido es dejar de esperarlo: su adjunto no se borra.
+
+**El tope de mensajes entre chats:** la app pausa `SendMessage` a otras sesiones de la app después de 10 mensajes sin que el usuario
+escriba en ese chat, hasta su próximo mensaje («Paused until your user's next message»). Medido en el Runner el 30/10: se quedó sin
+poder avisarle nada al Cerebro. No se comprobó si frena también la entrega de pedidos, que sale por la misma herramienta: un
+Runner solo, con su cron, no tiene usuario que le escriba.
+
 **Vive en:** `lib/operaciones.ts` · `lib/centro-chats.ts` (`envioDe`, `chat_cerrado`) · `app/tickets/bandeja/cerebro.ts`
 
 ## Un dato viejo con fecha nueva: «Runner activo» al lado de una cuota de hace seis días (30/10/2026)
