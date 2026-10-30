@@ -88,7 +88,7 @@ test('campaña: cada objetivo pide lo suyo (formulario, píxel, página con http
   assert.equal(validarCampana({ ...base, presupuestoDia: 0 }, [MADRID]).ok, false);
   assert.equal(validarCampana({ ...base, creativo: { tipo: 'archivo', path: '../otro/x.jpg' } }, [MADRID]).ok, false, 'sólo un path del staging');
   assert.equal(valida({ ...base, objetivo: 'web', pixelId: '9', url: 'https://x.com', evento: 'schedule' }).evento, 'SCHEDULE');
-  assert.equal(validarCampana({ ...base, objetivo: 'web', pixelId: '9', url: 'https://x.com', evento: 'PURCHASE' }).ok, false, 'compras no es un evento de registros');
+  assert.equal(validarCampana({ ...base, objetivo: 'web', pixelId: '9', url: 'https://x.com', evento: 'PURCHASE' }, [MADRID]).ok, false, 'compras no es un evento de registros');
 });
 
 test('campaña: el cuerpo de Zernio lleva el presupuesto en UNIDADES, la fecha, los lugares y el formulario', () => {

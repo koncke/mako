@@ -212,7 +212,7 @@ test('motor: Revive no prende lo que pausó la fecha de fin, ni lo que ya pasó 
   const pausada = arbol().map((n) => (n.id === 'a1' ? { ...n, configurado: 'PAUSED' } : n));
   const crm = [senal('a1', { gasto: 50, leadsCrm: 10 })]; // US$5 por lead: Revive lo prendería
   const porMaKo = (tactica: DecisionPrevia['tactica']): DecisionPrevia => ({ tipo: 'pausar', tactica, nivel: 'ad', entidadId: 'a1', estado: 'aplicada', creada: '2026-11-01T10:00:00Z', aplicadaAt: '2026-11-01T10:00:00Z', origen: 'piloto' });
-  const revive = (x: Partial<EntradaMotor> & { config?: Partial<ConfigMediaBuyer> }) => proponer(entrada({ arbol: pausada, crm, ...x }), HOY).find((p) => p.tactica === 'revive');
+  const revive = (x: Omit<Partial<EntradaMotor>, 'config'> & { config?: Partial<ConfigMediaBuyer> }) => proponer(entrada({ arbol: pausada, crm, ...x }), HOY).find((p) => p.tactica === 'revive');
   assert.ok(revive({ historial: [porMaKo('stop_loss')] }), 'la línea de base: Revive prende lo que pausó el Stop Loss');
   assert.equal(revive({ historial: [porMaKo('hasta')] }), undefined, 'lo que pausó la fecha no');
   assert.equal(revive({ historial: [porMaKo('stop_loss')], config: { hasta: '2026-11-01' } }), undefined, 'con la fecha pasada no');
