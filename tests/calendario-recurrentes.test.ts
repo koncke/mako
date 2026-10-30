@@ -52,6 +52,15 @@ test('cada vez nace igual al molde, con SU copia del archivo, y se programa por 
   assert.equal(R.a.hasta, '2026-10-31', 'el molde anota hasta dónde nació');
 });
 
+test('«Deshacer» el borrado de una vez la devuelve CON su serie: su «Repetir» se rechaza y no hay dos series (N1); el molde, con su marca (N8)', () => {
+  assert.deepEqual(R.h.serieAlBorrar, { de: 'evmolde1', hasta: null }, 'el borrado guarda su lugar en la serie');
+  assert.deepEqual(R.h.vuelta, { serie_de: 'evmolde1', repetir: null });
+  assert.deepEqual(R.h.repetirLaVuelta, { ok: false, error: ES_UNA_VEZ_DE_LA_SERIE });
+  assert.deepEqual(R.h.trasVuelta, { moldes: 1, creadas: 0, programadas: 0, incompletos: 0, fallidas: [] }, 'una sola serie, y la vuelta no renace');
+  assert.deepEqual(R.h.laFalsa, { existe: true, serie_de: null, repetir_hasta: null }, 'lo que manda el navegador se valida');
+  assert.deepEqual(R.h.moldeVuelto, { repetir: null, repetir_hasta: '2026-10-31' }, 'la marca vuelve; la regla, no (se pone con su confirmación)');
+});
+
 test('borrar o mover una vez NO la hace renacer, ni se dibuja; al día siguiente nace sólo la que toca (A1)', () => {
   assert.deepEqual(R.g.r, { moldes: 1, creadas: 0, programadas: 0, incompletos: 0, fallidas: [] });
   assert.deepEqual(R.g.dibujadas, ['serie:evmolde1:2026-11-01'], 'ni la del 30 ni la del 31: ya se atendieron');
@@ -169,3 +178,10 @@ test('el «Repetir» del evento, sus acciones con el guard, y el cron registrado
 //   · M5: un molde sin texto sale solo                         → 6 / 2
 //   · M5: la regla se guarda sin mirar lo que falta            → 7 / 1
 //   · M5: la regla se guarda sin confirmar                     → 7 / 1
+//
+// ROTO 30/10 madrugada (N1 y N8 de la re-verificación, 2910-reverificacion-zernio-leads-da3cff9f7.md; este test solo: 9 / 0):
+//   · N1: el borrado no guarda su lugar en la serie            → 8 / 1
+//   · N1: el Deshacer no escribe la serie                      → 8 / 1
+//   · N1: el molde del navegador no se valida                  → 8 / 1
+//   · N8: el molde vuelve sin su marca                         → 8 / 1
+//   · N8: la marca del navegador no se valida                  → 8 / 1

@@ -147,6 +147,35 @@ async function main() {
     hasta: (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.id === 'evmolde1')?.repetir_hasta ?? null,
   };
 
+  // (h) N1 (re-verificación de privacidad, 29/10): BORRAR una vez y «Deshacer». Vuelve CON su serie: su «Repetir» se rechaza (A2) y
+  // no nace otra serie. Un `serie.de` que manda el navegador y no es un evento del negocio no se escribe. Y el MOLDE, borrado y
+  // devuelto, vuelve con su marca (N8) y SIN su regla (se vuelve a poner con su confirmación).
+  reset();
+  db.calendario_eventos.push(molde());
+  await generar();
+  const Cal = await import('../lib/calendario');
+  const idVez = (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.serie_de === 'evmolde1')?.id as string;
+  const borrada = await runWithWorkspace(WS, () => Cal.borrarEvento(idVez));
+  await runWithWorkspace(WS, () => Cal.restaurarEvento(borrada as never));
+  const vuelta = (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.id === idVez);
+  const repetirLaVuelta = await runWithWorkspace(WS, () => C.guardarRepeticion(idVez, 'FREQ=DAILY'));
+  const trasVuelta = await generar();
+  // El navegador manda una serie inventada: la vez vuelve suelta.
+  const falsa = { ...(borrada as Record<string, unknown>), id: 'evfalsa', serie: { de: 'evnoexiste', hasta: 'no-es-fecha' } };
+  await runWithWorkspace(WS, () => Cal.restaurarEvento(falsa as never));
+  const laFalsa = (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.id === 'evfalsa');
+  // El molde: borrado y devuelto.
+  const moldeBorrado = await runWithWorkspace(WS, () => Cal.borrarEvento('evmolde1'));
+  await runWithWorkspace(WS, () => Cal.restaurarEvento(moldeBorrado as never));
+  const moldeVuelto = (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.id === 'evmolde1');
+  out.h = {
+    serieAlBorrar: (borrada as { serie?: unknown } | null)?.serie ?? null,
+    vuelta: { serie_de: vuelta?.serie_de ?? null, repetir: vuelta?.repetir ?? null },
+    repetirLaVuelta, trasVuelta,
+    laFalsa: { existe: !!laFalsa, serie_de: laFalsa?.serie_de ?? null, repetir_hasta: laFalsa?.repetir_hasta ?? null },
+    moldeVuelto: { repetir: moldeVuelto?.repetir ?? null, repetir_hasta: moldeVuelto?.repetir_hasta ?? null },
+  };
+
   out.red = [...red];
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`, () => process.exit(0));
 }
