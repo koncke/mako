@@ -38,6 +38,7 @@ import { estadoAlertaVoz } from './canal-vigilante';
 import { ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { lineaPorDefault } from './lineas-whatsapp';
 import { asegurarWebhook, cuentasConectadas, publicacionesDeLaCuenta, zernioConfigurado, ZernioError } from './zernio';
+import { errorDeLecturaZernio } from './zernio-redes';
 import { juntarPublicaciones, type PublicacionDeLaCuenta } from './publicacion-cron';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
 import { plataformaDe } from './canal-social';
@@ -104,6 +105,11 @@ export async function publicacionesParaElCron(canal: 'instagram' | 'messenger'):
   const leidas = listas.filter((l): l is PublicacionDeLaCuenta[] => l != null);
   if (!leidas.length && pausas.length) throw pausas[0];
   return leidas.length ? juntarPublicaciones(leidas) : null;
+}
+
+/** Si lo que tiró es un 429 de Zernio, lo que dice la pantalla y cuándo relee; si no, null. Acá y no en la ruta: el cliente de Zernio se habla sólo desde el canal (tests/sin-instagram.test.ts). */
+export function pausaDeZernio(e: unknown): { error: string; reintentarEnMs: number | null } | null {
+  return e instanceof ZernioError && e.status === 429 ? errorDeLecturaZernio(e.status, e.esperaMs) : null;
 }
 
 // ── Los MEDIOS de una automatización (décima tanda, GENERAL 6) ──────────────────────────────────────

@@ -29,7 +29,7 @@ import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { monedaCuentaMeta } from '@/lib/moneda-meta';
 import { conversorDeGasto } from '@/lib/presupuesto-cambio';
-import { getSecuenciasConStats, setSecuenciaActiva, validarActivacion, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, TopeDelPlanError } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, validarActivacion, duplicadaDeLaActivacion, ritmoAlActivar, DuplicadaError, PasosInvalidosError, TopeDelPlanError } from '@/lib/nutricion';
 import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
@@ -835,8 +835,10 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         // ⚠️ Y SI OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE, LA PROPUESTA LO DICE (revisión del 21/10/2026): la
         // persona confirma sabiéndolo, y sólo entonces el «sí» lleva `aunqueDuplique` (`setSecuenciaActiva` pregunta).
         const otra = activa ? await runWithWorkspace(ws, () => duplicadaDeLaActivacion(secuenciaId)) : null;
+        // Y CUÁNTOS Y A QUÉ RITMO (lib/ritmo-al-activar.ts): la persona confirma sabiéndolo. No poder contarlo no frena.
+        const ritmo = activa ? await runWithWorkspace(ws, () => ritmoAlActivar(secuenciaId)).catch(() => null) : null;
         return proponer('nutricion_toggle', { secuenciaId, activa, ...(otra ? { aunqueDuplique: true } : {}) },
-          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra)}` : ''}`);
+          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra)}` : ''}${ritmo ? `. ${ritmo.texto}` : ''}`);
       }
 
       case 'proponer_renombrar_campana': {

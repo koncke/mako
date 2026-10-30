@@ -142,7 +142,7 @@ test('(d) «Renombrar» va segundo en el «⋯» de toda fila, con su ícono del
   }
   const src = fuente('app/automations/SimuladorWhatsApp.tsx');
   // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): Activar desde el «⋯» pregunta antes (`o.sinAviso`).
-  const accion = tramo(src, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {', '\n  };\n', 3200);
+  const accion = tramo(src, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean; sinRitmo?: boolean }) => {', '\n  };\n', 3200);
   const iRen = accion.indexOf("if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }");
   assert.ok(iRen > 0 && iRen < accion.indexOf('pedir('), '«Renombrar» pide algo al elegirlo');
   // Guardar: lo que dice `nombreParaGuardar` (contra el que se VE), optimista, por la puerta de siempre, y vuelve atrás.

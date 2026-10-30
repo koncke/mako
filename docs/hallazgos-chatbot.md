@@ -27,6 +27,32 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Al activar se dice cuántos y a qué ritmo (30/10/2026, decisión de Martín del 25/10)
+
+**El pedido:** «como está muy escondido el "goteo" se manden muchos mensajes de una… al activar la automatización podriamos darle una
+advertencia». **El diagnóstico obvio («sin goteo salen 200 de una») era el equivocado, y nadie lo había medido.** En WhatsApp los
+frena el tope de la línea, por hora de reloj y por día (de fábrica 6 y 40; cada negocio lo puede subir hasta 30 y 150), y sale la
+tanda de cada hora junta. **Los que sí salen todos juntos son Instagram y Messenger:** no tienen tope propio. El riesgo no estaba donde
+se creía, y por eso el aviso dice el canal y el número, no «ojo». **La regla:** un aviso de este tipo sale de lo que el motor mira.
+La cuenta es la misma puerta del barrido (`ritmoAlActivar`, lib/nutricion.ts) y el texto, puro (lib/ritmo-al-activar.ts). ⚠️ El tiempo
+es un PISO: 200 a 40 por día son 5 tandas y la quinta arranca a los 4 días; el horario y las otras automatizaciones de la línea sólo lo
+alargan. ⚠️ El tope de la línea no separa, corta la tanda: usarlo como un goteo daba 10 min entre dos personas con goteo de 5.
+**Cerrar el aviso nunca la prende:** `Confirm` manda Escape y el fondo a `onCancel`, y por eso «Poner goteo» es el cancelar y
+«Activar igual» el confirmar.
+
+**Una que dispara por su evento también avisa si no tiene goteo (el Cerebro, 30/10).** La primera versión callaba porque al activar no
+hay a quién contar: quedaba puesto donde el riesgo es menor y callado en Instagram, donde es mayor. El aviso no está para decir a
+cuántos, está para que no te enteres del goteo después. **Un aviso que miente es peor que ninguno:** si el primer mensaje lo escribe la
+IA y no sale solo (`saleSolo`), queda para aprobar, y el aviso lo dice en vez de «sale». Desde el 23/10 un mensaje fijo siempre sale, así
+que este caso es sólo el de la IA: ninguna de las 44 medidas el 30/10 cae ahí. **Medido ese día:** las 7 activas de Instagram no tienen goteo.
+
+**Decisiones de Automations:** con menos de 2 personas, y sin evento, no hay ritmo que decir. No poder contar no frena, pero sin goteo se
+dice igual.
+
+**Sin hacer:** el interruptor de /email y «MaKo escribe tu nutrición» (app/email/EmailApp.tsx, app/_components/NutricionGenerar.tsx)
+prenden sin este aviso. El aviso mira el PRIMER mensaje: uno de IA más adelante puede quedar para aprobar sin que lo diga. Una con horario cuenta a los de hoy, no a los de su próxima vez. El tope de Meta para Instagram no entra en la cuenta.
+**Sin ver en pantalla:** probado con tests, roturas y el dato real de producción, no en el navegador (sin servidor local por la RAM).
+
 ## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)
 
 **El síntoma:** cinco copias de la 680 (los MISMOS ids de tarjeta y el mismo «Obtener recurso»), la misma cuenta comenta las

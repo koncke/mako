@@ -17,7 +17,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, existentesEnEtapa, incluirExistentes, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, existentesEnEtapa, ritmoAlActivar, incluirExistentes, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
@@ -37,6 +37,20 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[api:whatsapp/secuencias GET existentes] ${msg}`);
+      return Response.json({ ok: false, error: msg }, { status: 500 });
+    }
+  }
+  // CUÁNTOS Y A QUÉ RITMO, antes de prenderla (lib/ritmo-al-activar.ts). Sólo el admin (es quien activa).
+  const ritmo = req.nextUrl.searchParams.get('ritmo');
+  if (ritmo != null) {
+    if ((await getRolWsEfectivo()) !== 'admin') return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
+    const id = Number(ritmo);
+    if (!Number.isInteger(id) || id <= 0) return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+    try {
+      return Response.json({ ok: true, ritmo: await ritmoAlActivar(id, { incluirExistentes: req.nextUrl.searchParams.get('incluir') === '1' }) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[api:whatsapp/secuencias GET ritmo] ${msg}`);
       return Response.json({ ok: false, error: msg }, { status: 500 });
     }
   }

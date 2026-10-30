@@ -50,6 +50,7 @@ import type { ComponentType } from 'react';
 import { Confirm } from '@/app/_ui/Confirm';
 // Leila 2 (28/10/2026): al activar una por etapa, los que YA están en la etapa y no entran solos.
 import { hayQuePreguntar, preguntaExistentes, textoAlActivar, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
+import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
 // El modal de Configuraciones NO se importa: arrastra acciones del servidor y lo pasa la tab como `Configuraciones`.
 import { cronDeProspeccion, AVISO_PROSPECCION, type PropsConfiguraciones } from '@/lib/config-automatizacion';
@@ -781,6 +782,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [avisoProspeccion, setAvisoProspeccion] = useState<{ seguir: () => void } | null>(null);
   /** Una consulta de «¿tiene lo suyo?» en vuelo (`conAvisoProspeccion`): los clics de mientras no hacen nada. */
   const consultandoProspeccion = useRef(false);
+  /** Cuántos y a qué ritmo (`conRitmo`), con lo que se iba a hacer. */
+  const [avisoRitmo, setAvisoRitmo] = useState<(AvisoDeRitmo & { seguir: () => void }) | null>(null);
   /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
   const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
   /**
@@ -1012,6 +1015,21 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     entranAlActivar.current = e?.entran ?? 0;
     if (!hayQuePreguntar(e)) { seguir(); return; }
     setAvisoExistentes({ texto: preguntaExistentes(e, e.etapas.map(etiquetaEtapa)), entran: e.entran, seguir });
+  };
+  /**
+   * CUÁNTOS Y A QUÉ RITMO, antes de prenderla (Martín, 25/10/2026, lib/ritmo-al-activar.ts). El goteo vive escondido en
+   * Configuraciones: sin esto se prendía sobre 200 leads sin haberlo visto. «No pude preguntar» no frena, como `conExistentes`.
+   */
+  const conRitmo = async (seguir: () => void) => {
+    if (!rolAdmin) { seguir(); return; }
+    setBusy('toggle');
+    const a = await fetch(`/api/whatsapp/secuencias?ritmo=${secuencia.id}${incluirExistentes.current ? '&incluir=1' : ''}`)
+      .then((r) => r.json())
+      .then((r: { ok?: boolean; ritmo?: AvisoDeRitmo | null }) => (r.ok ? r.ritmo ?? null : null))
+      .catch(() => null);
+    setBusy(null);
+    if (!a) { seguir(); return; }
+    setAvisoRitmo({ ...a, seguir });
   };
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
@@ -1278,6 +1296,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 onCancel={() => { const s = avisoExistentes.seguir; setAvisoExistentes(null); s(); }} />
             )}
 
+            {/* Sin goteo, «Poner goteo» abre Configuraciones y NO la prende: cerrar el aviso nunca manda nada. */}
+            {avisoRitmo && (
+              <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.sinGoteo ? 'Activar igual' : 'Activar'}
+                cancelLabel={avisoRitmo.sinGoteo && Configuraciones ? 'Poner goteo' : 'Cancelar'} tone="primary"
+                onConfirm={() => { const s = avisoRitmo.seguir; setAvisoRitmo(null); s(); }}
+                onCancel={() => { const abrir = avisoRitmo.sinGoteo && !!Configuraciones; setAvisoRitmo(null); if (abrir) setConfigAbierta(true); }} />
+            )}
+
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
                 probar debería estar a la derecha del todo, no pegado a "Activar"»). El
                 `marginLeft: auto` lo empuja contra el borde derecho del chrome, que ya
@@ -1445,7 +1471,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void toggle()), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void conRitmo(() => void toggle())), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>
