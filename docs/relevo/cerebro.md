@@ -71,7 +71,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
 - **⏩ RELEVO AL 87% DE LA SEMANAL (30/10 06:06, claude3).** Quien siga lee esto primero. Si la cuenta corta, el que retome
   arranca por el estado del push del tren-ag: `git -C C:/dev/wt-push-q fetch && git log -1 origin/main`. Si main es
   `3076925cf` o posterior, el tren-ag subió y queda confirmar el Ready.
-- **tren-ag (rama `tren-ag`, SUBIENDO desde ~06:00; el log es `push-tren-ag.log` en el scratchpad de esta sesión):**
+- **tren-ag SUBIDO: main = `333fefd92` (30/10). READY 03:39 (hora del log): hola-mako.com sirve `mako-5sc7gr322`.** Avisados el Cerebro y Video.
   - **Lleva:**
     - PRIORIDAD, cliente roto: los tickets #31 y #32 de Leila (`d5baaa302`; el tsc encontró un error real que arregló el chat).
     - El Copywriter: las tarjetas con la guía y «Ver ejemplo», y el detector de voseo con el generador del guard (`85119f019`,
