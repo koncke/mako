@@ -3094,6 +3094,62 @@ aviso de mudanza.
 **Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10 (`cartero.mjs` no tiene ese comando).
 Por eso el Runner sigue dependiendo de un chat abierto: estuvo parado del 24/10 al 30/10.
 
+## Un pedido a un chat cerrado se pierde en silencio, con 15 días de retraso (30/10/2026)
+
+**El síntoma:** al volver el Runner después de seis días parado, el vigía contó 11 pedidos de Martín en «escrito», todos a
+chats cerrados. Los más viejos eran del 24/10 y se vencían a partir del 08/11. Nadie se había enterado.
+
+**El diagnóstico obvio era el equivocado:** «11 respuestas de Martín que nadie ejecutó». Medido uno por uno, fueron 5
+respuestas a preguntas, 3 mensajes sueltos y 3 tickets aprobados que ya estaban resueltos por otro camino. El vigía sólo
+da el id y 80 caracteres. **Antes de decidir sobre una lista, se lee el contenido y se cruza con el estado de hoy.**
+
+**La causa:**
+- Lo único que avisa es una línea dentro de ESE chat («Abre este chat en la cuenta N para que lo reciba»), que ya nadie abre.
+- Vencer también es mudo: `lib/operaciones.ts` lo pasa a `no_entregado` en la vuelta, sin decírselo a nadie.
+- `app/tickets/bandeja/cerebro.ts` da `listo: ok` con `envio.puede`, que también vale con `espera: 'chat_cerrado'`: se aprueba
+  y se firma a un Cerebro cerrado sin ningún aviso. Elige con `chats.find` por nombre. No se midió por qué el 24/10 cayó en el
+  de otra cuenta.
+- La respuesta a una tarjeta de pregunta sale al chat que preguntó, aunque esté cerrado.
+- El vigía del Runner sí lo detecta, pero corre en el Runner: si éste para, tampoco avisa nadie.
+
+**La regla:** un pedido sin destinatario vivo no está «esperando»: está perdido con retraso. Lo dice MaKo, del lado del
+servidor, porque lo que depende de la PC calla justo cuando la PC no está.
+
+**La trampa de redirigirlos:** rutear el contenido a otro chat no los saca de «escrito». Si el chat de origen se reabre, le
+llegan igual; si no, vencen. Hay que cerrarlos a propósito (`cancelarPedido`). Y la firma fija el destino: reenviar a otro
+chat es firmar de nuevo en el dispositivo de Martín.
+
+**Sin hacer:** el cartel rojo en el Ops Center (computadora y teléfono) con la cuenta del lado del servidor; avisar antes de
+firmar en la bandeja de tickets y en la tarjeta de preguntas; y el aviso al Cerebro por el Runner, con texto fijo.
+
+**Vive en:** `lib/operaciones.ts` · `lib/centro-chats.ts` (`envioDe`, `chat_cerrado`) · `app/tickets/bandeja/cerebro.ts`
+
+## Un dato viejo con fecha nueva: «Runner activo» al lado de una cuota de hace seis días (30/10/2026)
+
+**El síntoma:** una vuelta del Runner sube TODAS las cuentas, así que `visto_at` queda fresco aunque el Runner de esa cuenta
+esté cerrado y su cuota sea de hace días.
+
+**El diagnóstico obvio era la mitad:** «el Uso muestra la fecha de la subida». El número no: `Uso.tsx` usa `cuota.medido` y
+dice «78% · medido hace 6 días». Lo que engaña es el renglón de al lado, «Runner activo» con punto verde, que sale de
+`carteroVivo` (`visto_at`).
+
+**La regla:** cuando un proceso sube los datos de otro, la hora de la subida no dice nada del dato. Cada dato lleva la hora
+en que se midió, y lo que se muestra al lado no la contradice.
+
+**Sin hacer:** cambiar ese texto cuando la medición está vieja (`textoRunner` en `app/admin/operaciones/Uso.tsx`).
+
+## Una cosecha sin subir es una cosecha perdida (30/10/2026)
+
+**El síntoma:** la cosecha del `/clear` se escribió y se commiteó el 24/10, y su sha se le pasó al Cerebro, que la tomó para el
+tren. Seis días después no estaba en `main`, y ya no entraba limpia: chocaba en el índice. Nadie lo notó, porque la rama
+existía y el mensaje decía «va al tren».
+
+**La regla:** una cosecha vale cuando se puede leer en `origin/main`. Quien la escribe verifica que haya llegado
+(`git merge-base --is-ancestor <sha> origin/main`), no sólo que se pasó el sha.
+
+**Y de paso:** esa semana hubo `CICLO falló: fetch failed` el 28/10 a las 20:00 (tres cuentas) y el 29/10 entre las 13:24 y las
+13:26 (las cinco), más un timeout y un 503 sueltos en `vigilar` el 30/10. Se anotan: no se investigó la causa.
+
 ## La onda «que se movía sola» ya seguía la voz: lo que mentía era el respaldo, y un anillo de CSS (24/10/2026)
 
 **El síntoma:** Martín: «la animación de ondas de grabando audios no sigue lo que está escuchando, es decir, es sólo una

@@ -7138,6 +7138,10 @@ puede no haber nada que releer. Y ojo con la ruta, que es la mitad del error: lo
 viven en `<sesión>/subagents/workflows/`, no en `<sesión>/workflows/` — las dos carpetas
 existen, se llaman igual, y la equivocada contesta cero sin un error.
 
+⚠️ **Una cosecha que se escribe y no se sube es una cosecha perdida, igual que si no se hubiera escrito.** Medido el
+30/10/2026: una cosecha commiteada y pasada al tren el 24/10 no estaba en `main` seis días después. Vale cuando se lee en
+`origin/main`, y lo verifica quien la escribió: `git merge-base --is-ancestor <sha> origin/main`.
+
 No es hipotético. Una corrida de 14 agentes sobre el formulario "¿Qué hacer ahora?"
 encontró 13 problemas reales; los 5 que quedaron fuera de alcance sobrevivieron
 únicamente porque se escribieron.
