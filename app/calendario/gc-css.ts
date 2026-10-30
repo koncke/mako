@@ -3,11 +3,12 @@
 // =============================================================================
 // Martín, 14/10/2026: «el calendario quiero que sea una copia fiel a Google Calendar». Como el editor del Dashboard
 // copia a Looker (`.lk`, app/dashboard/editor-css.ts) y /api-mako a GitHub (`.gh`), ésta copia la web de Google Calendar
-// (la de Material 3): la barra de 64 px con «Hoy», las flechas y el título; «Crear» flotante; el mes chico; «Mis
-// calendarios» con sus casillas de color; la hoja blanca redondeada; la grilla de 48 px por hora con la línea roja de
+// (la de Material 3): la barra de 64 px con «Hoy», las flechas y el título; la hoja blanca redondeada; la grilla de 48 px por hora con la línea roja de
 // ahora; los eventos llenos del color de su calendario, y la tarjeta que se abre al hacer clic. Lo que se copia es la
 // ESTRUCTURA y las medidas; los colores de superficie salen de los tokens de la casa, así el modo oscuro se da vuelta
 // solo (la regla de las pantallas oscuras). Los colores de los EVENTOS son los de Google (lib/calendario-google-modelo.ts).
+// Desde el 29/10/2026 sin la barra lateral de Google («Crear» flotante, el mes chico, «Mis calendarios»): la cáscara es de
+// MaKo y arriba de la hoja va la fila de los cuatro usos (`.gc-usos`, app/calendario/CalendarioApp.tsx).
 //
 // ⚠️ Sin backticks adentro: es un template literal.
 // =============================================================================
@@ -18,63 +19,26 @@ export const CSS_GC = `
 .gc{--gc-azul:var(--primary);--gc-azul-suave:var(--primary-bg);--gc-fondo:var(--bg);--gc-hoja:var(--surface);--gc-borde:var(--border);--gc-linea:var(--border);--gc-tinta:var(--ink);--gc-gris:var(--dim);--gc-tenue:var(--faint);--gc-ahora:#ea4335;--gc-sombra:0 1px 2px 0 rgba(60,64,67,.3),0 2px 6px 2px rgba(60,64,67,.15);display:flex;flex-direction:column;height:100%;min-height:0;background:var(--gc-fondo);color:var(--gc-tinta);font-size:14px}
 .gc *{box-sizing:border-box}
 .gc button{font-family:inherit}
-.gc-barra{display:flex;align-items:center;gap:4px;height:64px;padding:0 12px 0 8px;flex:none}
+.gc-barra{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-height:64px;padding:8px 16px;flex:none}
 .gc-ico{width:40px;height:40px;flex:none;border-radius:50%;border:none;background:transparent;display:inline-grid;place-items:center;color:var(--gc-gris);cursor:pointer;padding:0}
 .gc-ico:hover{background:color-mix(in srgb,var(--gc-tinta) 8%,transparent);color:var(--gc-tinta)}
 .gc-ico:focus-visible{outline:2px solid var(--gc-azul);outline-offset:1px}
-.gc-ico--chico{width:28px;height:28px}
-.gc-logo{display:flex;align-items:center;gap:10px;padding:0 24px 0 4px;min-width:212px;text-decoration:none}
-.gc-logo-dia{width:36px;height:36px;border-radius:9px;background:var(--gc-azul);color:#fff;display:grid;place-items:center;font-weight:600;font-size:15px;box-shadow:inset 0 -3px 0 color-mix(in srgb,#000 18%,transparent)}
-.gc-logo-txt{font-size:22px;color:var(--gc-tinta);letter-spacing:-.01em}
 .gc-hoy{height:40px;padding:0 22px;border-radius:999px;border:1px solid var(--border-strong);background:transparent;color:var(--gc-tinta);font-size:14px;font-weight:500;cursor:pointer;margin-right:8px}
 .gc-hoy:hover{background:color-mix(in srgb,var(--gc-tinta) 6%,transparent)}
 .gc-titulo{font-size:22px;font-weight:400;margin:0 0 0 12px;color:var(--gc-tinta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .gc-titulo::first-letter{text-transform:uppercase}
 .gc-derecha{margin-left:auto;display:flex;align-items:center;gap:6px}
-.gc-vista{position:relative}
-.gc-vista-boton{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 18px;border-radius:999px;border:1px solid var(--border-strong);background:transparent;color:var(--gc-tinta);font-size:14px;font-weight:500;cursor:pointer}
 .gc-que-ver{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;border:1px solid var(--border-strong);margin-right:6px}
 .gc-que-ver-op{height:32px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;font-size:14px;font-weight:500;color:var(--gc-gris);text-decoration:none}
 .gc-que-ver-op[aria-current="page"]{background:var(--gc-azul-suave);color:var(--gc-azul)}
 .gc-que-ver-op:hover{color:var(--gc-tinta)}
-.gc-vista-boton:hover{background:color-mix(in srgb,var(--gc-tinta) 6%,transparent)}
-.gc-menu{position:fixed;z-index:120;min-width:200px;padding:8px 0;border-radius:6px;background:var(--gc-hoja);box-shadow:var(--gc-sombra);border:1px solid var(--gc-borde)}
-.gc-menu button{display:flex;align-items:center;justify-content:space-between;gap:24px;width:100%;height:36px;padding:0 16px;border:none;background:transparent;color:var(--gc-tinta);font-size:14px;cursor:pointer;text-align:left}
-.gc-menu button:hover,.gc-menu button[aria-checked="true"]{background:color-mix(in srgb,var(--gc-tinta) 7%,transparent)}
-.gc-menu kbd{font:inherit;font-size:12px;color:var(--gc-gris)}
-.gc-menu-sep{height:1px;margin:8px 0;background:var(--gc-borde)}
 .gc-cuerpo{display:flex;flex:1;min-height:0}
-.gc-lado{width:256px;flex:none;padding:8px 0 88px;overflow-y:auto;display:flex;flex-direction:column}
-.gc-lado[hidden]{display:none}
-.gc-crear{display:inline-flex;align-items:center;gap:12px;height:56px;padding:0 20px 0 16px;margin:0 0 20px 8px;border-radius:16px;border:none;background:var(--gc-hoja);box-shadow:var(--gc-sombra);font-size:14px;font-weight:500;color:var(--gc-tinta);cursor:pointer;align-self:flex-start;transition:box-shadow .15s ease}
-.gc-crear:hover{box-shadow:0 1px 3px 0 rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15);background:color-mix(in srgb,var(--gc-azul) 4%,var(--gc-hoja))}
-.gc-mini{padding:0 12px 0 20px;margin-bottom:16px}
-.gc-mini-cab{display:flex;align-items:center;justify-content:space-between;height:32px;padding-left:4px}
-.gc-mini-mes{font-size:14px;font-weight:500;color:var(--gc-tinta)}
-.gc-mini-mes::first-letter{text-transform:uppercase}
-.gc-mini-grilla{display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px}
-.gc-mini-ini{height:24px;display:grid;place-items:center;font-size:10px;font-weight:500;color:var(--gc-gris)}
-.gc-mini-dia{width:24px;height:24px;margin:0 auto;border-radius:50%;border:none;background:transparent;display:grid;place-items:center;font-size:10px;font-weight:500;color:var(--gc-tinta);cursor:pointer;padding:0}
-.gc-mini-dia:hover{background:color-mix(in srgb,var(--gc-tinta) 9%,transparent)}
-.gc-mini-dia--afuera{color:var(--gc-tenue)}
-.gc-mini-dia--semana{background:var(--gc-azul-suave)}
-.gc-mini-dia--elegido{background:color-mix(in srgb,var(--gc-azul) 22%,transparent);color:var(--gc-azul)}
-.gc-mini-dia--hoy,.gc-mini-dia--hoy:hover{background:var(--gc-azul);color:#fff}
-.gc-grupo{padding:0 8px 0 12px}
-.gc-grupo-cab{display:flex;align-items:center;justify-content:space-between;width:100%;height:40px;padding:0 4px 0 12px;border:none;border-radius:8px;background:transparent;color:var(--gc-tinta);font-size:14px;font-weight:500;cursor:pointer;text-align:left}
-.gc-grupo-cab:hover{background:color-mix(in srgb,var(--gc-tinta) 6%,transparent)}
-.gc-grupo-cab span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gc-cal{display:flex;align-items:center;gap:14px;width:100%;min-height:32px;padding:4px 8px 4px 14px;border:none;border-radius:8px;background:transparent;color:var(--gc-tinta);font-size:14px;cursor:pointer;text-align:left}
-.gc-cal:hover{background:color-mix(in srgb,var(--gc-tinta) 6%,transparent)}
-.gc-casilla{width:18px;height:18px;flex:none;border-radius:3px;border:2px solid;display:grid;place-items:center;color:#fff}
-.gc-cal-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gc-aviso{margin:4px 12px 0 26px;font-size:12px;line-height:1.45;color:var(--gc-gris)}
+.gc-aviso{margin:0;font-size:12px;line-height:1.45;color:var(--gc-gris)}
 .gc-aviso a,.gc-aviso-boton{color:var(--gc-azul);font-weight:500;text-decoration:none}
 .gc-aviso-boton{appearance:none;background:none;border:0;padding:0;margin:0;font:inherit;cursor:pointer;text-align:inherit;display:inline}
 .gc-aviso-boton:hover{text-decoration:underline}
 .gc-aviso--mal{color:var(--warn)}
-.gc-hoja{flex:1;min-width:0;background:var(--gc-hoja);border-radius:24px 24px 0 0;margin-right:16px;display:flex;flex-direction:column;overflow:hidden}
-.gc-hoja[data-lado="no"]{margin-left:16px}
+.gc-hoja{flex:1;min-width:0;background:var(--gc-hoja);border-radius:24px 24px 0 0;margin:0 16px;display:flex;flex-direction:column;overflow:hidden}
 .gc-cab{display:grid;flex:none;border-bottom:1px solid var(--gc-linea)}
 .gc-cab-dia{display:flex;flex-direction:column;align-items:center;padding-top:14px;padding-bottom:6px;border-left:1px solid transparent}
 .gc-cab-sem{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--gc-gris)}
@@ -127,8 +91,6 @@ export const CSS_GC = `
 .gc-chip-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .gc-mas{margin:0 4px;height:20px;padding:0 6px;border:none;border-radius:4px;background:transparent;color:var(--gc-tinta);font-size:12px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit}
 .gc-mas:hover{background:color-mix(in srgb,var(--gc-tinta) 7%,transparent)}
-.gc-anio{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:28px 32px;padding:24px 32px}
-.gc-anio .gc-mini{padding:0;margin:0}
 .gc-agenda{flex:1;overflow-y:auto;padding:8px 0}
 .gc-ag-dia{display:grid;grid-template-columns:116px 1fr;border-bottom:1px solid var(--gc-linea);padding:10px 0}
 .gc-ag-fecha{display:flex;align-items:flex-start;gap:6px;padding-left:16px}
@@ -167,7 +129,28 @@ export const CSS_GC = `
 .gc-campo:focus{outline:2px solid var(--gc-azul);outline-offset:-1px;border-color:transparent}
 .gc-pie{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 8px 0}
 .gc-sin{display:grid;place-items:center;flex:1;color:var(--gc-gris)}
-@media (max-width:900px){.gc-lado{display:none}.gc-hoja{margin-left:8px;margin-right:8px}.gc-logo{min-width:0;padding-right:8px}.gc-logo-txt{display:none}.gc-titulo{font-size:18px}}
+@media (max-width:900px){.gc-hoja{margin-left:8px;margin-right:8px}.gc-titulo{font-size:18px}}
 @media (max-width:600px){.gc-hoy{padding:0 14px}.gc-tarjeta,.gc-rapido{left:12px!important;right:12px!important;width:auto}}
-@media (prefers-reduced-motion:reduce){.gc-crear{transition:none}}
+/* Los cuatro usos (29/10/2026): la leyenda es el filtro (el nombre) y el alta (el «+»). */
+.gc-usos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 16px 10px;flex:none}
+.gc-uso{display:inline-flex;align-items:stretch;height:32px;border:1px solid var(--border-strong);border-radius:999px;overflow:hidden;background:var(--gc-hoja)}
+.gc-uso-ver{display:inline-flex;align-items:center;gap:8px;padding:0 12px;border:none;background:transparent;color:var(--gc-tinta);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.gc-uso-ver[aria-pressed="false"]{color:var(--gc-gris)}
+.gc-uso-ver:hover,.gc-uso-mas:hover{background:color-mix(in srgb,var(--gc-tinta) 6%,transparent)}
+.gc-uso-ver:focus-visible,.gc-uso-mas:focus-visible{outline:2px solid var(--gc-azul);outline-offset:-2px}
+.gc-uso-punto{width:12px;height:12px;flex:none;border-radius:50%;border:2px solid}
+.gc-uso-mas{width:32px;flex:none;display:grid;place-items:center;border:none;border-left:1px solid var(--border);background:transparent;color:var(--gc-gris);font-size:18px;line-height:1;cursor:pointer;text-decoration:none}
+.gc-usos-accion{margin-left:auto}
+.gc-avisos{display:flex;flex-direction:column;gap:2px;padding:0 16px 10px;flex:none}
+@media (max-width:640px){
+  .gc-barra{padding:8px}
+  .gc-titulo{font-size:18px;margin-left:6px}
+  .gc-derecha{margin-left:0;width:100%;overflow-x:auto}
+  .gc-que-ver{margin-right:0}
+  .gc-que-ver-op{padding:0 11px}
+  .gc-usos,.gc-avisos{padding-left:8px;padding-right:8px}
+  .gc-usos-accion{margin-left:0}
+  .gc-hoja{margin:0 8px}
+  .gc-cab-num{width:32px;height:32px;font-size:18px}
+}
 `;

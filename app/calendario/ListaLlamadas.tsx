@@ -151,11 +151,8 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
       <style>{CSS_GC + CSS_LISTA}</style>
       <MakoEnLaTab tab="Calendario" />
       {toast && <Toast state={toast} onClose={clear} />}
+      {/* Sin el logo de Google (29/10/2026): la barra es la del Calendario, con el mismo selector de cómo se mira. */}
       <header className="gc-barra">
-        <span className="gc-logo">
-          <span className="gc-logo-dia" aria-hidden>{Number(hoy.slice(8))}</span>
-          <span className="gc-logo-txt">Calendario</span>
-        </span>
         <h1 className="gc-titulo" id="gl-titulo">Llamadas de venta</h1>
         <div className="gc-derecha"><PestanasCalendario activa="llamadas" /></div>
       </header>

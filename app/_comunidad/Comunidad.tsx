@@ -22,6 +22,10 @@
 //    cabecera de Clients (`sinPestanas`): cada pestaña es una sub-tab (/classroom/community, /classroom/members…). Las
 //    vueltas internas (abrir un post desde la campana, un evento, «Ver ranking») pasan por `onPestana` igual.
 //
+// ⚠️ DESDE EL 29/10/2026 «MIEMBROS» ES UNA VISTA DE CLIENTS, no una sub-tab (app/customer-success/MiembrosClientes.tsx):
+//    se monta con la pestaña fija, `sinBarra` (sin la búsqueda de posts ni la campana, que son de la comunidad) y el
+//    selector de vistas de Clients al final de la barra de Miembros (`extraMiembros`).
+//
 // ⚠️ LA MODERACIÓN SE OFRECE SÓLO SI EL SERVER DIJO QUE SE PUEDE (`puedoModerar`) Y LA API LA TIENE
 //    (la del alumno no la trae). Esconderla no protege nada: el server vuelve a preguntar.
 
@@ -56,7 +60,7 @@ const LATIDO_MS = 90_000;
 
 export function Comunidad({
   api, tema, piel = 'papel', inicial = null, cabecera, aviso: avisoArriba, postInicial = null,
-  pestana: pestanaControlada, onPestana, sinPestanas = false,
+  pestana: pestanaControlada, onPestana, sinPestanas = false, sinBarra = false, extraMiembros,
 }: {
   api: ApiComunidad;
   tema: Tema;
@@ -67,6 +71,10 @@ export function Comunidad({
   onPestana?: (p: Pestana) => void;
   /** No dibujar la fila de pestañas: la dibuja quien monta (la cabecera de Clients). La búsqueda y la campana quedan. */
   sinPestanas?: boolean;
+  /** No dibujar ni la fila: ni pestañas, ni la búsqueda, ni la campana (Miembros adentro de Clients). */
+  sinBarra?: boolean;
+  /** Lo que va al final de la barra de Miembros (el selector de vistas de Clients). */
+  extraMiembros?: ReactNode;
   /** Lo que ya trae el HTML (el equipo). Sin esto, se pide al montar (el alumno). */
   inicial?: { comunidad: ComunidadVista; feed: FeedVista } | null;
   /** Lo que va a la derecha de las pestañas (el selector de producto del equipo). */
@@ -157,7 +165,7 @@ export function Comunidad({
       <div className={raiz}>
         <style dangerouslySetInnerHTML={{ __html: CSS_COMUNIDAD }} />
         {avisoArriba}
-        <nav className={`cmu-tabs${sinPestanas ? ' cmu-tabs--solo-extra' : ''}`} aria-label="Comunidad">
+        {!sinBarra && <nav className={`cmu-tabs${sinPestanas ? ' cmu-tabs--solo-extra' : ''}`} aria-label="Comunidad">
           {!sinPestanas && PESTANAS.map((p) => (
             <button key={p.id} type="button" className="cmu-tab" data-on={pestana === p.id} aria-current={pestana === p.id ? 'page' : undefined}
               onClick={() => setPestana(p.id)}>
@@ -169,7 +177,7 @@ export function Comunidad({
             <Campana />
             {cabecera}
           </div>
-        </nav>
+        </nav>}
 
         {/* `display: none` y no desmontar: volver al feed no pierde lo cargado ni el filtro elegido. */}
         <div className="cmu-grid" style={{ display: pestana === 'comunidad' ? undefined : 'none' }}>
@@ -177,7 +185,7 @@ export function Comunidad({
           <Lateral onRanking={() => setPestana('ranking')} />
         </div>
         {pestana === 'calendario' && <Calendario pedido={eventoPedido} onPedidoAbierto={() => setEventoPedido(null)} />}
-        {pestana === 'miembros' && <Miembros version={version} />}
+        {pestana === 'miembros' && <Miembros version={version} extra={extraMiembros} />}
         {pestana === 'ranking' && <Ranking />}
         {pestana === 'about' && <About />}
 

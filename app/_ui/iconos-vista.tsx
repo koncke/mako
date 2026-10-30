@@ -18,7 +18,7 @@
 
 import type { ReactNode } from 'react';
 
-export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban' | 'avance';
+export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban' | 'avance' | 'miembros';
 
 export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode }> = {
   tarjetas: {
@@ -69,6 +69,18 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
     icono: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="18" x2="9" y2="18" />
+      </svg>
+    ),
+  },
+  miembros: {
+    // El DIRECTORIO de la comunidad del programa (29/10/2026: la sub-tab Members pasó a ser una vista de Clients, «Son lo
+    // mismo, no deberían ser dos tabs»). Dos personas: lo que la vista lista es GENTE (el equipo y los alumnos, con su
+    // nivel y si están en línea), no las tarjetas de la entrega ni las filas de la tabla. Lo ofrece sólo Clients.
+    titulo: 'Miembros',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
+        <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8" /><path d="M18.5 14.9c1.7.8 2.7 2.5 3 5.1" />
       </svg>
     ),
   },

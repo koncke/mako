@@ -334,7 +334,8 @@ listas» (en serie) · la operación `programar_publicacion` · mig 0342 · test
 - **Invitar gente, la videollamada nueva y la repetición** al crear un evento de Google desde acá (Google los tiene en
   «Más opciones»). Mover o borrar UNA ocurrencia de una serie funciona (es la instancia); cambiar la serie entera, no.
 - **Buscar** (la lupa de Google) no está.
-- **La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google (las sesiones de Customer Success son
+- ~~**La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google~~ **Desde el 29/10/2026 es un tipo propio, `entrega`**
+  (ver «A la medida del negocio», abajo); lo que sigue vale para las sesiones de CS. Lo de antes: sale sólo de la agenda de Google (las sesiones de Customer Success son
   grabaciones pasadas, no turnos futuros). Si CS agenda sesiones en MaKo, se suma como capa. Vive en `lib/calendario.ts`.
 - **Las sesiones en vivo de la comunidad del curso** (`comunidad_eventos`) no se leen todavía: son otra capa posible.
 - ~~**Publicaciones de Instagram, TikTok, YouTube… programadas de verdad**~~ **HECHO el 28/10/2026**: ver «Una Publicación se
@@ -423,3 +424,66 @@ eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregl
   - Sospecha, sin medir: si Zernio contesta 409 por contenido repetido, todas las veces quedan con el mismo post, y cancelar una
     cancela las otras (`lib/zernio-publicar.ts`).
 
+## A la medida del negocio: cuatro usos, la barra de MaKo y sin la cáscara de Google (29/10/2026)
+
+**El pedido, textual** (Martín, por el Cerebro): «personalices un poquito más la pestaña de publicaciones, la de calendar, para
+que se vea también la sidebar típica de MaKo, como siempre, y sobre todo… hay muchos botones que son innecesarios… Esa pestaña
+es principalmente para gestionar publicaciones, para recordatorios de deadlines del propio Plan, para reuniones de llamadas de
+ventas, reuniones de entrega de servicio». Cierra el «Sin hacer» del 25/10 («se ve muy como Google en la grilla»). Rama
+`cal-classroom-2910`.
+
+- ⚠️ **El diagnóstico obvio («la barra de MaKo no se monta en /calendario») era el equivocado.** La monta app/layout.tsx en todas
+  las tabs y /calendario no está en `RUTAS_QUE_PLIEGAN` (app/_components/Sidebar.tsx). Lo que pasaba: la copia de Google dibujaba
+  su PROPIA barra lateral (256 px: «Crear», el mes chico, «Mis calendarios»), pegada a la de MaKo, que arranca plegada a 68 px
+  desde el 24/10 — la que se veía era la de Google, con un ☰ que decía «Ocultar el menú principal». Se fue la de Google; la de
+  MaKo y la estrella (MakoEnLaTab) estaban y siguen.
+- **Los cuatro usos son la leyenda, el filtro y el alta** (`USOS_CALENDARIO`, app/calendario/comun.ts): Publicaciones (violeta),
+  Plan (naranja: sus deadlines y lo que se repite, que son tareas del Plan), Ventas (azul) y Entregas (verde). El nombre muestra o
+  esconde todas las capas del uso (la preferencia sigue en la misma llave por capa: lo que alguien eligió antes vale) y el «+» crea
+  en un clic. Después, «Google» (todos sus calendarios en un interruptor) y «Otros» (bloques, cobros, objetivos, en gris) sólo si
+  hay algo suyo en la vista.
+- ⚠️ **La reunión de entrega no existía como dato**: salía sólo de la agenda de Google. Es un tipo propio nuevo, `entrega` (capa
+  `entregas`), con la **mig 0352** que agranda el CHECK de `calendario_eventos.tipo`. **Va ANTES del código**: sin ella, crear una
+  entrega la rechaza la base y la pantalla dice «no se pudo guardar» (lo demás sigue igual). La API (`crear_evento_calendario`) la
+  ofrece sola: su enum sale de `TIPOS_EVENTO`.
+- **Un deadline no se crea en el Calendario**: es una tarea del Plan, y crear tareas dispara al Perro y re-curva todos los
+  proyectos (AGENTS.md). El «+» del Plan lleva al Plan. **Sin hacer:** que llegue con «Nueva tarea» abierta y el día puesto (no hay
+  un `?nueva=` en app/plan/board/BoardShell.tsx).
+- **El «+» de Ventas abre la agenda del negocio** (Calendly o Cal.com: la reserva entra al CRM con su lead) con **«Anotarla aquí»**
+  para quien no tiene agenda conectada (una Llamada de venta propia). La «Llamada» propia pasó a llamarse «Llamada de venta»: la
+  entrega ya es otro tipo.
+
+**El inventario: qué se fue y por qué** (lo de la copia de Google que no sirve a ninguno de los cuatro usos):
+
+| Control | Por qué se fue |
+|---|---|
+| ☰ «Ocultar el menú principal» y la barra lateral de Google | era la segunda barra lateral que tapaba a la de MaKo |
+| El logo con el día de hoy («Calendario») | el nombre de la tab ya lo dice la barra de MaKo; el día, la grilla |
+| «Crear» flotante y su menú (Evento, Publicación, Bloque, Llamada, Agendar llamada, Plantilla, Programar) | cada uso crea con su «+»; «Programar publicaciones» quedó arriba, sólo si hay publicaciones en la vista |
+| El mes chico (MiniMes.tsx, borrado) | se navega con Hoy, ‹ › y el día de la grilla; no hacía nada que no hicieran |
+| «Mis calendarios»: siete casillas de MaKo y una por calendario de Google | los cuatro usos + Google + «Otros» |
+| El desplegable de seis vistas y las vistas **Año** (no dibujaba eventos) y **4 días** | un selector: Día · Semana · Mes · Agenda · Llamadas (con «Calendario \| Llamadas», que era otro control). `?vista=anio` abre el Mes y `4dias`, la Semana |
+| La tecla «c» y las de Año y 4 días | eran del «Crear» y de las vistas que se fueron |
+| «Bloque de trabajo» al crear | no es ninguno de los cuatro usos; uno guardado se sigue viendo («Otros») y editando con su tipo |
+| «Plantilla de semana» (PlantillasSemana.tsx, borrado) | tres de sus cinco plantillas eran sólo bloques; el modelo (`PLANTILLAS_CALENDARIO`) queda para la API |
+
+**Lo que quedó:** Hoy, ‹ ›, el título, el selector de vistas, los usos con su «+», Google, «Programar publicaciones», los avisos de
+lo que no se pudo leer (arriba de la grilla), crear en un hueco (Evento de Google si hay dónde, Publicación, Llamada de venta,
+Entrega), la tarjeta (editar, borrar, hecho, abrir en Google, ir a la ficha o al Plan), mover y estirar, y la lista de Llamadas.
+
+- **Un test que corta la fuente con `indexOf` depende de esa línea LITERAL.** Mover `const pedida = sp?.vista;` en page.tsx rompió
+  «Llamadas lee el CRM y el Plan…» (tests/calendario.test.ts), que no tiene nada que ver: `indexOf` dio -1 y el corte llegó hasta el
+  final del archivo, donde sí estaba `leerCalendario`. Se dejó la línea y la lógica nueva va en la siguiente.
+- **Verificado en una maqueta** (esbuild + dobles de MakoEnLaTab, ConectarIntegracion y la API de la comunidad; sin `next dev`, sin
+  base). ⚠️ esbuild descarta los `@import` que vienen DESPUÉS de un `@source` de Tailwind en app/globals.css: la pantalla sale sin
+  app/_ui/ui.css (inputs pelados, la barra oscura) y parece rota. La maqueta tiene que sacar `@source` y llevar los `@import`
+  relativos a rutas del repo. Las capturas (1440 y 390) quedaron en la carpeta de notas del Cerebro
+  (`capturas-cal-classroom-2910/`).
+- **Sin hacer:** las sesiones en vivo de la comunidad (`comunidad_eventos`) como capa de Entregas (es lib/calendario.ts, de otro
+  chat); elegir UN calendario de Google desde acá (el interruptor los prende o apaga todos; cuál se ve por defecto lo sigue diciendo
+  Google); la Semana a 390 px sigue apretada (un teléfono entra a MaKo Mobile, que creó con los mismos tipos).
+
+**Vive en:** app/calendario/{CalendarioApp,Pestanas,Flecha,AgendarLlamada,EventoModal,Tarjetas,VistasLista,ListaLlamadas}.tsx ·
+app/calendario/comun.ts (`USOS_CALENDARIO`, `TIPOS_RAPIDO`) · app/calendario/gc-css.ts · app/calendario/page.tsx ·
+lib/calendario-modelo.ts (`entrega`, `capaDeTipo`) · supabase/migrations/0352_calendario_entregas.sql ·
+lib/api-mako/areas/calendario.def.ts · tests/calendario-cuatro-usos.test.ts (seis roturas, seis rojos). *29/10/2026, claude3.*
