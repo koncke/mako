@@ -163,7 +163,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   - **La 0349 se aplica DESPUÉS del Ready del tren-ah.** Antes no: en producción está `da3cff9f7`, sin N1.
   - **Agency SALIÓ del tren-ah** por tres rojos suyos. Uno es una guarda de `/api/auth/me` (`agenciaDeCliente`). La mezcla
     está en la rama `tren-ah-con-agency`, y la devolución en la carpeta del Cerebro (`integracion-agency-thiago-devuelto.md`).
-- **tren-ai (rama `tren-ai` de wt-push-q, armado y en chequeo; 30/10, Integración al 92%, con el OK de Martín: «te alcanza para seguir»):**
+- **tren-ai SUBIDO: main = `9e24e7935` (30/10). READY 14:16 (hora del log): hola-mako.com sirve `mako-gr9maew7i`.** Avisado el Cerebro (#33, #34 y #35).
   - **Lleva, los clientes primero:**
     - el #34 de Código Inmobiliario (Zernio `43897f1df`): un 429 es una pausa, no una conexión rota;
     - el #35 de Código Inmobiliario (`7d51f24c2`): la ficha del lead trae la hora de la reunión;
