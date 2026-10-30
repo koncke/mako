@@ -6118,3 +6118,51 @@ emoji, el HTML del server sale con «�» y React tira #418 (el Classroom enter
 (lib/unicode-seguro.ts). Por qué la guarda de toda la app no lo vio, en [hallazgos-calendario.md](hallazgos-calendario.md) →
 «Un lead con emoji en el nombre tiraba /calendario entero». `tests/calendario-classroom-iniciales.test.ts` barre
 app/classroom, app/customer-success, app/_cursos, app/_comunidad, app/compartido/curso, app/mi-curso y app/conocimientos.
+
+## Clients y Members, UNA sub-tab: «Miembros» es una vista del selector del CRM (29/10/2026)
+
+**La guarda de privacidad, después de unir las dos (30/10/2026).** Esta unión quedó afuera de un tren por 4 tests rojos, y uno se leía
+como «el super admin ya puede ver fichas sin impersonar». **Ese diagnóstico era el equivocado.** La guarda vieja decía «el redirect a
+/customers va antes de leer `?cliente=`»: era una forma de escribir «no hay fichas», y al cambiar el redirect (ahora sólo para un link
+que nombra a un cliente) se puso roja sin que se abriera nada. La plataforma ya veía Members antes (`seccionesDe` sólo le sacaba
+`clients`), con la misma `miembrosAction`. La guarda ahora fija lo que importa (tests/cs-kanban-ficha-ui.test.ts, 5 roturas, 5 rojos):
+la rama del super admin corta ANTES de leer un solo lead, un `?cliente=` sigue yendo a Customers, y lo que dibuja importa sólo el
+directorio. **Regla:** una guarda de privacidad fija lo que NO se puede leer, no el orden de dos líneas.
+
+**El pedido, textual** (Martín, por el Cerebro): «dentro de la pestaña de Classroom… unificar la tab de clientes con la tab de
+miembros, porque al fin y al cabo es el típico botón que tenemos en el CRM u otros lugares, del botón de Kanban o botón de
+lista. Son lo mismo, no deberían ser dos tabs». Supera la D1 de [diseno-clients.md](diseno-clients.md) («Members no se fusiona
+con el kanban»). Rama `cal-classroom-2910`.
+
+- ⚠️ **El diagnóstico obvio («Lista = Members») era el equivocado.** Clients YA tenía su Lista: la tabla de la cartera agrupada
+  por etapas, con la columna del último contacto y el arrastre entre etapas (`TablaClientes`). Poner el directorio en su lugar
+  perdía esa columna y la vista densa. Quedó como una vista MÁS del mismo selector: **Kanban · Lista · Miembros · Avance**
+  (`ORDEN_VISTAS`, app/customer-success/BarraClientes.tsx; el ícono, en app/_ui/iconos-vista.tsx).
+- **La URL que se quedó es la de Clients**, no una nueva: `/classroom/clients` la nombran unos treinta lugares (veinte
+  `revalidatePath`, el aviso de WhatsApp «sin contacto» con `?cliente=` ya mandado, la API de MaKo, el onboarding, el teléfono).
+  `/classroom/members` (y `/clients/members`, directo) redirige a `?vista=miembros` en next.config.ts; la query del pedido viaja
+  sola. `rutaNuevaDeVieja` dice lo mismo, y el test cruza las dos.
+- ⚠️ **Members era una sección de la comunidad con `pushState` (D5).** Dejarla en `SECCIONES_COMUNIDAD` hacía que ir de
+  Community a Members cambiara la URL SIN pasar por el server: se veía el directorio y un F5 abría el kanban. Salió de la lista;
+  `seccionDePestana('miembros')` cae en Community.
+- **La vista Miembros monta la pieza de siempre** (app/_comunidad/Miembros.tsx adentro de `Comunidad`, con la API del equipo):
+  los filtros Todos · Equipo · En línea · Fuera, la búsqueda, el perfil y la moderación. Cambia la piel (la de la APP, la del
+  kanban de al lado), no dibuja la fila de la comunidad (`sinBarra`: la búsqueda de posts y la campana son de Community) y la
+  comunidad se pide al entrar a la vista (`api.inicio()`), no viaja con el HTML del kanban. app/customer-success/MiembrosClientes.tsx.
+- **El selector no cambia de lugar al cambiar de vista.** La barra del kanban lo tiene adelante; Miembros lo recibe como `extra`
+  y lo pone adelante (al final quedaba del otro lado de la pantalla). Y se dibuja también con la cartera VACÍA: sin clientes, el
+  equipo igual está en Miembros, y sin el selector no había cómo llegar.
+- **La vista queda en la URL** (`?vista=`, con `replaceState` en el clic, no en un efecto); la primera disponible no la ensucia.
+  `?vista=` la lee el server (`vistaDeUrl`, app/customer-success/pantalla.tsx), así el redirect de Members abre en Miembros sin un
+  cuadro del kanban.
+- **La plataforma** (el super admin en su workspace) no tiene kanban de leads ganados: sus clientes son negocios (/customers).
+  Antes no veía «Clients» y sí «Members»; ahora la sub-tab unida se llama **«Members»** para ella (`seccionesDe`) y su página monta
+  sólo el directorio (`MiembrosDeLaPlataforma`). Un `?cliente=` viejo nombraba a un NEGOCIO: sigue yendo a /customers.
+- **El teléfono no cambió:** sus tres pantallas (Classroom · Community · Clients) ya tenían los miembros adentro de la comunidad;
+  `?vista=miembros` y `/classroom/members` van a /m/comunidad (`rutaMovil`).
+- **Sin verificar:** si un pedido trae su propio `?vista=` a `/classroom/members`, cuál gana en el redirect de Next (el del
+  destino o el del pedido) no se midió; `rutaNuevaDeVieja` fuerza `miembros`.
+
+**Vive en:** lib/clients-rutas.ts · next.config.ts · app/customer-success/{ClientesApp,BarraClientes,MiembrosClientes}.tsx ·
+app/customer-success/pantalla.tsx · app/_comunidad/{Comunidad,Miembros}.tsx · lib/movil-rutas.ts · tests/clients-rutas.test.ts
+(sección 7, probada rompiéndola: cinco roturas, cinco rojos). *29/10/2026, claude3.*

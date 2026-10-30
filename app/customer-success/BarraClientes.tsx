@@ -49,15 +49,19 @@ import { repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/ser
  * «Elimina la tab de Avance de clientes en este lugar [el curso] solo se va a editar el curso. Que
  * esa tab esté en la ruta de clientes». La ofrece sólo Customer Success, con un servicio elegido.
  */
-export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban' | 'avance';
+export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban' | 'avance' | 'miembros';
 
-/** El orden en que se dibujan los botones, sea cual sea el orden de `vistas`. */
-const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla', 'avance'];
+/**
+ * El orden en que se dibujan los botones, sea cual sea el orden de `vistas`. `miembros` (29/10/2026): el directorio de
+ * la comunidad, que era la sub-tab Members («Son lo mismo, no deberían ser dos tabs», Martín). Va después de la tabla
+ * porque las dos son listas de gente; el avance queda al final, como antes.
+ */
+const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla', 'miembros', 'avance'];
 
 // Qué dibuja cada botón: el catálogo COMPARTIDO con el CRM y el Plan (app/_ui/iconos-vista.tsx), por el segmento
 // de la casa (app/_ui/SelectorVista.tsx). ⚠️ Acá hubo una copia propia hasta el 05/10/2026 (el kanban como tres
 // columnas, «Ver la entrega en etapas») y un `.bc-toggle` propio hasta el 21/10: cada copia es un control que se ve
-// distinto. Ningún uso de esta barra ofrece kanban Y tarjetas a la vez (Clientes: kanban + tabla + avance; /admin:
+// distinto. Ningún uso de esta barra ofrece kanban Y tarjetas a la vez (Clientes: kanban + tabla + miembros + avance; /admin:
 // tarjetas + tabla), así que los cubos no se confunden con nada.
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad' | 'contacto' | 'vencidas';
@@ -390,7 +394,7 @@ export function BarraClientes({
  * decisión y queda permanentemente activo, que se lee como un control trabado.
  * Hasta el 21/10/2026 era un `.bc-toggle` propio con el mismo molde; Martín: «Esto en todos lados».
  */
-function VistaToggleClientes({ vista, onSet, vistas }: {
+export function VistaToggleClientes({ vista, onSet, vistas }: {
   vista: VistaClientes;
   onSet: (v: VistaClientes) => void;
   vistas: readonly VistaClientes[];

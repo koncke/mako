@@ -85,9 +85,24 @@ test('page.tsx lee ?cliente= en el SERVER, sólo en la rama de la cartera, y lo 
   // Desde el 17/10/2026 es una PANTALLA que monta /classroom/clients (app/classroom/clients/page.tsx), no la página de la ruta.
   assert.match(PAGE, /export async function PantallaClientes\(\{ searchParams \}: \{ searchParams: Promise</);
   assert.match(PAGE, /const clienteInicial = leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\);/);
-  // Después de mandar al super admin a /customers (25/10/2026): su grilla es de WORKSPACES, no de leads.
-  const aCustomers = PAGE.indexOf("redirect('/customers')");
-  assert.ok(aCustomers > 0 && PAGE.indexOf('leerClienteDeUrl(') > aCustomers, 'el super admin sin impersonar no tiene fichas de leads');
+  // ⚠️ LA GUARDA DE PRIVACIDAD: el super admin sin impersonar no tiene fichas de leads. Su grilla es de WORKSPACES (/customers,
+  // 25/10/2026), y desde el 29/10 esta sub-tab le muestra el directorio de la comunidad («Members»; Martín: «Son lo mismo, no
+  // deberían ser dos tabs»). Hasta ese día la guarda era «el redirect va antes de leer ?cliente=». Ahora el redirect es sólo para
+  // un link que nombra a un cliente, así que lo que importa se fija entero: la rama corta ANTES de leer un solo lead, y lo que
+  // dibuja no sale de la cartera.
+  const rama = PAGE.indexOf('if ((await getSesionAdmin()) && !(await estaImpersonando())) {');
+  const corta = PAGE.indexOf('return <MiembrosDeLaPlataforma searchParams={searchParams} />;', rama);
+  assert.ok(rama > 0 && corta > rama, 'el super admin sin impersonar cae en la cartera de leads');
+  assert.match(PAGE.slice(rama, corta), /if \(leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\) != null\) redirect\('\/customers'\);/, 'un link con ?cliente= abre una ficha sin impersonar');
+  for (const lee of ['clientesGanados(', 'lecturaDeFichas(', 'tableroDeLaCartera(', 'filasDeTodos(', 'carteraEnEntrega(', '<ClientesApp', 'const clienteInicial =']) {
+    assert.ok(PAGE.indexOf(lee) > corta, `${lee} corre antes de que corte la rama del super admin`);
+  }
+  const plataforma = bloque(PAGE, 'async function MiembrosDeLaPlataforma', '\n}\n');
+  assert.match(plataforma, /<MiembrosClientes productoId=\{productoId\} \/>/);
+  assert.doesNotMatch(plataforma, /clientesGanados|lecturaDeFichas|tableroDeLaCartera|filasDeTodos|carteraEnEntrega|ClientesApp|KanbanEntrega/, 'la vista de la plataforma lee la cartera');
+  // Y lo que monta es sólo el directorio: ni el kanban ni la tabla.
+  const miembros = sinComentarios(leer('app/customer-success/MiembrosClientes.tsx'));
+  assert.deepEqual([...miembros.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/app/_comunidad/Comunidad', './comunidad/api-equipo']);
   const montaje = bloque(PAGE, '    <ClientesApp\n      clientes={clientesConFicha}', '/>');
   assert.match(montaje, /clienteInicial=\{clienteInicial\}/);
 });

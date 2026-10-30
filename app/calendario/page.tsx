@@ -22,11 +22,10 @@ import { requireRolWs } from '@/lib/tab-access';
 import { Pagina } from '@/app/_ui';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { eventoDeLaUrl } from '@/lib/calendario-desde-crear';
-import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
+import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario } from '@/lib/calendario';
 import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
 import { esVistaCalendario, rangoDeVista, sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
-import { googleCalendarConectado } from '@/lib/google-calendar';
 import { CalendarioApp } from './CalendarioApp';
 import { ListaLlamadas } from './ListaLlamadas';
 
@@ -55,20 +54,17 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
     );
   }
   const pedida = sp?.vista;
-  const vista = esVistaCalendario(pedida) ? pedida : 'semana';
+  // Año y 4 días se fueron de la barra el 29/10/2026 (./Pestanas.tsx, los cuatro usos): sus links viejos abren el Mes y la Semana.
+  const vista = pedida === 'anio' ? 'mes' : pedida === '4dias' ? 'semana' : esVistaCalendario(pedida) ? pedida : 'semana';
   const fecha = typeof sp?.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) ? sp.fecha : hoy;
   const rango = rangoDeVista(vista, fecha);
-  // El Año no dibuja eventos (Google tampoco): no se lee nada. Sólo si hay agenda de Google conectada, para que entrar
-  // por el Año sin Google también ofrezca conectarla (un fallo al preguntarlo no se afirma como «no conectada»).
   const [lectura, estado] = await Promise.all([
-    vista === 'anio'
-      ? googleCalendarConectado().catch(() => true).then((hay): LecturaCalendario => ({ items: [], fallos: hay ? {} : { google: 'sin-conexion' }, google: null }))
-      : leerCalendario(rango.desde, rango.hasta, tz),
+    leerCalendario(rango.desde, rango.hasta, tz),
     getEstadoTab('calendario').catch(() => null),
   ]);
 
   // «Tu agenda de Google»: la prueba de vida es haberla LEÍDO (no que haya una credencial guardada).
-  // (`lectura.google` sólo existe si Google contestó: el Año no lee nada y no puede cerrar este paso.)
+  // (`lectura.google` sólo existe si Google contestó.)
   if (estado && !estado.steps.cal_agenda?.done && lectura.google != null) {
     await marcarPasoTab('calendario', 'cal_agenda').catch(() => null);
   }

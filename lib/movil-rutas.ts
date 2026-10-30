@@ -810,7 +810,10 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // La tab Classroom (era Clients, docs/diseno-clients.md; /classroom desde el 25/10/2026): Clients y las cinco sub-tabs de
   // la comunidad, ANTES que Classroom, que es la raíz (el curso). El teléfono sigue con sus tres pantallas. Lo de /clients
   // ya llega como /classroom (next.config.ts redirige antes del proxy).
-  if (dentro(p, '/classroom/clients')) return '/m/cs';
+  // Los MIEMBROS son una vista de Clients desde el 29/10/2026 (`?vista=miembros`; /classroom/members redirige ahí): en el
+  // teléfono viven adentro de la comunidad, como antes.
+  if (dentro(p, '/classroom/clients')) return q.get('vista') === 'miembros' ? aSeccion('comunidad', q) : '/m/cs';
+  if (dentro(p, '/classroom/members')) return aSeccion('comunidad', q);
   if (SECCIONES_COMUNIDAD_CLIENTS.some((s) => dentro(p, `/classroom/${s}`))) return aSeccion('comunidad', q);
   if (dentro(p, '/classroom')) return aSeccion('curso', q);
   // Las rutas VIEJAS de Customer Success (links ya mandados): en escritorio redirigen a /classroom

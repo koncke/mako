@@ -11004,3 +11004,18 @@ en el CRM del teléfono «no hacía nada»). **Regla para código nuevo:** `setA
 router.push(url))` (app/m/_ui/hoja-historial.ts, exportado por `app/m/_ui`), o dejar que la hoja se desmonte con la
 página nueva sin cerrarla. Lo fija tests/m-hoja-navegar-al-cerrar.test.ts, que barre app/m; el porqué, en
 docs/hallazgos-mobile.md.
+
+# Las vistas de una misma cosa son UN selector (`SelectorVista`), nunca dos tabs ni dos controles (Martín, 29/10/2026)
+
+«Es el típico botón que tenemos en el CRM u otros lugares, del botón de Kanban o botón de lista. Son lo mismo, no deberían ser dos
+tabs» (Classroom: Clients y Members; el Calendario: el desplegable de vistas y «Calendario | Llamadas»). Lo que gobierna código nuevo:
+
+- **El control es el de la casa** (app/_ui/SelectorVista.tsx, con el ícono y el nombre en app/_ui/iconos-vista.tsx): una vista nueva
+  suma su entrada ahí, no un segmento propio. Con una sola vista no se dibuja.
+- **Está en el MISMO lugar en todas las vistas.** Si una vista es la pieza de otra pantalla (el directorio de Miembros adentro de
+  Clients), el selector le entra como un nodo (`extra`) y se dibuja donde lo tiene la barra de las otras. Y también en el estado
+  vacío: si no, la vista que sí tiene contenido queda inalcanzable.
+- **Una vista que era una ruta deja su ruta como redirect con `?vista=`**, y la vista elegida queda en la URL (`replaceState` en el
+  clic) y la lee el server: un F5 o un link vuelven a ella.
+- **Antes de decidir qué vista reemplaza a cuál, mirá cuáles ya hay.** Clients ya tenía una Lista; reemplazarla por Members perdía
+  una columna. Detalle: [docs/hallazgos-customer-success.md](docs/hallazgos-customer-success.md) → «Clients y Members, UNA sub-tab».

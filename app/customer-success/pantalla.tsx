@@ -28,6 +28,9 @@ import '@/app/integraciones/tus-cuentas-ia.css';
 import { ClientesApp } from './ClientesApp';
 import { getPerfil, getTarjetaClientes } from '@/lib/perfil';
 import { redirect } from 'next/navigation';
+import { Pagina, EmptyState } from '@/app/_ui';
+import { MiembrosClientes } from './MiembrosClientes';
+import { productosDeLaEntrega } from './entrega';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
 import { lecturaDeFichas } from './ficha-lectura';
@@ -67,7 +70,15 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
   // ⚠️ 25/10/2026: LOS WORKSPACES DEL SUPER ADMIN SE FUERON A /customers (docs/feedback-25-10-tarde.md punto 10: «una
   // vista especial para ver a mis clientes... partners, agency y el resto»). Es la MISMA grilla (AdminView), con los
   // segmentos, el MRR, Billing y Agents. Acá queda lo de los cursos y la comunidad (Classroom).
-  if ((await getSesionAdmin()) && !(await estaImpersonando())) redirect('/customers');
+  //
+  // ⚠️ 29/10/2026: ESTA SUB-TAB ES TAMBIÉN «MEMBERS» (Martín: «Son lo mismo, no deberían ser dos tabs»). La plataforma la
+  // ve con ese nombre (`seccionesDe`, lib/clients-rutas.ts) y de ella sólo el directorio de la comunidad de su programa:
+  // ni el kanban ni la tabla, que son leads ganados de un negocio. Un `?cliente=` es un link viejo que nombraba a un
+  // NEGOCIO: sigue yendo a Customers.
+  if ((await getSesionAdmin()) && !(await estaImpersonando())) {
+    if (leerClienteDeUrl((await searchParams)[PARAM_CLIENTE]) != null) redirect('/customers');
+    return <MiembrosDeLaPlataforma searchParams={searchParams} />;
+  }
 
   // ⚠️ SI LA LISTA NO SE PUEDE LEER, NO SE DIBUJA UNA LISTA VACÍA. Un workspace
   // que todavía no ganó a nadie y uno cuya consulta falló se ven idénticos, y el
@@ -208,9 +219,10 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
    * sirve no abre nada raro: la vista se valida contra las que la pantalla ofrece y el producto
    * contra sus servicios (ClientesApp).
    */
-  const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const vistaInicial = uno(sp.vista) === 'avance' ? 'avance' as const : null;
-  const productoInicial = /^[1-9]\d{0,11}$/.test(uno(sp.producto) ?? '') ? Number(uno(sp.producto)) : null;
+  // `?vista=miembros` (29/10/2026) es a donde cae /classroom/members, la sub-tab que se volvió una vista; `tabla`, la que
+  // deja escrita el selector. El default (sin `?vista=`) lo calcula ClientesApp: el kanban, si se puede dibujar.
+  const vistaInicial = vistaDeUrl(sp.vista);
+  const productoInicial = productoDeUrl(sp.producto);
 
   const clientesConFicha: ClienteCruce[] = clientes.map((c) => ({
     ...c,
@@ -252,6 +264,33 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
 
 const mensaje = (e: unknown): string =>
   e instanceof Error ? e.message : 'No pude leer tus clientes.';
+
+const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+const VISTAS_DE_URL = ['kanban', 'tabla', 'miembros', 'avance'] as const;
+/** La vista que pide la URL, si es una de las que la pantalla puede dibujar. Si no se ofrece, ClientesApp usa su default. */
+function vistaDeUrl(v: string | string[] | undefined): (typeof VISTAS_DE_URL)[number] | null {
+  const x = uno(v);
+  return (VISTAS_DE_URL as readonly string[]).includes(x ?? '') ? (x as (typeof VISTAS_DE_URL)[number]) : null;
+}
+const productoDeUrl = (v: string | string[] | undefined): number | null =>
+  /^[1-9]\d{0,11}$/.test(uno(v) ?? '') ? Number(uno(v)) : null;
+
+/**
+ * Lo que la PLATAFORMA ve en esta sub-tab (29/10/2026): el directorio de la comunidad de su programa, el de `?producto=`
+ * o el primero (la misma lista y el mismo orden que la cabecera). Sin el selector: no tiene otra vista a dónde ir.
+ */
+async function MiembrosDeLaPlataforma({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const pedido = productoDeUrl((await searchParams).producto);
+  let ids: number[];
+  try {
+    ids = (await productosDeLaEntrega()).map((p) => p.id);
+  } catch (e) {
+    return <Pagina><EmptyState titulo="No pude leer tus programas" detalle={mensaje(e)} /></Pagina>;
+  }
+  const productoId = ids.find((id) => id === pedido) ?? ids[0] ?? null;
+  if (productoId == null) return <Pagina><EmptyState titulo="Sin productos" detalle="La comunidad es de un producto. Crea uno en el CRM." /></Pagina>;
+  return <Pagina><MiembrosClientes productoId={productoId} /></Pagina>;
+}
 
 /**
  * Lo que la cartera necesita del curso: qué productos tienen clases, el acceso de cada cliente (con

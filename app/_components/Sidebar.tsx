@@ -911,6 +911,9 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
+          {/* LA RANURA DE MaKo (30/10/2026): el botón de la estrella de cada tab se monta acá (app/_chat/MakoEnLaTab.tsx) en vez de
+              flotar encima del rincón de abajo a la izquierda de la tab, que tapaba. Vacía (una pantalla sin MaKo) no ocupa lugar. */}
+          <div data-ranura-mako="" style={{ display: 'flex', justifyContent: open ? 'flex-start' : 'center', padding: open ? '0 6px' : 0 }} />
           {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
           <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
