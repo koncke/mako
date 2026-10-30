@@ -54,6 +54,24 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | Web Generator (este chat) | W2 | **A** | Landing copiada | Las imágenes de una landing copiada daban 404. **Arreglado en esta rama, probado contra la página real (0 → 32 de 32) y #88 reparada** (abajo). | lib/landing-fetch.ts, lib/editor-landing/replicar-reglas.ts |
 | Iniciativa (T4 a T8) | CH1 | M | AI Avatar siempre; Video e Image mientras no hay un proyecto abierto (Copywriting y Offer tienen chat propio) | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo: `PantallaCrear` no le pasa `apertura`. La conversación compartida es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17; regla «UN chat en toda la app»): el defecto es que no haya pregunta arriba. ⚠️ **T4 sola no lo arregla:** sólo agrega el reenvío de `apertura`, y hoy ninguna de las tres tabs pasa una. AI Avatar la recibe en T15 (última, sobre la tarjeta del Cerebro, sin chat propio). T11 y T12 son para Video e Image con un proyecto abierto: **sin proyecto abierto, ninguna tanda les da pregunta.** | docs/mako-iniciativa/plan.md:376, :383-384, :387 |
 
+## La prueba en vivo de Leila (pendientes-30-10.md, 1.1): qué se midió
+
+Medido en la base del ws11 y en el código. **Sin mirar la pantalla:** el Chrome conectado tiene la sesión de un cliente y el navegador integrado no tiene ninguna.
+
+| Punto | Qué era | Dónde quedó |
+|---|---|---|
+| 1.1, 1.2, 1.3 Carruseles | La validación doble tiraba todo el texto; el chat no recibía lo ya hablado | Arreglado. Causa y medición en hallazgos-editor-imagen.md |
+| 1.2, poner fotos | El chat no sabe hacerlo: `NO_SE_PUEDE_CHAT_IMAGEN` | **Sin hacer.** Función nueva |
+| 1.3, la marca entera | El chat no conoce colores ni logo | **Sin hacer.** Depende de 2.9 |
+| 1.4 Página 1, 2, 3 | El encabezado no entraba en una página angosta | Arreglado; medido en una réplica |
+| 1.4 Barra y chat abiertos | La barra ya arranca plegada; queda abierta para quien la fijó, por decisión del 24/10 | **Sin ver.** Pide sesión; sumar estas tabs a `RUTAS_QUE_PLIEGAN` lo decide Martín |
+| 1.5 Llevarlo a presentación | La landing #89 (ws11) nació del texto del carrusel, en modo IA y sin imágenes. «Usar de guía» no aparece en el código | **Sin diagnosticar.** Falta qué pantalla era |
+| 1.8 Arrastrar | Un Título y lo de abajo son bloques hermanos: BlockNote mueve sólo el que se arrastra. Seleccionar todo funciona porque arrastra la selección | **Sin hacer.** Hay que probarlo en un navegador |
+| 1.9 «¿Qué vendo?» | Esas frases no están en el código. La pregunta con botones «¿Lo adapto a tu oferta? ¿A cuál?» entró a main el 29/10 23:11 y Martín nombró en la llamada un botón «Adaptar a tu negocio» que ya no existe. Puede ser una versión anterior | **A confirmar** con la versión desplegada |
+| 1.10 Ver ejemplo | Estaba gris, como una miga | Arreglado (azul). Sin verlo en pantalla |
+| 1.11 «Concentrarte en una oferta» | No sale de un chat del 30/10: la última sesión de Offer del ws11 es del 12/10 y su informe dice «congelas la venta… para concentrarte al 100%» (criterio D9 Foco, `alertaFoco`). No es un error: es el método | **Decisión de producto:** qué hace D9 con quien vende varias a propósito |
+| 1.16 Replicar | La dirección base de la página. No comparte causa con 1.2 | Arreglado, probado (0 → 32 de 32) y #88 reparada |
+
 ## Las aperturas de Create: decisiones del Cerebro (30/10) y texto para el plan
 
 **Decidido:**

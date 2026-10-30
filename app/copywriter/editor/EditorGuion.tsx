@@ -373,7 +373,7 @@ export function EditorGuion(p: PropsEditorGuion) {
                 ? [restos.bloques ? `Quedan ${restos.bloques === 1 ? '1 bloque' : `${restos.bloques} bloques`} del ejemplo` : '', restos.datos ? `${restos.datos === 1 ? '1 dato' : `${restos.datos} datos`} por completar` : ''].filter(Boolean).join(' · ')
                 : `Plantilla: ${plantilla.nombre}`}
             </span>
-            <button type="button" className="nt-miga" onClick={() => setVerEjemplo(true)}>Ver ejemplo</button>
+            <button type="button" className="nt-miga nt-ver-ejemplo" onClick={() => setVerEjemplo(true)}>Ver ejemplo</button>
           </div>
         )}
         {verEjemplo && plantilla && ejemploDoc && (
