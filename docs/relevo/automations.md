@@ -4,7 +4,17 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
+## RELEVO FINAL DE LA CUENTA 3 (claude3, al 95 %, 30/10/2026 17:20), sesión local_7f005343
+
+**Todo lo de esta cuenta en Automations está en producción** (main 9e24e7935, tren-ai): los tickets #29 («Ya te sigo»), #25
+(la publicación del CRON) y #33 (el botón de un DM viejo), cada uno con su hito y su cosecha en docs/hallazgos-chatbot.md.
+**Datos del #33 reparados** (17:19): las 8 inscripciones de @leantejado (lead 5437, ws10) volvieron a como estaban antes del
+toque (703-707 'activa' esperando el toque; 660, 708, 709 'completada'). Nada a medias, ningún workflow corriendo.
+**Lo que sigue (sin empezar):** el paso que nombra la API de una inscripción sin tarjeta (lib/automatizaciones-del-lead.ts,
+`enAutomatizacionesDe`: usa `paso_actual` y no lo último que salió); guardar el payload del postback (hoy `zernio_eventos` sólo
+guarda el id); el aviso de Zernio al 80 % de los mensajes gratis (más abajo, «Sigue: el aviso antes de los 10.000…»).
+
+## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
 
 **Lo pedido** (el Cerebro): con copias de la 680, el botón de un DM viejo no anda y pasa todo el lead a «respondió». **Lo
 hecho:** un toque nunca va a la pausa; el payload que no se lee se resuelve por el título (la más vieja si hay varias). Test

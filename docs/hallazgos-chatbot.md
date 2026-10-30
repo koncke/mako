@@ -45,9 +45,15 @@ mismo título: la MÁS VIEJA (antes, el orden de la base). La regla: **un toque 
 **Sin hacer:** (1) Por la API (`inscripciones_lead`), una inscripción sin tarjeta (`nodo_actual` null: terminada o en
 «respondió») nombra su paso por la POSICIÓN del array (`paso_actual`), no por lo último que salió: GANCHOS decía «Todavía no te
 veo…» cuando le había salido el recurso (lib/automatizaciones-del-lead.ts, `enAutomatizacionesDe`; hace falta leer el último
-envío). (2) Guardar el cuerpo del postback (o al menos el payload) para ver qué manda Zernio en el DM viejo. (3) Las ocho
-inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta (escritura en producción: con el
-«dale»).
+envío). (2) Guardar el cuerpo del postback (o al menos el payload) para ver qué manda Zernio en el DM viejo.
+
+**Los datos que rompió, reparados (30/10/2026 17:19, con el arreglo ya desplegado y el «dale» del Cerebro):** ningún camino de
+la app saca una inscripción de «respondió» a como estaba («Volver a probar» sólo marca el desenlace y la deja en
+'respondio'; «Empezar de nuevo» le MANDA el primer DM; «Frenar» cancela). La pausa sólo había escrito `estado` y `updated_at`,
+así que se volvió SÓLO `estado`, en una transacción con compare-and-set contra el `updated_at` del bug: 703 a 707 a 'activa'
+(paradas en nlcjml0, sin próximo envío: esperan el toque y no les sale nada) y 660, 708 y 709 a 'completada'. Las 8 tocadas,
+con una línea en el historial del lead; después, ningún envío ni borrador. Para la próxima: si una pausa por error vuelve a
+pasar, es la misma reparación (medir que nada se movió, y devolver sólo `estado`).
 
 ## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
 
