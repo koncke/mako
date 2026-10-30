@@ -120,9 +120,11 @@ async function escribir(ws: number, datos: DatosCuenta, nivel: NivelMeta, id: st
 export async function lanzar(ws: number, id: string, quien: Quien, opts: { presupuesto?: number; elegidas?: string[]; datos?: DatosCuenta } = {}): Promise<ResultadoLanzar> {
   const config = await leerConfig(ws);
   if (!config.existeTabla) return { ok: false, error: 'Falta aplicar la migración del Media Buyer: sin el registro no se lanza nada (no se podría deshacer).' };
-  if (!config.encendido) return { ok: false, error: 'El Media Buyer está apagado: préndelo en Ajustes para lanzar decisiones.' };
   const d = await leerDecision(ws, id);
   if (!d) return { ok: false, error: 'Esa decisión no existe en este negocio.' };
+  // Apagado no se lanza nada, SALVO la pausa por fecha de fin: es la regla de la persona (una campaña creada «hasta el 30» con el
+  // Media Buyer apagado, que es como arranca todo negocio, tiene que terminar igual: revisión de Integración, M1). Sólo pausa.
+  if (!config.encendido && !(d.tactica === 'hasta' && d.tipo === 'pausar')) return { ok: false, error: 'El Media Buyer está apagado: préndelo en Ajustes para lanzar decisiones.' };
   if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { ok: false, error: `Esa decisión ya está ${d.estado}.` };
 
   const datos = opts.datos ?? await leerDatosCuenta(ws);
@@ -192,8 +194,9 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
   }
 
   // Los topes, con lo leído en vivo.
+  // La pausa por fecha de fin no pasa por los topes (pausar no sube nada) ni por el interruptor: sale también apagado (M1).
   const t = aplicarTopes(d.tipo, despues, {
-    config, actual, inicioDelDia: d.tipo === 'subir_presupuesto' ? await inicioDelDia(ws, d.entidadId) : null,
+    config: d.tactica === 'hasta' ? { ...config, encendido: true } : config, actual, inicioDelDia: d.tipo === 'subir_presupuesto' ? await inicioDelDia(ws, d.entidadId) : null,
     totalActivo: datos.totalActivo,
     presupuestoQueSuma: d.tipo === 'activar' ? presupuestoQueSuma(datos, nodo) : null,
     aUnidad: datos.conversor.aUsdNum, deUnidad: deUnidadDe(datos), fmt,

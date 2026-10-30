@@ -6292,7 +6292,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/campanas` — Lanzar una campaña nueva
 
-PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexión de Facebook del negocio: el objetivo, el presupuesto por día, dónde (vacío = la zona del Media Buyer, y nunca fuera de ella), hasta cuándo (vacío = la fecha de fin del Media Buyer), el formulario o el píxel, la página de destino y el creativo (una imagen o un video con su https, un video ya subido a la cuenta, o reusar un anuncio de la cuenta). Prendida, su presupuesto pasa por el tope diario de la cuenta. Se confirma en una pantalla, que muestra todo lo que sale; se deshace con deshacer_decision_media_buyer (la borra). Antes: listar_formularios_meta o listar_pixeles_meta, y buscar_lugares_meta.
+PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexión de Facebook del negocio: el objetivo, el presupuesto por día, dónde (vacío = la zona del Media Buyer, y nunca fuera de ella), hasta cuándo (vacío = la fecha de fin del Media Buyer), el formulario o el píxel, la página de destino y el creativo (una imagen o un video con su https, un video ya subido a la cuenta, o reusar un anuncio de la cuenta). Hoy NACE EN PAUSA (la persona la revisa en Meta y la prende) y MaKo relee lo que Meta guardó contra lo pedido. Se confirma en una pantalla, que muestra todo lo que sale; se deshace con deshacer_decision_media_buyer (la borra). Antes: listar_formularios_meta o listar_pixeles_meta, y buscar_lugares_meta.
 
 - **Ruta por operación:** `POST /api/v1/ads/proponer_crear_campana`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6331,7 +6331,7 @@ PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexi�
 | `texto` | string | no | el texto principal del anuncio (obligatorio salvo al reusar un anuncio). |
 | `titulo` | string | no | el título del anuncio. |
 | `boton` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SUBSCRIBE \\| SHOP_NOW \\| WHATSAPP_MESSAGE) | no | el botón del anuncio. |
-| `enPausa` | boolean | no | true = nace en pausa (se prende desde el Media Buyer). Por defecto sale prendida. |
+| `enPausa` | boolean | no | hoy toda campaña nueva nace en pausa (hasta medir la creación por Zernio): la persona la revisa y la prende. |
 
 ```bash
 curl -L \

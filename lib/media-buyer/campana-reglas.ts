@@ -16,8 +16,17 @@
 //   · `existingCreativeId` reusa el creativo de un anuncio (sus textos y su media; los campos de copia se ignoran).
 // =============================================================================
 
-import type { LugarZona } from './zona';
+import { veredictoDeLugares, type LugarZona } from './zona';
+import type { LugarMeta } from '@/lib/meta-geo';
 import { esPathDeStaging } from '@/lib/ads-staging';
+
+/**
+ * ⚠️ HASTA MEDIRLO, TODA CAMPAÑA NUEVA NACE EN PAUSA (revisión de plata de Integración, 29/10/2026): lo que viaja en
+ * `POST /ads/create` (lugares, edades, estados, `endDate`) sale de la OpenAPI y nunca se probó contra Zernio. Si una clave se
+ * descarta sin error, prendida gastaría con otro público. La persona la revisa y la prende (en Meta, o pidiéndoselo a MaKo).
+ * Se pasa a `true` con la prueba en la cuenta de MaKo (scripts/media-buyer-medir-zernio.mts), en pausa y con gasto 0.
+ */
+export const CAMPANA_PRENDIDA_MEDIDA = false;
 
 export const OBJETIVOS_CAMPANA = ['formulario', 'web', 'trafico', 'compras'] as const;
 export type ObjetivoCampana = (typeof OBJETIVOS_CAMPANA)[number];
@@ -121,7 +130,7 @@ export function validarCampana(x: Record<string, unknown>, lugares: LugarZona[])
     valor: {
       nombre, objetivo, presupuestoDia: Math.round(presupuestoDia * 100) / 100, lugares, hasta, edadMin, edadMax,
       formularioId: objetivo === 'formulario' ? formularioId : null, pixelId: objetivo === 'web' || objetivo === 'compras' ? pixelId : null,
-      evento, url, creativo, texto: textoPrincipal, titulo: texto(x.titulo, 255), boton, enPausa: x.enPausa === true,
+      evento, url, creativo, texto: textoPrincipal, titulo: texto(x.titulo, 255), boton, enPausa: !CAMPANA_PRENDIDA_MEDIDA || x.enPausa === true,
     },
   };
 }
@@ -193,6 +202,34 @@ export function resumenCampana(e: EntradaCampana, x: { moneda: string | null; ha
     x.hasta ? `hasta el ${x.hasta.slice(8, 10)}/${x.hasta.slice(5, 7)}/${x.hasta.slice(0, 4)}` : 'sin fecha de fin',
     `${creativo}${e.texto ? `; texto: «${e.texto}»` : ''}${e.titulo ? `; título: «${e.titulo}»` : ''}`,
     e.url ? `lleva a ${e.url}` : null,
-    e.enPausa ? 'Nace en pausa: se prende desde el Media Buyer.' : 'Sale prendida: Meta la revisa antes de mostrarla.',
+    e.enPausa ? 'Nace en pausa: la revisas en el Administrador de Meta y la prendes ahí (o le pides a MaKo que la prenda).' : 'Sale prendida: Meta la revisa antes de mostrarla.',
   ].filter(Boolean).join(' · ');
+}
+
+/**
+ * Lo que Meta GUARDÓ del conjunto recién creado contra lo que se pidió (campana.ts → releerCreada). Cada diferencia, en palabras
+ * para la persona. El cuerpo de `POST /ads/create` no se midió todavía (revisión de Integración, M2): si Zernio descarta una clave
+ * sin error, la campaña nace con otro público, y esto es lo que lo dice antes de que alguien la prenda.
+ */
+export function diferenciasDeLaCreada(
+  pedido: { lugares: readonly LugarZona[]; hasta: string | null; zona: readonly LugarZona[] },
+  leido: { lugares: readonly LugarMeta[]; noEntiendo: readonly string[]; finMeta: string | null },
+): string[] {
+  const out: string[] = [];
+  const incluidos = leido.lugares.filter((l) => !l.excluir);
+  const igual = (a: { tipo: string; key: string }, b: { tipo: string; key: string }) => a.tipo === b.tipo && a.key === b.key;
+  const faltan = pedido.lugares.filter((p) => !incluidos.some((l) => igual(l, p)));
+  const sobran = incluidos.filter((l) => !pedido.lugares.some((p) => igual(l, p)));
+  if (faltan.length || sobran.length || leido.noEntiendo.length) {
+    const que = [faltan.length ? `faltan ${faltan.map((l) => l.nombre).join(', ')}` : null, sobran.length ? `sobran ${sobran.map((l) => l.nombre).join(', ')}` : null,
+      leido.noEntiendo.length ? 'trae lugares que MaKo no sabe leer' : null].filter(Boolean).join('; ');
+    out.push(`Meta la guardó con otros lugares (${que}): revísalos en el Administrador antes de prenderla.`);
+  }
+  if (pedido.zona.length && veredictoDeLugares(pedido.zona, incluidos, leido.noEntiendo).veredicto !== 'dentro') {
+    out.push('Lo que guardó Meta muestra anuncios fuera de tu zona (o MaKo no lo puede confirmar): no la prendas sin revisarla.');
+  }
+  if (pedido.hasta && !leido.finMeta) {
+    out.push(`Meta no guardó su fecha de fin (${pedido.hasta.slice(8, 10)}/${pedido.hasta.slice(5, 7)}): MaKo la pausa igual pasada la fecha, pero ponla también en el Administrador.`);
+  }
+  return out;
 }

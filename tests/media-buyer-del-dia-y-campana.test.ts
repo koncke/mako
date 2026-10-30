@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { stopLossDelDia, claveDelDia, type EntradaDelDia } from '../lib/media-buyer/del-dia';
 import { resolverTacticas } from '../lib/media-buyer/tacticas';
 import type { NodoMB, SenalMB } from '../lib/media-buyer/motor';
-import { validarCampana, cuerpoCampana, resumenCampana, type EntradaCampana } from '../lib/media-buyer/campana-reglas';
+import { validarCampana, cuerpoCampana, resumenCampana, diferenciasDeLaCreada, CAMPANA_PRENDIDA_MEDIDA, type EntradaCampana } from '../lib/media-buyer/campana-reglas';
 import type { LugarZona } from '../lib/media-buyer/zona';
 
 const AHORA = Date.parse('2026-11-05T18:00:00Z');
@@ -100,7 +100,7 @@ test('campaña: el cuerpo de Zernio lleva el presupuesto en UNIDADES, la fecha, 
   assert.equal(c.endDate, '2026-11-30');
   assert.deepEqual(c.targeting, { cities: [{ key: '777' }] });
   assert.equal(c.imageUrl, 'https://cdn.ejemplo.com/a.jpg');
-  assert.equal(c.status, 'ACTIVE');
+  assert.equal(c.status, 'PAUSED', 'hasta medir la creación, nace en pausa (abajo)');
   assert.equal(c.campaignName, 'Lanzamiento noviembre');
 });
 
@@ -131,4 +131,27 @@ test('campaña: el resumen que se confirma muestra el texto ENTERO, el monto, lo
   assert.ok(r.includes('€30 por día'));
   assert.ok(r.includes('Madrid'));
   assert.ok(r.includes('30/11/2026'));
+});
+
+test('campaña: hasta medir la creación por Zernio, nace en PAUSA aunque se pida prendida (revisión de plata de Integración)', () => {
+  assert.equal(CAMPANA_PRENDIDA_MEDIDA, false, 'se prende recién con la prueba en la cuenta de MaKo');
+  const e = valida({ ...base, enPausa: false });
+  assert.equal(e.enPausa, true);
+  const c = cuerpoCampana(e, { conexion: { accountId: 'z1', adAccountId: 'act_1' }, hasta: null });
+  assert.equal(c.status, 'PAUSED');
+  assert.equal(c.campaignStatus, 'PAUSED');
+  assert.ok(resumenCampana(e, { moneda: 'EUR', hasta: null, fmt: (n) => `€${n}` }).includes('Nace en pausa'));
+});
+
+test('relectura: lo que Meta guardó igual a lo pedido no dice nada; lugares de más o de menos, fuera de la zona o sin fecha, sí (M2)', () => {
+  const madridMeta = { tipo: 'city' as const, key: '777', nombre: 'Madrid', pais: 'ES', regionId: '1234' };
+  const pedido = { lugares: [MADRID], hasta: '2026-11-30', zona: [] as LugarZona[] };
+  assert.deepEqual(diferenciasDeLaCreada(pedido, { lugares: [madridMeta], noEntiendo: [], finMeta: '2026-11-30T23:59:59+0100' }), []);
+  const otro = { tipo: 'country' as const, key: 'MX', nombre: 'México', pais: 'MX' };
+  const [a] = diferenciasDeLaCreada(pedido, { lugares: [otro], noEntiendo: [], finMeta: '2026-11-30' });
+  assert.match(a, /faltan Madrid; sobran México/);
+  assert.ok(diferenciasDeLaCreada({ ...pedido, zona: [{ tipo: 'country', key: 'ES', nombre: 'España', pais: 'ES' }] }, { lugares: [otro], noEntiendo: [], finMeta: '2026-11-30' })
+    .some((x) => /fuera de tu zona/.test(x)), 'fuera de la zona');
+  assert.ok(diferenciasDeLaCreada(pedido, { lugares: [madridMeta], noEntiendo: [], finMeta: null }).some((x) => /fecha de fin/.test(x)), 'Meta no guardó la fecha');
+  assert.ok(diferenciasDeLaCreada(pedido, { lugares: [madridMeta], noEntiendo: ['geo_locations.places'], finMeta: '2026-11-30' }).length === 1, 'lo que no se entiende');
 });

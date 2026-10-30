@@ -1435,7 +1435,8 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx) => {
       const r = await crearCampanaMB(ctx.ws, (payload.entrada ?? {}) as Record<string, unknown>, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
       return r.ok
-        ? { ok: true, resumen: `Campaña lanzada en Meta (${r.campaignId}). ${r.resumen}`, datos: { campaignId: r.campaignId, adSetId: r.adSetId, adId: r.adId, decisionId: r.decisionId } }
+        // Nace en pausa (campana-reglas.ts → CAMPANA_PRENDIDA_MEDIDA); lo que la relectura vio distinto va ENTERO en el resumen.
+        ? { ok: true, resumen: `Campaña creada en Meta (${r.campaignId}). ${r.resumen}${r.avisos.length ? ` Ojo: ${r.avisos.join(' ')}` : ''}`, datos: { campaignId: r.campaignId, adSetId: r.adSetId, adId: r.adId, decisionId: r.decisionId, avisos: r.avisos } }
         : { ok: false, resumen: r.error };
     },
   },
