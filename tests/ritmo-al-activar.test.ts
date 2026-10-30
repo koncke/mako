@@ -199,7 +199,8 @@ test('el cableado de las prendidas: se muestra sólo si está prendida, y sin po
   assert.match(n, /console\.error\(`\[nutricion\] los avisos de ritmo: \$\{e instanceof Error \? e\.message : String\(e\)\}`\);\n\s+out\.clear\(\);/);
   assert.match(leer('lib/setting-secuencias.ts'), /aviso_ritmo: avisosRitmo\.get\(s\.id\) \?\? null,/);
   const p = leer('app/automations/SecuenciaPerfil.tsx');
-  assert.match(p, /\{activa && secuencia\.aviso_ritmo && \(/, 'lo ve quien ve la automatización, como en el teléfono');
+  assert.match(p, /const avisoRitmoPrendida = activa && secuencia\.aviso_ritmo && \(/, 'lo ve quien ve la automatización, como en el teléfono');
+  assert.match(p, /\{avisoRitmoPrendida\}/);
   assert.match(p, /disabled=\{!rolAdmin \|\| !Configuraciones\}/, 'ponerlo, sólo el admin');
   assert.match(p, /alCerrarConfig\.current = \(\) => \{ if \(secuencia\.aviso_ritmo\) onCambio\(\); \};/, 'al ponerle goteo u horario, el aviso se va');
   assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /aviso=\{j\.activa \? j\.aviso_ritmo \?\? undefined : undefined\}/);

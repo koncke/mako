@@ -84,6 +84,10 @@ NO se les pone goteo: cambiaría cómo le llegan los mensajes a los leads de un 
 configuración no dice nada: no saber si tiene goteo no es «no tiene goteo». Una lectura por lista, no una por automatización. Lo ve
 quien ve la automatización, en la computadora y en el teléfono: un setter no lo arregla, pero puede avisar. Ponerlo, sólo el admin.
 
+**Un tope que se sube cada vez que algo no entra dejó de ser un tope.** `tests/automations-decima-lienzo.test.ts` mide el tramo del título de `app/automations/SecuenciaPerfil.tsx`: subió a 4.000 el 28/10 (la pregunta de los que ya están en la etapa) y a 4.500 el 30/10 (este aviso). Y `tests/chatbot-lista-nueva.test.ts` mide la acción de la fila (`accionFila`, `app/automations/SimuladorWhatsApp.tsx`): de 2.700 a 3.400 el 30/10, por este mismo aviso. **La pregunta no es cuánto más aguantan, sino por qué esos tramos siguen creciendo** y si deberían partirse. Un cuarto (el pie, 4.000 en `tests/lienzo-sexta-tanda.test.ts`) no se subió: el aviso salió del tramo a una constante, y eso bastó.
+
+**Una llamada que cambia rompe los tests que fijan su texto, aunque el comportamiento no cambie.** Este aviso dejó cinco rojos así en el tren, y ninguno lo encontró correr «los tests de lo que toqué» a ojo: los encontró correr todos los que nombran los archivos tocados. **La regla:** antes de pasar una punta se corren los que leen el fuente de lo tocado, no los que uno se acuerda.
+
 **Decisiones de Automations:** con menos de 2 personas, y sin evento, no hay ritmo que decir. No poder contar no frena, pero sin goteo se
 dice igual.
 
