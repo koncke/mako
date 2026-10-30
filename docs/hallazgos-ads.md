@@ -5273,3 +5273,27 @@ Zernio) · `app/ads-manager/NuevaCampana.tsx`, `ElegirLugares.tsx` · `supabase/
   abre desde la cabecera del Media Buyer.
 
 *29/10/2026, chat «Media Buyer de Thiago» (`claude3`).*
+
+## La revisión de plata del Media Buyer de Thiago, y la guarda que el tren encontró (29/10/2026, Integración)
+
+El informe está en `C:/dev/revisiones/2910-revision-plata-media-buyer-a2b0088a3.md`, y la sonda en el scratchpad de Integración
+(`sonda-plata-mb.test.mts`). Veredicto: «entra con bajas», sin ALTA. Ninguna campaña sale sin la confirmación de un admin, no se
+cruzan cuentas de anuncios, el vigía no usa IA y cada negocio escribe con su clave dueña (`cfgDeCuenta`). La baja (nacer en pausa
+y releer) y M1, M5 y M6 quedaron hechas en `b4ee3c411`: ver la entrada de arriba.
+
+- ⚠️ **Una acción NUEVA que gasta y se confirma en /mako/revisar nace con el agujero si no marca un id fijo.**
+  - `tests/revisar-fijo.test.ts` (el BARRIDO) dio rojo en el tren-af: `proponer_crear_campana` tenía `formularioId`, `pixelId`,
+    `videoId` y `anuncioId` editables al revisar.
+  - El título que se confirma es el de la propuesta. Cambiar el píxel o el video ahí lanzaba otra campaña bajo ese título.
+  - Integración los marcó `fijoAlRevisar` (`c9d23904c`), porque el chat de Ads estaba archivado.
+  - **Regla:** al sumar una acción con `costo: dinero` y `confirmacion: pantalla`, correr ese test ANTES del VERDE. Los tests
+    del área no lo llaman.
+- **Abierto (MEDIA):**
+  - **M3:** con una cuenta de anuncios compartida entre dos negocios (ws13 y ws14), sólo cuenta la configuración del de id más
+    chico. La zona y la fecha del otro no se aplican nunca (`vigia.ts`, `ordenRotado`).
+  - **M4:** si la función se corta entre reclamar la decisión y escribir en Zernio, la pausa por fecha queda «aplicada» sin
+    haberse escrito y no se relanza (`ejecutar.ts`, `zona.ts`, `store.ts`). Probado con S6.
+  - **M2, en parte:** el cuerpo de `POST /ads/create` sigue sin medirse. La relectura de `b4ee3c411` avisa lo distinto, pero
+    la zona no frena una campaña ya creada.
+- **Abierto (BAJA, entre otras del informe):** dentro de una automatización no hay ninguna guarda al ejecutar
+  `proponer_crear_campana`; sólo el editor la saca de la lista.
