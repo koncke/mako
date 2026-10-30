@@ -3,73 +3,73 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 30/10/2026 ~02:30, el Cerebro de claude3 (`local_428051c1`, semana al 85 %)
+## ⏩ LEER PRIMERO — 30/10/2026 ~11:30, el Cerebro de claude3 (`local_428051c1`, semana al 94 %)
 
-El registro fino, despacho por despacho, está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md` (lo último, abajo).
-**SP** = el scratchpad de esta sesión: `C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/`.
+El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`: lo último, abajo, despacho por despacho.
+**SP** = `C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/`.
 
-**Corriendo al escribir — la segunda pasada de Gmail** (workflow `gmail-segunda-pasada`, run `wf_d40fa400-6bd`; el guion está
-en `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/workflows/scripts/`).
-- Martín, 30/10 ~02:00: «¿40 remitentes? veo re poquitos… Fran Doglio, Víctor Heras, Marcos Razzetti», y después «también
-  Sofía Contreras, con "Cortito y al pie"». El tope de 40 era del guion de la primera pasada. Doglio y Heras ya estaban
-  (fichas 05 y 08).
-- Escribe `SP/gmail/inventario-2.md` y las fichas `remitente-41.md` en adelante, suma lo nuevo a `SP/gmail/patrones-email.md`
-  y arma `SP/gmail/remitentes-lista.md`, una lista interna. Si se cortó, se retoma con `resumeFromRunId`: lo terminado vuelve de
-  la caché.
-- **Al terminar, dos pedidos de Martín:**
-  1. Re-commitear `docs/conocimiento/patrones-email.md`, que va por Integración. Su rama es `conocimiento-email-2910` @ `3c6f89a6b`.
-  2. «Enviaselo al grupo de MaKo con Mauricio, que requería esa investigación también». YA AUTORIZADO en el chat: no repreguntar.
-     - **El PDF:** los patrones más un anexo con los remitentes. Se arma con
-       `python SP/gmail/pdf/md-a-pdf.py <patrones.md> <remitentes-lista.md> <salida.html>`, y después Edge
-       `--headless=new --no-pdf-header-footer --print-to-pdf`.
-     - **El grupo:** «MaKo <> Mauricio Bustos» (ws1, `120363411646661065@g.us`, 3 miembros, línea `mako_superadmin_muylqv8r`).
-     - **El envío:** `enviarPartesAlGrupoMaKo(1, [texto corto, documento])`, de lib/mako-grupo.ts.
+**Reglas nuevas de Martín (30/10, en memoria):**
+- «No me hagas preguntas que podés resolver vos mismo». Las migraciones que sólo agregan y los datos que rompió un bug nuestro
+  se hacen sin preguntar (`aprobacion-prod-en-el-chat`).
+- N3: cualquiera del grupo de WhatsApp de un negocio puede pausar o prender sus campañas (`campanas-desde-el-grupo-cualquiera`).
 
-**Terminado y SIN repartir — el recorrido visual de producción** (run `wf_0a6a2d52-ffc`, en `SP/recorrido/hallazgos.md`).
-- Son 27 hallazgos, pero cubren sólo 8 de los 22 chats: Create y «resto» no se recorrieron porque la corrida se frenó por
-  permisos.
-- **ALTO:** en Calendario, el botón flotante de MaKo tapa la casilla de los calendarios de Google. Ese mismo botón tapa contenido
-  en 5 hallazgos de 4 chats, así que es un solo arreglo en el layout compartido.
-- **Lo que falta:** repartir por dueño, el ALTO primero, y volver a lanzar Create y resto.
+**Hecho hoy:**
+- **Trenes ag y ah en producción.** main = 88700b981, mako-ou9xtjw1c.
+  - ag: Leila #31/#32. Su aviso queda programado a las 14:33 por el tope de avisos (un cron de esta sesión; si se cerró, se manda a
+    mano con el comando de por-repartir.md).
+  - ah: la iniciativa de MaKo, la barra del Reproductor y Zernio N1/N8.
+- **Migraciones aplicadas y medidas:**
+  - 0352, 0351 y 0349 (con el sí de Martín);
+  - 0331 completa y el índice idx_notif_tipo_created de la 0048, que nunca habían corrido.
+- **Gmail, 2.ª pasada:** 70 remitentes y unos 5.050 emails.
+  - Mandada en PDF al grupo «MaKo <> Mauricio Bustos».
+  - Rama `conocimiento-email-3010` @ 2b9b9d7b7, en el tren-ai.
+- **El aviso del #30 a Leandro salió:** la guía de Instagram en la API.
 
-**Pausados (retomar de a uno, con RAM):**
-- leadmagnet-spy: `SP/iniciativa/leadmagnet-spy-workflow.js`, `resumeFromRunId: "wf_d804ebee-14e"`.
-- El conocimiento modular: `SP/iniciativa/conocimiento-workflow.js`, `resumeFromRunId: "wf_0b80b79c-462"`.
+**Corriendo — tren-ai** (Integración, barrido completo).
+- Lleva los tickets de clientes:
+  - #34: el 429 de Zernio es una pausa y no «reconectar» (43897f1df);
+  - #35: la hora de las reuniones en la ficha que lee MaKo (7d51f24c2, que contiene el despachante cc2aaa6ce);
+  - #33: un toque de botón nunca es «respondió» (da015ebd5).
+- Lleva además Calendario (7162c94aa), Video pasos 1 y 2 (0e27cb66f) y los emails.
 
-**Trenes:**
-- main = `c9070ea0d` (tren-af, Ready 01:15).
-- tren-ag armado @ `3076925cf`, con Leila #31/#32 primero.
-- tren-ah:
-  - iniciativa-base `88d2cf0db`;
-  - agency `28cc3e2cb`;
-  - cal-classroom `7162c94aa`, necesita la 0352;
-  - newsletter `85d2206c9`, necesita la 0351.
+**Al Ready del tren-ai:**
+1. **Avisos:**
+   - Código Inmobiliario: #34 en el ws17 y #35 en el ws13;
+   - Leandro (ws10): #33 y la promesa falsa del #30. El tope de 3 por día del ws10 libera un lugar a las 17:12 ART.
+2. **Soltar las 8 inscripciones de @leantejado** (lead 5437, ws10) que el bug del #33 dejó en «respondió». Lo hace Automations
+   (local_7f005343, archivado) con «Volver a probar» por inscripción.
 
-**Con el Ready del tren-ag:**
-- **El #33, a Automations:** los botones viejos de DM. El toque se resuelve por inscripción + tarjeta + botón, no por lead, y un
-  toque no es «respondió».
-- **La T2, a Onboarding:** recomendarFunnel, la bienvenida y la pregunta de entrada.
+**En curso:** Calendario (local_18ef0a3f), con el recorrido visual.
+- K2 ALTO: el botón flotante de MaKo tapa la casilla de los calendarios de Google. Se arregla en el layout compartido y cierra
+  también P1, C3 y D4.
+- Además K1, K3, K4 y K5.
+- Tiene el commit listo y espera su tsc. Su sha va al tren siguiente.
 
-**Esperan a Martín** (preguntar en el chat, en palabras):
-- Las migraciones 0351 (Newsletter: baja y copy por edición) y 0352 (Calendario: el tipo «entrega»).
-- La 0349 (Zernio), recién cuando Integración dé el OK al arreglo N1.
-- LinkedIn: ¿el jueves, o el partner oficial?
-- Sus pasos:
-  - el AI Avatar en ws3;
-  - la grabación de Fathom a Thiago;
-  - la clave live de Stripe y los precios en EUR;
-  - el clic de la prueba de anuncios de Zernio.
+**En fila (abrir de a uno, con ≥4,5 GB libres; nunca dos tests-afectados juntos: hoy el vigía mató 4 barredoras):**
+1. **Agency (Thiago):** 3 rojos.
+   - Una guarda de suplantación en /api/auth/me.
+   - Se perdió el `aprobada &&` en lib/partners.ts.
+   - Las zonas de México, como dato.
+   - Devolución en `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-agency-thiago-devuelto.md`.
+   - Chat local_e5c96952.
+2. **Newsletter:** M1 (la tab y la API pasan para cualquier admin), el doble envío, lo programado con el email apagado y archivar
+   el CRM. La devolución está al lado de la de Agency. Chat local_3058f25f. Hoy no hay riesgo: nadie tiene el email prendido.
+3. **El recorrido visual:** repartir los otros 22 hallazgos (`SP/recorrido/hallazgos.md`) y relanzar Create y «resto» (14 chats sin
+   mirar).
+4. **T2 Onboarding** (recomendarFunnel, la bienvenida y la pregunta de entrada) y las tandas T3–T17 de la iniciativa por tab:
+   `git show origin/main:docs/mako-iniciativa/plan.md`.
+5. **Workflows pausados:**
+   - conocimiento modular: `SP/iniciativa/conocimiento-workflow.js`, `resumeFromRunId: "wf_0b80b79c-462"`;
+   - lead magnet / spy: `SP/iniciativa/leadmagnet-spy-workflow.js`, `resumeFromRunId: "wf_d804ebee-14e"`.
+6. **Video, paso 3 (la cabecera):** el banco no arma por código de servidor. Relevo del Video en motion-imagen-2610 @ c45142425.
+7. **Lo que quedó sin hacer:**
+   - Zernio: gastar menos al conectar; alerta-critica no lee a quien conecta (docs/hallazgos-integraciones.md).
+   - #33: la API nombra el paso por posición; guardar el payload del postback (docs/hallazgos-chatbot.md).
 
-**A medias:**
-- MaKo en WhatsApp: A1/A2 de privacidad ANTES que features, y después la revisión de plata.
-- Zernio: N1.
-- Video: la barra del Reproductor y la QA completa.
-- El aviso del #30 a Leandro, que frenó el tope de 3 por día.
-- Las tandas T3–T17 de la iniciativa, por tab.
-- Usar los patrones de email en cada chat: Copywriter, Newsletter, recordatorios de Automations y WhatsApp.
-
-**Noche del 29 al 30:** la RAM estuvo en 3,6 GB o más en cada ronda. La última zona roja fue un tsc de 3,2 GB en
-`wt-agency` (00:56 ART). El vigía de tickets se re-armó como respaldo del Runner.
+**Para Martín:** nada que decidir. La extensión de Chrome está publicada (0.74.3). Meta sigue en revisión (~10/11; la verificación
+de acceso vence el 20/12) y Google está aprobado. El panel de la tienda de Chrome pide re-iniciar sesión, pero sólo hace falta para
+la próxima versión.
 
 ## El ritual de una cuenta nueva — 29/10/2026 ~00:55, de la cuenta 4 (claude4); sigue valiendo
 
