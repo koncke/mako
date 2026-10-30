@@ -164,6 +164,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'marcasDeVoseo(): es el detector que marca el voseo en un guion generado',
   },
   {
+    ruta: 'lib/voseo.ts',
+    porque: 'el generador de las formas y el LÉXICO del voseo (`vos`, `acá`, `laburo`…): es la lista de lo que este guard busca',
+  },
+  {
     ruta: 'lib/onboarding-frases.ts',
     porque: 'detectores del onboarding (21/10/2026): cómo dice la persona que sí («ándale», «vale», «sisi») y en qué moneda escribe una cifra («soles», «lucas», «palos»); no es copy, nada de ahí se muestra',
   },
