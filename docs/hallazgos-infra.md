@@ -372,6 +372,18 @@ verde: esos tests no pasaron. La salida completa estaba en un log de Temp que ya
 nunca. No es que a veces falte memoria: **esta máquina no sostiene al equipo y a una barredora a la vez.** Levantar una PAUSA del Cerebro tampoco dice que haya RAM: el relanzamiento automático salió
 apenas se levantó, sin mirarla.
 
+**Los umbrales no se hablan, y es la causa de fondo de los dos incidentes del día.**
+- `tests-afectados` arranca con ~1,3 GB (`pisoRam(1)`: 0,9 de la zona roja del vigía + 0,35 + 0,05), y el chequeo de tipos del push pide 5,3: lo liviano arranca justo cuando lo pesado
+  todavía no puede, y le come el lugar. Estaba escrito desde el 28/10 (más arriba en este documento), y se volvió a vivir entero.
+- **La pausa frena bien y se suelta mal:** al apagarla arrancaron cinco chats a la vez con 1,6 GB libres. Cada uno miró la RAM y vio lugar, porque el otro todavía no la había pedido.
+- **El piso de las barredoras no escala:** `COSTO_COMPARTIDO_GB = 0.8` se midió con 24 barredoras (~725 MB) y se aplica igual a un grupo de 615 (`pisoCompartido(1)` = 1,75 GB). Cuánto pide con 615
+  no está medido: el proceso murió antes de contar.
+
+**SIN hacer (`scripts/pausa-cerebro.mjs`, `esperarRam` en `scripts/tests-afectados.mjs`):**
+- soltar la pausa escalonada: un turno por vez, con el siguiente recién cuando el anterior ya haya pedido su memoria;
+- que el que arranca reste lo que necesita el que está esperando (una cola de pedidos con su costo, no sólo «¿hay lugar para mí?»);
+- que `pisoCompartido` crezca con la cantidad de barredoras, o partir el grupo; primero hay que medir cuánto pide con 615.
+
 **La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió». Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
 que Martín puso la tarjeta, y no se repiten en esa PC. En la PC, sólo los tests del cambio, midiendo la RAM antes.
 
