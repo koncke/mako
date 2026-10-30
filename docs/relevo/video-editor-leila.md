@@ -98,7 +98,16 @@ Integración. Misma prioridad que lo de Leila.
      sin ScrollArea, se esconde lo `prescindible` (el deslizador) por debajo de 1000 px y la barra se parte en dos filas.
      Tests barra-linea 3/0. Roturas (6) y tsc corriendo por con-turno al escribir esto (`roturas-linea.mjs`, log en el
      scratchpad: `roturas-linea.log`); falta anotarlas en tests/video-editor-barra-linea.test.ts y mandar el VERDE.
-  2. **Paneles laterales en su mínimo: SIN EMPEZAR.** Visto leyendo: las pestañas del panel de propiedades van en un
+  1b. Paso 1 en VERDE: punta `f297cf096` (6 roturas 2/1, tsc ✓ en 12), mandado al Cerebro.
+  2. **Paneles laterales en su mínimo: MEDIDO, sin arreglar.** Banco `banco/entrada-paneles.tsx` (+ `build-paneles.mjs`,
+     `sacar-paneles.mjs`; el stub `motor-linea.ts` ya trae un comodín y un proyecto inventado). Captura
+     C:/dev/revisiones/editor-pantalla-3010/paneles-antes.png. Biblioteca: de 240 px para abajo «Importar» y la zona para
+     arrastrar se aplastan (una palabra por renglón) y de 160 se cortan. Propiedades (los detalles, sin nada elegido): la
+     columna de rótulos es proporcional y «Cuadros por segundo:» se corta aun a 300 px; de 160 para abajo no se lee. Plan:
+     mínimos en PÍXELES (biblioteca y propiedades ~280, reproductor 160) pasados a % con el ancho medido del grupo
+     horizontal (`editor-page.tsx`, `useAncho`), escalados si no suman; y la columna de rótulos de `detalles.tsx` al ancho
+     de su texto.
+  Antes era: **Paneles laterales en su mínimo: SIN EMPEZAR.** Visto leyendo: las pestañas del panel de propiedades van en un
      `overflow-x-hidden` (las que no entran se esconden) y cada fila del kit pide ~76 + 66 px fijos; el mínimo de los
      paneles es 15 % del centro (~103 a ~130 px). Idea: mínimos en PÍXELES convertidos a % con el ancho medido del grupo
      (`editor-page.tsx`, react-resizable-panels 2.1.9 sólo acepta %). Medir primero en el banco.
