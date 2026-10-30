@@ -1436,6 +1436,90 @@ la ruta compartida `app/api/mako/pedidos/route.ts` · el núcleo `lib/mako-pedid
   guardado tampoco los acepta.
 - **SIN HACER:** verlo en el navegador (un pedido doble, «el otro proyecto» con dos candidatos, un link a otra tab).
 
+## «Faltan diseños de plantillas» era falso: el motor está bien, falla lo que se ve (29/10/2026)
+
+- **Síntoma:** las 7 plantillas de «Nuevo video» se ven vacías.
+- **El diagnóstico obvio era el equivocado:** los tiempos, las animaciones y los huecos de
+  lib/editor-video/plantillas.ts están bien y tienen tests.
+- **Causa:**
+  - el copy es de e-commerce («ESTO LO CAMBIA TODO», «50 % DE DESCUENTO», «María López»);
+  - la muestra es un PNG gris («Tu clip»);
+  - Create no dibuja la plantilla: `plantillasNuevoVideo` no pasa imagen, y `MiniaturaPlantilla` solo la usa la pestaña
+    Plantillas.
+- **Regla:** se cambia el contenido, no el motor. La tarjeta usa la miniatura del editor (o un póster WebP, si el chunk
+  arrastra el WASM).
+
+**Vive en:** lib/editor-video/plantillas.ts · app/video-editor/plantillas-crear.ts · app/video-editor/_opencut/plantillas/
+
+## Lo que una plantilla de Video no puede prometer (29/10/2026)
+
+- **Es solo 9:16:** `usarPlantilla` fija la relación, y `LIENZO_REF` y `ZONA_SEGURA` son de Reels. YouTube va como
+  receta del agente, no como plantilla de huecos.
+- **No tiene audio:** no hay `PistaPlantilla`, y el chat no agrega música ni efectos de una biblioteca («lo que no se
+  puede» de chat-catalogo.ts). Prometer música o efectos de sonido no se cumple.
+- **Fuentes:** `cajaDeTexto` solo mide Anton, Montserrat y Playfair Display, e Inter no está en `FUENTES_PLANTILLAS`.
+- **Textos de muestra:** como máximo 5 palabras (test 7) y `mayusculas: true` si van en mayúscula (test 9). `cierre()`
+  no lleva mayúsculas. El guion largo del ejemplo va en un campo nuevo, `ejemplo.guion`.
+- **Partir la pieza principal en dos piezas del mismo HuecoClip** no está medido. El quiebre lo hace el Editor con
+  `dividir`.
+
+**Vive en:** app/video-editor/_opencut/plantillas/instanciar.ts · lib/editor-video/chat-catalogo.ts · tests/video-editor-plantillas.test.ts
+
+## Las muestras: sin caras, con su archivo en la clave, y la opcional se exporta (29/10/2026)
+
+- **Caras:** una persona de stock en un hueco «a cámara» queda diciendo, con los subtítulos, un resultado que nunca
+  dijo, y la licencia de Pexels prohíbe insinuar respaldo. Las muestras van sin caras.
+- **La opcional:** una muestra opcional que no se reemplaza **se exporta tal cual** (`quedanMuestras` ignora las
+  opcionales). Si lleva el rótulo dibujado, sale en el anuncio.
+- **La clave:** `nombreMuestra(rotulo)` reutiliza «Muestra · Tu clip.png» entre plantillas. Con fotos distintas por
+  plantilla, la clave lleva el archivo.
+
+**Vive en:** app/video-editor/_opencut/plantillas/uso.ts · muestras.ts · huecos.ts · export/dialogo-exportar.tsx
+
+## El resumen del Editor se corta, y no se sabe qué modelo contesta (29/10/2026)
+
+- `editarVideo` corta el resumen a la primera línea y a 300 caracteres: la estrategia y el guion del experto necesitan
+  campos propios en `FORMATO_CHAT`.
+- El comentario de lib/editor-video/ia.ts dice que `video-editor-ia` va por la cascada barata, con Gemini por defecto.
+  Antes de medir al experto, se verifica en /modelos-ia qué modelo responde.
+
+**Vive en:** lib/editor-video/ia.ts · lib/editor-video/chat-prompts.ts
+
+## Cifras de la investigación que la fuente no dice, y licencias que parecen abiertas (29/10/2026)
+
+- **Cifras sin fuente:**
+  - la música de 18 a 24 dB debajo de la voz no tiene fuente primaria (video-use dice de 12 a 15 dB);
+  - claude-shorts pone el gancho en 3 s, no en 3.5 s;
+  - retention-editing quita los silencios de más de 1 s, y los 0.4 s son el umbral de corte limpio de video-use.
+- **Licencias que parecen abiertas:**
+  - HyperFrames es Apache-2.0, pero corre sobre GSAP, cuya licencia gratuita prohíbe usarlo en herramientas de
+    animación sin código;
+  - Remotion cobra a las empresas de más de 3 personas, y el render de claude-shorts depende de él;
+  - según la investigación (no se releyó), Coverr, Mixkit, la música de Pixabay, la API de Freesound y LottieFiles
+    excluyen editores, productos que compiten o la redistribución.
+- **Regla:** cada número del prompt sale de un archivo leído. De los repos con licencia se copia la lógica, nunca el
+  runtime.
+
+**Vive en:** lib/editor-video/chat-prompts.ts (`video_editor.experto`) · docs/plantillas-reales/video.md (sección 4)
+
+## Un cierre «Escribe LLAMADA» sin quien conteste deja al lead colgado (29/10/2026)
+
+- **Regla:** el cierre con palabra clave va solo si el negocio tiene la automatización que la contesta; si no, la
+  acción es agendar o registrarse.
+- **Pendiente de verificar:** una cifra de facturación propia en un anuncio se lee como promesa de ingresos (es una
+  inferencia, sin verificar contra la política de Meta). Por eso la historia del fundador habla de clínicas atendidas.
+
+**Vive en:** lib/editor-video/chat-prompts.ts · lib/editor-video/plantillas.ts
+
+## Tests que se rompen a propósito al cambiar las plantillas (29/10/2026)
+
+- Cambiar la duración de `testimonio` rompe la regex «Sugerida · 15 s» de tests/video-editor-nuevo-video.test.ts.
+- Con la miniatura, el `rotulo` deja de dibujarse y «Sugerida» desaparece si no pasa a la `insignia`.
+- Retirar `gancho-escrito` y `oferta-glitch` obliga a borrar sus filas en `ETIQUETAS_VIDEO`.
+- **Regla:** se reescriben con el cambio, no se fuerzan.
+
+**Vive en:** tests/video-editor-nuevo-video.test.ts · lib/editor-video/plantillas-etiquetas.ts
+
 ## Lo que quedó SIN hacer
 
 **Del 28/10 (el ruido y los silencios de Leila)**
@@ -1919,3 +2003,21 @@ La declaración existe en el repo y no estaba en la lista: tsc-acotado sólo ve 
 `types/soundtouchjs.d.ts`, `types/eyedropper.d.ts` y `export/gifenc.d.ts`. Sin ellas, también salen `soundtouchjs`, `gifenc`
 (TS7016) y `EyeDropper` (TS2304). Con las cuatro: 42 archivos de Video y 43 de Image sin errores.
 Y una corrida de ~200 archivos juntos murió con código 134 (memoria): en tandas de ~40 con `--heap=3000`, por con-turno.
+
+## «Transicio…» y «Multimed…» no eran por el chat: cada pestaña medía 58 px FIJOS (29/10/2026, claude3)
+
+Martín: «el chat a la izquierda le come lugar al editor: la barra corta "Transicio…" y "Multimed…"». El chat le quita
+ancho al editor (ahora se pliega: `plegable` en PantallaCrear), pero **los rótulos se cortaban a cualquier ancho de
+pantalla**: `tabbar.tsx` daba `w-[58px]` a cada pestaña y `truncate` al rótulo, y a 11 px «Transiciones» pide ~66.
+Ahora `min-w-[58px]` + el rótulo entero (`whitespace-nowrap`); lo que no entra lo siguen corriendo las flechas ‹ ›.
+Captura comparada (main y ahora, a 300/360/460 de panel): C:/dev/revisiones/create-qa-2910/despues-barras-1440.png.
+
+## SIN RESOLVER: el editor no carga en un Chrome sin ventana (el banco), se queda en «Cargando…» (29/10/2026)
+
+Para el QA visual se armó un banco (las pantallas reales compiladas con esbuild, sin `next dev`). El editor de Video crea el
+proyecto y navega, pero `EditorProvider` no sale de «Cargando…» ni en 75 s, con o sin recargar. **Descartado, medido:**
+ningún `fetch` pendiente; WebGPU da adaptador y `requestDevice` contesta; OPFS e IndexedDB abren; el hilo de la página no
+está trabado (un `setTimeout` cada 1 s corre); con la GPU real (`--ignore-gpu-blocklist`) tampoco. La espera está adentro
+de `initializeGpuRenderer()` o de `project.loadProject` (migraciones, medios, fuentes): falta poner marcas ahí para saber
+cuál. Hasta entonces el editor de Video se mira en producción, o por partes (la barra se probó suelta).
+Vive en: components/providers/editor-provider.tsx (`loadProject`), core/managers/project-manager.ts.

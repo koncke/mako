@@ -95,6 +95,8 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       `Tu CRM: ${n(T.completo['crm.funnels'])} embudo de ventas y hasta ${n(T.completo['crm.leads'])} contactos`,
       `${n(T.completo['chats.lineas_whatsapp'])} WhatsApp más Instagram, en una sola bandeja`,
       `Hasta ${n(T.completo['automations.activas'])} automatizaciones de mensajes y ${n(T.completo['web.landings_publicadas'])} páginas de venta`,
+      // 29/10/2026: el avatar con IA NO va acá aunque la tab esté abierta en los tres planes: no se vende hasta que ande de punta a
+      // punta (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Y un renglón no pasa de 80 letras: el setting `planes.mako` lo corta.
       'Tu oferta armada con IA, tu agenda, tus tareas y tus cobros',
       `Tu media buyer con IA: ${n(T.completo['ads.recomendaciones_dia'])} recomendaciones por día para tus anuncios, y tú decides si las aplicas`,
     ],
@@ -113,8 +115,8 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
       // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
       'Todo lo de Esencial, sin tope de contactos, páginas ni automatizaciones',
-      // 29/10/2026 (el taller del Cerebro): crear campañas desde MaKo ya no existe, y los avatares con IA no se venden desde el
-      // 28/10 (`TABS_TODAVIA_CERRADAS`). Lo que Pro sí trae: el media buyer que aplica solo y el Video Editor.
+      // 29/10/2026 (el taller del Cerebro): crear campañas desde MaKo ya no existe, y los avatares con IA no se venden todavía
+      // (`AI_AVATAR_SE_VENDE`). Lo que Pro suma: el media buyer que aplica solo y el Video Editor.
       'Tu media buyer con IA aplica las mejoras de tus anuncios solo, sin pasarse de tu presupuesto',
       'Análisis de tus llamadas de venta con IA',
       // Y generar imágenes con IA no existe: el editor de imágenes sí (lib/planes-comparacion.ts, `NOMBRE_TAB_PRO`).

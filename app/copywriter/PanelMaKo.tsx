@@ -41,6 +41,7 @@ import { SIN_TITULO, type GuionAbierto, type JsonNodo, type PaginaCopy, type Pro
 import { escondida } from '@/lib/copywriter/arbol';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { aplicarTodo, cuadrosDeConstruccion, sanearOperaciones, type Descartada } from '@/lib/copywriter/operaciones';
+import { plantillaPorId, restosDelEjemplo } from '@/lib/copywriter/plantillas';
 import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type Referencia } from '@/lib/copywriter/referencias-reglas';
 import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
@@ -62,6 +63,8 @@ type Propuesta = {
   refs: Referencia[];
   descartadas: Descartada[];
   avisos: string[];
+  /** Salió de «Adaptar a mi negocio» (reintentar vuelve a adaptar). */
+  adaptar?: boolean;
 };
 type EstadoPropuesta = 'construyendo' | 'pendiente' | 'aceptada' | 'descartada';
 
@@ -89,7 +92,7 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver, adaptarRef }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
@@ -111,8 +114,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   citarRef?: MutableRefObject<((seleccion?: string) => void) | null>;
   /** La «←» del shell de Create (app/_crear/PantallaCrear.tsx): da vuelta la tarjeta a la lista de páginas. */
   volver?: ReactNode;
+  /** «Adaptar con MaKo» de la franja de la página (EditorGuion): pide lo mismo que el botón del primer mensaje. */
+  adaptarRef?: MutableRefObject<(() => void) | null>;
 }) {
   const id = guion?.pagina.id ?? null;
+  // La plantilla de la que nació la página, si traía un ejemplo (docs/plantillas-reales/copywriter.md, 3.5).
+  const plantilla = useMemo(() => { const pl = plantillaPorId(catalogos, guion?.doc.props.plantilla); return pl?.ejemplo ? pl : null; }, [catalogos, guion]);
+  /** MaKo preguntó un dato para adaptar: lo próximo que escriba la persona también va como «adaptar». */
+  const [adaptando, setAdaptando] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [corriendo, setCorriendo] = useState(false);
   const [texto, setTexto] = useState('');
@@ -139,6 +148,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     setMensajes([]);
     setCita(null);
     setRefs([]);
+    setAdaptando(false);
     corte.current?.abort();
     setCorriendo(false);
     onPausa(false);
@@ -221,9 +231,10 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
 
   /**
    * «Editar»: MaKo devuelve herramientas; acá se vuelven a validar contra el guion de AHORA, se construyen a la vista y
-   * quedan como propuesta. Nada se guarda hasta «Aceptar».
+   * quedan como propuesta. Nada se guarda hasta «Aceptar». Con `adaptar`, es «Adaptar a mi negocio» (la página nació de
+   * una plantilla con un ejemplo): si MaKo contesta con una pregunta, el panel queda «adaptando».
    */
-  const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = []) => {
+  const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = [], adaptar = false) => {
     const { id: idG, editor: ed } = vivo.current;
     if (!idG || !ed || !instruccion.trim()) return false;
     const yo: Mensaje = { id: nuevoId(), de: 'yo', texto: instruccion, ...(archivos.length ? { adjuntos: archivos.map((f) => f.name) } : {}) };
@@ -231,7 +242,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     setCorriendo(true);
     const ac = new AbortController();
     corte.current = ac;
-    const r = await pedirIA({ accion: 'editar', instruccion, guion: guionVivo(), charla: charla(), referencias: citadas }, archivos, ac);
+    const r = await pedirIA({ accion: adaptar ? 'adaptar' : 'editar', instruccion, guion: guionVivo(), charla: charla(), referencias: citadas }, archivos, ac);
     if (corte.current === ac) corte.current = null;
     if (vivo.current.id !== idG || vivo.current.editor !== ed || !ed.vivo()) { setCorriendo(false); return true; }
     if (!r.ok) {
@@ -248,6 +259,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     const res = aplicarTodo(antes, s.ops);
     const respuesta = String(r.respuesta ?? '') + notaNoLeidos(r);
     const cambiaAlgo = res.nuevos.length > 0 || res.titulo != null || Object.keys(res.props).length > 0 || JSON.stringify(res.doc) !== JSON.stringify(antes);
+    // Adaptando, una respuesta sin cambios es una PREGUNTA de MaKo: la próxima respuesta de la persona sigue adaptando.
+    setAdaptando(adaptar && !cambiaAlgo);
     if (!cambiaAlgo) {
       setCorriendo(false);
       const mako: Mensaje = { id: nuevoId(), de: 'mako', texto: respuesta };
@@ -259,6 +272,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       antes, final: res.doc, nuevos: res.nuevos, titulo: res.titulo, props: res.props, instruccion, refs: citadas,
       descartadas: [...(Array.isArray(r.descartadas) ? (r.descartadas as Descartada[]) : []), ...s.descartadas, ...res.descartadas],
       avisos: Array.isArray(r.avisos) ? (r.avisos as string[]) : [],
+      ...(adaptar ? { adaptar: true } : {}),
     };
     const mako: Extract<Mensaje, { de: 'mako' }> = { id: nuevoId(), de: 'mako', texto: respuesta, propuesta, estado: 'construyendo' };
     setMensajes((xs) => [...xs, mako]);
@@ -300,15 +314,28 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   /** Reintentar: descarta y vuelve a pedir lo mismo (con lo mismo citado). */
   const reintentar = (m: Extract<Mensaje, { de: 'mako' }>) => {
     if (!m.propuesta) return;
-    const { instruccion, refs: citadas } = m.propuesta;
+    const { instruccion, refs: citadas, adaptar } = m.propuesta;
     descartar(m);
-    void pedirEdicion(instruccion, [], citadas);
+    void pedirEdicion(instruccion, [], citadas, !!adaptar);
   };
 
   const puede = !!id && !!editor && !corriendo && !conPropuestaAbierta && !appEscritorio.bloqueada;
+  const puedeRef = useRef(puede);
+  puedeRef.current = puede;
 
-  /** Lo escrito, a «Discutir» o a «Editar» según el selector. */
-  const pedir = (t: string, archivos: File[] = [], citadas: Referencia[] = []) => (intencion === 'discutir' ? pedirDiscusion(t, archivos, citadas) : pedirEdicion(t, archivos, citadas));
+  /** Lo escrito, a «Discutir» o a «Editar» según el selector (o a «adaptar», si MaKo preguntó un dato para adaptar). */
+  const pedir = (t: string, archivos: File[] = [], citadas: Referencia[] = []) => (adaptando ? pedirEdicion(t, archivos, citadas, true)
+    : intencion === 'discutir' ? pedirDiscusion(t, archivos, citadas) : pedirEdicion(t, archivos, citadas));
+  /** Una sugerencia o el selector: salen de «adaptando». */
+  const pedirSugerencia = (s: string) => { setAdaptando(false); void (intencion === 'discutir' ? pedirDiscusion(s) : pedirEdicion(s)); };
+  const adaptar = () => { setAdaptando(false); void pedirEdicion('Adaptar a mi negocio', [], [], true); };
+
+  // «Adaptar con MaKo» de la franja de la página llama a lo mismo que el botón del primer mensaje.
+  useEffect(() => {
+    if (!adaptarRef) return;
+    adaptarRef.current = () => { if (puedeRef.current) adaptar(); };
+    return () => { adaptarRef.current = null; };
+  });
 
   // El pedido de la caja grande del inicio sale SOLO, en «Editar», apenas el editor está listo.
   useEffect(() => {
@@ -438,7 +465,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         }}
         caja={(
           <div className="nt-mako-pie">
-            <SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={corriendo || conPropuestaAbierta} />
+            <SelectorIntencion valor={intencion} onCambio={(v) => { setAdaptando(false); elegirIntencion(v); }} deshabilitado={corriendo || conPropuestaAbierta} />
             <CajaAgente campo={campo} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj.caja} hayAlgoMas={adj.hay || refs.length > 0}
               ocupado={corriendo || conPropuestaAbierta || nota.pendientes || adj.preparando} apagado={!id || !editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda
               bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
@@ -453,7 +480,17 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
             {errorCaja && <p className="nt-mako-estado" role="alert">{errorCaja}<ReportarASoporte /></p>}
           </div>
         )}>
-        {mensajes.length === 0 && (
+        {mensajes.length === 0 && id && plantilla && editor && restosDelEjemplo(editor.leer(), plantilla).bloques > 0 ? (
+          // La página nació de una plantilla y todavía es el ejemplo: el primer mensaje de MaKo es LOCAL (no llama a la IA,
+          // no gasta la del negocio) y ofrece adaptarlo o dejar solo la estructura (docs/plantillas-reales/README.md, 2.3).
+          <>
+            <div className="nt-mako-bienvenida">Es un ejemplo de {plantilla.ejemplo!.negocio}, un negocio ficticio. ¿Lo adapto a tu negocio?</div>
+            <div className="nt-mako-pildoras">
+              <button type="button" className="nt-mako-pildora" data-principal="" disabled={!puede} onClick={adaptar}>Adaptar a mi negocio</button>
+              <button type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => vivo.current.leerApi()?.soloLaEstructura()}>Solo la estructura</button>
+            </div>
+          </>
+        ) : mensajes.length === 0 && (
           <>
             <div className="nt-mako-bienvenida">
               {!id ? 'Elige una página, o crea una con «Nueva página».'
@@ -464,7 +501,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
             {id && (
               <div className="nt-mako-pildoras">
                 {sugerencias.map((s) => (
-                  <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => void pedir(s)}>{s}</button>
+                  <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => pedirSugerencia(s)}>{s}</button>
                 ))}
               </div>
             )}

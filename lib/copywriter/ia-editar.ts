@@ -32,6 +32,7 @@ LOS BLOQUES (tipos: ${TIPOS_BLOQUE_IA.join(', ')}):
 - {"tipo": "texto", "texto": "..."} · {"tipo": "titulo2", "texto": "..."} (también titulo1, titulo3) · {"tipo": "cita", "texto": "..."}
 - {"tipo": "vinetas", "items": ["...", "..."]} · {"tipo": "numerada", "items": [...]} · {"tipo": "tareas", "items": [...]}
 - {"tipo": "destacado", "texto": "...", "emoji": "💡"} · {"tipo": "separador"}
+- {"tipo": "tabla", "filas": [["Escena", "Locución", "Cámara"], ["1", "...", "..."]]} → la primera fila es el encabezado; todas con las mismas columnas (hasta 8 columnas y 30 filas). Si la sección del GUION tiene una tabla (se ve con «|» entre columnas), la reescribes COMO TABLA, con los mismos encabezados: nunca la pases a párrafos.
 
 Los "<id>" son los que aparecen entre corchetes en el GUION, copiados TAL CUAL. Nunca inventes un id. Si no hace falta cambiar nada, "operaciones": [].`;
 

@@ -10861,6 +10861,28 @@ pestaña (Reels, Carousels, Video Generator) es una PLANTILLA de «Nuevo …» o
 `secciones` y conserva la key de la que era su sección principal (la miran las capas, la API y el teléfono). Diseño e
 inventario: docs/diseno-create.md. Lo fija tests/crear-pantalla.test.ts.
 
+Y al dibujar ADENTRO de esa pantalla (el QA del 29/10/2026, tests/crear-qa-pantallas.test.ts):
+- **La ventana no dice cuánto ancho tiene una pieza.** La sidebar, la tarjeta de MaKo (348 px) y los paneles propios del
+  editor se lo comen: a 1366 la barra de abajo del Image Editor medía ~520 px. Lo que cede por ancho va con `@container`
+  sobre su propia caja, no con `@media`. Un editor pasa `plegable` y la tarjeta se pliega a una barra fina.
+- **Un rótulo de barra no lleva un ancho fijo ni `truncate`** («Transicio…» salía a CUALQUIER ancho de pantalla): mide lo
+  que pide su texto, y lo que no entra se corre o cede.
+- **Una clase del `<style>` de un componente no repite una de la hoja de su tab**: `.of-doc` era la tarjeta del PDF en
+  app/offer/estilos.ts y dejó la oferta en una columna de 340 px. Mirarlo antes de nombrar (`grep` del prefijo).
+
+Y una PLANTILLA de «Nuevo …» es un ejemplo lleno, no un rectángulo con un nombre (Martín, 29/10/2026: «Los templates
+tienen que ser reales»; el plan: docs/plantillas-reales/README.md). Lo común de las cinco tabs vive en un solo lugar:
+- **La tarjeta:** los campos de `PlantillaCrear` (app/_crear/reglas.ts: `grupo`, `insignia`, `ayuda`, `ejemplo`, `extracto`,
+  `chips`, `frase`, `video`), todos opcionales, y `miniatura` de `PantallaCrear` para la de una tab. Ninguna tab inventa
+  otro nombre para lo mismo ni dibuja su propia tarjeta (app/_crear/TarjetaPlantilla.tsx).
+- **Lo que se dice del ejemplo:** el rótulo y el primer mensaje de MaKo salen de app/_crear/ejemplo.ts, sin IA.
+- **Lo que el experto lee del negocio:** `contextoDelNegocio` y `vozDelNegocio` de lib/negocio-para-crear.ts (grafo de los
+  chats). ⚠️ `contextoDelNegocio` de lib/plan-senales.ts es OTRA función con el mismo nombre.
+- **Lo que se toma de código abierto:** su licencia literal en lib/avisos/LICENSE-<REPO> y la cabecera del archivo que la
+  nombra (lib/avisos/LEEME.md).
+- **Los ejemplos se prueban** con `problemasDelEjemplo` de tests/_reales.ts: ni gente real (`REALES`), ni voseo, ni
+  regionalismos. Un texto en `.json` también: el guard del voseo sólo ve `.ts` y `.tsx`.
+
 # Un dato pedido no se pierde en el respaldo, un archivo del chat viaja por su `ref`, y un número y su lista cuentan igual (29/10/2026)
 
 - **«Solucionar» un dato que la ficha no dibuja** (la plantilla «Evento» no trae «Datos fiscales»): el respaldo lleva EL

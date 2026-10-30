@@ -47,6 +47,8 @@ import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
 import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useExtensionInstalada } from '@/app/video-generator/extension-instalada';
+import { CREDITOS, requisitosAvatar, type PasoRequisito } from '@/lib/ai-avatar/requisitos';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -317,11 +319,15 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
   const [linea, setLinea] = useState('');
   const subir = useSubirFoto(onFotosNuevas, setLinea);
   const foto = fotos.find((f) => f.id === fotoId) ?? null;
-  const falta = !preset ? 'Elige un preset.' : !foto ? 'Pon tu foto en Personaje.' : !puente.puede ? puente.motivo : '';
+  // Lo que es de la persona (la extensión, su Flow, su foto), paso a paso y ANTES de «Generar» (lib/ai-avatar/requisitos.ts).
+  const instalada = useExtensionInstalada();
+  const req = requisitosAvatar({ puente, instalada, enTelefono: false, fotos: fotos.length, para: 'avatar' });
+  const falta = !preset ? 'Elige un preset.' : req.falta ? `Antes de generar: ${req.falta.titulo}.` : !foto ? 'Pon tu foto en Personaje.' : !puente.puede ? puente.motivo : '';
   const sinMotor = (q: PiezaSinMotor) => { setLinea(SIN_MOTOR[q]); setPop(null); };
 
   return (
     <div className="hf-barra-lugar">
+      {!req.listo && <Requisitos pasos={req.pasos} />}
       <div className="hf-barra" role="group" aria-label="Crear avatar">
         <div className="hf-barra-izq">
           <textarea className="hf-barra-texto" rows={2} maxLength={MAX_DETALLE} value={detalle} onChange={(e) => onDetalle(e.target.value)}
@@ -400,7 +406,6 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
       </div>
       <p className={error ? 'hf-barra-linea hf-barra-linea--mal' : 'hf-barra-linea'} role={error ? 'alert' : undefined}>
         {error || linea || falta || 'Cada avatar sale de tu Google Flow con tu cara. Las imágenes no gastan créditos.'}
-        {!error && !linea && !puente.puede && <EnlaceConectar />}
         <ReportarASoporte />
       </p>
       {/* Si el error es el tope de la prueba gratis, el botón para empezar el plan (lib/topes-plan.ts). */}
@@ -410,12 +415,28 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
 }
 
 /**
- * Lo que necesita el cliente para generar, cuando el puente no está (29/10/2026): el motivo solo («Conecta la extensión de
- * MaKo») no decía CÓMO. Lleva a /extension/instalar, el único lugar con los pasos (instalarla, abrir Google Flow con su cuenta
- * y «Conectar»); los mismos que usa el Video Generator (puente-avisos.tsx).
+ * «Antes de generar», paso a paso (29/10/2026, el Cerebro con la decisión de Martín de abrir AI Avatar a todos: «lo que
+ * necesita un cliente para generar lo dice la pantalla clara y paso a paso, antes de que apriete Generar»). Los pasos y cuáles
+ * están hechos los decide lib/ai-avatar/requisitos.ts; acá sólo se dibujan, arriba de la barra, mientras falte alguno.
  */
-function EnlaceConectar() {
-  return <> · <a className="hf-barra-enlace" href="/extension/instalar" target="_blank" rel="noopener">Cómo conectarla</a></>;
+function Requisitos({ pasos }: { pasos: readonly PasoRequisito[] }) {
+  return (
+    <section className="hf-requisitos" aria-label="Antes de generar">
+      <p className="hf-requisitos-titulo">Antes de generar</p>
+      <ol className="hf-requisitos-lista">
+        {pasos.map((x, i) => (
+          <li key={x.id} className={x.hecho ? 'hf-paso hf-paso--hecho' : 'hf-paso'} aria-label={`${x.titulo}: ${x.hecho ? 'listo' : 'falta'}`}>
+            <span className="hf-paso-marca" aria-hidden="true">{x.hecho ? <Icon name="check" size={12} /> : i + 1}</span>
+            <span className="hf-paso-texto">
+              <b>{x.titulo}</b> <small>{x.ayuda}</small>
+              {x.enlace && !x.hecho && <> <a className="hf-barra-enlace" href={x.enlace.href} target="_blank" rel="noopener">{x.enlace.texto}</a></>}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="hf-requisitos-nota">{CREDITOS}</p>
+    </section>
+  );
 }
 
 function Pastilla({ abierta, onClick, etiqueta, children }: { abierta: boolean; onClick: () => void; etiqueta: string; children: ReactNode }) {
@@ -573,7 +594,9 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
   const parada = !filmando && tomas.some((t) => t.fase === 'error');
   const listas = tomas.filter((t) => t.fase === 'listo').length;
   const seg = segundosDeGuion(guion);
-  const faltaVideo = p.estado !== 'listo' ? 'Espera a que tu avatar esté listo.' : !guion.trim() ? 'Escribe lo que va a decir tu avatar.' : !inicio.puente.puede ? inicio.puente.motivo : '';
+  const instalada = useExtensionInstalada();
+  const req = requisitosAvatar({ puente: inicio.puente, instalada, enTelefono: false, fotos: inicio.fotos.length, para: 'video' });
+  const faltaVideo = p.estado !== 'listo' ? 'Espera a que tu avatar esté listo.' : req.falta ? `Antes de generar: ${req.falta.titulo}.` : !guion.trim() ? 'Escribe lo que va a decir tu avatar.' : !inicio.puente.puede ? inicio.puente.motivo : '';
 
   return (
     <div className="hf-proyecto">
@@ -655,6 +678,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
 
       {/* La barra de video: lo que dice el avatar, la voz y el movimiento (los dos que no tienen motor lo dicen). */}
       <div className="hf-barra-lugar">
+        {p.estado === 'listo' && !req.listo && <Requisitos pasos={req.pasos} />}
         <div className="hf-barra" role="group" aria-label="Crear video">
           <div className="hf-barra-izq">
             <textarea className="hf-barra-texto" rows={2} value={guion} onChange={(e) => setGuion(e.target.value)} disabled={filmando}
@@ -676,7 +700,6 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
         </div>
         <p className={errorVideo ? 'hf-barra-linea hf-barra-linea--mal' : 'hf-barra-linea'} role={errorVideo ? 'alert' : undefined}>
           {errorVideo || linea || faltaVideo || 'Cada toma gasta créditos de tu cuenta de Flow. Se filma toma por toma y nada se repite solo.'}
-          {!errorVideo && !linea && !inicio.puente.puede && <EnlaceConectar />}
           <ReportarASoporte />
         </p>
         <div className="hf-barra-plan"><EmpezarPlanYa texto={errorVideo || null} /></div>

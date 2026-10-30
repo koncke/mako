@@ -38,7 +38,63 @@ preguntes: hacé esto en orden.
 Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node C:/dev/revisiones/subir-tren.mjs <log>`
 (`SUBIR_ARBOL` cambia el árbol; `SUBIR_UN_LUGAR=1` no espera el segundo lugar de tests). El Cerebro de claude3 es
 `local_428051c1`. Esto vale por encima del estado de claude4 de más abajo.
-- **AHORA (29/10 14:26): main = `1cf06eba9`, el tren grande (tren-ab).** 128 commits, con las 3 tandas de tipos en 0.
+- **AHORA (29/10 19:35): main = `7ed7e17c6`, tren-ad. READY 19:39: hola-mako.com sirve `mako-d84v86v9d`
+  (dpl_HvtuD89v…).** Avisados el Cerebro y los dueños no archivados.
+  - **Qué trae:**
+    - AI Avatar para todos los planes (`4d66a5703`), con «Antes de generar» paso a paso.
+    - La tarjeta del Avatar en la landing (`7511f5f14`). El script la corre el Cerebro a mano. ⚠️ Su comentario espera a la
+      rama vieja `ai-avatar-para-todos-2910`, pero la que subió es `ai-avatar-todos-2910`.
+    - El «Publicar» desde el Video Editor, el Image Editor y el Copywriter (Zernio `77cf7a90b`), por el camino del Calendario.
+    - Del Cerebro, sólo docs: las plantillas reales (`da6d07dee`) y lo prometido a la agencia de Thiago (`534d0496e`).
+  - **Chequeo:** 7482 tests en verde y las guardas; el delta de docs, 243 barredoras en verde; las tres tandas de tipos del
+    push en 0.
+  - **Revisión de plata** (`C:/dev/revisiones/2910-revision-plata-ai-avatar-todos-4d66a5703.md`): «entra con bajas».
+    - Sin ALTA: la puerta no abre nada más y MaKo no paga IA.
+    - MEDIA: la fila de /planes y el «y tu avatar con IA» de Esencial venden un motor que nunca generó un look en producción,
+      y no dicen que se paga con Google Flow del cliente.
+    - **El Cerebro dijo «sacar»:** salió en el tren-ae (`AI_AVATAR_SE_VENDE = false`).
+    - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
+- **tren-ae (rama `tren-ae`, subiendo):**
+  - **Lleva:**
+    - Create: la QA visual (`95ac56201`) y la base de las plantillas reales (`390229c3d`, que la contiene).
+    - Las plantillas del Copywriter (`1d9160f87`). El test de los ejemplos lee `REALES` de `tests/_reales.ts`, porque Create
+      la mudó ahí (`837d7f377`).
+    - La tabla de planes no vende AI Avatar (`b8c9c7a78`).
+  - **Chequeo:** 6658 tests en verde, salvo el rojo de las dos ramas cruzadas, ya arreglado; `alta-cliente-conducta` fue
+    flaky. Las guardas en verde. Después del arreglo, los tests que leen `docs/` y los del Copywriter: 71/71.
+- **Devueltos a su chat (NO entran hasta el sha nuevo):**
+  - **El despachante de MaKo en WhatsApp** (`wa-fallas-2710`, `85a0d9ead`; el #30 de Leandro). Dos ALTA de privacidad:
+    - un hito de la bitácora con tickets de dos negocios se le mostraba entero a uno;
+    - el pedido delegado dice «hazlo» sin respetar el triage.
+
+    Informe: `C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`. La mezcla con main ya resuelta quedó en la
+    rama `tren-ae-con-wa` (`bc74bd07f`).
+  - **Zernio, los leads por barrido y las publicaciones que se repiten** (`zernio-token-2910`, `ce56bd693`):
+    - el filtro de cuentas va sólo en la URL;
+    - una clave «propia» trae los leads de otros negocios;
+    - el lead con dos formularios alterna cada 30 minutos;
+    - la papelera se lee sin paginar;
+    - la serie hace renacer la vez borrada.
+
+    Informe: `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`.
+    - ⚠️ **La 0349 NO se aplica**, aunque Martín diga que sí, hasta que Integración dé por buena la punta nueva (acordado con
+      el Cerebro).
+    - El interruptor `zernio.cuenta_de_la_plataforma` sigue apagado.
+- **Antes: tren-ac, main `ff908e645`, READY 17:07 (`mako-8g8vtn7tv`, dpl_ioqDqJGw…).** Avisados el Cerebro (que le
+  escribe a Leandro por el #29) y Zernio. Los demás dueños estaban archivados.
+  - **Qué trae:**
+    - El ticket #29 de Leandro (Automations `38c39d067` + `50b7ff798`): «Ya te sigo» vuelve a entregar el recurso, porque
+      pregunta a Zernio con `refresh=true`.
+    - Pagos `7f79a4e6c` y la tabla de planes `90a760e4b` (Web Generator).
+    - Zernio con varias claves por negocio (`7b7d1ca2b`), más LinkedIn, X, Threads y Google Business. Pasó la revisión de
+      privacidad.
+  - **Rojos del chequeo, arreglados en el tren:** tres tests de otras áreas que leen `lib/zernio.ts` (`606f2dcef` y
+    `27ba51334`). Cosechado en `docs/hallazgos-integraciones.md`.
+  - **El grupo compartido 2/2 murió con la RAM en 0:** «0 tests» y 388 rojos. Re-corrido solo dio 3755 tests, con sólo los
+    rojos conocidos (alta-cliente-conducta, que pasa sola, y el `todo` de chats-mako-envio).
+  - La pausa «reunión de Martín» (17:03–18:23) la levantó el Cerebro. El proceso que la refrescaba se cerró solo.
+  - NO subir `ai-avatar-abrir-pro-2910` ni `ai-avatar-para-todos-2910`: quedaron viejas.
+- **Antes: el tren grande (tren-ab), main `1cf06eba9`, Ready 14:29.** 128 commits, con las 3 tandas de tipos en 0.
   - **Qué trae:**
     - Create entero: el shell, el Copywriter en Notion con la mudanza re-verificada, AI Avatar y el «Cómo conectarla».
     - MaKo en WhatsApp (`ac593ce1d`): las 6 fallas de Leandro, la ALTA 2 y los tickets al Cerebro (cartero 1.23.0).
@@ -57,16 +113,9 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   `C:/dev/wt-copywriter-notion/node_modules`. Lo que falta, con la app tranquila y sin tests corriendo, es pasar el clon
   principal a origin/main y correr `npm install` (NO `npm ci`, que borra el node_modules de todos mientras instala).
 - **Tren grande EN PRODUCCIÓN: `mako-obai8j5oz`, Ready 14:29.** Avisados el Cerebro y los dueños no archivados.
-- **tren-ac (`C:/dev/wt-push-q`, rama `tren-ac`, sobre main `1cf06eba9`):**
-  - **Lleva:** el ticket #29 de Leandro (`38c39d067`, «Ya te sigo» vuelve a entregar el recurso), Pagos `7f79a4e6c`
-    (re-verificado, entra con seis bajas devueltas) y la tabla de planes `90a760e4b`.
-  - **Frena:** un rojo del #29. Las descripciones más largas de chatbot.def.ts dejan afuera del presupuesto
-    editar_pasos_secuencia_mensajes y cambiar_crons_secuencia (ops-center-bateria y ops-center-clasificador-app). Ya se le
-    pidió el arreglo a Automations.
 - **0348 APLICADA (29/10, el Cerebro con el sí de Martín):** el CHECK de `red` del Calendario acepta las 8 redes.
-- **Zernio, varias claves (`7b7d1ca2b`):** Martín lo dio vuelta el 29/10 16:40 UTC (audio en el grupo de SuperAdmin). Entra
-  cuando pase su revisión adversarial de privacidad (corriendo; informe en
-  `C:/dev/revisiones/2910-verificacion-zernio-varias-claves-7b7d1ca2b.md`).
+- **Zernio, varias claves (`7b7d1ca2b`):** Martín lo dio vuelta el 29/10 16:40 UTC (audio en el grupo de SuperAdmin). Subió
+  en tren-ac. La revisión de privacidad está en `C:/dev/revisiones/2910-verificacion-zernio-varias-claves-7b7d1ca2b.md`.
 - **Lo que quedó para el tren siguiente:**
   - ~~Pagos `7f79a4e6c`~~: re-verificado, entra en tren-ac.
   - `tren-aa` (`C:/dev/wt-push-aa`): quedó VIEJO, todo lo suyo subió en tren-ab. Se puede borrar el worktree.

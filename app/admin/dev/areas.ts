@@ -770,11 +770,11 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'image-editor', titulo: 'Image Editor', familia: 'Content Machine', grupo: 'Image',
     estado: 'parcial', verEnApp: '/image-editor',
-    alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin, con el crédito de Doory en cada apertura.',
+    alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin.',
     // ⚠️ Sin nav.ts: es de los archivos más calientes del repo y desplazaría el Change History propio.
     vive: ['app/image-editor', 'docs/diseno-editor-imagen.md', 'docs/editor-imagen', 'tests/image-editor-integracion.test.ts'],
     hallazgos: 'hallazgos-editor-imagen',
-    nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución: modificarlo no saca la obligación del crédito (app/image-editor/editor/CreditoDoory.tsx).',
+    nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución. 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.',
   },
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',

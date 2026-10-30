@@ -32,16 +32,38 @@ export type AccionProyecto = {
   confirmar?: string;
 };
 
-/** Una plantilla de «¿Qué vas a crear hoy?»: una tarjeta con su miniatura y su nombre (sin bajada: tanda 6 del Web Generator). */
+/**
+ * Una plantilla de «¿Qué vas a crear hoy?»: una tarjeta con su miniatura y su nombre (sin bajada: tanda 6 del Web Generator).
+ * Desde el 29/10/2026 (docs/plantillas-reales/README.md, tanda 0) la tarjeta muestra el EJEMPLO lleno y no un rectángulo con
+ * un nombre. Los campos del ejemplo son TODOS opcionales: las cinco tabs comparten esta pantalla, y la que no los pasa se
+ * dibuja como antes. Ninguna tab inventa otro nombre para lo mismo.
+ */
 export type PlantillaCrear = {
   id: string;
   nombre: string;
-  /** La proporción de la miniatura (`'9 / 16'` un reel, `'1 / 1'` un post): sin imagen, la tarjeta dibuja ese marco. */
+  /** La proporción de la pieza (`'9 / 16'` un reel, `'1 / 1'` un post): la imagen se dibuja así, sin recortar; sin imagen,
+   *  la tarjeta dibuja ese marco. */
   formato?: string;
   /** La miniatura, si la plantilla tiene una. */
   imagen?: string | null;
-  /** El rótulo chico del marco vacío («1080 × 1920», «Reel»), cuando no hay imagen. */
+  /** El rótulo chico del marco vacío («1080 × 1920», «Reel»), cuando no hay imagen ni ejemplo. */
   rotulo?: string;
+  /** La sección de la grilla («Anuncios», «Programas y mentorías»): una por grupo, en el orden en que aparecen. */
+  grupo?: string;
+  /** El formato y la duración, arriba de la miniatura («📣 Anuncio · 45 s», «Sugerida · 24 s · 1 clip», «1 de 8»). */
+  insignia?: string;
+  /** Cuándo usarla, en una línea: va como `title` de la tarjeta. */
+  ayuda?: string;
+  /** El negocio FICTICIO del ejemplo («Pulso Dental»): dibuja la cinta «Ejemplo» (./ejemplo.ts). */
+  ejemplo?: string;
+  /** El texto real del ejemplo: con él la miniatura es una HOJA (`hojaDe`). Un primer renglón aparte es el título. */
+  extracto?: string;
+  /** Las secciones o los datos de la pieza («Gancho», «Problema»…): se ven los primeros (`chipsVisibles`). */
+  chips?: readonly string[];
+  /** La primera frase hablada (AI Avatar): con ella, el extracto entero es el título y la frase el cuerpo. */
+  frase?: string;
+  /** Un video corto que corre al pasar el mouse (AI Avatar), mudo y en bucle; nunca en una pantalla sin mouse. */
+  video?: string | null;
 };
 
 /** La cara de la tarjeta izquierda: el chat de MaKo (siempre, de entrada) o la lista de proyectos (la «←»). */
@@ -90,6 +112,66 @@ export function marcoDe(formato: string | undefined): CSSProperties {
   // 62 % y no más: el rótulo («1080 × 1920») va debajo del marco, en la franja libre (con 72 % lo pisaba en los verticales).
   const lado = r >= 4 / 3 ? { width: '62%' } : { height: '62%' };
   return { ...lado, aspectRatio: String(r), maxWidth: 'none' };
+}
+
+/**
+ * La caja de una miniatura con imagen, a SU proporción dentro del 4:3, como `marcoDe` pero al 90 % y sin el margen del
+ * rótulo. Sin `formato`, null: la imagen llena la caja como antes. ⚠️ Con `object-fit: cover` en el 4:3, a una historia
+ * 9:16 sólo se le veía el tercio del medio (docs/hallazgos-ui.md, 29/10/2026). No se llama `miniaturaDe`: ese nombre ya
+ * existe dos veces con otra firma (app/crm/lead-view/ficha/galeria.ts y lib/embeds.ts).
+ */
+export function cajaDeMiniatura(formato: string | undefined): CSSProperties | null {
+  if (!formato?.trim()) return null;
+  const r = proporcion(formato);
+  const lado = r >= 4 / 3 ? { width: '90%' } : { height: '90%' };
+  return { ...lado, aspectRatio: String(r), maxWidth: 'none', objectFit: 'contain' };
+}
+
+/** Los chips que entran en la tarjeta: los primeros `max` y, si sobran, «+N». Los vacíos no cuentan. */
+export function chipsVisibles(chips: readonly string[] | undefined, max = 3): string[] {
+  const todos = (chips ?? []).map((c) => c.trim()).filter(Boolean);
+  const tope = Math.max(0, Math.floor(max));
+  if (todos.length <= tope) return todos;
+  return [...todos.slice(0, tope), `+${todos.length - tope}`];
+}
+
+/** Una sección de la grilla: su título (null = el de la grilla, «Plantillas») y sus tarjetas. */
+export type SeccionCrear = { titulo: string | null; plantillas: PlantillaCrear[] };
+
+/**
+ * Las secciones de «¿Qué vas a crear hoy?»: una por `grupo`, en el orden en que aparece cada uno (un grupo que vuelve más
+ * abajo se suma al suyo). Las que no traen grupo van juntas, con el título de la grilla. Sin plantillas, ninguna. No se
+ * llama `gruposDePlantillas`: ese nombre ya existe en lib/copywriter/plantillas.ts, con otro tipo.
+ */
+export function seccionesDeCrear(plantillas: readonly PlantillaCrear[]): SeccionCrear[] {
+  const secciones: SeccionCrear[] = [];
+  const porTitulo = new Map<string | null, SeccionCrear>();
+  for (const pl of plantillas) {
+    const titulo = pl.grupo?.trim() || null;
+    let s = porTitulo.get(titulo);
+    if (!s) {
+      s = { titulo, plantillas: [] };
+      porTitulo.set(titulo, s);
+      secciones.push(s);
+    }
+    s.plantillas.push(pl);
+  }
+  return secciones;
+}
+
+/**
+ * Lo que dice la HOJA de una tarjeta con ejemplo: un título (en negrita) y el cuerpo. El primer renglón del extracto es el
+ * título si hay más de uno; con `frase` (AI Avatar), el extracto entero es el título (el texto en pantalla) y la frase
+ * hablada el cuerpo. Sin extracto, null: no hay hoja. Cuántos renglones entran lo decide crear.css por el ancho de la
+ * TARJETA (`@container`), no acá.
+ */
+export function hojaDe(pl: Pick<PlantillaCrear, 'extracto' | 'frase'>): { titulo: string | null; cuerpo: string } | null {
+  const lineas = (pl.extracto ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const frase = pl.frase?.trim();
+  if (!lineas.length) return null;
+  if (frase) return { titulo: lineas.join(' '), cuerpo: `«${frase}»` };
+  if (lineas.length > 1) return { titulo: lineas[0], cuerpo: lineas.slice(1).join(' ') };
+  return { titulo: null, cuerpo: lineas[0] };
 }
 
 /** «hace 5 min», «hace 3 h», «hace 2 d»: lo justo para ordenar a ojo; sin fecha, nada. */

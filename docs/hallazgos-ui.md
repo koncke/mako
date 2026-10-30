@@ -4949,3 +4949,149 @@ como un salto de línea de verdad): el script va a un archivo con la herramienta
   (Es la misma frontera de AGENTS.md, «'use client' es una frontera de DATOS».)
 
 **Vive en:** app/_crear/reglas.ts · app/_crear/PantallaCrear.tsx · tests/video-editor-sidebar.test.ts
+
+## «Las plantillas son rectángulos»: no faltaban plantillas, la tarjeta no tenía dónde mostrar el ejemplo (29/10/2026)
+
+- **Síntoma:** en las cinco tabs de Create, «Nuevo …» mostraba un marco gris con un nombre y un rótulo («15 s»).
+- **El diagnóstico obvio era el equivocado:** «faltan plantillas». Copywriter ya tenía las estructuras, Video sus
+  tiempos y huecos fijados por test, y Offer su agente.
+- **Causa:** `PlantillaCrear` solo tiene `id | nombre | formato | imagen | rotulo`, y ninguna tab pasaba contenido. Video
+  ni siquiera pasaba la miniatura que ya dibuja `MiniaturaPlantilla` en su pestaña Plantillas.
+- **Regla:** una plantilla es la forma más un ejemplo completo de un negocio ficticio más la línea de «cuándo usarla», y
+  la tarjeta dibuja ese ejemplo. Los campos se definen UNA vez en `app/_crear/reglas.ts`: `grupo`, `insignia`, `ayuda`,
+  `ejemplo`, `extracto`, `chips`, `frase` y `video`. Son todos opcionales, porque `PantallaCrear` la comparten las cinco
+  tabs y la que no los pasa se dibuja como hoy. Ninguna tab inventa otro nombre para lo mismo: cada parte del plan
+  había propuesto el suyo (la «insignia» era a veces el tipo y a veces «Ejemplo»).
+
+- **Hecho (tanda 0, 29/10/2026):** la tarjeta es `TarjetaPlantilla`. Elige, de lo más propio a lo más pobre: la
+  `miniatura` de la tab, el `video` con el mouse encima, la hoja con el `extracto`, la imagen a su proporción y el marco
+  de siempre. El rótulo y el primer mensaje del ejemplo salen de app/_crear/ejemplo.ts, iguales en las cinco tabs. Una
+  tarjeta sin los campos nuevos se dibuja igual que antes, y el test lo prueba dibujándola.
+
+**Vive en:** app/_crear/reglas.ts · app/_crear/TarjetaPlantilla.tsx · app/_crear/ejemplo.ts · tests/crear-pantalla.test.ts
+
+## La tarjeta recorta todo lo que no es 4:3 (29/10/2026)
+
+- **Síntoma:** con una miniatura real, a una historia 9:16 solo se le vería el tercio del medio.
+- **Causa:** `.cr-plantilla__mini img` usa `object-fit: cover` (app/_crear/crear.css:106) dentro de la caja 4:3.
+- **Regla:** la miniatura se dibuja a su proporción dentro de la caja (`cajaDeMiniatura(formato)`, `contain`). El
+  recorte solo vale para piezas que ya son 4:3. Sin `formato`, la imagen llena la caja como antes.
+- **La segunda trampa, al implementarlo:** con `height: 90%` y `aspect-ratio`, la historia salió como una FRANJA
+  recortada, igual que antes.
+  - **El diagnóstico obvio era el equivocado:** no era `object-fit`, que ya estaba en `contain`.
+  - **Medido en el banco:** la `<img>` medía 648 px de alto en una caja de 155. La caja es una grilla con la fila `auto`,
+    y esa fila crece hasta el alto NATURAL de la imagen (720 px). El 90 % se calculaba contra eso.
+  - **Por qué el marco vacío no lo sufría:** no tiene tamaño propio, así que la fila se estiraba a la caja.
+- **Regla:** una grilla que dimensiona a sus hijos con `%` necesita la fila del alto de la caja:
+  `grid-template: minmax(0, 1fr) / minmax(0, 1fr)`.
+
+**Vive en:** app/_crear/crear.css (`.cr-plantilla__mini`) · app/_crear/reglas.ts · tests/crear-pantalla.test.ts
+
+## La hoja del ejemplo cede con SU tarjeta, no con la ventana (29/10/2026)
+
+- **Síntoma (banco, a los cuatro anchos):**
+  - a 1366, la insignia junto a «Ejemplo» quedaba «📣 Anuncio · 45…»;
+  - en el teléfono, el último renglón del cuerpo quedaba partido por la mitad debajo de los chips.
+- **Causa:** la grilla decide el ancho de la tarjeta. A 1366, con la tarjeta de MaKo, cada miniatura mide 188 px; en el
+  teléfono, 155. Un `-webkit-line-clamp` fijo no sabe cuánto alto le queda.
+- **Regla:**
+  - la miniatura es `container-type: inline-size` y los renglones ceden con `@container`;
+  - primero ceden renglones del cuerpo, y menos de 195 px esconde la insignia de la hoja (el nombre de abajo ya dice el
+    formato);
+  - el título, los chips y la cinta «Ejemplo» quedan siempre;
+  - un chip que no entra se va entero (`flex-wrap` con el alto de una fila), nunca medio chip;
+  - los renglones van en el CSS y no en un `style` del componente: el `style` le gana al `@container` sin avisar.
+- **Para las tabs:** una insignia larga («Programa · alto ticket») igual se corta con «…» a 1440 (tiene su `title`).
+  Conviene que no pase de 18 caracteres.
+
+**Vive en:** app/_crear/crear.css · app/_crear/TarjetaPlantilla.tsx · capturas en C:/dev/revisiones/plantillas-tanda0/
+
+## Lo que el experto de cada tab lee del negocio vive en un solo lugar (29/10/2026)
+
+- **Síntoma:** el Copywriter leía el negocio con `construirCerebro()` entero, con la física del mapa, en cada pedido.
+  Video e Image no lo leían.
+- **Causa:** `contextoDelNegocio` vivía en lib/copywriter/contexto.ts, y su cabecera decía que `grafoParaChat` no había
+  llegado. Llegó a main el 28/10 (`c272b97dd`).
+- **Regla:**
+  - el negocio y la voz de una pieza de Create se leen de lib/negocio-para-crear.ts: el grafo de los chats, en caché y
+    sin física;
+  - lib/copywriter/contexto.ts quedó como re-exportación, para los imports de siempre;
+  - `vozDelNegocio` se re-exporta y no se muda: sus dos fuentes viven en lib/nutricion-generator.ts y mudarla armaba un
+    ciclo;
+  - ⚠️ `contextoDelNegocio` de lib/plan-senales.ts es OTRA función con el mismo nombre.
+
+**Vive en:** lib/negocio-para-crear.ts · lib/copywriter/contexto.ts · tests/copywriter.test.ts
+
+## Los nombres obvios para las funciones de la tarjeta ya existen (29/10/2026)
+
+- **Síntoma posible:** un import automático trae la función equivocada, o `tsc` falla lejos de donde se tocó.
+- **Causa:** el plan proponía `gruposDePlantillas(plantillas)` y `miniaturaDe(formato)` en app/_crear/reglas.ts.
+  `gruposDePlantillas` ya existe en lib/copywriter/plantillas.ts:162, con otro tipo (la usa
+  tests/copywriter-plantillas.test.ts), y `miniaturaDe` existe dos veces: app/crm/lead-view/ficha/galeria.ts:99 y
+  lib/embeds.ts:665. Es la misma trampa que los dos `contextoDelNegocio` ([COPYWRITER]).
+- **Regla:** antes de nombrar una función nueva, `git grep -n "<nombre>" origin/main`. Las de la tarjeta se llaman
+  `seccionesDeCrear` y `cajaDeMiniatura`.
+
+**Vive en:** app/_crear/reglas.ts · lib/copywriter/plantillas.ts · app/crm/lead-view/ficha/galeria.ts · lib/embeds.ts
+
+## Un elenco único de negocios ficticios, y los nombres se verifican (29/10/2026)
+
+- **Síntoma posible:** un ejemplo con un negocio real o con un cliente real (ya pasó: hay una lista `REALES` con
+  «Martín», «Dental Ramos» y «Vértice»).
+- **Regla:**
+  - un solo elenco para las cinco tabs: Cierre Consultivo, Consulta Rentable, Pulso Dental, Torre Alameda y Voz de
+    Líder, con sus clientes inventados;
+  - los nombres se buscan en la web antes de publicar, **todos**, también los de segunda línea («Sonríe Studio» salió
+    por genérico; «Desarrolladora Altavista» no estaba en la lista de la búsqueda y coincidía con una constructora y un
+    desarrollo de Querétaro, así que salió; un dominio inventado puede existir: el ejemplo usa `example.com`);
+  - `REALES` pasa a `tests/_reales.ts` y la usan los tests de las cinco tabs;
+  - los datos de cada negocio son los mismos en todas las tabs: si una tab cambia uno, cambia en todas (ver la entrada
+    de Offer sobre el marco). **Toda cifra que más de una tab repite va en la tabla del elenco** (README, 2.2). La
+    revisión del 29/10 encontró, con la regla «solo las del elenco» ya escrita: tres mensualidades distintas para Torre
+    Alameda, «31 clínicas» como total en Offer y como activas en Video, el embudo de una alumna contado como de
+    Mariana, y cifras que no estaban en ningún lado («la cohorte se llenó en 6 días»).
+  - **Escasez y garantías que el negocio no controla:** «14 de 96» en pantalla se lee «quedan 14» (quedan 46, y 14
+    tienen vista), y «la vista no te la tapa nadie» promete algo que una desarrolladora no puede cumplir.
+
+**Vive en:** docs/plantillas-reales/README.md (2.2) · tests/variables-aviso.test.ts · tests/_reales.ts (del plan)
+
+## El guard de voseo no ve el texto que vive en .json (29/10/2026)
+
+- **Síntoma posible:** un lienzo de Image con «Escribime» o «acá» pasa CI.
+- **Causa:** `tests/puente-panel-copy.test.ts` recorre solo los `.ts` y `.tsx` (con `git ls-files`). Los ejemplos de
+  Copywriter, Video, AI Avatar y Offer viven en `lib/` y los ve; el texto del lienzo de Image está en
+  `app/image-editor/mako/plantillas/*.json`.
+- **Regla:** todo ejemplo pasa `marcasDeVoseo`, y los que viven en `.json` tienen su propio test. En AI Avatar el guion
+  hablado sigue el acento del negocio (`acentoEsVoseante`): ahí la guarda no se aplica a ciegas.
+- **Tampoco ve regionalismos que no son voseo:** «darla vuelta» y «dé vuelta» (invertir, rioplatense) se colaron en
+  Image y en el prompt `offer.experto`, que va a `lib/`. La lista de argentinismos del test de AI Avatar suma
+  `\b(dar|da|dé|darla|darlo)\s+vuelta\b`; «darle la vuelta» es neutro.
+
+**Vive en:** tests/puente-panel-copy.test.ts · tests/image-editor-plantillas-reales.test.ts (del plan)
+
+## El QA visual de Create sin `next dev`: el banco, y la falsa alarma del scroll de costado (29/10/2026, claude3)
+
+Para mirar TODAS las pantallas de Create a 1920/1440/1366/390 sin levantar la app (local escribe en producción) y sin
+sesión en producción, un banco: las pantallas REALES compiladas con esbuild, datos inventados y `fetch` simulado. Vive en
+la carpeta de notas compartidas del Cerebro, `banco-create-qa/` (build, entrada, capturador con medición, sonda). Lo que
+costó, para la próxima:
+- **Tailwind de verdad.** El editor de Video está hecho con clases de Tailwind: sin compilarlo sale sin estilos.
+  `@tailwindcss/postcss` sobre app/globals.css con `base` en el worktree (~2 min, escanea el repo).
+- **La falsa alarma.** La primera medición dio el documento 58 px más ancho que la ventana en TODAS las pantallas: el banco
+  ponía la <Pagina> al lado de la sidebar, y en app/layout.tsx va adentro de una COLUMNA (`flex: 1; min-width: 0`). Con
+  `flex: 'none'` (ESTILO_PAGINA_CREAR) + el `width: 100%` de Pagina, sin esa columna se pasa por el ancho de la sidebar.
+  En la app no pasa. El armado del banco copia la columna.
+- **El `fetch` simulado se tragaba lo estático**: el motor del Video Editor (/ve/wasm/…) daba 404. Lo que tiene extensión
+  va al servidor de verdad.
+- **El capturador MIDE, no sólo fotografía**: rótulos con «…» (`text-overflow: ellipsis` y `scrollWidth > clientWidth`),
+  botones que se pisan, el ancho de la tarjeta y del centro. Así salió «Páginas 1 / 1» pisado con la cuadrícula a 1366.
+
+## La tarjeta de MaKo se pliega en los editores: un contexto y no un prop en cada chat (29/10/2026, claude3)
+
+El botón de plegar tenía que estar en la cabecera de TRES chats distintos (el Cerebro, el del Video Editor y el del Image
+Editor), cada uno con su `cabecera`. En vez de tocar los tres, `PlegarChatCtx` (app/admin/operaciones/PanelChat.tsx): la
+pantalla de Create lo provee y `CabeceraDeChat` dibuja el botón a la derecha si existe. Fuera de Create es `null` y la
+cabecera queda igual (lo prueba el test dibujándola con y sin el contexto). Plegada, la tarjeta queda MONTADA con `hidden`
+(el hilo y lo escrito siguen). ⚠️ `.cr-tarjeta { display: flex }` le gana al `[hidden]` del navegador: sin
+`.cr-tarjeta[hidden] { display: none }` «plegada» no escondía nada. Se recuerda por tab (`mk-crear-plegada:<tab>`), con
+`useSyncExternalStore` como la sidebar; en el teléfono no se pliega (ya se ve una cosa por vez).

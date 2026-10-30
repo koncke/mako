@@ -449,3 +449,26 @@ mig 0349 · tests/calendario-recurrentes.test.ts.
   falló (B5); `rutaValida` como segunda red al copiar el archivo del molde (B6). **La mig 0349 está escrita, NO aplicada** (la pide el
   Cerebro; se le sumaron `repetir_hasta` y `calendario_eventos_vez_sin_regla` el 29/10 a la noche, antes de aplicarla). No se vio
   en un navegador.
+
+## Las publicaciones que se repiten: una vez borrada renace, y una copia puede abrir otra serie (29/10/2026, Integración)
+
+> **Estado (29/10 noche):** arreglado en `zernio-token-2910` (`a745e4eb3`): `repetir_hasta` en el molde, ninguna regla en una vez
+> (también en la base), confirmación y texto obligatorio, y el 409 que no se comparte. Ver la entrada de las repetidas, arriba.
+> La 0349 cambió (todavía NO aplicada).
+
+La misma revisión (`ce56bd693`, `lib/calendario-recurrentes.ts`) encontró dos ALTA que sólo corren con la mig 0349 aplicada. Por
+eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregladas** (lo acordó el Cerebro el 29/10).
+
+- ⚠️ **Contar las veces por las filas que existen hace renacer la que se borró.**
+  - Si la persona borra la de mañana, el cron la vuelve a crear y la programa en menos de 6 h.
+  - Si la mueve al sábado, salen las dos.
+  - **Regla:** la serie recuerda qué veces ya nacieron, aunque la fila no esté.
+- ⚠️ **«Repetir» en una copia (`serie_de` lleno) arma una segunda serie: dos posts por día.** `guardarRepeticion` no mira
+  `serie_de`, y la pantalla ofrece «Repetir» en cualquier Publicación.
+- **Medias:**
+  - La regla se guarda al tocar el Select, sin confirmar.
+  - Un molde sin texto se programa igual.
+  - Corregir, sacarle la regla o borrar el molde no cambia las hasta 3 veces ya nacidas.
+  - Sospecha, sin medir: si Zernio contesta 409 por contenido repetido, todas las veces quedan con el mismo post, y cancelar una
+    cancela las otras (`lib/zernio-publicar.ts`).
+

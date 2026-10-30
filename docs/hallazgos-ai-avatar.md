@@ -43,7 +43,19 @@ Las secciones de HeyGen se deprecaron; lo de abajo de HeyGen queda por las licen
   teléfono necesita su fila de More (lib/movil-rutas.ts, como Video), o `movil-mas-secciones` falla «está en la sidebar y no
   en el teléfono»; la capa de la plataforma tiene keys EXPLÍCITAS (lib/capas.ts) y sin 'ai-avatar' el super admin la pierde
   en su propio workspace; y /planes la vuelve a ofrecer sólo si sale de `TABS_TODAVIA_CERRADAS` (el test de planes ata las
-  dos cosas). Todo eso está en la rama `ai-avatar-abrir-pro-2910`.
+  dos cosas). Desde el 29/10 es para los TRES planes (Martín: «haz que AI-Avatar esté disponible para todos»): además sale de
+  `TABS_SOLO_PRO` y de `NAV_SOLO_PRO`, y la puerta es la de toda tab (`requireRolWs([], { nav })`). La capa `pm` (la del
+  project manager, que no es un plan que se vende) queda SIN AI Avatar a propósito. Rama: `ai-avatar-todos-2910`; las
+  `ai-avatar-abrir-pro-2910` y `ai-avatar-para-todos-2910` quedaron viejas.
+- **Sumar un renglón a la tarjeta de Esencial rompe un test que no habla de AI Avatar.** «El acompañamiento se ve DISTINTO y
+  con más» (tests/planes-tres-bloques.test.ts) pide que el programa (el Acelerador) tenga MÁS renglones que el plan: con el
+  renglón nuevo, Esencial llegó a 7, igual que el Acelerador. El avatar se dijo dentro del renglón de la oferta
+  (lib/planes-mako.ts). Antes de sumar un renglón a Esencial, contar los del Acelerador.
+- **«Antes de generar» se arma con lo que ve el SERVIDOR y lo que ve ESTE Chrome, y no son lo mismo.** El servidor sabe del
+  puente (`flow_puentes`: estado, si late, versión); sólo la página sabe si la extensión está en este navegador
+  (`data-mako-puente`). Una extensión conectada desde OTRO Chrome cuenta como instalada (genera ESE); en el teléfono no se sabe
+  nada del navegador (`instalada: null`) y los pasos dicen «en tu computadora». El `detalle` del puente no se muestra: es texto
+  libre del navegador. Vive en `lib/ai-avatar/requisitos.ts`, puro, para la computadora y el teléfono.
 
 - **Sacar las secciones de una tab de nav.ts cierra la puerta del teléfono SIN error si la page sigue pidiendo la key
   vieja**: `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS` y, sin el ítem, no deja pasar a nadie. Al dejar
@@ -134,6 +146,137 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   **filtrar por idioma o acento pide clave** («You must be logged in to use filters»). La muestra
   (`preview_url`) es pública y se escucha sin cuenta ni cuota.
 
+## El preset decide si el avatar HABLA: 9 de 28 lo dejan mudo (29/10/2026)
+
+- **Síntoma posible:** un anuncio a cámara sale con el guion en off y el avatar callado.
+- **El diagnóstico obvio era el equivocado:** «falla el lip-sync».
+- **Causa:** `generarPlanAction` reparte el guion con `ritmoDeClips(puesta)`, y las puestas `voz-en-off` y
+  `trends-virales` tienen `habla: 'nunca'`. Son 9 presets: `calle-promo`, `cafe-un-dia`, `metro`, `cabina-fotos`,
+  `selfie-gran-angular`, `ojo-de-pez`, `camara-seguridad`, `biblioteca` y `niebla`. El primer borrador asignaba justo
+  `calle-promo`, `biblioteca` y `cafe-un-dia` a anuncios a cámara.
+- **Regla:** una plantilla de venta a cámara usa un preset cuya puesta habla, y un test lo fija: `cafe-un-dia` en la
+  plantilla 4 tiene que fallar.
+
+**Vive en:** lib/ai-avatar/plantillas.ts · lib/puestas-data.ts · app/video-generator/actions.ts
+
+## La guarda de cara caza vocabulario de cámara (29/10/2026)
+
+- **Causa:** la regex de tests/ai-avatar.test.ts caza «eye-level» (`\beye\b`), «hair light» y «natural skin texture»,
+  palabras estándar de las guías de cámara. Y describir al sujeto (la edad, la barba, el pelo) es justo lo que rompe el
+  parecido.
+- **Regla:** en los prompts de escena va «a person», con la ropa y la composición, nunca rasgos. El vocabulario de
+  Google (CC BY 4.0) entra sin esas tres palabras.
+
+**Vive en:** tests/ai-avatar.test.ts · lib/ai-avatar/plantillas.ts
+
+## El prompt por toma no tiene dónde ir (29/10/2026)
+
+- **Causa:**
+  - el video es el plan del Video Generator con UN look para todas las tomas (`conAvatar`);
+  - el prompt de cada clip lo escribe el código en español (lib/prompts-video.ts);
+  - `conAcento` borra cualquier acento escrito y pone el del cliente;
+  - los gestos de HeyGen no entran, porque el motor no los recibe.
+- **Lo que no está medido:** la puesta `podcast` declara dos personas, y `conAvatar` fuerza una sola escena: hay que
+  medirlo con un video de 2 tomas antes de ofrecer la plantilla 5.
+- **Regla:** la plantilla fija el guion total, la escena y el detalle, no las tomas.
+
+**Vive en:** lib/prompts-video.ts · app/video-generator/actions.ts
+
+## Cuánto dura un guion: palabras medidas, y los dígitos achican (29/10/2026)
+
+- **La densidad:** la investigación proponía 18 palabras por toma de 8 s (una estimación suya). La casa midió 3
+  palabras por segundo a cámara («menos de 26 en 10 s tartamudea») y 2,1 en The Office. El motor reparte las tomas
+  solo, desde el total (`cabidaDeGuion`).
+- **Los dígitos:** `contarPalabras` cuenta «1,500» y «2027» como una palabra, pero se dicen con 2 o 3. El guion se
+  planifica corto y la voz se apura. Por eso los números van con letras. Está deducido del código, no medido en Flow.
+
+**Vive en:** app/video-generator/actions.ts (`cabidaDeGuion`) · lib/puestas-data.ts
+
+## `sano()` es una lista blanca: un campo nuevo del look desaparece (29/10/2026)
+
+- **Causa:** `sano()` (app/ai-avatar/looks.ts) copia solo los campos que conoce. `guion` o `plantillaVentaId`, si no se
+  agregan ahí, se pierden en la primera lectura, sin error.
+- **Regla:** cada campo nuevo de `Look` se suma a `sano` en el mismo commit, con su test.
+
+**Vive en:** app/ai-avatar/looks.ts
+
+## «Usar el ejemplo» filmaría el guion ficticio con créditos pagados (29/10/2026)
+
+- **Causa:** hoy «Usar el ejemplo» mete `preset.guion` en la caja, y «Generar video» lo filma.
+- **Regla:** la guarda va en el server: `crearVideoAction` rechaza un guion que todavía tiene marcas del ejemplo. El
+  botón de la pantalla no alcanza.
+
+**Vive en:** app/ai-avatar/actions.ts
+
+## Un avatar no testimonia, y no inventa el interior de una propiedad (29/10/2026)
+
+- **El testimonio:** la regla de la FTC de 2024 prohíbe testimonios de personas que no existen, también hechos con IA, y
+  la política de IA generativa de Google prohíbe suplantar sin aviso. «Testimonio en el sillón» salió, y el caso lo
+  cuenta el dueño.
+- **El interior:** generar a la asesora «en el departamento muestra» inventa un interior. La escena es una oficina de
+  ventas neutra, y el departamento entra solo como material oficial, en las tomas en off.
+- **Los retratos del elenco:** son de personas inexistentes, hechos en Flow y con el rótulo «Ejemplo». No se promete la
+  voz de esa persona ni una voz clonada: el video habla con la voz de Flow, en el acento del negocio.
+
+**Vive en:** lib/ai-avatar/plantillas-venta.ts (del plan) · public/ai-avatar/plantillas/
+
+## El voseo depende del acento (29/10/2026)
+
+- **Causa:** `marcasDeVoseo` aplicado siempre rechaza el guion correcto de un negocio rioplatense (el plan ya tiene
+  `acentoEsVoseante`), y sin aplicarlo pasa «tenés» en uno mexicano. Además, la guarda no caza argentinismos (remera,
+  campera, vereda, chomba), y la investigación los usaba.
+- **Regla:** la guarda del guion se aplica según el acento del negocio. Los ejemplos del elenco, neutros, pasan además
+  una lista de argentinismos, que incluye «dar vuelta» por invertir (`\b(dar|da|dé|darla|darlo)\s+vuelta\b`).
+
+**Vive en:** lib/puestas-data.ts · tests/ai-avatar.test.ts
+
+## Con el motor sin un solo look en producción, la tarjeta no puede depender de él (29/10/2026)
+
+- **Contexto:** se integra en la entrada que midió que el motor nunca generó un look en producción.
+- **Regla:**
+  - la tarjeta muestra contenido real sin imagen: el marco con el texto en pantalla y la primera frase;
+  - los loops no se prometen;
+  - hay dos grillas (`NuevaCrear` y la galería del estudio): se separan las plantillas de venta de los presets.
+
+**Vive en:** app/ai-avatar/Estudio.tsx · app/_crear/PantallaCrear.tsx
+
+## Licencias que parecían copiables en AI Avatar (29/10/2026)
+
+- fal-ai-community/skills dice «MIT» en el README, pero no tiene LICENSE (dos 404).
+- El SKILL.md de Higgsfield no declara licencia, y la documentación de HeyGen es propietaria.
+- Las métricas de Arcads no se copian: en un ejemplo ficticio serían inventadas.
+- **Regla:** quedan como idea. Copiables, y con aviso, son motion-creative/skills (MIT, 2025 Motion), marketingskills
+  (MIT) y la guía de Google (CC BY 4.0).
+
+**Vive en:** lib/avisos/ (del plan) · docs/plantillas-reales/avatar.md (sección 4)
+
+## La revisión de plata de «AI Avatar para todos»: la puerta entra (29/10/2026, Integración)
+
+- **Qué se revisó:** `ai-avatar-todos-2910` (`4d66a5703`). El informe está en
+  `C:/dev/revisiones/2910-revision-plata-ai-avatar-todos-4d66a5703.md`.
+- **Verificado:**
+  - Sacarla de `TABS_SOLO_PRO` y `NAV_SOLO_PRO` no abre nada más: Video Editor e Image Editor siguen con candado.
+  - Las acciones piden sesión, rol admin, la tab en la capa y workspace.
+  - **MaKo no paga IA.** El look no usa IA. El plan del video usa la del negocio:
+    - el veto de Claude deja sólo `closing`;
+    - `video-planner` no está en `CREDITO_HABILITADO_PARA`;
+    - la red de la plataforma da `[]` para todo negocio que no sea el ws9.
+- **Venderlo en /planes es otra decisión.** Vive en la tabla de planes: ver «La tabla de /planes…» en
+  `docs/hallazgos-planes-y-cobro.md`.
+- **Storage sin tope ni limpieza (baja):**
+  - Looks y tomas van a `video-generator/ai-avatar/…` del bucket público `video-clips`, sin el número de negocio en la ruta.
+  - El reset (`lib/reset-workspace.ts`, que borra bajo `String(ws)`) no los borra, y «Eliminar» tampoco.
+  - Son centavos, pero sólo crece, y ahora tiene una puerta visible para Esencial.
+- **El freno de la prueba no es atómico (baja).** `crearLookAction` y `crearVideoAction` leen el tope, encolan y después suman.
+  Dos «Generar video» a la vez pasan el tope de 1. No le cuesta a MaKo, porque los créditos son de Flow, del cliente.
+- **Comentarios que mienten:**
+  - `lib/movil-creacion.ts` dice «es de Pro».
+  - `app/m/ai-avatar/puerta.ts` y `page.tsx` dicen «sólo el super admin».
+  - `scripts/landing-principal-high-ticket.mts` espera para publicar la tarjeta a `ai-avatar-para-todos-2910`, una rama
+    VIEJA. La que se despliega es `ai-avatar-todos-2910`.
+
+**Vive en:** app/ai-avatar/actions.ts · lib/reset-workspace.ts · scripts/landing-principal-high-ticket.mts
+
 ## Lo que quedó SIN hacer
 
 - **El video con la voz elegida o clonada.** El Video Generator anima con la voz que genera Flow, en el
@@ -153,14 +296,16 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   la oficina» tienen imagen real; los otros 26 muestran el degradado de su categoría y el lugar escrito (y, en
   cuanto la persona genera uno, SU look pasa a ser la baldosa). Se generan gratis en Flow con el motor por
   interfaz cuando haya un navegador de super admin conectado. **Vive en:** `lib/ai-avatar/plantillas.ts` (`ejemplo`).
-- **Probarla de punta a punta con un look real, y recién ahí abrirla a Pro y venderla.** Medido el 29/10/2026 (base, sólo
+- **Probarla de punta a punta con un look real.** Martín la abrió a los tres planes el 29/10 SIN esa prueba («haz que
+  AI-Avatar esté disponible para todos» le ganó a «no se vende hasta que ande»): el paso a paso de «Antes de generar» evita
+  que falle callado, pero que el motor ande con la cuenta de Flow de un cliente sigue sin medirse. Medido el 29/10/2026 (base, sólo
   lectura): el motor de AI Avatar **nunca generó un look en producción** (`ai-avatar.looks` vacío en todos los workspaces),
   el ws3 (el de prueba) **nunca vinculó la extensión** (sin fila en `flow_puentes`) y ninguna extensión estaba lista: las de
   los ws 9, 1, 10 y 11 en «sin_sesion» (Google Flow sin una cuenta abierta). Lo que pide, y es de la persona: Chrome con la
   extensión de MaKo, sesión de Google Flow con SU cuenta (paga sus créditos: el look 0, cada toma del video ~15), «Conectar»
-  desde el popup con el workspace abierto en MaKo, y una foto de su cara. La apertura ya está escrita y probada en la rama
-  `ai-avatar-abrir-pro-2910` (la puerta de Pro del Video Editor, /planes y la fila de More): se sube DESPUÉS de la prueba.
-  **Vive en:** `app/ai-avatar/acceso.ts`, `lib/planes-comparacion.ts` (`TABS_TODAVIA_CERRADAS`).
+  desde el popup con el workspace abierto en MaKo, y una foto de su cara. Lo hace Martín: entrar al ws3, «Conectar», abrir
+  Flow con una cuenta de Google, subir una foto y generar un look. **Vive en:** `app/ai-avatar/actions.ts` (`crearLookAction`)
+  y el motor del Video Generator.
 - **Crear y borrar un look por la API de MaKo.** `ver_avatares` lee (desde el 29/10 también el ajuste escrito y los
   presets nuevos), pero crear encola en Flow y el área de video es «sólo lecturas» por el veredicto §8
   (docs/api-mako-diseno.md); borrar es una escritura sin gasto que hoy vive en una action con sesión. Es un hueco de

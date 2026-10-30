@@ -11,9 +11,8 @@
 
 import './ai-avatar.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { RUTA_MAS } from '@/lib/movil-rutas';
 import { inicioAvatarAction } from '@/app/ai-avatar/actions';
-import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { requireAiAvatarM } from './puerta';
 import { EstudioM } from './EstudioM';
 
@@ -29,8 +28,6 @@ export default async function AiAvatarPagina({ searchParams }: { searchParams: P
   const inicio = await inicioAvatarAction();
   return (
     <PantallaM>
-      {/* Sin fila en SECCIONES_MAS (lib/movil-creacion.ts dice por qué): la cabecera la pone la page. */}
-      <CabeceraM titulo="AI Avatar" padre={{ href: RUTA_MAS, label: 'More' }} />
       {inicio.ok
         ? <EstudioM inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} />
         : <ErrorM frase={inicio.error} />}

@@ -14609,7 +14609,7 @@ curl -L \
 
 ### `GET /api/v1/contenido/plantillas` — Templates del Copywriter
 
-Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio en video, copy para Meta, Reel, stories, carrusel, email, VSL, YouTube y página en blanco, con su id, tipo y qué secciones arma. El id va en plantillaId de crear_documento_copywriter.
+Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio a cámara, testimonio, copy para Meta con 3 ángulos, 10 ganchos, Reel, stories, carrusel, email de cierre, 5 emails tras una descarga, VSL, clase gratuita, YouTube de 12 minutos y página en blanco. Cada uno con su id, tipo, cuándo usarlo, qué secciones arma y su ejemplo (de un negocio ficticio: muestra la forma, sus datos no se usan). El id va en plantillaId de crear_documento_copywriter, que crea las secciones vacías.
 
 - **Ruta por operación:** `GET /api/v1/contenido/listar_plantillas_copywriter`
 - **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)

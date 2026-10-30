@@ -44,17 +44,27 @@ export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], str
   // imágenes con IA NO (lib/image-editor/chat/catalogo.ts, `NO_SE_PUEDE_CHAT_IMAGEN`; Image Generator es «pronto»).
   'image-editor': 'Diseñar tus imágenes sin salir de MaKo',
   'video-editor': 'Editar tus videos sin salir de MaKo',
-  'ai-avatar': 'Videos con una persona hecha con IA que habla por ti',
 };
 
 /**
- * Las tabs de Pro que TODAVÍA no se abrieron: no se venden (28/10/2026, lo que Martín le prometió a Teo). AI Avatar la ve sólo el
- * super admin (app/ai-avatar/acceso.ts). El día que se abra, sale de esta lista y vuelve a la tabla (lo pide el test). Los videos
- * con avatar del Video Editor, que Pro sí ve, ya están en su fila.
+ * Las tabs de Pro que TODAVÍA no se abrieron: no se venden (28/10/2026, lo que Martín le prometió a Teo). Hoy ninguna: AI Avatar
+ * (la única que estuvo acá) se abrió el 29/10/2026 a los TRES planes y ya no es de Pro; su fila espera `AI_AVATAR_SE_VENDE`.
  */
-export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = ['ai-avatar'];
+export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = [];
+
+/**
+ * ¿La tabla VENDE AI Avatar? NO, aunque la tab esté abierta en los tres planes (29/10/2026, el Cerebro: «no se vende lo que no
+ * anduvo de punta a punta», el mismo criterio que sacó los videos del Video Generator). Vuelve a `true` cuando Martín genere un
+ * look real en el ws3 Y la tienda de Chrome publique la extensión 0.69 o más (`lib/extension-tienda.ts`). Ese día la fila dice
+ * que se paga con los créditos de Google Flow de la persona (lo pide el test).
+ */
+export const AI_AVATAR_SE_VENDE = false;
+
+/** La fila de AI Avatar en la tabla, para cuando se venda (`AI_AVATAR_SE_VENDE`). */
+export const NOMBRE_AI_AVATAR = 'Videos con una persona hecha con IA que habla por ti';
 
 /** Lo demás que es sólo de Pro (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`), dicho igual. */
+
 export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Sumar a tu lista los contactos de tus grupos de WhatsApp',
   partners: 'Ganar el primer mes de cada negocio que traes a MaKo',
@@ -81,10 +91,12 @@ export function filasDeComparacion(): FilaComparacion[] {
     // la extensión y de los créditos de Flow del cliente, y al motor nunca se lo midió en vivo). Vuelve cuando un cliente lo use.
     // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas ideas, del tope del plan.
     filaDeTope(anuncios, 'Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'),
+    // AI Avatar está abierta en los tres planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»), pero
+    // la tabla no la vende hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`).
+    ...(AI_AVATAR_SE_VENDE ? [enTodos(anuncios, NOMBRE_AI_AVATAR)] : []),
     soloPro(anuncios, 'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto'),
     soloPro(anuncios, NOMBRE_TAB_PRO['image-editor']),
     soloPro(anuncios, NOMBRE_TAB_PRO['video-editor']),
-    ...(TABS_TODAVIA_CERRADAS.includes('ai-avatar') ? [] : [soloPro(anuncios, NOMBRE_TAB_PRO['ai-avatar'])]),
     filaDeTope(equipo, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
     soloPro(recomendar, NOMBRE_FUNCION_PRO.partners),

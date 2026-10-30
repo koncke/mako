@@ -28,7 +28,8 @@ import { CATEGORIAS, filtrarPresets, plantillaPorId, type Categoria, type Planti
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { haceCuanto, mezclarPorId, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
 import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
-import { ComputadoraM, PieFijoM, SeccionM, SheetM, useConexion } from '@/app/m/_ui';
+import { PieFijoM, SeccionM, SheetM, useConexion } from '@/app/m/_ui';
+import { CREDITOS, requisitosAvatar, type PasoRequisito } from '@/lib/ai-avatar/requisitos';
 import { CampoM, ErrorLineaM } from '../_creacion/escritor';
 import { ChipM, ChipsM } from './piezas';
 
@@ -83,6 +84,7 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
   }, [generando]);
 
   const abierto = abiertoId ? looks.find((l) => l.id === abiertoId) ?? null : null;
+  const reqAvatar = requisitosAvatar({ puente: inicio.puente, instalada: null, enTelefono: true, fotos: fotos.length, para: 'avatar' });
   const preset = presetId ? plantillaPorId(presetId) : null;
   const foto = fotos.find((f) => f.id === fotoId) ?? null;
 
@@ -131,9 +133,10 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
         : (
           <>
             <NuevaM looks={looks} presetId={presetId} onPreset={setPresetId} />
-            {!inicio.puente.puede && <ComputadoraM que={inicio.puente.motivo} />}
+            {/* Lo que es de la persona (la extensión, su Flow, su foto), paso a paso y ANTES de «Generar». */}
+            {!reqAvatar.listo && <RequisitosM pasos={reqAvatar.pasos} />}
             {error && <ErrorLineaM>{error}</ErrorLineaM>}
-            <PieFijoM consecuencia={linea || (!preset ? 'Elige un preset.' : !foto ? 'Pon tu foto en Personaje.' : 'Las imágenes no gastan créditos.')}>
+            <PieFijoM consecuencia={linea || (!preset ? 'Elige un preset.' : reqAvatar.falta ? `Antes de generar: ${reqAvatar.falta.titulo}.` : !foto ? 'Pon tu foto en Personaje.' : 'Las imágenes no gastan créditos.')}>
               <div className="m-ai-avatar-barra">
                 <div className="m-ai-avatar-barra__fila">
                   <button type="button" className="m-ai-avatar-ranura" onClick={() => setHoja('personaje')} aria-label="Personaje: tu foto">
@@ -299,6 +302,7 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
   const parada = tomas.find((t) => t.fase === 'error');
   const filmando = tomas.some((t) => t.fase === 'filmando' || t.fase === 'a_ciegas');
   const seg = segundosDeGuion(guion);
+  const reqVideo = requisitosAvatar({ puente: inicio.puente, instalada: null, enTelefono: true, fotos: inicio.fotos.length, para: 'video' });
 
   return (
     <>
@@ -356,7 +360,7 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
           </div>
         </SeccionM>
       )}
-      {!inicio.puente.puede && <ComputadoraM que={inicio.puente.motivo} />}
+      {p.estado === 'listo' && !reqVideo.listo && <RequisitosM pasos={reqVideo.pasos} />}
       {aviso && <ErrorLineaM>{aviso}</ErrorLineaM>}
 
       <PieFijoM consecuencia={filmando ? 'Deja esta pantalla abierta mientras se filma.' : 'Cada toma gasta créditos de tu cuenta de Flow.'}>
@@ -382,5 +386,22 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
         <Button variant="danger" size="lg" full onClick={() => { setBorrar(false); onEliminar(); }}>Eliminar</Button>
       </SheetM>
     </>
+  );
+}
+
+/** «Antes de generar» en el teléfono: los mismos pasos de la computadora (lib/ai-avatar/requisitos.ts), que se hacen ALLÁ. */
+function RequisitosM({ pasos }: { pasos: readonly PasoRequisito[] }) {
+  return (
+    <SeccionM titulo="Antes de generar">
+      <ol className="m-ai-avatar-pasos">
+        {pasos.map((x, i) => (
+          <li key={x.id} className={x.hecho ? 'm-ai-avatar-paso m-ai-avatar-paso--hecho' : 'm-ai-avatar-paso'} aria-label={`${x.titulo}: ${x.hecho ? 'listo' : 'falta'}`}>
+            <span className="m-ai-avatar-paso__marca" aria-hidden="true">{x.hecho ? <Icon name="check" size={12} /> : i + 1}</span>
+            <span><b>{x.titulo}</b> <small>{x.ayuda}</small></span>
+          </li>
+        ))}
+      </ol>
+      <p className="m-ai-avatar-pronto">{CREDITOS}</p>
+    </SeccionM>
   );
 }

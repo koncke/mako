@@ -2451,3 +2451,37 @@ La de Chatwoot (el oficial) se fue el 09/10 (tests/sin-chatwoot.test.ts); WhatsA
   banco tiene que importar `app/m/m.css` y `app/m/configuraciones/configuraciones.css`, o la hoja sale sin estilos.
 - **Sin hacer:** renombrar, desvincular o elegir la de por defecto desde la tarjeta (sigue en /whatsapp); el código de vinculación
   (`pairingCode`) que permitiría agregar una línea desde el teléfono (el tipo existe en `EvolutionConnect`, la pantalla no lo muestra).
+
+## El barrido de leads de Meta por Zernio: el filtro va en memoria, no sólo en la URL (29/10/2026, Integración)
+
+> **Estado (29/10 noche):** arreglado en `zernio-token-2910` (`a745e4eb3`): el descarte en memoria por cuenta (con cualquier clave),
+> sólo crear, y la papelera entera o el barrido corta. Ver «El 2.º Instagram… y los leads de Meta por Zernio», arriba. Prender el
+> interruptor de la cuenta de la plataforma lo decide Integración.
+
+La revisión de privacidad de `zernio-token-2910` (`ce56bd693`, `lib/zernio-leads-barrido.ts`) frenó la punta antes del tren-af y
+volvió a su chat. El informe está en `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`, y las pruebas en
+`C:/dev/revisiones/2910-rev-zernio-pruebas/`.
+
+- ⚠️ **Un parámetro de la API no es un filtro.** Con la clave de la plataforma, `accountIds` iba sólo en la URL y `leerLeadDelRest`
+  ni leía el `accountId`. Con un Zernio de prueba que ignora el parámetro, el lead de otro negocio entró al CRM del ws1. **Regla:**
+  todo lead se descarta EN MEMORIA si su cuenta no es del negocio que se barre, con cualquier clave. Es lo que ya hace el webhook.
+- ⚠️ **«Clave propia» no garantiza que todo el equipo de Zernio sea del negocio.**
+  - Con clave propia, el barrido listaba el equipo entero de Zernio.
+  - Una agencia con una sola cuenta de Zernio para varios negocios de MaKo mete en cada uno los leads de todos.
+  - En el código, «propia» es «tiene fila y no es el ws1» (`lib/zernio.ts`). Si alguien pega la clave de MaKo en otro negocio, ese
+    negocio barre los leads de todos los negocios prestados.
+- ⚠️ **Una persona con dos formularios no puede alternar.**
+  - Cada barrido le cambiaba el `meta_lead_id` (A, B, A…) y le borraba la campaña.
+  - Además le reenviaba la conversión a Meta y el aviso «lead fusionado», cada 30 minutos.
+  - Se corrió con el `upsertLeadFromMeta` real.
+- ⚠️ **La papelera se lee paginada, y si la lectura falla, el barrido corta.**
+  - PostgREST corta en 1000 filas sin avisar.
+  - Seguir con la lista incompleta hace volver leads borrados, y a los de menos de 24 h les manda OTRA VEZ el WhatsApp de
+    bienvenida.
+- **Lo que está bien (verificado):**
+  - El cron va negocio por negocio, con sus claves.
+  - Ningún error guarda los leads de un negocio en otro.
+  - El 2.º Instagram no cruza negocios.
+- **Sin hacer (B4):** los negocios con la cuenta prestada nunca se barren, porque el cron sólo recorre los que tienen clave
+  guardada. El interruptor `zernio.cuenta_de_la_plataforma` queda APAGADO hasta que el filtro en memoria esté.
+

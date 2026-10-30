@@ -115,6 +115,8 @@ En `app_settings` del negocio, como los guiones del Ads Writer (`mako.razones`):
   (lib/ig-formatos.ts, los cursos que ya usa MaKo). ⚠️ **YouTube NO tiene estructura**: no hay fuente en el repo (YouTube
   Writer era «pronto»), y por la regla de copiar no se inventa: un guion de YouTube ofrece las de anuncios y lo dice
   («Todavía no hay de YouTube»). Pendiente de Martín: de qué curso o referencia sale la de YouTube.
+  **Cerrado el 29/10/2026 (D16):** `youtube-retencion` (Gancho → Intro → Bloques → CTA medio → Regancho → Cierre), de
+  claude-youtube (MIT, aviso en lib/avisos/LICENSE-CLAUDE-YOUTUBE), sin sus metas numéricas.
 - La biblioteca sigue siendo UNA (`/admin/guiones`, que suma «Para: Ad · Reel · Story · YouTube»). El Ads Writer lee sólo
   las de anuncios (`getEstructurasGuion`); el Copywriter y el editor del super admin, todas (`getEstructurasTodas`). Un
   override guardado antes recibe las de orgánico nuevas al final; para sacar una, se apaga.
@@ -299,6 +301,32 @@ El Copywriter la usa así (app/copywriter/Copywriter.tsx), y reemplaza al armaz�
 - **El teléfono:** `?nuevo=<tipo>` viaja a /m/copywriter (lib/movil-creacion.ts) y abre la hoja de templates con los de
   ese tipo primero, como en la computadora. YouTube Writer sigue «pronto» en el teléfono (key con `comingSoon`), como
   /ideas: retirarlos va con /m/stories.
+
+## D16 · Plantillas con ejemplo y el experto (29/10/2026)
+
+Martín: «Los templates tienen que ser reales… deben ser ejemplos reales» y «agentes expertos en guiones de ads, de
+YouTube… así MaKo al entrar te da el template y te puede ir ayudando a crearlo». El plan entero:
+[plantillas-reales/copywriter.md](plantillas-reales/copywriter.md).
+- **12 plantillas con un ejemplo completo** de un negocio ficticio del elenco (lib/copywriter/plantillas-ejemplos.ts,
+  leído por `docDeEjemplo`), más «Página en blanco». `contenido()` es el ejemplo y `esqueleto()` sus secciones vacías.
+  Las tres VSL sin ejemplo salen de la galería (`visible: false`) y siguen resolviendo por id.
+- **La API de MaKo y «Solo la estructura» usan el esqueleto**: un agente externo nunca deja el negocio ficticio.
+  `listar_plantillas_copywriter` muestra el ejemplo como texto, marcado ficticio.
+- **Cada plantilla fija su estructura** (`pas`, `gancho-historia-cta`, `reel-viral`, `story-dia`, las VSL,
+  `youtube-retencion`): si el super admin la cambió, la página nace con el ejemplo y sin estructura.
+- **La página recuerda su plantilla** (`props.plantilla`, sólo las que traen ejemplo). Con ella:
+  - el primer mensaje de MaKo es LOCAL («Es un ejemplo de <negocio>, un negocio ficticio. ¿Lo adapto a tu negocio?»),
+    con «Adaptar a mi negocio» y «Solo la estructura»;
+  - una franja en la página dice cuánto queda del ejemplo y cuántos `[DATO:` faltan, y «Copiar el texto» lo avisa.
+- **El experto** (`copywriter.experto`, lib/copywriter/experto.ts): el método de un director de respuesta directa
+  (marketingskills, Profound y claude-youtube, MIT), antepuesto a REGLA_NO_EXISTE en «Discutir» y en «Editar».
+  **«Adaptar»** es `editar` con `copywriter.adaptar.user`: pregunta como máximo tres datos que el negocio no tiene, de a
+  uno, y después reescribe la pieza entera como propuesta, con `[DATO: …]` donde falte. Keys nuevas: ningún slot nuevo
+  en los prompts de antes.
+- **MaKo escribe tablas** (el bloque `tabla` de las operaciones): sin eso, adaptar el Reel, las Stories, el Carrusel o
+  los Ganchos las volvía párrafos.
+- **Falta** (hallazgos-copywriter, «Qué quedó»): la tarjeta con el extracto y los chips (espera los campos de la tanda 0
+  de Create en `PlantillaCrear`) y los evals del experto.
 
 ## Qué queda para después
 

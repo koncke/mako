@@ -304,7 +304,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // ⚠️ `landing-writer` (Web Generator) ENTRA ACÁ EL 23/10/2026: la landing de hola-mako.com y las de cada funnel de
     // MaKo son documentos de Web Generator de ESTE workspace (lib/editor-landing/landing-mako.ts), y Martín pidió
     // editarlas desde ahí («Que tenga la landing principal de MaKo en el editable de web generator»).
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer'],
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer', 'ai-avatar'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],
