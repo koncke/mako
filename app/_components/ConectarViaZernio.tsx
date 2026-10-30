@@ -55,6 +55,8 @@ export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string |
 /** Lo que contesta POST /api/zernio (las acciones de esta pieza). */
 type RespuestaApi = {
   ok?: boolean; motivo?: MotivoZernio; error?: string; pagoUrl?: string | null;
+  // Con `pausa` (un 429 de Zernio, ticket #34): cuánto pidió esperar.
+  esperaMs?: number | null;
   // Con el aviso de la 3.ª red: ¿queda lugar para otra clave de Zernio? (varias claves, 29/10/2026).
   puedeAgregarClave?: boolean;
   tipo?: 'url' | 'ya-conectada'; url?: string; conexiones?: ConexionZernio[]; total?: number;
