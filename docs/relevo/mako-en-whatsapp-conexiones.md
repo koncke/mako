@@ -21,14 +21,21 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
 - **«Súbeme este anuncio»: b860ef8f8 (29/10 ~22:00).** `proponer_anuncio_desde_archivo` (ads), detrás de ZERNIO_ANUNCIOS_PROBADO
   (sigue en false: lo prende la prueba de Martín); el doer lee el videoMessage; la regla de una guarda ya no se delega. Roturas D2 y
   D23–D27 cazadas. Verificación final en `C:/dev/verif-b860ef8f8` (sacarlo después: `cmd /c rmdir` del junction primero).
-- **La revisión de privacidad de Integración (29/10 ~23:00): d30862b59.** El despachante SALIÓ del tren-ae por dos ALTA; sin ellas
-  no entra. A1: un hito que nombra tickets de varios negocios va sin puntos (sólo el título; `hitosDeLosTickets`,
-  lib/tickets-reglas.ts). A2: la cola de lo que espera a Martín (`ticketsNuevosParaElCartero`) ya no marca `delegado`, así que el
-  Cerebro no recibe «hazlo» sin el sí del triage; el texto del delegado dice «el triage lo aprobó» y vuelve a Martín ante plata,
-  envíos a terceros, borrados o migraciones. También M2 (el banco usa CUENTA2 primero) y B3 (`taparClaves` en el DEBUG). Roturas
-  D28–D30. Quedan sin hacer y documentados en docs/hallazgos-comunicacion.md: M1 (el «listo» chequeado en código), M3 (el DEBUG
-  por grupo y no por quién escribe), el tope de crédito por negocio y B1. El informe:
-  `C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`. Va en el tren-af, con una revisión nueva.
+- **La revisión de privacidad de Integración (29/10 ~23:00 y 30/10 ~01:00): d30862b59 y 3f3b23eda.** El despachante SALIÓ del
+  tren-ae por dos ALTA. d30862b59 fue la primera vuelta; el Cerebro pidió lo estricto y está en 3f3b23eda. A1: un hito va al turno
+  de un negocio sólo si TODOS sus tickets son de ese negocio (`hitosDelNegocio`). A2: `crearTicket` manda a la decisión de Martín
+  todo pedido delegado con plata, envíos o borrados, o de quien no es admin del negocio (`delegadoQueDecideMartin`, guarda dura en
+  `clasificar`). Quién escribe sale de `participantAlt` en los grupos de `@lid` (antes, todo con el pushName). M1: el «listo» es
+  fijo. M3: el DEBUG por persona, y el modelo sin `diagnosticar_negocio`. Roturas D28–D37 (en el scratchpad,
+  `roturas-despacho.mjs`). Sin hacer: el tope de crédito por negocio (M2, plata: Martín), B1, B2 y B4. El informe:
+  `C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`. Va en el tren-af, con una revisión nueva (también de
+  plata: desde el grupo se pausan y prenden campañas y anuncios). **Verificación (30/10 ~02:00):** roturas D3, D6, D8, D15 y
+  D28–D37 cazadas (D37 sólo por el cableado, el 15 del despacho), sin respaldos; despacho-grupo 15/15, clase-del-grupo 11/11, tsc
+  acotado 0 propios (sobre 3f3b23eda antes del commit); tests-afectados `--rapido` de 3f3b23eda en `C:/dev/verif-3f3b23eda`: 11
+  tandas verdes, barredoras con los 2 `todo` de siempre y `mako-en-whatsapp-pablo` (fijaba el actor viejo: arreglado en el commit
+  siguiente, que además lleva `participantAlt` y el lote de varios al rescate del cron). FALTA: el tsc acotado de ese último commit
+  (lib/mako-doer-in.ts; la pausa del Cerebro lo frenó), sacar `C:/dev/verif-3f3b23eda` (`cmd /c rmdir` del junction primero) y
+  mandarle el sha a Integración (local_6c54122e-…) para el tren-af. El borrador del VERDE está en la carpeta compartida del Cerebro.
 - **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
   mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
   `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el

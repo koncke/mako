@@ -3252,10 +3252,12 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           const ultimo = lote.quedan[lote.quedan.length - 1]?.payload ?? ((cola[cola.length - 1].payload as MsgIn) ?? {});
           if (textos.some((x) => !x.marca)) {
             const sintetico: MsgIn = {
-              key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
+              key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant, participantAlt: ultimo.key?.participantAlt },
               pushName: ultimo.pushName,
               message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
               paraQuien: { ...lote.decision, leHabla: !!lote.quedan[lote.quedan.length - 1]?.leHabla },
+              // Como en la entrada: con dos autores, el último no prueba quién pidió lo de arriba (el permiso de `quienPide`).
+              ...(new Set(lote.quedan.map((m) => m.payload.key?.participant ?? '')).size !== 1 || lote.quedan.some((m) => !m.payload.key?.participant) ? { loteDeVarios: true } : {}),
               ...(adjuntosDelLote.length ? { adjuntosDelLote } : {}),
             };
             console.log(`[mako-doer-in] cron: destrabando ${cola.length} mensaje(s) de ${jid}`);
