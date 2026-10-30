@@ -16,7 +16,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import {
-  cancelarPedido, crearTokenCartero, descartarDelLimbo, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
+  cancelarPedido, crearTokenCartero, descartarDelLimbo, encolarPedido, firmadoDelLimbo, leerCarteros, listarPedidos, trabajoDeLaCola,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes, type LecturaPushes } from '@/lib/progreso';
@@ -287,6 +287,19 @@ export async function cancelarPedidoAction(id: string): Promise<{ ok: boolean; e
   try {
     const hecho = await cancelarPedido(id);
     return hecho ? { ok: true } : { ok: false, error: 'Ya salió: no se puede cancelar.' };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Lo firmado de un mensaje del cartel, para mirarlo antes de volver a firmarlo (useCentro.ts → mandarDelLimbo). Sólo el que se va a mandar. */
+export async function firmadoDelLimboAction(id: string): Promise<{ ok: true; firmado: string; firma: string; claveId: string | null } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof id !== 'string') return { ok: false, error: 'Falta el mensaje.' };
+  try {
+    const f = await firmadoDelLimbo(id);
+    return f ? { ok: true, ...f } : { ok: false, error: 'Ya salió: no hace falta mandarlo.' };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

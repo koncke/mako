@@ -27,7 +27,7 @@ import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
-  cartelDeLaPc, claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  cartelDeLaPc, chatRecibe, claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
   avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
@@ -38,14 +38,14 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { descartarDelLimboAction, desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
+import { descartarDelLimboAction, firmadoDelLimboAction, desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
 // Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
 import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import type { LecturaCredito } from '@/lib/credito-api';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/centro-estable';
-import { mensajesEnLimbo } from '@/lib/centro-limbo';
+import { mensajesEnLimbo, originalParaReenviar } from '@/lib/centro-limbo';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, notaQueSale, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
@@ -56,6 +56,7 @@ import { prepararNota } from '@/app/_chat/preparar-nota';
 import { conLoQueSale, enviosEnCurso, escucharEnvios, idDeEnvioLocal, ponerEnCamino, sinEnvios, type EnvioLocal } from './envios-en-curso';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
+import { firmaEsDeEste } from './clave-dispositivo';
 import { TEXTO_SOLO_ADJUNTOS, copiar, problemaAntesDeMandar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
@@ -750,13 +751,19 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /**
    * Mandárselo a otro chat: la firma fija el destino, así que sale uno NUEVO firmado en este dispositivo, y recién con ése en la cola
    * se da de baja el viejo. Si la baja falla, el nuevo ya salió: se dice, y el viejo sigue en el cartel. Devuelve el error, o null.
+   * ⚠️ LO QUE SE FIRMA ES LO QUE MARTÍN FIRMÓ, no la columna `texto`: `originalParaReenviar` lo compara con lo firmado antes de firmar.
    */
   async function mandarDelLimbo(p: Pedido, c: ChatCentro): Promise<string | null> {
     const d = destinoDeChat(c);
     const envio = envioDe(c);
     if (!d.sesion || !envio.puede) return textoDeEnvio(envio) ?? 'Ese chat no recibe ahora.';
-    if (envio.espera === 'chat_cerrado') return 'Ese chat también está cerrado.';
-    const texto = armarReenvio(p.destino_titulo ?? 'un chat cerrado', p.texto);
+    if (!chatRecibe(c, envio)) return 'Ese chat no está abierto ahora.';
+    const leido = await firmadoDelLimboAction(p.id).catch(() => null);
+    if (!leido?.ok) return leido?.error ?? 'No pude leer el mensaje: vuelve a probar.';
+    const clave = firma.clave;
+    const original = await originalParaReenviar(p, leido, clave?.id, (f, s) => (clave ? firmaEsDeEste(clave, f, s) : Promise.resolve(false)));
+    if (!original.ok) return original.error;
+    const texto = armarReenvio(original.titulo ?? 'un chat cerrado', original.texto);
     const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto');
     if (!r.ok) return r.error;
     anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });

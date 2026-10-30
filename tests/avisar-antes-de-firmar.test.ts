@@ -16,7 +16,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { preguntaDeChatCerrado } from '../lib/centro-chats';
+import { comoSale, preguntaDeChatCerrado, type ChatCentro } from '../lib/centro-chats';
+import { cerebroDelCentro } from '../app/tickets/bandeja/cerebro';
 import { estadoRunnerUso, usoPrincipal, type Cuota } from '../lib/centro-uso';
 
 const leer = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -37,6 +38,10 @@ test('una pregunta de un chat cerrado se dice antes de firmar; sin noticias de l
   assert.equal(preguntaDeChatCerrado('local_abierto', 'claude1', carteros, AHORA), null);
   const callados = carteros.map((k) => ({ ...k, vistoAt: hace(DIA) }));
   assert.equal(preguntaDeChatCerrado('local_cerrado', 'claude1', callados, AHORA), null, 'con la PC callada, `vivo` es de la última vuelta');
+  // Sin saber de qué cuenta es, o con la suya callada, no se frena una respuesta aunque otra cuenta lo traiga cerrado.
+  assert.equal(preguntaDeChatCerrado('local_cerrado', null, carteros, AHORA), null);
+  assert.equal(preguntaDeChatCerrado('local_cerrado', 'claude9', carteros, AHORA), null);
+  assert.equal(preguntaDeChatCerrado('local_cerrado', 'claude2', [carteros[0], { ...carteros[1], vistoAt: hace(DIA) }], AHORA), null);
 });
 
 test('contestar no firma si está cerrado, y la tarjeta lo dice antes, en la computadora y el teléfono', () => {
@@ -48,11 +53,22 @@ test('contestar no firma si está cerrado, y la tarjeta lo dice antes, en la com
   assert.match(sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx')), /avisoCerrado=\{\(p\) => centro\.avisoDePregunta\(elegido, p\)\}/, 'el teléfono tampoco');
 });
 
-test('la bandeja de tickets no firma hacia un Cerebro cerrado: busca uno que reciba, y si no hay, lo dice', () => {
-  const src = sinComentarios(leer('app/tickets/bandeja/cerebro.ts'));
-  assert.match(src, /cerebros\.find\(\(c\) => \{ const e = centro\.envioDe\(c\); return e\.puede && e\.espera !== 'chat_cerrado'; \}\)/);
-  assert.match(src, /envio\.puede && envio\.espera === 'chat_cerrado' \? \{ ok: false as const, motivo: 'El Cerebro está cerrado' \}/);
-  assert.ok(src.indexOf("envio.espera === 'chat_cerrado' ?") < src.indexOf('envio.puede ? { ok: true as const }'), 'con `envio.puede` primero, cerrado da `listo`');
+test('la bandeja de tickets no firma hacia un Cerebro cerrado: busca uno que reciba, y si no hay, lo dice, también sin Runner', () => {
+  const cerebro = (clave: string, estado: string, extra: Partial<ChatCentro> = {}) => ({ clave, titulo: 'Cerebro', sesion: `cli_${clave}1111111-2222-4333-8444-555555555555`, cuenta: 'claude1', estado, viejo: false, ...extra }) as unknown as ChatCentro;
+  const conRunner = [{ cuenta: 'claude1', vistoAt: hace(MIN), noticiasAt: hace(MIN), chats: [], claves: ['k1'] }];
+  const sinRunner = [{ cuenta: 'claude1', vistoAt: hace(6 * DIA), noticiasAt: hace(MIN), chats: [], claves: ['k1'] }];
+  const de = (chats: ChatCentro[], k: typeof conRunner) => cerebroDelCentro({ chats, envioDe: (c: ChatCentro) => comoSale(c, k as never, 'k1', AHORA), destinoDeChat: () => ({ sesion: null, cuenta: null }), firma: {} } as never);
+
+  // El caso de la revisión: Runner parado y el único Cerebro cerrado. `comoSale` da `espera: 'cartero'` antes de mirar el estado.
+  assert.deepEqual(de([cerebro('a', 'cerrado')], sinRunner)?.listo, { ok: false, motivo: 'El Cerebro está cerrado' });
+  assert.deepEqual(de([cerebro('a', 'cerrado')], conRunner)?.listo, { ok: false, motivo: 'El Cerebro está cerrado' });
+  assert.deepEqual(de([cerebro('a', 'sin_dato')], sinRunner)?.listo, { ok: false, motivo: 'No sé si el Cerebro está abierto' });
+  // Abierto y sin Runner: el chat está, sale cuando vuelva. No se frena.
+  assert.deepEqual(de([cerebro('a', 'abierto')], sinRunner)?.listo, { ok: true });
+  assert.deepEqual(de([cerebro('a', 'abierto', { viejo: true })], sinRunner)?.listo, { ok: true }, 'con la PC callada no se sabe: sale, como `preguntaDeChatCerrado`');
+  assert.deepEqual(de([cerebro('a', 'cerrado'), cerebro('b', 'abierto')], conRunner)?.listo, { ok: true }, 'uno cerrado no tapa a otro abierto');
+  assert.deepEqual(de([cerebro('a', 'cerrado'), cerebro('b', 'trabajando')], sinRunner)?.listo, { ok: true });
+  assert.equal(de([], conRunner), null);
 });
 
 const cuota = (pct: number, medido: string): Cuota => ({ cinco: null, semana: { pct, reinicia: '2026-11-04T10:00:00Z' }, medido });

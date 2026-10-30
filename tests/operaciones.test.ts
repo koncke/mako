@@ -77,7 +77,7 @@ const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction'
   // Lo terminado viejo de UN chat, al abrirlo (23/10/2026, `pedidosDelChatAction`): con la misma guarda que las demás.
   'pedidosDelChatAction',
   // Dar de baja lo que no salió (30/10/2026, CartelLimbo.tsx): con la misma guarda.
-  'descartarDelLimboAction'];
+  'descartarDelLimboAction', 'firmadoDelLimboAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));

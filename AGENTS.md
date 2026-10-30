@@ -1783,7 +1783,10 @@ código nuevo:
   `latir` ni a `vuelta`, y a `carpetasConRunner` le pasa `null`: un chat con nombre y sin cron (lo que deja un `/clear`) no cuenta.
   Una vuelta a la vez en la PC (`tomarVuelta`, `vuelta.lock`): quien lo encuentra tomado saltea, y `vigilar` la reintenta. Todo el
   que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ El servidor y la migración 0355 van ANTES de instalarlo
-  (docs/diseno-cartero-servicio.md §2.6).
+  (docs/diseno-cartero-servicio.md §2.6). `instalar-servicio` lo comprueba, y ni él ni `quitar-servicio` corren desde un chat.
+- **PARA SABER CÓMO ESTÁ UN CHAT, `comoEstaElDestino`; PARA OFRECERLO, `chatRecibe`** (30/10/2026; docs/hallazgos-operaciones.md, «La revisión del servicio»). `vivo` es de la última vuelta: una foto vieja no dice ni
+  abierto ni cerrado. Y `envio.puede` con `espera !== 'chat_cerrado'` no dice que esté abierto: sin Runner, `comoSale` da `'cartero'` antes de mirar el estado. Volver a firmar un mensaje de la cola pasa por
+  `originalParaReenviar`: la columna `texto` no está firmada. Lo que no sale va al cartel del limbo con su causa (`mensajesEnLimbo`): una causa nueva, con su texto y su remedio.
 - **EN LA BASE, `visto_at` ES «LLEGÓ ALGO» Y `runner_visto_at` ES «HAY UN RUNNER». EN EL CÓDIGO, `vistoAt` ES EL RUNNER** (30/10/2026). Quien pregunte
   «¿hay quien entregue?» usa `carteroVivo`; quien pregunte «¿la PC está?» o «¿de cuándo es esta foto?», `noticiasAt` (`sinNoticiasDesde`). Una vuelta con `servicio` no escribe ni
   `runner_visto_at` ni `version`, y no reclama nada (`filaDeLaVuelta`). Los carteles salen de una sola regla, `cartelDeLaPc`, y cualquier otro que hable de la PC va ahí,

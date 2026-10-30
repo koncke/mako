@@ -21,6 +21,7 @@
 //   · sin la doble llave → «la doble llave»; sin la guarda del registro → «una PC de prueba»;
 //   · el valor de mako-pc, el lanzador con ventana, o un lanzador que queda si `reg` falla → «instalar y quitar».
 //   Restaurado del original en memoria, y comparado byte a byte.
+// La revisión adversarial del servicio (1.26.1), con la misma mecánica; roturas al pie.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -76,13 +77,21 @@ process.exit(c);
 async function armarPC(responder: (cuerpo: Cuerpo, n: number) => Record<string, unknown> | Promise<Record<string, unknown>> = () => ({})) {
   const dir = mkdtempSync(join(tmpdir(), 'cartero-servicio-'));
   const recibido: Cuerpo[] = [];
+  /** `listo`: lo que dice MaKo de sí misma a `instalar-servicio`. null = un servidor de antes, que no conoce la pregunta. */
+  const servidor: { listo: boolean | null } = { listo: true };
   const srv: Server = createServer((req, res) => {
     let b = ''; req.on('data', (d) => { b += d; }).on('end', async () => {
       res.setHeader('content-type', 'application/json');
+      if (req.method === 'GET' && req.url?.includes('servicio-listo')) {
+        if (servidor.listo === null) res.statusCode = 404;
+        res.end(JSON.stringify(servidor.listo === null ? { error: 'no hay ese adjunto para entregar' } : { servicio: servidor.listo }));
+        return;
+      }
       if (req.method === 'GET') { res.end(JSON.stringify({ hay: 0 })); return; }
       const cuerpo = JSON.parse(b) as Cuerpo;
       recibido.push(cuerpo);
       const extra = await responder(cuerpo, recibido.length);
+      if (typeof extra.__status === 'number') { res.statusCode = extra.__status; res.end(JSON.stringify({ error: 'token del cartero inválido' })); return; }
       res.end(JSON.stringify({ pedidos: [], avisos: [], vencidos: 0, acuses: 0, cierres: 0, ...extra }));
     });
   });
@@ -123,7 +132,7 @@ async function armarPC(responder: (cuerpo: Cuerpo, n: number) => Record<string, 
   const comoRunner = (cfg: string, pid: number) => ({ CARTERO_CONFIG_DIR: cfg, CLAUDE_PID: String(pid) });
   const cerrar = () => { srv.closeAllConnections(); srv.close(); };
   const abrir = () => new Promise<void>((ok) => srv.listen(puerto, '127.0.0.1', () => ok()));
-  return { dir, recibido, carpeta, sesion, latido, latidoDe, config, claves, correr, json, comoRunner, env, cerrar, abrir, regEstado, lockDe: join(dir, 'vuelta.lock') };
+  return { servidor, dir, recibido, carpeta, sesion, latido, latidoDe, config, claves, correr, json, comoRunner, env, cerrar, abrir, regEstado, lockDe: join(dir, 'vuelta.lock') };
 }
 
 const fuentes = (...cfgs: string[]) => ({ fuentes: cfgs.map((configDir) => ({ fuente: 'cli', configDir })) });
@@ -306,7 +315,7 @@ test('un Runner que salteó vuelve a intentar dentro de `vigilar`: si no, el que
     pc.sesion(cfg, v.pids[0], 'Runner'); pc.sesion(cfg, v.pids[1], 'CRM', 1);
     pc.config({ claude1: fuentes(cfg) }); pc.claves(spki);
     writeFileSync(pc.lockDe, JSON.stringify({ pid: v.pids[2], quien: 'servicio', at: new Date().toISOString() }));
-    const vigilando = pc.json(['vigilar', '--max-seg', '60'], { ...pc.comoRunner(cfg, v.pids[0]), CARTERO_VIGILAR_MS: '150' });
+    const vigilando = pc.json(['vigilar', '--max-seg', '100'], { ...pc.comoRunner(cfg, v.pids[0]), CARTERO_VIGILAR_MS: '150' });
     await dormir(1200);
     assert.equal(pc.recibido.length, 0, 'con la vuelta tomada no sube');
     rmSync(pc.lockDe, { force: true });
@@ -481,6 +490,188 @@ test('instalar y quitar: la clave Run con su nombre propio, un lanzador sin vent
   }
 });
 
+test('una vuelta salteada supone una larga: la que arranca con el reintento termina antes de que el Bash la corte', async () => {
+  const { duraDeVuelta, entraOtraVuelta, TOPE_VIGILAR_SEG } = await import('../scripts/operaciones/cartero.mjs');
+  const VUELTA_REAL_PEOR = 80; // la punta de lo medido
+  const BASH = 120;
+  for (const maxSeg of [60, 100, TOPE_VIGILAR_SEG]) {
+    let ultima = -1;
+    for (let t = 0; t <= maxSeg; t++) if (entraOtraVuelta(t * 1000, maxSeg * 1000, duraDeVuelta(true, 0))) ultima = t;
+    assert.ok(ultima + VUELTA_REAL_PEOR < BASH, `--max-seg ${maxSeg}: arranca en el segundo ${ultima} y el Bash la corta a la mitad`);
+  }
+  assert.ok(entraOtraVuelta(4000, 100_000, duraDeVuelta(true, 0)), 'en los primeros segundos sigue reintentando');
+  assert.equal(duraDeVuelta(false, 500), 2000, 'una medida vale lo medido');
+});
+
+test('la vuelta no pasa de su presupuesto y sigue por la que faltó: ninguna cuenta queda siempre última, y eso no es una falla', async () => {
+  const pc = await armarPC();
+  const cfgs = ['a', 'b', 'c'].map(pc.carpeta);
+  try {
+    pc.config({ claude1: fuentes(cfgs[0]), claude2: fuentes(cfgs[1]), claude3: fuentes(cfgs[2]) }); pc.claves();
+    const presupuesto = { CARTERO_SERVICIO_PRESUPUESTO_MS: '1' };
+    const primera = await pc.json(['servicio', '--una-vez'], presupuesto);
+    assert.deepEqual(primera.faltaron, ['claude2', 'claude3']);
+    assert.equal(primera.fallaron, undefined, 'las que no entraron no son una falla');
+    assert.equal(existsSync(pc.lockDe), false, 'suelta la vuelta para que entre el Runner');
+    await pc.json(['servicio', '--una-vez'], presupuesto);
+    await pc.json(['servicio', '--una-vez'], presupuesto);
+    await pc.json(['servicio', '--una-vez'], presupuesto);
+    assert.deepEqual(pc.recibido.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude1'], 'cada vuelta empieza por la que quedó');
+    // Y una cuenta que el tope corta no traba a las demás: el turno ya apunta a la siguiente.
+    const { ordenDelServicio } = await import('../scripts/operaciones/cartero.mjs');
+    assert.deepEqual(ordenDelServicio(['a', 'b', 'c'], 'b'), ['b', 'c', 'a']);
+    assert.deepEqual(ordenDelServicio(['a', 'b'], 'otra'), ['a', 'b'], 'una cuenta que ya no está no cuenta');
+    assert.deepEqual(ordenDelServicio(['a', 'b'], undefined), ['a', 'b']);
+  } finally {
+    pc.cerrar();
+  }
+});
+
+test('un corte por tope no es una falla de red: lo anota aparte, y el bucle sigue', async () => {
+  let soltar = () => {};
+  const compuerta = new Promise<void>((ok) => { soltar = ok; });
+  const pc = await armarPC(async () => { await compuerta; return {}; });
+  const cfg = pc.carpeta('a');
+  let bucle: ChildProcess | null = null;
+  try {
+    pc.config({ claude1: fuentes(cfg) }); pc.claves();
+    let termino = false;
+    bucle = spawn(process.execPath, [CARTERO, 'servicio'], { env: pc.env({ CARTERO_SERVICIO_MS: '200', CARTERO_SERVICIO_TOPE_MS: '2500' }), stdio: 'ignore' });
+    bucle.on('exit', () => { termino = true; });
+    const log = join(pc.dir, 'cartero.log');
+    await hasta(() => existsSync(log) && /no entró en/.test(readFileSync(log, 'utf8')), 30_000, 'anota que la vuelta no entró');
+    assert.doesNotMatch(readFileSync(log, 'utf8'), /sin poder subir/, 'un corte por tope contó como falla de red');
+    assert.equal(termino, false);
+    soltar();
+    await hasta(() => existsSync(pc.lockDe) === false && pc.recibido.length >= 2, 30_000, 'la vuelta siguiente sale, con el lock de la cortada vencido');
+  } finally {
+    soltar(); bucle?.kill(); pc.cerrar();
+  }
+});
+
+test('con error nunca insiste más que sano; con el token rechazado espera, no mide las otras cuentas, y un token nuevo lo despierta', async () => {
+  const { esperaDelServicio, ESPERA_TOKEN_MS } = await import('../scripts/operaciones/cartero.mjs');
+  const CADA = 120_000;
+  const serie = [1, 2, 3, 4, 5, 6, 7, 8, 9, 50, 5000].map((f) => esperaDelServicio(f, CADA));
+  assert.deepEqual(serie.slice(0, 4), [5000, 10_000, 30_000, 60_000], 'los primeros, rápidos: un corte de segundos');
+  for (const e of serie.slice(4)) assert.ok(e >= CADA, `insiste cada ${e} ms, más que sano`);
+  assert.equal(serie.at(-1), 600_000, 'con su techo, y sin desbordar');
+  assert.equal(esperaDelServicio(0, CADA), CADA);
+  const porDia = 86_400_000 / serie.at(-1)!;
+  assert.ok(porDia < 86_400_000 / CADA, 'en un corte largo intenta menos que sano');
+  assert.ok(ESPERA_TOKEN_MS >= 600_000);
+
+  const pc = await armarPC((_, n) => (n === 1 ? { __status: 401 } : {}));
+  const cfgs = ['a', 'b'].map(pc.carpeta);
+  let bucle: ChildProcess | null = null;
+  try {
+    pc.config({ claude1: fuentes(cfgs[0]), claude2: fuentes(cfgs[1]) }); pc.claves();
+    bucle = spawn(process.execPath, [CARTERO, 'servicio'], { env: pc.env({ CARTERO_SERVICIO_MS: '200' }), stdio: 'ignore' });
+    await hasta(() => pc.recibido.length >= 1, 30_000, 'la primera vuelta');
+    await dormir(2500);
+    assert.equal(pc.recibido.length, 1, 'con un token que no vale no se insiste, ni con la otra cuenta');
+    const log = readFileSync(join(pc.dir, 'cartero.log'), 'utf8');
+    assert.match(log, /no acepta el token/);
+    assert.doesNotMatch(log, /sin poder subir/);
+    pc.config({ claude1: fuentes(cfgs[0]), claude2: fuentes(cfgs[1]) }, { token: `mkop_${'y'.repeat(30)}` });
+    await hasta(() => pc.recibido.length >= 2, 15_000, 'el token nuevo vale sin reiniciar nada ni esperar los 10 minutos');
+  } finally {
+    bucle?.kill(); pc.cerrar();
+  }
+});
+
+test('un latido de antes de prender la PC no vale: con el pid reusado, el servicio nuevo arranca igual', async () => {
+  const { latidoVale } = await import('../scripts/operaciones/cartero.mjs');
+  const AHORA = Date.parse('2026-10-30T18:00:00Z');
+  const hace = (min: number) => ({ pid: 4242, at: new Date(AHORA - min * 60_000).toISOString() });
+  const vivo = () => true;
+  assert.equal(latidoVale(hace(1), AHORA, AHORA - 3600_000, vivo, 1), true, 'de esta sesión de Windows');
+  assert.equal(latidoVale(hace(3), AHORA, AHORA - 60_000, vivo, 1), false, 'de antes de prender');
+  assert.equal(latidoVale(hace(7), AHORA, AHORA - 3600_000, vivo, 1), false, 'vencido');
+  assert.equal(latidoVale(hace(1), AHORA, AHORA - 3600_000, () => false, 1), false, 'pid muerto');
+  assert.equal(latidoVale(hace(1), AHORA, AHORA - 3600_000, vivo, 4242), false, 'es éste');
+  assert.equal(latidoVale(null, AHORA, AHORA - 3600_000, vivo, 1), false);
+
+  const pc = await armarPC();
+  const v = vivos(1);
+  const cfg = pc.carpeta('a');
+  let bucle: ChildProcess | null = null;
+  try {
+    pc.config({ claude1: fuentes(cfg) }); pc.claves();
+    writeFileSync(join(pc.dir, 'servicio.json'), JSON.stringify({ pid: v.pids[0], at: new Date(Date.now() - 60_000).toISOString(), desde: 'x' }));
+    assert.equal((await pc.json(['servicio'], { CARTERO_UPTIME_SEG: '100000' })).yaCorre, true, 'con Windows prendido hace rato, es el que corre');
+    bucle = spawn(process.execPath, [CARTERO, 'servicio'], { env: pc.env({ CARTERO_UPTIME_SEG: '10', CARTERO_SERVICIO_MS: '200' }), stdio: 'ignore' });
+    await hasta(() => pc.recibido.length > 0, 30_000, 'un Windows recién prendido no le cree al latido de antes');
+  } finally {
+    bucle?.kill(); v.matar(); pc.cerrar();
+  }
+});
+
+test('un acuse que no se pudo leer no se borra: sube en la vuelta siguiente, y el roto de verdad se va al día', async () => {
+  const pc = await armarPC();
+  const cfg = pc.carpeta('a');
+  try {
+    pc.config({ claude1: fuentes(cfg) }); pc.claves();
+    const dir = join(pc.dir, 'claude1', 'acuses');
+    mkdirSync(dir, { recursive: true });
+    const aMedias = join(dir, `${id(1)}.json`);
+    const entero = join(dir, `${id(2)}.json`);
+    const roto = join(dir, `${id(3)}.json`);
+    writeFileSync(aMedias, ''); // writeFileSync ya creó el archivo y todavía no escribió
+    writeFileSync(entero, JSON.stringify({ id: id(2), estado: 'entregado', motivo: null }));
+    writeFileSync(roto, '{ "id":');
+    const antes = new Date(Date.now() - 25 * 3_600_000);
+    utimesSync(roto, antes, antes);
+    await pc.json(['servicio', '--una-vez']);
+    assert.deepEqual(pc.recibido[0].acuses.map((a) => a.id), [id(2)]);
+    assert.equal(existsSync(entero), false, 'lo subido se borra');
+    assert.equal(existsSync(aMedias), true, 'el pedido quedaría tomado y después incierto, con el chat ya entregado');
+    assert.equal(existsSync(roto), false, 'uno que lleva un día sin poder leerse no se queda para siempre');
+    writeFileSync(aMedias, JSON.stringify({ id: id(1), estado: 'entregado', motivo: null }));
+    await pc.json(['servicio', '--una-vez']);
+    assert.deepEqual(pc.recibido[1].acuses.map((a) => a.id), [id(1)], 'ya entero, sube');
+  } finally {
+    pc.cerrar();
+  }
+});
+
+test('el inicio de Windows lo decide Martín: un chat no instala ni quita, y sin la migración y el deploy tampoco se instala', async () => {
+  const pc = await armarPC();
+  const v = vivos(1);
+  const cfg = pc.carpeta('a');
+  const llamadas = () => (existsSync(pc.regEstado) ? (leerJson(pc.regEstado).llamadas as string[][]) : []);
+  try {
+    pc.sesion(cfg, v.pids[0], 'Runner');
+    pc.config({ claude1: fuentes(cfg) }); pc.claves();
+    for (const cmd of ['instalar-servicio', 'quitar-servicio']) {
+      const r = await pc.correr([cmd], pc.comoRunner(cfg, v.pids[0]));
+      assert.equal(r.ok, false, `${cmd} desde un chat`);
+      assert.match(r.err, /no lo corre un chat/);
+    }
+    assert.deepEqual(llamadas(), [], 'el registro ni se tocó');
+    assert.equal(existsSync(join(pc.dir, 'mako-cartero.vbs')), false);
+    assert.equal(existsSync(join(pc.dir, 'cartero.mjs')), false);
+
+    for (const listo of [false, null]) {
+      pc.servidor.listo = listo;
+      const r = await pc.correr(['instalar-servicio']);
+      assert.equal(r.ok, false, `con MaKo sin lista (${listo})`);
+      assert.match(r.err, /primero la migración 0355 y el deploy/);
+    }
+    assert.deepEqual(llamadas(), [], 'el orden es migración, deploy e instalar');
+    assert.equal(existsSync(join(pc.dir, 'cartero.mjs')), false);
+
+    pc.cerrar();
+    pc.servidor.listo = true;
+    assert.match((await pc.correr(['instalar-servicio'])).err, /No pude preguntarle a MaKo/, 'sin saber, no se instala');
+    assert.deepEqual(llamadas(), []);
+    await pc.abrir();
+    assert.equal((await pc.json(['instalar-servicio'])).ok, true, 'con MaKo lista, Martín instala');
+  } finally {
+    v.matar(); pc.cerrar();
+  }
+});
+
 test('una PC de prueba jamás escribe el registro de verdad, y mako-pc no lleva este código', async () => {
   const { programaReg, faltaLlave, VALOR_RUN } = await import('../scripts/operaciones/cartero.mjs');
   const entorno = (e: Record<string, string>) => e as unknown as NodeJS.ProcessEnv;
@@ -493,3 +684,9 @@ test('una PC de prueba jamás escribe el registro de verdad, y mako-pc no lleva 
   const pc = readFileSync(join(RAIZ, 'scripts/ia-pc/mako-pc.mjs'), 'utf8');
   assert.doesNotMatch(pc, /MaKo Cartero|vuelta\.lock|mkop_|cartero\.mjs/);
 });
+
+// ── La revisión adversarial (1.26.1, 30/10/2026): cada rotura sola, restaurada; todas dieron rojo ──────────────────────────────────
+//   S1  `VUELTA_SUPUESTA_MS` en 30 s · S2 sin presupuesto (todas las cuentas siempre) · S3 sin escribir el turno · S4 el corte por tope cuenta como falla
+//   S5  la espera de antes (`Math.min(cada, esperaSinRed)`) · S6 sin la espera del token · S7 un token nuevo no lo despierta · S8 sigue con las otras cuentas tras un 401
+//   S9  `latidoVale` sin mirar el arranque de la PC · S10 borra el acuse que no pudo leer · S11 el roto se queda para siempre
+//   S12 `instalar-servicio` sin `soloMartin` · S13 `quitar-servicio` sin `soloMartin` · S14 instala sin preguntarle a MaKo

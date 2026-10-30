@@ -3148,6 +3148,48 @@ en que se midió, y lo que se muestra al lado no la contradice.
 
 **Sin hacer:** cambiar ese texto cuando la medición está vieja (`textoRunner` en `app/admin/operaciones/Uso.tsx`).
 
+## La revisión del servicio: lo que sólo se rompe sin Runner, o con la PC callada (30/10/2026, cartero 1.26.1)
+
+Una revisión adversarial sobre el servicio y los carteles. Lo que queda es lo que el código y los tests daban por resuelto.
+
+**`envio.puede` y `espera !== 'chat_cerrado'` no dicen que el chat esté abierto.** Vive en `comoSale` (lib/centro-chats.ts): sin Runner vivo devuelve
+`espera: 'cartero'` ANTES de mirar el estado. El arreglo «no firmar hacia un chat cerrado» valía sólo con Runner: justo no valía en el caso del 24/10. «Mandárselo a otro chat»
+ofrecía chats cerrados rotulados «Abierto», y «Aprobar y mandar» firmaba hacia un Cerebro cerrado. Los dos tests pasaban porque buscaban el texto del filtro en el código.
+**La regla:** quien elige un chat por lo que está abierto usa `chatRecibe`; quien sólo frena, `chatCerrado`. Y una guarda se prueba corriéndola con el caso que la motivó.
+
+**Una foto vieja no dice ni abierto ni cerrado.** `vivo` es de la última vuelta de esa cuenta, y `destinoVivo` lo leía de cualquier antigüedad. Una fila vieja con `vivo: true`
+tapaba un chat que ya cerró; con `vivo: false`, el cartel decía «espera un chat cerrado» de uno abierto, y al Cerebro le llegaba la causa equivocada. Con dos cuentas que suben el
+mismo chat, la vieja le ganaba a la fresca. **La regla:** `comoEstaElDestino` (lib/operaciones-reglas.ts) es la única que responde; con la cuenta callada dice `sin_noticias`, y lo que falta es su Runner.
+
+**«Eso lo dice el otro cartel» era falso.** `cartelDeLaPc` se calla si CUALQUIER cuenta tiene Runner, porque lo de un chat cerrado lo dice el limbo; y el limbo no contaba lo de un chat
+vivo. Un mensaje a un chat ABIERTO de una cuenta sin Runner no salía en ninguno: el silencio del 24/10, por cuenta, y lo más fácil de repetir, porque es lo que deja un `/clear`.
+**La regla:** el limbo es todo lo que no sale, con su causa (`chat_cerrado`, `sin_runner`, `chat_nuevo`, `vencido`), y cada fila dice su remedio: el obvio, «abre ese chat», no sirve en tres de las
+cuatro. El texto de arriba dice sólo lo que vale para todos. Lo que va al Cerebro sigue siendo sólo lo cerrado con foto al día: su texto fijo dice eso.
+
+**Reenviar es firmar de nuevo, y la columna `texto` no está firmada.** La pantalla no recibe `firmado`. «Mandárselo a otro chat» firmaba `texto`, cortado a 180 caracteres en la fila y sin mostrarse al elegir: una
+escritura en la base se convertía en una orden con firma válida, que es de lo que protege la firma. **La regla:** `originalParaReenviar` (lib/centro-limbo.ts) compara con lo firmado, y si lo firmó este
+dispositivo verifica la firma; la pantalla muestra el texto entero antes. **El límite:** lo firmado en OTRO dispositivo no se puede verificar acá (su clave pública sólo la tiene la PC): si cambiaron `texto` y `firmado`
+juntos, la única guarda es que se ve entero.
+
+**Un molde se copia con su motivo.** `esperaSinRed` es de `mako-pc`, que entre reintentos no hace nada. Acá cada intento relee sesiones y transcripts de todas las cuentas, y las esperas (5 s, 10 s, 30 s, 60 s) eran
+más cortas que la cadencia sana (120 s): con un token revocado, 1440 intentos por día contra 720 en sano. **La regla:** con error nunca insiste más que sano (`esperaDelServicio`), y con el 401 espera a que se pegue otro token.
+
+**Un tope sin presupuesto castiga siempre al mismo.** El tope de 150 s valía para la vuelta entera, en el mismo orden, y un corte contaba como falla de red: la última cuenta nunca subía, las esperas se
+acortaban, y el lock quedaba tomado 150 s de cada 155, así que el Runner salteaba y salía un «Nadie entrega» falso con el Runner vivo. **La regla:** la vuelta para antes del tope, suelta el lock y sigue por la que
+faltó (`servicio-turno.json`). El turno se escribe ANTES de empezar la cuenta: si el tope la corta, la próxima no se traba en la misma.
+
+**Suponer el promedio de lo que se cuida por la punta.** Una vuelta salteada no mide nada, y `vigilar` suponía 30 s, el promedio de 30-80. El freno `dura * 1.5` existe por los 120 s del Bash: arrancaba en el segundo 55, y una de 80 s moría con
+el POST procesado y el buzón sin escribir: el pedido queda `tomado`, sin chat. **La regla:** lo que se supone para no pasarse de un corte se supone por la punta (45 s, y la última arranca en el 37).
+
+**El acuse se borraba sin haberse leído.** La vuelta borraba todo lo que listó, también lo que `leerJson` no pudo leer, y `acuse` corre fuera del lock. Es de microsegundos, pero el buzón ya no lo tiene: el pedido queda `tomado` y después `incierto`, entregado.
+**La regla:** se borra lo que se subió. **Y un latido sobrevive al apagado forzado:** `servicio.json` queda con un `at` de hace minutos, y Windows puede reusar el pid; por eso `latidoVale` compara con el arranque de la PC.
+
+**Sin hacer:**
+- Un pid reusado DENTRO de la misma sesión de Windows sigue engañando a `servicioVivo` hasta 6 minutos, y el servicio nuevo se va hasta el próximo inicio. Haría falta el nombre del proceso (`tasklist`). scripts/operaciones/cartero.mjs.
+- `soloMartin` es una baranda: un chat puede borrarse las variables. Si la terminal de la app de Claude le pasa `CLAUDECODE` a la consola de Martín, el comando pide otra consola: no se midió.
+- `cartelDeLaPc` y el limbo pueden salir juntos sin Runner: dicen lo mismo con otra pregunta. No se contradicen, y el limbo trae los botones.
+- Nada de esto se vio en una pantalla: bootear local escribe en producción. Se dibujó con `renderToStaticMarkup`.
+
 ## El servicio no le saca pedidos al Runner: lo que miente es `visto_at` (30/10/2026)
 
 **El temor:** el servicio sube con `entregables: []` cada 2 minutos. ¿Deja al Runner sin pedidos?

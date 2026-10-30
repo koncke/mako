@@ -2072,4 +2072,22 @@ export const BITACORA: Hito[] = [
       'tests/centro-cartel-pc.test.ts y tests/limbo-al-cerebro.test.ts',
     ],
   },
+  {
+    fecha: '30 oct', hora: '18:35', chat: CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un mensaje a un chat abierto de una cuenta sin Runner ya sale en el cartel, y lo que se reenvía es lo que firmaste',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cartel de los mensajes dice la causa de cada uno:** un chat cerrado, el Runner de una cuenta, un chat por abrir o vencido. Antes, lo que esperaba al Runner de otra cuenta no salía en ningún lado.',
+      '**«Mandárselo a otro chat» ya no ofrece chats cerrados** sin Runner, y muestra el mensaje entero antes de firmarlo. Si el texto ya no es el que firmaste, no lo firma.',
+      '**La bandeja de tickets tampoco firma hacia un Cerebro cerrado sin Runner.**',
+      '**El servicio de la PC:** no pasa de 100 segundos por vuelta y sigue por la cuenta que faltó; con error insiste menos que sano, y un token nuevo lo despierta. Un chat no lo instala, y sin la migración y el deploy no se instala.',
+      '**Sin mirarlo en un navegador:** no se levantó el servidor, porque bootear local escribe en producción.',
+    ],
+    archivos: [
+      'lib/operaciones-reglas.ts — comoEstaElDestino · lib/centro-limbo.ts — mensajesEnLimbo, originalParaReenviar · lib/centro-chats.ts — chatRecibe · CartelLimbo.tsx · app/tickets/bandeja/cerebro.ts',
+      'scripts/operaciones/cartero.mjs 1.26.1 — vueltaDelServicio, esperaDelServicio, latidoVale · app/api/operaciones/cartero/route.ts — ?servicio-listo',
+      'tests/centro-limbo.test.ts, tests/cartero-servicio.test.ts, tests/centro-cartel-pc.test.ts y tests/avisar-antes-de-firmar.test.ts',
+    ],
+  },
 ];

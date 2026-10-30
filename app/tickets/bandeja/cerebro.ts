@@ -9,6 +9,7 @@
 // ⚠️ SIN 'use client' A PROPÓSITO (como mandar.ts): lo usan componentes de cliente; no tiene estado propio.
 
 import type { Centro } from '@/app/admin/operaciones/useCentro';
+import { chatCerrado, chatRecibe } from '@/lib/centro-chats';
 import { normalizarTitulo } from '@/lib/decisiones-aviso';
 
 export type CerebroParaTickets = {
@@ -25,11 +26,12 @@ export function cerebroDelCentro(centro: Pick<Centro, 'chats' | 'destinoDeChat' 
   // ⚠️ `envio.puede` TAMBIÉN VALE CON EL CHAT CERRADO (`espera: 'chat_cerrado'`: sale cuando se abra). «Aprobar y mandar» firmaba hacia un
   // Cerebro cerrado sin decir nada, y el pedido se quedaba ahí (30/10/2026: tres tickets, desde el 24/10). Primero uno que lo reciba; si
   // no hay ninguno, se dice antes de firmar y el ticket queda aprobado.
+  // ⚠️ Y SIN RUNNER `envio.espera` NO LO DICE: `comoSale` da `'cartero'` antes de mirar el estado. Lo que dice si está cerrado es `chatCerrado`.
   const cerebros = centro.chats.filter((c) => normalizarTitulo(c.titulo) === NOMBRE_CEREBRO);
-  const chat = cerebros.find((c) => { const e = centro.envioDe(c); return e.puede && e.espera !== 'chat_cerrado'; }) ?? cerebros[0] ?? null;
+  const chat = cerebros.find((c) => chatRecibe(c, centro.envioDe(c))) ?? cerebros.find((c) => centro.envioDe(c).puede && !chatCerrado(c)) ?? cerebros[0] ?? null;
   if (!chat) return null;
   const envio = centro.envioDe(chat);
-  const listo = envio.puede && envio.espera === 'chat_cerrado' ? { ok: false as const, motivo: 'El Cerebro está cerrado' }
+  const listo = envio.puede && (envio.espera === 'chat_cerrado' || chatCerrado(chat)) ? { ok: false as const, motivo: chat.estado === 'sin_dato' ? 'No sé si el Cerebro está abierto' : 'El Cerebro está cerrado' }
     : envio.puede ? { ok: true as const }
     : { ok: false as const, motivo: envio.por === 'sin_clave' ? 'Crea tu Token para firmarle al Cerebro' : envio.por === 'leyendo_clave' ? 'Leyendo tu Token…' : envio.por === 'clave_no_aceptada' ? 'La PC no acepta el Token de este dispositivo' : 'El Cerebro no tiene una sesión a la que escribirle' };
   return {

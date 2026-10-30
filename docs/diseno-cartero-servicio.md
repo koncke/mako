@@ -70,7 +70,10 @@ Runner abierto, no corre nada: ni se mide, ni se sube, ni se entrega. **Ése es 
   vez: sin el reintento, el que llega segundo en el mismo minuto no sube nunca su cuenta. Vale aunque el servicio no esté instalado.
 - **Vence por la fecha del archivo, no por su contenido:** renovar no reescribe, y nadie lee un lock a medio escribir. Un pid
   que ya no existe no retiene. Quien lo vence se lo quita con un rename y mira lo que se quitó.
-- **Un chat no corre el servicio** (`esUnChat`: se quedaría colgado), y `exigirRunner` no cambió: `servicio` no pasa por `vuelta()`.
+- **Un chat no corre el servicio** (`esUnChat`: se quedaría colgado), y `exigirRunner` no cambió: `servicio` no pasa por `vuelta()`. Tampoco corre `instalar-servicio` ni `quitar-servicio` (1.26.1): es una
+  baranda, no una llave. Y `instalar-servicio` le pregunta a MaKo (`?servicio-listo=1`) si ya están la migración y el deploy.
+- **La vuelta tiene un presupuesto de 100 s** (1.26.1): pasado eso no empieza otra cuenta, suelta el lock y la próxima sigue por la que faltó (`servicio-turno.json`). Un corte por el tope de 150 s no es una falla.
+- **Con error nunca insiste más que sano** (`esperaDelServicio`: 5 s, 10 s, 30 s, 60 s, 2 min, 4, 8, 10), y con el token rechazado espera 10 minutos o a que se pegue otro. Una falla es lo que manda: el bucle no se apaga por ella.
   Lo de §2.3 (dejar pasar a cualquier chat si no hay Runner) sigue sin hacer.
 
 ### 2.2 La AUSENCIA se ve, y se mide desde el SERVIDOR
@@ -188,7 +191,7 @@ sube honesto. Un Runner vivo sigue recibiendo sus pedidos, y un chat sin cron cu
   demás renglones de la lista no se tocaron.**
 - **El servicio no reclama, aunque traiga la lista:** `cicloCartero` lo fuerza (`vivos = []`, sin `abre`). La PC igual lo devuelve.
 - **El cartel 2 cuenta TODOS los «escrito»**, también los de un chat abierto y los de un chat nuevo: sin Runner no sale ninguno. Sin pedidos, igual lo dice,
-  sin número. Lo de los chats cerrados con un Runner andando es del cartel de los mensajes (CartelLimbo.tsx, del chat Ops Center).
+  sin número. **Con un Runner andando en alguna cuenta se calla, y lo demás lo dice el cartel de los mensajes** (CartelLimbo.tsx), con su causa: un chat cerrado, el Runner de OTRA cuenta (también con su foto vieja), un chat por abrir o vencido.
 - **El comando se copia sólo en la computadora** (`COMANDO_TERMINAL`, con su `tieneTerminal`). En el teléfono no hay dónde pegarlo.
 
 **Y el orden, sin moverse:** migración → deploy del servidor → `instalar-servicio`.
@@ -198,6 +201,7 @@ sube honesto. Un Runner vivo sigue recibiendo sus pedidos, y un chat sin cron cu
 El cartel se lo dice a Martín; esto, al chat «Cerebro» vivo. Es el molde de `mensajeTicketNuevo` (texto FIJO que arma la PC, sin firma), con
 `pedidosSinChatVivo` (la regla del cartel). Vive en `lib/limbo-al-cerebro.ts` y en `cartero.mjs` (`mensajeLimbo`), con test diferencial.
 
+- **Sólo lo que una foto AL DÍA dice cerrado.** Su texto fijo dice «espera un chat cerrado»: con la cuenta callada, lo que falta es su Runner, y eso lo dice el cartel.
 - **Sale una vez por pedido, y otra con 3 días para vencer.** El que aparece recién cerca de vencer sale una sola vez, con ese texto.
 - **Sólo id, cuenta y fecha.** La consulta ni lee el texto ni el título: no están firmados para este destino. El Cerebro lo lee con
   `scripts/tickets.ts mensaje <id>`, que sólo lee, y si hace falta le pide a Martín que se lo mande desde el cartel: la firma fija el destino.
@@ -212,7 +216,7 @@ El cartel se lo dice a Martín; esto, al chat «Cerebro» vivo. Es el molde de `
 
 ## 3. El plan del lunes (26/10)
 
-**Estado (30/10/2026):** el 1, la parte de código del 3 y el 2 están hechos, sin subir (`scripts/operaciones/cartero.mjs` 1.26.0,
+**Estado (30/10/2026):** el 1, la parte de código del 3 y el 2 están hechos, sin subir (`scripts/operaciones/cartero.mjs` 1.26.1,
 `tests/cartero-servicio.test.ts`, `tests/centro-cartel-pc.test.ts`, `tests/limbo-al-cerebro.test.ts`). Falta el `.exe` (§2.4), el 4 y el 5.
 
 

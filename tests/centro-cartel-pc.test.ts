@@ -12,6 +12,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { CartelPc } from '../app/admin/operaciones/CartelPc';
+import { mensajesEnLimbo, textoDelCartel } from '../lib/centro-limbo';
 import { cartelDeLaPc, comoSale, completarChats, preguntaDeChatCerrado, sinNoticiasDesde } from '../lib/centro-chats';
 import { carteroVivo, faltaColumnaDeLaVuelta, filaDeLaVuelta, motivoDeEspera, sanearServicio, vistoDeLaFila, type ChatCartero } from '../lib/operaciones-reglas';
 import { cuentasDeUso } from '../lib/centro-uso';
@@ -67,9 +71,31 @@ test('«nadie entrega» cuenta sólo lo que sigue en «escrito», y sin pedidos 
   assert.equal(cartelDeLaPc(sinRunner, [{ estado: 'escrito', created_at: 'no es una fecha', destino_cuenta: null }], AHORA)!.texto, 'Nadie entrega en la PC');
 });
 
-test('con un Runner dando vueltas, sin cartel, aunque haya pedidos esperando: eso lo dice el cartel del limbo', () => {
+test('con un Runner dando vueltas, este cartel se calla: lo que espera al Runner de OTRA cuenta lo dice el de los mensajes, de verdad', () => {
   assert.equal(cartelDeLaPc(conRunner, [pedido(7 * DIA)], AHORA), null);
   assert.equal(sinNoticiasDesde(conRunner, AHORA), null);
+  // Corrido en la revisión: Runner en la 1, la 2 con el servicio subiendo y su chat vivo sin Runner. Daba cartel null y limbo 0: silencio.
+  const dos = [{ cuenta: 'claude1', vistoAt: iso(MIN), noticiasAt: iso(MIN), chats: [] }, { cuenta: 'claude2', vistoAt: iso(6 * DIA), noticiasAt: iso(MIN), chats: [chatDe({ vivo: true, runner: false })] }];
+  const cola = [{ id: 'p1', texto: 'hola', motivo: null, destino: CHAT, destino_titulo: 'CRM', ...pedido(5 * DIA) }];
+  assert.equal(cartelDeLaPc(dos, cola, AHORA), null);
+  const limbo = mensajesEnLimbo(cola, dos, AHORA);
+  assert.equal(textoDelCartel(limbo, AHORA), '1 mensaje tuyo espera al Runner de la cuenta 2 (de hace 5 días)');
+  // Sin el servicio: la 2 callada hace 6 días. Lo mismo, con la foto vieja.
+  const callada = [dos[0], { ...dos[1], noticiasAt: iso(6 * DIA) }];
+  assert.equal(cartelDeLaPc(callada, cola, AHORA), null);
+  assert.equal(mensajesEnLimbo(cola, callada, AHORA)[0]?.causa, 'sin_runner');
+});
+
+test('el cartel se dibuja: el texto, qué hacer, y el comando sólo donde hay dónde pegarlo', () => {
+  const c = cartelDeLaPc(sinRunner, [pedido(7 * DIA)], AHORA)!;
+  const dibujo = (conComando?: boolean) => renderToStaticMarkup(createElement(CartelPc, { centro: { cartelPc: c, copiarConAviso: () => {} } as never, conComando }));
+  const html = dibujo();
+  assert.ok(html.includes('Nadie entrega en la PC: 1 pedido tuyo espera (de hace 7 días)'), html);
+  assert.ok(html.includes('Abre el Runner de la cuenta 2.'));
+  assert.ok(html.includes('role="alert"'), 'un cartel rojo tiene que anunciarse');
+  assert.ok(!html.includes('Copiar comando'), 'en el teléfono no hay dónde pegarlo');
+  assert.ok(dibujo(true).includes('Copiar comando'));
+  assert.equal(renderToStaticMarkup(createElement(CartelPc, { centro: { cartelPc: null } as never })), '', 'sin cartel, nada');
 });
 
 test('sin carteros, o una PC que nunca dio noticias, no se alarma', () => {
@@ -148,7 +174,9 @@ test('los dos carteles están en la computadora Y el teléfono, una vez y arriba
   assert.equal(movil.match(/<CartelPc /g)?.length, 1, 'en el teléfono');
   assert.match(movil, /<CartelPc centro=\{k\} \/>/, 'en el teléfono no hay dónde pegar un comando');
   assert.ok(movil.indexOf('<CartelPc ') < movil.indexOf('<ListaM '), 'arriba de todo');
-  assert.match(leer('app/admin/operaciones/useCentro.ts'), /const cartelPc = useMemo\(\(\) => cartelDeLaPc\(carteros, cola, ahora\)/);
+  const uc = leer('app/admin/operaciones/useCentro.ts');
+  assert.match(uc, /const cartelPc = useMemo\(\(\) => cartelDeLaPc\(carteros, cola, ahora\)/);
+  assert.match(uc.slice(uc.indexOf('return {\n    chats, carteros,')), /\bmandarDelLimbo, cartelPc\b/, 'el cartel no llega a la pantalla');
   const css = leer('app/admin/operaciones/centro.css');
   assert.match(css, /\.co-cartel-pc \{[^}]*var\(--bad\)/, 'en rojo');
 });

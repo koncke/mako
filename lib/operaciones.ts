@@ -221,6 +221,28 @@ export async function cancelarPedido(id: string): Promise<boolean> {
 }
 
 /**
+ * ¿Ya se puede instalar el servicio de la PC? El orden es migración → deploy → `instalar-servicio` (docs/diseno-cartero-servicio.md §2.6): un
+ * servidor sin las columnas lee cada vuelta del servicio como «hay Runner». Esto lo contesta un servidor con el código nuevo y las columnas.
+ */
+export async function servicioListoEnMako(): Promise<boolean> {
+  const { error } = await getSupabaseServer().from(T_CARTEROS).select('runner_visto_at, servicio').limit(1);
+  if (faltaColumnaDeLaVuelta(error)) return false;
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+/**
+ * Lo firmado de un mensaje del cartel. `listarPedidos` no lo manda a la pantalla; esto, sólo el del que se va a volver a firmar, y el que
+ * lo verifica es el dispositivo (`originalParaReenviar`, lib/centro-limbo.ts). null = ya no está por salir.
+ */
+export async function firmadoDelLimbo(id: string): Promise<{ firmado: string; firma: string; claveId: string | null } | null> {
+  if (!UUID_RE.test(id)) return null;
+  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('firmado, firma, clave_id').eq('id', id).in('estado', ['escrito', 'no_entregado']).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { firmado: String(data.firmado ?? ''), firma: String(data.firma ?? ''), claveId: (data.clave_id as string | null) ?? null } : null;
+}
+
+/**
  * Dar de baja un mensaje del cartel de los que no salieron (30/10/2026, lib/centro-limbo.ts): lo que espera, y también lo que ya venció,
  * que `cancelarPedido` no mira. Con compare-and-set: si la PC lo tomó entretanto, salió y no se toca.
  */
@@ -339,11 +361,12 @@ async function limboParaElCartero(version: string | null, chatsDeEste: readonly 
   const db = getSupabaseServer();
   const [{ data: pedidos, error: e1 }, { data: filas, error: e2 }] = await Promise.all([
     db.from(T_PEDIDOS).select('id, created_at, destino, destino_cuenta, estado').eq('estado', 'escrito').order('created_at', { ascending: true }).limit(LIMBO_TOPE),
-    db.from(T_CARTEROS).select('chats'),
+    // `cuenta` y `visto_at`: una foto vieja no dice «cerrado» (`comoEstaElDestino`). `visto_at` existe sin la mig 0355.
+    db.from(T_CARTEROS).select('cuenta, visto_at, chats'),
   ]);
   if (e1) throw new Error(e1.message);
   if (e2) throw new Error(e2.message);
-  return avisosDeLimbo(pedidos ?? [], (filas ?? []).map((f) => ({ chats: sanearChats(f.chats) })), cerebro.local, ahora);
+  return avisosDeLimbo(pedidos ?? [], (filas ?? []).map((f) => ({ cuenta: f.cuenta as string, noticiasAt: f.visto_at as string | null, chats: sanearChats(f.chats) })), cerebro.local, ahora);
 }
 
 /**

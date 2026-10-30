@@ -13,8 +13,8 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { nombreCuenta, textoDeEnvio, type ChatCentro } from '@/lib/centro-chats';
-import { chatsParaMandarle, textoDeVence, textoDelCartel, type EnLimbo } from '@/lib/centro-limbo';
+import { chatRecibe, nombreCuenta, textoDeEnvio, type ChatCentro } from '@/lib/centro-chats';
+import { chatsParaMandarle, queHacer, textoDeVence, textoDelCartel, type EnLimbo } from '@/lib/centro-limbo';
 import type { Pedido } from '@/lib/operaciones';
 import type { Centro } from './useCentro';
 
@@ -29,6 +29,7 @@ function Fila({ centro: k, m, onElegirChat }: { centro: Centro; m: EnLimbo<Pedid
   const [error, setError] = useState<string | null>(null);
   const vence = textoDeVence(m, k.ahora);
   const largo = p.texto.length > CORTO;
+  const hacer = queHacer(m);
   const descartar = async () => {
     setOcupado(true);
     setError(null);
@@ -44,6 +45,7 @@ function Fila({ centro: k, m, onElegirChat }: { centro: Centro; m: EnLimbo<Pedid
       </p>
       <p className="co-limbo__texto">{entero || !largo ? p.texto : `${p.texto.slice(0, CORTO).trimEnd()}…`}</p>
       {largo && <button type="button" className="co-limbo__ver" onClick={() => setEntero((v) => !v)}>{entero ? 'Ver menos' : 'Ver todo'}</button>}
+      {hacer && <p className="co-limbo__nota">{hacer}</p>}
       {!!p.adjuntos?.length && <p className="co-limbo__nota">{`Llevaba ${p.adjuntos.length === 1 ? '1 archivo' : `${p.adjuntos.length} archivos`}: se manda sólo el texto.`}</p>}
       {error && <p className="co-limbo__error" role="alert">{error}<ReportarASoporte /></p>}
       <div className="co-limbo__acciones">
@@ -59,14 +61,22 @@ function Fila({ centro: k, m, onElegirChat }: { centro: Centro; m: EnLimbo<Pedid
   );
 }
 
-/** El paso de elegir el chat: los que reciben ahora, con los del mismo nombre primero (el «Cerebro» abierto, para uno cerrado). */
-function ElegirChat({ centro: k, m, onVolver }: { centro: Centro; m: EnLimbo<Pedido>; onVolver: () => void }) {
+/**
+ * El paso de elegir el chat: los que reciben ahora, con los del mismo nombre primero (el «Cerebro» abierto, para uno cerrado).
+ * ⚠️ EL TEXTO VA ENTERO: lo que se elige acá es a quién firmarle esto. La fila lo corta, y firmar lo que no se vio es firmar a ciegas.
+ * ⚠️ `chatRecibe`, NO `envio.puede`: sin Runner, `comoSale` deja pasar a un chat cerrado. Se mandaba a otro chat cerrado, rotulado «Abierto».
+ */
+export function ElegirChat({ centro: k, m, onVolver }: { centro: Centro; m: EnLimbo<Pedido>; onVolver: () => void }) {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const recibe = (c: ChatCentro) => { const e = k.envioDe(c); return e.puede && e.espera !== 'chat_cerrado'; };
+  const recibe = (c: ChatCentro) => chatRecibe(c, k.envioDe(c));
   const lista = chatsParaMandarle(m.pedido.destino_titulo, k.chats, recibe);
   // Sin chats que reciban, lo que dice es por qué: casi siempre, que este dispositivo no tiene el Token para firmar.
   const sinClave = k.chats.map(k.envioDe).find((e) => !e.puede && (e.por === 'sin_clave' || e.por === 'clave_no_aceptada' || e.por === 'leyendo_clave'));
+  const rotulo = (c: ChatCentro) => {
+    const e = k.envioDe(c);
+    return (c.estado === 'trabajando' ? 'Trabajando' : 'Abierto') + (e.puede && e.espera === 'cartero' ? ' · espera al Runner' : '');
+  };
   const mandar = async (c: ChatCentro) => {
     setOcupado(true);
     setError(null);
@@ -77,6 +87,8 @@ function ElegirChat({ centro: k, m, onVolver }: { centro: Centro; m: EnLimbo<Ped
   return (
     <div className="co-limbo__elegir">
       <button type="button" className="co-limbo__ver" onClick={onVolver}>← Volver</button>
+      <p className="co-limbo__nota">Vas a firmar este mensaje:</p>
+      <p className="co-limbo__texto">{m.pedido.texto}</p>
       {error && <p className="co-limbo__error" role="alert">{error}<ReportarASoporte /></p>}
       {lista.length ? (
         <ul className="co-limbo__chats">
@@ -84,13 +96,13 @@ function ElegirChat({ centro: k, m, onVolver }: { centro: Centro; m: EnLimbo<Ped
             <li key={c.clave}>
               <button type="button" className="co-limbo__chat" disabled={ocupado} onClick={() => void mandar(c)}>
                 {c.titulo}
-                <span className="co-limbo__vence">{c.estado === 'trabajando' ? 'Trabajando' : 'Abierto'}</span>
+                <span className="co-limbo__vence">{rotulo(c)}</span>
               </button>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="co-limbo__nota">{(sinClave && textoDeEnvio(sinClave)) ?? 'No hay ningún chat abierto ahora.'}</p>
+        <p className="co-limbo__nota">{(sinClave && textoDeEnvio(sinClave)) ?? (k.chats.some((c) => c.viejo) ? 'No se sabe qué chats están abiertos: la PC no da noticias.' : 'No hay ningún chat abierto ahora.')}</p>
       )}
     </div>
   );

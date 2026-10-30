@@ -51,7 +51,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
       ? { code: 'PGRST204', message: "Could not find the 'runner_visto_at' column of 'operaciones_carteros' in the schema cache", details: null, hint: null }
       : { code: '42703', message: 'column operaciones_carteros.runner_visto_at does not exist', details: null, hint: null }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
-  if (falla && u.pathname.endsWith('/operaciones_carteros') && u.searchParams.get('select') === 'chats') {
+  if (falla && u.pathname.endsWith('/operaciones_carteros') && u.searchParams.get('select') === 'cuenta,visto_at,chats') {
     return new Response(JSON.stringify({ code: 'XX000', message: 'la base no contesta', details: null, hint: null }), { status: 500, headers: { 'content-type': 'application/json' } });
   }
   return pg.responder(u, init);

@@ -857,19 +857,50 @@ export type VistaCartero = { cuenta: string; vistoAt: string | null; chats: Chat
 /** Un mensaje que todavía no salió, desde cuándo cuenta como sin chat: antes de esto, lo normal es que la PC no haya dado la vuelta. */
 export const SIN_CHAT_VIVO_MS = 10 * 60_000;
 
-/** ¿La PC dice que ese chat está abierto ahora? Uno que no figura en ningún cartero (viejo, de una cuenta sin Runner) NO está vivo. */
-export function destinoVivo(destino: string, carteros: ReadonlyArray<{ chats?: ReadonlyArray<{ local: string; vivo?: boolean }> }>): boolean {
-  return carteros.some((k) => (k.chats ?? []).some((c) => c.local === destino && !!c.vivo));
+/** Lo que hace falta para leer una foto de los chats: de quién es, de cuándo, y qué chats trae. */
+export type FotoDeChats = {
+  cuenta?: string; vistoAt?: string | null; noticiasAt?: string | null;
+  chats?: ReadonlyArray<{ local: string; vivo?: boolean; runner?: boolean }>;
+};
+
+/** La última vez que llegó algo de esa cuenta, de un Runner o del servicio. Sin `noticiasAt` (falta la mig 0355), `vistoAt`. */
+export const noticiaDe = (k: Pick<FotoDeChats, 'vistoAt' | 'noticiasAt'>): string | null => (k.noticiasAt !== undefined ? k.noticiasAt : k.vistoAt) ?? null;
+
+/** ¿La foto de esa cuenta está al día? `vivo` es de su última vuelta: con la foto vieja no dice nada de ahora. */
+export const fotoAlDia = (k: Pick<FotoDeChats, 'vistoAt' | 'noticiasAt'>, ahora: number): boolean => carteroVivo({ vistoAt: noticiaDe(k) }, ahora);
+
+/**
+ * Cómo está ese chat ahora, según lo que subió la PC.
+ *   `abierto`: una foto al día lo trae vivo y con un Runner que le entrega.
+ *   `sin_runner`: una foto al día lo trae vivo, y ningún Runner en su carpeta (lo que deja un `/clear`). Abrir el chat no sirve.
+ *   `cerrado`: una foto al día no lo trae vivo, o su cuenta está al día y no lo conoce.
+ *   `sin_noticias`: su foto es vieja. No se sabe si está abierto; lo que falta es el Runner de esa cuenta.
+ * ⚠️ UNA FOTO VIEJA NO DICE NI ABIERTO NI CERRADO (30/10/2026). Una fila vieja con `vivo: true` tapaba un chat que ya cerró, y una con
+ * `vivo: false` hacía decir «chat cerrado» de uno que se abrió después. Si dos cuentas suben el mismo chat, manda la fresca.
+ */
+export function comoEstaElDestino(destino: string, cuenta: string | null | undefined, carteros: readonly FotoDeChats[], ahora: number): 'abierto' | 'sin_runner' | 'cerrado' | 'sin_noticias' {
+  const lo = (k: FotoDeChats) => (k.chats ?? []).filter((c) => c.local === destino);
+  const frescas = carteros.filter((k) => fotoAlDia(k, ahora)).flatMap(lo);
+  if (frescas.length) {
+    const vivas = frescas.filter((c) => !!c.vivo);
+    if (!vivas.length) return 'cerrado';
+    return vivas.every((c) => c.runner === false) ? 'sin_runner' : 'abierto';
+  }
+  const enVieja = carteros.some((k) => lo(k).length > 0);
+  const suyo = carteros.find((k) => k.cuenta === cuenta);
+  return enVieja || (suyo && !fotoAlDia(suyo, ahora)) ? 'sin_noticias' : 'cerrado';
 }
 
 /**
- * Los mensajes `escrito` hace más de `SIN_CHAT_VIVO_MS` sin un chat vivo que los reciba (30/10/2026): la cuenta es de MaKo, con lo que
- * subió la PC, así que sigue en pie con la PC apagada. La usan el cartel del Ops Center (lib/centro-limbo.ts) y el vigía del Runner.
+ * Los mensajes `escrito` hace más de `SIN_CHAT_VIVO_MS` hacia un chat que una foto al día dice cerrado (30/10/2026): la cuenta es de MaKo,
+ * con lo que subió la PC. La usan el cartel del Ops Center (lib/centro-limbo.ts) y el aviso al Cerebro (lib/limbo-al-cerebro.ts), que dice
+ * «espera un chat cerrado»: lo demás que no sale (sin Runner, un chat por abrir) tiene otra causa, y la clasifica `mensajesEnLimbo`.
  */
-export function pedidosSinChatVivo<P extends { created_at: string; destino: string; estado: string }>(
-  pedidos: readonly P[], carteros: ReadonlyArray<{ chats?: ReadonlyArray<{ local: string; vivo?: boolean }> }>, ahora: number,
+export function pedidosSinChatVivo<P extends { created_at: string; destino: string; destino_cuenta?: string | null; estado: string }>(
+  pedidos: readonly P[], carteros: readonly FotoDeChats[], ahora: number,
 ): P[] {
-  return pedidos.filter((p) => p.estado === 'escrito' && ahora - Date.parse(p.created_at) > SIN_CHAT_VIVO_MS && !destinoVivo(p.destino, carteros));
+  return pedidos.filter((p) => p.estado === 'escrito' && p.destino !== DESTINO_NUEVO && ahora - Date.parse(p.created_at) > SIN_CHAT_VIVO_MS
+    && comoEstaElDestino(p.destino, p.destino_cuenta, carteros, ahora) === 'cerrado');
 }
 
 /**

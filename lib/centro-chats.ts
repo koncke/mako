@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, CUENTA_RE, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, destinoVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, CUENTA_RE, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, comoEstaElDestino, esParaMartin, fotoAlDia, noticiaDe, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -1076,8 +1076,17 @@ export function comoSale(
   return sale(null);
 }
 
-/** La última vez que llegó algo de esa cuenta, de un Runner o del servicio. */
-const noticiaDe = (k: Pick<CarteroP, 'vistoAt' | 'noticiasAt'>): string | null => (k.noticiasAt !== undefined ? k.noticiasAt : k.vistoAt);
+/**
+ * ¿Se le puede mandar ahora a este chat, sabiendo que lo va a recibir? ⚠️ `envio.puede` NO LO DICE: `comoSale` devuelve `espera: 'cartero'`
+ * ANTES de mirar el estado, así que sin Runner un chat cerrado «puede». Y con la foto vieja, `abierto` es de hace rato. La usan los
+ * que ofrecen o eligen un chat por lo que está abierto (CartelLimbo.tsx, useCentro.ts → mandarDelLimbo). Puede salir con `espera: 'cartero'`: el
+ * chat está abierto y falta el Runner, que es otra cosa. Para la bandeja de tickets, `chatCerrado`.
+ */
+export const chatRecibe = (c: Pick<ChatCentro, 'estado' | 'viejo'>, envio: Envio): boolean =>
+  envio.puede && envio.espera !== 'chat_cerrado' && !chatCerrado(c) && !c.viejo;
+
+/** ¿El estado de este chat no dice que esté abierto? Vale también con la foto vieja y con `sin_dato`. */
+export const chatCerrado = (c: Pick<ChatCentro, 'estado'>): boolean => c.estado !== 'abierto' && c.estado !== 'trabajando';
 
 /**
  * Cuándo dio la PC su última vuelta, si NO da ninguna ahora: el estado de los chats es una foto de ese momento (Martín, 17/10/2026:
@@ -1191,10 +1200,9 @@ function porQueTarda(
 export function preguntaDeChatCerrado(
   local: string, cuenta: string | null, carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'noticiasAt' | 'chats'>[], ahora: number,
 ): string | null {
-  if (destinoVivo(local, carteros)) return null;
   // `vivo` es de la última vuelta de cualquiera: lo que importa es que la foto esté al día, no que haya un Runner.
-  const suyo = carteros.find((k) => k.cuenta === cuenta);
-  if (!suyo || !carteroVivo({ vistoAt: noticiaDe(suyo) }, ahora)) return null;
+  if (comoEstaElDestino(local, cuenta, carteros, ahora) !== 'cerrado') return null;
+  if (!carteros.some((k) => k.cuenta === cuenta && fotoAlDia(k, ahora))) return null;
   const n = cuenta?.replace(/^claude/, '');
   return `Este chat está cerrado: ábrelo${n ? ` en la cuenta ${n}` : ''} para contestarle.`;
 }

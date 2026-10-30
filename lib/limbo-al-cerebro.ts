@@ -18,7 +18,7 @@
 //
 // ⚠️ SIN `server-only`: lo importan el servidor y los tests. La copia en JS es la de scripts/operaciones/cartero.mjs (test diferencial).
 
-import { CUENTA_RE, DESTINO_NUEVO, UUID_RE, pedidosSinChatVivo } from './operaciones-reglas';
+import { CUENTA_RE, UUID_RE, pedidosSinChatVivo, type FotoDeChats } from './operaciones-reglas';
 import { VENCE_PEDIDO_MS, VENCE_PRONTO_DIAS } from './centro-limbo';
 
 /** El Runner que entiende `limbo`. Uno de antes no lo lee: no se le manda. */
@@ -30,16 +30,19 @@ export const LIMBO_TOPE = 200;
 export type EtapaLimbo = 'espera' | 'vence';
 export type AvisoDeLimbo = { id: string; cuenta: string | null; fecha: string; etapa: EtapaLimbo; destino: string };
 
-/** Lo que MaKo le ofrece al Runner que tiene el Cerebro `destino` abierto. El destino «nuevo» no es de nadie todavía: no se avisa. */
+/**
+ * Lo que MaKo le ofrece al Runner que tiene el Cerebro `destino` abierto. Sólo lo que una foto AL DÍA dice cerrado: el texto fijo dice «espera un
+ * chat cerrado», y con la foto vieja lo que falta es el Runner de esa cuenta (`pedidosSinChatVivo`). El destino «nuevo» no es de nadie todavía.
+ */
 export function avisosDeLimbo(
   pedidos: ReadonlyArray<{ id: string; created_at: string; destino: string; destino_cuenta: string | null; estado: string }>,
-  carteros: ReadonlyArray<{ chats?: ReadonlyArray<{ local: string; vivo?: boolean }> }>,
+  carteros: readonly FotoDeChats[],
   destino: string,
   ahora: number,
 ): AvisoDeLimbo[] {
   const out: AvisoDeLimbo[] = [];
   for (const p of pedidosSinChatVivo(pedidos, carteros, ahora)) {
-    if (p.destino === DESTINO_NUEVO || !UUID_RE.test(p.id)) continue;
+    if (!UUID_RE.test(p.id)) continue;
     const creado = Date.parse(p.created_at);
     const vence = creado + VENCE_PEDIDO_MS;
     if (!Number.isFinite(creado) || vence <= ahora) continue;

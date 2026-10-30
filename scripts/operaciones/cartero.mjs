@@ -139,7 +139,11 @@ import { spawn, spawnSync } from 'node:child_process';
 //         sólo con el Cerebro abierto) y la PC arma OTRO texto fijo, `mensajeLimbo`, con el id, la cuenta y la fecha validados. Nunca el texto
 //         del pedido ni el título de su chat. La cuenta de lo avisado la lleva ESTA PC (lib/limbo-al-cerebro.ts dice por qué). Se suma a la
 //         lista de textos fijos que no se suben como conversación.
-export const VERSION = '1.26.0';
+// 1.26.1: LA REVISIÓN DEL SERVICIO (30/10/2026). La vuelta del servicio tiene un presupuesto y sigue por la cuenta que faltó (ninguna queda
+//         siempre última, y soltar el lock deja entrar al Runner). Un corte por tope no es una falla de red. Con error, nunca insiste más que en
+//         sano; con el token rechazado, espera 10 minutos o a que se pegue otro. `vigilar` supone una vuelta larga, no una corta. Un acuse a medio
+//         escribir no se borra. `instalar-servicio` y `quitar-servicio` no corren desde un chat, y el primero le pregunta a MaKo si ya está lista.
+export const VERSION = '1.26.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1588,8 +1592,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   // Los acuses de TODAS las cuentas, y los cierres (que son de la PC). Juntos, porque MaKo aplica un cierre sólo
   // sobre un pedido ENTREGADO: si un Runner subiera los cierres sin el acuse que está en el buzón de otra cuenta, el
   // cierre no entraría (MaKo aplica cada acuse por su id, sin mirar la cuenta: subirlos en cualquier vuelta es seguro).
-  const archivosAcuse = cuentasConBuzon().flatMap((c) => listar(acusesDe(c)));
-  const acuses = archivosAcuse.map((f) => leerJson(f, null)).filter(Boolean);
+  const archivosAcuse = cuentasConBuzon().flatMap((c) => listar(acusesDe(c))).map((f) => ({ f, a: leerJson(f, null) }));
+  const acuses = archivosAcuse.filter((x) => x.a).map((x) => x.a);
   const archivosCierre = listar(CIERRES);
   const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
   // Las preguntas de los chats (1.14.0): son de la PC, como los cierres; las sube la vuelta que pase primero.
@@ -1638,7 +1642,12 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   if (!r.ok) throw new Error(`MaKo contestó ${Number(r.status) || 0}: ${textoRemoto(salida.error) || 'sin detalle'}`);
 
   // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
-  for (const f of archivosAcuse) fs.rmSync(f, { force: true });
+  // ⚠️ SÓLO LO QUE SE PUDO LEER (1.26.1): `acuse` corre fuera del lock y escribir no es atómico. Uno a medio escribir no subió, y el buzón ya no lo
+  // tiene: borrarlo deja el pedido `tomado` hasta que pasa a `incierto`, aunque el chat lo recibió. El roto de verdad se va al día, como un cierre.
+  for (const { f, a } of archivosAcuse) {
+    if (a) { fs.rmSync(f, { force: true }); continue; }
+    try { if (Date.now() - fs.statSync(f).mtimeMs > CIERRE_VENCE_MS) { fs.rmSync(f, { force: true }); log(`ACUSE ${path.basename(f)} no se pudo leer en un día: se descarta`); } } catch { /* ya no está */ }
+  }
   // Los turnos: la marca avanza sólo si MaKo los guardó (un servidor de antes no dice nada: los ignora igual).
   // 1.17.3: el chat cuya pregunta de wrap_up no entró no avanza (hasta MAX_VUELTAS_RETENIDA).
   if (salida.turnosOk !== false) {
@@ -2308,8 +2317,13 @@ const CADA_VIGILAR_MS = Math.max(100, Number(process.env.CARTERO_VIGILAR_MS) || 
 const ENTRE_VUELTAS_MS = Math.max(CADA_VIGILAR_MS, Number(process.env.CARTERO_ENTRE_VUELTAS_MS) || 30_000);
 /** El tope de todo `vigilar`: el Bash del Runner corta a los 120 s. */
 export const TOPE_VIGILAR_SEG = 105;
-/** Lo que se supone que tarda una vuelta cuando la anterior salteó y no se pudo medir (las reales: 30-80 s). */
-const VUELTA_SUPUESTA_MS = 30_000;
+/** Lo que se supone que tarda una vuelta cuando la anterior salteó y no se pudo medir. Las reales: 30-80 s. ⚠️ NO EL PROMEDIO (1.26.1): con 30 s,
+ *  `entraOtraVuelta` dejaba arrancar en el segundo 55, y una de 80 s la cortaba el Bash en el 120, con el POST ya procesado y el buzón sin
+ *  escribir. Con 45 s, la última que arranca lo hace en el 37: una de 80 s termina a tiempo. Y se sigue reintentando en los primeros segundos. */
+const VUELTA_SUPUESTA_MS = 45_000;
+export const duraDeVuelta = (salteada, ms) => (salteada ? VUELTA_SUPUESTA_MS : Math.max(ms, 2000));
+/** ¿Entra otra vuelta completa antes de `fin`? Con margen: la que viene puede tardar más que la anterior. */
+export const entraOtraVuelta = (ahora, fin, dura) => ahora + dura * 1.5 <= fin;
 
 /** La consulta liviana: cuántos trabajos esperan a las cuentas de esta carpeta (o a la pedida). */
 async function hayAlgo(cuenta, cfg = config(), propio = dirPropio(cfg)) {
@@ -2341,9 +2355,8 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
   let t0 = ahora();
   let r = await vuelta(cuenta);
   let ultima = ahora();
-  // Una vuelta salteada no tarda nada, y eso no dice cuánto tarda una de verdad: se supone lo que suele tardar una.
-  const duraDe = (x, ms) => (x.salteada ? VUELTA_SUPUESTA_MS : Math.max(ms, 2000));
-  let dura = duraDe(r, ultima - t0);
+  // Una vuelta salteada no tarda nada, y eso no dice cuánto tarda una de verdad: se supone una larga.
+  let dura = duraDeVuelta(r.salteada, ultima - t0);
   let consultas = 0;
   const hayQueEntregar = (x) => (x.entregar?.length ?? 0) > 0 || (x.aperturas ?? 0) > 0;
   let otraVez = false;
@@ -2371,7 +2384,7 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     if (!fallo && base == null) base = hay;
     // Lo que se escribió en un chat desde afuera del Ops Center (1.15.8): cuenta como «hay algo», una vuelta cada CADA_TURNOS_MS.
     const crecio = ahora() - ultima >= CADA_TURNOS_MS && transcriptsCrecidos(cuenta, cfg, propio);
-    const entraVuelta = ahora() + dura * 1.5 <= fin;
+    const entraVuelta = entraOtraVuelta(ahora(), fin, dura);
     // Hay algo NUEVO y la vuelta completa no entra en este Bash: sale ya y lo dice; el Runner corre `vigilar` otra vez.
     if (!entraVuelta && hay > (base ?? 0)) { otraVez = true; break; }
     // La que salteó porque otra vuelta tenía la PC (1.25.0) se reintenta: si no, con varios Runners en el mismo minuto, el que
@@ -2380,7 +2393,7 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
       t0 = ahora();
       r = await vuelta(cuenta);
       ultima = ahora();
-      dura = duraDe(r, ultima - t0);
+      dura = duraDeVuelta(r.salteada, ultima - t0);
       base = null; // lo que esta vuelta no reclamó es la base nueva
       if (!hayQueEntregar(r) && hay > 0 && !r.salteada) { // dijo que sí y no reclamó nada: espera antes de otra vuelta completa
         const hasta = ahora() + ENTRE_VUELTAS_MS;
@@ -2421,19 +2434,49 @@ async function esperar(cuenta, maxSeg) {
 //     con la versión de hace días, le pisaría a la fila de la cuenta la `version` del Runner cada 2 minutos.
 const SERVICIO = path.join(DIR, 'servicio.json');
 const SERVICIO_APAGAR = path.join(DIR, 'servicio.apagar');
+const SERVICIO_TURNO = path.join(DIR, 'servicio-turno.json');
 const VBS = path.join(DIR, 'mako-cartero.vbs');
 /** La clave de inicio de Windows. El valor es otro que el de `mako-pc` («MaKo»): ese programa es de los clientes, éste no. */
 const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
 export const VALOR_RUN = 'MaKo Cartero';
 const CADA_SERVICIO_MS = Math.max(100, Number(process.env.CARTERO_SERVICIO_MS) || 120_000);
 /** Una vuelta que tarda más que esto se corta. Menos que los 3 minutos del lock: el hijo muere antes de que venza. */
-const TOPE_VUELTA_SERVICIO_MS = 150_000;
+const TOPE_VUELTA_SERVICIO_MS = Math.max(100, Number(process.env.CARTERO_SERVICIO_TOPE_MS) || 150_000);
+/**
+ * Pasado esto, la vuelta no empieza otra cuenta: suelta el lock y sigue por ésa en la próxima (1.26.1). ⚠️ SIN ESTO, la cuenta del final nunca
+ * subía: con 5 cuentas de 35 s, el tope cortaba siempre a la quinta y contaba como falla de red. El Runner, además, encontraba el lock tomado
+ * casi siempre, y salía un «Nadie entrega» falso con el Runner vivo. Deja lugar a una cuenta de 50 s antes del tope.
+ */
+const PRESUPUESTO_VUELTA_SERVICIO_MS = Math.max(1, Number(process.env.CARTERO_SERVICIO_PRESUPUESTO_MS) || 100_000);
 /** Un servicio que no latió en este rato no cuenta como corriendo. */
 const SERVICIO_VENCE_MS = 6 * 60 * 1000;
 /** Sin red no gira: espera esto, y a la próxima (copia de scripts/ia-pc/mako-pc.mjs → ESPERAS_SIN_RED_MS: mako-pc es de los
  *  clientes y no lleva este código, ni éste importa nada de allá). */
 const ESPERAS_SIN_RED_MS = [5_000, 10_000, 30_000, 60_000];
 export const esperaSinRed = (fallas) => ESPERAS_SIN_RED_MS[Math.min(Math.max(0, fallas), ESPERAS_SIN_RED_MS.length - 1)];
+/** Lo más que espera entre dos intentos con error. */
+const ESPERA_MAXIMA_MS = 10 * 60 * 1000;
+/** Con el token rechazado, cada intento es en vano hasta que se pegue otro (`esperarServicio` se despierta entonces). */
+export const ESPERA_TOKEN_MS = 10 * 60 * 1000;
+/** Con qué código sale una vuelta cuyo token MaKo rechazó. */
+const SALIDA_TOKEN = 3;
+
+/**
+ * Cuánto espera el bucle después de la vuelta. ⚠️ CON ERROR NUNCA INSISTE MÁS QUE SANO (1.26.1): el molde de mako-pc es para un programa que no
+ * hace nada entre reintentos, y acá cada intento relee sesiones y transcripts de todas las cuentas. Los primeros, rápidos (un corte de segundos);
+ * después, cada vez menos seguido: en un corte largo, unos 150 intentos por día en vez de 1440.
+ */
+export function esperaDelServicio(fallas, cada = CADA_SERVICIO_MS) {
+  if (fallas <= 0) return cada;
+  if (fallas <= ESPERAS_SIN_RED_MS.length) return Math.min(cada, esperaSinRed(fallas - 1));
+  return Math.min(cada * 2 ** (fallas - ESPERAS_SIN_RED_MS.length - 1), ESPERA_MAXIMA_MS);
+}
+
+/** Por dónde empieza la vuelta: por la que quedó de turno. Una que ya no está en la PC no cuenta. */
+export function ordenDelServicio(cuentas, proxima) {
+  const i = cuentas.indexOf(proxima);
+  return i <= 0 ? [...cuentas] : [...cuentas.slice(i), ...cuentas.slice(0, i)];
+}
 
 /** Quien corre desde un chat no es el servicio: Claude Code les pone estas variables a sus comandos. */
 export const esUnChat = (env = process.env) => Boolean(env.CLAUDE_PID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDECODE);
@@ -2449,14 +2492,30 @@ export function faltaLlave(cfg = config(), spkis = claves()) {
 /** Las cuentas por las que da la vuelta el servicio: todas las que tienen de dónde sacar chats en esta PC. */
 export const cuentasDelServicio = (cfg) => Object.keys(cfg?.carteros ?? {}).filter((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).length > 0);
 
-/** El servicio que está corriendo (otro que éste), según su latido: su pid vive y latió hace poco. */
-export function servicioVivo(ahora = Date.now()) {
-  const s = leerJson(SERVICIO, null);
+/** Cuándo arrancó Windows. Un test lo cambia con CARTERO_UPTIME_SEG. */
+const arranqueDeLaPc = (ahora) => ahora - (Number(process.env.CARTERO_UPTIME_SEG) || os.uptime()) * 1000;
+
+/**
+ * ¿Ese latido es de un servicio que corre ahora? ⚠️ UN LATIDO DE ANTES DE PRENDER LA PC NO VALE (1.26.1): tras un apagado forzado, el archivo queda
+ * con un `at` de hace minutos y un pid que Windows puede haberle dado a otro proceso. `vive` da true, el servicio nuevo se va, y nada lo vuelve a
+ * lanzar hasta el próximo inicio de sesión.
+ */
+export function latidoVale(s, ahora, arranquePc, pidVive, propio = process.pid) {
   const at = Date.parse(s?.at ?? '');
-  return Number.isInteger(s?.pid) && s.pid !== process.pid && vive(s.pid) && ahora - at < SERVICIO_VENCE_MS ? s : null;
+  return Number.isInteger(s?.pid) && s.pid !== propio && at >= arranquePc && ahora - at < SERVICIO_VENCE_MS && pidVive(s.pid);
 }
 
-/** Una vuelta del servicio: mide y sube, por todas las cuentas. Si una falla, las otras siguen. `fallaron`: todas. */
+/** El servicio que está corriendo (otro que éste), según su latido. */
+export function servicioVivo(ahora = Date.now()) {
+  const s = leerJson(SERVICIO, null);
+  return latidoVale(s, ahora, arranqueDeLaPc(ahora), vive) ? s : null;
+}
+
+/** ¿MaKo rechazó el token? Un token no vale para una cuenta sí y para otra no: no hace falta seguir midiendo las demás. */
+const tokenRechazado = (e) => /^MaKo contestó 401\b/.test(String(e ?? ''));
+
+/** Una vuelta del servicio: mide y sube, por todas las cuentas que entren en el presupuesto, y la próxima sigue por la que faltó. Si una falla,
+ *  las otras siguen. `fallaron`: todas las que se intentaron. `faltaron`: las que no entraron, que no es una falla. */
 export async function vueltaDelServicio(desdeCrudo) {
   const cfg = config();
   const falta = faltaLlave(cfg);
@@ -2466,13 +2525,24 @@ export async function vueltaDelServicio(desdeCrudo) {
   if (!lock) return { salteada: true };
   try {
     const runners = carpetasConRunner(cfg, null);
-    const cuentas = cuentasDelServicio(cfg);
+    const orden = ordenDelServicio(cuentasDelServicio(cfg), leerJson(SERVICIO_TURNO, null)?.proxima);
+    const inicio = Date.now();
     const porCuenta = {};
-    for (const c of cuentas) {
+    let faltaron = [];
+    for (const [i, c] of orden.entries()) {
+      if (i > 0 && Date.now() - inicio >= PRESUPUESTO_VUELTA_SERVICIO_MS) {
+        // El turno ya apunta a ésta: lo escribió la anterior.
+        faltaron = orden.slice(i);
+        break;
+      }
+      // Antes de empezarla: si el tope la corta, la próxima vuelta no vuelve a trabarse en la misma.
+      escribirJson(SERVICIO_TURNO, { proxima: orden[(i + 1) % orden.length] });
       try { porCuenta[c] = await ciclo(c, cfg, null, runners, { version: VERSION, desde }); } catch (e) { porCuenta[c] = { error: textoRemoto(e.message) }; }
+      if (tokenRechazado(porCuenta[c].error)) return { cuentas: porCuenta, fallaron: true, revocado: true };
     }
-    const fallaron = cuentas.length > 0 && cuentas.every((c) => porCuenta[c].error);
-    return { cuentas: porCuenta, ...(fallaron ? { fallaron: true } : {}) };
+    const hechas = Object.values(porCuenta);
+    const fallaron = hechas.length > 0 && hechas.every((x) => x.error);
+    return { cuentas: porCuenta, ...(faltaron.length ? { faltaron } : {}), ...(fallaron ? { fallaron: true } : {}) };
   } finally {
     lock.soltar();
   }
@@ -2486,8 +2556,24 @@ const vueltaAparte = (desde) => new Promise((ok) => {
   p.stdout.on('data', anotar);
   p.stderr.on('data', anotar);
   p.on('error', (e) => ok({ ok: false, detalle: textoRemoto(e.message) }));
-  p.on('close', (codigo) => ok({ ok: codigo === 0, detalle: textoRemoto(salida) }));
+  // Sin código = la cortó el tope. No dice nada de la red: es una vuelta que no entró, y la próxima sigue por la que faltó.
+  p.on('close', (codigo) => ok({ ok: codigo === 0, ...(codigo == null ? { cortada: true } : {}), ...(codigo === SALIDA_TOKEN ? { revocado: true } : {}), detalle: textoRemoto(salida) }));
 });
+
+/**
+ * La espera del bucle, que no se queda sorda: se corta si piden apagarlo o si se pegó otro token, y deja el latido al día. Sin esto, una espera
+ * larga dejaría vencer `servicio.json` y un segundo servicio creería que no hay ninguno. `quitar-servicio` no espera más que el tic.
+ */
+async function esperarServicio(ms, latir) {
+  const fin = Date.now() + ms;
+  const token = config().token;
+  let latido = Date.now();
+  while (Date.now() < fin) {
+    await new Promise((listo) => setTimeout(listo, Math.min(5000, fin - Date.now())));
+    if (fs.existsSync(SERVICIO_APAGAR) || config().token !== token) return;
+    if (Date.now() - latido >= 60_000) { latir(); latido = Date.now(); }
+  }
+}
 
 /**
  * El bucle del servicio: lo que arranca con Windows. NUNCA sale por un error (ni la red, ni la base, ni un token que cambió:
@@ -2506,7 +2592,9 @@ export async function servicio() {
   const desde = new Date().toISOString();
   log(`SERVICIO arrancó (${VERSION})`);
   let fallas = 0;
+  const latir = () => escribirJson(SERVICIO, { pid: process.pid, version: VERSION, desde, at: new Date().toISOString() });
   for (;;) {
+    let revocado = false;
     try {
       if (fs.existsSync(SERVICIO_APAGAR)) {
         fs.rmSync(SERVICIO_APAGAR, { force: true });
@@ -2514,16 +2602,23 @@ export async function servicio() {
         log('SERVICIO apagado');
         return { apagado: true };
       }
-      escribirJson(SERVICIO, { pid: process.pid, version: VERSION, desde, at: new Date().toISOString() });
+      latir();
       const r = await vueltaAparte(desde);
-      if (r.ok && fallas) log('SERVICIO volvió la conexión');
-      if (!r.ok && !fallas) log(`SERVICIO sin poder subir, reintenta solo: ${r.detalle}`);
-      fallas = r.ok ? 0 : fallas + 1;
+      revocado = Boolean(r.revocado);
+      if (r.cortada) {
+        log(`SERVICIO la vuelta no entró en ${Math.round(TOPE_VUELTA_SERVICIO_MS / 1000)} s: la próxima sigue por la cuenta que faltó`);
+        fallas = 0;
+      } else {
+        if (r.ok && fallas) log('SERVICIO volvió la conexión');
+        if (revocado && !fallas) log('SERVICIO MaKo no acepta el token: pega el nuevo con «cartero.mjs token» (sale de /admin/operaciones)');
+        if (!r.ok && !revocado && !fallas) log(`SERVICIO sin poder subir, reintenta solo: ${r.detalle}`);
+        fallas = r.ok ? 0 : fallas + 1;
+      }
     } catch (e) {
       if (!fallas) log(`SERVICIO falló, reintenta solo: ${e instanceof Error ? e.message : String(e)}`);
       fallas++;
     }
-    await new Promise((listo) => setTimeout(listo, fallas ? Math.min(CADA_SERVICIO_MS, esperaSinRed(fallas - 1)) : CADA_SERVICIO_MS));
+    await esperarServicio(revocado ? ESPERA_TOKEN_MS : esperaDelServicio(fallas), latir);
   }
 }
 
@@ -2552,11 +2647,32 @@ export const archivoVbs = (node, script) => `﻿' MaKo Cartero: arranca el servi
 /** Lo que se escribe en la clave Run. */
 export const valorDeRun = (vbs) => `wscript.exe //B //Nologo "${vbs}"`;
 
+/** El inicio de Windows es decisión de Martín: un mensaje de otro chat no lo autoriza (docs/diseno-cartero-servicio.md). Es una baranda, no una llave:
+ *  un chat puede borrarse las variables. Lo que frena es que no pase por descuido ni por un pedido escrito en otro chat. */
+function soloMartin() {
+  if (esUnChat()) throw new Error('Esto no lo corre un chat: lo corre Martín, en PowerShell (docs/diseno-cartero-servicio.md)');
+}
+
+/** ¿MaKo ya entiende al servicio? Sin la migración y el deploy, cada vuelta refresca `visto_at` y el Ops Center dice «Activo» sin nadie que entregue. */
+async function exigirMakoListo(cfg) {
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  let r;
+  try {
+    r = await fetch(`${url}/api/operaciones/cartero?servicio-listo=1`, { headers: { authorization: `Bearer ${cfg.token}` }, signal: AbortSignal.timeout(15_000) });
+  } catch (e) {
+    throw new Error(`No pude preguntarle a MaKo si ya entiende el servicio: ${textoRemoto(e.message)}`);
+  }
+  const o = await r.json().catch(() => ({}));
+  if (!r.ok || o?.servicio !== true) throw new Error('MaKo todavía no entiende el servicio: primero la migración 0355 y el deploy');
+}
+
 /** Lo corre MARTÍN, en su PC: escribir en el registro es decisión suya. */
-export function instalarServicio(cfg = config(), spkis = claves()) {
+export async function instalarServicio(cfg = config(), spkis = claves()) {
+  soloMartin();
   const falta = faltaLlave(cfg, spkis);
   if (falta) throw new Error(falta);
   if (!cuentasDelServicio(cfg).length) throw new Error('Esta PC no tiene cuentas: súmalas con «cartero.mjs cartero»');
+  await exigirMakoListo(cfg);
   instalar();
   fs.writeFileSync(VBS, Buffer.from(archivoVbs(process.execPath, ESTE), 'utf16le'));
   const valor = valorDeRun(VBS);
@@ -2568,8 +2684,9 @@ export function instalarServicio(cfg = config(), spkis = claves()) {
   return { ok: true, clave: `${RUN_KEY}\\${VALOR_RUN}`, valor, arranca: 'Con el próximo inicio de Windows', paraNoEsperar: `explorer.exe "${VBS}"` };
 }
 
-/** Saca la clave Run y el lanzador, y le pide al que está corriendo que se apague (en su próxima vuelta: hasta 2 minutos). */
+/** Saca la clave Run y el lanzador, y le pide al que está corriendo que se apague (al terminar la vuelta que esté dando). */
 export function quitarServicio() {
+  soloMartin();
   const estaba = correrReg(['query', RUN_KEY, '/v', VALOR_RUN]) === 0;
   if (estaba && correrReg(['delete', RUN_KEY, '/v', VALOR_RUN, '/f']) !== 0) throw new Error('Windows no dejó sacar la clave de inicio');
   fs.rmSync(VBS, { force: true });
@@ -2669,12 +2786,12 @@ if (esMain) {
           const i = resto.indexOf('--desde');
           const r = await vueltaDelServicio(i >= 0 ? resto[i + 1] : undefined);
           imprimir(r);
-          if (r.fallaron) process.exitCode = 1;
+          if (r.fallaron) process.exitCode = r.revocado ? SALIDA_TOKEN : 1;
           break;
         }
         imprimir(await servicio()); break;
       }
-      case 'instalar-servicio': imprimir(instalarServicio()); break;
+      case 'instalar-servicio': imprimir(await instalarServicio()); break;
       case 'quitar-servicio': imprimir(quitarServicio()); break;
       default:
         process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | vigilar | esperar | uso | servicio | instalar-servicio | quitar-servicio\n');
