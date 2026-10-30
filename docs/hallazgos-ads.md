@@ -5249,8 +5249,6 @@ Zernio) · `app/ads-manager/NuevaCampana.tsx`, `ElegirLugares.tsx` · `supabase/
 - **Medir en la cuenta de MaKo** (con el OK de Martín: escribe en una cuenta real, en pausa y con gasto 0): `PUT /ads/ad-sets/{id}`
   con `targeting` y con `placements`, y `POST /ads/create` con `endDate`, `promotedObject`, `leadGenFormId`, `existingCreativeId`
   y los cuatro estados en pausa. El patrón está en `scripts/media-buyer-medir-zernio.mts`. Nada de esto se probó contra Zernio.
-- **La migración 0350** (`supabase/migrations/0350_media_buyer_donde_hasta.sql`), sin aplicar: el sí para producción lo pide el
-  Cerebro. Sin ella, guardar una zona o una fecha dice «falta la migración» y «Nueva campaña» no crea nada.
 - **La fecha de fin escrita en Meta** (`platformSpecificData.endDate` en cada conjunto): hoy la cumple MaKo; si MaKo no corre,
   Meta no corta sola.
 - **MaKo Mobile** (`app/m/ads/MediaBuyerM.tsx`): no tiene Dónde, Hasta ni «Nueva campaña».

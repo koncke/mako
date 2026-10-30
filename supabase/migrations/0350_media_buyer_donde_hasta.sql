@@ -12,6 +12,7 @@
 -- ORDEN: ANTES del deploy. Sólo AGREGA columnas con default y agranda dos CHECK: ninguna fila que hoy pasa deja de pasar.
 -- Sin ella, `leerConfig` no ve las columnas nuevas (las da vacías) y guardar una zona o una fecha da error de columna; la
 -- corrida sigue como hoy. El número lo confirma el Cerebro (0349 es de zernio-token-2910). Idempotente.
+-- Aplicada a mano en producción el 29/10/2026 a las 21:50 (la aplicó el Cerebro, con el sí de Martín).
 -- =============================================================================
 
 begin;
