@@ -321,7 +321,7 @@ test('el desplegable: las cinco cuentas, su plan, las dos ventanas, «Medido hac
   // El botón cerrado: un punto por cuenta (cinco) y el conteo sobre las cinco.
   const boton = renderToStaticMarkup(createElement(BotonUso, { cuentas, ahora: AHORA }));
   assert.equal((boton.match(/co-punto /g) ?? []).length, 5);
-  assert.match(boton, /title="2 de 5 Runners activos"/);
+  assert.match(boton, /title="2 de 5 cuentas midiendo ahora"/);
 });
 
 const leerJson = (f: string) => JSON.parse(readFileSync(f, 'utf8'));

@@ -8,7 +8,10 @@
 // Y del Uso, la misma trampa, un dato viejo con fecha nueva: «Runner activo» con punto verde al lado de «78% · medido hace 6 días», y un
 // botón que decía «95% · Cuenta 3» trabajando en la 1 (Martín: «aun en ops center no se mide el uso»).
 //
-// Verificado ROMPIÉNDOLO: PENDIENTE de correr (30/10/2026, sin RAM para tests por pedido del Cerebro). Antes de dar esto por bueno.
+// Verificado ROMPIÉNDOLO (30/10/2026, con tests/centro-limbo.test.ts, base 13 / 0; cada una da 12 / 1), de a una y restaurando a mano:
+//   · `listo` con `envio.puede` primero · buscar el Cerebro sin mirar `chat_cerrado` · contestar sin mirar si está cerrado
+//   · decir «cerrado» con la PC callada · el botón con la más usada · `estadoRunnerUso` sin mirar la edad
+//   · sin «No se mide ahora» · el número del teléfono sin su cuenta
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

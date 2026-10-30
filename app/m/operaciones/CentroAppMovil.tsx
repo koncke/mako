@@ -22,6 +22,7 @@ import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operacione
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
 import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
+import { CartelLimbo } from '@/app/admin/operaciones/CartelLimbo';
 import { estadoRunnerUso, usoPrincipal } from '@/lib/centro-uso';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
@@ -41,6 +42,8 @@ export function CentroAppMovil(datos: DatosCentro) {
 
   return (
     <>
+      {/* Lo que no salió, arriba de todo, como en la computadora (30/10/2026, CartelLimbo.tsx). */}
+      <CartelLimbo centro={k} Hoja={SheetM} />
       {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). Desde el
           17/10 es la de los tickets de los usuarios; «Preguntas de los chats» se sacó (se contestan en cada chat). */}
       <ListaM etiqueta="Ticketera">
