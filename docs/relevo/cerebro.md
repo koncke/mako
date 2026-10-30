@@ -55,7 +55,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     - **El Cerebro dijo «sacar»:** salió en el tren-ae (`AI_AVATAR_SE_VENDE = false`).
     - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
 - **tren-ae SUBIDO: main = `4b8f8145d` (29/10 21:42). READY 21:45: hola-mako.com sirve `mako-gv9vfmoz3`
-  (dpl_E2uWxgoB…).** Avisados el Cerebro, Create y el Copywriter.
+  (dpl_E2uWxgoB…).** Avisado el Cerebro; Create y el Copywriter estaban archivados.
 - **tren-af (sin armar):**
   - El Media Buyer de Thiago (`media-buyer-thiago-2910`, `a2b0088a3`), con su revisión de plata corriendo. La mig 0350 va
     ANTES del deploy: espera el sí de Martín y la aplica el Cerebro.
