@@ -249,7 +249,7 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
                 key={x.id}
                 titulo={x.nombre}
                 segunda={x.disparador || undefined}
-                pill={e.borrador ? <PildoraM tono="warn">Sin publicar</PildoraM> : undefined}
+                pill={e.borrador ? <PildoraM tono="warn">Sin publicar</PildoraM> : e.activa && x.avisoRitmo ? <PildoraM tono="warn">{x.avisoRitmo.rotulo}</PildoraM> : undefined}
                 onClick={() => abrir(x.id)}
                 control={(
                   <InterruptorM
@@ -279,6 +279,7 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
       <SheetM id="automatizacion" abierto={abierto} onCerrar={cerrar} titulo={a?.nombre ?? 'Automatización'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar la automatización">
         {error && <p className="m-auto-error" role="alert">{error}<ReportarASoporte /></p>}
+        {a?.avisoRitmo && v?.activa && <p className="m-auto-nada" role="status">{a.avisoRitmo.texto}</p>}
         {a && v && (
           <>
             {/* LAS MÉTRICAS (23/10/2026): la misma hoja que «Métricas» en la computadora, destilada. Sin ella, los números de siempre. */}

@@ -83,7 +83,7 @@ import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, pue
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
-import { avisoDeRitmo, canalDelPrimerMensaje, primerMensaje, type AvisoDeRitmo } from '@/lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, primeroQuedaParaAprobar, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
 import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
@@ -1954,7 +1954,7 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
   if (!sec) return null;
   const canal = canalDelPrimerMensaje(sec.pasos);
   if (!canal) return null;
-  const [config, limites] = await Promise.all([leerConfigAutomatizacion(secuenciaId).catch(() => null), limitesDeEnvio()]);
+  const [config, limites, delNegocio] = await Promise.all([leerConfigAutomatizacion(secuenciaId).catch(() => null), limitesDeEnvio(), horarioDeEnvio()]);
   let personas: number | null = 0;
   try {
     const supabase = (await getTenantDb());
@@ -1972,13 +1972,37 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
     console.error(`[nutricion] ritmo al activar #${secuenciaId}: ${e instanceof Error ? e.message : String(e)}`);
     personas = null;
   }
-  const primero = primerMensaje(sec.pasos);
   return avisoDeRitmo({
     personas, canal, goteo: config?.goteo, topes: limites === 'ilegible' ? null : limites,
     // El aviso de MaKo también dispara por su evento, pero le escribe al equipo: no es el caso que asusta.
     porEvento: vistasPorDisparador(sec).some((v) => TRIGGERS_SOLO_EVENTO.has(v.trigger_tipo) && v.trigger_tipo !== TRIGGER_AVISO_MAKO),
-    quedaParaAprobar: canal !== 'email' && !!primero && !saleSolo(primero, sec.envio_automatico),
+    quedaParaAprobar: primeroQuedaParaAprobar(sec.pasos, sec.envio_automatico),
+    // Sin poder leerlo, no se afirma nada.
+    horario: config == null || delNegocio === 'ilegible' ? undefined : horarioDeLaAutomatizacion(config, delNegocio),
   });
+}
+
+/**
+ * LO QUE SE DICE DE CADA UNA SIN GOTEO O SIN HORARIO (`avisoDeUnaPrendida`): UNA lectura para todas. Si no se puede leer, nada: no saber
+ * si tiene no es «no tiene». La pantalla lo muestra sólo en las prendidas.
+ */
+export async function avisosDeRitmo(secs: readonly SecuenciaConStats[]): Promise<Map<number, AvisoDeUnaPrendida>> {
+  const out = new Map<number, AvisoDeUnaPrendida>();
+  try {
+    const [configs, limites, delNegocio] = await Promise.all([configsDelNegocio(), limitesDeEnvio(), horarioDeEnvio()]);
+    for (const s of secs) {
+      const aviso = avisoDeUnaPrendida({
+        pasos: s.pasos, triggers: vistasPorDisparador(s).map((v) => v.trigger_tipo), envioAutomatico: s.envio_automatico,
+        goteo: configs.get(s.id)?.goteo, topes: limites === 'ilegible' ? null : limites,
+        horario: delNegocio === 'ilegible' ? undefined : horarioDeLaAutomatizacion(configs.get(s.id) ?? {}, delNegocio),
+      });
+      if (aviso) out.set(s.id, aviso);
+    }
+  } catch (e) {
+    console.error(`[nutricion] los avisos de ritmo: ${e instanceof Error ? e.message : String(e)}`);
+    out.clear();
+  }
+  return out;
 }
 
 /**

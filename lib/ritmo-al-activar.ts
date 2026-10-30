@@ -16,14 +16,25 @@
 // donde salen todos juntos. Sin número, con la frase.
 // ⚠️ UN AVISO QUE MIENTE ES PEOR QUE NINGUNO: si el primer mensaje lo escribe la IA y no sale solo (`saleSolo`), queda para aprobar:
 // decir «sale» haría decidir sobre algo falso. Desde el 23/10 eso es sólo lo que escribe la IA: un mensaje fijo siempre sale.
+// ⚠️ Y LAS QUE YA ESTÁN PRENDIDAS TAMBIÉN (`avisoDeUnaPrendida`, el Cerebro, 30/10/2026): medido ese día, las 7 activas de Instagram no
+// tenían goteo, y un aviso que sale sólo al activar no las alcanza. El valor está en que el dueño lo sepa, no en el momento de prender:
+// se dice en su pantalla y en su tarjeta, y NO se les pone goteo: eso cambiaría cómo le llegan los mensajes a los leads de un cliente.
 // =============================================================================
 import { canalDelGoteo, type CanalDelGoteo, type Goteo } from './goteo';
-import { indiceEntrada } from './nutricion-grafo-motor';
+import { indiceEntrada, saleSolo } from './nutricion-grafo-motor';
+import { TRIGGERS_DEL_EMISOR, TRIGGER_SOLO_GRUPO } from './disparadores';
+import { textoDeHorario } from './config-automatizacion';
+import type { HorarioEnvio } from './horario-envio';
 import { claseDe, indicePorId, puertosDe, type PasoGrafo } from './flujo-grafo';
 import { esPasoAccion } from './nutricion-paso-accion';
 
-/** Lo que dice la pantalla antes de prender: el texto y si le falta el goteo (ahí ofrece ponerlo). */
-export type AvisoDeRitmo = { texto: string; sinGoteo: boolean };
+/**
+ * Lo que dice la pantalla antes de prender. `poner`: el botón para ponerle lo que le falta; `rotulo`: lo mismo, en dos palabras, para
+ * una tarjeta. Los arma el server: esta pieza trae el motor, y la pantalla no la importa como valor.
+ */
+export type AvisoDeRitmo = { texto: string; sinGoteo: boolean; sinHorario: boolean; poner: string | null; rotulo: string | null };
+/** Lo que se muestra de una ya prendida. */
+export type AvisoDeUnaPrendida = { texto: string; rotulo: string };
 
 /** Los topes de la línea que mira el motor (`LimitesEnvio`). null = no se pudieron leer. */
 export type TopesDeLinea = { wa: { dia: number; hora: number }; email: { dia: number } };
@@ -46,6 +57,12 @@ export function primerMensaje(pasos: readonly PasoGrafo[]): PasoGrafo | null {
     for (const s of puertosDe(pasos, k)) cola.push(indicePorId(pasos, s.destino));
   }
   return pasos.find(esMensaje) ?? null;
+}
+
+/** ¿Su primer mensaje queda para aprobar? (`saleSolo`, la regla del motor; un email no pasa por ahí). */
+export function primeroQuedaParaAprobar(pasos: readonly PasoGrafo[], envioAutomatico: boolean): boolean {
+  const p = primerMensaje(pasos);
+  return !!p && canalDelPrimerMensaje(pasos) !== 'email' && !saleSolo(p, envioAutomatico);
 }
 
 /** Su canal, como lo cuenta el goteo. null = no tiene mensajes. */
@@ -76,13 +93,37 @@ function tardaAlMenos(n: number, minutos: number | null, lineaHora: number, porD
  * LO QUE SE DICE AL ACTIVAR. null = no hay nada que decir: menos de dos personas, o no se pudo contar y tiene goteo.
  * `personas` null = no se pudo contar: sin goteo se dice igual, porque es justo el caso que asusta.
  */
-export function avisoDeRitmo(o: {
+export function avisoDeRitmo(o: DatosDelRitmo): AvisoDeRitmo | null {
+  if (!o.canal) return null;
+  // ⚠️ EL HORARIO TAMBIÉN, el mismo defecto que el goteo (Leila, llamada del 30/10: no sabía dónde se configuraba, y salió hasta las
+  // 23:01; Martín: «ella no sabia donde se configuraba el horario de oficina»). Sin horario nada la cierra (`cerradasAhora`). Lo que queda
+  // para aprobar no sale de noche: ahí no se dice. `undefined` = no se pudo leer: no se afirma nada.
+  const aprobar = o.quedaParaAprobar === true;
+  const sinHorario = o.horario === null && !aprobar;
+  const base = textoDelRitmo(o);
+  // Sólo le falta el horario y no hay a quién contar: una por evento, o no se pudo contar.
+  if (!base && !(sinHorario && (o.porEvento || o.personas == null))) return null;
+  const a = base ?? { texto: '', sinGoteo: false };
+  const delHorario = sinHorario ? `${a.sinGoteo ? 'Tampoco tiene horario' : 'No tiene horario'}: sale también de noche.`
+    : o.horario && !aprobar ? `Sale ${textoDeHorario(o.horario).replace(' · ', ', ')}.` : '';
+  return {
+    texto: [a.texto, delHorario].filter(Boolean).join(' '), sinGoteo: a.sinGoteo, sinHorario,
+    poner: a.sinGoteo && sinHorario ? 'Poner goteo y horario' : a.sinGoteo ? 'Poner goteo' : sinHorario ? 'Poner horario' : null,
+    rotulo: a.sinGoteo && sinHorario ? 'Sin goteo ni horario' : a.sinGoteo ? 'Sin goteo' : sinHorario ? 'Sin horario' : null,
+  };
+}
+
+type DatosDelRitmo = {
   personas: number | null; canal: CanalDelGoteo | null; goteo: Goteo | null | undefined; topes: TopesDeLinea | null;
   /** Dispara por un evento: al activar no hay a quién contar. */
   porEvento?: boolean;
   /** El primer mensaje no sale solo (`saleSolo`): queda para aprobar, salvo a quien ya pagó. */
   quedaParaAprobar?: boolean;
-}): AvisoDeRitmo | null {
+  /** El que vale para ella (`horarioDeLaAutomatizacion`). null = no tiene; ausente = no se pudo leer. */
+  horario?: HorarioEnvio | null;
+};
+
+function textoDelRitmo(o: DatosDelRitmo): { texto: string; sinGoteo: boolean } | null {
   if (!o.canal) return null;
   const minutos = o.goteo?.minutos ?? null;
   const sinGoteo = minutos == null;
@@ -123,4 +164,17 @@ export function avisoDeRitmo(o: {
   }
   if (!tarda) return { texto: `Entran ${n} personas y no tiene goteo: los ${n} mensajes de ${canal} salen todos juntos.`, sinGoteo };
   return { texto: `Entran ${n} personas y no tiene goteo: los mensajes de ${canal} salen juntos, ${hasta}${deQuien}.${fin}`, sinGoteo };
+}
+
+/**
+ * LO QUE SE DICE DE UNA YA PRENDIDA, en su pantalla y en su tarjeta: lo mismo que al activarla, sin número (no hay un momento en que
+ * entren todos). null = tiene goteo y horario, no tiene mensajes, queda para aprobar, o le escribe al equipo y no a leads (el emisor, el grupo).
+ */
+export function avisoDeUnaPrendida(o: { pasos: readonly PasoGrafo[]; triggers: readonly string[]; envioAutomatico: boolean; goteo: Goteo | null | undefined; topes: TopesDeLinea | null; horario?: HorarioEnvio | null }): AvisoDeUnaPrendida | null {
+  if (!o.triggers.length || o.triggers.every((t) => TRIGGERS_DEL_EMISOR.has(t) || t === TRIGGER_SOLO_GRUPO)) return null;
+  const a = avisoDeRitmo({
+    personas: 0, canal: canalDelPrimerMensaje(o.pasos), goteo: o.goteo, topes: o.topes, porEvento: true,
+    quedaParaAprobar: primeroQuedaParaAprobar(o.pasos, o.envioAutomatico), horario: o.horario,
+  });
+  return a?.rotulo ? { texto: a.texto, rotulo: a.rotulo } : null;
 }

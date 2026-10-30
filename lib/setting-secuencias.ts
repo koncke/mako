@@ -10,8 +10,9 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
-import { getSecuenciasConStats, reentradaDeSecuencia, type SecuenciaConStats } from './nutricion';
+import { avisosDeRitmo, getSecuenciasConStats, reentradaDeSecuencia, type SecuenciaConStats } from './nutricion';
 import type { Reentrada } from './reentrada';
+import type { AvisoDeUnaPrendida } from './ritmo-al-activar';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA, normalizarEtapas } from './nutricion-etapa';
 import { esNodoDeControl, mediaDeAdjunto, esColumnaInexistente } from './nutricion-grafo-motor';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
@@ -57,6 +58,8 @@ export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
    * `null` = no se pudieron leer, que no es «ninguno»: la pantalla no dice nada.
    */
   por_aprobar: number | null;
+  /** No tiene goteo u horario: lo que se le dice al dueño (`avisoDeUnaPrendida`). null = tiene, o no se pudo leer. La pantalla lo muestra sólo si está prendida. */
+  aviso_ritmo: AvisoDeUnaPrendida | null;
   /**
    * Dónde puso la persona cada tarjeta del lienzo (mig 0233, lib/secuencia-posiciones.ts). `{}` =
    * ninguna movida; `null` = NO SE PUDIERON LEER (falta la columna o falló la consulta): el lienzo se
@@ -157,6 +160,7 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     leerPorAprobar(supabase),
   ]);
   const met = agregarMetricas(filasEnvio, filasInsc);
+  const avisosRitmo = await avisosDeRitmo(secs);
   const secuencias = secs.map((s) => ({
     ...s,
     estrategia: parseEstrategia(s.estrategia),
@@ -165,6 +169,7 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     reentrada_efectiva: reentradaDeSecuencia(s),
     posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
     por_aprobar: porAprobar ? (porAprobar.get(s.id) ?? 0) : null,
+    aviso_ritmo: avisosRitmo.get(s.id) ?? null,
     // Sin poder leerlos, la clave NO va: la pantalla distingue «no hay» (null) de «no sé» (ausente) y
     // en el segundo caso no guarda, para no pisar un borrador que no vio.
     //

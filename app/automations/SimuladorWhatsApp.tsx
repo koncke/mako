@@ -779,6 +779,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       <div key={creando ? j.clave : j.id}>
         <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={nombreDe(j)} creando={creando}
           sinPublicar={sinPublicarDe(j, j.id === selId && sinPublicar)}
+          aviso={j.activa ? j.aviso_ritmo ?? undefined : undefined}
           onClick={() => elegir(j.id)}
           editarNombre={renombrando === j.id && rolAdmin && !creando
             ? { onGuardar: (t) => void guardarNombre(j, t), onCancelar: () => setRenombrando(null) }
@@ -997,9 +998,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
       {avisoRitmo && (
-        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.sinGoteo ? 'Activar igual' : 'Activar'} cancelLabel={avisoRitmo.sinGoteo ? 'Poner goteo' : 'Cancelar'} tone="primary"
+        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.poner ? 'Activar igual' : 'Activar'} cancelLabel={avisoRitmo.poner ?? 'Cancelar'} tone="primary"
           onConfirm={() => { const a = avisoRitmo; setAvisoRitmo(null); void accionFila(a.j, 'activa', { sinAviso: a.sinAviso, sinRitmo: true }); }}
-          onCancel={() => { const a = avisoRitmo; setAvisoRitmo(null); if (a.sinGoteo) setConfigDe({ id: a.j.id, nombre: a.j.nombre }); }} />
+          onCancel={() => { const a = avisoRitmo; setAvisoRitmo(null); if (a.poner) setConfigDe({ id: a.j.id, nombre: a.j.nombre }); }} />
       )}
       {avisoActivar && (
         <Confirm message={avisoActivar.texto} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"
@@ -1033,7 +1034,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  * RENOMBRANDO (undécima tanda, punto 5: `editarNombre`): el mismo emoji y, en lugar del botón, un campo con el
  * nombre (`CampoNombre`); el «⋯» se esconde mientras tanto.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, editarNombre }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, aviso, editarNombre }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
@@ -1041,6 +1042,8 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
   creando?: boolean;
   /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
   sinPublicar?: boolean;
+  /** Prendida sin goteo o sin horario (`aviso_ritmo`): el rótulo, y la frase entera al pasar el cursor. */
+  aviso?: { texto: string; rotulo: string };
   /** Se está renombrando: el nombre es un campo. Guardar recibe lo escrito; cancelar, nada. */
   editarNombre?: { onGuardar: (escrito: string) => void; onCancelar: () => void };
 }) {
@@ -1077,6 +1080,7 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
             <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
               style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
           )}
+          {aviso && <span data-sin-goteo title={aviso.texto} style={{ fontSize: 11, fontWeight: 600, color: 'var(--warn)', flex: 'none', maxWidth: 76, textAlign: 'right', lineHeight: 1.2 }}>{aviso.rotulo}</span>}
         </button>
       )}
       {menu && !editarNombre && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}

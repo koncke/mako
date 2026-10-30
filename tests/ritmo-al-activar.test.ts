@@ -10,8 +10,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { avisoDeRitmo, canalDelPrimerMensaje } from '../lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje } from '../lib/ritmo-al-activar';
 import type { PasoGrafo } from '../lib/flujo-grafo';
+import type { HorarioEnvio } from '../lib/horario-envio';
+import { crearDesdePlantilla, type DbPlantilla } from '../lib/plantilla-crear';
+import { configParaGuardar } from '../lib/config-automatizacion';
 
 const leer = (p: string): string => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const TOPES = { wa: { dia: 40, hora: 6 }, email: { dia: 100 } };
@@ -86,6 +89,99 @@ test('el primer mensaje queda para aprobar: nunca dice «sale», ni «salen junt
   assert.equal(avisoDeRitmo({ ...base, personas: null, goteo: null, quedaParaAprobar: true }), null);
 });
 
+test('el horario: entre qué horas sale; sin horario, con todas las letras y con el botón para ponerlo', () => {
+  const H = { activo: true, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] } as HorarioEnvio;
+  // Tiene: dice entre qué horas, y no pide nada si también tiene goteo.
+  const con = avisoDeRitmo({ ...base, personas: 200, goteo: { minutos: 5 }, horario: H })!;
+  assert.match(con.texto, /Tarda al menos 4 días\. Sale de 09:00 a 21:00, todos los días\.$/);
+  assert.deepEqual([con.poner, con.rotulo], [null, null]);
+  // Sin los dos.
+  const nada = avisoDeRitmo({ ...base, personas: 200, goteo: null, horario: null })!;
+  assert.match(nada.texto, /Tarda al menos 4 días\. Tampoco tiene horario: sale también de noche\.$/);
+  assert.deepEqual([nada.poner, nada.rotulo], ['Poner goteo y horario', 'Sin goteo ni horario']);
+  // Sin goteo, con horario.
+  const sg = avisoDeRitmo({ ...base, personas: 200, goteo: null, horario: H })!;
+  assert.match(sg.texto, /Sale de 09:00 a 21:00, todos los días\.$/);
+  assert.deepEqual([sg.poner, sg.rotulo], ['Poner goteo', 'Sin goteo']);
+  // Con goteo, sin horario: es lo que le pasó a Leila.
+  const sh = avisoDeRitmo({ ...base, personas: 200, goteo: { minutos: 5 }, horario: null })!;
+  assert.match(sh.texto, /Tarda al menos 4 días\. No tiene horario: sale también de noche\.$/);
+  assert.deepEqual([sh.poner, sh.rotulo], ['Poner horario', 'Sin horario']);
+  // Por evento: con goteo y sin horario también se dice; sin goteo, las dos cosas.
+  assert.equal(avisoDeRitmo({ ...base, canal: 'instagram', personas: 0, goteo: { minutos: 5 }, porEvento: true, horario: null })!.texto, 'No tiene horario: sale también de noche.');
+  assert.match(avisoDeRitmo({ ...base, canal: 'instagram', personas: 0, goteo: null, porEvento: true, horario: null })!.texto, /salen todos juntos\. Tampoco tiene horario: sale también de noche\.$/);
+  // No se pudo leer: no afirma nada. Queda para aprobar: no sale de noche. Sin nada que avisar, no inventa.
+  assert.doesNotMatch(avisoDeRitmo({ ...base, personas: 200, goteo: null })!.texto, /horario|Sale de/);
+  assert.equal(avisoDeRitmo({ ...base, personas: 200, goteo: null }) !.sinHorario, false);
+  assert.doesNotMatch(avisoDeRitmo({ ...base, personas: 200, goteo: null, quedaParaAprobar: true, horario: null })!.texto, /horario/);
+  assert.equal(avisoDeRitmo({ ...base, personas: 1, goteo: { minutos: 5 }, horario: null }), null);
+  assert.equal(avisoDeRitmo({ ...base, personas: 0, goteo: { minutos: 5 }, porEvento: true, horario: H }), null);
+  assert.equal(avisoDeRitmo({ ...base, canal: null, personas: 0, goteo: null, porEvento: true, horario: null }), null);
+});
+
+test('«Prospección: apertura» nace con horario y goteo: la plantilla de escribir en frío no sale de noche ni de a 6 juntos', async () => {
+  const db = {
+    from: () => ({
+      select: () => ({ is: async () => ({ data: [], error: null }) }),
+      insert: () => ({ select: () => ({ single: async () => ({ data: { id: 900 }, error: null }) }) }),
+      delete: () => ({ eq: async () => ({ data: null, error: null }) }),
+    }),
+  } as unknown as DbPlantilla;
+  const puestos: Array<[number, unknown]> = [];
+  const deps = { db, setPasos: async () => {}, setDisparadores: async () => {} };
+  const r = await crearDesdePlantilla('prospeccion-apertura', { ...deps, setConfig: async (id, c) => { puestos.push([id, c]); return { ok: true }; } });
+  assert.equal(r.aviso, null);
+  assert.equal(puestos.length, 1);
+  assert.equal(puestos[0][0], 900);
+  const c = puestos[0][1] as { horario: { activo: boolean; desde: number; hasta: number }; goteo: { minutos: number; dia: number } };
+  assert.deepEqual([c.horario.activo, c.horario.desde, c.horario.hasta], [true, 9, 21]);
+  assert.deepEqual(c.goteo, { minutos: 10, dia: 30 });
+  assert.equal(configParaGuardar({}, c).ok, true, 'lo que trae la plantilla pasa por el mismo saneador que la pantalla');
+  // No poder ponerlo se dice, no se calla; y una que no trae ritmo no escribe nada.
+  assert.match((await crearDesdePlantilla('prospeccion-apertura', { ...deps, setConfig: async () => ({ ok: false }) })).aviso!, /No pude ponerle horario y goteo/);
+  assert.match((await crearDesdePlantilla('prospeccion-apertura', { ...deps, setConfig: async () => { throw new Error('x'); } })).aviso!, /No pude ponerle horario y goteo/);
+  assert.match((await crearDesdePlantilla('prospeccion-apertura', deps)).aviso!, /No pude ponerle horario y goteo/, 'un llamador que no lo enchufa no la deja nacer callada');
+  const antes = puestos.length;
+  await crearDesdePlantilla('lead-agendo', { ...deps, setConfig: async (id, x) => { puestos.push([id, x]); return { ok: true }; } });
+  assert.equal(puestos.length, antes);
+  assert.match(leer('app/api/chat-agent/secuencias/route.ts'), /setConfig: guardarConfigAutomatizacion,/);
+  assert.match(leer('lib/api-mako/areas/chatbot.run.ts'), /setConfig: guardarConfigAutomatizacion,/);
+  assert.match(leer('lib/sugerencias-crm-server.ts'), /setConfig: guardarConfigAutomatizacion,/);
+});
+
+test('una ya prendida: la misma frase, en su pantalla y en su tarjeta; nunca le toca el goteo', () => {
+  const ig = [{ id: 'dm', canal: 'instagram', tipo: 'texto', cuerpo: 'hola' }] as unknown as PasoGrafo[];
+  const de = { pasos: ig, triggers: ['instagram'], envioAutomatico: false, topes: TOPES };
+  assert.deepEqual(avisoDeUnaPrendida({ ...de, goteo: null }), { texto: 'No tiene goteo: cuando muchos la disparen, los mensajes de Instagram salen todos juntos.', rotulo: 'Sin goteo' });
+  assert.deepEqual(avisoDeUnaPrendida({ ...de, goteo: { minutos: 5 }, horario: null }), { texto: 'No tiene horario: sale también de noche.', rotulo: 'Sin horario' });
+  assert.equal(avisoDeUnaPrendida({ ...de, goteo: null, horario: null })?.rotulo, 'Sin goteo ni horario');
+  assert.equal(avisoDeUnaPrendida({ ...de, goteo: { minutos: 5 } }), null, 'con goteo no hay nada que decir');
+  assert.equal(avisoDeUnaPrendida({ ...de, triggers: ['aviso_mako'], goteo: null }), null, 'le escribe al equipo, no a leads');
+  assert.equal(avisoDeUnaPrendida({ ...de, triggers: ['grupo_mako'], goteo: null }), null);
+  assert.equal(avisoDeUnaPrendida({ ...de, pasos: [{ id: 'c', nodo: 'condicion' }] as unknown as PasoGrafo[], goteo: null }), null, 'sin mensajes');
+  // Lo que escribe la IA y no sale solo queda para aprobar: no se va de golpe.
+  const ia = [{ id: 'dm', canal: 'instagram', tipo: 'ia', cuerpo: 'x' }] as unknown as PasoGrafo[];
+  assert.equal(avisoDeUnaPrendida({ ...de, pasos: ia, goteo: null }), null);
+  assert.match(avisoDeUnaPrendida({ ...de, pasos: ia, envioAutomatico: true, goteo: null })!.texto, /^No tiene goteo/);
+});
+
+test('el cableado de las prendidas: se muestra sólo si está prendida, y sin poder leer no afirma nada', () => {
+  const n = leer('lib/nutricion.ts');
+  assert.match(n, /console\.error\(`\[nutricion\] los avisos de ritmo: \$\{e instanceof Error \? e\.message : String\(e\)\}`\);\n\s+out\.clear\(\);/);
+  assert.match(leer('lib/setting-secuencias.ts'), /aviso_ritmo: avisosRitmo\.get\(s\.id\) \?\? null,/);
+  const p = leer('app/automations/SecuenciaPerfil.tsx');
+  assert.match(p, /\{activa && secuencia\.aviso_ritmo && \(/, 'lo ve quien ve la automatización, como en el teléfono');
+  assert.match(p, /disabled=\{!rolAdmin \|\| !Configuraciones\}/, 'ponerlo, sólo el admin');
+  assert.match(p, /alCerrarConfig\.current = \(\) => \{ if \(secuencia\.aviso_ritmo\) onCambio\(\); \};/, 'al ponerle goteo u horario, el aviso se va');
+  assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /aviso=\{j\.activa \? j\.aviso_ritmo \?\? undefined : undefined\}/);
+  const m = leer('app/m/automations/AutomationsM.tsx');
+  assert.match(m, /e\.activa && x\.avisoRitmo \? <PildoraM tono="warn">\{x\.avisoRitmo\.rotulo\}<\/PildoraM>/);
+  assert.match(m, /\{a\?\.avisoRitmo && v\?\.activa && </);
+  // Avisar no es cambiar: nada de esto escribe la configuración de una automatización.
+  const f = n.slice(n.indexOf('export async function avisosDeRitmo'), n.indexOf('export async function incluirExistentes'));
+  assert.doesNotMatch(f, /guardarConfigAutomatizacion|\.update\(|\.upsert\(|\.insert\(/);
+});
+
 test('el canal es el del primer mensaje que le sale, no el del primero del array', () => {
   const pasos = [
     { id: 'tarde', canal: 'email', tipo: 'texto', cuerpo: 'después' },
@@ -104,8 +200,8 @@ test('el cableado: el motor cuenta con la misma puerta del barrido, y las cuatro
   assert.match(f, /if \(!barridoInscribe\(vista\) \|\| !barreElDisparador\(vista\)\) continue;/);
   assert.match(f, /await aInscribir\(supabase, vista, candidatos\)/);
   assert.match(f, /porEvento: vistasPorDisparador\(sec\)\.some\(\(v\) => TRIGGERS_SOLO_EVENTO\.has\(v\.trigger_tipo\) && v\.trigger_tipo !== TRIGGER_AVISO_MAKO\)/);
-  assert.match(f, /quedaParaAprobar: canal !== 'email' && !!primero && !saleSolo\(primero, sec\.envio_automatico\)/);
-  assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /if \(a\.sinGoteo\) setConfigDe\(\{ id: a\.j\.id, nombre: a\.j\.nombre \}\);/);
+  assert.match(f, /quedaParaAprobar: primeroQuedaParaAprobar\(sec\.pasos, sec\.envio_automatico\)/);
+  assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /if \(a\.poner\) setConfigDe\(\{ id: a\.j\.id, nombre: a\.j\.nombre \}\);/);
   assert.match(leer('app/api/whatsapp/secuencias/route.ts'), /ritmo: await ritmoAlActivar\(id, \{ incluirExistentes: req\.nextUrl\.searchParams\.get\('incluir'\) === '1' \}\)/);
   assert.match(leer('app/automations/SecuenciaPerfil.tsx'), /conExistentes\(\(\) => void conRitmo\(\(\) => void toggle\(\)\)\)/);
   assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinRitmo\) \{/);
@@ -122,5 +218,10 @@ test('el cableado: el motor cuenta con la misma puerta del barrido, y las cuatro
 // Por evento y para aprobar (base 11 / 0): una por evento vuelve a callar, avisa con goteo, avisa lo que queda para aprobar, lo que queda
 // para aprobar dice que sale, no poder contar dice «salen juntos» aunque se apruebe, el aviso de MaKo cuenta como evento, el motor no
 // le pasa lo de aprobar, el «⋯» no ofrece poner goteo → 10 / 1 cada una.
+// Las prendidas, el horario y la plantilla (base 15 / 0), 23 roturas, todas en rojo, una por vez: no dice que falta el horario, lo dice si
+// queda para aprobar, toma «no se pudo leer» como «no tiene» (5 / 10), no dice entre qué horas, no ofrece ponerlo, el rótulo no lo dice, por
+// evento con goteo calla, la plantilla nace sin ritmo, no poder ponerlo se calla o tumba la creación, la ruta, la API o las sugerencias no lo
+// enchufan, la prendida no avisa o avisa las del equipo, un error afirma a medias, el motor escribe al avisar, la pantalla lo muestra
+// pausada o lo esconde a quien no es admin, ponerle goteo no relee, la tarjeta o el teléfono lo esconden, «Poner…» no abre Configuraciones.
 // CON EL DATO REAL (30/10, sólo lectura): de 37 pausadas de producción, 11 dirían algo (9 con número, de 2 a 34 personas; 2 de Instagram
 // sin número). Las 7 activas de Instagram tampoco tienen goteo. Ninguna de las medidas queda para aprobar: ese texto no se vio con un caso real.

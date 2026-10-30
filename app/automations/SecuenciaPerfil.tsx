@@ -800,7 +800,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const incluirExistentes = useRef(false);
   const entranAlActivar = useRef(0);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
-  const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
+  // Al cerrar se relee: si le pusieron goteo u horario, el aviso ya no es cierto. Sólo si lo decía, y con la identidad fija del `onCerrar`.
+  const alCerrarConfig = useRef<() => void>(() => {});
+  alCerrarConfig.current = () => { if (secuencia.aviso_ritmo) onCambio(); };
+  const cerrarConfig = useCallback(() => { setConfigAbierta(false); alCerrarConfig.current(); }, []);
   /**
    * EL CRON ABIERTO AL ENTRAR (`cronAlAbrir`, #882, 17/10/2026): una plantilla que arranca en una etapa se crea AL INSTANTE,
    * sin la pregunta del modal, y la etapa se elige acá. En el flanco y al dibujar: abre la tarjeta CRON (`foco`) y su
@@ -1296,12 +1299,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 onCancel={() => { const s = avisoExistentes.seguir; setAvisoExistentes(null); s(); }} />
             )}
 
-            {/* Sin goteo, «Poner goteo» abre Configuraciones y NO la prende: cerrar el aviso nunca manda nada. */}
+            {/* «Poner goteo», «Poner horario»: abre Configuraciones y NO la prende. Cerrar el aviso nunca manda nada. */}
             {avisoRitmo && (
-              <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.sinGoteo ? 'Activar igual' : 'Activar'}
-                cancelLabel={avisoRitmo.sinGoteo && Configuraciones ? 'Poner goteo' : 'Cancelar'} tone="primary"
+              <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.poner ? 'Activar igual' : 'Activar'}
+                cancelLabel={avisoRitmo.poner && Configuraciones ? avisoRitmo.poner : 'Cancelar'} tone="primary"
                 onConfirm={() => { const s = avisoRitmo.seguir; setAvisoRitmo(null); s(); }}
-                onCancel={() => { const abrir = avisoRitmo.sinGoteo && !!Configuraciones; setAvisoRitmo(null); if (abrir) setConfigAbierta(true); }} />
+                onCancel={() => { const abrir = !!avisoRitmo.poner && !!Configuraciones; setAvisoRitmo(null); if (abrir) setConfigAbierta(true); }} />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
@@ -1459,6 +1462,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
               <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
                 {avisoDuplicada(dupActiva)}
               </span>
+            )}
+            {/* LA QUE YA ESTÁ PRENDIDA SIN GOTEO O SIN HORARIO (30/10/2026, lib/ritmo-al-activar.ts): se dice, no se la frena ni se la cambia. Lo ve
+                quien ve la automatización, como en el teléfono (un setter no lo arregla, pero puede avisar). Ponerlo, sólo el admin. */}
+            {activa && secuencia.aviso_ritmo && (
+              <button type="button" data-sin-goteo="" disabled={!rolAdmin || !Configuraciones} onClick={() => setConfigAbierta(true)} title={rolAdmin ? 'Abrir Configuraciones' : undefined}
+                style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, textAlign: 'left', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35, cursor: rolAdmin && Configuraciones ? 'pointer' : 'default' }}>
+                {secuencia.aviso_ritmo.texto}
+              </button>
             )}
             {porAprobar && (
               <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}

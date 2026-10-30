@@ -784,6 +784,7 @@ export const RUNNERS: Runners = {
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          setConfig: guardarConfigAutomatizacion,
           plataforma: await esWsPlataforma(ctx.ws),
         }, { disparador: payload.disparador ?? undefined });
         // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).
