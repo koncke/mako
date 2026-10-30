@@ -3,8 +3,8 @@
 Se miró hola-mako.com en el Chrome de Martín, con su sesión de super admin, sin guardar ni publicar nada. Hubo dos vueltas: la
 primera (claude3, 8 de 22 pantallas, su texto entero al pie) y la segunda (claude1, chat «Landings de MaKo en Web Generator»).
 
-**Estado: A MEDIAS.** Se vio la primera pantalla de las 14 que faltaban, más Ops Center, Chats y Second Brain, y cada hallazgo
-se verificó en el código o la base. Chrome se reinició a las 15:19 y volvió con la sesión de otro usuario, así que falta:
+**Estado: A MEDIAS.** Se vio la primera pantalla de las 14 que faltaban, más Ops Center, Chats y Second Brain. Lo que trae archivo en la
+tabla se leyó en el código; lo marcado «1.ª vuelta» se vio en pantalla y no se volvió a mirar. Chrome se reinició a las 15:19 y volvió con la sesión de otro usuario, así que falta:
 
 - las pestañas internas: Plan (Tareas, Proyectos, Recurrentes), Classroom (Community, Calendar, Members, Leaderboards, About,
   Methodology), Customers (Accounts, Billing, Agents), Settings (Perfil, Seguridad, Notificaciones, Instalar la app, Identidades
@@ -20,9 +20,9 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | Chat dueño | # | Sev. | Dónde | Qué pasa | Dónde vive / verificado |
 |---|---|---|---|---|---|
 | **Ads Manager** | AD1 | **A** | Ads Manager, «Hoy» | Dice «Hoy no hay cambios. Todo anda dentro de tu objetivo» sobre una cuenta con 0 campañas y $0 gastados (la pestaña Campañas sí lo dice bien). | app/ads-manager/MediaBuyer.tsx:276-277 y app/m/ads/MediaBuyerM.tsx:84-85: sólo mira `hoy.length` y `config.encendido`. Leído en el código. |
-| Ads Manager | AD2 | B | Ads Manager | Dos entradas a MaKo a la vista: la caja del centro y el botón de la estrella. | — |
+| Ads Manager | AD2 | B | Ads Manager | Dos entradas a MaKo a la vista: la caja del centro y el botón de la estrella. | Sólo visto en pantalla |
 | **Create** (el shell) | CR1 | M | Video, Image (las primeras 7), Offer | Plantillas con un rectángulo vacío y las medidas. Regla de Martín del 29/10: «No pueden haber miniaturas en blanco». | app/_crear/reglas.ts:49 (`el marco vacío`), app/_crear/TarjetaPlantilla.tsx |
-| Create / Offer | OF1 | M | Offer | Dos plantillas se llaman igual, «Crear una oferta nueva»: lo que las distingue es un texto chiquito adentro del cuadro. | — |
+| Create / Offer | OF1 | M | Offer | Dos plantillas se llaman igual, «Crear una oferta nueva»: lo que las distingue es un texto chiquito adentro del cuadro. | app/offer/arbol.ts:242: una por funnel, con el mismo `nombre` y el funnel en `rotulo` |
 | **AI Avatar** | AV1 | M | AI Avatar | 26 de 28 presets sin imagen: sólo un fondo de color (misma regla). | lib/ai-avatar/plantillas.ts: 2 `ejemplo:` en 28 `id:`. Contado. |
 | AI Avatar | AV2 | M | AI Avatar | «Antes de generar» y la barra quedan fijos tapando casi la mitad de la pantalla, sin cerrarse, encima de los presets. | app/ai-avatar/Estudio.tsx (`hf-barra-*`) |
 | **Sidebar** | U3 | M | Barra lateral, en todas las pantallas | A esta altura (730-811 px) el último ítem queda cortado detrás del avatar. Estando en AI Avatar o Copywriting, el activo no se ve. | app/_components/Sidebar.tsx; a confirmar si el ítem activo hace scroll hasta verse |
@@ -44,10 +44,10 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | **Ops Center** | O1 | B | `/` con sesión | Muestra la landing pública. A confirmar si es a propósito. | 1.ª vuelta |
 | Ops Center | SB1 | B | Second Brain | El chat se llama MaKo y la caja dice «Escribe a Chat nuevo». | app/admin/operaciones/Conversacion.tsx:245 (`Escribe a ${chat.titulo}`) |
 | **Chats** | CH2 | B | /chats sin elegir | Dos paneles vacíos que dicen lo mismo; el filtro «Etapa» cae solo a un 2.º renglón. | app/chats/ChatsApp.tsx:507, PanelContacto.tsx:92 |
-| **Settings** | EQ1 | B | Equipo | «0 personas» y abajo «Todavía eres el único»; dos botones Invitar. | — |
+| **Settings** | EQ1 | B | Equipo | «0 personas» y abajo «Todavía eres el único»; dos botones Invitar. | app/equipo/EquipoView.tsx:168 |
 | **Customers** | CU1 | B | «Clientes» | Las cuentas de prueba (Prueba real, Cliente de Diseño, Cliente de Prueba) cuentan como clientes. | lib/clientes-plataforma-reglas.ts |
 | Customers | CU2 | B | Arriba | «Nuevos en 30 días» no cuenta a los clientes de agencia y «Para mirar» sí: dos alcances sin aclarar. | lib/clientes-plataforma-reglas.ts:254 y :165 |
-| **API** | AP1 | B | Índice | «Chatbot y secuencias» y «Ads (Manager y Analyst)»: nombres viejos. | — |
+| **API** | AP1 | B | Índice | «Chatbot y secuencias» y «Ads (Manager y Analyst)»: nombres viejos. | lib/api-mako/tipos.ts:46 y :54 (también salen en docs/api-mako.md) |
 | **Web Generator** (este chat) | W1 | B | `/`, reproductor | El cartel «Continuar viendo» queda encima del título del video. | 1.ª vuelta |
 | Web Generator (este chat) | W2 | **A** | Landing copiada | Las 27 imágenes de una landing copiada daban 404. **Arreglado en esta rama, falta correr sus tests** (abajo). | lib/landing-fetch.ts, lib/editor-landing/replicar-reglas.ts |
 | Iniciativa (T4 a T8) | CH1 | M | Video, Image, AI Avatar | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo. **No es un bug suelto:** es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17) y su apertura es la tanda T4 de docs/mako-iniciativa/plan.md. | No repartir aparte |
