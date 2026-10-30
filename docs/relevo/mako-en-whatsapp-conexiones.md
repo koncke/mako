@@ -41,8 +41,14 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
   bajas», sin ALTA.** Pidió dos cosas, hechas en fa0ad711a: N1, el «hazlo» del delegado sólo con una lista CERRADA de lo seguro
   (`DELEGADO_SEGURO`; las 23 frases de la re-verificación van a Martín), y N2, lo del Cerebro filtrado también en el bloque del turno
   y en /tickets (más «Nombre Apellido» en `sinLoInterno`). Roturas D38–D42. Cosecha en hallazgos-ticketera y hallazgos-comunicacion.
-  NO tocar (lo decide Martín, N3): pausar o prender campañas desde el grupo lo pide cualquiera (`rol: 'admin'` fijo). Cuando
-  Integración tenga el sha con la verificación, va en el tren-ai.
+  NO tocar (lo decide Martín, N3): pausar o prender campañas desde el grupo lo pide cualquiera (`rol: 'admin'` fijo). Integración
+  recibió cc2aaa6ce con los tests afectados VERDES (4515): va en el tren-ai.
+- **El ticket #35 (Código Inmobiliario, ws13, 30/10, pedido del Cerebro): 8319854ec.** «La reunión es a las 11 y MaKo dice 10». La
+  base estaba bien; `resumenLead` (lib/mako-tools.ts) pasaba sólo `fecha_junta_1` (un DATE) y el modelo completaba «10:00». Ahora
+  `horasDeLasReuniones` (lib/mako-ficha-lead.ts) lleva la hora en la zona del negocio, o la nota de que no hay. Test con los datos
+  reales y 2 roturas cazadas; hito en mako-doer con `tickets: [35]`; cosecha en docs/hallazgos-ia.md. FALTA al escribir esto: el
+  tsc y los tests afectados (corriendo en `C:/dev/verif-8319854ec`: sacarlo con `cmd /c rmdir` del junction primero) y mandarle el
+  sha al Cerebro (local_428051c1-…). Sin escrituras en producción (sólo se leyó la base).
 - **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
   mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
   `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
