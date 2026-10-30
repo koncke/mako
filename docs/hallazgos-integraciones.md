@@ -2484,4 +2484,11 @@ volvió a su chat. El informe está en `C:/dev/revisiones/2910-revision-privacid
   - El 2.º Instagram no cruza negocios.
 - **Sin hacer (B4):** los negocios con la cuenta prestada nunca se barren, porque el cron sólo recorre los que tienen clave
   guardada. El interruptor `zernio.cuenta_de_la_plataforma` queda APAGADO hasta que el filtro en memoria esté.
-
+- **La re-verificación de `da3cff9f7`** (Integración, 30/10) dio «entra con bajas»: M1 a M4 están y funcionan. Se corrieron las
+  pruebas viejas contra la punta nueva, y `noTocarExistente` no cambia nada para el webhook ni para el poll de Meta. Quedan abiertos:
+  - **N4 (B1 a medias):** un lead sin fecha pasa el `since` (`lib/zernio-leads-barrido.ts`).
+  - **N3:** a la persona que ya era lead y perdió su webhook, el barrido no le guarda nada (respuestas, campaña, embudo) y la
+    cuenta como «ya estaban». No es una regresión contra main.
+  - **N5 y N6 (sospechas, dependen de Zernio):** una cuenta que vuelve sin `profileId` pasa el filtro, y un id de cuenta en otra
+    forma deja el barrido en cero sin que el log lo diga.
+  - El interruptor `zernio.cuenta_de_la_plataforma` sigue apagado.

@@ -471,4 +471,12 @@ eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregl
   - Corregir, sacarle la regla o borrar el molde no cambia las hasta 3 veces ya nacidas.
   - Sospecha, sin medir: si Zernio contesta 409 por contenido repetido, todas las veces quedan con el mismo post, y cancelar una
     cancela las otras (`lib/zernio-publicar.ts`).
-
+- **La re-verificación de `da3cff9f7`** (Integración, 30/10, `C:/dev/revisiones/2910-reverificacion-zernio-leads-da3cff9f7.md`, con
+  pruebas en `2910-reverif-zernio-pruebas/`) dio «entra con bajas»: A1, A2, M5 y M6 están y funcionan. **La 0349 sigue sin
+  aplicarse** por esto:
+  - ⚠️ **N1: el A2 vuelve por «Deshacer».** Al deshacer el borrado de una vez de la serie, `restaurarEvento`
+    (`lib/calendario.ts`) la devuelve sin `serie_de`. «Repetir» la acepta, el check de la base no la frena, y salen dos posts
+    por día. **Regla:** lo que restaura una fila restaura TODAS sus columnas, no las que conocía cuando se escribió.
+  - **N8:** el «Deshacer» del molde puede hacer renacer veces borradas.
+  - **N7:** borrar el molde no avisa que lo ya programado sale igual.
+  - **N2 (sospecha):** un 409 de Zernio por contenido publica DE MENOS en una serie diaria. Nunca publica dos veces.

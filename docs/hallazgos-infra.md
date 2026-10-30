@@ -9294,3 +9294,19 @@ código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esa
   etiquetar y borrar.
 - **Vive en:** las herramientas de la sesión del Cerebro (no es código de MaKo). La cosecha: docs/conocimiento/patrones-email.md.
 
+## Un número por migración, y el push que falla por RAM le regala la RAM a los demás (30/10/2026, Integración)
+
+- **Ninguna guarda veía dos migraciones con el mismo número.** El 0340 doble (`leads_papelera` en main e
+  `image_editor_propuestas` en `motion-imagen-2610`) lo vio un chat al leerlo. Ahora lo frena
+  `tests/migraciones-numero-unico.test.ts`, que corre sobre el árbol del TREN: ve el choque entre una rama y main, o entre dos
+  ramas del mismo tren. Los 13 repetidos viejos (de la 0024 a la 0223) ya están aplicados con esos nombres y quedan congelados.
+  **Regla:** el número lo confirma el tren, no el chat que eligió «el próximo libre» esa mañana.
+- ⚠️ **Un push que falla por RAM suelta los lugares y la pausa, y en ese segundo los pesados de los chats toman la memoria.**
+  - El 30/10 a las 00:54 el tren-af se rindió con 1,58 GB libres, porque las tandas piden 5,2. En el acto arrancaron un tsc de
+    2 GB y tests de otros dos chats: quedaron 1,24 GB.
+  - El reintento con `SUBIR_UN_LUGAR=1` se rindió a los 2 minutos sin lugar de tests.
+  - Lo que sirvió: `subir-tren.mjs` SIN un lugar (espera los dos), con la pausa prendida. Los lugares tardaron 2 minutos, y
+    con lo que estaba corriendo terminado hubo 5,68 GB. Subió a las 01:11.
+  - **Regla:** cuando el push falla por RAM, el reintento va enseguida y esperando los dos lugares. El Cerebro frena sus
+    workflows mientras tanto.
+  - **Sin hacer:** que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM.
