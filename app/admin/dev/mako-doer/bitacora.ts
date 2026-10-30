@@ -791,4 +791,20 @@ export const BITACORA: Hito[] = [
       'tests/despacho-grupo.test.ts (13–15) y tests/clase-del-grupo.test.ts (11, por el turno real)',
     ],
   },
+  {
+    fecha: '30 oct', hora: '10:30', chat: 'MaKo en WhatsApp', sesion: 'local_cf058ed5-4fbb-41b8-b1f9-93030d11d1a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te dice la hora real de las reuniones de tus leads',
+    tickets: [35],
+    puntos: [
+      'Cuando le pides a MaKo la fecha y el horario de la reunión de un lead, ahora te dice la hora que está agendada, en tu zona horaria. Antes te decía «a las 10:00» aunque fuera a otra hora.',
+      'Si una reunión tiene el día pero no la hora, MaKo te dice el día y que no tiene la hora: no la inventa.',
+      '**Cómo se prueba:** en el grupo, «pásame la fecha y horario de la reunión de <un lead agendado>»: tiene que decir la hora de su ficha.',
+    ],
+    archivos: [
+      'lib/mako-ficha-lead.ts — `horasDeLasReuniones`: la hora de la R1 y la R2 en la zona del negocio',
+      'lib/mako-tools.ts — `resumenLead` (buscar_leads y ficha_lead) la lleva',
+      'tests/mako-ficha-lead.test.ts — con los datos reales del ticket',
+    ],
+  },
 ];

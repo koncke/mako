@@ -4,6 +4,21 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «La reunión es a las 11 y MaKo dice 10»: la ficha que lee MaKo no traía la hora (30/10/2026, el ticket #35, claude3)
+
+**Vive en:** `horasDeLasReuniones` / `horaEnLaZona` (lib/mako-ficha-lead.ts) · `resumenLead` (lib/mako-tools.ts: `buscar_leads` y
+`ficha_lead`).
+
+- **El síntoma:** Código Inmobiliario (ws13) le pidió a MaKo en su grupo «la fecha, horario y datos de contacto» de dos leads, y las
+  dos salieron «a las 10:00»; eran a las 11 y a las 15.
+- ⚠️ **El diagnóstico obvio era el equivocado.** 11 → 10 parece la zona horaria, pero 15 → 10 no. La base estaba BIEN (`junta_1_at`
+  14:00Z y 18:00Z, la zona del negocio Buenos Aires). `fecha_junta_1` es un DATE (sólo el día) y la hora vive en `junta_1_at`;
+  `resumenLead` pasaba sólo el día, y el modelo completaba «10:00» (el ejemplo de hora de varias herramientas es «10:00»). La
+  herramienta de las reuniones (`reuniones`) ya ponía la hora en la zona del negocio; la ficha no.
+- **Por qué no lo frenó la red:** `numerosSinFuente` (lib/doer-salida.ts) no mira las HORAS a propósito (en las herramientas van en
+  UTC y el modelo las pasa a la zona), así que una hora inventada sale. **La regla:** todo dato con hora que se le pasa al modelo va
+  YA en la zona del negocio, y si no hay hora, una nota de que no hay; un DATE solo, al lado de «fecha y horario», se completa.
+
 ## El buscador de conocimiento sin Gemini: con la IA del negocio, o por palabras (25/10/2026)
 
 El Cerebro, 25/10/2026, cerrando la excepción que había quedado abierta (abajo, «Ningún cartel le ofrece Gemini»): «Embebe
