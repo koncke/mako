@@ -65,4 +65,9 @@ test('lo único prescindible es el deslizador del zoom: − y + hacen lo mismo',
   assert.match(leer('app/video-editor/ce/ranuras.ts'), /prescindible\?: boolean;/);
 });
 
-// Roturas (30/10/2026, base 3/0): corriendo por con-turno; los resultados van en el commit siguiente.
+// Roturas (30/10/2026, base 3/0), cada una sola y restaurada con su copia, por con-turno; cada una 2/1:
+// · L1 lo prescindible entra desde 900 (los umbrales) · L2 la barra no se parte · L3 lo prescindible no se esconde ·
+//   L4 alto fijo · L5 la derecha partida queda a la izquierda (la barra se parte) · L6 el deslizador deja de ser
+//   prescindible (lo único prescindible).
+// · L2 en el banco: a 864 y 688 px SIGUE entrando, porque cada lado también se parte (la segunda red). El test la frena
+//   igual: sin la primera, la derecha ya no baja entera a su fila.
