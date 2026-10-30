@@ -56,4 +56,7 @@ test('la pantalla mide el grupo y le pasa los mínimos a los tres paneles; el r�
   assert.match(detalles, /<span className="w-\[168px\] max-w-\[45%\] shrink-0 text-\[12\.5px\] leading-snug text-\(--cc-text-3\)">/);
 });
 
-// Roturas (30/10/2026, base 3/0): corriendo por con-turno; los resultados van en el commit siguiente.
+// Roturas (30/10/2026, base 3/0), cada una sola y restaurada con su copia, por con-turno:
+// · P1 la biblioteca con mínimo de 200 px → 1/2 (los píxeles y el que no entra).
+// · P2 sin achicarse cuando no suman → 2/1 · P5 sin el piso de antes → 2/1 (los píxeles).
+// · P3 la biblioteca vuelve a 15 % fijo → 2/1 · P4 el rótulo vuelve a cortarse → 2/1 (la pantalla).
