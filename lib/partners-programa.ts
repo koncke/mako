@@ -43,6 +43,16 @@ const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
 /** El precio de lista por mes de un plan del catálogo (null = no es un plan conocido). */
 const listaDe = (plan: string): number | null => PLANES_MAKO_DEFAULT.find((p) => p.id === plan)?.precioUsd ?? null;
 const nombreDelPlan = (plan: string | null | undefined): string | null => (plan ? PLANES_MAKO_DEFAULT.find((p) => p.id === plan)?.nombre ?? null : null);
+/**
+ * La compra con SU plan de lista: el anotado (`plan_mako`) o, si no lo tiene (la venta a mano de /admin/cobros), el MÁS BARATO de
+ * la capa que se vendió (`alta_capa`). Sin esto se acreditaba lo cobrado: un pago único de US$1.500 o un precio especial, entero
+ * (revisión de plata del 29/10/2026, hallazgo 6). Así un partner nunca gana más que la lista.
+ */
+function conPlanDeLista<T extends { plan_mako: string | null; alta_capa?: string | null }>(c: T): T {
+  if (c.plan_mako || !c.alta_capa) return c;
+  const plan = PLANES_MAKO_DEFAULT.filter((p) => p.capa === c.alta_capa).sort((a, b) => a.precioUsd - b.precioUsd)[0];
+  return plan ? { ...c, plan_mako: plan.id } : c;
+}
 
 /** El código del negocio: el que tiene, o uno nuevo (único) a partir de su nombre. null si no se pudo (sin la mig 0330). */
 export async function codigoDe(ws: number): Promise<string | null> {
@@ -267,7 +277,7 @@ export type Tablero = {
   pagos: Array<{ fecha: string; montoUsd: number; nota: string | null }>;
 };
 
-type CompraConCodigo = { alta_ws: number; monto_usd: number | null; plan_mako: string | null; meses?: number | null; created_at: string };
+type CompraConCodigo = { alta_ws: number; monto_usd: number | null; plan_mako: string | null; alta_capa?: string | null; meses?: number | null; created_at: string };
 
 /**
  * La compra que TRAJO al negocio (filtro de PostgREST): la que creó la cuenta (alta 'hecha') o el cobro de «Empezar mi plan
@@ -279,7 +289,7 @@ const COMPRA_QUE_TRAJO = 'alta_estado.eq.hecha,creado_por.like.empezar-ya:*';
 
 /** Los cobros de la plataforma comprados con ESTOS códigos (el actual y los que dejó), ya con su negocio (los referidos). */
 async function comprasConCodigo(plataforma: number, codigos: readonly string[]): Promise<CompraConCodigo[]> {
-  const { data, error } = await getSupabaseServer().from('cobros').select('alta_ws, monto_usd, plan_mako, meses, created_at')
+  const { data, error } = await getSupabaseServer().from('cobros').select('alta_ws, monto_usd, plan_mako, alta_capa, meses, created_at')
     .eq('workspace_id', plataforma).in('ref_codigo', [...codigos]).eq('alta_estado', 'hecha').not('alta_ws', 'is', null).order('created_at', { ascending: true }).limit(500);
   if (error) throw new Error(`No pude leer los referidos: ${error.message}`);
   return (data ?? []) as CompraConCodigo[];
@@ -335,7 +345,7 @@ export async function tableroDe(ws: number): Promise<Tablero> {
       const m = meses.get(rws) ?? 0;
       const w = filas.get(rws);
       const c = porWs.get(rws)!;
-      const precio = precioDeListaPorMes(c, listaDe);
+      const precio = precioDeListaPorMes(conPlanDeLista(c), listaDe);
       return {
         ws: rws, nombre: w?.nombre ?? 'Un negocio', desde: c.created_at, mesesPagados: m, plan: nombreDelPlan(c.plan_mako),
         gananciaUsd: precio != null ? gananciaDelReferido(precio) : null,
@@ -483,7 +493,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
   const out = { vistos: 0, atados: 0, acreditados: 0 };
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
-  const { data, error } = await db.from('cobros').select('alta_ws, ref_codigo, monto_usd, plan_mako, meses, created_at')
+  const { data, error } = await db.from('cobros').select('alta_ws, ref_codigo, monto_usd, plan_mako, alta_capa, meses, created_at')
     // Sólo clientes NUEVOS (docs/referidos.md): la compra que CREÓ la cuenta (alta hecha), nunca la de quien ya la tenía; o
     // la de «Empezar mi plan ya», que reemplaza a esa prueba con su mismo código (`COMPRA_QUE_TRAJO`, 25/10/2026).
     .eq('workspace_id', plataforma).not('ref_codigo', 'is', null).not('alta_ws', 'is', null).or(COMPRA_QUE_TRAJO)
@@ -493,7 +503,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
   const primero = new Map<number, { codigo: string; precio: number | null }>();
   for (const c of (data ?? []) as Array<CompraConCodigo & { ref_codigo: string }>) {
     // El precio de LISTA por mes de su plan: un anual cobra el año, y lo que se gana es su primer mes (`precioDeListaPorMes`).
-    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo, precio: precioDeListaPorMes(c, listaDe) });
+    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo, precio: precioDeListaPorMes(conPlanDeLista(c), listaDe) });
   }
   const meses = await mesesPagadosDe(plataforma, [...primero.keys()]).catch(() => new Map<number, number>());
   for (const [referido, { codigo, precio }] of primero) {

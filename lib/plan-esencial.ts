@@ -33,6 +33,9 @@ export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promi
       .order('pagado_at', { ascending: false, nullsFirst: false }).order('id', { ascending: false }).limit(1).maybeSingle();
     if (error) throw new Error(error.message);
     let capaVendida = (data as { alta_capa?: string | null } | null)?.alta_capa ?? null;
+    // Una suscripción propia SIN `alta_capa` (la que se le pasó al cliente al soltarlo su agencia, o su primer plan propio:
+    // lib/agencia-baja.ts, lib/compra-plan.ts → primerPlanPropio): su plan es su capa (segunda pasada, hallazgo B).
+    if (!capaVendida && data) capaVendida = capa ?? null;
     // LA CUENTA DE UNA AGENCIA (29/10/2026, revisión de plata, hallazgo 4): la paga su agencia, no tiene suscripción propia, y
     // su plan ES su capa (lib/agencia-cobro-reglas.ts, `CAPA_DE_PLAN`). Sin esto, el Esencial de US$47 tenía las tabs de Pro,
     // las automatizaciones sin tope, el piloto automático y el scraper. La misma cartera que `aplicanTopes` (lib/topes-plan-server.ts).

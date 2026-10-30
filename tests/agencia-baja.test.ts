@@ -24,13 +24,15 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
-test('el orden: primero dejar de cobrar, después la cartera, después la pausa y el aviso', () => {
+// ⚠️ 29/10/2026, segunda pasada de la revisión de plata: la pausa (y su corte) va ANTES de revocar, para que una falla se
+// reintente entera (revocada primero, el reintento contestaba «ya estaba» y la cuenta quedaba gratis).
+test('el orden: primero dejar de cobrar, después la pausa, después la cartera y el aviso', () => {
   const b = fuente('lib/agencia-baja.ts');
   const cancelar = b.indexOf('cancelarSuscripcionCobro(plataforma, c.id, p.autor)');
   const revocar = b.indexOf(".update({ estado: 'revocado'");
   const pausar = b.indexOf(".update({ estado: 'pausado'");
   const avisar = b.indexOf('avisarDePlataforma(');
-  assert.ok(cancelar > 0 && cancelar < revocar && revocar < pausar && pausar < avisar, `orden: ${cancelar} ${revocar} ${pausar} ${avisar}`);
+  assert.ok(cancelar > 0 && cancelar < pausar && pausar < revocar && revocar < avisar, `orden: ${cancelar} ${pausar} ${revocar} ${avisar}`);
   assert.match(b, /if \(!r\.ok\) return \{ ok: false, error: `No pude cancelar su cobro/, 'si no se pudo dejar de cobrar, no se sigue');
   assert.match(b, /\.eq\('agencia_ws', agenciaWs\)\.eq\('cliente_ws', clienteWs\)\.neq\('estado', 'revocado'\)/, 'sólo la fila de ESA agencia, una vez');
   assert.doesNotMatch(b, /\.delete\(\)/, 'no se borra nada');

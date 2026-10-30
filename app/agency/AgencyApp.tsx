@@ -113,7 +113,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
 
   const cerrarFicha = useCallback(() => setAbiertaWs(null), []);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
-  // Con confirmación (29/10/2026, revisión de plata): subir con tarjeta cobra la diferencia hoy, y el plan se cambia una vez cada 30 días.
+  // Con confirmación (29/10/2026, revisión de plata): subir con tarjeta cobra la diferencia hoy; si no, Pro llega con el próximo cobro.
   const [planAConfirmar, setPlanAConfirmar] = useState<{ ws: number; plan: 'esencial' | 'pro'; nombre: string } | null>(null);
   const cambiarPlan = async (ws: number, plan: 'esencial' | 'pro') => {
     setPlanAConfirmar(null);
@@ -249,8 +249,8 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
       {planAConfirmar && (
         <ConfirmDialog titulo={`¿Pasar ${planAConfirmar.nombre} a MaKo ${planAConfirmar.plan === 'pro' ? 'Pro' : 'Esencial'}?`}
           detalle={planAConfirmar.plan === 'pro'
-            ? 'Tiene Pro en el acto. Con tarjeta se cobra hoy la diferencia de este mes; con Mercado Pago, el precio de Pro corre desde el próximo cobro. El plan se puede volver a cambiar en 30 días.'
-            : 'Pasa a Esencial en el acto, con sus topes, y desde el próximo cobro se cobra el precio de Esencial. El plan se puede volver a cambiar en 30 días.'}
+            ? 'Con tarjeta se cobra hoy la diferencia de este mes y tiene Pro en el acto. Con Mercado Pago, o si todavía no se cobró su renovación, tiene Pro desde su próximo cobro, que ya es al precio de Pro.'
+            : 'Pasa a Esencial en el acto, con sus topes, y desde el próximo cobro se cobra el precio de Esencial.'}
           confirmLabel={planAConfirmar.plan === 'pro' ? 'Pasar a Pro' : 'Pasar a Esencial'}
           onCancel={() => setPlanAConfirmar(null)} onConfirm={() => void cambiarPlan(planAConfirmar.ws, planAConfirmar.plan)} />
       )}

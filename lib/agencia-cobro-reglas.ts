@@ -185,8 +185,18 @@ export type CobroEnLaBaja = { tipo: 'unico' | 'suscripcion'; estado: string; sus
  *   · `anular`: un link que todavía no se pagó ni se autorizó.
  *   · null: lo cobrado y lo cerrado, que no se toca.
  */
+/**
+ * ¿La pasarela la sigue cobrando? La marcada `activa` (pagada, autorizada sin cobrar, fallida o con el primer pago devuelto) y
+ * TAMBIÉN la pagada o devuelta sin `suscripcion_estado`: ese estado lo marca sólo un aviso que trae el id de la suscripción, y
+ * uno de Mercado Pago sin él la dejaba sin marcar, cobrando (segunda pasada de la revisión de plata, hallazgo E).
+ */
+export function esSuscripcionViva(c: Pick<CobroEnLaBaja, 'tipo' | 'estado' | 'suscripcion_estado'>): boolean {
+  if (c.tipo !== 'suscripcion' || c.suscripcion_estado === 'cancelada') return false;
+  return c.suscripcion_estado === 'activa' || c.estado === 'pagado' || c.estado === 'reembolsado';
+}
+
 export function queHacerEnLaBaja(c: CobroEnLaBaja, pagaCliente: boolean): 'cancelar' | 'pasar' | 'anular' | null {
-  if (c.tipo === 'suscripcion' && c.suscripcion_estado === 'activa') return pagaCliente ? 'pasar' : 'cancelar';
+  if (esSuscripcionViva(c)) return pagaCliente ? 'pasar' : 'cancelar';
   if ((c.estado === 'pendiente' || c.estado === 'fallido') && c.suscripcion_estado !== 'cancelada') return 'anular';
   return null;
 }
@@ -208,19 +218,41 @@ export function finDeLoQuePago(cobros: readonly CobroEnLaBaja[], onboardingCompl
 }
 
 // =============================================================================
-// CAMBIAR EL PLAN (29/10/2026, lib/agencia-plan.ts): un cambio cada 30 días
+// CAMBIAR EL PLAN (29/10/2026, lib/agencia-plan.ts): Pro se tiene cuando se PAGA a precio de Pro
 // =============================================================================
-// Mercado Pago no prorratea: pasar a Pro da el acceso en el acto y el precio corre desde el próximo cobro. Sin un intervalo,
-// ir a Pro después de cada cobro y volver a Esencial antes del siguiente usaba Pro pagando Esencial (revisión de plata,
-// hallazgo 2a). Se guarda en la cuenta del CLIENTE, como quién paga.
+// La revisión de plata (hallazgos 2a y C): con la capa en el acto y el precio desde el próximo cobro, ir a Pro después de un
+// cobro y volver a Esencial antes del siguiente usaba Pro pagando 47. Un «un cambio cada 30 días» no lo cerraba (con Mercado
+// Pago alcanzaba para Pro la mitad de los meses, y en el primer mes regalaba uno). La regla que quedó:
+//   · SUBIR en el acto SÓLO si se cobró la diferencia ahora (Stripe prorratea, `subirPlanStripe`) o si todavía no se pagó
+//     nada (el link del primer mes se rehace a precio de Pro, y la cuenta no se usa antes de pagarlo).
+//   · Si no (Mercado Pago, que no prorratea; o un primer mes ya pagado sin una renovación cobrada), la subida queda PENDIENTE:
+//     lo que se cobra pasa a Pro desde el próximo cobro, y la capa sube recién con ese pago (el cron, `subidaCobrada`).
+//   · BAJAR, en el acto: la capa baja ya y el precio menor corre desde el próximo cobro (nadie gana con eso). Cancela una
+//     subida pendiente.
+// Se guarda en la cuenta del CLIENTE, como quién paga.
 
 export const KEY_PLAN_CAMBIADO = 'agency.plan_cambiado';
-export const DIAS_ENTRE_CAMBIOS_DE_PLAN = 30;
 
-/** Desde cuándo se puede volver a cambiar el plan, o null si ya se puede (nunca se cambió, o pasaron los 30 días). */
-export function proximoCambioDePlan(ultimoAt: string | null | undefined, ahoraMs: number): string | null {
-  const t = ultimoAt ? Date.parse(ultimoAt) : NaN;
-  if (!Number.isFinite(t)) return null;
-  const desde = t + DIAS_ENTRE_CAMBIOS_DE_PLAN * 24 * 3600_000;
-  return ahoraMs < desde ? new Date(desde).toISOString() : null;
+export type CambioDePlan = { at: string; plan: PlanCuenta; pendiente: boolean };
+
+export function leerCambioDePlan(crudo: unknown): CambioDePlan | null {
+  try {
+    const v = (typeof crudo === 'string' ? JSON.parse(crudo) : crudo) as Partial<CambioDePlan> | null;
+    if (!v || typeof v.at !== 'string' || (v.plan !== 'esencial' && v.plan !== 'pro')) return null;
+    return { at: v.at, plan: v.plan, pendiente: v.pendiente === true };
+  } catch { return null; }
+}
+
+/** ¿La subida a Pro se aplica ya? Sólo si la pasarela cobró la diferencia ahora, o si la cuenta todavía no pagó nada. */
+export function subeEnElActo(p: { diferenciaCobrada: boolean; algoPagado: boolean }): boolean {
+  return p.diferenciaCobrada || !p.algoPagado;
+}
+
+/** ¿Ya entró el primer pago a precio de Pro después de pedir la subida? (los pagos de sus suscripciones anotadas en Pro) */
+export function subidaCobrada(cambio: CambioDePlan | null, pagosEnPro: readonly { fecha_pago: string | null }[]): boolean {
+  if (!cambio || !cambio.pendiente || cambio.plan !== 'pro') return false;
+  // Por DÍA y estrictamente después (`fecha_pago` puede venir sin hora): un pago del mismo día pudo ser el de antes, a precio de
+  // Esencial. Si la renovación cae justo ese día, Pro llega con la siguiente.
+  const dia = cambio.at.slice(0, 10);
+  return pagosEnPro.some((x) => !!x.fecha_pago && x.fecha_pago.slice(0, 10) > dia);
 }

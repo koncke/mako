@@ -115,32 +115,45 @@ export async function darDeBajaClienteDeAgencia(p: { agenciaWs: number; clienteW
     }
   }
 
-  // 2. La cartera, revocada (compare-and-set: dos bajas a la vez no hacen dos veces lo de abajo).
+  // 2. Sin la agencia y pausada, con los datos intactos. El corte guardado dice por qué (/cuenta-pausada) y lo reabre su pago.
+  //    ANTES de revocar (segunda pasada de la revisión de plata): si guardar el corte falla, la baja se frena y se reintenta
+  //    entera; revocada primero, el reintento contestaba «ya estaba» y la cuenta quedaba abierta y gratis.
+  //    Si la pagaba el cliente y su plan pasó a ser suyo, no se pausa. Si la pagaba él sin una suscripción viva (sólo el primer
+  //    mes), la pausa queda PROGRAMADA para el fin de lo que pagó (`cobroId: -1` y `desde`): la pone el cron ese día
+  //    (lib/plan-acceso.ts). Marcarla pausada ya apagaba los crons de la cuenta los días que había pagado (hallazgo D).
   const ahora = new Date().toISOString();
+  let usaHasta: string | null = null;
+  // Un reintento (la cartera no se dejó revocar la primera vez) ya no ve la suscripción que se le pasó: se mira su plan propio.
+  // Sin poder leerlo, no se sigue: pausar a quien ya paga su plan es peor que reintentar.
+  let conPlanPropio = pasados > 0;
+  if (!conPlanPropio && pagaCliente) {
+    try { conPlanPropio = await tienePlanPropioVivo(plataforma, clienteWs); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  }
+  if (!conPlanPropio) {
+    const fin = pagaCliente ? finDeLoQuePago(cobros, await onboardingCompletoDe(clienteWs).catch(() => null)) : null;
+    const desde = fin && fin > ahora ? fin : ahora;
+    const programada = desde > ahora;
+    if (programada) usaHasta = desde;
+    const corte: CorteGuardado = { cobroId: programada ? -1 : 0, hasta: desde.slice(0, 10), motivo: 'sin-agencia', desde, vigente: true };
+    const { error: eCorte } = await db.from('app_settings')
+      .upsert({ workspace_id: clienteWs, key: CLAVE_CORTE, value: JSON.stringify(corte), updated_at: ahora }, { onConflict: 'workspace_id,key' });
+    if (eCorte) return { ok: false, error: `Se canceló su cobro, pero no pude cerrar su cuenta: ${eCorte.message}. Prueba otra vez en un minuto.` };
+    if (!programada) {
+      // Si esto falla, se frena acá y se reintenta entera (la cartera sigue sin revocar): el cron no pausa un corte que no es el programado.
+      const { error: ePausa } = await db.from('workspaces').update({ estado: 'pausado', updated_at: ahora }).eq('id', clienteWs).eq('estado', 'activo');
+      if (ePausa) return { ok: false, error: `Se canceló su cobro, pero no pude pausar su cuenta: ${ePausa.message}. Prueba otra vez en un minuto.` };
+    }
+  }
+
+  // 3. La cartera, revocada (compare-and-set: dos bajas a la vez no hacen dos veces lo de abajo).
   const { data: rev, error: eRev } = await db.from('agencia_clientes')
     .update({ estado: 'revocado', decidido_por: p.autor.slice(0, 120), decidido_at: ahora, motivo: 'La agencia lo dio de baja.' })
     .eq('agencia_ws', agenciaWs).eq('cliente_ws', clienteWs).neq('estado', 'revocado').select('cliente_ws');
   if (eRev) return { ok: false, error: `Se canceló su cobro, pero no pude sacarlo de tu cartera: ${eRev.message}` };
   if (!rev?.length) return { ok: true, resumen: 'Esa cuenta ya estaba dada de baja.', yaEstaba: true };
-
-  // 3. Sin la agencia y pausada, con los datos intactos. El corte guardado dice por qué (/cuenta-pausada) y lo reabre su pago.
-  //    Si la pagaba el cliente y su plan pasó a ser suyo, no se pausa. Si la pagaba él sin una suscripción viva (sólo el
-  //    primer mes), el corte vale recién al fin de lo que pagó (`desde`, lib/workspace.ts → negocioPausado).
-  let usaHasta: string | null = null;
-  // Un reintento (la cartera no se dejó revocar la primera vez) ya no ve la suscripción que se le pasó: se mira su plan propio.
-  const conPlanPropio = pasados > 0 || (pagaCliente && (await tienePlanPropioVivo(plataforma, clienteWs).catch(() => false)));
-  if (!conPlanPropio) {
-    const fin = pagaCliente ? finDeLoQuePago(cobros, await onboardingCompletoDe(clienteWs).catch(() => null)) : null;
-    const desde = fin && fin > ahora ? fin : ahora;
-    if (desde > ahora) usaHasta = desde;
-    const corte: CorteGuardado = { cobroId: 0, hasta: desde.slice(0, 10), motivo: 'sin-agencia', desde, vigente: true };
-    const { error: eCorte } = await db.from('app_settings')
-      .upsert({ workspace_id: clienteWs, key: CLAVE_CORTE, value: JSON.stringify(corte), updated_at: ahora }, { onConflict: 'workspace_id,key' });
-    if (eCorte) console.error(`[agencia-baja] cliente ${clienteWs}: no pude guardar el corte: ${eCorte.message}`);
-    else {
-      const { error: ePausa } = await db.from('workspaces').update({ estado: 'pausado', updated_at: ahora }).eq('id', clienteWs).eq('estado', 'activo');
-      if (ePausa) console.error(`[agencia-baja] cliente ${clienteWs}: no pude pausarlo: ${ePausa.message}`);
-    }
+  // Lo que el cron haya abierto entre la cancelación y la revocación (hallazgo 11), anulado. Best effort: ya no se renueva.
+  for (const c of await cobrosDelLugar(plataforma, agenciaWs, clienteWs).catch(() => [] as FilaCobro[])) {
+    if (queHacerEnLaBaja(c, pagaCliente) === 'anular') await anularCobro(plataforma, c.id, p.autor).catch(() => {});
   }
 
   // 4. El aviso al cliente. Best effort: la baja ya está hecha.

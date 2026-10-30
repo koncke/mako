@@ -122,14 +122,17 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 ## Lo prometido a Thiago: dar de baja, el plan de cada cuenta y el cobro por país (29/10/2026)
 
 La llamada con Thiago (agencia de España, 27 clientes; reunión del 5/11): docs/promesas/2910-llamada-thiago.md, lo marcado
-*(Agency)* y *(Planes y Partners)*. Chat «Suscripción y Partners», cuenta 3. Pasó una revisión adversarial de plata (un
-revisor sobre el commit 33c131f6b, 13 hallazgos); lo que se arregló lo fija tests/revision-plata-agency-2910.test.ts.
+*(Agency)* y *(Planes y Partners)*. Chat «Suscripción y Partners», cuenta 3. Pasó una revisión adversarial de plata en dos
+pasadas (un revisor sobre 33c131f6b, 13 hallazgos; el mismo sobre los arreglos, 5 nuevos). Lo arreglado lo fija
+tests/revision-plata-agency-2910.test.ts.
 
 - **«Dar de baja» no borra nada ni deja la cuenta gratis** (`darDeBajaClienteDeAgencia`, lib/agencia-baja.ts). Primero la
-  plata: se cancela en la pasarela TODA suscripción viva de esa cuenta (`suscripcion_estado: 'activa'`: la pagada, la
-  autorizada sin cobrar, la fallida y la del primer pago devuelto) y se anula lo que todavía se podía pagar. Si algo falla,
-  se frena ahí. Después se revoca la cartera (eso corta «Inspeccionar»: `puedeEntrar` sólo mira `aprobado`), se pausa la
-  cuenta y se avisa. La regla, pura: `queHacerEnLaBaja` (lib/agencia-cobro-reglas.ts).
+  plata: se cancela en la pasarela TODA suscripción viva de esa cuenta (`esSuscripcionViva`: la marcada `activa`, que es la
+  pagada, la autorizada sin cobrar, la fallida y la del primer pago devuelto, y TAMBIÉN la pagada sin `suscripcion_estado`,
+  porque ese estado lo marca sólo un aviso que trae el id de la suscripción). Se anula lo que todavía se podía pagar. Si algo
+  falla, se frena ahí. Después la pausa y su corte, y recién al final se revoca la cartera (eso corta «Inspeccionar»:
+  `puedeEntrar` sólo mira `aprobado`). Revocada primero, una falla al guardar el corte no se podía reintentar: la segunda
+  vez contestaba «ya estaba». La regla, pura: `queHacerEnLaBaja` (lib/agencia-cobro-reglas.ts).
 - **El diagnóstico obvio era el equivocado: «la baja pausa la cuenta».** La baja escribía `workspaces.estado = 'pausado'`,
   pero con el corte por pago APAGADO (`CORTE_DE_ACCESO_PRENDIDO = false`) `negocioPausado` no mira ese estado: toda cuenta
   dada de baja seguía usando MaKo gratis, completa y ahora sin topes. El corte `sin-agencia` vale aunque el general esté
@@ -139,20 +142,28 @@ revisor sobre el commit 33c131f6b, 13 hallazgos); lo que se arregló lo fija tes
   levanta con la vigencia al día») no alcanzaba: estaba al día por la agencia. Ahora la vigencia de esa cuenta (y la de un ex
   cliente que ya paga su plan) sale sólo de SUS cobros (`alta_ws` y sin `cliente_ws`).
 - **Si la cuenta la pagaba el CLIENTE, la baja no le corta su plan.** Su suscripción viva pasa a ser suya (`alta_ws`, sin
-  `agencia_ws` ni `cliente_ws`) y la cuenta sigue abierta. Si sólo había pagado el primer mes, el corte vale recién al fin de
-  ese mes (`finDeLoQuePago`; el `desde` del corte lo respeta `negocioPausado`). Antes se le cancelaba lo que había pagado y
-  se le cobraba otro mes entero desde ese día.
+  `agencia_ws` ni `cliente_ws`) y la cuenta sigue abierta. Si sólo había pagado el primer mes, la pausa queda PROGRAMADA
+  para el fin de ese mes (`finDeLoQuePago`, el corte con `cobroId: -1`) y la pone el cron ese día. Marcarla pausada en el
+  acto apagaba los crons de la cuenta (sincronizaciones, grabadores) los días que ya había pagado. Antes se le cancelaba lo
+  que había pagado y se le cobraba otro mes entero desde ese día.
 - **Reactivar no tenía de dónde partir:** `reactivarPlan` arma el cobro sobre el último plan del negocio, y el cliente de
   una agencia nunca tuvo uno. `primerPlanPropio` (lib/compra-plan.ts) le arma la suscripción con el plan de su capa, con la
   pasarela de SU país (`pasarelasDelPais`), y SÓLO si ya no tiene agencia: con la agencia pagando, MaKo cobraba dos veces.
 - **El plan de cada cuenta ES su capa** (`CAPA_DE_PLAN`: Esencial → `completo`, Pro → `agencia`). Cambiarlo
   (`cambiarPlanDeCliente`, lib/agencia-plan.ts) toca la pasarela primero y la capa al final.
 - **Trampa: «se puede tener Pro pagando Esencial».** Con el precio nuevo desde el próximo cobro, pasar a Pro después de cada
-  cobro y volver antes del siguiente pagaba siempre 47. En Stripe, subir cobra la diferencia en el acto (`subirPlanStripe`,
-  `error_if_incomplete`). Mercado Pago no prorratea: un cambio cada 30 días (`proximoCambioDePlan`, en la cuenta del cliente).
-  El link del primer mes sin pagar se rehace con el precio nuevo (`rehacerPrimerMes`: primero el nuevo, después se anula el
-  viejo). Y el plan tiene que tener precio en la moneda de la cuenta ANTES de tocar nada (`precioDelPlanEn`): la renovación
-  caía al monto del primer mes, que era el del plan viejo.
+  cobro y volver antes del siguiente pagaba siempre 47. **El primer arreglo era el equivocado: «un cambio cada 30 días»**;
+  con Mercado Pago alcanzaba igual para Pro la mitad de los meses, y en el primer mes regalaba uno. La regla que quedó: Pro
+  se tiene cuando se PAGA a precio de Pro. Subir con Stripe cobra la diferencia en el acto (`subirPlanStripe`,
+  `error_if_incomplete`) y sube la capa. Sin nada pagado todavía, también sube en el acto: el link del primer mes se rehace
+  a precio de Pro. Si no (Mercado Pago, que no prorratea, o un primer mes pagado sin renovación cobrada), queda PENDIENTE:
+  lo que se cobra pasa a Pro, y la capa sube con el primer pago a ese precio (`aplicarSubidasPendientes`, el cron). Bajar
+  es en el acto. Y el plan tiene que tener precio en la moneda de la cuenta ANTES de tocar nada (`precioDelPlanEn`): la
+  renovación caía al monto del primer mes, que era el del plan viejo.
+- **Trampa: un índice único hace que crear devuelva lo que ya existe.** `cobros_un_vivo_por_cliente_de_agencia` (mig 0308)
+  deja UN cobro único vivo por cliente. Rehacer el link del primer mes creando el nuevo antes de anular el viejo recibía el
+  VIEJO (`yaEstaba`), lo anulaba y la cuenta quedaba sin ningún link (o usando MaKo gratis, si la pagaba el cliente). Ahora
+  se anula primero, y si el nuevo no sale se rehace el de antes (`rehacerPrimerMes`).
 - **Trampa de la pasarela: la misma clave de idempotencia devuelve la respuesta GUARDADA.** `mako-plan-agencia-<cobro>-<plan>`
   se repetía al ir y volver en 24 h, y Stripe contestaba el «→Pro» anterior sin aplicarlo, con la base diciendo 97. La clave
   lleva el día.
@@ -160,7 +171,8 @@ revisor sobre el commit 33c131f6b, 13 hallazgos); lo que se arregló lo fija tes
   Pro (`esEsencialDe`: las tabs de Pro, las automatizaciones, el piloto automático, el scraper), preguntaban por la suscripción
   PROPIA, y la cuenta de una agencia no tiene. El Esencial de US$47 tenía todo Pro. Ahora `aplicanTopes`
   (lib/topes-plan-server.ts) y `esEsencialDe` (lib/plan-esencial.ts) miran también la cartera no revocada. El candado del
-  cliente de una agencia dice «De MaKo Pro», sin «Pasar a Pro».
+  cliente de una agencia dice «De MaKo Pro», sin «Pasar a Pro». Y una suscripción propia SIN `alta_capa` (la que se le pasa
+  al cliente al soltarlo, o su primer plan propio) cuenta con su capa: si no, el ex cliente con Esencial volvía a tener Pro.
 - **Cobro por país** (`cobroDeLaCuenta`, lib/agencia-cobro-reglas.ts): para España no salía ningún link (sólo cobraba Mercado
   Pago en pesos). Mercado Pago, sólo en el país de su cuenta; afuera, Stripe, en EUR en la zona euro si el plan tiene precio en
   EUR y si no en USD; sin país, Stripe primero.
@@ -182,8 +194,12 @@ revisor sobre el commit 33c131f6b, 13 hallazgos); lo que se arregló lo fija tes
   en /api/auth/me (`clienteDeAgencia`). Con él se esconde el link y el texto pasa a «pídele a tu agencia que te pase a Pro».
 - **La renovación de Stripe abierta 5 días antes** (revisión, hallazgo 10): si la agencia la paga apenas se abre, paga esos
   5 días dos veces; si la paga tarde, el ancla de Stripe se corre y esos días quedan regalados. Es el costo del diseño sin trial.
-- **Con Mercado Pago, subir a Pro regala el resto del mes en curso** (el precio corre desde el próximo cobro). Los 30 días
-  entre cambios lo limitan a una vez cada dos meses, como mucho.
+- **La subida pendiente llega un mes tarde si la renovación cae el MISMO día en que se pidió:** el pago se compara por día
+  (`fecha_pago` puede venir sin hora) y uno de ese día pudo ser el de antes, a precio de Esencial.
+- **`finDeLoQuePago` puede cortar antes de tiempo** a quien pagaba él con una suscripción ya cancelada: las renovaciones no
+  actualizan `pagado_at`, así que cuenta desde el primer pago. Y sin onboarding terminado, el mes corre desde el pago.
+- **La suscripción que se le pasa al cliente sigue colgada de la ficha de la agencia en el CRM de MaKo** (su lead): su
+  baja y sus reactivaciones escriben ahí y mueven el MRR de la agencia. Afecta reportes, no plata.
 - **PLAUSIBLE, no seguido:** si la agencia tiene gente suya dada de alta en el equipo de la cuenta del cliente, esa gente
   sigue entrando cuando la cuenta queda abierta (la que pagaba el cliente).
 - El teléfono abre la cuenta sin elegir plan (queda en Esencial) y no lo cambia. La API tampoco tiene «cambiar el plan».

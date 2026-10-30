@@ -395,5 +395,8 @@ La llamada con Thiago (docs/promesas/2910-llamada-thiago.md, *(Planes y Partners
   y ese link lo recibe si no tenía uno; sin poder guardarlo, el link nuevo se anula y se dice.
 - **Trampa: el partner ganaba lo COBRADO, no el precio de lista** (revisión de plata, hallazgo 6). `precioDeListaPorMes`
   usa `plan_mako`, y la venta a mano nunca lo escribía: caía a `monto_usd / meses`, así que un pago único de US$1.500 o un
-  precio especial se acreditaba entero. Ahora la venta anota el plan del catálogo (`planVendido`): el de esa capa con ese
-  precio por mes y, si no coincide ninguno, el más barato de la capa, para que un partner nunca gane más que la lista.
+  precio especial se acreditaba entero. **El primer arreglo era el equivocado: escribir `plan_mako` en la venta.** Con un
+  plan anotado, esa venta entraba a las ofertas de retención y `reactivarPlan` la reactivaba a precio de lista en vez del
+  pactado. El arreglo vive en la acreditación (`conPlanDeLista`): sin plan anotado, la lista del plan más barato de la capa
+  vendida (`alta_capa`). Un partner nunca gana más que la lista. Si el link que ya existía tiene el código de otro partner,
+  se dice en vez de contestar «ok».

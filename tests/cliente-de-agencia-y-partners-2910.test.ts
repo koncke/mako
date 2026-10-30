@@ -81,7 +81,7 @@ test('la venta a mano: el código tiene que ser de un partner, y queda en el cob
   const chequeo = v.indexOf('if (venta.refCodigo && !(await esCodigoDePartner(venta.refCodigo))) return { ok: false');
   const abierto = v.indexOf('const abierto = await cobroAbiertoDelPlan(');
   const cobro = v.indexOf('const r = await crearCobro(ws, {');
-  const guarda = v.indexOf('...(venta.refCodigo ? { ref_codigo: venta.refCodigo } : {})', cobro);
+  const guarda = v.indexOf("update({ ref_codigo: venta.refCodigo }).eq('id', r.cobro.id).eq('workspace_id', ws)", cobro);
   assert.ok(chequeo > 0 && abierto > chequeo && cobro > abierto, 'se pregunta ANTES del link que ya existe y de crear el cobro');
   assert.ok(guarda > cobro, 'y se guarda en el cobro que se creó');
   assert.match(fuente('app/admin/cobros/VenderPlan.tsx'), /refCodigo: refCodigo\.trim\(\) \|\| null/);

@@ -160,6 +160,16 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
     const propios = suyos.filter((c) => Number(c.alta_ws) === ws && c.cliente_ws == null);
     const deEl = corte?.motivo === 'sin-agencia' || propios.some((c) => c.tipo === 'suscripcion') ? propios : suyos;
     const v = vigenciaDelLugar(deEl, pagos, ahoraMs, pausas.get(ws) ?? []);
+    // La pausa PROGRAMADA de la cuenta que se pagaba sola y se quedó sin agencia (lib/agencia-baja.ts, `cobroId: -1`): el día que
+    // termina lo que pagó, si no tiene un plan suyo al día. Pausada, el corte pasa a ser el de siempre (`cobroId: 0`), y una
+    // reactivación a mano posterior se respeta como cualquier otra. Vale con el corte general apagado.
+    if (corte?.motivo === 'sin-agencia' && corte.vigente && corte.cobroId === -1 && estado === 'activo' && v.estado !== 'al-dia' && Date.parse(corte.desde) <= ahoraMs) {
+      out.pasos.push({ ws, paso: 'cortar', vigencia: describir(v) });
+      if (enSeco) { out.cortados.push(ws); continue; }
+      try { if (await cortar(ws, { ...corte, cobroId: 0 })) out.cortados.push(ws); }
+      catch (e) { out.errores++; console.error(`[plan-acceso] ws=${ws} pausa sin agencia:`, e instanceof Error ? e.message : String(e)); }
+      continue;
+    }
     const paso = pasoDeAcceso(v, estado, corte);
     out.pasos.push({ ws, paso: paso.tipo, vigencia: describir(v) });
     if (paso.tipo === 'nada') continue;
@@ -259,7 +269,11 @@ export async function vigenciaDe(ws: number, ahoraMs: number = Date.now()): Prom
   try {
     const plataforma = await wsSuperAdmin();
     if (ws === plataforma) return null;
-    const cobros = (await cobrosDeLugares(plataforma, ws)).filter((c) => Number(c.alta_ws ?? c.cliente_ws) === ws);
+    const todos = (await cobrosDeLugares(plataforma, ws)).filter((c) => Number(c.alta_ws ?? c.cliente_ws) === ws);
+    // Con un plan PROPIO, sólo sus cobros (segunda pasada de la revisión de plata, hallazgo 9): como en `revisarAccesosPorPago`,
+    // los de la agencia que lo pagaba no lo cubren ni lo miden con las reglas de agencia.
+    const propios = todos.filter((c) => Number(c.alta_ws) === ws && c.cliente_ws == null);
+    const cobros = propios.some((c) => c.tipo === 'suscripcion') ? propios : todos;
     if (!cobros.length) return null;
     const [pagos, ret] = await Promise.all([
       cuotasDeLugares(plataforma, cobros.map((c) => c.id)),

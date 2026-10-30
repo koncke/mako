@@ -111,30 +111,36 @@ export async function linkPrimerMes(p: { agenciaWs: number; clienteWs: number; n
 /**
  * El link del primer mes SIN PAGAR, rehecho con otro plan (revisión de plata, hallazgo 2c): el link guarda su monto, y
  * cambiar sólo el plan anotado cobraba el Esencial por un mes de Pro (o al revés). La misma pasarela, moneda, ficha y email.
- * PRIMERO el nuevo y después se anula el viejo: al revés, una falla dejaba la cuenta sin ningún link para pagar. Si el viejo
- * no se deja anular, se anula el nuevo (nunca quedan dos vivos). La pantalla de la agencia y el cartel del cliente leen el
- * link vivo, así que ven el nuevo.
+ * ⚠️ PRIMERO SE ANULA EL VIEJO (segunda pasada, hallazgo A): el índice `cobros_un_vivo_por_cliente_de_agencia` deja UN cobro
+ * único vivo por cliente, y crear el nuevo con el viejo vivo devolvía el VIEJO (`yaEstaba`), que después se anulaba: la
+ * cuenta quedaba sin ningún link. Si el nuevo no se puede crear, se rehace el de antes con su plan y su monto, y se dice.
+ * La pantalla de la agencia y el cartel del cliente leen el link vivo, así que ven el nuevo.
  */
 export async function rehacerPrimerMes(cobroId: number, plan: PlanMako, autor: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
-  const { data, error } = await db.from('cobros').select('id, lead_id, agencia_ws, cliente_ws, email, concepto, proveedor, moneda, estado, tipo, creado_por')
+  const { data, error } = await db.from('cobros').select('id, lead_id, agencia_ws, cliente_ws, email, concepto, proveedor, moneda, monto, monto_usd, plan_mako, estado, tipo, creado_por')
     .eq('id', cobroId).eq('workspace_id', plataforma).maybeSingle();
   if (error || !data) return { ok: false, error: 'No pude leer su primer mes.' };
-  const c = data as { lead_id: number | null; agencia_ws: number; cliente_ws: number; email: string | null; concepto: string; proveedor: Pasarela; moneda: string; estado: string; tipo: string; creado_por: string | null };
+  const c = data as {
+    lead_id: number | null; agencia_ws: number; cliente_ws: number; email: string | null; concepto: string; proveedor: Pasarela; moneda: string;
+    monto: number; monto_usd: number | null; plan_mako: string | null; estado: string; tipo: string; creado_por: string | null;
+  };
   if (c.tipo !== 'unico' || (c.estado !== 'pendiente' && c.estado !== 'fallido') || !c.lead_id) return { ok: false, error: 'Su primer mes ya no se puede rehacer.' };
   const monto = await precioDelPlanEn(plan, c.moneda);
   if (monto == null) return { ok: false, error: `${plan.nombre} no tiene precio en ${c.moneda}.` };
-  const r = await crearCobro(plataforma, {
-    leadId: c.lead_id, pasarela: c.proveedor, tipo: 'unico', monto, moneda: c.moneda, montoUsd: plan.precioUsd,
-    concepto: c.concepto.replace(/^MaKo [A-Za-zé ]+ · /, `${conceptoDelPlan(plan).replace(/ · mensual$/, '')} · `).slice(0, 200),
+  const anulado = await anularCobro(plataforma, cobroId, autor);
+  if (!anulado.ok) return { ok: false, error: `No pude anular su link de antes: ${anulado.error ?? 'sin detalle'}` };
+  const crear = (m: number, usd: number | null, concepto: string) => crearCobro(plataforma, {
+    leadId: c.lead_id!, pasarela: c.proveedor, tipo: 'unico', monto: m, moneda: c.moneda, montoUsd: usd, concepto,
     email: c.email, paraCliente: { agenciaWs: Number(c.agencia_ws), clienteWs: Number(c.cliente_ws) }, creadoPor: c.creado_por ?? autor,
   });
-  if (!r.ok) return { ok: false, error: `No pude crear su link nuevo: ${r.error}` };
-  const anulado = await anularCobro(plataforma, cobroId, autor);
-  if (!anulado.ok) {
-    await anularCobro(plataforma, r.cobro.id, autor).catch(() => {});
-    return { ok: false, error: `No pude anular su link de antes: ${anulado.error ?? 'sin detalle'}` };
+  const r = await crear(monto, plan.precioUsd, c.concepto.replace(/^MaKo [A-Za-zé ]+ · /, `${conceptoDelPlan(plan).replace(/ · mensual$/, '')} · `).slice(0, 200));
+  if (!r.ok || r.cobro.id === cobroId) {
+    // Sin link nuevo: el de antes otra vez, con su plan, para que la cuenta no quede sin forma de pagar.
+    const atras = await crear(Number(c.monto), c.monto_usd != null ? Number(c.monto_usd) : null, c.concepto);
+    if (atras.ok && c.plan_mako) await db.from('cobros').update({ plan_mako: c.plan_mako }).eq('id', atras.cobro.id).eq('workspace_id', plataforma);
+    return { ok: false, error: `No pude crear su link nuevo${r.ok ? '' : `: ${r.error}`}.${atras.ok ? ' Quedó el de antes.' : ' Tampoco pude rehacer el de antes: escríbenos y te lo abrimos.'}` };
   }
   await db.from('cobros').update({ plan_mako: plan.id }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
   return { ok: true };

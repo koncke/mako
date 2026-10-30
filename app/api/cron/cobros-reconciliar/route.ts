@@ -25,6 +25,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
+import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
 import { conciliarRetenciones } from '@/lib/retencion-plan';
 import { acreditarReferidos } from '@/lib/partners-programa';
@@ -92,6 +93,9 @@ export async function GET(req: NextRequest) {
     agencia = await renovacionesDeAgencia().catch((e) => ({ error: msg(e) }));
     if ('error' in agencia) console.warn('[cron:cobros-reconciliar] clientes de agencia:', agencia.error);
     else if (agencia.creadas || agencia.autorizadas || agencia.errores) console.log(`[cron:cobros-reconciliar] clientes de agencia: ${JSON.stringify(agencia)}`);
+    // La subida a Pro que no se cobró en el acto (29/10/2026, lib/agencia-plan.ts): la capa sube con el primer pago a precio de Pro.
+    const subidas = await aplicarSubidasPendientes().catch((e) => ({ subidas: 0, errores: 1, error: msg(e) }));
+    if (subidas.subidas || subidas.errores) console.log(`[cron:cobros-reconciliar] subidas a Pro de clientes de agencia: ${JSON.stringify(subidas)}`);
   }
 
   // QUIEN DEJA DE PAGAR SU LUGAR DEJA DE ENTRAR (17/10/2026, lib/plan-acceso.ts): DESPUÉS de reconciliar, para decidir con

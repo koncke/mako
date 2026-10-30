@@ -6,26 +6,31 @@
 // lib/agencia-cobro.ts, lib/plan-acceso.ts, lib/workspace.ts, lib/plan-esencial.ts, lib/vender-plan.ts, lib/compra-plan.ts,
 // lib/partners.ts y lib/partners-programa.ts. La cosecha, en docs/hallazgos-agencias.md y docs/hallazgos-partners.md.
 //
+// Y una SEGUNDA PASADA del mismo revisor sobre los arreglos (1f49ea387): cinco hallazgos nuevos (A-E), arreglados acá.
+//
 // Probado rompiéndolo (29/10/2026; base 12 / 0). Una rotura por vez, restaurando (pasan / fallan):
-//   · la baja cancela sólo la pagada (salteaba la devuelta y la autorizada)          -> 11 / 1
+//   · la baja cancela sólo la marcada `activa` (la pagada sin estado sigue cobrando)  -> 11 / 1
 //   · la baja cancela la suscripción que paga el cliente en vez de pasársela        -> 11 / 1
 //   · el plazo del cliente que pagaba él se mide desde el pago, no del onboarding    -> 11 / 1
-//   · un cambio de plan cada 0 días                                                  -> 11 / 1
+//   · la subida a Pro con Mercado Pago, en el acto                                   -> 11 / 1
+//   · la subida pendiente se aplica con un pago del mismo día                        -> 11 / 1
 //   · la vigencia de la cuenta soltada con los cobros de la agencia                  -> 11 / 1
 //   · subir a Pro en Stripe sin cobrar la diferencia                                 -> 11 / 1
+//   · rehacer el primer mes creando el nuevo con el viejo vivo                        -> 11 / 1
 //   · la renovación cae al monto del primer mes cuando su plan no tiene precio        -> 11 / 1
 //   · el cron renueva sin releer la cartera                                          -> 11 / 1
 //   · el Esencial de agencia sin los candados de Pro                                 -> 11 / 1
-//   · la venta a mano sin anotar el plan vendido                                     -> 11 / 1
+//   · el ex cliente con su Esencial propio sin los candados                          -> 11 / 1
+//   · la pausa programada marca la cuenta pausada en el acto                         -> 11 / 1
+//   · el partner gana lo cobrado cuando la compra no anota el plan                    -> 11 / 1
 //   · el primer plan propio con la agencia todavía pagando                           -> 11 / 1
-//   · el país por la zona aunque no esté guardada                                    -> 11 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DIAS_ENTRE_CAMBIOS_DE_PLAN, finDeLoQuePago, proximoCambioDePlan, queHacerEnLaBaja } from '../lib/agencia-cobro-reglas';
+import { esSuscripcionViva, finDeLoQuePago, leerCambioDePlan, queHacerEnLaBaja, subeEnElActo, subidaCobrada } from '../lib/agencia-cobro-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -35,6 +40,10 @@ const DIA = 24 * 3600_000;
 test('la baja (3): toda suscripción viva se cancela, también la devuelta y la autorizada sin cobrar; un link sin pagar se anula', () => {
   const sus = (estado: string, suscripcion_estado: string | null) => ({ tipo: 'suscripcion' as const, estado, suscripcion_estado, pagado_at: null });
   for (const estado of ['pagado', 'pendiente', 'fallido', 'reembolsado']) assert.equal(queHacerEnLaBaja(sus(estado, 'activa'), false), 'cancelar', estado);
+  // E (segunda pasada): la pagada (o devuelta) sin `suscripcion_estado` también sigue cobrando.
+  assert.equal(queHacerEnLaBaja(sus('pagado', null), false), 'cancelar');
+  assert.equal(queHacerEnLaBaja(sus('reembolsado', null), false), 'cancelar');
+  assert.equal(esSuscripcionViva(sus('pagado', null)), true);
   assert.equal(queHacerEnLaBaja(sus('pendiente', null), false), 'anular');
   assert.equal(queHacerEnLaBaja({ tipo: 'unico', estado: 'pendiente', suscripcion_estado: null, pagado_at: null }, false), 'anular');
   assert.equal(queHacerEnLaBaja({ tipo: 'unico', estado: 'pagado', suscripcion_estado: null, pagado_at: '2026-10-01' }, false), null);
@@ -48,8 +57,13 @@ test('la baja (5): si la paga el cliente, su suscripción pasa a ser SU plan y l
   assert.equal(queHacerEnLaBaja(viva, true), 'pasar');
   const b = fuente('lib/agencia-baja.ts');
   assert.match(b, /\.update\(\{ alta_ws: clienteWs, agencia_ws: null, cliente_ws: null \}\)\n\s*\.eq\('id', c\.id\)\.eq\('workspace_id', plataforma\)\.eq\('agencia_ws', agenciaWs\)\.eq\('cliente_ws', clienteWs\)/);
-  assert.match(b, /const conPlanPropio = pasados > 0 \|\| \(pagaCliente && \(await tienePlanPropioVivo\(plataforma, clienteWs\)/);
+  // Un reintento mira su plan propio, y sin poder leerlo NO sigue (pausar a quien ya paga su plan es peor que reintentar).
+  assert.match(b, /let conPlanPropio = pasados > 0;\n\s*if \(!conPlanPropio && pagaCliente\) \{\n\s*try \{ conPlanPropio = await tienePlanPropioVivo\(plataforma, clienteWs\); \} catch \(e\) \{ return \{ ok: false/);
   assert.match(b, /if \(!conPlanPropio\) \{\n\s*const fin = pagaCliente \? finDeLoQuePago\(/);
+  // D (segunda pasada): la pausa del que pagaba él queda PROGRAMADA (`cobroId: -1`), sin marcar la cuenta pausada en el acto.
+  assert.match(b, /cobroId: programada \? -1 : 0/);
+  assert.match(b, /if \(!programada\) \{\n[^\n]*\n\s*const \{ error: ePausa \} = await db\.from\('workspaces'\)\.update\(\{ estado: 'pausado'/);
+  assert.match(fuente('lib/plan-acceso.ts'), /if \(corte\?\.motivo === 'sin-agencia' && corte\.vigente && corte\.cobroId === -1 && estado === 'activo' && v\.estado !== 'al-dia' && Date\.parse\(corte\.desde\) <= ahoraMs\) \{/);
   // El primer mes corre desde el onboarding (si terminó después del pago); una renovación, desde su pago.
   const primero = { tipo: 'unico' as const, estado: 'pagado', suscripcion_estado: null, pagado_at: '2026-10-01T10:00:00.000Z' };
   assert.equal(finDeLoQuePago([primero], '2026-10-05T10:00:00.000Z'), '2026-11-05T10:00:00.000Z');
@@ -64,14 +78,20 @@ test('la baja (1): el corte `sin-agencia` pausa aunque el corte general esté ap
   assert.match(fuente('lib/workspace.ts'), /export const negocioPausado = cache\(async \(ws: number\): Promise<boolean> => \{\n\s*if \(\(await filaDelNegocio\(ws\)\)\?\.estado !== 'pausado'\) return false;/);
 });
 
-test('cambiar el plan (2a): un cambio cada 30 días', () => {
-  const ahora = Date.parse('2026-10-29T12:00:00.000Z');
-  assert.equal(DIAS_ENTRE_CAMBIOS_DE_PLAN, 30);
-  assert.equal(proximoCambioDePlan(null, ahora), null);
-  assert.equal(proximoCambioDePlan('2026-10-20T12:00:00.000Z', ahora), '2026-11-19T12:00:00.000Z');
-  assert.equal(proximoCambioDePlan(new Date(ahora - 31 * DIA).toISOString(), ahora), null);
+test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () => {
+  assert.equal(subeEnElActo({ diferenciaCobrada: true, algoPagado: true }), true, 'Stripe cobró la diferencia');
+  assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: false }), true, 'todavía no pagó nada: el link se rehace a Pro');
+  assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: true }), false, 'Mercado Pago, o el primer mes ya pagado: pendiente');
+  const cambio = leerCambioDePlan(JSON.stringify({ at: '2026-10-29T12:00:00.000Z', plan: 'pro', pendiente: true }));
+  assert.ok(cambio?.pendiente);
+  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-10-29' }]), false, 'un pago del mismo día pudo ser el de antes');
+  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29T09:00:00.000Z' }]), true);
+  assert.equal(subidaCobrada({ ...cambio!, pendiente: false }, [{ fecha_pago: '2026-11-29' }]), false);
   const plan = fuente('lib/agencia-plan.ts');
-  assert.ok(plan.indexOf('proximoCambioDePlan(ultimoCambio(cambio), Date.now())') < plan.indexOf("db.from('cobros').select("), 'antes de tocar los cobros');
+  assert.match(plan, /const enElActo = p\.plan === 'esencial' \|\| subeEnElActo\(\{ diferenciaCobrada: diferenciaCobrada && vivas\.every\(\(c\) => c\.proveedor === 'stripe'\), algoPagado \}\);\n\s*if \(enElActo\) \{/);
+  // El cron la aplica con el primer pago de una suscripción anotada en Pro.
+  assert.match(plan, /\.eq\('tipo', 'suscripcion'\)\.eq\('plan_mako', 'pro'\)/);
+  assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await aplicarSubidasPendientes\(\)/);
 });
 
 test('cambiar el plan (2a, 2b, 2c, 2d): subir con Stripe cobra la diferencia, la clave lleva el día, el precio se valida antes y el primer mes sin pagar se rehace', () => {
@@ -82,10 +102,13 @@ test('cambiar el plan (2a, 2b, 2c, 2d): subir con Stripe cobra la diferencia, la
   assert.ok(valida > 0 && valida < plan.indexOf('subirPlanStripe(key'), 'el precio en la moneda de la cuenta, antes de la pasarela');
   assert.match(plan, /for \(const c of primerMesSinPagar\) \{\n\s*const r = await rehacerPrimerMes\(c\.id, plan, p\.autor\);/);
   assert.match(plan, /if \(pagaCliente\) \{\n\s*for \(const to of await adminsDeCuenta\(p\.clienteWs\)/, 'si la paga el cliente, se le avisa');
-  // El link nuevo ANTES de anular el viejo: una falla no deja la cuenta sin link.
+  // A (segunda pasada): el viejo se anula PRIMERO (un único vivo por cliente: con el viejo vivo, crear devolvía el viejo), y si
+  // el nuevo no sale se rehace el de antes.
   const cobro = fuente('lib/agencia-cobro.ts');
   const rehacer = cobro.slice(cobro.indexOf('export async function rehacerPrimerMes('));
-  assert.ok(rehacer.indexOf('await crearCobro(plataforma, {') < rehacer.indexOf('await anularCobro(plataforma, cobroId, autor)'));
+  const anula = rehacer.indexOf('const anulado = await anularCobro(plataforma, cobroId, autor);');
+  assert.ok(anula > 0 && anula < rehacer.indexOf('const r = await crear('), 'anula antes de crear');
+  assert.match(rehacer, /if \(!r\.ok \|\| r\.cobro\.id === cobroId\) \{\n[^\n]*\n\s*const atras = await crear\(Number\(c\.monto\)/);
 });
 
 test('la renovación (2d, 3a, 10, 11): sin precio del plan no se crea, la devuelta cuenta, la cartera se relee y sin `inicio_at` se anula', () => {
@@ -103,15 +126,20 @@ test('los candados de Pro (4): el Esencial de una cuenta de agencia los tiene, p
   const e = fuente('lib/plan-esencial.ts');
   assert.match(e, /if \(!capaVendida\) \{\n\s*const \{ data: cart, error: eCart \} = await getSupabaseServer\(\)\.from\('agencia_clientes'\)\.select\('cliente_ws'\)\.eq\('cliente_ws', ws\)\.neq\('estado', 'revocado'\)/);
   assert.match(e, /if \(cart\?\.length\) capaVendida = capa \?\? null;/);
+  // B (segunda pasada): el ex cliente que paga su propio Esencial (sin `alta_capa`) también.
+  assert.match(e, /if \(!capaVendida && data\) capaVendida = capa \?\? null;/);
 });
 
-test('la venta a mano (6, 12): anota el plan vendido, y sin el código guardado no deja el link', () => {
+test('la venta a mano (6, 12): el partner gana la lista de la capa vendida, y sin el código guardado no queda el link', () => {
+  const pp = fuente('lib/partners-programa.ts');
+  assert.match(pp, /const plan = PLANES_MAKO_DEFAULT\.filter\(\(p\) => p\.capa === c\.alta_capa\)\.sort\(\(a, b\) => a\.precioUsd - b\.precioUsd\)\[0\];/);
+  assert.equal((pp.match(/precioDeListaPorMes\(conPlanDeLista\(c\), listaDe\)/g) ?? []).length, 2, 'en el panel y en la acreditación');
+  assert.equal((pp.match(/select\('alta_ws, (ref_codigo, )?monto_usd, plan_mako, alta_capa, meses, created_at'\)/g) ?? []).length, 2);
   const v = fuente('lib/vender-plan.ts');
-  assert.match(v, /const planMako = await planVendido\(venta\.capa, p\.previa\.montoUsd\)/);
-  assert.match(v, /\.\.\.\(planMako \? \{ plan_mako: planMako \} : \{\}\)/);
-  assert.match(v, /if \(e && venta\.refCodigo\) \{\n\s*await anularCobro\(ws, r\.cobro\.id,/);
+  assert.doesNotMatch(v, /plan_mako/, 'la venta a mano no escribe el plan (entraba a la retención y a reactivar a lista)');
+  assert.match(v, /if \(e\) \{\n\s*await anularCobro\(ws, r\.cobro\.id,/);
   assert.match(v, /update\(\{ ref_codigo: venta\.refCodigo \}\)\.eq\('id', c\.id\)\.eq\('workspace_id', ws\)\.is\('ref_codigo', null\)/, 'el link que ya existía recibe el código');
-  assert.match(v, /\?\.id \?\? deLaCapa\[0\]\.id;/, 'sin coincidencia, el más barato de la capa');
+  assert.match(v, /if \(otro && otro !== venta\.refCodigo\) return \{ ok: false/, 'o se dice que tiene el de otro partner');
 });
 
 test('el primer plan propio (7): sólo sin agencia, y con la pasarela de SU país', () => {
@@ -137,4 +165,5 @@ test('la pantalla: cambiar el plan pide confirmación y dice qué se cobra', () 
   const app = fuente('app/agency/AgencyApp.tsx');
   assert.match(app, /onClick=\{\(\) => setPlanAConfirmar\(\{ ws: abierta\.ws,/);
   assert.match(app, /Con tarjeta se cobra hoy la diferencia de este mes/);
+  assert.doesNotMatch(app, /30 días/, 'ya no hay «un cambio cada 30 días»');
 });
