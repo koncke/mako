@@ -61,7 +61,7 @@ Calendario. Le faltan sus tests afectados. K1 y la casilla de K2 ya no existen c
 
 - **Los «textos en inglés»** (U1, U2, D7 salvo «SUM», y lo que parecía en la 2.ª vuelta en Customers, Classroom, Settings y Agency).
   **El diagnóstico obvio era el equivocado:** es regla de Martín, «Nosotros siempre utilizamos nomenclatura en inglés»: tabs,
-  features y títulos van en inglés; el copy, en español neutro. Por eso los hallazgos abiertos de la 1.ª vuelta son 19, no 22.
+  features y títulos van en inglés; el copy, en español neutro. La cuenta de la 1.ª vuelta: 27 hallazgos, menos 8 que cierra `recorrido-k-3010`, menos U1 y U2 = 17 abiertos, los de la tabla.
 - **«Para mirar 9 de 9 clientes»:** son 9 de 15 cuentas. «Todos 9» no cuenta a los 6 clientes de agencia.
 - **Los dos botones «tapados» por la barra en el Ops Center** y los «Más acciones» de /chats: quedan abajo del pie o aparecen al pasar
   el mouse. La auditoría automática los marca y no son defectos.
