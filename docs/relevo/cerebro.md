@@ -57,8 +57,8 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
 - **tren-ae SUBIDO: main = `4b8f8145d` (29/10 21:42). READY 21:45: hola-mako.com sirve `mako-gv9vfmoz3`
   (dpl_E2uWxgoB…).** Avisado el Cerebro; Create y el Copywriter estaban archivados.
 - **tren-af (sin armar):**
-  - El Media Buyer de Thiago (`media-buyer-thiago-2910`, `a2b0088a3`), con su revisión de plata corriendo. La mig 0350 va
-    ANTES del deploy: espera el sí de Martín y la aplica el Cerebro.
+  - El Media Buyer de Thiago (`media-buyer-thiago-2910`, `a2b0088a3`), con su revisión de plata corriendo. **La mig 0350 está APLICADA** (21:50, el Cerebro con el sí de Martín);
+    lo que la vuelve a esperar es la revisión.
   - Si arreglan lo devuelto: el despachante de WhatsApp (`db67e60d2` o el sha que venga, con A1 y A2 arreglados y una
     revisión nueva, porque pausa y prende campañas) y Zernio (los leads y lo que se repite).
 - **Detalle del tren-ae:**
