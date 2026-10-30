@@ -173,19 +173,21 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
         permiso de admin).
       - BAJA: «plan» está en la lista segura, y «cambiá mi plan» depende del veto de plata.
       - Después del deploy: `cartero.mjs instalar` (1.24.0).
-    - Calendario y Classroom (`7162c94aa`), con la mig 0352 ya aplicada;
     - Video, pasos 1 y 2 (`0e27cb66f`);
     - los emails del Cerebro (`2b9b9d7b7`).
   - **NO lleva:**
     - (el #35 ya ENTRÓ: `7d51f24c2`, la hora de la reunión en la zona del negocio)
     - Agency y Newsletter: volvieron a sus chats.
+    - **Calendario y Classroom (`7162c94aa`): SALIÓ** por cuatro rojos suyos en la pantalla de Clients. Son `curso-invitar`, `cs-cartera-columnas`,
+      `cs-kanban-ficha-ui` (una GUARDA: «el super admin sin impersonar no tiene fichas de leads») y `customers` (el redirect del
+      super admin a /customers). La mezcla está en la rama `tren-ai-con-calendario`. Su chat (`local_18ef0a3f`) tiene que
+      arreglarlo, y después entra junto con su recorrido visual (`recorrido-k-3010` en `246bae899`, que SALE de 7162c94aa: va
+      después de Calendario, y no corrió tests-afectados).
 - **N3 lo decidió Martín (30/10 ~10:15):** «Sí, cualquiera en el grupo puede». Pausar o prender campañas y anuncios desde el grupo de
   un negocio lo puede pedir cualquiera, con la confirmación de siempre y sobre la cuenta de ese negocio. Está en memoria como
   `campanas-desde-el-grupo-cualquiera`.
 - **Migraciones aplicadas el 30/10 por el Cerebro, con el sí de Martín:** 0349, 0351 y 0352.
-- **Faltan en la base, de antes (`verificar-migraciones-aplicadas`). NO se aplican sin Martín, que ya está preguntado:**
-  - la columna `curso_accesos.productos_a_mano` de la 0331: sin ella, «Invitar en cualquier etapa» del curso falla antes del mail;
-  - el índice `idx_notif_tipo_created` de la 0048.
+- **La 0331 (`curso_accesos.productos_a_mano`) y el índice de la 0048 ya están APLICADOS** (el Cerebro, 30/10).
 - **Para quien siga:**
   - Lo que aprendió esta tanda está cosechado en `docs/hallazgos-infra.md`, en la entrada «Un número por migración, y el push
     que falla por RAM…».
