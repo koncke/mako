@@ -54,7 +54,14 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
       y no dicen que se paga con Google Flow del cliente.
     - **El Cerebro dijo «sacar»:** salió en el tren-ae (`AI_AVATAR_SE_VENDE = false`).
     - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
-- **tren-ae (rama `tren-ae`, subiendo):**
+- **tren-ae SUBIDO: main = `4b8f8145d` (29/10 21:42). READY 21:45: hola-mako.com sirve `mako-gv9vfmoz3`
+  (dpl_E2uWxgoB…).** Avisados el Cerebro, Create y el Copywriter.
+- **tren-af (sin armar):**
+  - El Media Buyer de Thiago (`media-buyer-thiago-2910`, `a2b0088a3`), con su revisión de plata corriendo. La mig 0350 va
+    ANTES del deploy: espera el sí de Martín y la aplica el Cerebro.
+  - Si arreglan lo devuelto: el despachante de WhatsApp (`db67e60d2` o el sha que venga, con A1 y A2 arreglados y una
+    revisión nueva, porque pausa y prende campañas) y Zernio (los leads y lo que se repite).
+- **Detalle del tren-ae:**
   - **Lleva:**
     - Create: la QA visual (`95ac56201`) y la base de las plantillas reales (`390229c3d`, que la contiene).
     - Las plantillas del Copywriter (`1d9160f87`). El test de los ejemplos lee `REALES` de `tests/_reales.ts`, porque Create
