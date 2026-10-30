@@ -997,9 +997,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
       {avisoRitmo && (
-        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.sinGoteo ? 'Activar igual' : 'Activar'} cancelLabel="Cancelar" tone="primary"
+        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.sinGoteo ? 'Activar igual' : 'Activar'} cancelLabel={avisoRitmo.sinGoteo ? 'Poner goteo' : 'Cancelar'} tone="primary"
           onConfirm={() => { const a = avisoRitmo; setAvisoRitmo(null); void accionFila(a.j, 'activa', { sinAviso: a.sinAviso, sinRitmo: true }); }}
-          onCancel={() => setAvisoRitmo(null)} />
+          onCancel={() => { const a = avisoRitmo; setAvisoRitmo(null); if (a.sinGoteo) setConfigDe({ id: a.j.id, nombre: a.j.nombre }); }} />
       )}
       {avisoActivar && (
         <Confirm message={avisoActivar.texto} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"

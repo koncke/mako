@@ -10,8 +10,12 @@
 //     y sale la tanda entera de cada hora junta. Por eso se dice ese número y no «de una».
 //   · Email: sólo su tope por día. Instagram y Messenger, sin goteo, no tienen tope propio: ésos sí salen todos juntos.
 // El tiempo es un PISO («al menos»): el horario del negocio y las otras automatizaciones que usan la misma línea sólo lo alargan.
-// Con una persona no hay ritmo que decir. Sin mensajes, no sale nada. Una que dispara sólo por su evento no tiene a quién
-// contar al activar: `personas` 0, y no se avisa.
+// Con una persona no hay ritmo que decir. Sin mensajes, no sale nada.
+// ⚠️ UNA QUE DISPARA POR SU EVENTO (un DM, un comentario) TAMBIÉN AVISA SI NO TIENE GOTEO (el Cerebro, 30/10/2026): al activar no hay
+// a quién contar, pero el aviso no está para decir a cuántos: está para que no te enteres del goteo después, y justo Instagram es
+// donde salen todos juntos. Sin número, con la frase.
+// ⚠️ UN AVISO QUE MIENTE ES PEOR QUE NINGUNO: si el primer mensaje lo escribe la IA y no sale solo (`saleSolo`), queda para aprobar:
+// decir «sale» haría decidir sobre algo falso. Desde el 23/10 eso es sólo lo que escribe la IA: un mensaje fijo siempre sale.
 // =============================================================================
 import { canalDelGoteo, type CanalDelGoteo, type Goteo } from './goteo';
 import { indiceEntrada } from './nutricion-grafo-motor';
@@ -30,20 +34,24 @@ const NOMBRE_CANAL: Readonly<Record<CanalDelGoteo, string>> = { whatsapp: 'Whats
  * El canal del primer mensaje que le sale a quien entra: el más cercano a la entrada, por TODAS las salidas (⚠️ `siguienteDe` de una
  * condición es null: un flujo que arranca con una se cortaba acá). Si no se llega a ninguno, el primero que haya. null = no tiene mensajes.
  */
-export function canalDelPrimerMensaje(pasos: readonly PasoGrafo[]): CanalDelGoteo | null {
+export function primerMensaje(pasos: readonly PasoGrafo[]): PasoGrafo | null {
   const esMensaje = (p: PasoGrafo) => claseDe(p) === 'mensaje' && !esPasoAccion(p);
-  const canalDe = (p: PasoGrafo) => canalDelGoteo(typeof p.canal === 'string' ? p.canal : null);
   const vistos = new Set<number>();
   const cola = [indiceEntrada(pasos)];
   while (cola.length) {
     const k = cola.shift()!;
     if (k < 0 || vistos.has(k)) continue;
     vistos.add(k);
-    if (esMensaje(pasos[k])) return canalDe(pasos[k]);
+    if (esMensaje(pasos[k])) return pasos[k];
     for (const s of puertosDe(pasos, k)) cola.push(indicePorId(pasos, s.destino));
   }
-  const primero = pasos.find(esMensaje);
-  return primero ? canalDe(primero) : null;
+  return pasos.find(esMensaje) ?? null;
+}
+
+/** Su canal, como lo cuenta el goteo. null = no tiene mensajes. */
+export function canalDelPrimerMensaje(pasos: readonly PasoGrafo[]): CanalDelGoteo | null {
+  const p = primerMensaje(pasos);
+  return p ? canalDelGoteo(typeof p.canal === 'string' ? p.canal : null) : null;
 }
 
 /**
@@ -68,18 +76,38 @@ function tardaAlMenos(n: number, minutos: number | null, lineaHora: number, porD
  * LO QUE SE DICE AL ACTIVAR. null = no hay nada que decir: menos de dos personas, o no se pudo contar y tiene goteo.
  * `personas` null = no se pudo contar: sin goteo se dice igual, porque es justo el caso que asusta.
  */
-export function avisoDeRitmo(o: { personas: number | null; canal: CanalDelGoteo | null; goteo: Goteo | null | undefined; topes: TopesDeLinea | null }): AvisoDeRitmo | null {
+export function avisoDeRitmo(o: {
+  personas: number | null; canal: CanalDelGoteo | null; goteo: Goteo | null | undefined; topes: TopesDeLinea | null;
+  /** Dispara por un evento: al activar no hay a quién contar. */
+  porEvento?: boolean;
+  /** El primer mensaje no sale solo (`saleSolo`): queda para aprobar, salvo a quien ya pagó. */
+  quedaParaAprobar?: boolean;
+}): AvisoDeRitmo | null {
   if (!o.canal) return null;
   const minutos = o.goteo?.minutos ?? null;
   const sinGoteo = minutos == null;
   const canal = NOMBRE_CANAL[o.canal];
-  if (o.personas == null) return sinGoteo ? { texto: `No pude contar a cuántas personas les llega, y no tiene goteo: los mensajes de ${canal} salen juntos.`, sinGoteo } : null;
+  const aprobar = o.quedaParaAprobar === true;
+  if (o.personas == null) return sinGoteo && !aprobar ? { texto: `No pude contar a cuántas personas les llega, y no tiene goteo: los mensajes de ${canal} salen juntos.`, sinGoteo } : null;
   const n = o.personas;
-  if (n < 2) return null;
 
   const lineaHora = o.canal === 'whatsapp' ? o.topes?.wa.hora ?? Infinity : Infinity;
   const lineaDia = o.canal === 'whatsapp' ? o.topes?.wa.dia ?? Infinity : o.canal === 'email' ? o.topes?.email.dia ?? Infinity : Infinity;
   const porDia = Math.min(o.goteo?.dia ?? Infinity, lineaDia);
+  const deQuien = o.goteo?.dia != null && porDia === o.goteo.dia ? '' : ' (el tope de tu línea)';
+  if (n < 2) {
+    // Lo que queda para aprobar no se va de golpe: ahí no hay nada que advertir.
+    if (!o.porEvento || !sinGoteo || aprobar) return null;
+    const topesEvento = [Number.isFinite(lineaHora) ? `${lineaHora} por hora` : null, Number.isFinite(porDia) ? `${porDia} por día` : null].filter((x): x is string => x != null);
+    return {
+      texto: `No tiene goteo: cuando muchos la disparen, los mensajes de ${canal} salen ${topesEvento.length ? `juntos, hasta ${topesEvento.join(' y ')}${deQuien}` : 'todos juntos'}.`,
+      sinGoteo,
+    };
+  }
+  if (aprobar) {
+    const ritmo = sinGoteo ? 'No tiene goteo.' : `Queda uno cada ${minutos} min.`;
+    return { texto: `Entran ${n} personas. El primer mensaje de ${canal} no sale solo: queda en Borradores para que lo apruebes (a quien ya pagó le sale directo). ${ritmo}`, sinGoteo };
+  }
   const tarda = tardaAlMenos(n, minutos, lineaHora, porDia);
   const fin = tarda ? ` Tarda al menos ${tarda}.` : '';
 
@@ -94,6 +122,5 @@ export function avisoDeRitmo(o: { personas: number | null; canal: CanalDelGoteo 
     return { texto: `Entran ${n} personas. El primer mensaje sale por ${canal}: uno cada ${minutos} min${hasta ? `, ${hasta}` : ''}.${fin}`, sinGoteo };
   }
   if (!tarda) return { texto: `Entran ${n} personas y no tiene goteo: los ${n} mensajes de ${canal} salen todos juntos.`, sinGoteo };
-  const deQuien = o.goteo?.dia != null && porDia === o.goteo.dia ? '' : ' (el tope de tu línea)';
   return { texto: `Entran ${n} personas y no tiene goteo: los mensajes de ${canal} salen juntos, ${hasta}${deQuien}.${fin}`, sinGoteo };
 }

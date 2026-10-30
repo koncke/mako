@@ -63,6 +63,29 @@ test('sin nada que decir: una persona, nadie, o una sin mensajes; no se pudo con
   assert.match(avisoDeRitmo({ ...base, personas: null, goteo: null })!.texto, /^No pude contar a cuántas personas les llega, y no tiene goteo/);
 });
 
+test('dispara por su evento: sin número, y sin goteo lo dice con el canal; con goteo, o sin evento, nada', () => {
+  const ev = { ...base, personas: 0, porEvento: true };
+  const ig = avisoDeRitmo({ ...ev, canal: 'instagram', goteo: null })!;
+  assert.equal(ig.sinGoteo, true);
+  assert.equal(ig.texto, 'No tiene goteo: cuando muchos la disparen, los mensajes de Instagram salen todos juntos.');
+  assert.equal(avisoDeRitmo({ ...ev, goteo: null })!.texto, 'No tiene goteo: cuando muchos la disparen, los mensajes de WhatsApp salen juntos, hasta 6 por hora y 40 por día (el tope de tu línea).');
+  assert.equal(avisoDeRitmo({ ...ev, canal: 'instagram', goteo: { dia: 20 } })!.texto, 'No tiene goteo: cuando muchos la disparen, los mensajes de Instagram salen juntos, hasta 20 por día.');
+  assert.equal(avisoDeRitmo({ ...ev, canal: 'instagram', goteo: { minutos: 5 } }), null);
+  assert.equal(avisoDeRitmo({ ...base, canal: 'instagram', personas: 0, goteo: null }), null, 'sin evento y sin nadie, no sale nada');
+  // Con gente en el barrido además del evento, manda el número.
+  assert.match(avisoDeRitmo({ ...ev, personas: 30, canal: 'instagram', goteo: null })!.texto, /^Entran 30 personas/);
+});
+
+test('el primer mensaje queda para aprobar: nunca dice «sale», ni «salen juntos»', () => {
+  const a = avisoDeRitmo({ ...base, personas: 200, goteo: null, quedaParaAprobar: true })!;
+  assert.equal(a.texto, 'Entran 200 personas. El primer mensaje de WhatsApp no sale solo: queda en Borradores para que lo apruebes (a quien ya pagó le sale directo). No tiene goteo.');
+  assert.equal(a.sinGoteo, true);
+  assert.match(avisoDeRitmo({ ...base, personas: 200, goteo: { minutos: 5 }, quedaParaAprobar: true })!.texto, /Queda uno cada 5 min\.$/);
+  // Sin a quién contar, tampoco advierte de un envío en masa que no va a pasar.
+  assert.equal(avisoDeRitmo({ ...base, canal: 'instagram', personas: 0, goteo: null, porEvento: true, quedaParaAprobar: true }), null);
+  assert.equal(avisoDeRitmo({ ...base, personas: null, goteo: null, quedaParaAprobar: true }), null);
+});
+
 test('el canal es el del primer mensaje que le sale, no el del primero del array', () => {
   const pasos = [
     { id: 'tarde', canal: 'email', tipo: 'texto', cuerpo: 'después' },
@@ -80,6 +103,9 @@ test('el cableado: el motor cuenta con la misma puerta del barrido, y las cuatro
   const f = n.slice(n.indexOf('export async function ritmoAlActivar'), n.indexOf('export async function incluirExistentes'));
   assert.match(f, /if \(!barridoInscribe\(vista\) \|\| !barreElDisparador\(vista\)\) continue;/);
   assert.match(f, /await aInscribir\(supabase, vista, candidatos\)/);
+  assert.match(f, /porEvento: vistasPorDisparador\(sec\)\.some\(\(v\) => TRIGGERS_SOLO_EVENTO\.has\(v\.trigger_tipo\) && v\.trigger_tipo !== TRIGGER_AVISO_MAKO\)/);
+  assert.match(f, /quedaParaAprobar: canal !== 'email' && !!primero && !saleSolo\(primero, sec\.envio_automatico\)/);
+  assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /if \(a\.sinGoteo\) setConfigDe\(\{ id: a\.j\.id, nombre: a\.j\.nombre \}\);/);
   assert.match(leer('app/api/whatsapp/secuencias/route.ts'), /ritmo: await ritmoAlActivar\(id, \{ incluirExistentes: req\.nextUrl\.searchParams\.get\('incluir'\) === '1' \}\)/);
   assert.match(leer('app/automations/SecuenciaPerfil.tsx'), /conExistentes\(\(\) => void conRitmo\(\(\) => void toggle\(\)\)\)/);
   assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinRitmo\) \{/);
@@ -93,4 +119,8 @@ test('el cableado: el motor cuenta con la misma puerta del barrido, y las cuatro
 // dispara sólo por evento → 8 / 1 · el interruptor, el «⋯», el teléfono o MaKo no lo dicen → 8 / 1 cada uno. «El canal es el del
 // primero del array» quedó en verde: el mensaje del flujo era también el primero. Con el orden cambiado se vio un defecto real: un
 // flujo que arranca con una condición se cortaba ahí y tomaba el canal del primero del array. Ahora, rota → 8 / 1.
-// CON EL DATO REAL (30/10, sólo lectura, 37 pausadas de producción): 9 dirían algo, de 2 a 34 personas.
+// Por evento y para aprobar (base 11 / 0): una por evento vuelve a callar, avisa con goteo, avisa lo que queda para aprobar, lo que queda
+// para aprobar dice que sale, no poder contar dice «salen juntos» aunque se apruebe, el aviso de MaKo cuenta como evento, el motor no
+// le pasa lo de aprobar, el «⋯» no ofrece poner goteo → 10 / 1 cada una.
+// CON EL DATO REAL (30/10, sólo lectura): de 37 pausadas de producción, 11 dirían algo (9 con número, de 2 a 34 personas; 2 de Instagram
+// sin número). Las 7 activas de Instagram tampoco tienen goteo. Ninguna de las medidas queda para aprobar: ese texto no se vio con un caso real.

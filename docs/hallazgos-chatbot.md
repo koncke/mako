@@ -40,12 +40,17 @@ alargan. ⚠️ El tope de la línea no separa, corta la tanda: usarlo como un g
 **Cerrar el aviso nunca la prende:** `Confirm` manda Escape y el fondo a `onCancel`, y por eso «Poner goteo» es el cancelar y
 «Activar igual» el confirmar.
 
-**Decisiones de Automations:** con menos de 2 personas no hay ritmo que decir. Una que dispara sólo por su evento no se avisa: al
-activar no sale nada, y no hay a quién contar. No poder contar no frena, pero sin goteo se dice igual.
+**Una que dispara por su evento también avisa si no tiene goteo (el Cerebro, 30/10).** La primera versión callaba porque al activar no
+hay a quién contar: quedaba puesto donde el riesgo es menor y callado en Instagram, donde es mayor. El aviso no está para decir a
+cuántos, está para que no te enteres del goteo después. **Un aviso que miente es peor que ninguno:** si el primer mensaje lo escribe la
+IA y no sale solo (`saleSolo`), queda para aprobar, y el aviso lo dice en vez de «sale». Desde el 23/10 un mensaje fijo siempre sale, así
+que este caso es sólo el de la IA: ninguna de las 44 medidas el 30/10 cae ahí. **Medido ese día:** las 7 activas de Instagram no tienen goteo.
+
+**Decisiones de Automations:** con menos de 2 personas, y sin evento, no hay ritmo que decir. No poder contar no frena, pero sin goteo se
+dice igual.
 
 **Sin hacer:** el interruptor de /email y «MaKo escribe tu nutrición» (app/email/EmailApp.tsx, app/_components/NutricionGenerar.tsx)
-prenden sin este aviso. Con aprobación, el texto dice «sale» y en realidad queda el borrador (`dejaBorradores`, el chat ya lo dice al
-activar). Una con horario cuenta a los de hoy, no a los de su próxima vez. El tope de Meta para Instagram no entra en la cuenta.
+prenden sin este aviso. El aviso mira el PRIMER mensaje: uno de IA más adelante puede quedar para aprobar sin que lo diga. Una con horario cuenta a los de hoy, no a los de su próxima vez. El tope de Meta para Instagram no entra en la cuenta.
 **Sin ver en pantalla:** probado con tests, roturas y el dato real de producción, no en el navegador (sin servidor local por la RAM).
 
 ## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)

@@ -30,6 +30,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
 
+- El **aviso al activar una automatización** (cuántos y a qué ritmo), al desplegar: el interruptor, el «⋯» con «Poner goteo» y el teléfono. Probado con tests y con el dato real, no en el navegador (`lib/ritmo-al-activar.ts`)
 - La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
 - El **«Creando…»** de los «+» del editor de etapas (se prueba en el **Cliente de Prueba**, nunca en un cliente real)
 - El **selector de funnel del teléfono**
