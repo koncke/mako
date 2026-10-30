@@ -10819,6 +10819,34 @@ pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada
 escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
 tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
 
+## Una APERTURA de MaKo no es una recomendación: la arma el código y pregunta un hecho (29/10/2026)
+
+Martín: «en todos lados que haya un chat de MaKo, que MaKo te vaya guiando… EN LUGAR de que esté en la top bar "adaptar con
+MaKo"… que MaKo tome la iniciativa». Lo que MaKo dice PRIMERO en un chat es una apertura (lib/aperturas/, la pieza
+app/_chat/AperturaMako.tsx; el plan, docs/mako-iniciativa/plan.md), y es la excepción a «toda pantalla que sugiera algo usa el
+motor de recomendaciones»: no mide una señal, lee el ESTADO y pregunta el primer hecho que falta. **Regla para código nuevo:**
+- la arma el CÓDIGO (una función pura por superficie, `lib/aperturas/<superficie>.ts`, con su `CATALOGO` y sus `EJEMPLOS`), sin IA
+  y sin prompts; devuelve `null` si no falta nada, y MaKo calla;
+- la primera pregunta es de HECHO («¿Cuál usas?»), nunca de acción («¿Quieres que…?»): lo exige `PREGUNTA_DE_ACCION`
+  (tests/aperturas.test.ts), salvo la guía de cada pestaña, por su id y con el porqué escrito;
+- sus botones andan SIN la app de escritorio (`respuesta`, `ir`, `hacer`, `callar`); la IA del negocio entra sólo con un toque
+  (`pedir`), con el texto que arma el código;
+- nunca un botón en la barra para lo mismo, y nunca un mensaje guardado con botones: el Cerebro es uno en toda la app, y lo
+  guardado saldría en todas las tabs;
+- la memoria es POR PERSONA, con el workspace en la clave (`usuarios.perfil.aperturas`, /api/aperturas): «Ahora no» calla 14
+  días y el segundo para siempre; lo de negocio habla una vez por día.
+
+## La GUÍA de cada pestaña: MaKo enseña señalando, con el chat a la vista (29/10/2026)
+
+Martín: «que Mako le pueda ir señalizando diferentes lugares… cada vez que un usuario entra por primera vez a una tab… que la
+pestaña se ponga un poco opaca por detrás». Reemplaza a los recorridos con «Siguiente» (app/_ui/Recorrido.tsx) tab por tab
+(docs/mako-iniciativa/guia.md). **Regla para código nuevo:** toda tab trae su catálogo de guía AL LADO de su pantalla
+(`app/<tab>/guia-<tab>.ts`, sumado a lib/guia/catalogo.ts) y llama `useGuiaDeLaTab(key, { listo, hechos })`; una marca se pone
+con `ancla('id')` (el id no se renombra: es la clave de lo visto); nunca un `aria-label` como ancla; el chat que la tab dibuja
+lleva `data-mako-chat` (el velo le deja un hueco: con la guía puesta se usa la tab y se le escribe a MaKo); su pregunta habla con
+la pieza de las aperturas. El «recomendado» de la guía ordena qué enseñar primero con hechos de la pantalla: tampoco es una
+recomendación. tests/guia-*.test.ts; una tab que un cliente ve sin catálogo, falla.
+
 # El desenlace de un lead y la columna de su tarjeta se escriben JUNTOS (27/10/2026)
 
 El tablero lee la columna guardada (`leads.pipeline_stage`) y Customer Success, Revenue y las métricas leen `estado_lead`. Un

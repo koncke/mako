@@ -181,3 +181,29 @@ decía mal, y un hueco que venía de antes:
   - **Con la caja desmontada, el camino SIN `conversacion` no puede cortar callado.** Ahí lo adjuntado vivía en la caja y se fue
     con ella; lo leído vuelve al campo de la pantalla (`onTexto`), que vive afuera, y no se manda. Con `conversacion`, queda
     guardado para volver.
+
+## MaKo toma la iniciativa: la apertura, y las respuestas rápidas que sin la app no hacían nada (29/10/2026, claude3)
+
+La base de docs/mako-iniciativa/ (T1 de plan.md + G1 de guia.md): lo que MaKo dice primero en un chat es una APERTURA
+(lib/aperturas/, la pieza app/_chat/AperturaMako.tsx), montada en el Cerebro (PiezasCliente.tsx → `useAperturaDelCerebro`), el
+mismo en el Ops Center, la estrella y la tarjeta de Create.
+- **Las respuestas rápidas del hilo, sin la app de escritorio, no hacían nada y no lo decían.** `onResponder` es `k.enviar`, que
+  devuelve `false` con `app === 'bloquea'`; el bloque `pregunta` decía «No salió: espera a que MaKo termine», que es OTRO motivo.
+  Ahora el hilo recibe `sinMandar` (HiloMako → BloqueHilo): las opciones no se tocan y dice por qué, de entrada
+  (`FRASE_RESPONDER`). **Regla:** un botón que no puede hacer lo suyo lo dice ANTES del toque, con el motivo de verdad.
+- **Por eso la apertura NO usa el bloque `pregunta` ni `BloqueDePreguntas`** (lo de la tab sale plegado desde el 22/10): lleva sus
+  propios botones, que no escriben nada (`respuesta`, `ir`, `hacer`, `callar`), y andan sin la app.
+- **Había DOS «ya lo descargó».** `useBloqueoApp` (AppPrimero.tsx, la caja del Cerebro) guardaba el suyo en un `useState`, e
+  InstalarMaKo.tsx (las cajas con motor propio) el compartido de app-de-escritorio.ts. Tocar «Instalar MaKo» en una no pasaba la
+  otra a «Ya lo instalé: conectar». Ahora las dos leen `useDescargado`: el de la apertura es la MISMA pieza (InstalarMaKo).
+- **El chat no se sube de z-index para quedar arriba del velo de la guía: se le deja un hueco.** `data-mako-chat` en el panel de
+  todo chat (PanelChat.tsx), la estrella y su panel (MakoEnLaTab.tsx).
+- **Trampa: «si hay app y si hay IA» no tiene un lector común.** `laApp` y `conSuIA` viven adentro de app/api/mako/chat/route.ts,
+  ocho tests los fijan por fuente ahí, y una ruta de Next no puede exportar funciones. La estrella CERRADA, que no monta el
+  motor, pregunta `?suIA=1` una vez por página (con la memoria de /api/aperturas). Moverlos a lib/ pide mover esos tests.
+- **Trampa: `DescargarMaKo` (IA del cliente) no pasa atributos.** La marca de la guía (`mk-instalar`) va en un envoltorio
+  `.ch-ancla`; afuera de la caja, `.co-instalar` no tenía estilo (sus reglas son de `.co-caja__fila`): la apertura trae el suyo.
+- **SIN HACER:** la escalera completa (pasos 1, 2 y 4 a 8 de plan.md §3.2, con su lector `lib/aperturas/ops-server.ts`: T3);
+  las aperturas de cada tab (T4 a T17, cada una en su `lib/aperturas/<superficie>.ts`); el teléfono (T16: `aperturaOps` calla
+  con `en-la-computadora`). **Nada se vio en el navegador**: falta recorrer el Cerebro del ws3 sin la app («¿Cuál usas?», sus
+  botones, dos «Ahora no» la callan) y la estrella cerrada (su corto, la primera visita).

@@ -124,7 +124,7 @@ function MenuDelMensaje({ onCitar, children }: { onCitar?: (m: MensajeWA) => voi
   );
 }
 
-function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onDescartar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
+function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onDescartar, onRecargar, onResponder, sinMandar = null, onTrabajo, marcas, enMensaje }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -142,6 +142,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
   onRecargar: () => void;
   /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. `false` = no salió. */
   onResponder?: (texto: string) => boolean;
+  /** Por qué las respuestas rápidas no pueden salir ahora (sin la app de escritorio): se dice y no se tocan. null = salen. */
+  sinMandar?: string | null;
   /** El trabajo largo de una tarjeta terminó (1.11): la tarjeta pasa a «Hecho» o «Falló» (`trasTrabajo`). */
   onTrabajo?: (pendienteId: number, ok: boolean | null) => void;
   /** Las marcas de WhatsApp de este chat (reacciones, destacados): con el menú del clic derecho de quien lo monta. */
@@ -226,7 +228,7 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
     }
     if (x.k === 'bloque') {
       const de = x.deTarjeta;
-      filas.push(<DeMako key={x.id} quien={quien} ancho><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={escribiendo != null}
+      filas.push(<DeMako key={x.id} quien={quien} ancho><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={escribiendo != null} sinMandar={sinMandar}
         onTermina={de != null && onTrabajo ? (ok) => onTrabajo(de, ok) : undefined} /></DeMako>);
       return;
     }

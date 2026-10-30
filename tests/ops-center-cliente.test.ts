@@ -191,7 +191,7 @@ test('7. «Conectar tu Claude» al final de la caja, sólo si la persona todaví
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.ok(caja.indexOf('{p.alFinal}') > caja.indexOf('<textarea') && caja.indexOf('{p.alFinal}') < caja.indexOf('<BotonMandar'), 'al final, antes del botón');
   // En la caja ancha, al final; en la angosta, arriba del campo (tests/ops-center-caja-angosta.test.ts).
-  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /const conectar = k\.iaConectada === false\n\s*\? <button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu IA<\/button> : null;/);
+  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /const conectar = k\.iaConectada === false\n\s*\? <button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}(?: \{\.\.\.ancla\('mk-conectar'\)\})?>Conectar tu IA<\/button> : null;/);
   // Sólo se pregunta fuera del Ops Center del super admin (`activo`): ahí contesta la IA de la plataforma.
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /useEffect\(\(\) => \{ if \(activo\) mirarSuIA\(\); \}, \[activo, mirarSuIA\]\);/);
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ k\.setConectando\(false\); k\.mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera conectar \/>/, 'sin salir de la tab (IA4: abre directo «¿Qué IA usas?»)');
