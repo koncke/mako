@@ -111,7 +111,15 @@ Integración. Misma prioridad que lo de Leila.
      `overflow-x-hidden` (las que no entran se esconden) y cada fila del kit pide ~76 + 66 px fijos; el mínimo de los
      paneles es 15 % del centro (~103 a ~130 px). Idea: mínimos en PÍXELES convertidos a % con el ancho medido del grupo
      (`editor-page.tsx`, react-resizable-panels 2.1.9 sólo acepta %). Medir primero en el banco.
-  3. **Cabecera: SIN EMPEZAR.**
+  2b. Paneles: roturas corridas en `0e27cb66f` (P1 1/2, las demás 2/1). El tsc de 3 GB con editor-page.tsx dio 134
+     (memoria): se repite en dos tandas (`banco/tsc-paneles.sh`: lo liviano con 3 GB, editor-page.tsx con 4 GB). Si
+     al leer esto no hay resultado, correrlo y mandar el VERDE del paso 2 con la punta `0e27cb66f`.
+  3. **Cabecera: TRABADA en el banco.** `banco/entrada-cabecera.tsx` (+ build/sacar-cabecera) no arma: `EditorHeader`
+     arrastra código de servidor (`@opentelemetry/api`, `http`, `https`, `url`, `util`). Hay que encontrar qué import lo
+     trae (probablemente el botón de exportar o el portal) y reemplazarlo en el banco por un stub, como el avatar y las
+     plantillas en `entrada-paneles.tsx`. Después, medir a los siete anchos (688 a 1312) y arreglar sólo si algo se corta.
+- **Tickets 31 y 32: EN PRODUCCIÓN** (tren-ag, main `333fefd92`), dicho por Integración el 30/10. La barra del
+  reproductor (`d121a5e6f`) va en el tren-ah.
 
 ## Lo que falta verificar
 
