@@ -153,7 +153,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   - ⚠️ **La 0349 sigue SIN aplicar:** N1 (deshacer el borrado de una vez de la serie le saca `serie_de` y vuelve a abrir A2).
     El chat de Zernio estaba archivado cuando se le devolvió. El Cerebro se la pide a Martín recién cuando Integración la dé
     por buena.
-- **tren-ah (rama `tren-ah`, chequeado y SUBIENDO):**
+- **tren-ah SUBIDO: main = `88700b981` (30/10). READY 05:16 (hora del log): hola-mako.com sirve `mako-ou9xtjw1c`.** Avisado el Cerebro: ya puede aplicar la 0349 si Martín dijo sí.
   - **Lleva:**
     - la iniciativa del Ops Center (`88d2cf0db`);
     - la barra del Reproductor (`d121a5e6f`);
