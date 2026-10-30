@@ -6,8 +6,8 @@
 //     saneo lo conserva); las siete de antes, sin el campo, siguen siendo de anuncios;
 //   · el Ads Writer NO ve las de reel y story (`getEstructurasGuion` = sólo las de anuncios; el Copywriter y el editor
 //     del super admin leen `getEstructurasTodas`); y un override guardado antes de que existieran las recibe igual;
-//   · cada tipo arma sus secciones (Reel: Gancho → Historia → Moraleja → CTA); YouTube no tiene estructura propia (no hay
-//     fuente) y el selector no queda vacío;
+//   · cada tipo arma sus secciones (Reel: Gancho → Historia → Moraleja → CTA); YouTube tiene la suya desde el 29/10/2026
+//     (`youtube-retencion`, de claude-youtube) y el selector no queda vacío;
 //   · la mudanza: /youtube-writer lleva al Copywriter a quien ya lo ve; /stories lleva SIEMPRE a los templates de Story
 //     (29/10, deprecada); el Ads Writer ofrece «Abrir en Copywriter» sólo a quien ya lo ve; `/copywriter?nuevo=<tipo>`
 //     abre «Nueva» con ese tipo y NO crea nada por abrir un link.
@@ -47,14 +47,18 @@ test('el Ads Writer lee sólo las de anuncios; el Copywriter y el super admin, t
   assert.match(leer('app/api/admin/guion-estructuras/route.ts'), /estructuras: await getEstructurasTodas\(\)/);
 });
 
-test('cada tipo con sus estructuras; YouTube sin la suya (no hay fuente) y el selector no queda vacío', () => {
+test('cada tipo con sus estructuras; YouTube con la suya desde el 29/10 (claude-youtube) y el selector no queda vacío', () => {
   const c = catalogosLite(ANGULOS_GUION_DEFAULT, ESTRUCTURAS_GUION_DEFAULT);
   assert.equal(estructuraPorDefecto(c, 'reel')?.id, 'reel-viral');
   assert.equal(estructuraPorDefecto(c, 'story')?.id, 'story-dia');
-  assert.equal(estructuraPorDefecto(c, 'youtube'), null, 'YouTube no arma secciones inventadas');
+  // Hasta el 29/10/2026 YouTube no tenía estructura (no había fuente: D6). Ahora es `youtube-retencion`, de claude-youtube (MIT).
+  assert.equal(estructuraPorDefecto(c, 'youtube')?.id, 'youtube-retencion');
   const yt = estructurasDelTipo(c, 'youtube');
-  assert.equal(yt.propias, false);
+  assert.equal(yt.propias, true);
   assert.ok(yt.estructuras.length > 0);
+  assert.deepEqual(docDeEstructura(ESTRUCTURAS_GUION_DEFAULT.find((e) => e.id === 'youtube-retencion')!.etiquetas).content?.filter((b) => b.attrs?.seccion).map((b) => b.content?.[0]?.text).slice(2, 4), ['Bloque uno', 'CTA medio'], '«CTA medio», no «Cta medio»');
+  // Una biblioteca guardada antes de que existiera la recibe igual (conLasDeOrganicoNuevas).
+  assert.match(readFileSync(join(raiz, 'lib/guion-estructuras-store.ts'), 'utf8'), /!d\.tipos\.includes\('ad'\) && !ids\.has\(d\.id\)/);
   const reel = docDeEstructura(ESTRUCTURAS_GUION_DEFAULT.find((e) => e.id === 'reel-viral')!.etiquetas);
   assert.deepEqual(bloquesDelDoc(reel).filter((b) => b.tipo === 'seccion').map((b) => b.texto), ['Gancho', 'Historia', 'Moraleja', 'CTA']);
 });

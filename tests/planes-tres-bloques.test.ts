@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FUNCIONES_SOLO_PRO, TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
-import { GRUPOS_COMPARACION, NOMBRE_AI_AVATAR, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
+import { AI_AVATAR_SE_VENDE, GRUPOS_COMPARACION, NOMBRE_AI_AVATAR, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
 import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
@@ -52,18 +52,27 @@ test('la comparación dice EXACTAMENTE los topes del código, en Esencial (compl
 
 // Lo que Martín le prometió a Teo (C:/dev/revisiones/2810-promesas-teo.md): la tabla le prometía a Pro «videos con una persona
 // hecha con IA», y la tab AI Avatar la abre sólo el super admin (app/ai-avatar/acceso.ts). Una tab cerrada no se vende.
-test('una tab que todavía no se abrió no se promete; AI Avatar está en los TRES planes desde el 29/10/2026', () => {
+test('una tab que todavía no se abrió no se promete; AI Avatar está abierta en los TRES planes pero no se vende todavía', () => {
   const filas = filasDeComparacion();
   assert.deepEqual([...TABS_TODAVIA_CERRADAS], []);
-  // Martín, 29/10/2026: «haz que AI-Avatar esté disponible para todos». No es de Pro: en Esencial, Pro y Acelerador.
-  const avatar = filas.find((x) => x.que === NOMBRE_AI_AVATAR);
-  assert.deepEqual([avatar?.esencial, avatar?.pro, avatar?.acelerador], [true, true, true], 'AI Avatar no está en los tres planes');
+  // Martín, 29/10/2026: «haz que AI-Avatar esté disponible para todos». No es de Pro: la tab, en Esencial, Pro y Acelerador.
   assert.ok(!(TABS_SOLO_PRO as readonly string[]).includes('ai-avatar'), 'AI Avatar volvió a ser de Pro');
+  // El Cerebro, 29/10/2026: abrirla no es venderla. Hasta un look real en el ws3 y la extensión 0.69 en la tienda, ni la fila
+  // ni un renglón de un plan prometen el avatar (el mismo criterio que sacó los videos del Video Generator).
+  const avatar = filas.find((x) => x.que === NOMBRE_AI_AVATAR);
+  if (AI_AVATAR_SE_VENDE) {
+    assert.deepEqual([avatar?.esencial, avatar?.pro, avatar?.acelerador], [true, true, true], 'AI Avatar se vende y no está en los tres planes');
+    assert.match(NOMBRE_AI_AVATAR, /Google Flow/, 'la fila del avatar no dice que se paga con los créditos de Google Flow');
+  } else {
+    assert.equal(avatar, undefined, 'la tabla vende AI Avatar antes de que ande de punta a punta');
+    assert.ok(!filas.some((x) => /avatar|persona hecha con IA/i.test(x.que)), 'otra fila de la tabla promete el avatar');
+    for (const p of PLANES_MAKO_DEFAULT) for (const r of p.incluye) assert.doesNotMatch(r, /avatar/i, `${p.id} promete el avatar: «${r}»`);
+  }
   for (const t of TABS_TODAVIA_CERRADAS) assert.ok(!filas.some((x) => x.que === NOMBRE_TAB_PRO[t]), `${t} está cerrada y la tabla la promete`);
   // Y Partners dice QUÉ se gana: el primer mes de cada negocio (no «el 100%» suelto, que sonaba a para siempre).
   assert.match(NOMBRE_FUNCION_PRO.partners, /primer mes/);
-  // Atado a la puerta de verdad: la tabla la ofrece porque acceso.ts la abre (la puerta de toda tab, no «sólo el super admin»).
-  assert.ok(fuente('app/ai-avatar/acceso.ts').includes("await requireRolWs([], { nav: 'ai-avatar' });"), 'la tabla ofrece AI Avatar con la puerta cerrada');
+  // Atado a la puerta de verdad: la tab está abierta (la puerta de toda tab, no «sólo el super admin»); venderla es aparte.
+  assert.ok(fuente('app/ai-avatar/acceso.ts').includes("await requireRolWs([], { nav: 'ai-avatar' });"), 'AI Avatar volvió a tener la puerta cerrada');
 });
 
 test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y en el Acelerador', () => {

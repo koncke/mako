@@ -404,3 +404,22 @@ la hora. Un solo camino de publicación».
 - **Sin hacer:** un carrusel (varias imágenes en una publicación); publicar un texto SOLO (el Calendario pide un archivo para
   programar: el texto del Copywriter llega sin archivo y ahí se sube la imagen o el video). **Sin verificar en el navegador:** no se
   levanta `next dev` local; las capturas las saca el Cerebro en producción, en el ws3, después del deploy.
+
+## Las publicaciones que se repiten: una vez borrada renace, y una copia puede abrir otra serie (29/10/2026, Integración)
+
+La misma revisión (`ce56bd693`, `lib/calendario-recurrentes.ts`) encontró dos ALTA que sólo corren con la mig 0349 aplicada. Por
+eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregladas** (lo acordó el Cerebro el 29/10).
+
+- ⚠️ **Contar las veces por las filas que existen hace renacer la que se borró.**
+  - Si la persona borra la de mañana, el cron la vuelve a crear y la programa en menos de 6 h.
+  - Si la mueve al sábado, salen las dos.
+  - **Regla:** la serie recuerda qué veces ya nacieron, aunque la fila no esté.
+- ⚠️ **«Repetir» en una copia (`serie_de` lleno) arma una segunda serie: dos posts por día.** `guardarRepeticion` no mira
+  `serie_de`, y la pantalla ofrece «Repetir» en cualquier Publicación.
+- **Medias:**
+  - La regla se guarda al tocar el Select, sin confirmar.
+  - Un molde sin texto se programa igual.
+  - Corregir, sacarle la regla o borrar el molde no cambia las hasta 3 veces ya nacidas.
+  - Sospecha, sin medir: si Zernio contesta 409 por contenido repetido, todas las veces quedan con el mismo post, y cancelar una
+    cancela las otras (`lib/zernio-publicar.ts`).
+

@@ -18,6 +18,8 @@
   color: var(--cv-color-text);
   font: 500 var(--cv-text-base) / 1 var(--cv-font-sans);
   user-select: none;
+  /* Lo que cede se decide por el ancho de ESTA barra, no de la ventana (abajo, `@container`). */
+  container-type: inline-size;
 }
 
 .start,
@@ -44,6 +46,8 @@
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
+  /* Un botón no se encoge por debajo de su texto: encogido, «Páginas 1 / 1» se pisaba con la cuadrícula. */
+  flex: none;
 }
 .iconBtn {
   width: 32px;
@@ -216,6 +220,24 @@
 .zoomItem:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
+}
+
+/*
+ * La barra ANGOSTA (29/10/2026): con la tarjeta de MaKo abierta, a 1366 de ventana la barra mide ~520 px y no entraban los
+ * rótulos de Notas/Duración, el deslizador, «Páginas 1 / 1» y los dos íconos: se pisaban. Ceden lo mismo que en el teléfono,
+ * pero medido sobre la barra (la ventana no sabe cuánto le dejan la sidebar, la tarjeta y el panel de Diseño).
+ */
+@container (max-width: 600px) {
+  .start .text {
+    display: none;
+  }
+  .start .textBtn {
+    width: 32px;
+    padding: 0;
+  }
+  .slider {
+    display: none;
+  }
 }
 
 /* Teléfono: los rótulos de Notas/Duración y el deslizador ceden lugar; queda el porcentaje. */

@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { BID_RE, bloquesDelDoc, docDeEstructura, docVacio, nombreDeSeccion, sanearContenido, sinTexto, textoDelDoc } from '../lib/copywriter/doc';
 import { agregar, aPapelera, dePapelera, enOrdenDeArbol, escondida, hijasDe, masReciente, mover, restaurar, sanearIndice } from '../lib/copywriter/arbol';
 import { estructurasDelTipo, tiposDe, catalogosLite } from '../lib/copywriter/catalogos';
-import { sanearProps, TOPES, type JsonNodo, type PaginaCopy } from '../lib/copywriter/tipos';
+import { propsNuevas, sanearProps, TOPES, type JsonNodo, type PaginaCopy } from '../lib/copywriter/tipos';
 import { parsearSecciones } from '../lib/guion-secciones';
 import { buscarBloquesCopy, catalogoCopy } from '../app/copywriter/editor/bloques';
 import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
@@ -118,8 +118,12 @@ test('el nombre de una sección: con su tilde, y las siglas quedan siglas', () =
 });
 
 test('las propiedades se leen a la defensiva', () => {
-  assert.deepEqual(sanearProps({ tipo: 'reel', angulo: 'dolor', estructura: '<script>', duracion: -3 }), { tipo: 'reel', angulo: 'dolor', estructura: null, duracion: null });
+  assert.deepEqual(sanearProps({ tipo: 'reel', angulo: 'dolor', estructura: '<script>', duracion: -3 }), { tipo: 'reel', angulo: 'dolor', estructura: null, duracion: null, plantilla: null });
   assert.equal(sanearProps({ tipo: 'nada' }).tipo, 'ad');
+  // La plantilla de la que nació la página (29/10/2026): un id como el de la estructura; lo demás, null.
+  assert.equal(sanearProps({ tipo: 'ad', plantilla: 'guion-anuncio' }).plantilla, 'guion-anuncio');
+  assert.equal(sanearProps({ tipo: 'ad', plantilla: '../x' }).plantilla, null);
+  assert.deepEqual(propsNuevas('reel', 'reel-viral', { plantilla: 'reel', duracion: 52 }), { tipo: 'reel', angulo: null, estructura: 'reel-viral', duracion: 52, plantilla: 'reel' });
 });
 
 test('lo que lee la IA: cada bloque con su id, y la sección con su etiqueta', () => {
@@ -280,8 +284,11 @@ test('la IA del Copywriter: su feature registrada y la regla de lo que no existe
   assert.match(ia, /feature: FEATURE_COPY/);
 });
 
-test('el contexto del negocio sale del grafo del Second Brain con recuperar (el punto de enganche de grafoParaChat)', () => {
-  const c = leer('lib/copywriter/contexto.ts');
+test('el contexto del negocio sale del grafo de los chats (grafoParaChat) con recuperar, en el lib común de Create', () => {
+  // 29/10/2026: se mudó a lib/negocio-para-crear.ts (lo leen las cinco tabs) y dejó de rearmar el mapa con su física.
+  const c = leer('lib/negocio-para-crear.ts');
+  assert.match(c, /const grafo = await grafoParaChat\(\);/);
   assert.match(c, /recuperar\(grafo,/);
-  assert.match(c, /const GRAFO = \(\) =>/);
+  assert.doesNotMatch(c.replace(/^[ \t]*\/\/.*$/gm, ''), /construirCerebro\(/, 'rearma el mapa entero con su física');
+  assert.match(leer('lib/copywriter/contexto.ts'), /export \{ contextoDelNegocio,[^}]*\} from '\.\.\/negocio-para-crear';/);
 });

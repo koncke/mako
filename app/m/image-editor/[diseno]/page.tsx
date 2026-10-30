@@ -7,7 +7,7 @@
 // chrome/ed.module.css). Es exactamente el editor de Canva en el teléfono. Así que el teléfono NO tiene un editor
 // propio: monta el de escritorio por su ÚNICA puerta (ImageEditorCliente, 'use client' y sin SSR:
 // tests/image-editor-integracion.test.ts, contrato 4), con el mismo diseño de la base, el mismo guardado
-// (compare-and-set por versión) y el crédito de Doory que exige su licencia (editor/CreditoDoory.tsx).
+// (compare-and-set por versión). El crédito de Doory: 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.
 //
 // Lo único del teléfono es el marco: la capa a pantalla completa (../../_creacion/PantallaCompletaM.tsx), porque en
 // Canva del teléfono el editor tapa todo y trae su propia barra («‹» vuelve al inicio, que acá es /image-editor:

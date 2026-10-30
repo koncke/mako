@@ -40,8 +40,10 @@ export async function POST(req: Request) {
         if (!r.ok) return falla(r.status, r.error);
         return Response.json({ ...r, noLeidos: [...leidos.noLeidos, ...r.noLeidas] }, { headers: { 'Cache-Control': 'no-store' } });
       }
-      case 'editar': {
-        const r = await editar({ instruccion: b.instruccion, guion, charla: b.charla, lecturas: leidos.lecturas, referencias });
+      case 'editar':
+      // «Adaptar a mi negocio» (29/10/2026): `editar` con el pedido de adaptar la plantilla (lib/copywriter/experto.ts).
+      case 'adaptar': {
+        const r = await editar({ instruccion: b.instruccion, guion, charla: b.charla, lecturas: leidos.lecturas, referencias, adaptar: b.accion === 'adaptar' });
         if (!r.ok) return falla(r.status, r.error);
         return Response.json({ ...r, noLeidos: [...leidos.noLeidos, ...r.noLeidas] }, { headers: { 'Cache-Control': 'no-store' } });
       }
