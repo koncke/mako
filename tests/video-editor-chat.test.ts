@@ -1139,3 +1139,15 @@ test('53: «Borrar silencios» sin pausas (ticket 31, 29/10): todo el video salv
 // · R1 el ejemplo vuelve a nombrar un clip · R2 «todo el video» siempre · R3 la pausa no viaja al trabajo ·
 //   R4 cualquier pausa mínima pasa · R5 «No se aplica:» delante de todo · R6 el aviso nunca sugiere todo el video ·
 //   R7 el chat vuelve al texto seco · R11 la API sin la pausa mínima.
+
+// El mismo bug que dejó en blanco el carrusel de Leila (30/10/2026): la ruta valida y PanelChat vuelve a validar lo que
+// contestó la ruta. Lo que la primera deja adentro de "estilo", "cambios" o "valores" tiene que pasar la segunda.
+test('validar dos veces no pierde nada', () => {
+  for (const o of OPERACIONES_CHAT) {
+    const una = validarOperaciones([JSON.parse(o.forma)]);
+    if (!una.operaciones.length) continue; // la forma de ejemplo no siempre es válida tal cual (reemplazar_en_subtitulos)
+    const dos = validarOperaciones(una.operaciones);
+    assert.deepEqual(dos.descartes, [], o.op);
+    assert.deepEqual(dos.operaciones, una.operaciones, `${o.op} cambia al validarla otra vez`);
+  }
+});

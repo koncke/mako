@@ -168,6 +168,7 @@ export function aplicarOperaciones(p: {
   const descartes: string[] = [];
   const fuentes = new Set<string>();
   const nuevas = new Map<string, string>();
+  const paginasNuevas = new Map<string, string>();
   let aplicadas = 0;
   let pagina: string | null = null;
   const anchoDe = (pg: Pagina) => num(pg.width, num(doc.width));
@@ -183,7 +184,8 @@ export function aplicarOperaciones(p: {
   const tituloDe = (ref: string, o: Obj) => p.vista.elementos.get(ref)?.titulo ?? (tipoDe(o) === 'texto' ? `«${String(o.text ?? '').replace(/\s+/g, ' ').slice(0, 40)}»` : String(o.name ?? PALABRA_TIPO[tipoDe(o)]));
   /** El elemento de una ref, listo para cambiar; o el motivo por el que no. */
   const elemento = (ref: string, op: { bloqueadoVale?: boolean } = {}): { pg: Pagina; i: number; o: Obj; titulo: string } | string => {
-    const id = p.vista.elementos.get(ref)?.id ?? nuevas.get(ref);
+    // Primero lo agregado en este pedido: si la IA le puso una ref que ya existe, de ahí en más habla de lo nuevo.
+    const id = nuevas.get(ref) ?? p.vista.elementos.get(ref)?.id;
     if (!id) return `«${ref}» no está en el diseño`;
     const b = buscar(id);
     if (!b) return `${p.vista.elementos.get(ref)?.titulo ?? ref} ya no está`;
@@ -193,7 +195,7 @@ export function aplicarOperaciones(p: {
     return { ...b, titulo };
   };
   const paginaDe = (ref?: string): Pagina | null => {
-    const id = ref ? p.vista.paginas.get(ref) : (p.activePageId ?? doc.pages[0]?.id);
+    const id = ref ? (paginasNuevas.get(ref) ?? p.vista.paginas.get(ref)) : (p.activePageId ?? doc.pages[0]?.id);
     return doc.pages.find((pg) => pg.id === id) ?? (ref ? null : doc.pages[0] ?? null);
   };
   const hecho = (c: CambioImagen) => { cambios.push(c); aplicadas++; };
@@ -414,6 +416,7 @@ export function aplicarOperaciones(p: {
           };
         doc.pages.splice(i, 0, nueva);
         pagina = nueva.id;
+        if (op.nueva) paginasNuevas.set(op.nueva, String(nueva.id));
         hecho({ tipo: 'agrega', titulo: `Página ${i + 1}`, antes: '', despues: op.duplicar && base ? `copia de la página ${doc.pages.indexOf(base) + 1}` : 'en blanco' });
         break;
       }

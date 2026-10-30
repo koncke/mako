@@ -21,6 +21,7 @@ import type { EditorEngine } from '../../_doory/editor/extensions';
 import { TOPES_CHAT_IMAGEN, validarOperaciones } from '@/lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
+import { memoriaDelHilo } from '@/lib/image-editor/chat/hilo';
 import { FUENTES } from '../fuentes';
 import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type MensajeNuevo, type Propuesta } from './hilo';
 import { cuerpoConArchivos } from '@/app/_chat/useAdjuntosDelChat';
@@ -99,6 +100,8 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
 
   const elegidosIds = editor.state.selection.ids.slice();
   const alcanceReal: AlcanceChat = alcance === 'seleccion' && elegidosIds.length ? 'seleccion' : 'diseno';
+  // Antes de sumar el mensaje de ahora, que ya va como instrucción.
+  const memoria = memoriaDelHilo(leerHilo(disenoId).mensajes);
   cambiarHilo(disenoId, (h) => ({
     corriendo: true,
     mensajes: [...h.mensajes, conId({ de: 'yo', texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === 'seleccion' ? rotuloSeleccion(elegidosIds.length) : null })],
@@ -119,7 +122,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     terminar({ de: 'mako', texto: 'El diseño es muy grande para el chat. Elige unos elementos y pídelo sobre la selección.', error: true });
     return;
   }
-  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal }, corte.signal, archivos);
+  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal, memoria }, corte.signal, archivos);
   if (!r.ok) {
     terminar({ de: 'mako', texto: r.error, error: !('cortado' in r) });
     return;
@@ -145,8 +148,10 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     terminar({ de: 'mako', texto: r.resumen || 'Sin cambios.', ...(descartes.length ? { descartes } : {}) });
     return;
   }
+  // Si se perdió más de lo que queda, el resumen de la IA promete de más («Voy a crear el carrusel») y sólo cambia el fondo.
+  const parcial = descartes.length > prueba.aplicadas ? 'Pude hacer sólo una parte. ' : '';
   terminar({
-    de: 'mako', texto: r.resumen || 'Listo.', estado: 'pendiente', cambios: prueba.cambios,
+    de: 'mako', texto: `${parcial}${r.resumen || 'Listo.'}`, estado: 'pendiente', cambios: prueba.cambios,
     ...(descartes.length ? { descartes } : {}), propuesta,
   });
 }

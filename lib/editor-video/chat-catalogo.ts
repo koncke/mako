@@ -604,14 +604,29 @@ function valoresDePlantilla(
   return { ok: true, ...salida };
 }
 
+const ENVUELTAS: Record<string, string> = { estilo_texto: 'estilo', transformar: 'cambios', ajustar_color: 'valores' };
+
+/**
+ * `validarOperacion` devuelve estas tres con sus campos adentro de una clave, pero la IA los escribe sueltos. La ruta valida
+ * y PanelChat vuelve a validar lo que contestó la ruta: sin esto, la segunda pasada las tiraba a todas (lo encontró el
+ * carrusel de Leila en el Image Editor, 30/10/2026; tests/video-editor-chat.test.ts).
+ */
+function desenvuelta(raw: Record<string, unknown>): Record<string, unknown> {
+  const clave = ENVUELTAS[String(raw.op)];
+  if (!clave || !esObjeto(raw[clave])) return raw;
+  const { [clave]: adentro, ...resto } = raw;
+  return { ...(adentro as Record<string, unknown>), ...resto };
+}
+
 /**
  * Una operación de la IA, validada; o el motivo por el que no. El motivo es corto: lo ve la
  * persona en la revisión («No se aplica: …»).
  */
-export function validarOperacion(raw: unknown): Validada {
-  if (!esObjeto(raw) || typeof raw.op !== 'string') return { ok: false, motivo: 'una operación sin forma' };
-  const op = raw.op;
+export function validarOperacion(crudo: unknown): Validada {
+  if (!esObjeto(crudo) || typeof crudo.op !== 'string') return { ok: false, motivo: 'una operación sin forma' };
+  const op = crudo.op;
   if (!IDS_OP.has(op)) return { ok: false, motivo: `«${op.slice(0, 30)}» no es algo que pueda hacer` };
+  const raw = desenvuelta(crudo);
   const ref = raw.ref;
   switch (op as IdOperacion) {
     case 'agregar_texto': {
