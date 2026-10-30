@@ -152,7 +152,9 @@ test('el motor: el envío lleva los botones, y un mensaje con botones y nada aba
   assert.ok(toque.length > 500, 'no encontré tocarBoton');
   assert.match(toque, /\.eq\('id', f\.id\)\.eq\('estado', f\.estado\)\.eq\('updated_at', f\.updated_at\)/);
   assert.match(toque, /await viaRapidaConTurno\(leadId\)/);
-  assert.match(toque, /if \(t\.payload != null && !pl\) return 'no_es';/, 'un botón de otra herramienta se trataría como de MaKo');
+  // Un payload que no es de MaKo, sin título, no es de MaKo; CON el título de un botón que espera, se resuelve por el título
+  // (ticket #33: el toque de un DM viejo llegó así; tests/boton-dm-viejo.test.ts).
+  assert.match(toque, /if \(t\.payload != null && !pl && !t\.texto\?\.trim\(\)\) return 'no_es';/, 'un botón de otra herramienta se trataría como de MaKo');
   // Zernio: los botones van en el DM y en la respuesta privada.
   const z = leer('lib/zernio.ts');
   assert.match(z, /if \(input\.botones\?\.length && input\.texto && !input\.adjuntoUrl\) body\.buttons = input\.botones;/);
@@ -170,6 +172,7 @@ test('el webhook: el toque va ANTES que la pausa y el disparo (no es una respues
   const iDisparo = r.indexOf('dispararEventoSocial(leadId');
   assert.ok(iToque > 0 && iToque < iPausa && iPausa < iDisparo, 'el toque tiene que ir antes que la pausa y el disparo');
   // Se mira con el toque y con un texto que puede ser el título de un botón.
-  assert.match(r, /if \(postback \|\| \(r\.pausar && texto\)\) \{\n\s+try \{ toque = await runWithWorkspace\(wsFinal, \(\) => tocarBotonSocial\(leadId, postback \? \{ payload: postback \} : \{ texto \}\)\); \}/);
-  assert.match(r, /if \(toque !== 'no_es'\) \{ console\.log\(.*\); return; \}/);
+  assert.match(r, /if \(postback \|\| \(r\.pausar && texto\)\) \{\n\s+try \{ toque = await runWithWorkspace\(wsFinal, \(\) => tocarBotonSocial\(leadId, postback \? \{ payload: postback, texto \} : \{ texto \}\)\); \}/);
+  // Y un postback que no se resolvió tampoco es una respuesta (ticket #33: tests/boton-dm-viejo.test.ts).
+  assert.match(r, /if \(toque !== 'no_es' \|\| postback\) \{ console\.log\(.*\); return; \}/);
 });

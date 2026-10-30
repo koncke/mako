@@ -27,6 +27,28 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)
+
+**El síntoma:** cinco copias de la 680 (los MISMOS ids de tarjeta y el mismo «Obtener recurso»), la misma cuenta comenta las
+cinco palabras y recibe cinco DMs. El botón del último DM anda; el de uno anterior no hace nada, y todas las inscripciones del
+lead, también las completadas, pasan a «respondió». **El diagnóstico del pedido** («el toque se resuelve contra la inscripción
+más nueva») **no era:** el payload lleva la inscripción y, en el arnés, el toque del DM viejo con su payload mueve SU
+automatización. **Lo medido** (lead 5437, 30/10 03:51:14): el toque viejo no movió nada y 50 ms después las ocho quedaron en
+'respondio'. Eso sólo pasa si `tocarBoton` contesta 'no_es', y con la fila completa eso es **un payload que no es el de MaKo**:
+el webhook lo trató como un mensaje escrito, la pausa frenó las activas y el #788 pasó las completadas a «respondió». El cuerpo
+del evento no se guarda (`zernio_eventos` tiene sólo el id): qué payload mandó Zernio no se puede ver.
+
+**El arreglo, sin depender de qué mande Zernio:** un postback NUNCA va a la pausa ni al «Te envía un mensaje» (webhook), y con
+el payload viaja el título: si el payload no se lee, se resuelve por el título, como un botón que no se vio. Varias esperando el
+mismo título: la MÁS VIEJA (antes, el orden de la base). La regla: **un toque de botón no es una respuesta**, se resuelva o no.
+
+**Sin hacer:** (1) Por la API (`inscripciones_lead`), una inscripción sin tarjeta (`nodo_actual` null: terminada o en
+«respondió») nombra su paso por la POSICIÓN del array (`paso_actual`), no por lo último que salió: GANCHOS decía «Todavía no te
+veo…» cuando le había salido el recurso (lib/automatizaciones-del-lead.ts, `enAutomatizacionesDe`; hace falta leer el último
+envío). (2) Guardar el cuerpo del postback (o al menos el payload) para ver qué manda Zernio en el DM viejo. (3) Las ocho
+inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta (escritura en producción: con el
+«dale»).
+
 ## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
 
 **El pedido** (Leandro, ticket #25, levantado por MaKo a las 05:50): «que el flujo arranque solo cuando el comentario contiene
