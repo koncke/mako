@@ -65,7 +65,8 @@ test('el runner chequea en preparar() y guarda por la puerta de la pantalla', ()
   const r = run.slice(i, run.indexOf('\n  agregar_escenario_secuencia: {', i));
   assert.ok(i > 0 && r.length < 2500, `el recorte mide ${r.length}`);
   const prep = r.slice(r.indexOf('preparar:'), r.indexOf('ejecutar:'));
-  assert.match(prep, /await prepararDisparadores\(id, input\.crons\)/, 'preparar() no chequea contra el negocio: el rechazo llegaría al confirmar, con la pendiente consumida');
+  // (La publicación por su link se resuelve ANTES, ticket #25: tests/comentario-publicacion.test.ts.)
+  assert.match(prep, /const resueltos = await resolverPublicaciones\(input\.crons\);[\s\S]*?await prepararDisparadores\(id, resueltos\.crons\)/, 'preparar() no chequea contra el negocio: el rechazo llegaría al confirmar, con la pendiente consumida');
   assert.match(prep, /yaEstaba: true/, '«ya está así» no es un fallo para un flujo ni para un token');
   assert.doesNotMatch(prep, /guardarDisparadores|tzDeWorkspace/, 'preparar() no escribe (y tzDeWorkspace escribe la zona si falta)');
   // Guarda que cambió a propósito (21/10/2026): el «sí» va por `publicarCrons`, que pregunta por la duplicada y después

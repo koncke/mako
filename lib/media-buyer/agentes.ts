@@ -15,7 +15,7 @@ export const AGENTES_MAKO: AgenteMako[] = ['estratega', 'media_buyer', 'disenado
 
 /** Qué agente firma cada táctica. Stop Loss cuida la plata (Protect); Calidad sale del CRM (Estratega). */
 export const AGENTE_DE: Record<Tactica, Agente> = {
-  surf: 'media_buyer', sunsetting: 'media_buyer', revive: 'media_buyer', stop_loss: 'protect', calidad: 'estratega', ganador: 'disenador', manual: 'tu',
+  surf: 'media_buyer', sunsetting: 'media_buyer', revive: 'media_buyer', stop_loss: 'protect', calidad: 'estratega', ganador: 'disenador', manual: 'tu', hasta: 'tu',
 };
 export const NOMBRE_AGENTE: Record<Agente, string> = {
   media_buyer: 'Media Buyer', protect: 'Protect', estratega: 'Estratega', disenador: 'Diseñador de creativos', tu: 'Tú',

@@ -20,7 +20,8 @@ import {
   SURF_COSTO_MAX, SURF_RESULTADOS_MIN, SURF_SALTO_MAX_PCT, REVIVE_COSTO_MAX, GANADOR_RESULTADOS_MIN,
 } from './motor';
 
-export type TacticaAuto = Exclude<Tactica, 'manual'>;
+/** Las tácticas que se configuran (estado, umbrales, campañas). `manual` es de una persona y `hasta`, la fecha de fin que puso ella. */
+export type TacticaAuto = Exclude<Tactica, 'manual' | 'hasta'>;
 export type EstadoTactica = 'apagada' | 'propone' | 'automatica';
 export const ORDEN_TACTICAS: TacticaAuto[] = ['stop_loss', 'calidad', 'sunsetting', 'surf', 'revive', 'ganador'];
 

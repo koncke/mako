@@ -250,8 +250,8 @@ export async function POST(req: NextRequest) {
           }
           if (!r.disparar) return;
           try {
-            // Con lo que escribió (ticket #17): las palabras clave de un CRON de comentario.
-            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto));
+            // Con lo que escribió (ticket #17) y en qué publicación (ticket #25): las palabras clave y la publicación del CRON.
+            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto, ev.evento.postId));
             console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: ${n} automatización(es)`);
             // EL AI STEP CONTESTA ESTE MISMO MENSAJE si es la primera tarjeta (28/10/2026, como ManyChat): después de inscribir.
             // ⚠️ SÓLO SI NADIE LO CONTESTÓ YA (la revisión del Cerebro, 29/10/2026): un lead con una charla abierta y otra

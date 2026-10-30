@@ -18,6 +18,7 @@ export const NOMBRE_TACTICA: Record<Tactica, string> = {
   calidad: 'Calidad de leads',
   ganador: 'Ganador',
   manual: 'Subida',
+  hasta: 'Fecha de fin',
 };
 
 export const ICONO_TIPO: Record<TipoDecision, string> = {
@@ -28,6 +29,7 @@ export const ICONO_TIPO: Record<TipoDecision, string> = {
   variaciones_texto: '✍️',
   variaciones_hook: '🎬',
   crear_anuncios: '⬆️',
+  crear_campana: '🚀',
 };
 
 export const NIVEL: Record<Decision['nivel'], string> = { campaign: 'Campaña', adset: 'Conjunto', ad: 'Anuncio' };
@@ -35,7 +37,7 @@ export const NIVEL: Record<Decision['nivel'], string> = { campaign: 'Campaña', 
 /** El tono del titular de la columna del medio: verde lo que gana, rojo lo que pierde, dorado lo que crea MaKo. */
 export function tonoDe(d: Pick<Decision, 'tipo' | 'tactica'>): 'bien' | 'mal' | 'cuidado' | 'mako' {
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook') return 'mako';
-  if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar' || d.tipo === 'crear_anuncios') return 'bien';
+  if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar' || d.tipo === 'crear_anuncios' || d.tipo === 'crear_campana') return 'bien';
   if (d.tactica === 'sunsetting' && d.tipo === 'bajar_presupuesto') return 'cuidado';
   return 'mal';
 }
@@ -262,6 +264,7 @@ const POR_TACTICA: Record<Tactica, (res: string, tipo: TipoDecision) => string> 
   calidad: () => 'pausar lo que trae leads que no agendan',
   ganador: (_res, tipo) => (tipo === 'variaciones_hook' ? 'probar ganchos nuevos de tu video ganador' : 'probar textos nuevos de tu anuncio ganador'),
   manual: () => 'lo que piden tus reglas',
+  hasta: () => 'pausar lo que llegó a su fecha de fin',
 };
 
 const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
