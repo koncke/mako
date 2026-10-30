@@ -17,6 +17,8 @@ tabla se leyó en el código; lo marcado «1.ª vuelta» se vio en pantalla y no
 
 Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** detalle.
 
+**Lo más grave es AD1:** no es visual, la app afirma algo que no midió. Sin campañas tiene que decir que no hay datos.
+
 | Chat dueño | # | Sev. | Dónde | Qué pasa | Dónde vive / verificado |
 |---|---|---|---|---|---|
 | **Ads Manager** | AD1 | **A** | Ads Manager, «Hoy» | Dice «Hoy no hay cambios. Todo anda dentro de tu objetivo» sobre una cuenta con 0 campañas y $0 gastados (la pestaña Campañas sí lo dice bien). | app/ads-manager/MediaBuyer.tsx:276-277 y app/m/ads/MediaBuyerM.tsx:84-85: sólo mira `hoy.length` y `config.encendido`. Leído en el código. |
@@ -50,7 +52,7 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | **API** | AP1 | B | Índice | «Chatbot y secuencias» y «Ads (Manager y Analyst)»: nombres viejos. | lib/api-mako/tipos.ts:46 y :54 (también salen en docs/api-mako.md) |
 | **Web Generator** (este chat) | W1 | B | `/`, reproductor | El cartel «Continuar viendo» queda encima del título del video. | 1.ª vuelta |
 | Web Generator (este chat) | W2 | **A** | Landing copiada | Las 27 imágenes de una landing copiada daban 404. **Arreglado en esta rama, falta correr sus tests** (abajo). | lib/landing-fetch.ts, lib/editor-landing/replicar-reglas.ts |
-| Iniciativa (T4 a T8) | CH1 | M | Video, Image, AI Avatar | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo. **No es un bug suelto:** es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17) y su apertura es la tanda T4 de docs/mako-iniciativa/plan.md. | No repartir aparte |
+| Iniciativa (T4 a T8) | CH1 | M | AI Avatar siempre; Video e Image mientras no hay un proyecto abierto (Copywriting y Offer tienen chat propio) | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo: `PantallaCrear` no le pasa `apertura`. **No es un bug suelto:** es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17) y su apertura es la tanda T4 de docs/mako-iniciativa/plan.md. | No repartir aparte |
 
 ## Cerrados o que esperan en otra rama
 
