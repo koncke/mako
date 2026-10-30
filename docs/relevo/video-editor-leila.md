@@ -20,6 +20,14 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
    generarSubtitulos devuelva {ok} | {motivo}, que el botón y el chat lean lo mismo, un texto por causa que diga qué
    hacer, ningún return mudo, test rompiéndolo, sin Groq.
 
+## Lo pedido el 30/10 de madrugada (cuenta claude3, el Cerebro con la captura de Martín)
+
+«Se siguen rompiendo cosas, como esta… revisa bien todo». La barra del Reproductor angosto (9:16, ~500 px) encimada: tiempo,
+▶, «Completa ▾», lupa ▾, «Relación ▾», pantalla completa. Que NUNCA se enciman a ningún ancho. Y revisar con el mismo ojo
+TODO el Video Editor a 1280, 1366 y 1440 con los paneles en su mínimo: la línea de tiempo, las barras, los paneles
+laterales y el chat de MaKo plegado y abierto. Capturas de antes y después. Rama nueva desde origin/main; VERDE y el sha a
+Integración. Misma prioridad que lo de Leila.
+
 ## Lo hecho
 
 - 1 a 4: en main (2cdd45fb3, 10597c1e7, 98e376ab5, rama `editor-leila-2810`). Cosechado en docs/hallazgos-video-editor.md.
@@ -49,6 +57,14 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
 - **Motion, migración renumerada:** `0340_image_editor_propuestas.sql` → `0344` (en main el 0340 es la papelera del CRM),
   con sus seis comentarios en el código. Pedido del Cerebro del 29/10.
 
+- **La barra del reproductor (30/10):** rama `editor-pantalla-3010` en C:/dev/wt-editor-leila, desde origin/main
+  `c9070ea0d`, commit **`b93d7f644`**. Niveles por el ancho de la barra (`preview/barra-niveles.ts`), íconos con el valor en
+  el tooltip, dos o tres filas si no entra; el teléfono la esconde por `data-barra-reproductor`. Tests barra-reproductor
+  3/0 y m-creacion 7/0. Banco y capturas (antes y después, 60 s y 1 h): C:/dev/revisiones/editor-pantalla-3010/ (el
+  banco en `banco/`: `node build.mjs <worktree> <salida> [--antes]` y `node sacar.mjs <salida> <prefijo> total=60.06`).
+  Cosecha en docs/hallazgos-video-editor.md (+ índice), hito en la bitácora. ⚠️ El hito va al final de la lista, igual
+  que el de los tickets 31/32 (d5baaa302, tren-ag): al juntarlos chocan, y se dejan los dos.
+
 ## Lo que quedó a medias
 
 - **Ticket 23:** nada a medias. ⚠️ Para la próxima: el árbol está en CRLF; un script que rompe por texto tiene que usar
@@ -72,6 +88,17 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
 - **Lo que sigue de Motion después del VERDE** (docs/relevo/motion-nube-2710.md, «Pendientes»): los huecos de la API de
   los dos inventarios, el bug de la plantilla cifra (paso 1 redondea 4,5), el modelo de imágenes antes de subir, y en cola
   exportar → MP4 a Storage, «Mandar al grupo de MaKo» y «Programar publicación» (con el chat de Zernio).
+
+- **Barra del reproductor, para el VERDE:** las 5 roturas (`banco/roturas-barra.mjs`, encoladas por con-turno detrás de
+  la pausa del Cerebro; su log en el scratchpad de esta sesión, `roturas-barra.log`), anotar sus números al final de
+  tests/video-editor-barra-reproductor.test.ts, el tsc acotado (toolbar.tsx, barra-niveles.ts, los dos tests, con las
+  cuatro .d.ts de `_opencut`) y el VERDE al Cerebro con el sha.
+- **La revisión del resto del editor, sin hacer:** la barra de la línea de tiempo va en un `ScrollArea` con la barra de
+  scroll OCULTA: lo que no entra queda fuera de la vista. Estimado SIN MEDIR: ~990 px de herramientas (14 a la izquierda,
+  grabar, imán, «Vinculación», eje y el zoom con su deslizador de 120 px); el centro mide 950 a 1366 con el chat abierto,
+  864 a 1280 y 688 con la barra lateral fija: el zoom queda fuera. El banco ya está escrito (`banco/entrada-linea.tsx`,
+  `build-linea.mjs`, `stubs/motor-linea.ts`), sin correr. Faltan además los paneles laterales en su mínimo (15 % del
+  centro: ~103 a ~130 px) y la cabecera.
 
 ## Lo que falta verificar
 
