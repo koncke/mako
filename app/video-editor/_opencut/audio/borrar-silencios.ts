@@ -18,7 +18,7 @@
 
 import { toast } from "sonner";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
-import type { ElementRef, TimelineElement } from "@/app/video-editor/_opencut/timeline/types";
+import type { ElementRef } from "@/app/video-editor/_opencut/timeline/types";
 import { canElementHaveAudio } from "@/app/video-editor/_opencut/timeline";
 import { getSourceTimeAtClipTime } from "@/app/video-editor/_opencut/retime";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -35,7 +35,7 @@ import { tramosQueQuedan } from "./dsp/silencios";
 import { JuntadorDeTrozos, silenciosSinRuido } from "./dsp/silencios-sin-ruido";
 import { motorRnnoise } from "./dsp/rnnoise";
 import { quedaAlgo, quedaAlgoEnLaLinea, silenciosEnLaLinea } from "./silencios-plan";
-import { PAUSA_MIN_S, avisoBotonSinSilencios } from "./silencios-aviso";
+import { PAUSA_MIN_S, avisoBotonSinSilencios, clipsConSonido } from "./silencios-aviso";
 
 /**
  * Sobre qué clips actúa «Borrar silencios»: los ELEGIDOS que tienen audio; sin
@@ -196,8 +196,8 @@ export async function borrarSilencios(editor: EditorCore): Promise<void> {
 	else if (r.motivo === "sin-audio") toast.error("El clip no tiene audio");
 	else if (r.motivo === "sin-silencios") {
 		// Dice DÓNDE buscó (sin nada elegido, sólo el clip bajo el cabezal), y si hay más video donde buscar (ticket 31).
-		const conAudio = (editor.scenes.getActiveSceneOrNull()?.tracks ?? []).flatMap((t): readonly TimelineElement[] => t.elements).filter((el) => canElementHaveAudio(el)).length;
-		const aviso = avisoBotonSinSilencios(r, conAudio > r.clips);
+		const tracks = editor.scenes.getActiveSceneOrNull()?.tracks;
+		const aviso = avisoBotonSinSilencios(r, (tracks ? clipsConSonido(tracks) : 0) > r.clips);
 		toast(aviso.titulo, { description: aviso.descripcion, duration: 6000 });
 	}
 	else if (r.motivo === "sin-clip") toast.error("Elige un clip con audio");

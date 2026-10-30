@@ -1987,6 +1987,11 @@ segunda prueba de que falle el detector (en el hilo hay una sola propuesta de si
   un pedazo, y decía «Sin silencios» sin decir dónde había buscado.
 - **La regla:** un «no encontré» dice dónde buscó y cuánto duraba, y qué se puede pedir (`textoSinSilencios`, sin el «No se
   aplica:» delante). La pausa mínima se puede pedir de 0,2 a 2 s (`pausa_min`, también por la API).
+- ⚠️ **Las pistas de una escena son un OBJETO (`overlay`, `main`, `audio`), no una lista.** El primer arreglo contaba los
+  clips con `(…?.tracks ?? []).flatMap(…)`: en el navegador tiraba justo cuando no había pausas. Los tests en verde no lo
+  vieron porque esa parte la miraban LEYENDO el fuente; lo vio el tsc acotado. Va
+  `[...tracks.overlay, tracks.main, ...tracks.audio]` (como `media/audio.ts`), en una función pura con un test que la corre
+  (`clipsConSonido`).
 
 **Vive en:** `audio/silencios-aviso.ts` (puro) · `audio/borrar-silencios.ts` · `chat/aplicar.ts` · `chat/linea.ts` ·
 `lib/editor-video/chat-catalogo.ts` · tests/video-editor-chat.test.ts (test 53) · tests/video-editor-silencios.test.ts ·

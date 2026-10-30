@@ -26,6 +26,8 @@ import {
   MedidorVentanas, PAUSA_MIN_S, rangosDeSilencio, tramosQueQuedan, umbralEfectivo, segundosQuitados,
 } from '../app/video-editor/_opencut/audio/dsp/silencios';
 import { JuntadorDeTrozos, silenciosSinRuido } from '../app/video-editor/_opencut/audio/dsp/silencios-sin-ruido';
+import { clipsConSonido } from '../app/video-editor/_opencut/audio/silencios-aviso';
+import type { SceneTracks } from '../app/video-editor/_opencut/timeline/types';
 import { instanciarRnnoise, URL_WASM_RNNOISE, type MotorRnnoise } from '../app/video-editor/_opencut/audio/dsp/rnnoise';
 import { TRAMOS, db, mezclar, rosa, ventilador, voz } from './_voz-y-ruido';
 
@@ -314,7 +316,14 @@ test('la pausa mínima (ticket 31): la de siempre es 0,4 s, y pidiendo 0,2 se sa
 test('el botón dice DÓNDE buscó cuando no hay pausas (ticket 31): sin nada elegido, sólo el clip bajo el cabezal', () => {
   const runner = fuente('audio', 'borrar-silencios.ts');
   assert.doesNotMatch(runner, /toast\("Sin silencios"\)/, 'volvió el «Sin silencios» que no dice dónde buscó');
-  assert.match(runner, /const aviso = avisoBotonSinSilencios\(r, conAudio > r\.clips\);\s*toast\(aviso\.titulo, \{ description: aviso\.descripcion/);
+  assert.match(runner, /const aviso = avisoBotonSinSilencios\(r, \(tracks \? clipsConSonido\(tracks\) : 0\) > r\.clips\);\s*toast\(aviso\.titulo, \{ description: aviso\.descripcion/);
+  // Las pistas son un OBJETO (overlay, main, audio): contadas como lista, el aviso se rompía justo sin pausas (lo vio el tsc).
+  const escena = {
+    overlay: [{ elements: [{ type: 'text' }, { type: 'video' }] }],
+    main: { elements: [{ type: 'video' }, { type: 'image' }, { type: 'video' }] },
+    audio: [{ elements: [{ type: 'audio' }] }, { elements: [] }],
+  } as unknown as SceneTracks;
+  assert.equal(clipsConSonido(escena), 4, 'los clips con sonido de las tres clases de pista');
   // Lo que se escuchó: sólo los clips con audio, con lo que duran en la línea.
   assert.match(runner, /escuchados\+\+;\s*segundosEscuchados \+= duracion;/);
   assert.match(runner, /motivo: "sin-silencios", clips: escuchados,[\s\S]*?segundos: segundosEscuchados, minimoS \}/);
@@ -325,3 +334,10 @@ test('el botón dice DÓNDE buscó cuando no hay pausas (ticket 31): sin nada el
 // · S2 el juntador pega los trozos uno tras otro, sin su tiempo → 18/1 (el juntador).
 // · S3 el botón y el chat vuelven a medir el original → 18/1 (el cableado).
 // · S4 el umbral bajado (−30 dBFS, 15 dB bajo el p95) → 17/2 (CON VOZ LIMPIA y el cableado).
+//
+// Roturas del ticket 31 (29/10/2026, base 21/0), cada una sola y restaurada con su copia:
+// · R8 la búsqueda sin la pausa pedida (silenciosSinRuido sin opciones) → 20/1 (el cableado).
+// · R9 el botón vuelve a «Sin silencios» → 20/1 (el botón dice DÓNDE buscó).
+// · R10 la pausa de siempre cambia a 0,3 → 20/1 (la pausa mínima).
+// · R12 la cuenta de clips sin la pista principal → 20/1 (el botón dice DÓNDE buscó). La versión que trataba las pistas
+//   como una lista no la vio ningún test (leían el fuente): la vio el tsc acotado. Por eso la cuenta es una función pura.

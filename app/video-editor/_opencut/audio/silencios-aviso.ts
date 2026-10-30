@@ -12,6 +12,7 @@
 //
 // Sin imports pesados: lo usan el chat (chat/aplicar.ts, chat/linea.ts) y el botón, y el test lo carga en node.
 
+import type { SceneTracks } from "@/app/video-editor/_opencut/timeline/types";
 import { PAUSA_MIN_S } from "./dsp/silencios";
 
 export { PAUSA_MIN_S };
@@ -54,6 +55,19 @@ export function textoSinSilencios(b: BusquedaSinPausas): string {
 		...(b.minimoS > PAUSA_MIN_RANGO.desde + 1e-9 ? [`«borra las pausas de ${segundosDeAviso(PAUSA_MIN_RANGO.desde)} o más»`] : []),
 	];
 	return pedidos.length ? `${que} Pídeme ${pedidos.join(" o ")}.` : `${que} No hay silencios para sacar.`;
+}
+
+/**
+ * Cuántos clips con sonido tiene la escena, en todas sus pistas: para decir si hay más video donde buscar. Las pistas son
+ * un OBJETO (`overlay`, `main`, `audio`), no una lista: tratarlas como lista rompía el aviso justo cuando no había pausas
+ * (lo vio el tsc acotado, 29/10). Con sonido es lo mismo que `canElementHaveAudio` (timeline/element-utils.ts): video o audio.
+ */
+export function clipsConSonido(tracks: SceneTracks): number {
+	let n = 0;
+	for (const pista of [...tracks.overlay, tracks.main, ...tracks.audio]) {
+		for (const el of pista.elements) if (el.type === "video" || el.type === "audio") n++;
+	}
+	return n;
 }
 
 /** El aviso del botón de la barra: busca en lo elegido o en el clip bajo el cabezal. */

@@ -1134,3 +1134,8 @@ test('53: «Borrar silencios» sin pausas (ticket 31, 29/10): todo el video salv
 // Lo que NO cubre: que los comandos del motor hagan en pantalla lo que dice la fila
 // (chat/comandos.ts, chat/aplicar.ts). Eso se mira en el navegador
 // (docs/hallazgos-video-editor.md → «La API de MaKo y el chat»), y no se miró.
+//
+// Roturas del test 53 (ticket 31, 29/10/2026, base 54/0), cada una sola y restaurada con su copia; cada una 53/1:
+// · R1 el ejemplo vuelve a nombrar un clip · R2 «todo el video» siempre · R3 la pausa no viaja al trabajo ·
+//   R4 cualquier pausa mínima pasa · R5 «No se aplica:» delante de todo · R6 el aviso nunca sugiere todo el video ·
+//   R7 el chat vuelve al texto seco · R11 la API sin la pausa mínima.
