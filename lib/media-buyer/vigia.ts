@@ -73,7 +73,9 @@ export async function vigilarCuenta(ws: number, opts: { cuentasVistas?: Set<stri
   try {
     const config = await leerConfig(ws);
     if (!config.existeTabla) return { estado: 'sin_tabla' };
-    if (!config.encendido) return { estado: 'apagado' };
+    // Apagado no mira nada, salvo las FECHAS DE FIN que puso la persona (M1): esas se cumplen igual, y es lo único que hace.
+    const soloFechas = !config.encendido;
+    if (soloFechas && !config.hasta && !Object.keys(config.hastaCampanas).length) return { estado: 'apagado' };
     if (opts.cuentasVistas) {
       const act = await cuentaDelNegocio(ws);
       if (act && opts.cuentasVistas.has(act)) return { estado: 'cuenta_compartida', mensaje: `La cuenta ${act} ya la miró otro negocio.` };
@@ -113,6 +115,17 @@ export async function vigilarCuenta(ws: number, opts: { cuentasVistas?: Set<stri
       catch (e) { avisos.push(`No pude guardar las pausas por fecha de fin (${e instanceof Error ? e.message.slice(0, 160) : String(e)}).`); }
     }
     await lanzarTodas([...nuevasFecha, ...pausasPendientes(pausas, decisiones)]);
+    if (soloFechas) {
+      // Una falla se avisa la primera vez (la pausa recién guardada); las que se relanzan cada 2 h, no: serían doce avisos por día.
+      if (lanzadas > 0 || (fallidas.length && nuevasFecha.length)) {
+        await crearNotificacion({
+          ws, tipo: 'media_buyer', severidad: fallidas.length ? 'warn' : 'info', origen: 'media-buyer', link: '/ads-manager',
+          titulo: fallidas.length ? 'No pude pausar una campaña que llegó a su fecha de fin' : `MaKo pausó ${lanzadas === 1 ? 'una campaña que llegó' : `${lanzadas} campañas que llegaron`} a su fecha de fin`,
+          descripcion: [...nuevasFecha.map((d) => d.titulo), ...fallidas].slice(0, 3).join(' · ') || null,
+        }).catch(() => null);
+      }
+      return { estado: 'ok', propuestas: nuevasFecha.length, lanzadas, fallidas, avisos };
+    }
 
     // 2. EL STOP LOSS DEL DÍA: con el gasto de hoy (Zernio) y una moneda que se sepa pasar a la unidad del objetivo. En su propio
     // try: una lectura de hoy que falla no deshace lo de arriba.

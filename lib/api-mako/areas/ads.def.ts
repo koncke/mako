@@ -928,7 +928,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_crear_campana', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
     titulo: 'Lanzar una campaña nueva',
-    descripcion: 'PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexión de Facebook del negocio: el objetivo, el presupuesto por día, dónde (vacío = la zona del Media Buyer, y nunca fuera de ella), hasta cuándo (vacío = la fecha de fin del Media Buyer), el formulario o el píxel, la página de destino y el creativo (una imagen o un video con su https, un video ya subido a la cuenta, o reusar un anuncio de la cuenta). Prendida, su presupuesto pasa por el tope diario de la cuenta. Se confirma en una pantalla, que muestra todo lo que sale; se deshace con deshacer_decision_media_buyer (la borra). Antes: listar_formularios_meta o listar_pixeles_meta, y buscar_lugares_meta.',
+    descripcion: 'PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexión de Facebook del negocio: el objetivo, el presupuesto por día, dónde (vacío = la zona del Media Buyer, y nunca fuera de ella), hasta cuándo (vacío = la fecha de fin del Media Buyer), el formulario o el píxel, la página de destino y el creativo (una imagen o un video con su https, un video ya subido a la cuenta, o reusar un anuncio de la cuenta). Hoy NACE EN PAUSA (la persona la revisa en Meta y la prende) y MaKo relee lo que Meta guardó contra lo pedido. Se confirma en una pantalla, que muestra todo lo que sale; se deshace con deshacer_decision_media_buyer (la borra). Antes: listar_formularios_meta o listar_pixeles_meta, y buscar_lugares_meta.',
     escribe: 'crea una campaña, un conjunto y un anuncio en Meta por Zernio, y la registra en media_buyer_decisiones',
     parametros: [
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'cómo se llama la campaña.' },
@@ -959,7 +959,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'texto', tipo: 'string', max: 2000, descripcion: 'el texto principal del anuncio (obligatorio salvo al reusar un anuncio).' },
       { nombre: 'titulo', tipo: 'string', max: 255, descripcion: 'el título del anuncio.' },
       { nombre: 'boton', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'APPLY_NOW', 'BOOK_NOW', 'CONTACT_US', 'GET_QUOTE', 'SUBSCRIBE', 'SHOP_NOW', 'WHATSAPP_MESSAGE'], descripcion: 'el botón del anuncio.' },
-      { nombre: 'enPausa', tipo: 'boolean', descripcion: 'true = nace en pausa (se prende desde el Media Buyer). Por defecto sale prendida.' },
+      { nombre: 'enPausa', tipo: 'boolean', descripcion: 'hoy toda campaña nueva nace en pausa (hasta medir la creación por Zernio): la persona la revisa y la prende.' },
     ],
     canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },

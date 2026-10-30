@@ -17,7 +17,7 @@ import { Button, Modal, RadioGroup, Select, Switch, TextField, Toast, useToast }
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { fmtDinero } from '@/lib/format';
 import { leerMonto } from '@/lib/media-buyer/monto';
-import { BOTONES_CAMPANA, EVENTOS_WEB, NOMBRE_OBJETIVO, OBJETIVOS_CAMPANA, type ObjetivoCampana } from '@/lib/media-buyer/campana-reglas';
+import { BOTONES_CAMPANA, CAMPANA_PRENDIDA_MEDIDA, EVENTOS_WEB, NOMBRE_OBJETIVO, OBJETIVOS_CAMPANA, type ObjetivoCampana } from '@/lib/media-buyer/campana-reglas';
 import type { LugarZona } from '@/lib/media-buyer/zona';
 import { ElegirLugares } from './ElegirLugares';
 import { subirAlStaging } from './creativeUpload';
@@ -59,7 +59,9 @@ export function NuevaCampana() {
   const [texto, setTexto] = useState('');
   const [titulo, setTitulo] = useState('');
   const [boton, setBoton] = useState('');
-  const [enPausa, setEnPausa] = useState(false);
+  // Hasta medir la creación por Zernio, nace en pausa siempre (campana-reglas.ts → CAMPANA_PRENDIDA_MEDIDA).
+  const [enPausa, setEnPausa] = useState(!CAMPANA_PRENDIDA_MEDIDA);
+  const [creada, setCreada] = useState<string[] | null>(null);
   const [revisando, setRevisando] = useState(false);
   const [resumen, setResumen] = useState<string | null>(null);
   const [lanzando, setLanzando] = useState(false);
@@ -100,10 +102,13 @@ export function NuevaCampana() {
   };
   const lanzar = async () => {
     setLanzando(true);
-    const r = await api<{ campaignId: string }>({ op: 'crear_campana', entrada });
+    const r = await api<{ campaignId: string; avisos?: string[] }>({ op: 'crear_campana', entrada });
     setLanzando(false);
-    if (!r.ok) { setResumen(null); show(r.error ?? 'No se pudo lanzar.', undefined, 'bad'); return; }
-    show(enPausa ? 'Campaña creada en pausa' : 'Campaña lanzada: Meta la revisa antes de mostrarla', undefined, 'good');
+    setResumen(null);
+    if (!r.ok) { show(r.error ?? 'No se pudo lanzar.', undefined, 'bad'); return; }
+    // Lo que la relectura vio distinto de lo pedido se queda a la vista (no se navega): es lo que hay que revisar antes de prenderla.
+    if (r.avisos?.length) { setCreada(r.avisos); return; }
+    show(enPausa ? 'Campaña creada en pausa: préndela cuando la revises' : 'Campaña lanzada: Meta la revisa antes de mostrarla', undefined, 'good');
     router.push('/ads-manager');
   };
 
@@ -136,6 +141,13 @@ export function NuevaCampana() {
           </section>
         )}
         {prep.avisos.map((a) => <p key={a} className="mk-hint" style={{ margin: 0 }}>{a}</p>)}
+        {creada && (
+          <section className="mba-card" role="alert">
+            <h2>Campaña creada en pausa: revísala antes de prenderla</h2>
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>{creada.map((a) => <li key={a}>{a}</li>)}</ul>
+            <Link href="/ads-manager" className="mb-secundario mba-volver-btn">Ir al Media Buyer</Link>
+          </section>
+        )}
 
         <section className="mba-card">
           <h2>Objetivo</h2>
@@ -165,7 +177,9 @@ export function NuevaCampana() {
             <TextField label="Hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
               hint={prep.hasta ? `Tu Media Buyer trabaja hasta el ${prep.hasta.slice(8, 10)}/${prep.hasta.slice(5, 7)}.` : 'Vacío: sin fecha de fin.'} />
           </div>
-          <Switch checked={enPausa} onChange={setEnPausa} label="Crearla en pausa" hint="La prendes después desde el Media Buyer." />
+          {CAMPANA_PRENDIDA_MEDIDA
+            ? <Switch checked={enPausa} onChange={setEnPausa} label="Crearla en pausa" hint="La prendes después desde el Media Buyer." />
+            : <p className="mk-hint" style={{ margin: 0 }}>Nace en pausa: la revisas en el Administrador de Meta y la prendes ahí (o le pides a MaKo que la prenda).</p>}
         </section>
 
         <section className="mba-card">

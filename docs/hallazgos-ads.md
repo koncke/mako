@@ -5245,10 +5245,23 @@ Zernio) · `app/ads-manager/NuevaCampana.tsx`, `ElegirLugares.tsx` · `supabase/
 - **Lo guardado se lee entrada por entrada** (hallazgo 8): una fecha rota ya no se lleva las otras 299, y una zona ilegible no se
   lee como «sin zona» (que sería subir en todos lados) sino como una zona que no contiene nada.
 
+- **Lo que crea plata sin medir nace en PAUSA, y se RELEE** (revisión de plata de Integración, 29/10: «entra con bajas»; su informe,
+  C:/dev/revisiones/2910-revision-plata-media-buyer-a2b0088a3.md, lo cosecha Integración). Hasta medir `POST /ads/create`, toda
+  campaña nueva nace en pausa (`CAMPANA_PRENDIDA_MEDIDA = false`, campana-reglas.ts) y, al volver Zernio, se lee lo que guardó Meta
+  contra lo pedido (`releerCreada` → `diferenciasDeLaCreada`): lugares de más o de menos, fuera de la zona, sin `end_time`, y la
+  campaña PRENDIDA si se pidió en pausa (se pausa en el acto). Lo distinto se muestra antes de volver al Media Buyer. **Regla:** una
+  escritura que gasta y no se midió nace apagada y se relee; se prende con la medición, no con la OpenAPI.
+- **La fecha de fin se cumple con el Media Buyer APAGADO** (M1): apagado es como arranca todo negocio, y una campaña creada «hasta el
+  30» no la cuidaba nadie. El vigía mira sólo las fechas, y `lanzar` deja salir sólo la pausa por fecha (sin topes ni interruptor).
+- **El candado de una creación es la clave de su fila** (M6): `manual:campana:<huella>:<día>:<intento>`, sin la hora: dos pedidos
+  iguales a la vez chocan en `unique(workspace_id, clave)`. Y la fila nace marcada «no sé si se creó», con un techo propio de 270 s
+  debajo del de la ruta (M5): si la función muere en medio del POST, queda la marca y no una «aplicada» sin id.
+
 **Sin hacer, con su archivo:**
 - **Medir en la cuenta de MaKo** (con el OK de Martín: escribe en una cuenta real, en pausa y con gasto 0): `PUT /ads/ad-sets/{id}`
   con `targeting` y con `placements`, y `POST /ads/create` con `endDate`, `promotedObject`, `leadGenFormId`, `existingCreativeId`
-  y los cuatro estados en pausa. El patrón está en `scripts/media-buyer-medir-zernio.mts`. Nada de esto se probó contra Zernio.
+  y los cuatro estados en pausa. El patrón está en `scripts/media-buyer-medir-zernio.mts`. Nada de esto se probó contra Zernio. Con la
+  prueba pasada, `CAMPANA_PRENDIDA_MEDIDA = true` (campana-reglas.ts) vuelve a dejar elegir «prendida».
 - **La fecha de fin escrita en Meta** (`platformSpecificData.endDate` en cada conjunto): hoy la cumple MaKo; si MaKo no corre,
   Meta no corta sola.
 - **MaKo Mobile** (`app/m/ads/MediaBuyerM.tsx`): no tiene Dónde, Hasta ni «Nueva campaña».

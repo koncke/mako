@@ -101,7 +101,7 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
           {cupo.piloto
             ? <p className="mk-hint" style={{ margin: 0 }}>Cada táctica puede tener el suyo en <Link href="/ads-manager/automatizaciones" className="mb-pro-link">Automatizaciones</Link>.</p>
             : <p className="mk-hint" style={{ margin: 0 }}>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'El piloto automático es de MaKo Pro.'} <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro-link">Pasar a Pro</Link></p>}
-          <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no mira tu cuenta ni lanza nada." />
+          <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no mira tu cuenta ni lanza nada: sólo pausa lo que llegó a su fecha de fin." />
         </section>
 
         <section className="mba-card">
