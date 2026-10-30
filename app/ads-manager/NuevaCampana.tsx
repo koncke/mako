@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Modal, RadioGroup, Select, Switch, TextField, Toast, useToast } from '@/app/_ui';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { fmtDinero } from '@/lib/format';
 import { leerMonto } from '@/lib/media-buyer/monto';
 import { BOTONES_CAMPANA, CAMPANA_PRENDIDA_MEDIDA, EVENTOS_WEB, NOMBRE_OBJETIVO, OBJETIVOS_CAMPANA, type ObjetivoCampana } from '@/lib/media-buyer/campana-reglas';
@@ -146,6 +147,7 @@ export function NuevaCampana() {
             <h2>Campaña creada en pausa: revísala antes de prenderla</h2>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>{creada.map((a) => <li key={a}>{a}</li>)}</ul>
             <Link href="/ads-manager" className="mb-secundario mba-volver-btn">Ir al Media Buyer</Link>
+            <ReportarASoporte />
           </section>
         )}
 
