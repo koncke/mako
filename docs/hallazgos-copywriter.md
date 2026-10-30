@@ -310,6 +310,26 @@ lib/copywriter/texto.ts · lib/copywriter/tipos.ts · lib/avisos/
 
 **Vive en:** lib/copywriter/contexto.ts · lib/cerebro-para-chat.ts
 
+## «Ninguna mención en todo MaKo»: un nombre vivía en ocho lugares (29/10/2026)
+
+Martín: «Elimina esto "Copy Method · Angles & Structures", no quiero ninguna mención en todo MaKo».
+- **Dónde estaba el nombre:** el pie de la lista del Copywriter, las dos `HERRAMIENTAS` de nav.ts (y el `match` de la fila
+  de Copywriting), el `metadata.title` de /admin/guiones, la fila oculta del teléfono (lib/movil-creacion.ts, también en
+  `IdCreacion` y en `RUTAS_CREACION`), la razón de «en la computadora» (`SOLO_ESCRITORIO['admin-guiones']`), los títulos
+  que fijaban dos tests y los comentarios. Sacar «la fila» dejaba seis.
+- **Regla:** un pedido de «que no aparezca» se fija con un BARRIDO (tests/barra-sin-dev.test.ts, el 5: `git ls-files`
+  de app/, lib/ y components/), no con un test por archivo: el próximo lugar donde alguien lo escriba no tiene test.
+- **Lo que no se tocó, a propósito:** lo que la IA lee (lib/copywriting-metodo.ts, los stores de ángulos y estructuras,
+  sus rutas de datos y los overrides guardados). La pantalla y el dato son cosas distintas: borrar la pantalla no cambia
+  cómo escribe MaKo.
+- **Consecuencia que hay que saber:** esas bibliotecas y el método ya no tienen dónde editarse desde la app (sólo sus
+  rutas de datos). Si Martín quiere cambiarlas, es código o un pedido a un chat.
+- **Una página del teléfono que sólo redirige no pasa los barridos del teléfono** (movil-mismas-rutas: toda /m tiene su URL
+  de escritorio; movil-refrescar: toda /m dibuja PantallaM). Se borra, como /m/reels: el link de escritorio redirige solo.
+
+**Vive en:** app/_components/nav.ts · app/copywriter/Copywriter.tsx · app/admin/{copywriting,guiones}/page.tsx ·
+lib/movil-creacion.ts · lib/movil-rutas.ts · tests/barra-sin-dev.test.ts
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».

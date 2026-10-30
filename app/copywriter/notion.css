@@ -216,5 +216,3 @@
 .nt-papelera-fila { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 6px; font-size: 13.5px; }
 /* La franja de lo que queda del ejemplo de una plantilla (EditorGuion): una línea y sus botones. */
 .nt-aviso.nt-restos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 10px; }
-/* Las dos herramientas del super admin, como `.of-pie-admin` de Offer (app/offer/estilos.ts). */
-.nt-pie-admin { padding: 4px 10px; font-size: 13px; color: var(--faint); }
