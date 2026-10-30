@@ -72,6 +72,10 @@ test('la pantalla: mide su ancho, no usa columnas que se desbordan, y cada botó
   assert.match(src, /<div ref=\{ref\} data-barra-reproductor="" data-nivel=\{nivel\}/);
 });
 
-// Roturas (30/10/2026, base 3/0): B1 el umbral de la ancha baja a 440 (y en el banco, la fila de 460 px), B2 las columnas
-// vuelven a `1fr_auto_1fr`, B3 la barra nunca compacta, B4 el tiempo compacto con horas siempre, B5 el zoom sin el % en
-// el tooltip. Corriendo por con-turno al commitear (había una pausa del Cerebro): los resultados van en el commit siguiente.
+// Roturas (30/10/2026, base 3/0), cada una sola y restaurada con su copia, por con-turno:
+// · B1 el umbral de la ancha baja a 440 → 2/1 (los niveles). Y en el banco, con ese umbral, la fila de 460 px vuelve a
+//   «pisa Reproducir × Completa»: el número no es de gusto, sale de medir.
+// · B2 las columnas vuelven a `1fr_auto_1fr` → 2/1 (la pantalla).
+// · B3 la barra nunca compacta (`compacta = false`) → 2/1 (la pantalla).
+// · B4 el tiempo compacto con horas siempre → 2/1 (el tiempo).
+// · B5 el zoom sin el % en el tooltip → 2/1 (la pantalla).
