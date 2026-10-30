@@ -58,7 +58,7 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   (dpl_E2uWxgoB…).** Avisado el Cerebro; Create y el Copywriter estaban archivados.
 - **tren-af (sin armar):**
   - El Media Buyer de Thiago (`media-buyer-thiago-2910`, `a2b0088a3`), con su revisión de plata corriendo. **La mig 0350 está APLICADA** (21:50, el Cerebro con el sí de Martín);
-    lo que la vuelve a esperar es la revisión.
+    sólo falta que la revisión dé bien.
   - Si arreglan lo devuelto: el despachante de WhatsApp (`db67e60d2` o el sha que venga, con A1 y A2 arreglados y una
     revisión nueva, porque pausa y prende campañas) y Zernio (los leads y lo que se repite).
 - **Detalle del tren-ae:**
