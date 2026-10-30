@@ -94,3 +94,7 @@ test('Calendario: leer las cuentas en pausa lo dice y no ofrece «Conectar»', (
 //   · la ruta no pasa la espera                      → 27 / 1
 //   · el error de conectar pierde la espera          → 27 / 1
 //   · «Probar» manda a reconectar                    → 27 / 1
+
+//   Automations y Calendario (30/10/2026; base 6 / 0): la ruta no dice la pausa → 5 / 1 · la pantalla no relee → 5 / 1 · promete
+//   releer cuando ya no relee → 5 / 1 · Calendario ofrece Conectar en la pausa → 5 / 1. Las que corren de verdad: en
+//   tests/comentario-publicacion.test.ts y tests/calendario-publicar.test.ts.

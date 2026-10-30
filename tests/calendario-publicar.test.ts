@@ -418,3 +418,5 @@ test('la pantalla: «Ya lo resolví en Zernio» en la duda y en la programada co
   assert.match(actions, /otraClave: await programadaConOtraClave\(datos\)/);
   assert.match(actions, /await resolverEnZernio\(idDe\(id\)\)/);
 });
+
+//   la pausa de Zernio (30/10/2026; base 30 / 0): cuenta el Rate limit → 29 / 1 · cuentas en pausa dice «no pude» → 29 / 1

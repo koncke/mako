@@ -555,7 +555,7 @@ function subtipoDeReferral(ref: Obj): { subtipo: SubtipoSocial; ref: string | nu
 /** Hasta cuánto de lo que vino con un mensaje se guarda (`metadataParaGuardar`). */
 export const TOPE_METADATA_ZERNIO = 4000;
 /** Lo que ya se lee y se guarda en su lugar. `storyReply` trae una URL de Meta que firma y vence: no se persiste. */
-const CAMPOS_DEL_MENSAJE_YA_LEIDOS: ReadonlySet<string> = new Set(['id', 'platform', 'direction', 'sender', 'text', 'attachments', 'sentAt', 'conversationId', 'storyReply']);
+const CAMPOS_DEL_MENSAJE_YA_LEIDOS: ReadonlySet<string> = new Set(['id', 'platform', 'platformMessageId', 'direction', 'sender', 'text', 'attachments', 'sentAt', 'isRead', 'conversationId', 'storyReply']);
 const METADATA_YA_LEIDA: ReadonlySet<string> = new Set(['standby', 'storyReply', 'isStoryMention']);
 
 /**

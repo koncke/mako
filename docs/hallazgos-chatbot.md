@@ -42,7 +42,14 @@ del evento no se guarda (`zernio_eventos` tiene sólo el id): qué payload mand�
 el payload viaja el título: si el payload no se lee, se resuelve por el título, como un botón que no se vio. Varias esperando el
 mismo título: la MÁS VIEJA (antes, el orden de la base). La regla: **un toque de botón no es una respuesta**, se resuelva o no.
 
-**`paso_actual` sin tarjeta NO es una posición (lo que quedó del #33).** Al terminar el flujo el motor deja `nodo_actual` null y
+**La API decía cualquier cosa sobre en qué paso está un lead (lo que quedó del #33).** El 70 % de las inscripciones vivas sin tarjeta
+nombraba otra tarjeta que la última que les salió, en la API y en la ficha. Nadie lo vio porque cada caso suelto parece un detalle.
+La consulta, sólo lectura, por si hay que volver a medir: `select i.id, i.estado, i.paso_actual, s.pasos, (select e.nodo_id from
+nutricion_envios e where e.inscripcion_id = i.id and e.estado in ('enviado','accion','simulado') order by e.created_at desc limit 1)
+from nutricion_inscripciones i join nutricion_secuencias s on s.id = i.secuencia_id where i.nodo_actual is null and i.estado in
+('activa','respondio')`, comparando `pasos[paso_actual].id` con ese último nodo.
+
+**`paso_actual` sin tarjeta NO es una posición.** Al terminar el flujo el motor deja `nodo_actual` null y
 `paso_actual` en el índice SIGUIENTE (`avanceDesde`), y el #788 la pasa a «respondió»: ese número es lo que sigue en el array, y por
 eso GANCHOS decía «Todavía no te veo…» con el recurso ya enviado. Medido el 30/10 en producción, de 150 vivas sin tarjeta: 106
 nombraban OTRA tarjeta que la última que les salió, 4 sin envíos, 2 fuera del array, 1 acertaba; las 37 activas sin tarjeta están

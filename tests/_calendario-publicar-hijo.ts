@@ -122,6 +122,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
         return json(200, { post: posts[previo.id] });
       }
       if (modo === 'rechazo') return json(400, { error: 'Invalid media', type: 'validation_error' });
+      if (modo === '429') return json(429, { error: 'Rate limit exceeded', type: 'rate_limit_error' });
       if (modo === 'error500') return json(500, { error: 'Internal error', type: 'api_error' });
       if (modo === '409') return json(409, { error: 'Duplicate content', details: { existingPostId: 'post_ya' } });
       nPost += 1;
@@ -465,12 +466,13 @@ async function main() {
   const trasPausa = fila('evP1');
   proximoPost = 'ok';
   const otraVez = await enWs(() => P.programarPublicaciones(['evP1']));
+  const trasOtraVez = fila('evP1');
   reset();
   db.calendario_eventos.push(evento('evP2'));
   cuentasEnPausa = true;
   const sinLeerCuentas = await enWs(() => P.programarPublicaciones(['evP2']));
   const leerCuentas = await enWs(() => P.cuentasParaPublicar());
-  out.r4 = { primero, trasPausa, otraVez, fila: fila('evP1'), sinLeerCuentas, leerCuentas };
+  out.r4 = { primero, trasPausa, otraVez, fila: trasOtraVez, sinLeerCuentas, leerCuentas };
 
   // (s) N3: una `dudosa` que SÍ quedó en Zernio y nadie reintentó a tiempo. Tildar, mover y borrar dicen la verdad (no «se tilda
   //     sola» ni «cancela»), y «Ya lo resolví en Zernio» la suelta: sin programar y SIN la cuenta (no vuelve a «Programar las

@@ -148,3 +148,5 @@ test('6. el editor, el webhook, la API (corta: el presupuesto del turno) y /docs
 //   la higiene la tira → 3 / 3 · la firma no la mira → 4 / 2 · el webhook no la pasa al motor → 4 / 2 ·
 //   el lead nace sin mirarla → 4 / 2 · sin saber la publicación, dispara igual → 5 / 1 ·
 //   el link comparado entero, sin el código → 5 / 1 · la API sin resolver el link → 5 / 1.
+
+// ROTURAS de la pausa (30/10/2026; base 7 / 0): las publicaciones se comen el 429 → 6 / 1 · un 500 también se dice pausa → 6 / 1.

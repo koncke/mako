@@ -95,3 +95,7 @@ test('el cableado: un postback nunca va a la pausa, y con el payload va el títu
 // ROTURAS (30/10/2026, una por vez, restaurando byte a byte; base 4 / 0):
 //   el payload ajeno vuelve a ser 'no_es' (lo de producción) → 2 / 2 · el webhook no manda el título con el payload → 2 / 2 ·
 //   el postback no resuelto vuelve a la pausa → 3 / 1 · varias con el mismo título, la más nueva primero → 1 / 3.
+
+// ROTURAS de lo que vino con el mensaje (30/10/2026; base 6 / 0): sólo guarda si viene postbackPayload → 5 / 1 · guarda la URL que
+// vence → 5 / 1 · sin tope → 5 / 1 · el webhook no guarda → 4 / 2 · la columna va en el upsert del mensaje → 5 / 1. Y la corrida
+// real encontró lo que el test puro no: un mensaje común guardaba `platformMessageId` e `isRead`.

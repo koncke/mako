@@ -84,3 +84,7 @@ test('el cableado: la API pide el último envío y dice qué nombra `paso`; el t
   assert.match(a, /if \(error\) \{ console\.error\(`\[automatizaciones-del-lead\] el último envío: \$\{error\.message\}`\); return out; \}/, 'si no se lee, sin nombre: no rompe la lectura');
   assert.match(leer('app/automations/automatizaciones-del-lead-actions.ts'), /await enAutomatizaciones\(leadIds\.filter\(idValido\)\)/);
 });
+
+// ROTURAS (30/10/2026, una por vez, restaurando byte a byte; base 6 / 0): sin tarjeta vuelve a la posición del array → 3 / 3 ·
+// una activa sin tarjeta pierde su entrada → 5 / 1 · la lista no nombra el último envío → 5 / 1 · la ficha cuenta lo que no salió →
+// 5 / 1 · la API no pide el último envío → 5 / 1 · un error del último envío rompe la lectura → 5 / 1.
