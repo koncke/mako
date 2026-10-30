@@ -4,6 +4,38 @@ Lo que hay que saber ANTES de tocar el Newsletter (tab `/newsletters`, `lib/news
 el 29/10/2026 («Sí, armalo así»): los suscriptos son un CRM «Newsletter» y las ediciones viven en la tab. La regla que
 gobierna el código nuevo está en AGENTS.md → «Una edición del newsletter es un BROADCAST del CRM Newsletter».
 
+## Lo que devolvió la revisión de envíos y privacidad, y por qué (30/10/2026)
+
+**Vive en:** app/newsletters/puerta.ts · `repartirVencidas` (lib/newsletter-reglas.ts) · `procesarBroadcastsProgramados`
+(lib/email-marketing.ts) · `destinatariosDeNewsletter` (lib/newsletter.ts) · tests/newsletter-revision-3010.test.ts (15 roturas, 15
+rojos). El informe entero: C:/dev/revisiones/2910-revision-privacidad-newsletter-85d2206c9.md.
+
+- **`adminOnly` en nav.ts NO es una puerta: sólo esconde la fila de la barra.** La tab decía «sólo el super admin la ve», y era
+  cierto para la barra. El server tenía `requireRolWs([], { nav })`, y `[]` deja pasar al admin de CADA negocio con capa completo o
+  agencia, en la tab y en la API. **Regla:** lo que está en PRONTO se cierra en el server (`puertaNewsletter`) y en la API
+  (`soloPlataforma`). En el go-live del email se sacan las dos cosas juntas.
+- **«Enviar ahora» sobre una programada duplica.** Las dos corridas leen «nadie la recibió» antes de la primera tanda de 100. La API
+  ya se negaba; la tab no. Ahora se niega también, y hay que desprogramarla primero. Es la misma pregunta en dos puertas: si se
+  agrega una tercera, va la misma guarda.
+- **Lo programado con el envío apagado se quemaba al prender.** La más vieja salía con un «este viernes…» de hace un mes, y las
+  demás caían en el guard de 20 h: quedaban marcadas como enviadas sin haber salido. Ahora, en el cron: más de 24 h vencida
+  vuelve a borrador, y de varias vencidas del mismo CRM sale sólo la última. 24 h porque de noche el cron no corre (va de 13 a 23
+  UTC) y una legítima puede esperar hasta 14 h. Los broadcasts comunes no cambiaron: siguen saliendo vencidos, como avisa
+  `activar_envio_real_email`.
+- **Archivar el CRM no frenaba nada:** `archivarFunnel` apaga `activo` y nada más, y los leads siguen colgados. Ahora el cron cancela
+  esas ediciones (`cancelado`: si restauran el CRM, se ven y se pueden volver a programar) y los destinatarios dan vacío.
+- **Si no se pueden leer los CRM, las ediciones esperan** a la próxima corrida y los broadcasts comunes siguen. Tirar acá frenaba
+  todos los envíos del negocio por un dato que sólo necesitan las ediciones.
+
+**Quedó SIN hacer, antes de sacarlo de PRONTO:**
+- M5: el interruptor de una landing convierte en suscriptos a todos los que dejan su email ahí (y si la landing no tenía CRM, los saca
+  del tablero de ventas), y el «me dieron permiso» de la importación nada lo exige. Es una decisión de producto: se la pregunta a Martín.
+- Las bajas del informe: un escáner de links hace un GET suelto que da de baja, la API ofrece `etapa: 'ganado'` y esa edición nunca se
+  crea, y «Enviar ahora» sale sin confirmación y sin el tope de 2.000.
+- La carrera de M2 y el envío real no se reprodujeron contra la base: están probados en el código.
+
+*30/10/2026, chat «CRM» (claude1).*
+
 ## «Dormido» sin tracking: una edición de la que no llegó ninguna apertura no mide nada (29/10)
 
 **El síntoma que habría aparecido:** a la tercera edición, TODA la lista pasaba a «Dormido».

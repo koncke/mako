@@ -1,7 +1,7 @@
 'use server';
 
 // =============================================================================
-// /newsletters — las acciones de la tab (todas con la puerta de la tab: el admin del negocio)
+// /newsletters — las acciones de la tab (todas con la puerta de la tab: ./puerta.ts, sólo la plataforma mientras esté en PRONTO)
 // =============================================================================
 // UNA EDICIÓN ES UN BROADCAST: crear, guardar, la vista previa, la prueba, programar y enviar pasan por
 // lib/email-marketing.ts, igual que desde /email. Lo propio del newsletter (el CRM, la config, la lectura) es
@@ -12,7 +12,7 @@
 // puede probar (a tu email) y programar (queda esperando: el cron la saltea hasta que el envío se prenda).
 // =============================================================================
 
-import { requireRolWs } from '@/lib/tab-access';
+import { puertaNewsletter } from './puerta';
 import { getUsuarioActual } from '@/lib/auth';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { setSetting } from '@/lib/settings';
@@ -36,7 +36,7 @@ import { plantillaPorId } from '@/lib/copywriter/plantillas';
 import { leerEstadoNewsletter, type EstadoNewsletter } from './estado';
 
 type Ok<T = object> = ({ ok: true } & T) | { ok: false; error: string };
-const puerta = () => requireRolWs([], { nav: 'newsletters' });
+const puerta = puertaNewsletter;
 const mal = (e: unknown, def: string): { ok: false; error: string } => ({ ok: false, error: e instanceof Error && e.message ? e.message : def });
 const idOk = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n > 0;
 const EDITABLE = new Set(['borrador', 'programado', 'cancelado']);
@@ -293,8 +293,12 @@ export async function enviarAction(id: number): Promise<Ok<{ estado: EstadoNewsl
   try {
     const e = await editable(id);
     if (!EDITABLE.has(e.estado)) return { ok: false, error: 'Esa edición ya salió.' };
+    // ⚠️ PROGRAMADA NO SALE CON «ENVIAR AHORA» (la revisión del 30/10/2026, M2): si el cron la está tomando en ese momento, los
+    // dos leen «nadie la recibió» antes de la primera tanda, y cada suscripto la recibe dos veces. La API se niega igual
+    // (`enviar_broadcast`, lib/api-mako/areas/email.run.ts).
+    if (e.estado === 'programado') return { ok: false, error: 'Está programada: mandarla ahora puede duplicar el envío. Primero desprográmala.' };
     if (!(await envioEmailHabilitado())) {
-      return { ok: false, error: 'El envío de email de tu negocio está apagado: con él apagado no sale nada. Mándate una prueba o prográmala, y sale cuando se prenda.' };
+      return { ok: false, error: 'El envío de email de tu negocio está apagado: con él apagado no sale nada. Mándate una prueba.' };
     }
     await sincronizarDelCopywriter(id);
     const r = await enviarBroadcast(id);

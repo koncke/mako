@@ -386,10 +386,11 @@ function EditorEdicion({ edicion, estado, onCerrar, onEstado, onAviso, onCopywri
             <Button variant="secondary" size="sm" disabled={ocupado || !cuando} onClick={() => start(async () => {
               if (!(await guardar())) return;
               onEstado(await programarAction(edicion.id, new Date(cuando).toISOString()),
-                estado.envioReal ? 'Programada.' : 'Programada: sale cuando el envío esté prendido.');
+                estado.envioReal ? 'Programada.' : 'Programada. Si para ese día el envío sigue apagado, vuelve a borrador.');
             })}>{edicion.estado === 'programado' ? 'Reprogramar' : 'Programar'}</Button>
           </span>
-          <Button variant="primary" size="sm" disabled={ocupado || !estado.envioReal} title={estado.envioReal ? undefined : 'El envío de email está apagado'}
+          <Button variant="primary" size="sm" disabled={ocupado || !estado.envioReal || edicion.estado === 'programado'}
+            title={!estado.envioReal ? 'El envío de email está apagado' : edicion.estado === 'programado' ? 'Está programada: primero desprográmala' : undefined}
             onClick={() => start(async () => {
               if (!(await guardar())) return;
               const r = await enviarAction(edicion.id);
@@ -408,7 +409,7 @@ function EditorEdicion({ edicion, estado, onCerrar, onEstado, onAviso, onCopywri
           </div>
         )}
         {editable && !estado.envioReal && (
-          <Banner tono="info" alcance="local">El envío de email de tu negocio está apagado: mándate una prueba o prográmala. Sale cuando se prenda.</Banner>
+          <Banner tono="info" alcance="local">El envío de email de tu negocio está apagado: mándate una prueba. Lo que programes vuelve a borrador si para ese día sigue apagado.</Banner>
         )}
         {editable && !estado.remitentePropio && (
           <Banner tono="warn" alcance="local" accion={{ label: 'Conectar tu dominio', href: '/email' }}>Sale desde tu dominio: todavía no está conectado.</Banner>
