@@ -16,7 +16,7 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { sacarDeSecuencia } from '@/lib/nutricion-salida-manual';
 import {
-  enAutomatizacionesDe, textoDeFrenar, textoDeVolverAProbar, detalleDe, ESTADOS_VIVOS, DIAS_TERMINADAS, TOPE_NO_ENTRO,
+  enAutomatizacionesDe, textoDeFrenar, textoDeVolverAProbar, detalleDe, ESTADOS_VIVOS, DIAS_TERMINADAS, TOPE_NO_ENTRO, ESTADOS_DE_ENVIO_QUE_SALIO, sinTarjeta,
   type EnAutomatizacion, type FilaInscripcion, type FilaAutomatizacion, type AutomatizacionesDelLead,
   type FilaInscripcionDetalle, type FilaEnvioDetalle, type FilaAuditDetalle, type FilaEntranteDetalle,
 } from '@/lib/automatizaciones-del-lead-reglas';
@@ -29,8 +29,27 @@ export type { EnAutomatizacion };
 /** Cuántos leads se consultan de una vez (un tablero del CRM). */
 export const TOPE_LEADS = 500;
 
-/** Las automatizaciones VIVAS de cada lead (sólo aparecen los que están en alguna). Tira si no puede leer. */
-export async function enAutomatizaciones(leadIds: readonly number[]): Promise<Map<number, EnAutomatizacion[]>> {
+/** Lo último que le salió a cada inscripción sin tarjeta. Si no se puede leer, sin nombre (nunca la posición del array). */
+async function ultimoNodoEnviado(db: Awaited<ReturnType<typeof getTenantDb>>, filas: readonly FilaInscripcion[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const ids = filas.filter(sinTarjeta).map((f) => Number(f.id)).filter((n) => Number.isInteger(n) && n > 0);
+  if (!ids.length) return out;
+  const { data, error } = await db.from('nutricion_envios').select('inscripcion_id, nodo_id')
+    .in('inscripcion_id', ids).in('estado', [...ESTADOS_DE_ENVIO_QUE_SALIO]).not('nodo_id', 'is', null)
+    .order('created_at', { ascending: false }).limit(1000);
+  if (error) { console.error(`[automatizaciones-del-lead] el último envío: ${error.message}`); return out; }
+  for (const e of (data ?? []) as Array<{ inscripcion_id: number; nodo_id: string }>) {
+    if (!out.has(Number(e.inscripcion_id))) out.set(Number(e.inscripcion_id), e.nodo_id);
+  }
+  return out;
+}
+
+/**
+ * Las automatizaciones VIVAS de cada lead (sólo aparecen los que están en alguna). Tira si no puede leer.
+ * `ultimoEnvio`: una inscripción sin tarjeta se nombra por lo último que le salió, con UNA lectura más. La pide la API; el
+ * tablero del CRM no (sólo muestra el paso de las activas) y se queda con su consulta de siempre.
+ */
+export async function enAutomatizaciones(leadIds: readonly number[], o?: { ultimoEnvio?: boolean }): Promise<Map<number, EnAutomatizacion[]>> {
   const ids = [...new Set(leadIds.filter((n) => Number.isInteger(n) && n > 0))].slice(0, TOPE_LEADS);
   if (!ids.length) return new Map();
   const db = await getTenantDb();
@@ -46,6 +65,7 @@ export async function enAutomatizaciones(leadIds: readonly number[]): Promise<Ma
   if (eSecs) throw new Error(`automatizaciones del lead (automatizaciones): ${eSecs.message}`);
   // Y POR QUÉ NO LE SALE, en palabras (23/10/2026, P0 de #289: lib/por-que-no-sale.ts). Si no se puede leer, sin motivo.
   const automatizaciones = (secs ?? []) as FilaAutomatizacion[];
+  if (o?.ultimoEnvio) return enAutomatizacionesDe(filas, automatizaciones, await frenosDelNegocio(filas, automatizaciones), await ultimoNodoEnviado(db, filas));
   return enAutomatizacionesDe(filas, automatizaciones, await frenosDelNegocio(filas, automatizaciones));
 }
 

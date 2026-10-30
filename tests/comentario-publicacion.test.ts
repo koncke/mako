@@ -61,6 +61,13 @@ test('2. el selector: las últimas publicaciones de la cuenta, la más nueva pri
   assert.equal(rotuloDePublicacion(p.lista![2]), '01/09 · Publicación · Sin texto');
 });
 
+test('Zernio pide una pausa: ninguna cuenta contestó y una dijo 429 → tira el 429 con su espera; un 500 sigue siendo null', () => {
+  const p = correr().pasos['4_pausa'] as unknown as { conPausa: { status?: number; esperaMs?: number }; conCaida: { devolvio?: unknown } };
+  assert.equal(p.conPausa.status, 429);
+  assert.equal(p.conPausa.esperaMs, 23_000);
+  assert.equal(p.conCaida.devolvio, null);
+});
+
 test('3. MaKo con el LINK de un Reel: lo encuentra y lo guarda con su id y su nombre; uno ajeno, lo dice', () => {
   const p = correr().pasos['3_lista_y_api'];
   const payload = p.conLink!.payload as { crons: Disparador[] };

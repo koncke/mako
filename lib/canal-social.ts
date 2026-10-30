@@ -552,6 +552,32 @@ function subtipoDeReferral(ref: Obj): { subtipo: SubtipoSocial; ref: string | nu
   return { subtipo: 'referencia', ref: r, anuncioId: null };
 }
 
+/** Hasta cuánto de lo que vino con un mensaje se guarda (`metadataParaGuardar`). */
+export const TOPE_METADATA_ZERNIO = 4000;
+/** Lo que ya se lee y se guarda en su lugar. `storyReply` trae una URL de Meta que firma y vence: no se persiste. */
+const CAMPOS_DEL_MENSAJE_YA_LEIDOS: ReadonlySet<string> = new Set(['id', 'platform', 'direction', 'sender', 'text', 'attachments', 'sentAt', 'conversationId', 'storyReply']);
+const METADATA_YA_LEIDA: ReadonlySet<string> = new Set(['standby', 'storyReply', 'isStoryMention']);
+
+/**
+ * LO QUE VINO CON UN MENSAJE, para poder reconstruir después (ticket #33 de Leandro, 30/10/2026). El botón de un DM viejo no anduvo
+ * y no se pudo saber qué mandó Zernio: el cuerpo no se guardaba. ⚠️ NO SÓLO CUANDO HAY `postbackPayload`: la duda es justamente si
+ * vino, o vino con otro nombre, y un mensaje sin ese campo es el que hay que poder mirar. Se queda lo que no se lee en otro lado de
+ * `metadata` y del mensaje; un mensaje escrito sin nada más no guarda nada. null = nada que guardar.
+ */
+export function metadataParaGuardar(body: unknown): Obj | null {
+  const b = obj(body);
+  if (str(b?.event) !== 'message.received') return null;
+  const md = obj(b?.metadata) ?? {};
+  const metadata = Object.fromEntries(Object.entries(md).filter(([k, v]) => !METADATA_YA_LEIDA.has(k) && v != null));
+  const mensaje = Object.fromEntries(Object.entries(obj(b?.message) ?? {}).filter(([k, v]) => !CAMPOS_DEL_MENSAJE_YA_LEIDOS.has(k) && v != null));
+  const hay = (x: Obj) => Object.keys(x).length > 0;
+  if (!hay(metadata) && !hay(mensaje)) return null;
+  const todo: Obj = { ...(hay(metadata) ? { metadata } : {}), ...(hay(mensaje) ? { mensaje } : {}) };
+  const crudo = JSON.stringify(todo);
+  if (crudo.length <= TOPE_METADATA_ZERNIO) return todo;
+  return { recortado: true, payload: str(md.postbackPayload), titulo: str(md.postbackTitle), crudo: crudo.slice(0, TOPE_METADATA_ZERNIO) };
+}
+
 /**
  * UN CUERPO DEL WEBHOOK DE ZERNIO → EL EVENTO QUE DISPARA, o por qué se ignora. Pura y con test sobre
  * las formas de la doc (docs.zernio.com/webhooks/inbox, medida el 09/10/2026).

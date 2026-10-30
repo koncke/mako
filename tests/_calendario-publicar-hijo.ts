@@ -52,6 +52,7 @@ const porPedido: Record<string, { id: string; en: number }> = {};
 let sinMigracion = false;
 /** GET /accounts contesta 500. */
 let cuentasCaidas = false;
+let cuentasEnPausa = false;
 /** Corre justo antes de la PRÓXIMA escritura (PATCH o DELETE) en calendario_eventos: otro pedido que se mete en el medio. */
 let antesDeEscribir: (() => void) | null = null;
 
@@ -108,6 +109,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     const requestId = h.get('x-request-id');
     zernio.push({ metodo, ruta, requestId, clave, cuerpo });
     if (ruta === '/profiles' && metodo === 'GET') return json(200, { profiles: [{ _id: 'prof_ws3', name: 'mako_ws_3', isDefault: true }] });
+    if (ruta === '/accounts' && metodo === 'GET' && cuentasEnPausa) return json(429, { error: 'Rate limit exceeded' });
     if (ruta === '/accounts' && metodo === 'GET') return cuentasCaidas ? json(500, { error: 'Internal error' }) : json(200, { accounts: CUENTAS });
     if (metodo === 'POST' && ruta === '/posts') {
       const modo = proximoPost;
@@ -165,7 +167,7 @@ async function main() {
   };
   const reset = () => {
     pg.vaciar();
-    zernio.length = 0; firmas.length = 0; red.length = 0; proximoPost = 'ok'; sinMigracion = false; cuentasCaidas = false; antesDeEscribir = null;
+    zernio.length = 0; firmas.length = 0; red.length = 0; proximoPost = 'ok'; sinMigracion = false; cuentasCaidas = false; cuentasEnPausa = false; antesDeEscribir = null;
     reloj = AHORA; fallarTrasPost = 0; fallarPatch = 0;
     for (const k of Object.keys(posts)) delete posts[k];
     for (const k of Object.keys(porPedido)) delete porPedido[k];
@@ -454,6 +456,21 @@ async function main() {
     const b = await enWs(() => P.programarPublicaciones(['evN2']));
     out[`r3_${status}`] = { intento0, a, aFila, b, fila: fila('evN2'), pedidos: posts0().map((p) => p.requestId), creados: Object.keys(posts).length };
   }
+
+  // (r4) Ticket #34: un 429 en el PRIMER pedido es un `fallo` (Zernio no la creó) y dice lo que pasó; leer las cuentas en pausa, también.
+  reset();
+  db.calendario_eventos.push(evento('evP1'));
+  proximoPost = '429';
+  const primero = await enWs(() => P.programarPublicaciones(['evP1']));
+  const trasPausa = fila('evP1');
+  proximoPost = 'ok';
+  const otraVez = await enWs(() => P.programarPublicaciones(['evP1']));
+  reset();
+  db.calendario_eventos.push(evento('evP2'));
+  cuentasEnPausa = true;
+  const sinLeerCuentas = await enWs(() => P.programarPublicaciones(['evP2']));
+  const leerCuentas = await enWs(() => P.cuentasParaPublicar());
+  out.r4 = { primero, trasPausa, otraVez, fila: fila('evP1'), sinLeerCuentas, leerCuentas };
 
   // (s) N3: una `dudosa` que SÍ quedó en Zernio y nadie reintentó a tiempo. Tildar, mover y borrar dicen la verdad (no «se tilda
   //     sola» ni «cancela»), y «Ya lo resolví en Zernio» la suelta: sin programar y SIN la cuenta (no vuelve a «Programar las

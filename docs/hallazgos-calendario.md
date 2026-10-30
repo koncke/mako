@@ -491,3 +491,9 @@ eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregl
   - **N8:** el «Deshacer» del molde puede hacer renacer veces borradas.
   - **N7:** borrar el molde no avisa que lo ya programado sale igual.
   - **N2 (sospecha):** un 409 de Zernio por contenido publica DE MENOS en una serie diaria. Nunca publica dos veces.
+
+## Un 429 de Zernio al programar es una pausa (30/10/2026, ticket #34)
+
+`motivoDeFallo` contaba el «Rate limit exceeded» de Zernio y `PublicarEnRed` ofrecía «Conectar una cuenta» cuando leer las cuentas
+pedía una pausa. **La regla:** el texto cambia y los estados no: ver el detalle en
+[hallazgos-integraciones.md](hallazgos-integraciones.md), «Un 429 de Zernio es una PAUSA».

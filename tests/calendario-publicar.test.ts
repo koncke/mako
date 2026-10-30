@@ -120,6 +120,17 @@ test('una vez: otra vez no programa, y dos pedidos a la vez dejan un solo post',
   assert.equal(R.c.fila.publicacion, 'programada');
 });
 
+test('un 429 de Zernio es una pausa (ticket #34): lo dice, sigue siendo un fallo que se reintenta; las cuentas en pausa, también', () => {
+  const r = R.r4;
+  assert.equal(r.trasPausa.publicacion, 'fallo', 'no cambia: Zernio no la creó');
+  assert.match(r.trasPausa.motivo, /Zernio pidió una pausa/);
+  assert.doesNotMatch(r.trasPausa.motivo, /Rate limit|no contestó|conect[ae]r?\b/i);
+  assert.deepEqual(r.otraVez, { programadas: ['evP1'], fallidas: [] });
+  assert.equal(r.fila.publicacion, 'programada');
+  assert.deepEqual(r.leerCuentas, { ok: false, motivo: 'pausa' });
+  assert.match(r.sinLeerCuentas.fallidas[0].motivo, /Zernio pidió una pausa/);
+});
+
 test('un rechazo de Zernio queda dicho y se vuelve a programar', () => {
   assert.equal(R.d.falla.programadas.length, 0);
   assert.equal(R.d.trasFalla.publicacion, 'fallo');
