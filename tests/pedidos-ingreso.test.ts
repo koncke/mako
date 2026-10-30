@@ -129,3 +129,19 @@ test('las reglas de la fila', () => {
   assert.match(detalleDelPedido({ origen: 'google', correo_verificado: true, detalle: null, whatsapp: null, intentos: 2 }), /^Intentó entrar con Google · Correo verificado por Google · 2 intentos$/);
   assert.deepEqual(altaDelPedido({ email: 'ana@b.co', nombre: null }), { nombre: 'ana', adminEmail: 'ana@b.co', adminNombre: '' });
 });
+
+// Roturas (30/10/2026; base 10 / 0), cada una restaurada (pasan / fallan):
+//   · un correo sin el dato de Google entra (`=== false` en vez de `!== true`)   -> 7 / 3
+//   · quien ya tiene usuario es un pedido                                        -> 9 / 1
+//   · el aviso sale también en los de /planes (dos mails por pedido)             -> 9 / 1
+//   · el aviso sale cada vez que insiste                                         -> 8 / 2
+//   · un mail que no sale pierde el pedido                                       -> 9 / 1
+//   · el descartado vuelve al insistir                                           -> 8 / 2
+//   · la bandeja muestra a quien ya tiene usuario                                -> 8 / 2
+//   · lo que Google confirmó se desconfirma                                      -> 9 / 1
+//   · la ruta de la bandeja sin la puerta                                        -> 9 / 1
+//   · el login promete aunque no haya quedado                                    -> 9 / 1
+//   · /planes no entra a la bandeja                                              -> 7 / 3
+//   · el aviso lleva a /admin                                                    -> 9 / 1
+//   · el cartel no cuenta los pedidos de agencia                                 -> 9 / 1
+//   · Customers sin el cartel                                                    -> 9 / 1

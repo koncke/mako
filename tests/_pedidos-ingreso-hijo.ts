@@ -34,7 +34,12 @@ db.usuarios = [
 
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
-  if (u.host === 'supa.test') return pg.responder(u, init);
+  if (u.host === 'supa.test') {
+    // El PostgREST de mentira no entiende `ilike`: `leadDelComprador` busca el correo exacto, sin comodines.
+    const correo = u.searchParams.get('email');
+    if (correo?.startsWith('ilike.')) u.searchParams.set('email', `eq.${correo.slice(6)}`);
+    return pg.responder(u, init);
+  }
   throw new Error(`fetch sin mock: ${u.href}`);
 }) as typeof fetch;
 
