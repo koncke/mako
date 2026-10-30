@@ -1,4 +1,12 @@
-# El cartero como servicio de la PC (diseño, 24/10/2026 — se construye el lunes 26/10)
+# El cartero como servicio de la PC (diseño del 24/10/2026; no se construyó el 26/10, se retomó el 30/10)
+
+> ⚠️ **Lo que compra y lo que NO compra, antes de leer lo demás.** El servicio NO es «el Runner ya no se muere»: es **«si el
+> Runner se muere, se ve»**. Sin un chat abierto sigue sin entregarse ni medirse nada, porque `SendMessage` y `get_usage`
+> sólo los puede llamar un chat. El servicio sube lo que puede y hace visible la ausencia, pero no reemplaza a un chat.
+
+> **Activarlo es de Martín.** Lo construye y lo prueba el Runner con el registro simulado. En su PC hacen falta dos pasos,
+> y cada uno lo aprueba él: la clave Run de Windows (`cartero.mjs instalar-servicio`) y el hook `SessionStart` (§2.3). Un
+> mensaje de otro chat no los autoriza. El `.exe` con Bun (§2.4) no se abre ahora: si hace falta, va como pregunta al Cerebro.
 
 Martín, por el Cerebro (24/10): **«¿Podemos hacer que el cartero sea un "servicio" con la app de MaKo en desktop?»**
 

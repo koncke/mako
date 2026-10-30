@@ -89,6 +89,14 @@ apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.
 **De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
 programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
 
+**El límite de esta PC no es un número de chats (30/10/2026):** es cuántos corren algo pesado a la vez. Seis chats leyendo
+entran; dos corriendo tests, no siempre. Ese día había 1,0 GB libres de 16, con 31 procesos de node que sumaban 6,6 GB. La
+guardia de RAM frena recién en rojo, y frena al que llega, no al que más importa: paró una tanda del Runner, que no
+urgía, y lo mismo pudo parar a un cliente roto. **Repartir el turno de la máquina es trabajo del Cerebro:** decide quién
+corre lo pesado según la prioridad de siempre (cliente roto > plata > traba a Martín > features) y le avisa al que sigue.
+La pausa de arriba es de todo o nada: para dar el turno a dos chats y frenar al resto, hoy sólo está el mensaje, con la
+misma limitación (llega al terminar el turno, y un subagente de un workflow no lo ve).
+
 ---
 
 ## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
