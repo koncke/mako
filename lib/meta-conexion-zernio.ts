@@ -16,6 +16,7 @@ import { auditarCredencial, credWs, guardarCredencial, IdentificadorOcupadoError
 import { claveZernioAnuncios } from './zernio-ads';
 import { zFetch, ZernioError, leadsEnElWebhook } from './zernio';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { errorDeLecturaZernio } from './zernio-redes';
 import { canalMeta, zernioMetaActivo } from './meta-via';
 import {
   ENV_CUENTA_ZERNIO, cuentasDeZernio, eleccionInicial, paginaParaConectar, paginasDeZernio, pixelesDeZernio, unirPaginas,
@@ -99,6 +100,8 @@ export type EstadoMetaZernio = {
    * cuenta de Zernio; null = sin conexión, o no se pudo leer (no se afirma nada).
    */
   leads?: 'si' | 'sin-permiso' | 'sin-webhook' | null;
+  /** Con un 429 de Zernio (su tope por minuto): en cuánto se vuelve a leer sola (ticket #34). null = no se relee. */
+  reintentarEnMs?: number | null;
 };
 
 /** Lo que muestra el modal de Meta: si está activo, la conexión guardada, las cuentas y los píxeles que ve, y los elegidos. */
@@ -124,7 +127,8 @@ export async function estadoMetaZernio(ws: number): Promise<EstadoMetaZernio> {
     const leads = escucha === true ? 'si' : escucha === false ? 'sin-permiso' : escucha === null ? 'sin-webhook' : null;
     return { ...conPaginas, cuentas, pixeles, leads };
   } catch (e) {
-    return { ...conPaginas, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : e instanceof Error ? e.message : String(e) };
+    if (e instanceof ZernioError) return { ...conPaginas, ...errorDeLecturaZernio(e.status, e.esperaMs) };
+    return { ...conPaginas, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -222,7 +226,8 @@ export async function pingMetaPorZernio(v: Record<string, string>): Promise<
   if (canal.via !== 'zernio') return { ok: false, error: 'MaKo no encuentra tu conexión de Facebook por Zernio. Vuelve a conectar con Facebook.' };
   let cuentas: CuentaPublicitariaZernio[];
   try { cuentas = await cuentasPorZernio(canal.clave, canal.accountId); } catch (e) {
-    return { ok: false, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : 'Zernio no contestó.' };
+    // Un 429 es una pausa de Zernio, no una conexión rota (ticket #34): no se manda a reconectar.
+    return { ok: false, error: e instanceof ZernioError ? errorDeLecturaZernio(e.status, e.esperaMs).error : 'Zernio no contestó.' };
   }
   const cuenta = cuentas.find((c) => c.id === canal.adAccountId);
   if (!cuenta) return { ok: false, error: `Tu conexión de Facebook no ve la cuenta publicitaria ${canal.adAccountId}. Elige otra o vuelve a conectar.` };

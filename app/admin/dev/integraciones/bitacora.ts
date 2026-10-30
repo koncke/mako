@@ -1184,4 +1184,25 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-integraciones.md — lo que no era obvio',
     ],
   },
+  {
+    fecha: '30 oct', hora: '09:55', chat: 'Zernio, CAPI y la venta externa de Mauricio', sesion: 'local_4a831c28-9fae-4ee1-b98c-9b0e46607acf', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Si Zernio pide una pausa, la pantalla lo dice y espera: ya no manda a «volver a conectar con Facebook»',
+    revisar: '/integraciones?abrir=zernio',
+    puntos: [
+      '**El ticket #34** (Código Inmobiliario): al conectar Facebook, Integraciones decía «Zernio no contestó (429). Vuelve a conectar con Facebook.» La conexión andaba: Zernio deja 60 pedidos por minuto, y en ese minuto la misma clave la usaban la conexión que se estaba midiendo, las lecturas de la tarjeta y un control automático.',
+      'Ahora dice «Zernio pidió una pausa… tu conexión está bien», espera lo que pide Zernio y vuelve a leer sola. Mientras conecta, la espera no cuenta como falla.',
+      'No fue el barrido de leads: corrió una sola vez en ese momento (medido en los registros de producción).',
+    ],
+    commits: [
+      { sha: '53c39572', msg: 'Ticket #34: un 429 de Zernio es una pausa, no una conexión rota (Código Inmobiliario, /integraciones)', lineas: 201, archivos: 11 },
+    ],
+    archivos: [
+      'lib/zernio-redes.ts — el motivo `pausa`, cuánto esperar y qué decir',
+      'app/_components/ConectarViaZernio.tsx — la conexión espera en vez de fallar',
+      'lib/meta-conexion-zernio.ts · app/integraciones/ConectarMetaZernio.tsx — «Anuncios de Meta» lo dice y se relee',
+      'tests/zernio-pausa-429.test.ts (10 roturas)',
+    ],
+    tickets: [34],
+  },
 ];
