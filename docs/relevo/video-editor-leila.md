@@ -91,12 +91,18 @@ Integración. Misma prioridad que lo de Leila.
 
 - **Barra del reproductor: VERDE mandado** con la punta `d121a5e6f` (rama `editor-pantalla-3010`): 5 roturas, cada una 2/1
   (B1 también en el banco), y tsc acotado ✓ en 8 archivos (con las cuatro .d.ts de `_opencut`).
-- **La revisión del resto del editor, sin hacer:** la barra de la línea de tiempo va en un `ScrollArea` con la barra de
-  scroll OCULTA: lo que no entra queda fuera de la vista. Estimado SIN MEDIR: ~990 px de herramientas (14 a la izquierda,
-  grabar, imán, «Vinculación», eje y el zoom con su deslizador de 120 px); el centro mide 950 a 1366 con el chat abierto,
-  864 a 1280 y 688 con la barra lateral fija: el zoom queda fuera. El banco ya está escrito (`banco/entrada-linea.tsx`,
-  `build-linea.mjs`, `stubs/motor-linea.ts`), sin correr. Faltan además los paneles laterales en su mínimo (15 % del
-  centro: ~103 a ~130 px) y la cabecera.
+- **La revisión del resto del editor (orden del Cerebro: 1 la línea de tiempo, 2 los paneles laterales en su mínimo, 3 la
+  cabecera; mismo método, VERDE con el sha):**
+  1. **Barra de la línea de tiempo: HECHO** en `e5b4f2bd6` (misma rama `editor-pantalla-3010`). MEDIDO en el banco: 983 px
+     de herramientas, a 1366 con el chat abierto «Acercar» quedaba fuera de la vista (ScrollArea con la barra oculta). Ahora
+     sin ScrollArea, se esconde lo `prescindible` (el deslizador) por debajo de 1000 px y la barra se parte en dos filas.
+     Tests barra-linea 3/0. Roturas (6) y tsc corriendo por con-turno al escribir esto (`roturas-linea.mjs`, log en el
+     scratchpad: `roturas-linea.log`); falta anotarlas en tests/video-editor-barra-linea.test.ts y mandar el VERDE.
+  2. **Paneles laterales en su mínimo: SIN EMPEZAR.** Visto leyendo: las pestañas del panel de propiedades van en un
+     `overflow-x-hidden` (las que no entran se esconden) y cada fila del kit pide ~76 + 66 px fijos; el mínimo de los
+     paneles es 15 % del centro (~103 a ~130 px). Idea: mínimos en PÍXELES convertidos a % con el ancho medido del grupo
+     (`editor-page.tsx`, react-resizable-panels 2.1.9 sólo acepta %). Medir primero en el banco.
+  3. **Cabecera: SIN EMPEZAR.**
 
 ## Lo que falta verificar
 
