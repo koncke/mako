@@ -163,26 +163,27 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
   - **La 0349 se aplica DESPUÉS del Ready del tren-ah.** Antes no: en producción está `da3cff9f7`, sin N1.
   - **Agency SALIÓ del tren-ah** por tres rojos suyos. Uno es una guarda de `/api/auth/me` (`agenciaDeCliente`). La mezcla
     está en la rama `tren-ah-con-agency`, y la devolución en la carpeta del Cerebro (`integracion-agency-thiago-devuelto.md`).
-- **HOTFIX #34 (Código Inmobiliario, cliente roto), en curso (30/10, Integración al 92%):** `zernio-token-2910` en `43897f1df`
-  (sobre main `88700b981`): un 429 de Zernio es una pausa, no una conexión rota. Va SOLO, en la rama `hotfix-34` de
-  wt-push-q: barrido, push y Ready. Si la cuenta corta, quien siga mira `git log -1 origin/main` y retoma desde ahí.
-- **tren-ai (sin armar). Para quien siga:**
-  - **El despachante de MaKo en WhatsApp (#30 de Leandro):** `wa-fallas-2710` en `cc2aaa6ce`. La re-verificación de
-    `d49539722` dio «entra con bajas», sin ALTA (`C:/dev/revisiones/3010-reverificacion-wa-despachante-d49539722.md`).
-    `cc2aaa6ce` dice que hizo las dos bajas:
-    - N1: la guarda al revés, con `DELEGADO_SEGURO`;
-    - N2: las dos puertas del texto del Cerebro.
-    Control chico antes de que entre: leer `delegadoQueDecideMartin` y `DELEGADO_SEGURO`, y correr
-    `scratchpad/ah/triage-ah.mts` contra la punta nueva. N3 (quién puede pausar campañas desde el grupo) es una pregunta del
-    Cerebro a Martín. Mezcla con main: 2 choques de conservar los dos lados. Después del deploy, `cartero.mjs instalar`
-    (1.24.0).
-  - **Video, pasos 1 y 2:** `editor-pantalla-3010` en `0e27cb66f`: la barra de la línea de tiempo y los paneles en su mínimo.
-    Su hito va al final de la bitácora y quedan todos.
-  - **Del Cerebro, sólo docs:** `conocimiento-email-3010` en `2b9b9d7b7`.
-  - **Agency:** cuando su chat arregle los tres rojos (ver arriba).
-  - **Calendario y Classroom:** `cal-classroom-2910` en `7162c94aa`. Espera el sí de Martín para la 0352, que va ANTES del código.
-  - **Newsletter:** `newsletter-2910`. Espera M1, la puerta abierta a cualquier admin, y el sí de Martín para la 0351. La
-    devolución está en `integracion-newsletter-devuelto.md`.
+- **tren-ai (rama `tren-ai` de wt-push-q, armado y en chequeo; 30/10, Integración al 92%, con el OK de Martín: «te alcanza para seguir»):**
+  - **Lleva, los clientes primero:**
+    - el #34 de Código Inmobiliario (Zernio `43897f1df`): un 429 es una pausa, no una conexión rota;
+    - el despachante de MaKo en WhatsApp (`cc2aaa6ce`, el #30 de Leandro).
+      - Control de Integración: la guarda del «hazlo» quedó al revés (`DELEGADO_SEGURO` más vetos de plata, envío y borrado, más el
+        permiso de admin).
+      - BAJA: «plan» está en la lista segura, y «cambiá mi plan» depende del veto de plata.
+      - Después del deploy: `cartero.mjs instalar` (1.24.0).
+    - Calendario y Classroom (`7162c94aa`), con la mig 0352 ya aplicada;
+    - Video, pasos 1 y 2 (`0e27cb66f`);
+    - los emails del Cerebro (`2b9b9d7b7`).
+  - **NO lleva:**
+    - el #35 de MaKo en WhatsApp (`8319854ec`, contiene `cc2aaa6ce`): espera el VERDE de su chat;
+    - Agency y Newsletter: volvieron a sus chats.
+- **N3 lo decidió Martín (30/10 ~10:15):** «Sí, cualquiera en el grupo puede». Pausar o prender campañas y anuncios desde el grupo de
+  un negocio lo puede pedir cualquiera, con la confirmación de siempre y sobre la cuenta de ese negocio. Está en memoria como
+  `campanas-desde-el-grupo-cualquiera`.
+- **Migraciones aplicadas el 30/10 por el Cerebro, con el sí de Martín:** 0349, 0351 y 0352.
+- **Faltan en la base, de antes (`verificar-migraciones-aplicadas`). NO se aplican sin Martín, que ya está preguntado:**
+  - la columna `curso_accesos.productos_a_mano` de la 0331: sin ella, «Invitar en cualquier etapa» del curso falla antes del mail;
+  - el índice `idx_notif_tipo_created` de la 0048.
 - **Para quien siga:**
   - Lo que aprendió esta tanda está cosechado en `docs/hallazgos-infra.md`, en la entrada «Un número por migración, y el push
     que falla por RAM…».
