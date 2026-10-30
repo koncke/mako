@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type { ConfigTacticas } from './tacticas';
+import type { LugarZona } from './zona';
 
 /** Cómo trabaja el agente en un negocio. Martín: «piloto automático» y «propone y yo apruebo». */
 export type ModoMediaBuyer = 'propone' | 'piloto';
@@ -39,6 +40,12 @@ export type ConfigMediaBuyer = {
   cuentaPublicitaria: string | null;
   /** Cada táctica como automatización: estado, umbrales y campañas que cubre (lib/media-buyer/tacticas.ts). Vacío = lo recomendado. */
   tacticas: ConfigTacticas;
+  /** DÓNDE: los lugares donde MaKo puede prender y subir presupuestos ([] = toda la cuenta). lib/media-buyer/zona.ts. */
+  zona: LugarZona[];
+  /** HASTA: la fecha de fin de toda la cuenta (YYYY-MM-DD, el día del negocio). Pasada, las campañas se pausan solas. */
+  hasta: string | null;
+  /** La fecha de fin de cada campaña (gana a la de la cuenta): { id de campaña: YYYY-MM-DD }. */
+  hastaCampanas: Record<string, string>;
 };
 
 /**
@@ -58,6 +65,9 @@ export const CONFIG_POR_DEFECTO: ConfigMediaBuyer = Object.freeze({
   metaGastoMes: null,
   cuentaPublicitaria: null,
   tacticas: {},
+  zona: [],
+  hasta: null,
+  hastaCampanas: {},
 }) as ConfigMediaBuyer;
 
 export type NivelMeta = 'campaign' | 'adset' | 'ad';
@@ -70,7 +80,9 @@ export type TipoDecision =
   | 'variaciones_texto'
   | 'variaciones_hook'
   /** Una persona subió creativos nuevos a un conjunto (no lo propone el motor): queda registrado para poder deshacerlo. */
-  | 'crear_anuncios';
+  | 'crear_anuncios'
+  /** Una campaña entera que lanzó MaKo (Nueva campaña o la API: lib/media-buyer/campana.ts). Deshacerla la borra. */
+  | 'crear_campana';
 
 /**
  * La táctica que la disparó. Las cuatro primeras son las de Madgicx (academy.madgicx.com/lessons/
@@ -83,7 +95,8 @@ export type Tactica =
   | 'revive'        // prende lo que se apagó y después resultó bueno (la atribución llega tarde)
   | 'calidad'       // MaKo: leads que no agendan, aunque Meta los cuente
   | 'ganador'       // MaKo: lo que gana alimenta lo que se escribe (variaciones)
-  | 'manual';       // lo hizo una persona desde el Media Buyer (subir creativos): no lo disparó ninguna táctica
+  | 'manual'        // lo hizo una persona desde el Media Buyer (subir creativos): no lo disparó ninguna táctica
+  | 'hasta';        // la fecha de fin que puso la persona (zona.ts): se lanza sola, es su regla y no una recomendación
 
 export type EstadoDecision =
   | 'abierta'       // propuesta, esperando a una persona

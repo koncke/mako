@@ -185,7 +185,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     <Modal titulo={detalle.entidadNombre} encabezado={rotuloDe(detalle)} ancho={560} onCerrar={() => setAbierta(null)}>
       <div className="aa aa-hoja">
         <TarjetaAccion d={detalle} kpi={config.kpi} producto={producto(detalle)} ocupada={ocupada === detalle.id} encendido={config.encendido}
-          ajustesHref={detalle.tactica === 'manual' ? '/ads-manager/ajustes' : `/ads-manager/automatizaciones?t=${detalle.tactica}`}
+          ajustesHref={detalle.tactica === 'manual' || detalle.tactica === 'hasta' ? '/ads-manager/ajustes' : `/ads-manager/automatizaciones?t=${detalle.tactica}`}
           onAplicar={async (extra) => { const ok = await aplicar(detalle, extra); if (ok) setAbierta(null); return ok; }}
           onBorrar={() => { setDescartando(detalle); setAbierta(null); }}
           onPreguntar={() => { pedir(`explícame el cambio «${detalle.titulo}» (${NOMBRE_TACTICA[detalle.tactica]}). ${detalle.titular}.`); setAbierta(null); }}
@@ -238,6 +238,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
           ))}
         </div>
         <div className="aa-top-der">
+          {/* «Lánzame una campaña» (29/10/2026): la pantalla de una campaña nueva, por la Zernio del negocio (NuevaCampana.tsx). */}
+          <Link href="/ads-manager/nueva" className="aa-link">Nueva campaña</Link>
           <button type="button" className="aa-link" onClick={() => setVerActividad(true)}>Actividad</button>
           <button type="button" className="aa-ic" aria-expanded={verAgentes} title="Agentes y ajustes" aria-label="Agentes y ajustes" onClick={() => setVerAgentes((x) => !x)}>{Ic.tuerca()}</button>
           {verAgentes && (
@@ -279,6 +281,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
         <div className="aa-pagina">
           {metas && <NumerosDelMes metas={metas} kpi={config.kpi} objetivo={config.objetivo} />}
           <LienzoCampanas kpi={config.kpi} abiertas={hoy.filter((d) => d.estado === 'abierta')} productoInicial={productoInicial} inicial={lienzoInicial} avatar={avatar}
+            fechas={{ hasta: config.hasta ?? null, hastaCampanas: config.hastaCampanas ?? {} }}
             show={(msg, onUndo, tono) => show(msg, onUndo, tono ?? 'good')} onVerAcciones={(d) => setAbierta(d.id)} />
         </div>
       )}
