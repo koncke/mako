@@ -5956,6 +5956,9 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   latido lo mira alguien que no es él.** Al limpiar un chat con cron: su prompt se guarda afuera de la conversación,
   porque se va con ella, y después del `/clear` va `CronList` y se rearma. El caso, en
   [docs/hallazgos-operaciones.md](docs/hallazgos-operaciones.md) → «El `/clear` borró el cron del Cartero».
+  **Y lo que avisa dentro del lugar que nadie abre, no avisa (30/10/2026):** un pedido a un chat cerrado sólo lo decía una línea
+  dentro de ese chat, y 11 quedaron en «escrito» sin que nadie se enterara. Un aviso sale hacia donde la persona SÍ está
+  mirando. **Y una respuesta de hace seis días no es una orden de hoy:** antes de ejecutarla, se mira contra el estado de hoy.
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el

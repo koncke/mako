@@ -3115,12 +3115,19 @@ da el id y 80 caracteres. **Antes de decidir sobre una lista, se lee el contenid
 **La regla:** un pedido sin destinatario vivo no está «esperando»: está perdido con retraso. Lo dice MaKo, del lado del
 servidor, porque lo que depende de la PC calla justo cuando la PC no está.
 
-**La trampa de redirigirlos:** rutear el contenido a otro chat no los saca de «escrito». Si el chat de origen se reabre, le
-llegan igual; si no, vencen. Hay que cerrarlos a propósito (`cancelarPedido`). Y la firma fija el destino: reenviar a otro
-chat es firmar de nuevo en el dispositivo de Martín.
+**La raíz: lo que avisa dentro del lugar que nadie abre, no avisa.** Es el mismo defecto del vigía de grupos, que murió tres
+días en silencio, y del Runner, seis. Un aviso tiene que salir hacia donde la persona SÍ está mirando.
 
-**Sin hacer:** el cartel rojo en el Ops Center (computadora y teléfono) con la cuenta del lado del servidor; avisar antes de
-firmar en la bandeja de tickets y en la tarjeta de preguntas; y el aviso al Cerebro por el Runner, con texto fijo.
+**Una respuesta de hace seis días no es una orden de hoy.** En dos de estos pedidos, Martín mismo duda («creo que esto ya…»).
+Antes de ejecutar uno, el chat que lo recibe lo mira contra el estado de hoy.
+
+**La trampa de redirigirlos:** rutear el contenido a otro chat no los saca de «escrito». Si el chat de origen se reabre, le
+llegan igual; si no, vencen. Se cierran a propósito con `cancelarPedido`, de a uno, cuando el chat que lo recibió confirma que
+lo hizo o que ya no aplica. Y la firma fija el destino: reenviar a otro chat es firmar de nuevo en el dispositivo de Martín.
+
+**Sin hacer:** el cartel rojo en el Ops Center (computadora y teléfono) con la cuenta del lado del servidor, y avisar antes de
+firmar en la bandeja de tickets y en la tarjeta de preguntas (los dos, del chat Ops Center); el aviso al Cerebro por el
+Runner, con texto fijo (del Runner, con el servicio).
 
 **Vive en:** `lib/operaciones.ts` · `lib/centro-chats.ts` (`envioDe`, `chat_cerrado`) · `app/tickets/bandeja/cerebro.ts`
 
