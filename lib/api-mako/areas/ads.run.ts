@@ -54,6 +54,7 @@ import { lugaresDesdeMeta } from '@/lib/meta-geo';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
+import { ANUNCIO_DESDE_ARCHIVO_APAGADO, MAX_VIDEO_BYTES, errorDelArchivo, linkDeDescarga, rutaEnElBucket, tipoDelArchivo } from '@/lib/anuncio-desde-archivo';
 import { leerIncidentes } from '@/lib/meta-health-history';
 import { getSenalesRecon } from '@/lib/queries';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
@@ -149,6 +150,17 @@ function topePresupuesto(monto: number, actual: number, moneda: string, quien: s
 }
 
 /** Error de Meta al crear, con la traducción de los rechazos conocidos. */
+/** ¿El negocio tiene por dónde crear un anuncio por Zernio? Su Meta conectada por Zernio, o los anuncios por Zernio aparte del token.
+ *  Sin poder leerlo, no: el anuncio desde un archivo no tiene otro camino (Meta directo pide el creativo ya subido). */
+async function anunciosPorZernio(ws: number): Promise<boolean> {
+  try {
+    const { canalMeta } = await import('@/lib/meta-via');
+    if ((await canalMeta(ws)).via === 'zernio') return true;
+    const [{ conexionAnunciosZernio }, { credWs }] = await Promise.all([import('@/lib/zernio-ads'), import('@/lib/credenciales')]);
+    return !!(await conexionAnunciosZernio(ws, await credWs('META_AD_ACCOUNT_ID', ws)));
+  } catch { return false; }
+}
+
 function errorAlCrear(err: unknown, reusaGanador = false): Ejecutado {
   const env = metaErrorEnvelope(err);
   return { ok: false, resumen: `Meta rechazó la creación: ${explicarRechazoPublicacion(env.error_subcode, { reusaGanador }) ?? env.message}` };
@@ -817,6 +829,84 @@ export const RUNNERS: Runners = {
         const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
         return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id, creative_id: r.creative_id } };
       } catch (err) { return errorAlCrear(err, creative?.source === 'existing'); }
+    },
+  },
+
+  // «Súbeme este anuncio» desde el grupo (29/10/2026, la llamada con Thiago; lib/anuncio-desde-archivo.ts). Baja el archivo (el del
+  // mensaje o el de un link de Drive), lo guarda en el bucket de los creativos y PROPONE el anuncio EN PAUSA; al aprobarlo, firma el
+  // link y lo crea por Zernio (`video.url` o `imageUrl`). ⚠️ Detrás de ZERNIO_ANUNCIOS_PROBADO: apagada, lo dice y no baja nada.
+  proponer_anuncio_desde_archivo: {
+    preparar: async (input, ctx) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { error: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      if (!(await metaConectada())) return { error: SIN_META };
+      // Sólo por Zernio: Meta directo pide el `video_id` o el `image_hash` ya subidos (proponer_agregar_anuncio).
+      if (!(await anunciosPorZernio(ctx.ws))) return { error: 'Para subir un anuncio desde un archivo hacen falta los anuncios por Zernio conectados (Integraciones → Meta → Conectar con Facebook). Mientras, súbelo desde el Media Buyer.' };
+      const adsetId = str(input, 'adsetId');
+      const nombre = str(input, 'nombre');
+      const origen = str(input, 'origen');
+      const textoPrincipal = str(input, 'primary_text');
+      if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
+      if (!nombre) return { error: 'El nombre del anuncio es obligatorio.', faltan: ['nombre'] };
+      if (!textoPrincipal) return { error: 'Falta el texto principal del anuncio.', faltan: ['primary_text'] };
+      let conj: { name: string; needsForm: boolean };
+      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
+      const destino = str(input, 'destination_url');
+      if (!conj.needsForm && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(destino)) return { error: 'Hace falta destination_url exacta con https.', faltan: ['destination_url'] };
+      if (conj.needsForm) return { error: `El conjunto «${conj.name}» optimiza por formulario: súbelo desde el Media Buyer, donde se elige el formulario.` };
+      // El archivo: el del mensaje (lo baja el turno del grupo) o el de un link.
+      let archivo: { bytes: Uint8Array; mime: string; nombre: string } | null = null;
+      if (origen === 'mensaje') {
+        const a = ctx.archivoDelMensaje ? await ctx.archivoDelMensaje().catch(() => null) : null;
+        if (!a) return { error: 'No veo una imagen ni un video en este mensaje. Mándalo junto con el pedido, o pásame el link.' };
+        archivo = { bytes: Uint8Array.from(Buffer.from(a.base64, 'base64')), mime: a.mime, nombre: a.nombre };
+      } else if (origen === 'link') {
+        const url = linkDeDescarga(str(input, 'link'));
+        if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
+        try {
+          const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
+          if (!r.ok) return { error: `No pude bajar el archivo (${r.status}). Si es de Drive, compártelo con «cualquiera con el enlace».` };
+          const mime = (r.headers.get('content-type') || '').split(';')[0];
+          const largo = Number(r.headers.get('content-length') || 0);
+          if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
+          archivo = { bytes: new Uint8Array(await r.arrayBuffer()), mime, nombre: url.split('/').pop() || 'archivo' };
+        } catch (err) { return { error: `No pude bajar el archivo (${err instanceof Error ? err.message : String(err)}).`, falla: true }; }
+      } else return { error: 'origen es «mensaje» o «link».', faltan: ['origen'] };
+      const tipo = tipoDelArchivo(archivo.mime, archivo.nombre);
+      const malo = errorDelArchivo(tipo, archivo.bytes.byteLength);
+      if (malo || !tipo) return { error: malo ?? 'Ese archivo no sirve como anuncio.' };
+      const { randomUUID } = await import('node:crypto');
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      const ruta = rutaEnElBucket(ctx.ws, randomUUID(), tipo, archivo.mime);
+      const { error: eSubida } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET)
+        .upload(ruta, archivo.bytes, { contentType: archivo.mime || (tipo === 'video' ? 'video/mp4' : 'image/jpeg'), upsert: false });
+      if (eSubida) return { error: `No pude guardar el archivo (${eSubida.message}).`, falla: true };
+      const opcional = (k: string) => str(input, k) || undefined;
+      return {
+        payload: { adsetId, nombre, ruta, media_type: tipo, primary_text: textoPrincipal, headline: opcional('headline'), cta_type: opcional('cta_type'), destination_url: destino },
+        resumen: `Crear EN PAUSA el anuncio «${nombre}» en el conjunto «${conj.name}» (${adsetId}) con ${tipo === 'video' ? 'el video' : 'la imagen'} que mandaste, por Zernio.`,
+      };
+    },
+    ejecutar: async (p) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { ok: false, resumen: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      // El link se firma AHORA (2 horas): la propuesta pudo esperar su aprobación más que eso.
+      const { data, error } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET).createSignedUrl(String(p.ruta), 7200);
+      if (error || !data?.signedUrl) return { ok: false, resumen: `No encontré el archivo guardado (${error?.message ?? 'sin link'}). Vuelve a mandarlo.` };
+      const video = p.media_type === 'video';
+      const creative: Creative = {
+        source: 'upload', media_type: video ? 'video' : 'image',
+        ...(video ? { video_url: data.signedUrl } : { thumbnail_url: data.signedUrl }),
+        primary_text: String(p.primary_text ?? ''), headline: p.headline ? String(p.headline) : undefined,
+        cta_type: p.cta_type ? (String(p.cta_type) as CTAType) : undefined, destination_url: p.destination_url ? String(p.destination_url) : undefined,
+      };
+      try {
+        const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
+        return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id } };
+      } catch (err) { return errorAlCrear(err); }
     },
   },
   proponer_editar_textos_anuncio: {

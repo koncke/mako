@@ -47,7 +47,12 @@ export const esAccionSimple = (nombre: string): boolean => ACCIONES_SIMPLES.has(
  * /mako/revisar, donde se aprueba (`confirmacion: 'pantalla'` en lib/api-mako/areas/ads.def.ts): no se delega, y por WhatsApp no
  * se confirma.
  */
-export const ACCIONES_CON_PANTALLA: ReadonlySet<string> = new Set(['proponer_presupuesto_campana', 'proponer_presupuesto_conjunto']);
+export const ACCIONES_CON_PANTALLA: ReadonlySet<string> = new Set([
+  'proponer_presupuesto_campana', 'proponer_presupuesto_conjunto',
+  // «Súbeme este anuncio» con un Drive, un video o una imagen (29/10/2026; lib/anuncio-desde-archivo.ts): el anuncio queda EN PAUSA
+  // y se aprueba en /mako/revisar. Detrás de ZERNIO_ANUNCIOS_PROBADO: apagada, la operación lo dice; MaKo no lo delega igual.
+  'proponer_anuncio_desde_archivo',
+]);
 
 /** ¿Viaja en el turno de una ACCIÓN? Las simples, las de pantalla y el WhatsApp a un lead (que se aprueba en la app). */
 export const viajaEnLaAccion = (nombre: string): boolean =>

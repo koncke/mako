@@ -12041,3 +12041,25 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
 - **Sin hacer (al 29/10):** «subime este anuncio» con un Drive, un video o una imagen (la tanda siguiente, detrás de
   `ZERNIO_ANUNCIOS_PROBADO`); el WhatsApp a un lead desde el grupo no tiene test por el turno real (necesita lead, teléfono y
   línea en la base de mentira): están la puerta y el cableado.
+
+## «Súbeme este anuncio» con un Drive, un video o una imagen desde el grupo (29/10/2026, claude3; detrás de ZERNIO_ANUNCIOS_PROBADO)
+
+**Vive en:** `lib/anuncio-desde-archivo.ts` (lo puro) · `proponer_anuncio_desde_archivo` (lib/api-mako/areas/ads.def.ts / ads.run.ts) ·
+`cuerpoAnuncioEnConjunto` (lib/zernio-ads-cuerpo.ts, `video_url`) · `Ctx.archivoDelMensaje` (lib/api-mako/tipos.ts, lo pone
+lib/mako-doer-in.ts) · `textoDe` (el videoMessage)
+
+- **El pedido:** la promesa 2 de la llamada con Thiago. MaKo baja el archivo, lo guarda en el bucket de los creativos
+  (`ads-creatives/grupo/<ws>/…`) y PROPONE el anuncio EN PAUSA, que se aprueba en /mako/revisar; al aprobarlo, firma el link (2 h)
+  y Zernio crea el anuncio con `video.url` o `imageUrl` (docs.zernio.com, POST /v1/ads/create: «Supply `url` to upload a file»,
+  MP4 de 75 KB a 500 MB). Sin token de Meta: por eso exige los anuncios por Zernio del negocio.
+- ⚠️ **Un video no se leía.** `textoDe` tomaba el texto de una imagen pero no el de un `videoMessage`: un video con «súbelo como
+  anuncio» llegaba sin texto ni adjunto, y el doer lo descartaba en silencio («sin texto ni audio ni adjunto»). Ahora va su texto y
+  la marca «(mandó un video)». Un GIF sigue siendo la reacción.
+- ⚠️ **La regla de una guarda no se delega.** Con la bandera apagada, la operación contesta la guarda («falta la prueba de anuncios
+  por Zernio») y el despachante, al ver una ACCIÓN sin escrituras, la DELEGABA: un pedido al equipo sin el video. Ahora, si lo
+  último que corrió fue una guarda (`ultimaFueGuarda`), la regla es la respuesta y no hay pedido.
+- **La bandera:** `ZERNIO_ANUNCIOS_PROBADO` sigue en false; la prende la prueba de scripts/prueba-zernio-anuncio.mts (el clic de
+  Martín). Apagada, `preparar` lo dice ANTES de bajar o subir nada, y `ejecutar` también (una pendiente de antes no publica).
+- **Sin hacer (al 29/10):** con la bandera prendida, el camino entero (la bajada, el bucket, el link firmado y Zernio) no corrió en
+  ningún test por la entrada: sí, cada pieza por separado. El video del mensaje citado (no el del mismo mensaje) no se toma. Un
+  Drive grande (más de 100 MB) se rechaza: va desde el Media Buyer.

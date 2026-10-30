@@ -24,7 +24,8 @@
 // del modelo → 7 · la delegación sin mirar si pregunta un dato → 6 · (el #30) `SIN_HACER` sin mirar `noLoPuedeHacer` → 8 · el bloque
 // de pedidos sin lo desplegado → 8 · el turno sin los hitos de los resueltos → 8 · (la llamada con Thiago) replicar_landing fuera
 // de las simples → 9 · el presupuesto sin su pantalla → 9 · sin la delegación de lo que falta de un pedido compuesto → 9 · el filtro
-// de la ACCIÓN sin `viajaEnLaAccion` → 6. (Las del veredicto, en tests/mako-intencion-ia.test.ts: el TICKET
+// de la ACCIÓN sin `viajaEnLaAccion` → 6 · («súbeme este anuncio») el videoMessage sin leer → 10 · la regla de una guarda delegada
+// → 10 · el anuncio desde un archivo fuera de lo que viaja → 10. (Las del veredicto, en tests/mako-intencion-ia.test.ts: el TICKET
 // principal contestado primero → 2; sin la guarda del «sí» suelto → 2.)
 // =============================================================================
 
@@ -34,7 +35,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ACCIONES_SIMPLES } from '../lib/despacho-grupo';
 
-type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[] }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; pendientes: Array<{ tipo: string; resumen: string }>; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } } }> };
+type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[]; deHerramientas: string[]; usuario: string }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; pendientes: Array<{ tipo: string; resumen: string }>; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } } }> };
 let cache: Record<string, Escena> | null = null;
 function escena(k: string): Escena {
   if (!cache) {
@@ -189,4 +190,16 @@ test('9. la llamada con Thiago: replicar una landing y las campañas se hacen de
   assert.match(t.titulo, /^Lo que faltó de: replicar la landing https:\/\/ejemplo\.com\/oferta; crear una automatización de bienvenida/);
   assert.match(t.descripcion, /Lo que MaKo YA hizo o dejó propuesto en el grupo \(no lo repitas\): replicar_landing\./);
   assert.deepEqual(k.salio, [`Te dejo la réplica de la landing propuesta.\n\nLo demás que me pediste lo pasé al equipo de MaKo (pedido #${t.id}). Te aviso por aquí cuando esté.`]);
+});
+
+test('10. «súbeme este anuncio» con un video: el doer lo acepta, el turno pide la herramienta y, con la bandera apagada, la regla es la respuesta', () => {
+  // Rota: sin el videoMessage en `textoDe` → el video llega sin texto ni adjunto y MaKo no contesta. Sin `!ultimaFueGuarda` en la
+  // delegación → «Lo pasé al equipo de MaKo (pedido #N)» con un pedido que el equipo no puede hacer (no tiene el video).
+  const e = escena('anuncioVideo');
+  assert.equal(e.turno.length, 2, 'el turno no corrió la herramienta');
+  assert.match(e.turno[0].usuario, /súbeme este video como anuncio[\s\S]*\(mandó un video\)/, 'el turno no sabe que vino un video');
+  assert.ok(e.turno[0].tools.includes('proponer_anuncio_desde_archivo'), `la herramienta no viajó: ${e.turno[0].tools.join(', ')}`);
+  assert.match(e.turno[1].deHerramientas.join('\n'), /todavía no está prendido: falta la prueba de anuncios por Zernio/);
+  assert.deepEqual(e.salio, ['Todavía no puedo subir un anuncio desde un archivo: falta la prueba de anuncios por Zernio. Mientras, súbelo desde el Media Buyer.']);
+  assert.equal(e.tickets.length, 0, 'se delegó un pedido que la regla ya contesta');
 });

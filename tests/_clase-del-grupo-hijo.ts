@@ -71,9 +71,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   return r(500, { error: { message: 'red de mentira' } });
 }) as typeof fetch;
 
-const real = (id: string, ts: number, t: string, jid = JID) => ({
+const VIDEO_B64 = Buffer.from('video de prueba').toString('base64');
+const real = (id: string, ts: number, t: string, jid = JID, video = false) => ({
   key: { id, fromMe: false, remoteJid: jid, participant: LID, addressingMode: 'lid', participantAlt: ALT },
-  source: 'web', status: 'DELIVERY_ACK', message: { conversation: t, messageContextInfo: { threadId: [] } },
+  source: 'web', status: 'DELIVERY_ACK',
+  message: video ? { videoMessage: { caption: t, mimetype: 'video/mp4', base64: VIDEO_B64 }, messageContextInfo: { threadId: [] } } : { conversation: t, messageContextInfo: { threadId: [] } },
   instance: LINEA, pushName: 'Leandro', instanceId: 'e0000000-0000-0000-0000-000000000010', messageType: 'conversation', messageTimestamp: ts,
 });
 
@@ -93,21 +95,25 @@ async function main() {
   const salio = () => red.filter((x) => x.camino.includes('/message/sendText/')).map((x) => String((JSON.parse(x.cuerpo || '{}') as { text?: string }).text ?? ''));
   const turno = () => red.filter((x) => x.host === 'api.openai.com' && x.camino.endsWith('/chat/completions')).map((x) => {
     const b = JSON.parse(x.cuerpo) as { messages: Array<{ role: string; content: unknown }>; tools?: Array<{ function?: { name?: string } }> };
-    return { system: String(b.messages.find((m) => m.role === 'system')?.content ?? ''), tools: (b.tools ?? []).map((t) => t.function?.name ?? '') };
+    return {
+      system: String(b.messages.find((m) => m.role === 'system')?.content ?? ''), tools: (b.tools ?? []).map((t) => t.function?.name ?? ''),
+      deHerramientas: b.messages.filter((m) => m.role === 'tool').map((m) => String(m.content ?? '')),
+      usuario: String([...b.messages].reverse().find((m) => m.role === 'user')?.content ?? '').slice(0, 2000),
+    };
   });
   const clasificador = () => red.filter((x) => x.host === 'api.anthropic.com').map((x) => {
     const b = JSON.parse(x.cuerpo || '{}') as { model?: string; system?: unknown; messages?: Array<{ content: unknown }> };
     return { modelo: b.model ?? '', clave: x.clave, mensaje: JSON.stringify(b.messages?.[0]?.content ?? '').slice(0, 400) };
   });
   let ts = 1793260000;
-  const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes }: { limpiar?: boolean; jid?: string; antes?: () => void } = {}) => {
+  const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes, video = false }: { limpiar?: boolean; jid?: string; antes?: () => void; video?: boolean } = {}) => {
     Object.assign(escena, { clase: '', claseCaida: false, respuesta: '', herramienta: undefined }, e);
     llamadasAlTurno = 0;
     red.splice(0);
     if (limpiar) { pg.db.mako_doer_conv.splice(0); pg.db.tickets.splice(0); }
     antes?.();
     pg.db.mako_doer_lock.splice(0);
-    const r = await manejarEntranteDoer(LINEA, real(`3EB0CLASE${String(++ts).slice(-10)}`, ts, texto, jid) as never);
+    const r = await manejarEntranteDoer(LINEA, real(`3EB0CLASE${String(++ts).slice(-10)}`, ts, texto, jid, video) as never);
     out[k] = {
       r, salio: salio(), turno: turno(), clasificador: clasificador(),
       reacciones: red.filter((x) => x.camino.includes('/message/sendReaction/')).length,
@@ -182,6 +188,13 @@ async function main() {
     herramienta: { nombre: 'replicar_landing', args: { url: 'https://ejemplo.com/oferta', formato: 'landing' } },
     respuesta: 'Te dejo la réplica de la landing propuesta.',
   }, 'replícame https://ejemplo.com/oferta como landing y además créame una automatización de bienvenida para los leads nuevos');
+  // «SÚBEME ESTE ANUNCIO» CON UN VIDEO (29/10/2026, la llamada con Thiago): el doer acepta el videoMessage, el turno pide
+  // `proponer_anuncio_desde_archivo` y, con ZERNIO_ANUNCIOS_PROBADO apagada, la operación dice que falta la prueba (no baja ni sube nada).
+  await correr('anuncioVideo', {
+    clase: '{"clase":"ACCION","resumen":"Subir el video como anuncio en el conjunto 120210000000000001","reenviado":false}',
+    herramienta: { nombre: 'proponer_anuncio_desde_archivo', args: { adsetId: '120210000000000001', nombre: 'Video fiesta', origen: 'mensaje', primary_text: 'Ven a la fiesta', destination_url: 'https://fiestamusic.com' } },
+    respuesta: 'Todavía no puedo subir un anuncio desde un archivo: falta la prueba de anuncios por Zernio. Mientras, súbelo desde el Media Buyer.',
+  }, 'súbeme este video como anuncio en el conjunto 120210000000000001, que lleve a https://fiestamusic.com', { video: true });
   // Una respuesta que era TODO relleno: no sale nada (va la reacción).
   await correr('relleno', { clase: '{"clase":"PREGUNTA","resumen":"cómo va","reenviado":false}', respuesta: 'Excelente, quedo atento.' },
     '¿cómo vamos con lo de la campaña?');

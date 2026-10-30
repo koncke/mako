@@ -758,4 +758,21 @@ export const BITACORA: Hito[] = [
       'tests/clase-del-grupo.test.ts — por el turno real (el modelo pide la herramienta)',
     ],
   },
+  {
+    fecha: '29 oct', hora: '22:00', chat: 'MaKo en WhatsApp', sesion: 'local_cf058ed5-4fbb-41b8-b1f9-93030d11d1a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Súbeme este anuncio»: MaKo toma el video o la imagen del grupo (o un Drive) y te deja el anuncio en pausa para aprobar',
+    puntos: [
+      'Mandas el video o la imagen al grupo (o el link de Drive) y MaKo deja propuesto el anuncio EN PAUSA en el conjunto que digas; lo apruebas en la app y sale por Zernio.',
+      'Todavía apagado: lo prende la prueba de anuncios por Zernio, que hace Martín. Mientras, MaKo lo dice y no sube nada.',
+      'Un video mandado al grupo ya no se pierde: antes MaKo no lo leía.',
+      '**Cómo se prueba (con la prueba hecha):** mandar un video al grupo con «súbelo como anuncio en el conjunto X, que lleve a https://…».',
+    ],
+    archivos: [
+      'lib/anuncio-desde-archivo.ts — el link de Drive, qué archivo sirve, la ruta en el bucket',
+      'lib/api-mako/areas/ads.run.ts — `proponer_anuncio_desde_archivo`, detrás de ZERNIO_ANUNCIOS_PROBADO',
+      'lib/zernio-ads-cuerpo.ts — el video por link (`video.url`)',
+      'tests/anuncio-desde-archivo.test.ts y tests/clase-del-grupo.test.ts (10, por el turno real)',
+    ],
+  },
 ];

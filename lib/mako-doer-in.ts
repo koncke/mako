@@ -242,6 +242,10 @@ function textoDe(m: MsgIn): string {
   if (ext && typeof ext.text === 'string') return ext.text;
   const img = msg.imageMessage as { caption?: string } | undefined;
   if (img?.caption) return img.caption;
+  // UN VIDEO (29/10/2026, «súbeme este anuncio» desde el grupo): su texto, o la marca de que mandó uno. Antes no se leía: un video
+  // con «súbelo como anuncio» llegaba sin texto ni adjunto y MaKo no contestaba. Un GIF no: es la reacción de siempre, más abajo.
+  const vid = msg.videoMessage as { caption?: string; gifPlayback?: boolean } | undefined;
+  if (vid && !vid.gifPlayback) return vid.caption?.trim() ? `${vid.caption.trim()}\n(mandó un video)` : '(mandó un video)';
   // TARJETA DE CONTACTO. Es la forma natural de pasar un lead por WhatsApp —
   // nadie tipea un teléfono que ya tiene en la agenda— y era justo la única que
   // no se leía: entraba, no daba ni texto ni adjunto, y MaKo respondía «no me
@@ -1765,6 +1769,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x);
         if (c && !faltasDelTurno.includes(c.key)) faltasDelTurno.push(c.key);
       },
+      // LA IMAGEN O EL VIDEO DEL MENSAJE (29/10/2026, «súbeme este anuncio», `proponer_anuncio_desde_archivo`): se baja recién cuando
+      // la herramienta lo pide, del webhook o de Evolution. Un GIF no es un creativo.
+      archivoDelMensaje: async () => {
+        const m = (data.message ?? {}) as Record<string, unknown>;
+        const vid = m.videoMessage as { base64?: string; mimetype?: string; gifPlayback?: boolean } | undefined;
+        const img = m.imageMessage as { base64?: string; mimetype?: string } | undefined;
+        const media = vid && !vid.gifPlayback ? vid : img;
+        if (!media) return null;
+        let b64 = data.base64 || media.base64 || null;
+        let mime = media.mimetype || (media === vid ? 'video/mp4' : 'image/jpeg');
+        if (!b64 && msgId) {
+          const bajado = await fetchMediaBase64EnInstancia(instance, jid, msgId, !!key?.fromMe).catch(() => null);
+          b64 = bajado?.base64 ?? null;
+          if (bajado?.mimetype) mime = bajado.mimetype;
+        }
+        return b64 ? { base64: b64, mime, nombre: media === vid ? 'video.mp4' : 'imagen.jpg' } : null;
+      },
     };
     // ── EL DEBUG LO DELEGA EL CÓDIGO AL CEREBRO, CON LA EVIDENCIA (29/10/2026, lib/diagnostico-negocio.ts) ────────────────────────
     // Martín reenvió la consulta de un cliente («pegué el token del pixel… conectar Facebook no me hace nada») y MaKo le contestó a ÉL
@@ -2883,7 +2904,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // dato que falta, su texto no sale: el pedido va a la Ticketera como «pedido delegado» y el Cerebro elige quién lo hace. Con una
     // marca de ticket, un error de herramienta o una conexión que falta, no: eso ya tiene su camino (y su línea).
     let textoFijo = false;
-    if (esAccionIA && respuesta && !avisoDeSistema && !conMarcaDeTicket(respuesta) && !erroresDelTurno.length && !faltasDelTurno.length
+    // Tampoco si lo último que corrió fue una GUARDA de MaKo (`ultimaFueGuarda`, la regla de una herramienta: «falta la prueba de
+    // anuncios por Zernio», «conecta tus anuncios por Zernio»): esa regla es la respuesta, y un pedido al equipo no la cambia.
+    if (esAccionIA && respuesta && !avisoDeSistema && !conMarcaDeTicket(respuesta) && !erroresDelTurno.length && !faltasDelTurno.length && !ultimaFueGuarda
       && delegaLaAccion({
         propuso: propuestasDelTurno.size > 0 || !!linkBorrador || !!linkLead || linksAccion.size > 0, escribio: escribioDelTurno > 0, respuesta,
         // Lo que dice HECHO sin respaldo, con la misma red del saneo del grupo (sin contar la lectura como respaldo).
