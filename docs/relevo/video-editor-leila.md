@@ -99,7 +99,7 @@ Integración. Misma prioridad que lo de Leila.
      Tests barra-linea 3/0. Roturas (6) y tsc corriendo por con-turno al escribir esto (`roturas-linea.mjs`, log en el
      scratchpad: `roturas-linea.log`); falta anotarlas en tests/video-editor-barra-linea.test.ts y mandar el VERDE.
   1b. Paso 1 en VERDE: punta `f297cf096` (6 roturas 2/1, tsc ✓ en 12), mandado al Cerebro.
-  2. **Paneles laterales en su mínimo: MEDIDO, sin arreglar.** Banco `banco/entrada-paneles.tsx` (+ `build-paneles.mjs`,
+  2. **Paneles laterales: HECHO en `b7495299e`** (mínimos 280/160/280 px pasados a % con el ancho medido; el rótulo de los detalles se parte; captura `paneles-despues.png`; tests paneles-minimos 3/0). Roturas (5) y tsc por con-turno al escribir esto (`roturas-paneles.mjs`, log `roturas-paneles.log` en el scratchpad); falta anotarlas y el VERDE. Lo medido antes: Banco `banco/entrada-paneles.tsx` (+ `build-paneles.mjs`,
      `sacar-paneles.mjs`; el stub `motor-linea.ts` ya trae un comodín y un proyecto inventado). Captura
      C:/dev/revisiones/editor-pantalla-3010/paneles-antes.png. Biblioteca: de 240 px para abajo «Importar» y la zona para
      arrastrar se aplastan (una palabra por renglón) y de 160 se cortan. Propiedades (los detalles, sin nada elegido): la
