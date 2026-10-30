@@ -38,6 +38,15 @@ Para retomar: abrir un chat con este título y pegar «Continua: leé docs/relev
 - Motion, cuenta claude3 (29/10): merge de origin/main `7f36fa9c6` en `d22770e72` (un conflicto: el índice
   docs/hallazgos.md, quedan los dos lados) y los dos rojos del typecheck arreglados en un commit aparte (ver abajo).
 
+- **Tickets 31 y 32** (Leila, 29/10: «Quiero borrar silencios y me dice que no hay cuando sobran»): rama `editor-leila-2810`
+  (C:/dev/wt-editor-leila), arreglo `5946a5dc9` y cosecha `3b6a9b3ee`, sobre main `4b8f8145d`. NO era el detector: el modelo
+  copió `"ref":"v1"` del catálogo y buscó en un pedazo de 0,93 s. El #32 es el mismo episodio, un minuto después. Ahora:
+  sin ref es todo el video, `pausa_min` de 0,2 a 2 s (chat y API), y el aviso dice dónde buscó y la frase para seguir. Tests
+  chat 54/0 y silencios 21/0, 11 roturas, hito `tickets: [31, 32]`. VERDE mandado «sin tipos» (había 1 GB libre). El umbral
+  NO se tocó: para medir el detector hace falta el archivo original de Leila (174836_h264.mp4); lo pide el Cerebro.
+- **Motion, migración renumerada:** `0340_image_editor_propuestas.sql` → `0344` (en main el 0340 es la papelera del CRM),
+  con sus seis comentarios en el código. Pedido del Cerebro del 29/10.
+
 ## Lo que quedó a medias
 
 - **Ticket 23:** nada a medias. ⚠️ Para la próxima: el árbol está en CRLF; un script que rompe por texto tiene que usar
