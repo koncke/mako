@@ -85,7 +85,7 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
   const alcance = p.alcance === 'seleccion' ? 'los elementos elegidos ("elegidos" en el DISEÑO)' : 'todo el diseño';
 
   try {
-    const user = await renderPrompt(PROMPTS_CHAT_IMAGEN.user.key, CHAT_IMAGEN_USER_TEMPLATE, {
+    const pedido = await renderPrompt(PROMPTS_CHAT_IMAGEN.user.key, CHAT_IMAGEN_USER_TEMPLATE, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       alcance,
       diseno: contenidoNoConfiable(diseno, 'diseno'),
@@ -97,10 +97,10 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
     }))}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
     const previo = memoriaParaIA(sanearMemoria(p.memoria));
-    const conMemoria = previo
-      ? `LO QUE YA HABLARON EN ESTE DISEÑO (sirve para entender a qué se refiere la instrucción: si pide «aplica lo que te pedí», es repetir ese pedido; lo que hay que hacer ahora es la INSTRUCCIÓN):\n${contenidoNoConfiable(previo, 'conversacion_anterior')}\n\n${user}`
-      : user;
-    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(conMemoria, p.archivos) }], {
+    const user = previo
+      ? `LO QUE YA HABLARON EN ESTE DISEÑO (sirve para entender a qué se refiere la instrucción: si pide «aplica lo que te pedí», es repetir ese pedido; lo que hay que hacer ahora es la INSTRUCCIÓN):\n${contenidoNoConfiable(previo, 'conversacion_anterior')}\n\n${pedido}`
+      : pedido;
+    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
       feature: FEATURE_CHAT_IMAGEN,
       motivo: 'Editar el diseño con el chat',
       maxTokens: 4_000,
