@@ -104,6 +104,9 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
     `tests/links-con-ws.test.ts`); hay una referencia en la rama `tren-ae-con-wa`. Después del deploy:
     `cartero.mjs instalar` (Runner 1.24.0).
     Su tsc de 8ab517c12 dio 0 errores propios.
+  - **Zernio, N1 y N8:** `zernio-token-2910` en `7da5d9ec3` (sobre lo que sube en el tren-ag). En el tren-ah: leer el diff de
+    `borrarEvento`/`restaurarEvento` y correr `tests/calendario-recurrentes.test.ts`. Si da bien, avisar al Cerebro que
+    pida la 0349 a Martín. La 0349 no cambió.
   - **El relevo del Cerebro:** `relevo-cerebro-3010` en `7af7751ce`, sólo `docs/relevo/cerebro.md`. Se une limpio con `4b3cfc751`.
     Después llega el re-commit de `docs/conocimiento/patrones-email.md`.
 - **Para quien siga:**
