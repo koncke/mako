@@ -83,6 +83,7 @@ import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, pue
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
+import { avisoDeRitmo, canalDelPrimerMensaje, type AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
@@ -1940,6 +1941,38 @@ export async function existentesEnEtapa(secuenciaId: number): Promise<Existentes
     entran: porCron.reduce((n, c) => n + c.recientes.nuevas.length + c.recientes.reusar.length, 0),
     viejos: porCron.reduce((n, c) => n + c.viejos.nuevas.length + c.viejos.reusar.length, 0),
   };
+}
+
+/**
+ * CUÁNTOS Y A QUÉ RITMO, ANTES DE PRENDERLA (Martín, 25/10/2026: «como está muy escondido el "goteo" se manden muchos mensajes de
+ * una»; lib/ritmo-al-activar.ts). Cuenta con la MISMA puerta que el barrido (`planificarInscripciones`) y SÓLO LEE. ⚠️ No mira
+ * `decidirAgenda`: una con horario cuenta a los que entrarían en su próxima vez. Si no se puede contar, `personas` null: nunca un
+ * número inventado. `incluirExistentes`: suma a los que la persona acaba de elegir incluir (`existentesEnEtapa`).
+ */
+export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes?: boolean } = {}): Promise<AvisoDeRitmo | null> {
+  const sec = await secuenciaDeId(secuenciaId);
+  if (!sec) return null;
+  const canal = canalDelPrimerMensaje(sec.pasos);
+  if (!canal) return null;
+  const [config, limites] = await Promise.all([leerConfigAutomatizacion(secuenciaId).catch(() => null), limitesDeEnvio()]);
+  let personas: number | null = 0;
+  try {
+    const supabase = (await getTenantDb());
+    const vistos = new Set<number>();
+    for (const vista of vistasPorDisparador(sec)) {
+      if (!barridoInscribe(vista) || !barreElDisparador(vista)) continue;
+      const candidatos = (await aTiempo(supabase, vista, await leadsDeCohorte(vista.trigger_tipo, etapasDe(vista), vista.funnel_id, vista.producto_id, vista.etiqueta_id)))
+        .filter((id) => !vistos.has(id));
+      if (!candidatos.length) continue;
+      const { nuevas, reusar } = await aInscribir(supabase, vista, candidatos);
+      for (const x of [...nuevas, ...reusar]) vistos.add(x.lead_id);
+    }
+    personas = vistos.size + (o.incluirExistentes ? (await existentesEnEtapa(secuenciaId))?.viejos ?? 0 : 0);
+  } catch (e) {
+    console.error(`[nutricion] ritmo al activar #${secuenciaId}: ${e instanceof Error ? e.message : String(e)}`);
+    personas = null;
+  }
+  return avisoDeRitmo({ personas, canal, goteo: config?.goteo, topes: limites === 'ilegible' ? null : limites });
 }
 
 /**

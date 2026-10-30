@@ -194,9 +194,9 @@ test('(c) cada pantalla que hace PATCH con `activa` a las secuencias pregunta po
 
 test('(c) el teléfono: Activar y Publicar una activa preguntan en una hoja, y «… igual» vuelve con `aunqueDuplique`', () => {
   const m = FUENTE.get('app/m/automations/AutomationsM.tsx')!;
-  const alt = cuerpo(m, 'const alternar = async (a: AutomatizacionM, activa: boolean, deshaciendo = false, aunqueDuplique = false) => {', '\n  };');
+  const alt = cuerpo(m, 'const alternar = async (a: AutomatizacionM, activa: boolean, deshaciendo = false, aunqueDuplique = false, yaAvisado = false) => {', '\n  };');
   assert.match(alt, /if \(!r\.ok && r\.duplicada\) \{\n\s+poner\(a\.id, \{ activa: antes \}\);\n\s+haptico\('medium'\);\n\s+setAActivar\(\{ a, texto: r\.error \?\? '' \}\);\n\s+return;/);
-  assert.match(m, /onClick=\{\(\) => \{ const x = aActivar; setAActivar\(null\); void alternar\(x\.a, true, false, true\); \}\}>Activar igual<\/Button>/);
+  assert.match(m, /onClick=\{\(\) => \{ const x = aActivar; setAActivar\(null\); void alternar\(x\.a, true, false, !x\.ritmo, true\); \}\}>\{aActivar\.ritmo \? 'Activar' : 'Activar igual'\}<\/Button>/);
   const pub = cuerpo(m, 'const publicar = async () => {', '\n  };');
   assert.match(pub, /const aunqueDuplique = dupPublicar != null;/);
   assert.match(pub, /if \(!r\.ok && r\.duplicada\) \{ haptico\('medium'\); setDupPublicar\(r\.error \?\? ''\); setOcupado\(null\); return; \}/);

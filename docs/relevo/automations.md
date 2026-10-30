@@ -7,8 +7,9 @@
 ## LO ÚLTIMO: 30/10/2026, rama `aut-restos-tickets-3010`: los restos de los tickets #33 y #34
 
 Tres arreglos: el paso de una inscripción sin tarjeta (`indiceDeLaFila`), lo que manda Instagram (`ig_mensajes.metadata_zernio`,
-migración 0353, sin aplicar: el código anda sin ella) y la pausa de Zernio en Automations y Calendario. La cosecha, en
-docs/hallazgos-chatbot.md y docs/hallazgos-integraciones.md.
+migración 0353, ya aplicada) y la pausa de Zernio en Automations y Calendario. Encima, el aviso al activar: cuántos y a qué ritmo
+(lib/ritmo-al-activar.ts). La cosecha, en docs/hallazgos-chatbot.md y docs/hallazgos-integraciones.md. **Mirar cuando despliegue:** el
+aviso en pantalla (no se vio en el navegador) y `ig_mensajes.metadata_zernio` con el próximo toque de un DM viejo.
 
 ## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
 

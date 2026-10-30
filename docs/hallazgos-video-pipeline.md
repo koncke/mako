@@ -1295,8 +1295,8 @@ Martín contestó el 25/10 «sí, desplegarlo» a una pregunta que decía «sin 
 ni en la tab». **Para la tab ya era falso desde el 21/10**: el cron atiende la cola. La pregunta se armó con docs de antes de §14
 (docs/pendientes.md seguía pidiendo «montar el servidor»). **Medido:** un trabajo de prueba en el negocio de prueba, #6, con las tomas
 del #5, se tomó a los 39 s y quedó listo 21 s después; el archivo bajado son 11,99 s, h264 720×1280, AAC con voz (−16 dB de media) y
-los subtítulos quemados. **No se desplegó el contenedor:** seguiría sin `sts-N.mp3`, y no agrega nada. **La regla:** antes de ejecutar
-una decisión vieja, medir si la pregunta sigue siendo cierta.
+los subtítulos quemados. **No se desplegó el contenedor:** seguiría sin `sts-N.mp3`, y no agrega nada. **La regla: una decisión vieja se verifica contra el estado de hoy, no se
+ejecuta.** Desplegado, habríamos encendido un contenedor que no monta nada y anotado «arreglado» algo que ya andaba.
 
 ⚠️ **Lo que esta prueba NO cubre:** el trabajo se encoló a mano, no desde la pantalla (`montarAnuncioAction`). Y nunca salió un
 montaje real de un cliente: `video-generator.historial` no se toca desde el 08/09, y el único otro «listo» es otra prueba (#5).

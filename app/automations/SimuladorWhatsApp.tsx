@@ -64,6 +64,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type ComponentType } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
+import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, Z_CHAT_ENCIMA, type EdicionLocal } from './SecuenciaPerfil';
@@ -621,7 +622,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       setDescartando(false); setADescartar(null);
     }
   };
-  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {
+  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean; sinRitmo?: boolean }) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
     // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
     if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
@@ -640,6 +641,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinAviso) {
       const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia);
       if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra) }); return; }
+    }
+    // Y CUÁNTOS Y A QUÉ RITMO (Martín, 25/10/2026, lib/ritmo-al-activar.ts). «No pude preguntar» no frena.
+    if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinRitmo) {
+      setErrFila(null); setOcupada(j.id);
+      const a = await fetch(`/api/whatsapp/secuencias?ritmo=${j.id}`)
+        .then((r) => r.json())
+        .then((r: { ok?: boolean; ritmo?: AvisoDeRitmo | null }) => (r.ok ? r.ritmo ?? null : null))
+        .catch(() => null);
+      setOcupada(null);
+      if (a) { setAvisoRitmo({ j, sinAviso: !!o?.sinAviso, ...a }); return; }
     }
     setErrFila(null); setOcupada(j.id);
     try {
@@ -663,6 +674,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     }
   };
 
+  /** El «Activar» del «⋯» que espera la respuesta al aviso de cuántos y a qué ritmo. */
+  const [avisoRitmo, setAvisoRitmo] = useState<(AvisoDeRitmo & { j: SecuenciaDto; sinAviso: boolean }) | null>(null);
   /** El «Activar» del «⋯» que espera la respuesta al aviso de duplicada, con su texto. */
   const [avisoActivar, setAvisoActivar] = useState<{ j: SecuenciaDto; texto: string } | null>(null);
   /** «Activar igual»: sale el Activar de siempre (el aviso ya se contestó). */
@@ -983,6 +996,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       )}
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
+      {avisoRitmo && (
+        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.sinGoteo ? 'Activar igual' : 'Activar'} cancelLabel="Cancelar" tone="primary"
+          onConfirm={() => { const a = avisoRitmo; setAvisoRitmo(null); void accionFila(a.j, 'activa', { sinAviso: a.sinAviso, sinRitmo: true }); }}
+          onCancel={() => setAvisoRitmo(null)} />
+      )}
       {avisoActivar && (
         <Confirm message={avisoActivar.texto} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"
           onConfirm={activarIgual} onCancel={() => setAvisoActivar(null)} />

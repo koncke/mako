@@ -27,6 +27,27 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Al activar se dice cuántos y a qué ritmo (30/10/2026, decisión de Martín del 25/10)
+
+**El pedido:** «como está muy escondido el "goteo" se manden muchos mensajes de una… al activar la automatización podriamos darle una
+advertencia». **El diagnóstico obvio («sin goteo salen 200 de una») era el equivocado, y nadie lo había medido.** En WhatsApp los
+frena el tope de la línea, por hora de reloj y por día (de fábrica 6 y 40; cada negocio lo puede subir hasta 30 y 150), y sale la
+tanda de cada hora junta. **Los que sí salen todos juntos son Instagram y Messenger:** no tienen tope propio. El riesgo no estaba donde
+se creía, y por eso el aviso dice el canal y el número, no «ojo». **La regla:** un aviso de este tipo sale de lo que el motor mira.
+La cuenta es la misma puerta del barrido (`ritmoAlActivar`, lib/nutricion.ts) y el texto, puro (lib/ritmo-al-activar.ts). ⚠️ El tiempo
+es un PISO: 200 a 40 por día son 5 tandas y la quinta arranca a los 4 días; el horario y las otras automatizaciones de la línea sólo lo
+alargan. ⚠️ El tope de la línea no separa, corta la tanda: usarlo como un goteo daba 10 min entre dos personas con goteo de 5.
+**Cerrar el aviso nunca la prende:** `Confirm` manda Escape y el fondo a `onCancel`, y por eso «Poner goteo» es el cancelar y
+«Activar igual» el confirmar.
+
+**Decisiones de Automations:** con menos de 2 personas no hay ritmo que decir. Una que dispara sólo por su evento no se avisa: al
+activar no sale nada, y no hay a quién contar. No poder contar no frena, pero sin goteo se dice igual.
+
+**Sin hacer:** el interruptor de /email y «MaKo escribe tu nutrición» (app/email/EmailApp.tsx, app/_components/NutricionGenerar.tsx)
+prenden sin este aviso. Con aprobación, el texto dice «sale» y en realidad queda el borrador (`dejaBorradores`, el chat ya lo dice al
+activar). Una con horario cuenta a los de hoy, no a los de su próxima vez. El tope de Meta para Instagram no entra en la cuenta.
+**Sin ver en pantalla:** probado con tests, roturas y el dato real de producción, no en el navegador (sin servidor local por la RAM).
+
 ## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)
 
 **El síntoma:** cinco copias de la 680 (los MISMOS ids de tarjeta y el mismo «Obtener recurso»), la misma cuenta comenta las
