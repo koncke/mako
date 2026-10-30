@@ -3830,3 +3830,28 @@ por pantalla, no recordarlo. El taller (inventario + lo que vende el rubro + tre
 **Regla:** una tarjeta o un renglón de precios sale de un inventario MEDIDO ese día (qué abre el cliente, con qué plan) y
 del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda». Y algo a medias no se
 promete aunque el código lo abra: se vende cuando un cliente lo usó y le salió.
+
+## La copia con las imágenes rotas: la dirección pegada no es la de la página (30/10/2026, claude1)
+
+**Vive en:** `lib/landing-fetch.ts` (`paginaConDireccion`) · `lib/editor-landing/replicar-reglas.ts` (`baseDeDocumento`).
+Se vio en el recorrido visual: [recorrido-visual-30-10.md](recorrido-visual-30-10.md), W2.
+
+**Síntoma:** la landing #88 (copia de `contentpartner.com.co/…-inmersion`) abre con el logo y el hero rotos: sus 27 imágenes dan 404.
+
+**Causa:** se pegó la dirección sin la barra final y el sitio redirige a la misma con barra. Lo relativo (`kit-marca/x.webp`) se
+resuelve distinto según esa barra: contra la dirección pegada pierde la carpeta de la página. La bajada seguía la redirección, pero
+devolvía sólo el HTML y la dirección final se perdía.
+
+**El diagnóstico obvio era el equivocado:** `baseDeDocumento` ya «resolvía la base» y por eso no parecía el problema. Pero usaba el
+`canonical` y el `og:url` como sustitutos, que el navegador nunca usa para resolver una ruta, y esta página no tiene ninguno.
+
+**Regla:** una ruta relativa se resuelve contra lo mismo que el navegador: `<base href>`, y si no hay, la dirección FINAL después de las
+redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`.
+
+**Sin hacer (rama `recorrido-web-3010`, sin subir):**
+
+- Correr sus tests: los frenó la falta de RAM. Hay 4 aserciones actualizadas sin correr en `tests/editor-landing-{crear-panel,estilo,replicar,replicar-animaciones}.test.ts`.
+- ⚠️ **Medirlo con la página real.** `copiaFiel(html, final)` devolvió la dirección con barra y `ok`, pero mi prueba encontró 0 imágenes de ese
+  dominio en la copia. O la prueba busca mal, o la #88 no salió por este camino (`lib/editor-landing/copia-identica.ts`, la foto del
+  navegador). **Hasta medirlo, este arreglo no está probado para el caso que lo originó.**
+- Reparar la #88 (el prefijo de sus imágenes, con respaldo antes). De las 28 copias que hay es la única con esta causa.

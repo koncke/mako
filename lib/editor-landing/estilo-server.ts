@@ -23,7 +23,7 @@ import 'server-only';
 import { isIP, type LookupFunction } from 'node:net';
 import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
-import { htmlDePagina, validarDestino } from '../landing-fetch';
+import { paginaConDireccion, validarDestino } from '../landing-fetch';
 import { copiarUrlABucket } from '../imagenes-stock';
 import { BUCKET_LANDING } from './server-reglas';
 import { baseDeDocumento } from './replicar-reglas';
@@ -108,8 +108,8 @@ export async function bajarHoja(urlInput: string): Promise<string> {
  */
 export async function estiloDeLaPagina(url: string): Promise<EstiloOriginal | null> {
   try {
-    const html = await htmlDePagina(url, { talCual: true });
-    const base = baseDeDocumento(html, url);
+    const { html, final } = await paginaConDireccion(url, { talCual: true });
+    const base = baseDeDocumento(html, final);
     const hojas = await Promise.all(hojasDeHtml(html, base).slice(0, TOPES_ESTILO.hojas).map((h) => bajarHoja(h).catch((e) => {
       console.warn(`[editor-landing/estilo] hoja ${h}: ${e instanceof Error ? e.message : String(e)}`);
       return '';

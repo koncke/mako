@@ -1012,7 +1012,7 @@ export async function responderPaginaDiagnostico(
   req: Request,
   urlRaw: string | null,
   // `bajar` devuelve el HTML, o el HTML y si la página real se deja embeber (`dejaEmbeberse`).
-  dep: { bajar: (url: string) => Promise<string | { html: string; embebible: boolean | null }> },
+  dep: { bajar: (url: string) => Promise<string | { html: string; embebible: boolean | null; final?: string }> },
 ): Promise<Response> {
   const sinCuerpo = req.method.toUpperCase() === 'HEAD';
   const texto = (status: number, t: string) => new Response(sinCuerpo ? null : t, {
@@ -1024,15 +1024,18 @@ export async function responderPaginaDiagnostico(
   if (!url) return texto(404, 'No existe');
   let html: string;
   let embebible: boolean | null = null;
+  // Lo relativo se resuelve contra la dirección FINAL (`baseDeDocumento`): sin eso, una página que redirige a la barra se
+  // veía sin imágenes en el Diagnóstico.
+  let final = url;
   try {
     const r = await dep.bajar(url);
     if (typeof r === 'string') html = r;
-    else { html = r.html; embebible = r.embebible; }
+    else { html = r.html; embebible = r.embebible; final = r.final ?? url; }
   } catch (err) {
     const doc = documentoErrorDiagnostico(err instanceof Error ? err.message : String(err));
     return new Response(sinCuerpo ? null : doc, { status: 200, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO } });
   }
-  return new Response(sinCuerpo ? null : documentoDiagnostico(html, url, { embebible }), { status: 200, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO } });
+  return new Response(sinCuerpo ? null : documentoDiagnostico(html, final, { embebible }), { status: 200, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO } });
 }
 
 /** El `src` del iframe de una landing de afuera. */
