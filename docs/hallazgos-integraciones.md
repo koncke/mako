@@ -2534,5 +2534,6 @@ tests/zernio-pausa-429.test.ts.
   decía «Zernio no la programó: Rate limit exceeded» o «No pude leer tus cuentas» con un botón «Conectar una cuenta», que es otra vez
   mandar a reconectar algo que anda. **En Calendario no cambia ningún estado:** un 429 en el primer pedido sigue siendo `fallo`
   (Zernio no la creó) y en un reintento sigue siendo `dudosa` con su texto (el primer pedido pudo haber quedado).
+- **Una ruta no mira un `ZernioError`:** el cliente de Zernio se habla sólo desde el canal, y `tests/sin-instagram.test.ts` frenó el tren por importarlo en la ruta. La pregunta «¿es una pausa?» vive en el canal (`pausaDeZernio`).
 - **Sin tocar, a propósito:** `estadoMedios` (lib/disparadores-canales.ts) ante un 429 dice «Sin comprobar»: no es falso. **Sin tocar,
   de otra área:** lib/media-buyer/datos.ts:111 sigue avisando «Zernio no contestó: …» ante cualquier error, también un 429.

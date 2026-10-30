@@ -69,7 +69,9 @@ test('el sondeo de conectar: la pausa espera lo que pidió Zernio y no cuenta co
 
 test('Automations: el selector de publicaciones dice la pausa y relee solo; la ruta le pasa la espera', () => {
   const r = leer('app/api/chat-agent/secuencias/route.ts');
-  assert.match(r, /if \(e instanceof ZernioError && e\.status === 429\) return Response\.json\(\{ ok: false, \.\.\.errorDeLecturaZernio\(e\.status, e\.esperaMs\) \}/);
+  assert.match(r, /const pausa = pausaDeZernio\(e\);\n\s+if \(pausa\) return Response\.json\(\{ ok: false, \.\.\.pausa \}, \{ status: 429 \}\);/);
+  assert.doesNotMatch(r, /from '@\/lib\/zernio'/, 'el cliente de Zernio se habla sólo desde el canal');
+  assert.match(leer('lib/disparadores-canales.ts'), /return e instanceof ZernioError && e\.status === 429 \? errorDeLecturaZernio\(e\.status, e\.esperaMs\) : null;/);
   const p = leer('app/automations/EditorDisparadores.tsx');
   assert.match(p, /espera = setTimeout\(\(\) => setVuelta\(\(v\) => v \+ 1\), x\.reintentarEnMs\);/);
   assert.match(p, /if \(relecturas\.current >= RELECTURAS_TRAS_PAUSA\) \{ setLectura\(\{ \.\.\.x, pausa: MENSAJES_DE_MOTIVO\.pausa \}\); return; \}/, 'sin más relecturas no promete «lo vuelvo a leer»');
