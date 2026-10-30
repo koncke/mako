@@ -10,6 +10,9 @@
 // «N cambios» (los del día sobre esa campaña). Al tocarla se abre su hoja: los números, la pieza del CRM para cambiarla de
 // producto (ProductoCelda.tsx: la MISMA de la tabla de campañas del CRM, ninguna segunda implementación) y sus cambios.
 // Lo pide al abrir la pestaña (`op: 'lienzo'`): lee la cuenta en vivo.
+// La hoja también lleva el HASTA de esa campaña (29/10/2026, lib/media-buyer/zona.ts): su fecha de fin, que gana a la de toda
+// la cuenta (Ajustes). Se guarda al SALIR del campo (`op: 'hasta_campana'`), nunca en cada tecla: un año a medio escribir es
+// «0002-11-05», y guardarlo pausaba la campaña (revisión adversarial del 29/10). Vacía, vuelve a la de la cuenta.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -32,8 +35,10 @@ export type Lienzo = {
 };
 const RES: Record<KpiMediaBuyer, [string, string]> = { lead: ['leads', 'lead'], agenda: ['agendas', 'agenda'], venta: ['ventas', 'venta'] };
 
-export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null }: {
+export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null, fechas }: {
   kpi: KpiMediaBuyer;
+  /** La fecha de fin de toda la cuenta y la de cada campaña (de la config). */
+  fechas: { hasta: string | null; hastaCampanas: Record<string, string> };
   /** Los cambios abiertos de hoy: cada campaña dice cuántos tiene. */
   abiertas: Decision[];
   /** `?producto=<id>`: abre la hoja de la primera campaña de ese producto. */
@@ -50,6 +55,17 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
   const [abierta, setAbierta] = useState<string | null>(null);
   const [asignadas, setAsignadas] = useState<CampanaAsignada[]>([]);
   const [productosCrm, setProductosCrm] = useState<ProductoNombre[]>([]);
+  const [hastas, setHastas] = useState(fechas);
+  const [guardandoFecha, setGuardandoFecha] = useState(false);
+  const [borradorFecha, setBorradorFecha] = useState<string | null>(null);
+  const guardarFecha = async (campaignId: string, fecha: string) => {
+    setGuardandoFecha(true);
+    const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'hasta_campana', campaignId, fecha }) })
+      .then((x) => x.json()).catch(() => ({ ok: false, error: 'No pude guardar la fecha.' }));
+    setGuardandoFecha(false);
+    if (r.ok) { setHastas({ hasta: r.hasta ?? null, hastaCampanas: r.hastaCampanas ?? {} }); show(fecha ? 'Fecha de fin guardada' : 'Sin fecha propia: vale la de toda la cuenta'); }
+    else show(r.error ?? 'No pude guardar la fecha.', undefined, 'bad');
+  };
   const [plural, uno] = RES[kpi];
 
   const leer = useCallback(async () => {
@@ -133,6 +149,20 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
               <div><dt>{plural[0].toUpperCase() + plural.slice(1)}</dt><dd>{fmtNum(detalle.c.resultados)}</dd></div>
               <div><dt>Costo por {uno}</dt><dd data-tono={detalle.c.tono ?? undefined}>{fmt(detalle.c.costo)}</dd></div>
             </dl>
+            <div className="aa-hoja-fila">
+              <span>Hasta</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <input type="date" className="mk-input" aria-label={`Fecha de fin de ${detalle.c.nombre}`} disabled={guardandoFecha}
+                  value={borradorFecha ?? hastas.hastaCampanas[detalle.c.id] ?? ''} onChange={(e) => setBorradorFecha(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                  onBlur={() => {
+                    const f = borradorFecha;
+                    setBorradorFecha(null);
+                    if (f != null && f !== (hastas.hastaCampanas[detalle.c.id] ?? '')) void guardarFecha(detalle.c.id, f);
+                  }} />
+                {!hastas.hastaCampanas[detalle.c.id] && <small style={{ color: 'var(--dim)' }}>{hastas.hasta ? `La de la cuenta: ${hastas.hasta.slice(8, 10)}/${hastas.hasta.slice(5, 7)}` : 'Sin fecha de fin'}</small>}
+              </span>
+            </div>
             <div className="aa-hoja-fila">
               <span>Producto</span>
               <ProductoCelda item={{ tipo: 'campana', id: detalle.c.id, nombre: detalle.c.nombre }} productos={productosCrm}

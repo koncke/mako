@@ -27,6 +27,55 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)
+
+**El síntoma:** cinco copias de la 680 (los MISMOS ids de tarjeta y el mismo «Obtener recurso»), la misma cuenta comenta las
+cinco palabras y recibe cinco DMs. El botón del último DM anda; el de uno anterior no hace nada, y todas las inscripciones del
+lead, también las completadas, pasan a «respondió». **El diagnóstico del pedido** («el toque se resuelve contra la inscripción
+más nueva») **no era:** el payload lleva la inscripción y, en el arnés, el toque del DM viejo con su payload mueve SU
+automatización. **Lo medido** (lead 5437, 30/10 03:51:14): el toque viejo no movió nada y 50 ms después las ocho quedaron en
+'respondio'. Eso sólo pasa si `tocarBoton` contesta 'no_es', y con la fila completa eso es **un payload que no es el de MaKo**:
+el webhook lo trató como un mensaje escrito, la pausa frenó las activas y el #788 pasó las completadas a «respondió». El cuerpo
+del evento no se guarda (`zernio_eventos` tiene sólo el id): qué payload mandó Zernio no se puede ver.
+
+**El arreglo, sin depender de qué mande Zernio:** un postback NUNCA va a la pausa ni al «Te envía un mensaje» (webhook), y con
+el payload viaja el título: si el payload no se lee, se resuelve por el título, como un botón que no se vio. Varias esperando el
+mismo título: la MÁS VIEJA (antes, el orden de la base). La regla: **un toque de botón no es una respuesta**, se resuelva o no.
+
+**Sin hacer:** (1) Por la API (`inscripciones_lead`), una inscripción sin tarjeta (`nodo_actual` null: terminada o en
+«respondió») nombra su paso por la POSICIÓN del array (`paso_actual`), no por lo último que salió: GANCHOS decía «Todavía no te
+veo…» cuando le había salido el recurso (lib/automatizaciones-del-lead.ts, `enAutomatizacionesDe`; hace falta leer el último
+envío). (2) Guardar el cuerpo del postback (o al menos el payload) para ver qué manda Zernio en el DM viejo. (3) Las ocho
+inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta (escritura en producción: con el
+«dale»).
+
+## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
+
+**El pedido** (Leandro, ticket #25, levantado por MaKo a las 05:50): «que el flujo arranque solo cuando el comentario contiene
+una palabra… y, si se puede, elegir en qué publicación o Reel». Lo de la palabra ya estaba (#17, desplegado DESPUÉS de que
+escribiera: por eso «no lo encontramos»); faltaba la publicación. Ahora el CRON de comentario elige «Cualquier publicación» o
+una de las últimas 25 de la cuenta, con su miniatura (lib/publicacion-cron.ts, `PublicacionDelCron` en el editor).
+
+- **El id es el MISMO en los dos lados, y está dicho en la doc de Zernio** (OpenAPI v1.416.0): el comentario trae
+  `comment.platformPostId` (el id NATIVO) y GET /v1/accounts/{id}/posts devuelve «the 25 most recent posts that exist on the
+  platform… including posts that were never created through Zernio», con `id` = «The platform's own post id». No hace falta
+  un id de Zernio (el `post.id` del webhook viene null en lo que no se publicó por Zernio).
+- **La trampa del #17 vuelve con cada campo nuevo del CRON:** el PRIMER disparador se rearma de las COLUMNAS
+  (`disparadoresDe`) y pierde lo que las columnas no tienen. La publicación va en la misma lista que las palabras
+  (`palabras: g0.palabras, …, publicacion: g0.publicacion`); el test lo prueba por el webhook con la fila como la guarda la base.
+- **Dos lugares deciden, y los dos miran la publicación:** `hayQuienEscuche` (si nace el lead de quien comentó) y
+  `dispararEventoSocial` (si se inscribe). Con uno solo, quien comentó otra publicación quedaba como lead sin automatización.
+- **Un comentario que no dice de qué publicación es no dispara** un CRON con publicación (como el texto vacío con palabras):
+  nunca «entonces todos».
+- **La API de MaKo toma el LINK del Reel** (`resolverPublicaciones`, chatbot.run.ts): se busca entre las últimas por el código
+  del link («/reel/X» y «/p/X» son la misma; con o sin «www.» y «?igsh=»). La descripción del campo es CORTA a propósito
+  (el presupuesto del turno, ver el #29 más abajo); la guía de /docs lo explica.
+
+**Sin hacer:** una publicación más vieja que las últimas 25 no se puede elegir en la pantalla (sí por la API, con su id).
+Las miniaturas son links de Instagram que vencen: si la lista se abre días después, se vuelven a pedir (la visita no las
+guarda). Por el token (HTTP) los CRON todavía no se cambian (`cambiar_crons_secuencia` no es HTTP). No se probó con una
+cuenta real de Instagram: el test usa el Zernio de mentira con la forma de la doc.
+
 ## «Ya te sigo» no hacía nada: el motor SÍ volvía a la tarjeta de antes (29/10/2026, ticket #29 de Leandro)
 
 **El síntoma** (Leandro, `mako_doer_conv` 1716): el «Seguinos» tiene «Ya te sigo», que vuelve a «¿Te sigue en Instagram?»;

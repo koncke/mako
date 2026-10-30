@@ -141,7 +141,7 @@ export function fidelidad(original: string, adaptada: string): number {
  * WhatsApp donde había un enlace.
  */
 const PALABRAS_CTA = [
-  'formulario', 'formularios', 'regístrate', 'registrate', 'registrarte',
+  'formulario', 'formularios', 'regístrate', 'registrarte',
   'suscríbete', 'suscribete', 'link en bio', 'linkinbio', 'bio',
   'whatsapp', 'wasap', 'dm', 'mensaje directo', 'inbox',
   'agenda', 'agendar', 'agéndate', 'llamada', 'reunión', 'reunion',

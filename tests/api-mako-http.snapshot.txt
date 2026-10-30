@@ -305,6 +305,7 @@ guardar_termino_glosario
 guardar_version_landing
 habilitar_acceso_curso
 hacerme_partner
+hasta_media_buyer
 hooks_al_video_media_buyer
 huecos_secuencias
 ignorar_datos_sin_marcar
@@ -496,6 +497,7 @@ proponer_cambio_etapa
 proponer_cierre_tareas
 proponer_corregir_angulo_guion
 proponer_corregir_avatar_guion
+proponer_crear_campana
 proponer_crear_formulario_meta
 proponer_crear_publico_meta
 proponer_editar_angulo
@@ -716,3 +718,4 @@ vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia
 votar_encuesta_comunidad
+zona_media_buyer

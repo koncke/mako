@@ -4,7 +4,23 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
-## Los tickets que esperan a Martín no le llegaban nunca al Cerebro, y el deploy no los cerraba (29/10/2026, claude3)
+## El PEDIDO DELEGADO desde el grupo: la regla del negocio no alcanza, y lo que escribe el Cerebro tiene tres puertas (30/10/2026, claude3)
+
+**Vive en:** `delegadoQueDecideMartin` y `DELEGADO_SEGURO`, `clasificar` (opción `decideMartin`), `textoDelAviso`, `paraElCliente`,
+`sinLoInterno` (lib/tickets-reglas.ts) · `crearTicket` (lib/tickets-db.ts) · `bloqueDePedidos` (lib/pedidos-del-negocio.ts). Las
+revisiones: C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md y 3010-reverificacion-wa-despachante-d49539722.md.
+
+- ⚠️ **Una lista de lo PROHIBIDO no frena nada.** La primera guarda del «hazlo» buscaba palabras de plata, envíos y borrados: la
+  re-verificación probó 23 frases dichas de otra manera («subile a 50 por día», «activá la secuencia», «sacá a Juan del CRM») y 15
+  salían con el «hazlo» por la regla de Leandro, Leila o Mauricio. **La regla:** lo que se hace sin Martín es una lista CERRADA de lo
+  seguro (`DELEGADO_SEGURO`: landings, tareas y plan, notas, borradores de copy, reportes), con los vetos encima; todo lo demás, a
+  Martín. Es una guarda dura en `clasificar`: ni la regla del negocio la saltea. El pedido compuesto pasa por el mismo lugar.
+- ⚠️ **La respuesta del Cerebro tiene TRES puertas al cliente, no una.** El aviso al grupo (`textoDelAviso`), el bloque de pedidos
+  que lee cada turno del grupo 3 días (`bloqueDePedidos`) y /tickets y /m/tickets (`paraElCliente`). Arreglar el aviso solo dejaba
+  las otras dos crudas. En un pedido delegado: el «listo» es fijo en las tres, lo demás pasa por `sinLoInterno` y el turno no lo ve.
+  **La regla:** antes de dar por filtrado un texto que va al cliente, buscar todo `respuesta` que lo lea.
+- **`sinLoInterno` no conoce los negocios** (es pura): reconoce ids, `ws`, commits, rutas, links ajenos y «Nombre Apellido». Un nombre
+  de pila suelto («lo de Leila») todavía pasa; para eso habría que pasarle los nombres de los otros negocios (no se hizo).
 
 - **El síntoma (medido esa noche por el Cerebro):** había 8 tickets en `esperando_decision` (Leila, Leandro, Martín) que no
   le llegaron al Cerebro, uno de 6 minutos antes. Y el #15 (Video Editor de Leila) siguió «esperando la decisión» con su

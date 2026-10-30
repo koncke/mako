@@ -128,7 +128,7 @@ test('4. la caja es la ÚNICA y lo escrito va al motor de cada chat', () => {
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHoja\} movil \/>/);
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
     const src = sinComentarios(leer(f));
-    assert.match(src, /<HiloDelCliente k=\{k\} \/>/, `${f}: el hilo`);
+    assert.match(src, /<HiloDelCliente k=\{k\}(?: apertura=\{apertura\})? \/>/, `${f}: el hilo (con lo que MaKo dice primero, 29/10/2026)`);
     assert.match(src, /useChatCliente\(\{ elegido, setElegido, /, `${f}: el motor`);
     assert.doesNotMatch(src, /<CajaChat |<HiloMako |fetch\(/, `${f}: sin caja, hilo ni pedidos propios`);
   }
@@ -191,7 +191,7 @@ test('7. «Conectar tu Claude» al final de la caja, sólo si la persona todaví
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.ok(caja.indexOf('{p.alFinal}') > caja.indexOf('<textarea') && caja.indexOf('{p.alFinal}') < caja.indexOf('<BotonMandar'), 'al final, antes del botón');
   // En la caja ancha, al final; en la angosta, arriba del campo (tests/ops-center-caja-angosta.test.ts).
-  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /const conectar = k\.iaConectada === false\n\s*\? <button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu IA<\/button> : null;/);
+  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /const conectar = k\.iaConectada === false\n\s*\? <button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}(?: \{\.\.\.ancla\('mk-conectar'\)\})?>Conectar tu IA<\/button> : null;/);
   // Sólo se pregunta fuera del Ops Center del super admin (`activo`): ahí contesta la IA de la plataforma.
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /useEffect\(\(\) => \{ if \(activo\) mirarSuIA\(\); \}, \[activo, mirarSuIA\]\);/);
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ k\.setConectando\(false\); k\.mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera conectar \/>/, 'sin salir de la tab (IA4: abre directo «¿Qué IA usas?»)');
@@ -221,10 +221,11 @@ test('9. MaKo en cada tab (la estrella, a la izquierda, al Cerebro) y las criatu
   const t = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
   assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\}/, 'el botón es la estrella de MaKo');
   assert.match(t, /useChatCliente\(\{ elegido, setElegido, activo: true, entrarAlCerebro: true,/, 'lo escrito va al Cerebro');
-  assert.match(t, /<HiloDelCliente k=\{k\} \/>/);
+  assert.match(t, /<HiloDelCliente k=\{k\}(?: apertura=\{apertura\})? \/>/);
   assert.doesNotMatch(t, /<CajaChat |<HiloMako |fetch\(/, 'sin caja, hilo ni pedidos propios');
   // Encima de un modal de la tab, con el z de la pila (CR4, 22/10/2026): `sobre`.
-  assert.match(t, /className="ch-tab-panel" style=\{\{ left: izquierda, \.\.\.\(sobre \? \{ zIndex: capa\.z \} : \{\}\) \}\}/, 'el panel, pegado a la barra de la app');
+  // Con la guía señalando en una ventana angosta, se aparta sin desmontarse (29/10/2026): la clase, no otro panel.
+  assert.match(t, /className=\{apartado \? 'ch-tab-panel ch-tab-panel--apartado' : 'ch-tab-panel'\} style=\{\{ left: izquierda, \.\.\.\(sobre \? \{ zIndex: capa\.z \} : \{\}\) \}\}/, 'el panel, pegado a la barra de la app');
   // Lo que pidió el CRM: lo suyo arriba del hilo, su número en la estrella, y que la tab le deje el lugar.
   assert.match(t, /arriba=\{<><TrabajosTerminados trabajos=\{trabajos\} \/>\{arriba\}<BarraFijados /);
   assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{espera\} \/>/);

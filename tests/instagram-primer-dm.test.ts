@@ -51,7 +51,7 @@ test('la decisión: contesta el DM que la arrancó sólo si la PRIMERA tarjeta e
 
 test('el webhook: DESPUÉS de inscribir, y sólo si inscribió a alguien', () => {
   const ruta = leer('app/api/webhooks/zernio/route.ts');
-  const iDisparo = ruta.indexOf('dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto)');
+  const iDisparo = ruta.indexOf('dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto, ev.evento.postId)');
   const iContesta = ruta.indexOf('contestarDisparoSocial(leadId, canal, subtipo, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId, fecha: ev.evento.fecha })');
   assert.ok(iDisparo > 0 && iContesta > iDisparo, 'contestar antes de inscribir no encuentra la inscripción');
   // ⚠️ Y sólo si nadie le CONTESTÓ ya ese mensaje (la revisión del Cerebro, 29/10/2026): con la pausa contestando y la

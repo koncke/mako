@@ -3141,4 +3141,43 @@ FEEDBACK PROBAR:
     revisar: "/automations",
     tickets: [29],
   },
+  {
+    fecha: "29 oct", hora: "20:34", chat: "Automations", cuenta: "claude3",
+    sesion: "local_7f005343-1a2d-43ee-a797-24ad2b8fbaf0",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Automations: elegir la publicación o el Reel del comentario",
+    puntos: [
+      "Leandro pidió que la automatización arranque sólo con los comentarios de una publicación o Reel.",
+      "En el disparador «El usuario comenta tu publicación o Reel», «Publicación»: cualquiera, o una de las últimas 25 de la cuenta, con su miniatura.",
+      "Un comentario en otra publicación no arranca nada, aunque tenga la palabra clave. MaKo también la cambia si le pasas el link del Reel.",
+      "La guía de /docs «Palabras clave y botones de Instagram» lo explica.",
+    ],
+    archivos: [
+      "lib/publicacion-cron.ts — la publicación del CRON: la regla, la lista y el link",
+      "lib/disparadores.ts — el CRON la guarda y el motor la mira",
+      "app/automations/EditorDisparadores.tsx — el selector",
+      "lib/zernio.ts y lib/disparadores-canales.ts — las últimas publicaciones de la cuenta",
+      "tests/comentario-publicacion.test.ts — por el webhook de verdad, probado rompiéndolo",
+    ],
+    revisar: "/automations",
+    tickets: [25],
+  },
+  {
+    fecha: "30 oct", hora: "10:34", chat: "Automations", cuenta: "claude3",
+    sesion: "local_7f005343-1a2d-43ee-a797-24ad2b8fbaf0",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Automations: el botón de un DM viejo anda y no frena lo demás",
+    puntos: [
+      "Leandro: con varias automatizaciones copiadas de la misma, el botón de un DM viejo no hacía nada y frenaba todas las del lead.",
+      "Ahora el toque mueve su automatización, y un toque nunca se toma como una respuesta escrita: lo demás queda como estaba.",
+      "Si varias esperan el mismo botón y no se sabe cuál se tocó, se atiende la más vieja; tocar los otros atiende a las otras.",
+    ],
+    archivos: [
+      "lib/nutricion.ts — el toque: el payload que no se lee se resuelve por el título",
+      "app/api/webhooks/zernio/route.ts — un toque nunca va a la pausa",
+      "tests/boton-dm-viejo.test.ts — por el webhook de verdad, probado rompiéndolo",
+    ],
+    revisar: "/automations",
+    tickets: [33],
+  },
 ];

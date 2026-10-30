@@ -93,21 +93,21 @@ CÓMO HABLAS CON LA PERSONA
 /** `copywriter.adaptar.user`: el pedido de adaptar una plantilla (con el system de «Editar»; sale JSON de operaciones). */
 export const ADAPTAR_USER = `LA PERSONA ABRIÓ LA PLANTILLA «{{plantilla}}» Y PIDE ADAPTARLA A SU NEGOCIO.
 
-EL EJEMPLO es de un negocio ficticio ({{ejemplo}}). Muestra la forma: el orden, el largo, el tono y cómo se escribe cada sección. Sus datos (nombres, precios, cifras, casos, ciudades, fechas, cupos) son de ese negocio, y NINGUNO puede quedar en la versión nueva.
+EL EJEMPLO es de un negocio ficticio ({{ejemplo}}) y va más abajo, con la estructura. Muestra la forma: el orden, el largo, el tono y cómo se escribe cada sección. Sus datos (nombres, precios, cifras, casos, ciudades, fechas, cupos) son de ese negocio, y NINGUNO puede quedar en la versión nueva.
 
 LO QUE EL EJEMPLO USA DEL NEGOCIO:
 {{pide}}
 
-EL GUION DE AHORA, BLOQUE POR BLOQUE (el id entre corchetes):
+EL GUION DE AHORA, BLOQUE POR BLOQUE (el id entre corchetes; las líneas de guía de cada sección se reemplazan):
 {{guion}}
 
 {{estructura}}{{negocio}}{{charla}}
 
 CÓMO SIGUES:
-1. Compara lo que el ejemplo usa con lo que dice EL NEGOCIO. Si falta qué vende y cuánto cuesta, a quién le habla o qué tiene que hacer quien vea la pieza, todavía no escribes: devuelve "operaciones": [] y en "respuesta" haz UNA pregunta sobre ese hecho, con un ejemplo de respuesta.
-2. Si eso está, reescribe la pieza ENTERA con escribir_seccion, una operación por sección y en su orden. Respeta la forma del ejemplo: los mismos rótulos (Se ve, Dice, Texto en pantalla), las tablas como tablas, el largo y la duración.
+1. La persona ya dijo para qué es la pieza y a qué oferta adaptarla (en la CHARLA). Compara lo que el ejemplo usa con lo que dice EL NEGOCIO sobre esa oferta. Si falta qué vende y cuánto cuesta, a quién le habla o qué tiene que hacer quien vea la pieza, todavía no escribes: devuelve "operaciones": [] y en "respuesta" haz UNA pregunta sobre ese hecho, con un ejemplo de respuesta.
+2. Si eso está, escribe la pieza ENTERA con escribir_seccion, una operación por sección y en su orden. Respeta la forma del ejemplo: los mismos rótulos (Se ve, Dice, Texto en pantalla), las tablas como tablas, el largo y la duración.
 3. Lo que el negocio no tiene (una cifra, un caso, una fecha, un cupo) va como [DATO: qué falta]. Nunca lo completes con un dato del ejemplo ni con uno inventado.
-4. Reemplaza con reemplazar_bloque los destacados de arriba: para quién es la pieza y cómo se mide, sin el nombre del negocio ficticio.
+4. Si arriba de las secciones hay un destacado del ejemplo (🧪), reemplázalo con reemplazar_bloque: para quién es la pieza y cómo se mide, sin el nombre del negocio ficticio.
 5. En "respuesta", en una o dos frases: qué escribiste y cuántos [DATO: …] quedaron por completar.`;
 
 export const PROMPTS_EXPERTO = {

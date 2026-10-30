@@ -89,6 +89,8 @@ export type PermisoClaveDelNegocio = PermisoClaude & {
   readonly clave: string;
   /** La clave es el crédito de Max de la PLATAFORMA (el ws10): su gasto se anota como del crédito, no del negocio. */
   readonly esCredito?: true;
+  /** El crédito de los GRUPOS (`CLAVES_CREDITO_DE_LOS_GRUPOS`): el número de la cuenta que pagó, para el Uso (`creditoQuePago`). */
+  readonly cuentaDelCredito?: number;
 };
 
 export type PermisoDeclarado = {
@@ -371,6 +373,18 @@ export const CREDITO_DE_UN_NEGOCIO: readonly CreditoDeUnNegocio[] = [
 ];
 /** El interruptor, en el workspace de la PLATAFORMA (el negocio no lo puede tocar): «apagado» lo apaga; sin fila, prendido. */
 export const claveDelInterruptorDeCredito = (ws: number): string => `ia.credito_negocio.${ws}`;
+
+/**
+ * EL CRÉDITO DE LOS PLANES 200 PARA LOS GRUPOS DE WHATSAPP DE MaKo (28/10/2026). Martín, textual: «te pedí que habilites las API que
+ * tenemos disponibles con todas las cuentas de planes 200», después de que MaKo le contestara cualquier cosa a Leandro (ws10) por un
+ * Gemini que no respondió. El turno de texto de un grupo (`FEATURE_DE_LOS_GRUPOS`) de CUALQUIER negocio sin su Claude contesta con el
+ * crédito de las cuentas Max que tienen clave, repartido entre ellas (lib/credito-negocio.ts, `cuentasDelCreditoDeLosGrupos`). Entra
+ * por la puerta 2 como el crédito asignado: el modelo barato (Haiku), nunca el Plan, y su gasto con la marca del crédito. Su Claude
+ * propio, si lo conecta, gana. Se apaga con la fila `CLAVE_INTERRUPTOR_CREDITO_GRUPOS` («apagado») de la plataforma.
+ * Las cuentas son las del Uso (`CLAVES_CREDITO_DE_LOS_GRUPOS`, lib/credito-api.ts, de `CUENTAS_DEL_CREDITO`): N, no cuatro fijas.
+ */
+export const FEATURE_DE_LOS_GRUPOS = 'mako-doer-in';
+export const CLAVE_INTERRUPTOR_CREDITO_GRUPOS = 'ia.credito_grupos';
 export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
 
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */

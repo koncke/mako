@@ -199,8 +199,12 @@ const FUERA_DE_LAS_TARJETAS: readonly Conexion[] = [
   },
 ];
 
-/** Todas, las tarjetas primero. */
-export const CONEXIONES: readonly Conexion[] = [...DEFS.map(deTarjeta), ...FUERA_DE_LAS_TARJETAS];
+/**
+ * Todas, las tarjetas primero. ⚠️ Menos la tarjeta de WhatsApp de /integraciones (29/10/2026): «Tu número de WhatsApp» (abajo) es la
+ * MISMA conexión con el link de contrato `/chats?conectar=whatsapp`, que abre el QR en un paso. Con las dos, la tarjeta ganaba por ir
+ * primero y la API de MaKo y el doer mandaban al modal de la tarjeta en vez de al QR (tests/conexiones-api.test.ts).
+ */
+export const CONEXIONES: readonly Conexion[] = [...DEFS.filter((d) => d.key !== 'whatsapp').map(deTarjeta), ...FUERA_DE_LAS_TARJETAS];
 
 /** La conexión de una key, o undefined. */
 export const conexion = (key: string): Conexion | undefined => CONEXIONES.find((c) => c.key === key);

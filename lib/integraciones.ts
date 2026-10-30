@@ -223,6 +223,8 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
       estado: 'falta', detalle: texto, soloServidor: true, sinConexion: { texto, chip: grabador.chip ?? 'Próximamente' },
     };
   }
+  // WhatsApp por QR (29/10/2026): conectada si alguna línea del negocio lo está (la de MaKo no cuenta).
+  if (d.key === 'whatsapp') return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoWhatsApp()) };
   // Una red social (29/10/2026): conectada o no según sus cuentas en Zernio.
   const red = redDeTarjeta(d.key);
   if (red) return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoDeRedZernio(red)) };
@@ -290,6 +292,27 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     tieneDetalle: d.tieneDetalle,
     ...delMetodo(d.key),
   };
+}
+
+/**
+ * El estado de la tarjeta de WhatsApp (29/10/2026): las líneas del negocio por QR (`evolution_instancias`, `listarLineas`), SIN la línea
+ * de MaKo (`esLineaDeMaKo`: la del grupo no es una línea del negocio). Lo que dice la FILA, para la tarjeta; el modal mide cada línea
+ * (app/integraciones/LineasWhatsApp.tsx). `soloServidor: false`: se gestiona en su modal, aunque no tenga campos que pegar.
+ */
+async function estadoWhatsApp(): Promise<Pick<Integracion, 'estado' | 'detalle' | 'soloServidor'>> {
+  try {
+    const { listarLineas } = await import('./evolution');
+    const { esLineaDeMaKo } = await import('./linea-plataforma');
+    const lineas = (await listarLineas()).filter((l) => !esLineaDeMaKo(l.instance_name));
+    const conectadas = lineas.filter((l) => l.estado === 'conectado').length;
+    if (!conectadas) {
+      return { estado: 'falta', detalle: lineas.length ? 'Ninguna línea conectada: escanea su QR.' : 'Conecta tu WhatsApp con un QR: una línea o varias.', soloServidor: false };
+    }
+    return { estado: 'conectada', detalle: conectadas === 1 ? '1 línea conectada.' : `${conectadas} líneas conectadas.`, soloServidor: false };
+  } catch (e) {
+    console.error('[integraciones] whatsapp:', e instanceof Error ? e.message : e);
+    return { estado: 'falta', detalle: 'No pude leer tus líneas de WhatsApp.', soloServidor: false };
+  }
 }
 
 /**

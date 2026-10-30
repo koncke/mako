@@ -80,6 +80,7 @@ import {
 } from "@/app/video-editor/_opencut/audio/claves";
 import { buscarFrase, muletillasDe, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
+import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 
 export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto";
 
@@ -720,8 +721,9 @@ export type OperacionResuelta =
 	| { op: "congelar"; el: RefElemento; desde: number }
 	| { op: "normalizar"; el: RefElemento; objetivo: string }
 	| { op: "generar_subtitulos" }
-	/** «Borrar silencios» de estos clips: escucha el audio al aceptar (audio/borrar-silencios.ts), por eso va último. */
-	| { op: "borrar_silencios"; els: RefElemento[] }
+	/** «Borrar silencios» de estos clips: escucha el audio al aceptar (audio/borrar-silencios.ts), por eso va último.
+	 *  `todo`: se pidió para todo el video (sin "ref" ni selección), y el aviso lo dice; `minimoS`: la pausa más corta. */
+	| { op: "borrar_silencios"; els: RefElemento[]; todo: boolean; minimoS: number }
 	/** Sola, con la línea de tiempo vacía. `medios`: hueco → id del medio de Multimedia. */
 	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> };
 
@@ -1646,8 +1648,9 @@ export function revisarOperaciones({
 				if (op.ref === undefined && !pedidos.length) descartes.push(alcance === "seleccion" ? "no elegiste un video ni un audio con sonido" : "no hay un video con sonido en la pista principal");
 				continue;
 			}
-			resueltas.push({ op: "borrar_silencios", els });
-			for (const el of els) cambios.push({ tipo: "quita", titulo: `Silencios de ${el.titulo}`, antes: "las pausas de 0,4 s o más (se buscan al aceptar, escuchando el audio)", despues: "" });
+			const minimoS = op.pausa_min ?? PAUSA_MIN_S;
+			resueltas.push({ op: "borrar_silencios", els, todo: op.ref === undefined && alcance !== "seleccion", minimoS });
+			for (const el of els) cambios.push({ tipo: "quita", titulo: `Silencios de ${el.titulo}`, antes: `las pausas de ${segundosDeAviso(minimoS)} o más (se buscan al aceptar, escuchando el audio)`, despues: "" });
 			continue;
 		}
 		if (op.op === "generar_subtitulos") {

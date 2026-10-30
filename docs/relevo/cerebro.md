@@ -3,7 +3,99 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 29/10/2026 ~00:55, relevo final de la cuenta 4 (claude4)
+## ⏩ LEER PRIMERO — 30/10/2026 ~14:30, el Cerebro de claude3 (`local_428051c1`, CIERRE al 95 %)
+
+**ACTUALIZACIÓN 30/10 ~14:30, CIERRE de claude3 (semana al 95 %): esto pisa lo de abajo donde choque.**
+- **tren-ai EN PRODUCCIÓN** (mako-gr9maew7i, main 9e24e7935): #33, #34, #35, el despachante de WhatsApp (#30), Video pasos 1
+  y 2, y los emails.
+- **Calendario/Classroom quedó AFUERA** por 4 rojos de Clients; uno es una guarda: el super admin sin impersonar no ve fichas.
+  - Devolución: `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-cal-classroom-devuelto.md`.
+  - `recorrido-k-3010` @ 246bae899 (K2 ALTO, el botón de MaKo que tapa en 4 pantallas) sale de esa rama y espera detrás.
+- **Los tickets con hito se cierran y AVISAN SOLOS** (miralo en `avisado_at`). No se manda aviso manual de esos.
+  - Leila (#31/#32) quedó avisada a las 06:45Z, y su aviso manual se canceló.
+  - Falta confirmar `avisado_at` de #33, #34 y #35.
+- **Hecho:**
+  - el cartero 1.24.0, instalado;
+  - las migraciones 0349, 0351, 0352 y 0331, y el índice de la 0048, aplicadas.
+- **Leandro:** Automations (local_7f005343) está soltando sus 8 inscripciones con 8 compare-and-set, aprobados: 703-707 vuelven
+  a «activa», y 660, 708 y 709 a «completada». Hay que verificar su tabla y archivarlo.
+- **La fila, en orden:**
+  1. Calendario, con su devolución, y después recorrido-k;
+  2. Agency;
+  3. Newsletter;
+  4. T2 Onboarding y las tandas por tab;
+  5. los workflows pausados;
+  6. la cabecera del Video;
+  7. el resto del recorrido.
+  El detalle está en por-repartir.md.
+
+El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`: lo último, abajo, despacho por despacho.
+**SP** = `C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/`.
+
+**Reglas nuevas de Martín (30/10, en memoria):**
+- «No me hagas preguntas que podés resolver vos mismo». Las migraciones que sólo agregan y los datos que rompió un bug nuestro
+  se hacen sin preguntar (`aprobacion-prod-en-el-chat`).
+- N3: cualquiera del grupo de WhatsApp de un negocio puede pausar o prender sus campañas (`campanas-desde-el-grupo-cualquiera`).
+
+**Hecho hoy:**
+- **Trenes ag y ah en producción.** main = 88700b981, mako-ou9xtjw1c.
+  - ag: Leila #31/#32. Su aviso queda programado a las 14:33 por el tope de avisos (un cron de esta sesión; si se cerró, se manda a
+    mano con el comando de por-repartir.md).
+  - ah: la iniciativa de MaKo, la barra del Reproductor y Zernio N1/N8.
+- **Migraciones aplicadas y medidas:**
+  - 0352, 0351 y 0349 (con el sí de Martín);
+  - 0331 completa y el índice idx_notif_tipo_created de la 0048, que nunca habían corrido.
+- **Gmail, 2.ª pasada:** 70 remitentes y unos 5.050 emails.
+  - Mandada en PDF al grupo «MaKo <> Mauricio Bustos».
+  - Rama `conocimiento-email-3010` @ 2b9b9d7b7, en el tren-ai.
+- **El aviso del #30 a Leandro salió:** la guía de Instagram en la API.
+
+**Corriendo — tren-ai** (Integración, barrido completo).
+- Lleva los tickets de clientes:
+  - #34: el 429 de Zernio es una pausa y no «reconectar» (43897f1df);
+  - #35: la hora de las reuniones en la ficha que lee MaKo (7d51f24c2, que contiene el despachante cc2aaa6ce);
+  - #33: un toque de botón nunca es «respondió» (da015ebd5).
+- Lleva además Calendario (7162c94aa), Video pasos 1 y 2 (0e27cb66f) y los emails.
+
+**Al Ready del tren-ai:**
+1. **Avisos:**
+   - Código Inmobiliario: #34 en el ws17 y #35 en el ws13;
+   - Leandro (ws10): #33 y la promesa falsa del #30. El tope de 3 por día del ws10 libera un lugar a las 17:12 ART.
+2. **Soltar las 8 inscripciones de @leantejado** (lead 5437, ws10) que el bug del #33 dejó en «respondió». Lo hace Automations
+   (local_7f005343, archivado) con «Volver a probar» por inscripción.
+
+**En curso:** Calendario (local_18ef0a3f), con el recorrido visual.
+- K2 ALTO: el botón flotante de MaKo tapa la casilla de los calendarios de Google. Se arregla en el layout compartido y cierra
+  también P1, C3 y D4.
+- Además K1, K3, K4 y K5.
+- Tiene el commit listo y espera su tsc. Su sha va al tren siguiente.
+
+**En fila (abrir de a uno, con ≥4,5 GB libres; nunca dos tests-afectados juntos: hoy el vigía mató 4 barredoras):**
+1. **Agency (Thiago):** 3 rojos.
+   - Una guarda de suplantación en /api/auth/me.
+   - Se perdió el `aprobada &&` en lib/partners.ts.
+   - Las zonas de México, como dato.
+   - Devolución en `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-agency-thiago-devuelto.md`.
+   - Chat local_e5c96952.
+2. **Newsletter:** M1 (la tab y la API pasan para cualquier admin), el doble envío, lo programado con el email apagado y archivar
+   el CRM. La devolución está al lado de la de Agency. Chat local_3058f25f. Hoy no hay riesgo: nadie tiene el email prendido.
+3. **El recorrido visual:** repartir los otros 22 hallazgos (`SP/recorrido/hallazgos.md`) y relanzar Create y «resto» (14 chats sin
+   mirar).
+4. **T2 Onboarding** (recomendarFunnel, la bienvenida y la pregunta de entrada) y las tandas T3–T17 de la iniciativa por tab:
+   `git show origin/main:docs/mako-iniciativa/plan.md`.
+5. **Workflows pausados:**
+   - conocimiento modular: `SP/iniciativa/conocimiento-workflow.js`, `resumeFromRunId: "wf_0b80b79c-462"`;
+   - lead magnet / spy: `SP/iniciativa/leadmagnet-spy-workflow.js`, `resumeFromRunId: "wf_d804ebee-14e"`.
+6. **Video, paso 3 (la cabecera):** el banco no arma por código de servidor. Relevo del Video en motion-imagen-2610 @ c45142425.
+7. **Lo que quedó sin hacer:**
+   - Zernio: gastar menos al conectar; alerta-critica no lee a quien conecta (docs/hallazgos-integraciones.md).
+   - #33: la API nombra el paso por posición; guardar el payload del postback (docs/hallazgos-chatbot.md).
+
+**Para Martín:** nada que decidir. La extensión de Chrome está publicada (0.74.3). Meta sigue en revisión (~10/11; la verificación
+de acceso vence el 20/12) y Google está aprobado. El panel de la tienda de Chrome pide re-iniciar sesión, pero sólo hace falta para
+la próxima versión.
+
+## El ritual de una cuenta nueva — 29/10/2026 ~00:55, de la cuenta 4 (claude4); sigue valiendo
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta… Continúa con todo» y con eso alcanza. No
 preguntes: hacé esto en orden.
@@ -35,6 +127,30 @@ preguntes: hacé esto en orden.
 
 ## Integración — los TRENES de claude3 (29/10 desde ~02:30 ART; lo arma el chat «Cerebro › Integración»)
 
+
+- **⛔ CIERRE DE INTEGRACIÓN AL 95% (30/10 ~14:20 hora del log, claude3). Lo que sigue es para la próxima cuenta.**
+  - **Producción:** main = `9e24e7935` (tren-ai, `mako-gr9maew7i`), más este cierre de docs. Ningún workflow ni agente de
+    Integración queda corriendo.
+  - **Árbol del tren:** `C:/dev/wt-push-q`. Se sube con `node C:/dev/revisiones/subir-tren.mjs <log> 150`, SIN `SUBIR_UN_LUGAR`
+    (ver hallazgos-infra, 30/10). Un worktree nuevo necesita la junction de `node_modules` a `C:/dev/wt-copywriter-notion/node_modules`.
+  - **El próximo tren (tren-aj). Entra cada pieza cuando su chat la arregle:**
+    1. **Calendario y Classroom** (`cal-classroom-2910` en `7162c94aa`): cuatro rojos de Clients, uno es una guarda del super
+       admin. La devolución está en `integracion-cal-classroom-devuelto.md`. Su recorrido visual (`recorrido-k-3010` en
+       `246bae899`) va detrás y no corrió tests-afectados.
+    2. **Agency de Thiago** (`agency-thiago-2910` en `28cc3e2cb`): tres rojos, uno es una guarda de `/api/auth/me`. La
+       devolución está en `integracion-agency-thiago-devuelto.md`. La re-verificación de plata ya dio «entra con bajas».
+    3. **Newsletter** (`newsletter-2910` en `85d2206c9`): cerrar M1, porque la tab y la API las pasa cualquier admin. La
+       devolución está en `integracion-newsletter-devuelto.md`. La 0351 ya está aplicada.
+    Las tres devoluciones están en la carpeta compartida del Cerebro:
+    `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/`.
+    Los chats de las tres estaban archivados.
+  - **Ramas de respaldo:** `tren-ah-con-agency` y `tren-ai-con-calendario` (la mezcla ya resuelta) y `tren-ae-con-wa`. Las
+    ramas viejas `tren-ab` a `tren-ai` se pueden borrar cuando main las tenga.
+  - **Abierto, sin dueño:**
+    - que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM;
+    - la BAJA de N1 en Zernio: si al borrar falla la lectura de la serie, el «Deshacer» la devuelve suelta;
+    - la BAJA del despachante: «plan» está en `DELEGADO_SEGURO`.
+
 Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node C:/dev/revisiones/subir-tren.mjs <log>`
 (`SUBIR_ARBOL` cambia el árbol; `SUBIR_UN_LUGAR=1` no espera el segundo lugar de tests). El Cerebro de claude3 es
 `local_428051c1`. Esto vale por encima del estado de claude4 de más abajo.
@@ -54,7 +170,78 @@ Integración arma y chequea cada tren en `C:/dev/wt-push-q` y lo sube con `node 
       y no dicen que se paga con Google Flow del cliente.
     - **El Cerebro dijo «sacar»:** salió en el tren-ae (`AI_AVATAR_SE_VENDE = false`).
     - Cosechado en `docs/hallazgos-planes-y-cobro.md` y `docs/hallazgos-ai-avatar.md`.
-- **tren-ae (rama `tren-ae`, subiendo):**
+- **tren-ae SUBIDO: main = `4b8f8145d` (29/10 21:42). READY 21:45: hola-mako.com sirve `mako-gv9vfmoz3`
+  (dpl_E2uWxgoB…).** Avisado el Cerebro; Create y el Copywriter estaban archivados.
+- **tren-af SUBIDO: main = `c9070ea0d` (30/10 01:11). READY 01:15: hola-mako.com sirve `mako-bcacs3b3m`.** Subió al tercer intento: el primero se rindió por RAM (ver hallazgos-infra, 30/10).
+  - **Lleva:**
+    - El Media Buyer de Thiago (`b4ee3c411`): dónde, hasta, y «lánzame una campaña», que nace en PAUSA y se relee. La mig 0350
+      está APLICADA (21:50).
+    - Automations #25 de Leandro (`b26d89b94`): el CRON de comentario elige la publicación o el Reel.
+    - El Copywriter sin ninguna mención a Copy Method (`bf7e86c27`).
+  - **Revisión de plata del Media Buyer:** «entra con bajas», sin ALTA. La baja y M1, M5 y M6 están hechas. Cosechado en
+    `docs/hallazgos-ads.md`. El vigía apagado sólo mira fechas, y ninguna configuración de producción tiene fechas.
+  - **Arreglado por Integración** (el chat de Ads estaba archivado):
+    - `revisar-fijo`: los ids con que se arma la campaña quedan fijos al revisar (`c9d23904c`);
+    - el aviso de la campaña creada lleva «Reportar a Soporte» (`13562c8a8`).
+  - **Chequeo:** 9351 tests, más el delta, más las guardas. Los únicos rojos fueron los `todo` de siempre.
+- **⏩ RELEVO AL 87% DE LA SEMANAL (30/10 06:06, claude3).** Quien siga lee esto primero. Si la cuenta corta, el que retome
+  arranca por el estado del push del tren-ag: `git -C C:/dev/wt-push-q fetch && git log -1 origin/main`. Si main es
+  `3076925cf` o posterior, el tren-ag subió y queda confirmar el Ready.
+- **tren-ag SUBIDO: main = `333fefd92` (30/10). READY 03:39 (hora del log): hola-mako.com sirve `mako-5sc7gr322`.** Avisados el Cerebro y Video.
+  - **Lleva:**
+    - PRIORIDAD, cliente roto: los tickets #31 y #32 de Leila (`d5baaa302`; el tsc encontró un error real que arregló el chat).
+    - El Copywriter: las tarjetas con la guía y «Ver ejemplo», y el detector de voseo con el generador del guard (`85119f019`,
+      que contiene `6713868bb`).
+    - Zernio `da3cff9f7`: leads filtrados en memoria, las publicaciones que se repiten (inertes sin la 0349) y la tarjeta de
+      WhatsApp. La re-verificación dio «entra con bajas».
+    - Del Cerebro, sólo docs: `iniciativa-plan-2910` y `conocimiento-email-2910`.
+    - La guarda `tests/migraciones-numero-unico.test.ts` (`f71bb1a63`).
+  - **Rojo del barrido, arreglado en el tren:** el guard de voseo leía el léxico de `lib/voseo.ts` (`512f49af5`).
+  - **Al estar Ready, avisar:** al Cerebro (Leila primero) y al chat de Video (`local_2f82a70c`).
+  - ⚠️ **La 0349 sigue SIN aplicar:** N1 (deshacer el borrado de una vez de la serie le saca `serie_de` y vuelve a abrir A2).
+    El chat de Zernio estaba archivado cuando se le devolvió. El Cerebro se la pide a Martín recién cuando Integración la dé
+    por buena.
+- **tren-ah SUBIDO: main = `88700b981` (30/10). READY 05:16 (hora del log): hola-mako.com sirve `mako-ou9xtjw1c`.** Avisado el Cerebro: ya puede aplicar la 0349 si Martín dijo sí.
+  - **Lleva:**
+    - la iniciativa del Ops Center (`88d2cf0db`);
+    - la barra del Reproductor (`d121a5e6f`);
+    - Zernio N1 y N8 (`7da5d9ec3`), verificado con el código y `calendario-recurrentes` 20/20;
+    - el relevo del Cerebro (`7af7751ce`).
+  - **Barrido:** 6475 tests en verde, con 3 flaky que pasan aislados. Las guardas en verde.
+  - **La 0349 se aplica DESPUÉS del Ready del tren-ah.** Antes no: en producción está `da3cff9f7`, sin N1.
+  - **Agency SALIÓ del tren-ah** por tres rojos suyos. Uno es una guarda de `/api/auth/me` (`agenciaDeCliente`). La mezcla
+    está en la rama `tren-ah-con-agency`, y la devolución en la carpeta del Cerebro (`integracion-agency-thiago-devuelto.md`).
+- **tren-ai SUBIDO: main = `9e24e7935` (30/10). READY 14:16 (hora del log): hola-mako.com sirve `mako-gr9maew7i`.** Avisado el Cerebro (#33, #34 y #35).
+  - **Lleva, los clientes primero:**
+    - el #34 de Código Inmobiliario (Zernio `43897f1df`): un 429 es una pausa, no una conexión rota;
+    - el #35 de Código Inmobiliario (`7d51f24c2`): la ficha del lead trae la hora de la reunión;
+    - el #33 de Automations (`da015ebd5`): el botón de un DM viejo y el postback que no va a la pausa;
+    - el despachante de MaKo en WhatsApp (`cc2aaa6ce`, el #30 de Leandro).
+      - Control de Integración: la guarda del «hazlo» quedó al revés (`DELEGADO_SEGURO` más vetos de plata, envío y borrado, más el
+        permiso de admin).
+      - BAJA: «plan» está en la lista segura, y «cambiá mi plan» depende del veto de plata.
+      - Después del deploy: `cartero.mjs instalar` (1.24.0).
+    - Video, pasos 1 y 2 (`0e27cb66f`);
+    - los emails del Cerebro (`2b9b9d7b7`).
+  - **NO lleva:**
+    - (el #35 ya ENTRÓ: `7d51f24c2`, la hora de la reunión en la zona del negocio)
+    - Agency y Newsletter: volvieron a sus chats.
+    - **Calendario y Classroom (`7162c94aa`): SALIÓ** por cuatro rojos suyos en la pantalla de Clients. Son `curso-invitar`, `cs-cartera-columnas`,
+      `cs-kanban-ficha-ui` (una GUARDA: «el super admin sin impersonar no tiene fichas de leads») y `customers` (el redirect del
+      super admin a /customers). La mezcla está en la rama `tren-ai-con-calendario`. Su chat (`local_18ef0a3f`) tiene que
+      arreglarlo, y después entra junto con su recorrido visual (`recorrido-k-3010` en `246bae899`, que SALE de 7162c94aa: va
+      después de Calendario, y no corrió tests-afectados).
+- **N3 lo decidió Martín (30/10 ~10:15):** «Sí, cualquiera en el grupo puede». Pausar o prender campañas y anuncios desde el grupo de
+  un negocio lo puede pedir cualquiera, con la confirmación de siempre y sobre la cuenta de ese negocio. Está en memoria como
+  `campanas-desde-el-grupo-cualquiera`.
+- **Migraciones aplicadas el 30/10 por el Cerebro, con el sí de Martín:** 0349, 0351 y 0352.
+- **La 0331 (`curso_accesos.productos_a_mano`) y el índice de la 0048 ya están APLICADOS** (el Cerebro, 30/10).
+- **Para quien siga:**
+  - Lo que aprendió esta tanda está cosechado en `docs/hallazgos-infra.md`, en la entrada «Un número por migración, y el push
+    que falla por RAM…».
+  - Cuando el push falla por RAM, se reintenta enseguida SIN `SUBIR_UN_LUGAR`.
+  - Antes de cada push, el Cerebro frena sus workflows.
+- **Detalle del tren-ae:**
   - **Lleva:**
     - Create: la QA visual (`95ac56201`) y la base de las plantillas reales (`390229c3d`, que la contiene).
     - Las plantillas del Copywriter (`1d9160f87`). El test de los ejemplos lee `REALES` de `tests/_reales.ts`, porque Create

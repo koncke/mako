@@ -8,14 +8,13 @@
 // =============================================================================
 
 import { redirect } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
 import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { listar } from '@/lib/copywriter/server';
 import { mudarLoDeAntes } from '@/lib/copywriter/mudanza';
 import { masReciente } from '@/lib/copywriter/arbol';
 import { esTipoGuion } from '@/lib/copywriter/tipos';
-import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
+import { catalogosDelCopywriter, ofertasDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { requireCopywriter } from './acceso';
 import { Copywriter } from './Copywriter';
 import { Pagina } from '@/app/_ui';
@@ -42,7 +41,7 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
   const r = await listar();
   const ultima = r.ok && !enNueva ? masReciente(r.paginas) : null;
   if (ultima) redirect(await rutaConWs(`/copywriter/${ultima.id}`));
-  const [catalogos, ws, admin] = await Promise.all([catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), getSesionAdmin().catch(() => null)]);
+  const [catalogos, ws, ofertas] = await Promise.all([catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter()]);
   // El shell único de Create (app/_crear/PantallaCrear.tsx) mide el alto de la <Pagina>, como Video y Offer.
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
@@ -54,7 +53,7 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
         catalogos={catalogos}
         tipoInicial={tipoInicial}
         nuevaInicial={enNueva}
-        deLaPlataforma={!!admin}
+        ofertas={ofertas}
       />
     </Pagina>
   );

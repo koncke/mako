@@ -7,8 +7,14 @@
 // Centro: ▶ / ❚❚. Derecha, en el orden de CapCut: resolución de reproducción
 // («Completa», «1/2», «1/4»), zoom del reproductor, «Relación» y «Pantalla
 // completa». Medidas: las de la captura oficial ÷1,25.
+//
+// ⚠️ Con el panel angosto NADA se encima (Martín, 30/10/2026): la barra mide su
+// ancho y elige un nivel (../barra-niveles.ts): el tiempo se compacta, los
+// botones de texto pasan a íconos con su valor en el tooltip, y si tampoco
+// entran, van en otra fila. El reproductor puede bajar al 18 % del editor.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAncho } from "@/app/video-editor/_opencut/hooks/use-ancho";
 import { Pause, Play } from "lucide-react";
 import { formatTimecode } from "@/app/video-editor/_opencut/wasm/opencut";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -17,6 +23,7 @@ import {
 	FullScreenIcon,
 	MinimizeScreenIcon,
 	Search01Icon,
+	Settings01Icon,
 } from "@hugeicons/core-free-icons";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { EditableTimecode } from "@/app/video-editor/_opencut/components/editable-timecode";
@@ -50,23 +57,65 @@ import {
 	type IdRelacion,
 	type Relacion,
 } from "@/app/video-editor/_opencut/canvas/sizes";
-import type { MediaTime } from "@/app/video-editor/_opencut/wasm";
+import { TICKS_PER_SECOND, type MediaTime } from "@/app/video-editor/_opencut/wasm";
+import type { TimeCodeFormat } from "@/app/video-editor/_opencut/wasm/opencut";
+import { formatoDelTiempo, nivelDeBarra } from "@/app/video-editor/_opencut/preview/barra-niveles";
 
 /** Los botones de texto de la derecha («Completa», «Relación»): chicos, grises, sin borde. */
 const BOTON_TEXTO =
 	"inline-flex h-6 cursor-pointer items-center gap-0.5 rounded px-1.5 text-[12px] text-[var(--cc-text-2)] outline-none hover:bg-[var(--cc-raised)] hover:text-[var(--cc-text)] focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-[var(--cc-raised)] data-[state=open]:text-[var(--cc-text)]";
 
 export function PreviewToolbar({ pantalla }: { pantalla: PantallaCompleta }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const nivel = nivelDeBarra(useAncho(ref));
+	const total = useEditor((e) => e.timeline.getTotalDuration());
+	const compacta = nivel !== "ancha";
+	const tiempo = <TimecodeDisplay formato={formatoDelTiempo(nivel, total / TICKS_PER_SECOND)} />;
+	const izquierda = (
+		<>
+			<ResolucionMenu compacta={compacta} />
+			<ZoomMenu compacta={compacta} />
+		</>
+	);
+	const derecha = (
+		<>
+			<RelacionMenu compacta={compacta} />
+			<PantallaCompletaBoton pantalla={pantalla} />
+		</>
+	);
+
 	return (
-		<div className="grid h-10 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3">
-			<TimecodeDisplay />
-			<PlayPauseButton />
-			<div className="flex min-w-0 items-center justify-self-end gap-1">
-				<ResolucionMenu />
-				<ZoomMenu />
-				<RelacionMenu />
-				<PantallaCompletaBoton pantalla={pantalla} />
-			</div>
+		// `data-barra-reproductor`: el teléfono la esconde por esta marca (app/m/video-editor/video-editor.css), no por clases.
+		<div ref={ref} data-barra-reproductor="" data-nivel={nivel} className="shrink-0">
+			{nivel === "ancha" || nivel === "media" ? (
+				// Una fila: el ▶ en el medio exacto (dos columnas iguales), y cada lado puede achicarse sin pisar el ▶.
+				<div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3">
+					{tiempo}
+					<PlayPauseButton />
+					<div className="flex min-w-0 items-center justify-self-end gap-1">
+						{izquierda}
+						{derecha}
+					</div>
+				</div>
+			) : nivel === "angosta" ? (
+				<div className="flex flex-col gap-0.5 px-2 py-1">
+					<div className="flex justify-center">{tiempo}</div>
+					<div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
+						<div className="flex items-center justify-self-start gap-0.5">{izquierda}</div>
+						<PlayPauseButton />
+						<div className="flex items-center justify-self-end gap-0.5">{derecha}</div>
+					</div>
+				</div>
+			) : (
+				<div className="flex flex-col items-center gap-0.5 px-1 py-1">
+					{tiempo}
+					<PlayPauseButton />
+					<div className="flex flex-wrap items-center justify-center gap-0.5">
+						{izquierda}
+						{derecha}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -91,7 +140,7 @@ function ConAyuda({
 	);
 }
 
-function TimecodeDisplay() {
+function TimecodeDisplay({ formato }: { formato: TimeCodeFormat }) {
 	const editor = useEditor();
 	const totalDuration = useEditor((e) => e.timeline.getTotalDuration());
 	const fps = useEditor((e) => e.project.getActive().settings.fps);
@@ -114,7 +163,7 @@ function TimecodeDisplay() {
 			<EditableTimecode
 				time={currentTime}
 				duration={totalDuration}
-				format="HH:MM:SS:FF"
+				format={formato}
 				fps={fps}
 				onTimeChange={({ time }) => editor.playback.seek({ time })}
 				className="text-[12px]"
@@ -123,7 +172,7 @@ function TimecodeDisplay() {
 			<span className="truncate font-mono text-[var(--cc-text-2)]">
 				{formatTimecode({
 					time: totalDuration,
-					format: "HH:MM:SS:FF",
+					format: formato,
 					rate: fps,
 				})}
 			</span>
@@ -158,17 +207,24 @@ const RESOLUCIONES: { escala: EscalaSalida; etiqueta: string; calidad: string }[
 	{ escala: 0.25, etiqueta: "1/4", calidad: "Baja calidad" },
 ];
 
-function ResolucionMenu() {
+function ResolucionMenu({ compacta }: { compacta: boolean }) {
 	const resolucion = usePreviewStore((s) => s.resolucion);
 	const setResolucion = usePreviewStore((s) => s.setResolucion);
 	const actual = RESOLUCIONES.find((r) => r.escala === resolucion) ?? RESOLUCIONES[0];
+	const ayuda = `Calidad de la reproducción: ${actual.etiqueta}`;
 
 	return (
 		<DropdownMenu>
-			<ConAyuda texto="Calidad de la reproducción">
-				<DropdownMenuTrigger className={BOTON_TEXTO}>
-					{actual.etiqueta}
-					<HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+			<ConAyuda texto={compacta ? ayuda : "Calidad de la reproducción"}>
+				<DropdownMenuTrigger className={BOTON_TEXTO} aria-label={compacta ? ayuda : undefined}>
+					{compacta ? (
+						<HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
+					) : (
+						<>
+							{actual.etiqueta}
+							<HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+						</>
+					)}
 				</DropdownMenuTrigger>
 			</ConAyuda>
 			<DropdownMenuContent align="end" className="w-60">
@@ -196,18 +252,19 @@ function ResolucionMenu() {
 
 // ── Zoom del reproductor ────────────────────────────────────────────────────
 
-function ZoomMenu() {
+function ZoomMenu({ compacta }: { compacta: boolean }) {
 	const { isAtFit, zoomPercent, fitToScreen, setViewportPercent, zoomIn, zoomOut } =
 		usePreviewViewport();
+	const ayuda = isAtFit ? "Zoom: ajustado" : `Zoom: ${zoomPercent}%`;
 
 	return (
 		<DropdownMenu>
-			<ConAyuda texto="Zoom">
-				<DropdownMenuTrigger className={cn(BOTON_TEXTO, "tabular-nums")}>
+			<ConAyuda texto={compacta ? ayuda : "Zoom"}>
+				<DropdownMenuTrigger className={cn(BOTON_TEXTO, "tabular-nums")} aria-label={compacta ? ayuda : undefined}>
 					<HugeiconsIcon icon={Search01Icon} className="size-3.5" />
-					{/* Ajustado no muestra número: el % depende del tamaño del panel. */}
-					{isAtFit ? null : <span>{zoomPercent}%</span>}
-					<HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+					{/* Ajustado no muestra número: el % depende del tamaño del panel. Compacta: el % va en el tooltip. */}
+					{isAtFit || compacta ? null : <span>{zoomPercent}%</span>}
+					{compacta ? null : <HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />}
 				</DropdownMenuTrigger>
 			</ConAyuda>
 			<DropdownMenuContent align="end" className="w-72">
@@ -241,13 +298,15 @@ function ZoomMenu() {
 
 // ── Relación ────────────────────────────────────────────────────────────────
 
-/** El rectangulito de cada proporción, como los íconos del menú de CapCut. */
-function IconoProporcion({ relacion }: { relacion: Relacion }) {
+/** El rectangulito de cada proporción, como los íconos del menú de CapCut. `grueso`: en la barra compacta va con el trazo
+ *  de los otros íconos (1,5 px); con 1 px casi no se veía al lado de la lupa. */
+function IconoProporcion({ relacion, grueso = false }: { relacion: Relacion; grueso?: boolean }) {
 	const p = relacion.proporcion;
+	const borde = grueso ? "border-[1.5px]" : "border";
 	if (p === null) {
 		return (
 			<span className="flex size-4 items-center justify-center">
-				<span className="size-3 rounded-[2px] border border-dashed border-current" />
+				<span className={cn("size-3 rounded-[2px] border-dashed border-current", borde)} />
 			</span>
 		);
 	}
@@ -257,17 +316,19 @@ function IconoProporcion({ relacion }: { relacion: Relacion }) {
 	return (
 		<span className="flex size-4 items-center justify-center">
 			<span
-				className="rounded-[2px] border border-current"
+				className={cn("rounded-[2px] border-current", borde)}
 				style={{ width: ancho, height: alto }}
 			/>
 		</span>
 	);
 }
 
-function RelacionMenu() {
+function RelacionMenu({ compacta }: { compacta: boolean }) {
 	const editor = useEditor();
 	const settings = useEditor((e) => e.project.getActive().settings);
 	const actual = relacionActual(settings);
+	const tildada = RELACIONES.find((r) => r.id === actual);
+	const ayuda = tildada ? `Relación: ${tildada.etiqueta}` : "Relación";
 
 	const elegir = (id: IdRelacion) => {
 		const canvasSize = tamanoDeRelacion({ id, settings });
@@ -286,10 +347,19 @@ function RelacionMenu() {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger className={BOTON_TEXTO}>
-				Relación
-				<HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
-			</DropdownMenuTrigger>
+			<ConAyuda texto={ayuda}>
+				<DropdownMenuTrigger className={BOTON_TEXTO} aria-label={compacta ? ayuda : undefined}>
+					{compacta ? (
+						// La proporción de AHORA, con el mismo rectangulito del menú («Original» si no hay una tildada).
+						<IconoProporcion relacion={tildada ?? RELACIONES[0]} grueso />
+					) : (
+						<>
+							Relación
+							<HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+						</>
+					)}
+				</DropdownMenuTrigger>
+			</ConAyuda>
 			<DropdownMenuContent align="end" className="w-40">
 				<DropdownMenuRadioGroup
 					value={actual ?? ""}

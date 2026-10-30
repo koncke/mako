@@ -60,6 +60,7 @@ const PROGRAMANDO_TRABADO_MS = 10 * 60_000;
 const MOTIVO_DUDOSA = 'Zernio no contestó: puede que haya quedado programada. Revisa en Zernio; si no quedó, márcala con «No quedó programada».';
 const MOTIVO_DUDOSA_REINTENTO = 'Zernio no confirmó el reintento: puede que haya quedado programada la primera vez. Revisa en Zernio; si no quedó, márcala con «No quedó programada».';
 const MOTIVO_RESUELTA = 'Resuelta en Zernio: MaKo ya no la sigue. Si la vuelves a programar, sale otra.';
+const MOTIVO_POST_DE_OTRA = 'Zernio dice que es igual a otra publicación ya programada (el mismo texto y archivo en 24 horas): cámbiale el texto o prográmala más tarde.';
 
 /** ¿El error es el de una base sin la 0342? (la columna no existe, o PostgREST todavía no la ve). */
 export const esSinMigracion = (m: string | null | undefined): boolean =>
@@ -372,6 +373,18 @@ export async function programarPublicaciones(ids: readonly string[], ahora = Dat
       if (firma.error || !firma.data?.signedUrl) throw new Error('No encontré el archivo: súbelo de nuevo.');
       pidioAZernio = true;
       const post = await crearPostZernio(ws, cuerpoDelPost(ev, firma.data.signedUrl), requestId);
+      // ⚠️ EL 409 DE ZERNIO ES «EL MISMO CONTENIDO»: si ese post ya es de OTRA publicación (las veces iguales de una serie que se
+      //    programan juntas, revisión de privacidad, 29/10, M6), no es el de ésta. Compartirlo dejaba una sola en la red, y cancelar
+      //    una cancelaba la de las otras. No se creó nada nuevo en Zernio: es un `fallo` con su motivo.
+      if (post.yaEstaba) {
+        const { data: otra, error: eOtra } = await db.from('calendario_eventos').select('id').eq('post_id', post.id).neq('id', id).limit(1);
+        if (eOtra || otra?.length) {
+          const motivo = eOtra ? 'Zernio dice que ya tenía una igual y no pude comprobar de cuál es: revisa en Zernio.' : MOTIVO_POST_DE_OTRA;
+          await anotar(id, { publicacion: 'fallo', publicacion_motivo: motivo, publicacion_intento: null });
+          out.fallidas.push({ id, titulo: ev.titulo, motivo });
+          continue;
+        }
+      }
       const anotarProgramada = () => db.from('calendario_eventos')
         .update({ publicacion: 'programada', post_id: post.id, publicacion_clave: post.clave, publicacion_motivo: null, publicacion_intento: null, updated_at: new Date().toISOString() })
         .eq('id', id).eq('publicacion', 'programando');

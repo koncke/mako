@@ -9,7 +9,9 @@
 // Nació con el arnés de la reverificación de Integración (C:/dev/revisiones/scratch-0265/ig-refuta/_hijo.mts).
 //
 // Corre con: node --conditions=react-server --experimental-test-module-mocks --no-warnings --import tsx tests/_boton-vuelve-hijo.ts <escenario>
-// Escenarios: 'gate' (el caso del ticket #29) y 'tope' (el tope de toques). Imprime un JSON en la última línea.
+// Escenarios: 'gate' (el caso del ticket #29), 'tope' (el tope de toques) y 'publicacion' (la publicación o el Reel del CRON,
+// ticket #25: tests/comentario-publicacion.test.ts) y 'duplicadas' / '_texto' / '_ajeno' (el toque de un DM viejo con varias
+// automatizaciones copiadas de la misma, ticket #33: tests/boton-dm-viejo.test.ts). Imprime un JSON en la última línea.
 // =============================================================================
 import { mock } from 'node:test';
 import { createHmac, createHash } from 'node:crypto';
@@ -46,6 +48,16 @@ type Z = { metodo: string; path: string; key: string | null; res: string; texto?
 const zlog: Z[] = [];
 const claves = new Map<string, { huella: string; resp: unknown }>();
 const otros: string[] = [];
+// Las publicaciones de la cuenta, como las devuelve GET /v1/accounts/{id}/posts (ticket #25).
+const PUBLICACIONES = [
+  { id: 'p_reel_guia', platform: 'instagram', message: 'Te dejo la guía de la fiesta 🎉\nComenta GUIA y te la mando', createdTime: '2026-10-28T18:00:00.000Z',
+    permalink: 'https://www.instagram.com/reel/GUIA123/', picture: 'https://cdn.test/guia.jpg', mediaType: 'REELS' },
+  { id: 'p_reel_2', platform: 'instagram', message: 'Segundo reel', createdTime: '2026-10-29T10:00:00.000Z',
+    permalink: 'https://www.instagram.com/reel/DOS222/', picture: 'https://cdn.test/dos.jpg', mediaType: 'REELS' },
+  { id: 'p_foto_vieja', platform: 'instagram', message: '', createdTime: '2026-09-01T10:00:00.000Z',
+    permalink: 'https://www.instagram.com/p/VIEJA77/', picture: 'https://cdn.test/vieja.jpg', mediaType: 'IMAGE' },
+];
+const consultasPublicaciones: string[] = [];
 // «¿Te sigue?»: lo que dice Meta AHORA, y lo que Zernio guardó (por cuenta y persona) la última vez que le preguntó.
 let sigueDeVerdad = false;
 const cacheSigue = new Map<string, boolean>();
@@ -61,6 +73,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (url.host === 'zernio.com') {
     const path = url.pathname.replace('/api/v1', '');
     const metodo = (init.method ?? 'GET').toUpperCase();
+    // La cuenta del negocio y sus publicaciones (ticket #25): lo que lee el selector del CRON.
+    if (metodo === 'GET' && path === '/profiles') return json(200, { profiles: [{ _id: 'prof_10', name: 'Fiesta Music', isDefault: true }] });
+    if (metodo === 'GET' && path === '/accounts') return json(200, { accounts: [{ _id: 'acc_10', platform: 'instagram', username: 'fiestamusic', isActive: true, profileId: 'prof_10' }] });
+    const publicaciones = /^\/accounts\/([^/]+)\/posts$/.exec(path);
+    if (publicaciones && metodo === 'GET') { consultasPublicaciones.push(publicaciones[1]); return json(200, { status: 'success', posts: PUBLICACIONES }); }
     const seguimiento = /^\/accounts\/([^/]+)\/follow-status\/([^/]+)$/.exec(path);
     if (seguimiento && metodo === 'GET') {
       const k = `${seguimiento[1]}|${seguimiento[2]}`;
@@ -101,7 +118,9 @@ const con = (exports: Record<string, unknown>) => ({ exports }) as unknown as Pa
 // Dobles ANTES de importar la ruta.
 const cred = await import(href('lib/credenciales.ts'));
 mock.module(href('lib/credenciales.ts'), con({ ...sinDefault(cred),
-  credDelClienteEstricta: async (c: string) => (c === 'ZERNIO_API_KEY' ? 'zk_boton' : null), credWsEstricta: async () => null }));
+  credDelClienteEstricta: async (c: string) => (c === 'ZERNIO_API_KEY' ? 'zk_boton' : null), credWsEstricta: async () => null,
+  // Una sola clave de Zernio (sin las extra del 29/10).
+  clavesGuardadasConBase: async () => [] }));
 const avm = await import(href('lib/avisos.ts'));
 mock.module(href('lib/avisos.ts'), con({ ...sinDefault(avm),
   emitirDelCatalogo: async () => ({ ok: true }), emitirEventoDePlataforma: async () => ({ ok: true }) }));
@@ -149,27 +168,29 @@ async function llega(body: Record<string, unknown>): Promise<void> {
 const tick = async () => { const { procesarEnvios } = await import(href('lib/nutricion.ts')); return runWithWorkspace(WS, () => procesarEnvios()); };
 const ANA = { id: 'ig_ana', username: 'ana', name: 'Ana' };
 const CUENTA = { id: 'acc_10', accountId: 'acc_10', profileId: 'prof_10', platform: 'instagram', username: 'fiestamusic' };
-const comentario = () => ({
+const comentario = (post = 'p_reel_1', kid = 'k1', texto = 'pruebafm') => ({
   id: `ev${++evN}`, event: 'comment.received', timestamp: now(),
-  comment: { id: 'k1', postId: null, platformPostId: 'p_reel_1', platform: 'instagram', text: 'pruebafm', createdAt: now(), author: ANA, isReply: false, parentCommentId: null },
-  post: { id: null, platformPostId: 'p_reel_1', content: null, imageUrl: null, permalink: null }, account: CUENTA });
-/** El TOQUE de un botón: un `message.received` con el payload que le pusimos (como llega de Zernio). */
-const toque = (nodo: string, titulo: string) => {
-  const insc = Number(db.nutricion_inscripciones[0]?.id);
+  comment: { id: kid, postId: null, platformPostId: post, platform: 'instagram', text: texto, createdAt: now(), author: ANA, isReply: false, parentCommentId: null },
+  post: { id: null, platformPostId: post, content: null, imageUrl: null, permalink: null }, account: CUENTA });
+/** El TOQUE de un botón: un `message.received` con el payload que le pusimos (como llega de Zernio). Sin `insc`, la primera. */
+const toque = (nodo: string, titulo: string, inscElegida?: number, payload: 'mako' | 'ninguno' | 'ajeno' = 'mako') => {
+  const insc = inscElegida ?? Number(db.nutricion_inscripciones[0]?.id);
   const n = ++evN;
   return {
     id: `ev${n}`, event: 'message.received', timestamp: now(),
     message: { id: `mid${n}`, conversationId: 'conv_ana', platform: 'instagram', platformMessageId: `mid.${n}`, direction: 'incoming', text: titulo,
       attachments: [], sender: ANA, sentAt: now(), isRead: false },
     conversation: { id: 'conv_ana', platformConversationId: 'ig_ana', participantId: 'ig_ana', participantName: 'Ana', status: 'active' },
-    account: CUENTA, metadata: { postbackPayload: payloadDeBoton(insc, nodo, 'b1'), postbackTitle: titulo },
+    // 'ajeno': lo que llegó en producción con el DM viejo (ticket #33): un payload que no es el de MaKo, con el título.
+    account: CUENTA, metadata: payload === 'ninguno' ? null : { postbackPayload: payload === 'ajeno' ? 'OBTENER_RECURSO' : payloadDeBoton(insc, nodo, 'b1'), postbackTitle: titulo },
   };
 };
 
 /** Lo que le LLEGÓ a Ana (lo que Zernio mandó de verdad, sin las respuestas guardadas), y lo demás de cada paso. */
 const pasos: Record<string, unknown> = {};
-const anotar = (n: string) => {
+const anotar = (n: string, extra: Record<string, unknown> = {}) => {
   pasos[n] = {
+    ...extra,
     llego: zlog.filter((z) => z.res === 'entregado').map((z) => (z.texto ?? '').slice(0, 30)),
     zernio: zlog.map((z) => `${z.res} ${z.metodo} ${z.path} key=${z.key}`),
     sigue: [...consultasSigue],
@@ -180,9 +201,11 @@ const anotar = (n: string) => {
   };
 };
 
-await llega(comentario());
-await tick();
-anotar('0_comento');
+if (ESC !== 'publicacion' && !ESC.startsWith('duplicadas')) {
+  await llega(comentario());
+  await tick();
+  anotar('0_comento');
+}
 
 if (ESC === 'gate') {
   // 1. Toca «Obtener recurso» sin seguir la cuenta: el «Seguinos».
@@ -205,6 +228,47 @@ if (ESC === 'tope') {
   await llega(toque('m1', 'Obtener recurso'));
   for (let k = 0; k < 12; k++) await llega(toque('m3', 'Ya te sigo'));
   anotar('1_toca_sin_parar');
+}
+
+if (ESC === 'publicacion') {
+  // La 680 elige el Reel de la guía. ⚠️ Su primer CRON se rearma de las COLUMNAS (`disparadoresDe`): la trampa del #17.
+  (db.nutricion_secuencias[0].disparadores as Array<Record<string, unknown>>)[0].publicacion = { id: 'p_reel_guia', texto: 'Te dejo la guía de la fiesta' };
+  // 1. Comenta la palabra en OTRA publicación: nada (ni lead, ni inscripción, ni DM).
+  await llega(comentario('p_foto_vieja', 'k1'));
+  await tick();
+  anotar('1_otra_publicacion', { leads: db.leads.length });
+  // 2. La comenta en el Reel elegido: entra y le llega el DM.
+  await llega(comentario('p_reel_guia', 'k2'));
+  await tick();
+  anotar('2_la_elegida', { leads: db.leads.length });
+  // 3. Lo que muestra el selector, como lo pide (`publicacionesParaElCron`, con la cuenta del negocio).
+  const { publicacionesParaElCron } = await import(href('lib/disparadores-canales.ts'));
+  const lista = await runWithWorkspace(WS, () => publicacionesParaElCron('instagram'));
+  // 4. MaKo con el LINK de otro Reel de la cuenta: lo encuentra y guarda su id y su nombre. Con uno que no es de la cuenta, lo dice.
+  const { runnerDe } = await import(href('lib/api-mako/runners.ts'));
+  const run = runnerDe('cambiar_crons_secuencia') as unknown as { preparar: (i: Record<string, unknown>) => Promise<Record<string, unknown>> };
+  const cron = (publicacion: string) => ({ secuenciaId: 680, crons: [{ trigger_tipo: 'instagram', subtipo: 'comentario', palabras: ['pruebafm'], publicacion }] });
+  const conLink = await runWithWorkspace(WS, () => run.preparar(cron('https://instagram.com/reel/DOS222?igsh=abc')));
+  const linkAjeno = await runWithWorkspace(WS, () => run.preparar(cron('https://www.instagram.com/reel/AJENO99/')));
+  anotar('3_lista_y_api', { lista, conLink, linkAjeno, consultasPublicaciones: [...consultasPublicaciones] });
+}
+
+if (ESC.startsWith('duplicadas')) {
+  // EL CASO DE LEANDRO (ticket #33, 30/10/2026): cinco copias de la 680 (los MISMOS ids de tarjeta y el mismo botón), cada una con
+  // su palabra; la misma cuenta comenta las cinco y recibe cinco DMs con «Obtener recurso». Toca el de un DM VIEJO.
+  const base = db.nutricion_secuencias[0];
+  const palabras = ['lista', 'marca', 'lanzamiento', 'guia', 'claude'];
+  palabras.forEach((w, k) => db.nutricion_secuencias.push({ ...base, id: 707 + k, clave: `s${707 + k}`, nombre: `IG - ${w.toUpperCase()}`, activa: true,
+    disparadores: [{ id: 'd1', trigger_tipo: 'instagram', subtipo: 'comentario', palabras: [w] }] }));
+  for (const [k, w] of palabras.entries()) { await llega(comentario(`p_reel_${w}`, `k${k + 1}`, w)); await tick(); }
+  const insc = (sec: number) => Number(db.nutricion_inscripciones.find((i) => Number(i.secuencia_id) === sec)?.id);
+  anotar('0_cinco_dms');
+  // Toca el «Obtener recurso» del PRIMER DM (el de LISTA), sin seguir la cuenta: el «Seguinos» de LISTA, y las otras quietas.
+  // Antes, una completada más (la del DM más nuevo, que ya recibió su recurso): un toque no la toca.
+  const ultima = db.nutricion_inscripciones.find((i) => Number(i.secuencia_id) === 711)!;
+  ultima.estado = 'completada'; ultima.nodo_actual = null;
+  await llega(toque('m1', 'Obtener recurso', insc(707), ESC === 'duplicadas_texto' ? 'ninguno' : ESC === 'duplicadas_ajeno' ? 'ajeno' : 'mako'));
+  anotar('1_toca_el_viejo', { estados: db.nutricion_inscripciones.map((i) => `${i.secuencia_id}:${i.estado}:${i.nodo_actual}`) });
 }
 
 process.stdout.write(`\n@@R@@${JSON.stringify({ pasos, otros, sinMock: [...(pg.sinMock ?? [])] })}\n`);

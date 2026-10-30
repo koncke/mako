@@ -31,7 +31,7 @@ export const INFO_TIPO: Readonly<Record<TipoGuion, { label: string; emoji: strin
 };
 
 /**
- * Los tipos con MÉTODO (ángulo, estructura y duración, de la biblioteca /admin/guiones): los que se graban o se pautan.
+ * Los tipos con MÉTODO (ángulo, estructura y duración, de la biblioteca de guiones): los que se graban o se pautan.
  * Un email, un post o una página en blanco no los tienen: su página no muestra esas propiedades (Notion no muestra
  * propiedades en una página suelta).
  */
@@ -50,8 +50,8 @@ export type PropsGuion = {
   /** En segundos. */
   duracion: number | null;
   /**
-   * La plantilla de la que nació la página (lib/copywriter/plantillas.ts, 29/10/2026): con ella MaKo sabe que el cuerpo
-   * es un EJEMPLO de un negocio ficticio y ofrece «Adaptar a mi negocio». No se muestra en las propiedades.
+   * La plantilla de la que nació la página (lib/copywriter/plantillas.ts, 29/10/2026): con ella la página ofrece «Ver ejemplo» y
+   * MaKo pregunta para qué es y a qué oferta adaptarla (./iniciativa.ts). No se muestra en las propiedades.
    */
   plantilla?: string | null;
 };

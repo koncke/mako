@@ -1,8 +1,8 @@
 // =============================================================================
 // copywriter/catalogos — los ángulos y las estructuras que ve la pantalla del Copywriter (PURO)
 // =============================================================================
-// La biblioteca es UNA: /admin/guiones (lib/guion-angulos.ts y lib/guion-estructuras.ts, con su override del super
-// admin). El Copywriter la LEE y no la copia (docs/diseno-copywriter.md, D6). A la pantalla viaja sólo lo que dibuja
+// La biblioteca es UNA (lib/guion-angulos.ts y lib/guion-estructuras.ts, con el override que el super admin guardó; su
+// pantalla de edición se fue el 29/10/2026). El Copywriter la LEE y no la copia (docs/diseno-copywriter.md, D6). A la pantalla viaja sólo lo que dibuja
 // (id, nombre, emoji, cuándo y las etiquetas): el paquete entero de cada ángulo (hooks, reglas, preguntas) lo arma el
 // server para la IA, nunca el navegador.
 // =============================================================================

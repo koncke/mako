@@ -5095,3 +5095,29 @@ cabecera queda igual (lo prueba el test dibujándola con y sin el contexto). Ple
 (el hilo y lo escrito siguen). ⚠️ `.cr-tarjeta { display: flex }` le gana al `[hidden]` del navegador: sin
 `.cr-tarjeta[hidden] { display: none }` «plegada» no escondía nada. Se recuerda por tab (`mk-crear-plegada:<tab>`), con
 `useSyncExternalStore` como la sidebar; en el teléfono no se pliega (ya se ve una cosa por vez).
+
+## La guía de cada pestaña: el velo con huecos, y por qué no es el del recorrido (29/10/2026, claude3)
+
+El núcleo de docs/mako-iniciativa/guia.md (G1): lib/guia/ (tipos, reglas, huecos, la primera vez, el índice de catálogos),
+app/_ui/guia/ (el estado, `VeloGuia` montado una vez en app/layout.tsx, `useGuiaDeLaTab`, `ancla()`), app/_ui/useVisto.ts y el
+primer catálogo, app/second-brain/guia-ops-center.ts. Reemplaza al recorrido `sb-inicio` (recorrido-inicio.ts y su test, borrados).
+- **El velo del recorrido no servía para «con el chat a la vista».** `box-shadow 200vmax` da UN hueco: tapaba el chat. Y el de
+  `Senalar` se apagaba con la primera tecla, también la que se escribía en el chat. El nuevo es una máscara SVG con huecos (el
+  ancla y cada `[data-mako-chat]`) y `pointer-events: none`: el toque lo decide `queHacerConElToque` (en el ancla avanza, en el
+  chat nada, en otra parte de la tab pausa; el toque llega igual).
+- **Fuera de la pila de modales.** Registrado como capa, la estrella del Plan y de Clientes se subiría como sobre un modal y
+  `profundidadModales()` diría que hay uno. Va en el piso de los recorridos (400), debajo del toast y del «¿seguro?».
+- **El velo es `--scrim` (40%), no `--sidebar`**: en el tema candidato `true-north` `--sidebar` es claro y el velo aclararía. Y sin
+  `color-mix`: en Safari < 16.2 borra la capa entera.
+- **La pregunta es la frase de Martín**, «¿Quieres que te ayude a aprender a usar esta pestaña?», con [Sí, enséñame ★], los
+  objetivos y [Ya sé usarla]. Rompe `PREGUNTA_DE_ACCION` a propósito: la excepción es por su id (`guia:*`), con el porqué en
+  lib/aperturas/reglas.ts (decisión del Cerebro, docs/mako-iniciativa/README.md).
+- **La guía va primero** (la primera vez en la pestaña): mientras decide si pregunta (`esperando`), la escalera del Cerebro calla;
+  si no, la apertura salía y a los 1,2 s la pisaba la pregunta, y quedaba «vista» de hoy sin que nadie la leyera.
+- **El Ops Center del super admin no tiene guía ni «?»**: su hilo es el de Claude Code, donde MaKo no habla.
+- **SIN HACER:** G2 (lib/onboarding-arranque.ts → `rutaDelHilo` sigue poniendo `?recorrido=sb-inicio`: ya no abre nada, se
+  ignora); los catálogos de cada tab (G3 a G6: `SIN_GUIA_TODAVIA` de tests/guia-catalogo.test.ts es la lista, y sólo se achica);
+  la IA que señala (G4: `senalar_en_pantalla`, el prompt `mako.senalar`); el teléfono (G7); borrar `Recorrido.tsx` y `Senalar.tsx`
+  cuando nadie los use (G8: hasta entonces `useVisto` y `useRecorrido` leen lo mismo por dos caminos); mudar `DONDE` de
+  app/automations/recorrido-automations.ts a lib/guia/donde.ts (con la guía de Automations: cinco tests lo leen ahí). **Nada se vio
+  en el navegador**: falta el recorrido a 1440 y a 700 px con una persona nueva del ws3 (guia.md §6).

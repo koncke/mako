@@ -185,6 +185,7 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
   ] },
   { op: 'borrar_silencios', id: 'borrar_silencios_video', titulo: 'Borrar los silencios', parametros: [
     { nombre: 'ref', rotulo: 'Elemento', tipo: 'string', max: 6, descripcion: 'Opcional: la ref del video o el audio en la línea de tiempo (v1, a4…, de ver_proyecto_video). Sin ella, cada clip con sonido de la pista principal.' },
+    seg('pausa_min', 'Pausa mínima', 'Opcional: la pausa más corta que se saca, en segundos (de 0,2 a 2; sin ella, 0,4).', false, 0.2, 2),
   ] },
 ];
 

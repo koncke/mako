@@ -505,6 +505,26 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'dinero', gating: G_META_ADMIN,
   },
   {
+    // «Súbeme este anuncio» desde el grupo (29/10/2026, la llamada con Thiago; lib/anuncio-desde-archivo.ts). Detrás de
+    // ZERNIO_ANUNCIOS_PROBADO: con la bandera apagada, contesta que falta la prueba y no baja nada.
+    id: 'proponer_anuncio_desde_archivo', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Subir un anuncio desde un archivo',
+    descripcion: 'PROPONE crear un anuncio EN PAUSA dentro de un conjunto existente con un archivo NUEVO: la imagen o el video que mandaron en el mensaje (origen mensaje) o el que está en un link de Google Drive o un link https directo (origen link). MaKo baja el archivo y lo guarda; al aprobarlo en la pantalla de revisión, el anuncio se crea por Zernio, en pausa. Sólo con los anuncios por Zernio probados y conectados; si no, lo dice.',
+    escribe: 'guarda el archivo y, al aprobarlo, crea un anuncio EN PAUSA por Zernio en la cuenta de Meta del negocio',
+    parametros: [
+      P_ADSET,
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del anuncio.' },
+      { nombre: 'origen', tipo: 'string', obligatorio: true, enum: ['mensaje', 'link'], descripcion: 'mensaje = la imagen o el video que mandaron en este mensaje; link = el archivo de un link (Google Drive o https directo).' },
+      { nombre: 'link', tipo: 'string', max: 2000, descripcion: 'solo origen link: el link del archivo (compartido con «cualquiera con el enlace» si es de Drive).' },
+      { nombre: 'primary_text', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'texto principal del anuncio.' },
+      { nombre: 'headline', tipo: 'string', max: 255, descripcion: 'título.' },
+      { nombre: 'cta_type', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'SUBSCRIBE', 'GET_OFFER', 'CONTACT_US', 'APPLY_NOW', 'SHOP_NOW', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE', 'NO_BUTTON'], descripcion: 'el botón.' },
+      { nombre: 'destination_url', tipo: 'string', max: 1000, descripcion: 'URL de destino (landing), exacta con https.' },
+    ],
+    // Sin HTTP: el archivo es el del MENSAJE (o un link pegado en el grupo); por la API, proponer_agregar_anuncio con el creativo ya subido.
+    canales: SIN_HTTP, costo: 'dinero', gating: G_META_ADMIN,
+  },
+  {
     id: 'proponer_editar_textos_anuncio', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     titulo: 'Editar los textos de un anuncio',
     descripcion: 'PROPONE cambiar textos de un anuncio publicado (texto principal, título, descripción, botón o URL de destino); los campos que no se mandan se conservan. Meta crea un creativo nuevo y vuelve a revisar el anuncio: deja de entregar mientras tanto y pierde las interacciones del post anterior. Se confirma en una pantalla. Antes: ver_textos_anuncio_meta (dice si es editable).',
@@ -692,7 +712,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Ver el Media Buyer',
-    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, sus agentes (los cuatro de MaKo con su estado, y los propios del negocio), las alertas de Protect de la última vez que miró, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, quién la firma, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.',
+    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, la zona y las fechas de fin, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, sus agentes (los cuatro de MaKo con su estado, y los propios del negocio), las alertas de Protect de la última vez que miró, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, quién la firma, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
@@ -891,5 +911,76 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'La Biblioteca del Media Buyer, como su pestaña: lo nuevo para revisar (las variaciones de texto y de gancho que propuso el Diseñador de creativos, con su id de decisión), los anuncios que más resultados trajeron al CRM este mes (gasto, resultados y costo por resultado), y lo que ya se lanzó en 30 días. Úsala antes de lanzar_decision_media_buyer o hooks_al_video_media_buyer sobre una variación.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  // DÓNDE, HASTA y «lánzame una campaña» (29/10/2026, lo prometido a la agencia de Thiago: docs/promesas/2910-llamada-thiago.md).
+  // La zona y la fecha frenan lo que SUBE el gasto (lib/media-buyer/zona.ts); la campaña nueva sale entera por la Zernio del
+  // negocio (lib/media-buyer/campana.ts). Las tres mueven plata: `pantalla`, `dinero`, admin y fuera de los flujos.
+  {
+    id: 'zona_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Zona del Media Buyer',
+    descripcion: 'PROPONE la ZONA donde trabaja el Media Buyer: los países, provincias o ciudades (de buscar_lugares_meta, tal cual vienen) donde puede prender y subir presupuestos. Lo que muestra anuncios fuera de la zona, o lo que no se puede confirmar adentro, no se prende ni se sube (bajar y pausar siempre se puede). La lista reemplaza la anterior; [] = toda la cuenta. Se confirma en una pantalla.',
+    escribe: 'cambia la zona en media_buyer_config',
+    parametros: [{
+      nombre: 'zona', tipo: 'object[]', obligatorio: true, max: 25, vaciaEsValor: true,
+      descripcion: 'los lugares, como los devuelve buscar_lugares_meta (sólo país, provincia o ciudad); [] = toda la cuenta.',
+      campos: [
+        { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['country', 'region', 'city'], descripcion: 'country, region o city.' },
+        { nombre: 'key', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el id de Meta del lugar.' },
+        { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'el nombre, para mostrarlo.' },
+        { nombre: 'pais', tipo: 'string', max: 2, descripcion: 'el código del país (ES, MX…): obligatorio en provincias y ciudades.' },
+        { nombre: 'region', tipo: 'string', max: 120, descripcion: 'la provincia de una ciudad, para mostrarla.' },
+        { nombre: 'regionId', tipo: 'string', max: 40, descripcion: 'el id de Meta de la provincia de una ciudad.' },
+      ],
+    }],
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'hasta_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Fecha de fin del Media Buyer',
+    descripcion: 'PROPONE la FECHA DE FIN: la de toda la cuenta, o con campanaId la de una campaña (gana a la de la cuenta). Pasada la fecha (el día del negocio), MaKo pausa la campaña sola; desde 3 días antes no sube presupuestos. Vacía = sin fecha (la campaña vuelve a la de la cuenta). Se confirma en una pantalla.',
+    escribe: 'cambia hasta o hasta_campanas en media_buyer_config',
+    parametros: [
+      { nombre: 'hasta', tipo: 'string', obligatorio: true, max: 10, vaciaEsValor: true, descripcion: 'AAAA-MM-DD, el último día; vacío = sin fecha.' },
+      { nombre: 'campanaId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'sólo para UNA campaña: su id numérico de Meta (de ver_campanas_media_buyer). Sin esto, es la de toda la cuenta.' },
+    ],
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'proponer_crear_campana', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Lanzar una campaña nueva',
+    descripcion: 'PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexión de Facebook del negocio: el objetivo, el presupuesto por día, dónde (vacío = la zona del Media Buyer, y nunca fuera de ella), hasta cuándo (vacío = la fecha de fin del Media Buyer), el formulario o el píxel, la página de destino y el creativo (una imagen o un video con su https, un video ya subido a la cuenta, o reusar un anuncio de la cuenta). Hoy NACE EN PAUSA (la persona la revisa en Meta y la prende) y MaKo relee lo que Meta guardó contra lo pedido. Se confirma en una pantalla, que muestra todo lo que sale; se deshace con deshacer_decision_media_buyer (la borra). Antes: listar_formularios_meta o listar_pixeles_meta, y buscar_lugares_meta.',
+    escribe: 'crea una campaña, un conjunto y un anuncio en Meta por Zernio, y la registra en media_buyer_decisiones',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'cómo se llama la campaña.' },
+      { nombre: 'objetivo', tipo: 'string', obligatorio: true, enum: ['formulario', 'web', 'trafico', 'compras'], descripcion: 'formulario (de Meta, con formularioId) · web (registros en la página, con pixelId y evento) · trafico (visitas) · compras (con pixelId).' },
+      { nombre: 'presupuestoDia', tipo: 'number', obligatorio: true, minimo: 0.01, descripcion: 'por día, en la moneda de la cuenta publicitaria.' },
+      {
+        nombre: 'lugares', tipo: 'object[]', max: 25, descripcion: 'dónde se muestra, como los devuelve buscar_lugares_meta (país, provincia o ciudad). Vacío = la zona del Media Buyer.',
+        campos: [
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['country', 'region', 'city'], descripcion: 'country, region o city.' },
+          { nombre: 'key', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el id de Meta del lugar.' },
+          { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'el nombre.' },
+          { nombre: 'pais', tipo: 'string', max: 2, descripcion: 'el código del país: obligatorio en provincias y ciudades.' },
+          { nombre: 'regionId', tipo: 'string', max: 40, descripcion: 'el id de la provincia de una ciudad.' },
+        ],
+      },
+      { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD, el último día. Vacío = la fecha de fin del Media Buyer (o sin fecha).' },
+      { nombre: 'edadMin', tipo: 'number', entero: true, minimo: 18, maximo: 65, descripcion: 'edad mínima (18 a 65).' },
+      { nombre: 'edadMax', tipo: 'number', entero: true, minimo: 18, maximo: 65, descripcion: 'edad máxima (65 es «65 o más»).' },
+      { nombre: 'formularioId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'objetivo formulario: el id del formulario instantáneo (de listar_formularios_meta).' },
+      { nombre: 'pixelId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'objetivo web o compras: el id del píxel (de listar_pixeles_meta).' },
+      { nombre: 'evento', tipo: 'string', enum: ['LEAD', 'SCHEDULE', 'SUBMIT_APPLICATION', 'CONTACT', 'COMPLETE_REGISTRATION'], descripcion: 'objetivo web: el evento del píxel que optimiza (por defecto LEAD).' },
+      { nombre: 'url', tipo: 'string', max: 1000, descripcion: 'la página a la que lleva el anuncio, exacta con https (obligatoria salvo en formulario).' },
+      { nombre: 'creativoTipo', tipo: 'string', obligatorio: true, enum: ['imagen', 'video', 'video_cuenta', 'anuncio'], descripcion: 'imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId) o anuncio (reusar el de anuncioId).' },
+      { nombre: 'imagenUrl', tipo: 'string', max: 1000, descripcion: 'creativoTipo imagen: la dirección https de la imagen.' },
+      { nombre: 'videoUrl', tipo: 'string', max: 1000, descripcion: 'creativoTipo video: la dirección https del video (MP4).' },
+      { nombre: 'videoId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'creativoTipo video_cuenta: el id de un video ya subido a la cuenta.' },
+      { nombre: 'anuncioId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta).' },
+      { nombre: 'texto', tipo: 'string', max: 2000, descripcion: 'el texto principal del anuncio (obligatorio salvo al reusar un anuncio).' },
+      { nombre: 'titulo', tipo: 'string', max: 255, descripcion: 'el título del anuncio.' },
+      { nombre: 'boton', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'APPLY_NOW', 'BOOK_NOW', 'CONTACT_US', 'GET_QUOTE', 'SUBSCRIBE', 'SHOP_NOW', 'WHATSAPP_MESSAGE'], descripcion: 'el botón del anuncio.' },
+      { nombre: 'enPausa', tipo: 'boolean', descripcion: 'hoy toda campaña nueva nace en pausa (hasta medir la creación por Zernio): la persona la revisa y la prende.' },
+    ],
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
 ];

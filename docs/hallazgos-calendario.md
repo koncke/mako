@@ -405,7 +405,67 @@ la hora. Un solo camino de publicación».
   programar: el texto del Copywriter llega sin archivo y ahí se sube la imagen o el video). **Sin verificar en el navegador:** no se
   levanta `next dev` local; las capturas las saca el Cerebro en producción, en el ws3, después del deploy.
 
+## Publicaciones que se repiten: un molde, una regla, y el cron que crea y programa cada vez (29/10/2026)
+
+La llamada de Martín con una agencia de 27 clientes (29/10, [19:25]): «podés programarte publicaciones recurrentes». El Cerebro: un
+«Repetir» en el evento, la regla en `calendario_eventos` (mig 0349), un cron que cree y programe por Zernio, y que el Calendario dibuje
+las próximas.
+
+**Vive en:** `lib/calendario-recurrentes-reglas.ts` (puro) · `lib/calendario-recurrentes.ts` (`guardarRepeticion`, `seriesParaDibujar`,
+`generarRecurrentes`) · `app/api/cron/calendario-recurrentes` (cada 6 horas) · `app/calendario/PublicarEnRed.tsx` («Repetir») ·
+mig 0349 · tests/calendario-recurrentes.test.ts.
+
+- **La regla es la del Plan** (RRULE, `lib/plan-recurrentes.ts`: la frase en español, los presets, `ocurrenciasEntre` con su ancla), no
+  una nueva. La Publicación con la regla es el MOLDE y la primera vez; cada vez nace igual (la hora, la cuenta, el texto) y se
+  programa por `programarPublicaciones`, el mismo «Programar» con los límites de cada red. Ninguna otra puerta a la red.
+- ⚠️ **El archivo se COPIA, no se comparte:** `rutaValida` exige `<ws>/calendario/<evento>/…`, así que el archivo del molde no
+  pasaba para otra fila, y compartirlo dejaba que borrar una vez se llevara el del molde. Cada vez nace con su copia (Storage `copy`).
+- **Nada hacia atrás y dos días adelante:** con el cron caído, la vez que pasó no se publica tarde; la de hoy cuya hora pasó, tampoco.
+  Cada 6 horas (no una vez por día), y como crea dos días adelante ninguna llega justa. ⚠️ Una vez que NACIÓ y cuyo «Programar» falló
+  NO se reintenta sola: queda en el Calendario con su motivo (la versión anterior de esta línea decía que se reintentaba; no era cierto).
+- ⚠️ **Lo que el cron atendió se anota en el MOLDE (`repetir_hasta`), no se cuenta por las filas que existen.** La primera versión
+  contaba las veces por las hijas que había: borrar la de mañana la hacía RENACER y programarse sola, y moverla al sábado dejaba las
+  dos (revisión de privacidad del 29/10, A1). Ahora nunca se crea un día en o antes de la marca, y la capa «Se repite» tampoco lo
+  dibuja. La marca se escribe ANTES de programar. Dos pasadas a la vez, igual: índice único (`workspace_id, serie_de, inicio`); la
+  segunda choca, borra su copia y no programa.
+- ⚠️ **Una vez de una serie NO lleva regla** (A2): su «Repetir» decía «No se repite» y, al elegir otra, armaba una segunda serie con la
+  misma cuenta, archivo y hora: dos posts por día, para siempre. `guardarRepeticion` lo rechaza, la base también
+  (`calendario_eventos_vez_sin_regla`), y la pantalla muestra «se cambia en la primera» con el link al molde.
+- ⚠️ **La regla se CONFIRMA y pide el molde completo, TEXTO incluido** (M5): el Select guardaba al tocarlo y un borrador sin el pie
+  salía así cada día. Lo que ya nació (hasta dos días) sale como está: un cambio en el molde vale para las que nazcan después, y
+  sacar la regla no cancela las ya programadas. La pantalla lo dice; no se automatizó.
+- ⚠️ **El «Deshacer» devuelve el lugar en la serie** (re-verificación del 29/10, N1 y N8). `restaurarEvento` insertaba sólo las
+  columnas de `COLS`, y `serie_de` no está ahí (no puede: sin la 0349, PostgREST rechazaría la lectura entera). Una vez borrada y
+  devuelta volvía SUELTA: «Repetir» decía «No se repite», `guardarRepeticion` la aceptaba y el check de la base tampoco la frenaba
+  (`serie_de` era null): dos series, dos posts por día. **El A2 estaba arreglado y se reabría por otra puerta.** Ahora `borrarEvento`
+  lee aparte su `serie_de` y su `repetir_hasta` (`EventoBorrado.serie`) y el Deshacer los escribe EN el insert, validados (lo manda el
+  navegador): el molde tiene que ser un evento del negocio; si ya no está, la vez vuelve suelta (su serie se borró); si no se puede
+  leer, el Deshacer tira. El molde devuelto trae su marca y NO su regla (se vuelve a poner con su confirmación). **Regla:** una columna
+  que guarda una identidad (de qué serie es, hasta dónde se atendió) entra al Deshacer aunque no sea de las de `COLS`.
+- ⚠️ **Un 409 de Zernio no se comparte entre dos publicaciones** (M6, sospecha sin medir): el 409 es «el mismo contenido en 24 h» y
+  devuelve el post que ya estaba. Las veces iguales de una serie se programan juntas: si el post ya es de OTRA publicación, ésta queda
+  en `fallo` con su motivo, en vez de quedarse con el mismo `post_id` (una sola salía, y cancelar una cancelaba la de las otras).
+- ⚠️ **Lo que se dibuja es desde AHORA:** la primera versión dibujaba como «próximas» las veces de la semana que ya habían pasado sin
+  nacer, que no iban a salir nunca. Las próximas van en la capa «Se repite», de SÓLO LECTURA (`fuente: 'plan'`, como las recurrentes
+  del Plan), y llevan al molde con `?evento=`.
+- ⚠️ **Sin la mig 0349 el Calendario sigue andando:** la regla se lee y se escribe APARTE (`COLS` no la nombra; un test lo fija). Si
+  la lectura principal pidiera `repetir`, PostgREST rechazaba la consulta ENTERA y el Calendario quedaba vacío hasta la migración.
+- **Sin hacer:** «Personalizado…» (sólo los presets del Plan: todos los días, cada semana, cada mes, cada año, días laborables; una
+  regla puesta por la API se muestra igual); cambiar UNA vez sin tocar el molde (cada vez es una Publicación normal: se edita como
+  cualquiera); avisar en el Calendario que un molde está incompleto (hoy sólo lo cuenta el log del cron); corregir el molde y que se
+  corrijan las ya programadas; cancelar las programadas al sacar la regla o borrar el molde; reintentar una vez cuyo «Programar»
+  falló (B5); `rutaValida` como segunda red al copiar el archivo del molde (B6); avisar al BORRAR el molde que lo ya programado sale
+  igual (N7: el aviso está sólo en «Que no se repita»). ⚠️ **Sin medir (N2):** si el 409 de Zernio es por contenido, una serie diaria
+  que programa 2 o 3 veces iguales juntas sale una de cada tres y las otras quedan en `fallo` para siempre (no se reintentan): se
+  publica de MENOS, nunca de más. Medirlo con Zernio real antes de prometer «todos los días». **La mig 0349 está escrita, NO aplicada** (la pide el
+  Cerebro; se le sumaron `repetir_hasta` y `calendario_eventos_vez_sin_regla` el 29/10 a la noche, antes de aplicarla). No se vio
+  en un navegador.
+
 ## Las publicaciones que se repiten: una vez borrada renace, y una copia puede abrir otra serie (29/10/2026, Integración)
+
+> **Estado (29/10 noche):** arreglado en `zernio-token-2910` (`a745e4eb3`): `repetir_hasta` en el molde, ninguna regla en una vez
+> (también en la base), confirmación y texto obligatorio, y el 409 que no se comparte. Ver la entrada de las repetidas, arriba.
+> La 0349 cambió (todavía NO aplicada).
 
 La misma revisión (`ce56bd693`, `lib/calendario-recurrentes.ts`) encontró dos ALTA que sólo corren con la mig 0349 aplicada. Por
 eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregladas** (lo acordó el Cerebro el 29/10).
@@ -422,4 +482,12 @@ eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregl
   - Corregir, sacarle la regla o borrar el molde no cambia las hasta 3 veces ya nacidas.
   - Sospecha, sin medir: si Zernio contesta 409 por contenido repetido, todas las veces quedan con el mismo post, y cancelar una
     cancela las otras (`lib/zernio-publicar.ts`).
-
+- **La re-verificación de `da3cff9f7`** (Integración, 30/10, `C:/dev/revisiones/2910-reverificacion-zernio-leads-da3cff9f7.md`, con
+  pruebas en `2910-reverif-zernio-pruebas/`) dio «entra con bajas»: A1, A2, M5 y M6 están y funcionan. **La 0349 sigue sin
+  aplicarse** por esto:
+  - ⚠️ **N1: el A2 vuelve por «Deshacer».** Al deshacer el borrado de una vez de la serie, `restaurarEvento`
+    (`lib/calendario.ts`) la devuelve sin `serie_de`. «Repetir» la acepta, el check de la base no la frena, y salen dos posts
+    por día. **Regla:** lo que restaura una fila restaura TODAS sus columnas, no las que conocía cuando se escribió.
+  - **N8:** el «Deshacer» del molde puede hacer renacer veces borradas.
+  - **N7:** borrar el molde no avisa que lo ya programado sale igual.
+  - **N2 (sospecha):** un 409 de Zernio por contenido publica DE MENOS en una serie diaria. Nunca publica dos veces.

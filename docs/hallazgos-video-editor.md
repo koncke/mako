@@ -1964,6 +1964,39 @@ WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configura
 `transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
 *28/10/2026, chat «Video Editor: el ruido y los silencios de Leila».*
 
+## «No hay silencios» cuando sobran: el chat buscó en UN clip de 0,9 s porque el ejemplo del catálogo nombraba uno (tickets 31 y 32, Leila, 29/10/2026)
+
+Leila escribió en el chat «Quiero borrar silencios y me dice que no hay cuando sobran», aceptó, y salió «No se aplica: no hay
+silencios de 0,4 s o más». **El diagnóstico obvio era el equivocado:** se sospechó del detector con su ruido de fondo (lo del
+28/10). La propuesta guardada lo desmiente: el modelo mandó `{"op":"borrar_silencios","ref":"v9"}`, y v9 era un pedazo de 0,93 s
+(del 23,4 al 24,3 del original) de un video que ella ya venía cortando a mano. En 0,93 s no entra una pausa de 0,4 s con sus
+80 ms a cada lado. El modelo copió la `forma` del catálogo, que traía siempre `"ref":"v1"`. El #32 («dice que no hay
+silencios y sí los hay», por el chat de soporte) llegó UN minuto después: es el mismo episodio contado dos veces, no una
+segunda prueba de que falle el detector (en el hilo hay una sola propuesta de silencios).
+
+- ⚠️ **El `forma` de una operación es lo que el modelo COPIA.** Un parámetro opcional que aparece en el ejemplo se vuelve
+  obligatorio en la práctica. El ejemplo va sin él, y el `para` dice cuándo sí: «Con "ref" SÓLO si la persona nombra un clip».
+- ⚠️ **El audio de un proyecto del Video Editor no está en la base:** vive en el navegador de quien edita (OPFS). En la base
+  quedan el espejo de la línea de tiempo (`video_editor_proyectos.vista`: clips, recortes y duraciones) y el hilo del chat con
+  cada propuesta (`video_editor_chats.mensajes`: `propuesta.operaciones` y `refsPorId`). Con eso se ve QUÉ se pidió y sobre
+  qué clip, pero no se puede medir el detector con su audio. Si su ruido además le gana al detector no se sabe: hace falta el
+  archivo original.
+- ⚠️ **El chat del Video Editor no manda historial** (cada pedido llega solo a `/api/video-editor/ia`). Un aviso que pregunta
+  «¿las busco más cortas?» no se puede contestar con un «sí». El aviso trae la FRASE para pedirlo.
+- **El botón tenía el mismo agujero:** sin nada elegido, busca sólo en el clip bajo el cabezal, que después de cortar a mano es
+  un pedazo, y decía «Sin silencios» sin decir dónde había buscado.
+- **La regla:** un «no encontré» dice dónde buscó y cuánto duraba, y qué se puede pedir (`textoSinSilencios`, sin el «No se
+  aplica:» delante). La pausa mínima se puede pedir de 0,2 a 2 s (`pausa_min`, también por la API).
+- ⚠️ **Las pistas de una escena son un OBJETO (`overlay`, `main`, `audio`), no una lista.** El primer arreglo contaba los
+  clips con `(…?.tracks ?? []).flatMap(…)`: en el navegador tiraba justo cuando no había pausas. Los tests en verde no lo
+  vieron porque esa parte la miraban LEYENDO el fuente; lo vio el tsc acotado. Va
+  `[...tracks.overlay, tracks.main, ...tracks.audio]` (como `media/audio.ts`), en una función pura con un test que la corre
+  (`clipsConSonido`).
+
+**Vive en:** `audio/silencios-aviso.ts` (puro) · `audio/borrar-silencios.ts` · `chat/aplicar.ts` · `chat/linea.ts` ·
+`lib/editor-video/chat-catalogo.ts` · tests/video-editor-chat.test.ts (test 53) · tests/video-editor-silencios.test.ts ·
+*29/10/2026, chat «Video Editor: el ruido y los silencios de Leila» (claude3).*
+
 ## Los colores de MaKo en `.ce`: un ciclo de variables CSS no tira error, deja todo transparente (29/10/2026, claude3)
 
 Martín, 29/10: «en las tabs de Editor e Image, pongas los colores de MaKo, no esos colores». La paleta `--cc-*` pasó a apuntar
@@ -2011,6 +2044,73 @@ ancho al editor (ahora se pliega: `plegable` en PantallaCrear), pero **los rótu
 pantalla**: `tabbar.tsx` daba `w-[58px]` a cada pestaña y `truncate` al rótulo, y a 11 px «Transiciones» pide ~66.
 Ahora `min-w-[58px]` + el rótulo entero (`whitespace-nowrap`); lo que no entra lo siguen corriendo las flechas ‹ ›.
 Captura comparada (main y ahora, a 300/360/460 de panel): C:/dev/revisiones/create-qa-2910/despues-barras-1440.png.
+
+## La fila de abajo del reproductor se encimaba de 460 px para abajo: tres columnas `1fr` y botones de texto fijos (30/10/2026, claude3)
+
+Martín mandó una captura de un 9:16 con el reproductor a ~500 px: «00:00:00:00 / 00:00:00…», ▶, «Completa ▾», la lupa,
+«Relación ▾» y pantalla completa encimados, y el total cortado debajo de «Completa». La barra era
+`grid-cols-[1fr_auto_1fr]` con la derecha en `min-w-0`: la derecha (~215 px de botones de texto) no se achica ni cambia de
+forma, así que con menos lugar se desborda hacia la izquierda, sobre el ▶ y el tiempo. Y el reproductor puede bajar al 18 %
+del editor (`editor-page.tsx`): ~155 px a 1280 con el chat abierto, ~124 con la barra lateral fija.
+
+- **La regla:** una barra adentro de un panel que se redimensiona decide su forma por SU ancho (un `ResizeObserver` → un
+  nivel puro, `preview/barra-niveles.ts`), nunca por la ventana. Cada botón de texto tiene su forma de ícono con el valor
+  en el tooltip y en el `aria-label`; lo que tampoco entra pasa a otra fila. Sin `container-type`: el tooltip del editor
+  no va en portal y una contención en el ancestro le cambia el bloque contenedor.
+- ⚠️ **El teléfono escondía esta barra por su CLASE de Tailwind** (`[class~="grid-cols-[1fr_auto_1fr]"]`,
+  `app/m/video-editor/video-editor.css`): cambiarle las clases la habría vuelto a mostrar en el celular, encimada. Ahora la
+  elige por la marca `data-barra-reproductor`; lo fija tests/m-creacion.test.ts.
+- **Cómo se midió sin abrir el editor** (que en el banco no sale de «Cargando…» y en Chrome real pesa 5 GB): la barra REAL
+  compilada con esbuild y el `globals.css` real con Tailwind mirando sólo `app/video-editor` (liviano), y lo que habla con
+  el motor (`use-editor`, `wasm`, `wasm/opencut`, `preview-viewport`, `navegacion`, `atajos-reproductor`) reemplazado por
+  un stub con datos inventados; Chrome sin ventana, una fila por ancho, de 120 a 700 px. El banco quedó en
+  `C:/dev/revisiones/editor-pantalla-3010/banco/` (fuera del repo).
+- ⚠️ **Medir por la caja da falsos «se pisa»:** el tiempo editable tiene `-mx-1 px-1` (el fondo del hover) y su caja se
+  mete bajo la «/» sin que las letras se toquen. Se mide lo que se VE: un `Range` sobre el contenido de cada pieza.
+- Medido: antes, de 460 px para abajo el ▶ pisa «Completa», de 380 para abajo el total se corta y de 230 para abajo
+  «Completa» sale del panel. Después, de 120 a 700 px nada encimado, afuera ni cortado, con un video de 60 s y otro de
+  1 h 02 min. Capturas en `C:/dev/revisiones/editor-pantalla-3010/`.
+
+**Vive en:** `preview/barra-niveles.ts` (puro) · `preview/components/toolbar.tsx` · `app/m/video-editor/video-editor.css` ·
+tests/video-editor-barra-reproductor.test.ts · tests/m-creacion.test.ts.
+
+## La barra de la línea de tiempo escondía herramientas: un ScrollArea con la barra de scroll OCULTA (30/10/2026, claude3)
+
+Lo que no entraba quedaba fuera de la vista sin aviso. Medido en el banco (la barra real con las herramientas que registran
+los paquetes): ocupan 983 px; a 1366 con el chat abierto el centro mide 950 y «Acercar» no se veía; a 1280, el deslizador y
+«Acercar»; a 1280 con la barra lateral fija (688), siete.
+
+- ⚠️ **El ScrollArea de Radix no deja partir una fila:** su viewport mete el contenido en un `display: table` que crece con
+  lo que tiene adentro, así que un `flex-wrap` adentro nunca parte. Para que una barra se parta, va sin ScrollArea.
+- **La regla:** sin lugar, primero se esconde lo `prescindible` (una marca en la herramienta, `ce/ranuras.ts`; hoy sólo el
+  deslizador del zoom, que − y + repiten), por el ancho medido de la barra (`timeline/barra-ancho.ts`); si aun así no entra,
+  la barra se parte en dos filas (CSS: ninguna herramienta nueva puede volver a quedar afuera). La derecha, partida, queda
+  a la derecha; cada separador va con su bloque. El alto de la barra pasó a MÍNIMO (sólo lo usaba ella).
+- ⚠️ **En el banco, el `useEditor` falso tiene que comparar las listas por elemento**, como el de verdad: un selector que arma
+  una lista nueva en cada lectura hace que `useSyncExternalStore` re-dibuje sin fin (React #185). Y el índice del wasm
+  (`_opencut/wasm`, media-time.ts) va REAL: sólo el módulo crudo `wasm/opencut` se reemplaza (`banco/stubs/opencut-crudo.ts`).
+- Después: en los siete casos nada afuera; a 950 una fila sin el deslizador, a 864 y 688 dos filas (67 px). Capturas en
+  `C:/dev/revisiones/editor-pantalla-3010/barra-linea-*.png`.
+
+**Vive en:** `timeline/barra-ancho.ts` (puro) · `timeline/components/timeline-toolbar.tsx` · `hooks/use-ancho.ts` (el ancho,
+compartido con la barra del reproductor) · `ce/ranuras.ts` (`prescindible`) · tests/video-editor-barra-linea.test.ts.
+
+## Los paneles de arriba se achicaban hasta no leerse: mínimos en % del editor (30/10/2026, claude3)
+
+Los mínimos eran 15 % / 18 % / 15 % del ancho del editor: ~130 px con el chat abierto a 1280, ~103 con la barra lateral
+fija. Medido en el banco (los paneles reales; el stub del motor con un comodín y un proyecto inventado): la biblioteca
+aplasta «Importar» y la zona para arrastrar de 240 px para abajo y las corta de 160; en propiedades, de 160 para abajo no se
+lee nada, y el rótulo (`max-w-[45%] truncate`) cortaba «Cuadros por segundo:» aun a 300.
+
+- **La regla:** un panel que se redimensiona tiene un mínimo en PÍXELES, el de lo que tiene adentro. react-resizable-panels 2
+  sólo entiende %: se pasan con el ancho MEDIDO del grupo (`components/editor/minimos-paneles.ts`, 280 / 160 / 280), y si no
+  suman se achican parejo hasta el 96 %. La librería agranda al mínimo el panel que quedó más chico
+  (`reevaluatePanelConstraints`): cambiar `minSize` con el editor abierto funciona.
+- Un rótulo de una ficha de dos columnas se PARTE en renglones, no se corta (`detalles.tsx`).
+- Capturas: `C:/dev/revisiones/editor-pantalla-3010/paneles-antes.png` y `paneles-despues.png` (252, 280 y 320 px).
+
+**Vive en:** `components/editor/minimos-paneles.ts` (puro) · `editor-page.tsx` · `panels/properties/detalles.tsx` ·
+tests/video-editor-paneles-minimos.test.ts.
 
 ## SIN RESOLVER: el editor no carga en un Chrome sin ventana (el banco), se queda en «Cargando…» (29/10/2026)
 

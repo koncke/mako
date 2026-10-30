@@ -23,6 +23,9 @@ import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ej
 import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaMB } from '@/lib/media-buyer/datos';
 import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
+import { crearCampana as crearCampanaMB, prepararCampana as prepararCampanaMB } from '@/lib/media-buyer/campana';
+import type { LugarZona as LugarZonaMB } from '@/lib/media-buyer/zona';
+import { resolverLugares as resolverLugaresMB } from '@/lib/media-buyer/publico';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
 import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambiarAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
@@ -51,9 +54,11 @@ import {
 } from '@/lib/meta-ads-create';
 import { cambiosDesdeEntrada, entradaDesdeApi, resumenDeCambios, type EntradaPublico } from '@/lib/publico-cambios';
 import { lugaresDesdeMeta } from '@/lib/meta-geo';
+import { publicoParaZernio } from '@/lib/zernio-publico';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
+import { ANUNCIO_DESDE_ARCHIVO_APAGADO, MAX_VIDEO_BYTES, errorDelArchivo, linkDeDescarga, rutaEnElBucket, tipoDelArchivo } from '@/lib/anuncio-desde-archivo';
 import { leerIncidentes } from '@/lib/meta-health-history';
 import { getSenalesRecon } from '@/lib/queries';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
@@ -149,6 +154,17 @@ function topePresupuesto(monto: number, actual: number, moneda: string, quien: s
 }
 
 /** Error de Meta al crear, con la traducción de los rechazos conocidos. */
+/** ¿El negocio tiene por dónde crear un anuncio por Zernio? Su Meta conectada por Zernio, o los anuncios por Zernio aparte del token.
+ *  Sin poder leerlo, no: el anuncio desde un archivo no tiene otro camino (Meta directo pide el creativo ya subido). */
+async function anunciosPorZernio(ws: number): Promise<boolean> {
+  try {
+    const { canalMeta } = await import('@/lib/meta-via');
+    if ((await canalMeta(ws)).via === 'zernio') return true;
+    const [{ conexionAnunciosZernio }, { credWs }] = await Promise.all([import('@/lib/zernio-ads'), import('@/lib/credenciales')]);
+    return !!(await conexionAnunciosZernio(ws, await credWs('META_AD_ACCOUNT_ID', ws)));
+  } catch { return false; }
+}
+
 function errorAlCrear(err: unknown, reusaGanador = false): Ejecutado {
   const env = metaErrorEnvelope(err);
   return { ok: false, resumen: `Meta rechazó la creación: ${explicarRechazoPublicacion(env.error_subcode, { reusaGanador }) ?? env.message}` };
@@ -819,6 +835,85 @@ export const RUNNERS: Runners = {
       } catch (err) { return errorAlCrear(err, creative?.source === 'existing'); }
     },
   },
+
+  // «Súbeme este anuncio» desde el grupo (29/10/2026, la llamada con Thiago; lib/anuncio-desde-archivo.ts). Baja el archivo (el del
+  // mensaje o el de un link de Drive), lo guarda en el bucket de los creativos y PROPONE el anuncio EN PAUSA; al aprobarlo, firma el
+  // link y lo crea por Zernio (`video.url` o `imageUrl`). ⚠️ Detrás de ZERNIO_ANUNCIOS_PROBADO: apagada, lo dice y no baja nada.
+  proponer_anuncio_desde_archivo: {
+    preparar: async (input, ctx) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { error: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      if (!(await metaConectada())) return { error: SIN_META };
+      // Sólo por Zernio: Meta directo pide el `video_id` o el `image_hash` ya subidos (proponer_agregar_anuncio).
+      if (!(await anunciosPorZernio(ctx.ws))) return { error: 'Para subir un anuncio desde un archivo hacen falta los anuncios por Zernio conectados (Integraciones → Meta → Conectar con Facebook). Mientras, súbelo desde el Media Buyer.' };
+      const adsetId = str(input, 'adsetId');
+      const nombre = str(input, 'nombre');
+      const origen = str(input, 'origen');
+      const textoPrincipal = str(input, 'primary_text');
+      if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
+      if (!nombre) return { error: 'El nombre del anuncio es obligatorio.', faltan: ['nombre'] };
+      if (!textoPrincipal) return { error: 'Falta el texto principal del anuncio.', faltan: ['primary_text'] };
+      let conj: { name: string; needsForm: boolean };
+      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
+      const destino = str(input, 'destination_url');
+      if (!conj.needsForm && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(destino)) return { error: 'Hace falta destination_url exacta con https.', faltan: ['destination_url'] };
+      if (conj.needsForm) return { error: `El conjunto «${conj.name}» optimiza por formulario: súbelo desde el Media Buyer, donde se elige el formulario.` };
+      // El archivo: el del mensaje (lo baja el turno del grupo) o el de un link.
+      let archivo: { bytes: Uint8Array; mime: string; nombre: string } | null = null;
+      if (origen === 'mensaje') {
+        const a = ctx.archivoDelMensaje ? await ctx.archivoDelMensaje().catch(() => null) : null;
+        if (!a) return { error: 'No veo una imagen ni un video en este mensaje. Mándalo junto con el pedido, o pásame el link.' };
+        archivo = { bytes: Uint8Array.from(Buffer.from(a.base64, 'base64')), mime: a.mime, nombre: a.nombre };
+      } else if (origen === 'link') {
+        const url = linkDeDescarga(str(input, 'link'));
+        if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
+        try {
+          const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
+          // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
+          if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
+          const mime = (r.headers.get('content-type') || '').split(';')[0];
+          const largo = Number(r.headers.get('content-length') || 0);
+          if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
+          archivo = { bytes: new Uint8Array(await r.arrayBuffer()), mime, nombre: url.split('/').pop() || 'archivo' };
+        } catch (err) { return { error: `No pude bajar el archivo (${err instanceof Error ? err.message : String(err)}).`, falla: true }; }
+      } else return { error: 'origen es «mensaje» o «link».', faltan: ['origen'] };
+      const tipo = tipoDelArchivo(archivo.mime, archivo.nombre);
+      const malo = errorDelArchivo(tipo, archivo.bytes.byteLength);
+      if (malo || !tipo) return { error: malo ?? 'Ese archivo no sirve como anuncio.' };
+      const { randomUUID } = await import('node:crypto');
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      const ruta = rutaEnElBucket(ctx.ws, randomUUID(), tipo, archivo.mime);
+      const { error: eSubida } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET)
+        .upload(ruta, archivo.bytes, { contentType: archivo.mime || (tipo === 'video' ? 'video/mp4' : 'image/jpeg'), upsert: false });
+      if (eSubida) return { error: `No pude guardar el archivo (${eSubida.message}).`, falla: true };
+      const opcional = (k: string) => str(input, k) || undefined;
+      return {
+        payload: { adsetId, nombre, ruta, media_type: tipo, primary_text: textoPrincipal, headline: opcional('headline'), cta_type: opcional('cta_type'), destination_url: destino },
+        resumen: `Crear EN PAUSA el anuncio «${nombre}» en el conjunto «${conj.name}» (${adsetId}) con ${tipo === 'video' ? 'el video' : 'la imagen'} que mandaste, por Zernio.`,
+      };
+    },
+    ejecutar: async (p) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { ok: false, resumen: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      // El link se firma AHORA (2 horas): la propuesta pudo esperar su aprobación más que eso.
+      const { data, error } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET).createSignedUrl(String(p.ruta), 7200);
+      if (error || !data?.signedUrl) return { ok: false, resumen: `No encontré el archivo guardado (${error?.message ?? 'sin link'}). Vuelve a mandarlo.` };
+      const video = p.media_type === 'video';
+      const creative: Creative = {
+        source: 'upload', media_type: video ? 'video' : 'image',
+        ...(video ? { video_url: data.signedUrl } : { thumbnail_url: data.signedUrl }),
+        primary_text: String(p.primary_text ?? ''), headline: p.headline ? String(p.headline) : undefined,
+        cta_type: p.cta_type ? (String(p.cta_type) as CTAType) : undefined, destination_url: p.destination_url ? String(p.destination_url) : undefined,
+      };
+      try {
+        const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
+        return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id } };
+      } catch (err) { return errorAlCrear(err); }
+    },
+  },
   proponer_editar_textos_anuncio: {
     preparar: async (input) => {
       if (!(await metaConectada())) return { error: SIN_META };
@@ -843,7 +938,7 @@ export const RUNNERS: Runners = {
     },
   },
   proponer_editar_publico_conjunto: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       if (!(await metaConectada())) return { error: SIN_META };
       const adsetId = str(input, 'adsetId');
       if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
@@ -854,6 +949,13 @@ export const RUNNERS: Runners = {
       // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
       if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
         return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };
+      }
+      // Por la conexión de Facebook (Zernio) se escribe en SU forma: lo que no se puede mandar (Advantage+, un barrio) se dice
+      // antes del «sí», no al confirmar (lib/zernio-publico.ts).
+      const { canalMeta } = await import('@/lib/meta-via');
+      if ((await canalMeta(ctx.ws)).via === 'zernio') {
+        try { publicoParaZernio(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada)); }
+        catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
       }
       const cambios = resumenDeCambios(cambiosDesdeEntrada(actual.targeting, entrada));
       return { payload: { adsetId, entrada }, resumen: `Cambiar el público del conjunto «${actual.name}» (${adsetId}): ${cambios.join(' · ')}. Lo demás se conserva. Vuelve a revisión de Meta y reinicia el aprendizaje.` };
@@ -999,6 +1101,8 @@ export const RUNNERS: Runners = {
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
         metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
         cuentaPublicitaria: config.cuentaPublicitaria,
+        // DÓNDE y HASTA (zona_media_buyer, hasta_media_buyer): dónde prende y sube, y cuándo termina cada campaña.
+        zona: config.zona, hasta: config.hasta, hastaCampanas: config.hastaCampanas,
         ultimaCorrida: config.ultimaCorrida,
         // Los agentes, como el panel «N activos» de la pantalla (app/ads-manager/Agentes.tsx).
         agentes: AGENTES_MAKO.map((a) => ({ agente: a, nombre: NOMBRE_AGENTE[a], que: QUE_HACE[a], estado: estadoDeAgente(a, r), tacticas: TACTICAS_DE[a] })),
@@ -1352,6 +1456,79 @@ export const RUNNERS: Runners = {
         mejores: (vista?.mejores ?? []).map((a) => ({ adId: a.adId, nombre: a.nombre, campana: a.campana, gastoMes: a.gasto, resultadosMes: a.resultados, costoMes: a.costo })),
         lanzados: decisiones.filter((d) => d.estado === 'aplicada' && (esVariacion(d) || d.tipo === 'crear_anuncios')).map(corta),
       });
+    },
+  },
+  // DÓNDE, HASTA y «lánzame una campaña» (29/10/2026): lib/media-buyer/zona.ts y campana.ts, la misma puerta que la pantalla.
+  zona_media_buyer: {
+    preparar: async (input, ctx) => {
+      const v = validarCambioMB({ zona: (Array.isArray(input.zona) ? input.zona : []) as never });
+      if (!v.ok) return { error: v.error };
+      // Cada lugar confirmado contra Meta (su id con su nombre): la confirmación muestra lo que dice Meta, no lo que mandó el modelo.
+      const r = await resolverLugaresMB(ctx.ws, v.fila.zona as LugarZonaMB[]);
+      if (!r.ok) return { error: r.error, ...(r.error.startsWith('No pude') ? { falla: true as const } : {}) };
+      const zona = r.lugares;
+      return { payload: { zona }, resumen: zona.length ? `El Media Buyer prende y sube presupuestos sólo en: ${zona.map((l) => l.nombre).join(', ')}.` : 'El Media Buyer trabaja en toda la cuenta (sin zona).' };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { zona: payload.zona as LugarZonaMB[] }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Zona del Media Buyer guardada.' };
+    },
+  },
+  hasta_media_buyer: {
+    preparar: async (input, ctx) => {
+      const hasta = str(input, 'hasta') || null;
+      const campanaId = str(input, 'campanaId') || null;
+      const v = validarCambioMB(campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta });
+      if (!v.ok) return { error: v.error };
+      let nombre: string | null = null;
+      if (campanaId) {
+        // La campaña tiene que ser de la cuenta: se busca en la lectura del Media Buyer (la misma de la pantalla).
+        const datos = await leerDatosCuentaMB(ctx.ws).catch(() => null);
+        const c = datos?.arbol.find((n) => n.nivel === 'campaign' && n.id === campanaId);
+        if (!datos) return { error: 'No pude leer tu cuenta de Meta para encontrar esa campaña.', falla: true };
+        if (!c) return { error: `La campaña ${campanaId} no está en tu cuenta (míralas con ver_campanas_media_buyer).` };
+        nombre = c.nombre;
+      }
+      const que = nombre ? `la campaña «${nombre}»` : 'toda la cuenta';
+      const fecha = hasta ? `${hasta.slice(8, 10)}/${hasta.slice(5, 7)}/${hasta.slice(0, 4)}` : null;
+      return {
+        payload: { hasta, campanaId },
+        resumen: fecha ? `Fecha de fin de ${que}: el ${fecha}. Pasada, MaKo la pausa; desde 3 días antes no sube presupuestos.` : `Sin fecha de fin para ${que}.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const hasta = (payload.hasta as string | null) ?? null;
+      const campanaId = (payload.campanaId as string | null) ?? null;
+      await guardarConfigMB(ctx.ws, campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Fecha de fin guardada.' };
+    },
+  },
+  proponer_crear_campana: {
+    preparar: async (input, ctx) => {
+      // Los parámetros planos de la API (lo que se edita en /mako/revisar) → la entrada de la pantalla «Nueva campaña».
+      const tipo = str(input, 'creativoTipo');
+      const creativo = tipo === 'anuncio' ? { tipo, adId: str(input, 'anuncioId') }
+        : tipo === 'video_cuenta' ? { tipo, videoId: str(input, 'videoId') }
+          : tipo === 'video' ? { tipo, url: str(input, 'videoUrl') }
+            : { tipo, url: str(input, 'imagenUrl') };
+      const entrada: Record<string, unknown> = {
+        nombre: str(input, 'nombre'), objetivo: str(input, 'objetivo'), presupuestoDia: num(input, 'presupuestoDia'),
+        lugares: Array.isArray(input.lugares) ? input.lugares : [], hasta: str(input, 'hasta') || null,
+        edadMin: num(input, 'edadMin'), edadMax: num(input, 'edadMax'),
+        formularioId: str(input, 'formularioId') || null, pixelId: str(input, 'pixelId') || null, evento: str(input, 'evento') || null,
+        url: str(input, 'url') || null, creativo, texto: str(input, 'texto'), titulo: str(input, 'titulo') || null,
+        boton: str(input, 'boton') || null, enPausa: input.enPausa === true,
+      };
+      const p = await prepararCampanaMB(ctx.ws, entrada);
+      if (!p.ok) return { error: p.error, ...(p.faltan ? { faltan: p.faltan } : {}), ...(p.falla ? { falla: true as const } : {}) };
+      return { payload: { entrada }, resumen: p.resumen };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await crearCampanaMB(ctx.ws, (payload.entrada ?? {}) as Record<string, unknown>, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return r.ok
+        // Nace en pausa (campana-reglas.ts → CAMPANA_PRENDIDA_MEDIDA); lo que la relectura vio distinto va ENTERO en el resumen.
+        ? { ok: true, resumen: `Campaña creada en Meta (${r.campaignId}). ${r.resumen}${r.avisos.length ? ` Ojo: ${r.avisos.join(' ')}` : ''}`, datos: { campaignId: r.campaignId, adSetId: r.adSetId, adId: r.adId, decisionId: r.decisionId, avisos: r.avisos } }
+        : { ok: false, resumen: r.error };
     },
   },
 };

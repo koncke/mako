@@ -943,6 +943,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         const rechazoATercero = rechazoSiNoEsConfirmacionPura({
           canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, plata: defReg && esAccion(defReg) ? defReg.plata : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
           enElGrupo: enElGrupo ? { pidio: target.pidio ?? null, confirma: enElGrupo.quien, aMaKo: enElGrupo.aMaKo } : undefined,
+          id: defReg?.id,
         });
         if (rechazoATercero) return rechazoATercero;
         if (!(await reclamarPendiente(ws, target.id))) {

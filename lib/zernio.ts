@@ -45,6 +45,7 @@ import { webhookDeLaCuenta } from './zernio-firma';
 import { profileDeLaCuenta } from './zernio-profile';
 import { seguimientoDe, seguimientoNoSe, conTope, CONCURRENCIA_SEGUIMIENTO } from './canal-social';
 import type { BotonZernio } from './botones-social';
+import { publicacionesDeZernio, type PublicacionDeLaCuenta } from './publicacion-cron';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
@@ -483,10 +484,11 @@ async function asegurarWebhookEn(ws: number, c: ZernioCfg, maestro: string): Pro
  * `leads_retrieval`, el evento puede estar suscripto y no llegar nunca. Existe porque `asegurarWebhook` deja los leads afuera SIN
  * error cuando Zernio los rechaza, y alguien tiene que poder decirle al negocio por qué no le entran.
  */
-export async function leadsEnElWebhook(ws: number): Promise<boolean | null> {
+export async function leadsEnElWebhook(ws: number, cuentaAnuncios?: string | null): Promise<boolean | null> {
   const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
   if (!maestro) return null;
-  const c = await cfg(ws);
+  // Con varias claves (29/10/2026), la de la conexión de anuncios: sus leads llegan por el webhook de ESA cuenta de Zernio.
+  const c = cuentaAnuncios ? await cfgDeCuenta(ws, cuentaAnuncios) : await cfg(ws);
   const { ruta } = webhookDeLaCuenta(maestro, ws, c.byok);
   const url = linkApp(ruta, null);
   const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');
@@ -584,6 +586,18 @@ export const esRechazoDelComentario = (e: unknown): boolean => e instanceof Zern
 
 /** Cuánto se espera UN «¿te sigue?»: corre adentro del motor, por lead que escribió. */
 const TIMEOUT_SEGUIMIENTO_MS = 8_000;
+
+/**
+ * LAS ÚLTIMAS PUBLICACIONES DE UNA CUENTA (ticket #25: elegir la publicación o el Reel del CRON de comentario). GET
+ * /v1/accounts/{id}/posts, con la clave DUEÑA de la cuenta (`cfgDeCuenta`): Zernio las lee en vivo de la plataforma, las 25
+ * más nuevas, también las que no se publicaron por Zernio, con el MISMO id que trae el comentario (`platformPostId`). Tira
+ * lo que tire Zernio: quien llama dice «no pude leer tus publicaciones».
+ */
+export async function publicacionesDeLaCuenta(ws: number, accountId: string): Promise<PublicacionDeLaCuenta[]> {
+  const k = await cfgDeCuenta(ws, accountId);
+  const r = await zFetch<unknown>(k.apiKey, `/accounts/${encodeURIComponent(accountId)}/posts`, undefined, TIMEOUT_SEGUIMIENTO_MS);
+  return publicacionesDeZernio(r);
+}
 
 /**
  * La key para LEER el seguimiento: la propia del negocio, como `cfg` (lectura ESTRICTA: «no pude leer las

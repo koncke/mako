@@ -1482,7 +1482,14 @@ export async function upsertLeadFromMeta(input: {
   meta_created_at?: string | number | null;
   /** Los `name` que el parser no reconoció. Van al historial del lead, no a una pantalla nueva. */
   meta_campos_no_reconocidos?: string[];
-}): Promise<{ created: boolean; lead: Lead }> {
+}, opc: {
+  /**
+   * Sólo crear (el barrido de Zernio, lib/zernio-leads-barrido.ts): si la persona YA es un lead (por teléfono o email), se devuelve
+   * ésa SIN TOCARLA (`created: false`). Sin esto, una persona con dos formularios tenía la ficha yendo y viniendo entre los dos
+   * `meta_lead_id` en cada pasada, perdía la campaña y avisaba «lead fusionado» cada media hora (revisión de privacidad, 29/10, M3).
+   */
+  noTocarExistente?: boolean;
+} = {}): Promise<{ created: boolean; lead: Lead }> {
   if (!input.meta_lead_id) {
     throw new Error('meta_lead_id es requerido');
   }
@@ -1511,6 +1518,7 @@ export async function upsertLeadFromMeta(input: {
   let existing: Lead | null = null;
   if (telNorm) existing = await primerLeadPorTelefono(supabase, telNorm, 'instant form de Meta', emailNorm);
   if (!existing && emailNorm) existing = await primerLeadPor(supabase, 'email', emailNorm, 'instant form de Meta');
+  if (existing && opc.noTocarExistente) return { created: false, lead: existing };
 
   // Campos de Meta — siempre se escriben (es info nueva de atribución)
   //
