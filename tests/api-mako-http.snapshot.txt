@@ -598,6 +598,7 @@ ver_archivero
 ver_automatizaciones_media_buyer
 ver_avatares
 ver_avisos_comunidad
+ver_bajas_de_leads
 ver_base_formulario_meta
 ver_biblioteca_media_buyer
 ver_borrador_de_reunion

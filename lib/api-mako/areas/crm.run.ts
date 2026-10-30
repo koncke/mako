@@ -27,6 +27,7 @@ import { pasarEnBloqueAColumna } from '@/lib/crm-bloque-server';
 import { previaDePasar, pasarLoteAOtroFunnel } from '@/lib/lead-funnel';
 import { aPasar, avisosDePasar, etapaSugerida, etapasElegibles } from '@/lib/pasar-funnel-reglas';
 import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads } from '@/lib/leads-papelera';
+import { leerBajasDeLeads } from '@/lib/leads-bajas';
 import { DIAS_PAPELERA_LEADS, diasQuedan, textoQuedan } from '@/lib/leads-papelera-reglas';
 import { pideMotivo } from '@/app/crm/motivos-salida';
 import { porQueNoSeElimina, pipelineReordenado } from '@/lib/etapas-crm-reglas';
@@ -1507,6 +1508,13 @@ export const RUNNERS: Runners = {
       const mal = r.fallaron ? ` ${r.fallaron} no se pudieron (${r.motivos.slice(0, 2).join(' · ')}).` : '';
       return { ok: r.hechos.length > 0, resumen: `Listo: ${r.hechos.length} a la papelera (se recuperan con recuperar_de_papelera_crm).${mal}${quedan(r.pendientes)}` };
     }),
+  },
+  ver_bajas_de_leads: {
+    leer: async (input) => {
+      const leadId = Number(input.leadId);
+      const r = await leerBajasDeLeads({ leadId: Number.isSafeInteger(leadId) && leadId > 0 ? leadId : null });
+      return { bajas: r.renglones.map((b) => ({ ...b, leadIds: b.leadIds.slice(0, 200) })), aviso: r.aviso };
+    },
   },
   ver_papelera_crm: {
     leer: async (input) => {

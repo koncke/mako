@@ -10930,8 +10930,10 @@ docs/hallazgos-crm.md («El feedback del 27/10/2026»).
 Desde la mig 0340, todo «Eliminar» que ve una persona o pide MaKo (la barra en bloque, la tarjeta, la ficha, la API) va por
 `mandarLeadsAPapelera` (lib/leads-papelera.ts): la base saca la FOTO del lead y de todo lo que se lleva en cascada (las FKs se leen
 de `pg_constraint`, no de una lista) y lo borra, en una transacción por lead; durante 30 días vuelve igual, con sus mismos ids.
-**Regla para código nuevo:** un camino nuevo de «eliminar un lead» llama a la papelera, nunca a `deleteLead`; `deleteLead` queda
-para lo interno (unificar fichas, el lead que perdió la carrera de Instagram, el reset de un negocio). Sin la migración, la
+**Regla para código nuevo:** un camino nuevo de «eliminar un lead» llama a la papelera. Lo interno que no debe dejar foto (unificar
+fichas, el lead que perdió la carrera de Instagram) va por `borrarLeadConCamino` (lib/leads-bajas.ts), con su camino: no hay otro
+`from('leads').delete()` en `lib/` ni en `app/`, y tests/crm-leads-bajas.test.ts lo barre. Cada borrado deja un renglón en `leads_bajas`
+(mig 0356: un trigger, así que también lo deja un script), que no se purga, y se lee con `ver_bajas_de_leads`. Sin la migración, la
 papelera NO cae al borrado de antes: lo dice y no borra. Una tabla nueva con FK al lead entra sola a la foto; una FK de VARIAS
 columnas en cascada la frena entera (no la sabe guardar). Lo fijan tests/crm-acciones-bloque.test.ts y
 scripts/probar-0340-pglite.mjs (contra un Postgres de verdad); el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la
