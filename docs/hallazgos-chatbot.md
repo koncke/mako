@@ -50,9 +50,13 @@ día)**, sólo las nuevas.
 - `at time zone` da una fecha sin zona, y el driver la lee como hora local de la máquina y la corre 3 horas: se pide con `to_char`.
 - Medir en la zona equivocada escondía todo: el negocio es Cancún, no Tijuana.
 
-**Sin decidir, y es de producto:** un negocio sin horario manda a cualquier hora. Medido el 30/10 en toda la plataforma: de 15
-activas (sin contar los avisos de MaKo), 14 no tienen goteo y 12 no tienen horario; sólo 2 negocios tienen uno propio. Poner uno de
-fábrica cambia cuándo les llegan los mensajes a los leads de clientes: no se hizo.
+**Un negocio sin horario manda a cualquier hora (decidido por el Cerebro, 30/10).** Medido ese día: de 15 activas (sin los avisos de
+MaKo), 14 sin goteo y 12 sin horario; sólo 2 negocios tienen uno propio. **Las que nacen de ahora en más: horario de fábrica, de 9 a 21.
+Las que ya existen: no se toca ninguna**, y el puente es el aviso en las prendidas. El corte es por fecha de creación
+(`DESDE_HORARIO_DE_FABRICA`, `naceConHorario`). ⚠️ **Se decide al prenderla por primera vez, no al crearla:** una vacía nace sin saber
+qué la dispara, y lo que contesta a algo que acaba de hacer la persona (un DM, un comentario, un email) no espera a las 9: alguien
+probándola a las 22:00 la lee como rota. Va en `setSecuenciaActiva`, la única puerta que prende, y el aviso dice ese mismo horario. La difusión queda afuera: la manda la persona a
+propósito, y su hoja promete los turnos de Instagram sin horario de por medio. Si no se puede leer el horario o la fecha, no se pone.
 
 ## Al activar se dice cuántos y a qué ritmo (30/10/2026, decisión de Martín del 25/10)
 

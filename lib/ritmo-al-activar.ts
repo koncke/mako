@@ -22,7 +22,7 @@
 // =============================================================================
 import { canalDelGoteo, type CanalDelGoteo, type Goteo } from './goteo';
 import { indiceEntrada, saleSolo } from './nutricion-grafo-motor';
-import { TRIGGERS_DEL_EMISOR, TRIGGER_SOLO_GRUPO } from './disparadores';
+import { TRIGGERS_DEL_EMISOR, TRIGGER_SOLO_GRUPO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO } from './disparadores';
 import { textoDeHorario } from './config-automatizacion';
 import type { HorarioEnvio } from './horario-envio';
 import { claseDe, indicePorId, puertosDe, type PasoGrafo } from './flujo-grafo';
@@ -33,6 +33,24 @@ import { esPasoAccion } from './nutricion-paso-accion';
  * una tarjeta. Los arma el server: esta pieza trae el motor, y la pantalla no la importa como valor.
  */
 export type AvisoDeRitmo = { texto: string; sinGoteo: boolean; sinHorario: boolean; poner: string | null; rotulo: string | null };
+/**
+ * EL HORARIO DE FÁBRICA, para las que nacen de ahora en más (el Cerebro, 30/10/2026: «un negocio nuevo que manda a las 3 de la mañana es
+ * un problema que le creamos nosotros»). ⚠️ LAS QUE YA EXISTÍAN NO SE TOCAN: cambiar cuándo le llegan los mensajes a los leads de un cliente
+ * sin que lo pida no se hace. El corte es por fecha de creación.
+ * ⚠️ SE DECIDE AL PRENDERLA POR PRIMERA VEZ, NO AL CREARLA: una vacía nace sin saber qué la dispara, y LO QUE CONTESTA A ALGO QUE ACABA DE
+ * HACER LA PERSONA NO ESPERA A LAS 9: un DM o un comentario de las 22:00 que no contesta se lee como «no anda». Si tiene un horario propio
+ * (también uno apagado a propósito) o el negocio tiene el suyo, manda ése.
+ */
+export const DESDE_HORARIO_DE_FABRICA = Date.parse('2026-10-31T03:00:00Z');
+const CONTESTAN_AL_MOMENTO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO]);
+export function naceConHorario(o: { creadaAt: string | null | undefined; triggers: readonly string[]; horarioPropio: unknown; delNegocio: unknown }): boolean {
+  const creada = o.creadaAt ? Date.parse(o.creadaAt) : NaN;
+  if (!Number.isFinite(creada) || creada < DESDE_HORARIO_DE_FABRICA) return false;
+  if (o.horarioPropio !== undefined || o.delNegocio != null) return false;
+  if (!o.triggers.length) return false;
+  return !o.triggers.some((t) => CONTESTAN_AL_MOMENTO.has(t) || TRIGGERS_DEL_EMISOR.has(t) || t === TRIGGER_SOLO_GRUPO);
+}
+
 /** Lo que se muestra de una ya prendida. */
 export type AvisoDeUnaPrendida = { texto: string; rotulo: string };
 

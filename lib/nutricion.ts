@@ -83,7 +83,9 @@ import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, pue
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
-import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, primeroQuedaParaAprobar, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, primeroQuedaParaAprobar, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
+import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
+import { PREFIJO_CLAVE_DIFUSION } from '@/lib/difusion-reglas';
 import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
@@ -119,7 +121,7 @@ import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
-import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { configsDelNegocio, guardarConfigAutomatizacion, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
@@ -765,6 +767,11 @@ export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqu
   if (activa && !o.aunqueDuplique) {
     const otra = await duplicadaDeLaActivacion(id);
     if (otra) throw new DuplicadaError(otra);
+  }
+  // EL HORARIO DE FÁBRICA, ANTES DE PRENDERLA (`naceConHorario`, lib/ritmo-al-activar.ts). No poder ponerlo no frena: queda el log.
+  if (activa) {
+    const poner = async () => { if (await leTocaHorarioDeFabrica(id)) { const r = await guardarConfigAutomatizacion(id, { horario: HORARIO_SUGERIDO }); if (!r.ok) throw new Error(r.error); } };
+    await (o.ws != null ? runWithWorkspace(o.ws, poner) : poner()).catch((e) => console.error(`[nutricion] activar la ${id}: no pude ponerle el horario de fábrica: ${e instanceof Error ? e.message : String(e)}`));
   }
   const { error } = await supabase
     .from('nutricion_secuencias')
@@ -1943,6 +1950,23 @@ export async function existentesEnEtapa(secuenciaId: number): Promise<Existentes
   };
 }
 
+/** ¿Al prenderla le toca el horario de fábrica? Tira si no puede leer: no saber no es «le toca». */
+async function leTocaHorarioDeFabrica(secuenciaId: number): Promise<boolean> {
+  const supabase = (await getTenantDb());
+  const [sec, config, delNegocio, fila] = await Promise.all([
+    secuenciaDeId(secuenciaId), leerConfigAutomatizacion(secuenciaId), horarioDeEnvio(),
+    supabase.from('nutricion_secuencias').select('created_at').eq('id', secuenciaId).maybeSingle(),
+  ]);
+  if (fila.error) throw new Error(fila.error.message);
+  if (!sec || delNegocio === 'ilegible') return false;
+  // La difusión no: la manda la persona a propósito, y su hoja promete los turnos de Instagram sin un horario de por medio.
+  if (sec.clave.startsWith(PREFIJO_CLAVE_DIFUSION)) return false;
+  return naceConHorario({
+    creadaAt: (fila.data as { created_at?: string } | null)?.created_at, triggers: vistasPorDisparador(sec).map((v) => v.trigger_tipo),
+    horarioPropio: config.horario, delNegocio,
+  });
+}
+
 /**
  * CUÁNTOS Y A QUÉ RITMO, ANTES DE PRENDERLA (Martín, 25/10/2026: «como está muy escondido el "goteo" se manden muchos mensajes de
  * una»; lib/ritmo-al-activar.ts). Cuenta con la MISMA puerta que el barrido (`planificarInscripciones`) y SÓLO LEE. ⚠️ No mira
@@ -1977,8 +2001,9 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
     // El aviso de MaKo también dispara por su evento, pero le escribe al equipo: no es el caso que asusta.
     porEvento: vistasPorDisparador(sec).some((v) => TRIGGERS_SOLO_EVENTO.has(v.trigger_tipo) && v.trigger_tipo !== TRIGGER_AVISO_MAKO),
     quedaParaAprobar: primeroQuedaParaAprobar(sec.pasos, sec.envio_automatico),
-    // Sin poder leerlo, no se afirma nada.
-    horario: config == null || delNegocio === 'ilegible' ? undefined : horarioDeLaAutomatizacion(config, delNegocio),
+    // Sin poder leerlo, no se afirma nada. Y dice el horario con que va a salir: el de fábrica, si le toca al prenderla.
+    horario: config == null || delNegocio === 'ilegible' ? undefined
+      : (await leTocaHorarioDeFabrica(secuenciaId).catch(() => false)) ? HORARIO_SUGERIDO : horarioDeLaAutomatizacion(config, delNegocio),
   });
 }
 

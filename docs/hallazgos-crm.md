@@ -48,6 +48,18 @@ y quien lo quiera en la ficha lo agrega con «Personalizar». No se vio en panta
 **Vive en:** lib/datos-aviso.ts (`loQueSePide`) · app/crm/lead-view/ficha/FichaPorBloques.tsx (`solucionar`) ·
 app/crm/LeadSheet.tsx · app/crm/[id]/LeadDetailBody.tsx · app/crm/StageMoveDialog.tsx (`datoPedido`).
 
+## Un lead borrado no deja con qué reconstruir qué le pasó, ni quién lo borró (medido el 30/10/2026)
+
+**Lo que lo destapó:** de los 68 mensajes de una automatización de Leila, `nutricion_envios` tenía 2. Los otros 66 leads ya no existen: el
+borrado se llevó en cascada sus envíos e inscripciones, y sus mensajes quedaron con `lead_id` null. **Quién los borró no quedó registrado.**
+No es de automatizaciones: **cualquier cosa que le haya pasado a un lead borrado es irreconstruible, y no sabemos quién borra.**
+
+**Medido, sólo lectura:** 4.457 filas de `lead_audit` son de leads que ya no existen, y ninguna dice quién los borró ni cuándo. `leads_papelera`
+tiene 0 filas en TODOS los negocios. **⚠️ La papelera tapa sólo una parte:** guarda la foto y `por`, pero (1) a los 30 días se purga y se va
+todo, también el rastro; (2) `lib/leads-unificar.ts:190` y `lib/zernio-entrante.ts:235` borran sin pasar por ella; (3) 0 filas puede ser que
+nadie borró desde que subió, o que no está andando: nadie lo miró. **Mientras tanto:** lo que salió se mide en `wa_mensajes`, nunca en
+`nutricion_envios`. **Sin hacer:** un renglón que sobreviva al borrado (quién, cuándo, cuántos, por qué camino), arriba en docs/pendientes.md.
+
 ## Acciones en bloque y la papelera: los 394 de «Contacto nuevo» de Leila (28/10/2026, tickets #21 y #22)
 
 **El síntoma.** Leila quería sacar los 394 de «Contacto nuevo» de LíderMente y pasarlos a Funnel general, o borrarlos. MaKo le

@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje } from '../lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario } from '../lib/ritmo-al-activar';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 import type { HorarioEnvio } from '../lib/horario-envio';
 import { crearDesdePlantilla, type DbPlantilla } from '../lib/plantilla-crear';
@@ -119,6 +119,35 @@ test('el horario: entre qué horas sale; sin horario, con todas las letras y con
   assert.equal(avisoDeRitmo({ ...base, canal: null, personas: 0, goteo: null, porEvento: true, horario: null }), null);
 });
 
+test('el horario de fábrica: sólo las que nacen de ahora en más, y nunca lo que contesta al momento', () => {
+  const nueva = { creadaAt: '2026-11-02T10:00:00Z', triggers: ['etapa_actual'], horarioPropio: undefined, delNegocio: null };
+  assert.equal(naceConHorario(nueva), true);
+  // ⚠️ LAS QUE YA EXISTÍAN NO SE TOCAN, y sin saber cuándo nació, tampoco.
+  assert.equal(naceConHorario({ ...nueva, creadaAt: '2026-10-26T15:01:00Z' }), false);
+  assert.equal(naceConHorario({ ...nueva, creadaAt: null }), false);
+  // Lo que eligió la persona o el negocio manda; también un horario apagado a propósito.
+  assert.equal(naceConHorario({ ...nueva, horarioPropio: { activo: false } }), false);
+  assert.equal(naceConHorario({ ...nueva, horarioPropio: null }), false);
+  assert.equal(naceConHorario({ ...nueva, delNegocio: { activo: true } }), false);
+  // Lo que contesta a algo que acaba de hacer la persona no espera a las 9, ni si es uno entre varios CRON.
+  for (const t of ['instagram', 'messenger', 'email_recibido']) assert.equal(naceConHorario({ ...nueva, triggers: [t] }), false, t);
+  assert.equal(naceConHorario({ ...nueva, triggers: ['etapa_actual', 'instagram'] }), false);
+  // Lo que le escribe al equipo o lo manda otro motor, tampoco. Sin CRON no hay nada que decidir.
+  for (const t of ['aviso_mako', 'reunion_recordatorio', 'grupo_mako']) assert.equal(naceConHorario({ ...nueva, triggers: [t] }), false, t);
+  assert.equal(naceConHorario({ ...nueva, triggers: [] }), false);
+  // El cableado: antes de prender, en la única puerta; no poder ponerlo no frena; y el aviso dice el mismo horario.
+  const n = leer('lib/nutricion.ts');
+  const i = n.indexOf('export async function setSecuenciaActiva');
+  const puerta = n.slice(i, n.indexOf("if (error) throw new Error(`setSecuenciaActiva:", i));
+  assert.match(puerta, /if \(await leTocaHorarioDeFabrica\(id\)\) \{ const r = await guardarConfigAutomatizacion\(id, \{ horario: HORARIO_SUGERIDO \}\);/);
+  assert.ok(puerta.indexOf('leTocaHorarioDeFabrica') < puerta.indexOf(".update({ activa,"), 'antes de prenderla: si no, puede salir algo sin horario');
+  assert.match(puerta, /no pude ponerle el horario de fábrica/);
+  // La difusión la manda la persona a propósito; se reconoce por su clave.
+  assert.match(n, /if \(sec\.clave\.startsWith\(PREFIJO_CLAVE_DIFUSION\)\) return false;/);
+  assert.match(n, /import \{ PREFIJO_CLAVE_DIFUSION \} from '@\/lib\/difusion-reglas';/);
+  assert.match(n, /\(await leTocaHorarioDeFabrica\(secuenciaId\)\.catch\(\(\) => false\)\) \? HORARIO_SUGERIDO : horarioDeLaAutomatizacion\(config, delNegocio\)/);
+});
+
 test('«Prospección: apertura» nace con horario y goteo: la plantilla de escribir en frío no sale de noche ni de a 6 juntos', async () => {
   const db = {
     from: () => ({
@@ -223,5 +252,7 @@ test('el cableado: el motor cuenta con la misma puerta del barrido, y las cuatro
 // evento con goteo calla, la plantilla nace sin ritmo, no poder ponerlo se calla o tumba la creación, la ruta, la API o las sugerencias no lo
 // enchufan, la prendida no avisa o avisa las del equipo, un error afirma a medias, el motor escribe al avisar, la pantalla lo muestra
 // pausada o lo esconde a quien no es admin, ponerle goteo no relee, la tarjeta o el teléfono lo esconden, «Poner…» no abre Configuraciones.
+// El horario de fábrica (base 16 / 0): toca a las que ya existían, pisa un horario propio o el del negocio, un DM o el aviso del equipo espera,
+// la puerta no lo pone, el aviso no lo dice, la difusión lo toma → 15 / 1 cada una.
 // CON EL DATO REAL (30/10, sólo lectura): de 37 pausadas de producción, 11 dirían algo (9 con número, de 2 a 34 personas; 2 de Instagram
 // sin número). Las 7 activas de Instagram tampoco tienen goteo. Ninguna de las medidas queda para aprobar: ese texto no se vio con un caso real.
