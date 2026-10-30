@@ -2441,6 +2441,11 @@ La de Chatwoot (el oficial) se fue el 09/10 (tests/sin-chatwoot.test.ts); WhatsA
   la marca (`deMaKo`) y la tarjeta la saca, en el estado de la grilla y en la lista del modal.
 - **El teléfono:** la hoja muestra las líneas (la misma pieza, `soloLectura`) y «Agregar una línea en la computadora». Un QR no
   se escanea con el mismo teléfono que lo muestra.
+- ⚠️ **Una tarjeta nueva entra sola a OTRO catálogo:** lib/conexiones-catalogo.ts (lo que la API de MaKo y el doer ofrecen para
+  conectar) se monta sobre `DEFS`, y ya tenía «Tu número de WhatsApp» con la key `whatsapp` y el link de contrato
+  `/chats?conectar=whatsapp` (el QR en un paso). La tarjeta iba primero y lo pisaba: MaKo mandaba al modal en vez de al QR. Lo vio
+  tests/conexiones-api.test.ts en tests-afectados, no el test de la tarjeta. **Regla:** antes de sumar una key a `DEFS`, buscarla en
+  `FUERA_DE_LAS_TARJETAS`; la de WhatsApp se saca del mapeo y queda la de afuera.
 - **Capturas sin levantar la app:** un banco de esbuild con el `IntegracionesBoard` real y la ruta simulada (el molde del banco de
   Create, docs/hallazgos-ui.md): `C:/dev/revisiones/whatsapp-tarjeta-2910/`. El CSS del teléfono no viene en `globals.css`: el
   banco tiene que importar `app/m/m.css` y `app/m/configuraciones/configuraciones.css`, o la hoja sale sin estilos.

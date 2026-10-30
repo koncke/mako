@@ -73,7 +73,7 @@ async function main() {
     copias: copias.map(([de]) => de), programadas: programadas.map((x) => x.length),
   };
 
-  out.a.hasta = (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.id === 'evmolde1')?.repetir_hasta ?? null;
+  (out.a as Record<string, unknown>).hasta = (db.calendario_eventos as Array<Record<string, unknown>>).find((f) => f.id === 'evmolde1')?.repetir_hasta ?? null;
 
   // (b) Otra pasada: no nace nada de nuevo (ya nacieron).
   const rB = await generar();

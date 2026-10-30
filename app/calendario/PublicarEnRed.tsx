@@ -269,7 +269,7 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
                 ? [{ value: repeticion.regla, label: textoDeRegla(repeticion.regla) ?? repeticion.regla }] : []),
             ]} />
           {repeticion.regla && (
-            <span style={DIM}>Cada vez nace una publicación igual, a esta hora, con la misma cuenta, el archivo y el texto, y se programa sola en la red. Las próximas se ven en «Se repite». Las ya programadas (hasta dos días) salen como están: un cambio acá vale para las que nazcan después.</span>
+            <span style={DIM}>Cada vez nace una publicación igual, a esta hora, con la misma cuenta, el archivo y el texto, y se programa sola en la red. Las próximas se ven en «Se repite». Las ya programadas (hasta dos días) salen como están: un cambio aquí vale para las que nazcan después.</span>
           )}
         </>
       )}
