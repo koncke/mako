@@ -480,6 +480,8 @@ const DERECHA: HerramientaLinea[] = [
 		habilitada: siempre,
 		ejecutar: () => {},
 		Control: ControlDeslizadorZoom,
+		// Sin lugar, se esconde primero: «Alejar», «Acercar» y «Hacer zoom para ajustar» quedan al lado.
+		prescindible: true,
 	},
 	{
 		id: "linea-acercar",

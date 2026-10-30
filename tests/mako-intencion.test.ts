@@ -128,7 +128,8 @@ test('CONTRATO: capturar y confirmar OBLIGAN a llamar una tool', () => {
 });
 
 test('Toda intención tiene contrato: una capacidad nueva no puede entrar sin decidirlo', () => {
-  const todas: Intencion[] = ['capturar', 'confirmar', 'consultar', 'actuar', 'pensar', 'charlar'];
+  // Desde el 29/10/2026, las tres que decide sólo la IA del grupo (lib/mako-intencion-ia.ts): ticket, debug y no_reply.
+  const todas: Intencion[] = ['capturar', 'confirmar', 'consultar', 'actuar', 'pensar', 'charlar', 'ticket', 'debug', 'no_reply'];
   for (const i of todas) {
     assert.ok(CONTRATO[i], `la intención «${i}» no tiene contrato`);
     assert.ok(typeof CONTRATO[i].forzarTool === 'boolean');

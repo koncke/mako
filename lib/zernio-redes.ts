@@ -153,15 +153,17 @@ export const slotDeClaveZernio = (env: string): number | null => {
  * ¿En qué clave se conecta una red nueva? La PRIMERA (en orden) donde entra sin que Zernio cobre: menos de 2 cuentas activas, o ya
  * tiene una de esa red (volver a entrar no suma). null = todas están llenas: hay que avisar antes del login.
  */
-export function claveConLugar(claves: ReadonlyArray<{ slot: number; conectadas: readonly ConexionZernio[] }>, red: RedZernio): number | null {
+export function claveConLugar(
+  claves: ReadonlyArray<{ slot: number; conectadas: readonly ConexionZernio[] }>, red: RedZernio, opc: { otra?: boolean } = {},
+): number | null {
   for (const k of [...claves].sort((a, b) => a.slot - b.slot)) {
-    if (!avisoDeCobroZernio({ conectadas: k.conectadas, red })) return k.slot;
+    if (!avisoDeCobroZernio({ conectadas: k.conectadas, red, otra: opc.otra })) return k.slot;
   }
   return null;
 }
 
 /** Por qué no se pudo seguir, en una palabra que la pantalla sabe leer. */
-export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'respuesta' | 'error';
+export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'pausa' | 'respuesta' | 'error';
 
 export type RespuestaConectar =
   | { ok: true; tipo: 'url'; url: string }
@@ -182,6 +184,7 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'cobro': 'Esta clave de Zernio ya tiene 2 redes: la tercera se paga. Para no pagar, agrega otra clave de Zernio.',
   'sin-perfil': 'Tu cuenta de Zernio no tiene ningún perfil. Crea uno en Zernio.',
   'sin-red': 'Zernio no contestó. Prueba de nuevo.',
+  'pausa': 'Zernio pidió una pausa: recibió muchos pedidos en un minuto. Tu conexión está bien; prueba de nuevo en un minuto.',
   'respuesta': 'Zernio contestó algo que no entendimos. Prueba de nuevo.',
   'error': 'No se pudo conectar.',
 };
@@ -240,10 +243,12 @@ export function textoGratisZernio(): string {
  * una línea fija). Zernio cobra por cuenta ACTIVA de toda la cuenta de Zernio (las ocultas y desconectadas no cuentan), y la página,
  * el Instagram y los anuncios cuentan aparte. Se avisa si ya hay 2 o más y la red a conectar todavía no tiene una cuenta activa:
  * volver a entrar con la misma cuenta no suma otra (Zernio conserva su id). null = no hace falta avisar.
+ * ⚠️ `otra` (29/10/2026, la llamada con Thiago): «Conectar otra» sobre una red que YA tiene cuenta es OTRA cuenta para Zernio (un 2.º
+ * Instagram cuesta US$6 por mes si la clave ya tiene 2). Sin `otra`, una red ya conectada se daba por «volver a entrar» y no avisaba.
  */
-export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio }): { cuentas: number } | null {
+export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio; otra?: boolean }): { cuentas: number } | null {
   const activas = p.conectadas.filter((c) => c.activa);
-  if (activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
+  if (!p.otra && activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
   return activas.length >= CUENTAS_GRATIS_ZERNIO ? { cuentas: activas.length } : null;
 }
 
@@ -252,11 +257,13 @@ export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; r
  * cuidado: si conectás esta cuenta sin otra API te va a empezar a cobrar Zernio"»). La salida gratis es OTRA clave de Zernio, de
  * otra cuenta del cliente (`puedeAgregar`: todavía hay lugar para una clave más); si ya están las cinco, desconectar una en zernio.com.
  */
-export function textoAvisoCobro(cuentas: number, opc: { puedeAgregar?: boolean } = {}): string {
+export function textoAvisoCobro(cuentas: number, opc: { puedeAgregar?: boolean; otraDe?: string | null } = {}): string {
   const salida = opc.puedeAgregar === false
     ? 'Para no pagar, desconecta en zernio.com una que ya no uses.'
     : 'Para no pagar, agrega otra clave de Zernio (de otra cuenta tuya, con otro Gmail).';
-  return `Esta clave de Zernio ya tiene ${cuentas} redes. Si conectas otra, Zernio te empieza a cobrar (US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una desde la 3.ª). ${salida}`;
+  // «Conectar otra» de una red que ya está (un 2.º Instagram): se dice que también cuenta.
+  const otra = opc.otraDe ? `Otra cuenta de ${opc.otraDe} cuenta como una red más. ` : '';
+  return `${otra}Esta clave de Zernio ya tiene ${cuentas} redes. Si conectas otra, Zernio te empieza a cobrar (US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una desde la 3.ª). ${salida}`;
 }
 
 // ── A dónde vuelve ───────────────────────────────────────────────────────────
@@ -585,8 +592,30 @@ export function motivoDeRespuesta(status: number, cuerpo: unknown, code?: string
   if (status === 401) return { motivo: 'clave-mala', pagoUrl: null, texto: null };
   if (status === 402) return { motivo: razon === 'free_tier_exceeded' ? 'pago' : 'pausada', pagoUrl: urlDePagoDeZernio(cuerpo), texto: null };
   if (status === 403 && (codigo === 'platform_account_limit' || razon === 'platform_account_limit')) return { motivo: 'limite', pagoUrl: null, texto: null };
-  if (status === 429 || status >= 500) return { motivo: 'sin-red', pagoUrl: null, texto: null };
+  // ⚠️ Un 429 es el TOPE de pedidos por minuto (60 por equipo de Zernio, docs.zernio.com/rate-limits), no una conexión rota: se espera
+  //    y se sigue (ticket #34, 30/10/2026: «Zernio no contestó (429). Vuelve a conectar con Facebook» mandaba a reconectar algo que andaba).
+  if (status === 429) return { motivo: 'pausa', pagoUrl: null, texto: null };
+  if (status >= 500) return { motivo: 'sin-red', pagoUrl: null, texto: null };
   return { motivo: 'error', pagoUrl: null, texto };
+}
+
+/** Cuánto esperar ante un 429: lo que pidió Zernio (`Retry-After`), entre 5 s y 1 minuto; sin dato, 30 s. */
+export function esperaDeLaPausa(esperaMs: number | null | undefined): number {
+  if (esperaMs == null || !Number.isFinite(esperaMs)) return 30_000;
+  return Math.min(60_000, Math.max(5_000, Math.round(esperaMs)));
+}
+
+/**
+ * Lo que se dice cuando una LECTURA de Zernio falla (el estado de «Anuncios de Meta»), y si se vuelve a leer sola. Un 429 dice lo que
+ * pasó y se relee después de la espera; NUNCA «vuelve a conectar»: eso hacía reconectar una conexión que andaba (ticket #34). Lo demás
+ * (una conexión vencida, un 401) sí se arregla volviendo a conectar.
+ */
+export function errorDeLecturaZernio(status: number, esperaMs: number | null | undefined): { error: string; reintentarEnMs: number | null } {
+  if (status === 429) {
+    const ms = esperaDeLaPausa(esperaMs);
+    return { error: `Zernio pidió una pausa: recibió muchos pedidos en un minuto. Tu conexión está bien; lo vuelvo a leer en ${Math.ceil(ms / 1000)} segundos.`, reintentarEnMs: ms };
+  }
+  return { error: `Zernio no contestó (${status}). Vuelve a conectar con Facebook.`, reintentarEnMs: null };
 }
 
 // ── La vuelta de página entera, atada al clic que la inició ──────────────────

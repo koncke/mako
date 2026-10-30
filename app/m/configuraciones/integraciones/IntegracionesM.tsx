@@ -9,6 +9,9 @@ import { Button } from '@/app/_ui/Button';
 import { useWs } from '@/app/_ui/Link';
 import { FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM } from '@/app/m/_ui';
 import { abrirEnComputadora } from '@/app/m/_ui/EnComputadoraM';
+import dynamic from 'next/dynamic';
+// Las líneas de WhatsApp (29/10/2026), las mismas que en la computadora. El QR no: no se escanea con el mismo teléfono.
+const LineasWhatsApp = dynamic(() => import('@/app/integraciones/LineasWhatsApp'), { ssr: false });
 
 export type IntegracionM = {
   key: string; nombre: string; categoria: string; descripcion: string; estado: 'conectada' | 'falta'; detalle: string;
@@ -86,7 +89,7 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
         pie={abierta && !abierta.soloServidor ? (
           <PieM consecuencia="Conectar se hace en la computadora por ahora.">
             <Button variant={abierta.estado === 'falta' ? 'primary' : 'secondary'} size="lg" full onClick={() => abrirEnComputadora(abierta.enComputadora, ws)}>
-              {abierta.estado === 'falta' ? 'Conectar en la computadora' : 'Abrir en la computadora'}
+              {abierta.key === 'whatsapp' ? 'Agregar una línea en la computadora' : abierta.estado === 'falta' ? 'Conectar en la computadora' : 'Abrir en la computadora'}
             </Button>
           </PieM>
         ) : undefined}>
@@ -97,6 +100,7 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
               {abierta.estado === 'conectada' ? 'Conectada' : 'Falta conectarla'}{abierta.detalle && !abierta.detalle.startsWith('Falta configurar') ? ` · ${abierta.detalle}` : ''}
             </p>
             <p className="m-configuraciones-texto">{abierta.descripcion}</p>
+            {abierta.key === 'whatsapp' && <LineasWhatsApp soloLectura />}
             {abierta.paraQue && <p className="m-configuraciones-texto m-configuraciones-texto--gris">{abierta.paraQue}</p>}
             {abierta.soloServidor && <p className="m-configuraciones-texto m-configuraciones-texto--gris">La configura el equipo de MaKo.</p>}
           </>

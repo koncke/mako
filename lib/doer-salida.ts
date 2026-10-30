@@ -386,6 +386,29 @@ export const SIN_HACER = 'Eso no lo llegué a hacer en este mensaje: pídemelo o
  */
 export const SIN_HACER_LO_DEMAS = 'Lo demás no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.';
 /**
+ * ⚠️ «PÍDEMELO OTRA VEZ Y LO HAGO» NUNCA ANTE LO QUE MaKo NO PUEDE HACER (29/10/2026, el ticket #30 de Leandro). Le preguntó
+ * «¿lo actualizaste en la documentación API?» y salió «No tengo acceso directo para editar la documentación de la API desde aquí.
+ * Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago»: el saneo sacó un «Ya quedó reportado al equipo de
+ * desarrollo…» falso y pegó `SIN_HACER` debajo de un «no puedo». Una promesa falsa: pedírselo otra vez no lo hace posible. Si la
+ * respuesta dice que MaKo no puede (`noLoPuedeHacer`), no va `SIN_HACER`: queda lo que dijo, y si no queda nada, esta línea, que
+ * no promete.
+ */
+export const SIN_HACER_SIN_PROMESA = 'Eso no quedó hecho en este mensaje.';
+
+/** La respuesta dice que MaKo NO puede hacer eso (no tiene acceso, no está a su alcance). */
+const NO_PUEDE = /\b(?:no\s+tengo\s+(?:acceso|permisos?|forma\s+de)|no\s+(?:puedo|podr[ée])\s+(?:editar|modificar|cambiar|hacer|tocar|acceder|actualizar|entrar|publicar|borrar)|no\s+(?:est[áa]|queda)\s+a\s+mi\s+alcance|fuera\s+de\s+mi\s+alcance|(?:eso|esto)\s+no\s+(?:lo\s+)?puedo|mako\s+no\s+(?:tiene\s+acceso|puede))\b/i;
+/**
+ * ¿La respuesta dice que MaKo NO puede hacer eso? ⚠️ «Quedó reportado al equipo» NO cuenta: reportarlo es abrir un ticket, y eso
+ * MaKo SÍ lo hace; el «He reportado el error al equipo» de Leila (27/10) sigue llevando la verdad de siempre (tests/doer-hecho-grupo,
+ * que lo cazó en tests-afectados cuando la primera versión también lo tapaba).
+ */
+export function noLoPuedeHacer(texto: string): boolean {
+  return NO_PUEDE.test(texto || '');
+}
+
+/** La línea que va después de sacar una promesa o un «hecho» sin respaldo: `normal`, o ninguna si MaKo no lo puede hacer. */
+const laVerdad = (textoEntero: string, normal: string): string | null => (noLoPuedeHacer(textoEntero) ? null : normal);
+/**
  * La nota que va cuando MaKo dice que HIZO algo y el código no ve nada que lo respalde (1.5; la tercera revisión,
  * 21/10/2026). ⚠️ LA ORACIÓN NO SE BORRA: borrar una verdad («sí, ya te la agendé» después de confirmar la tarjeta) es peor
  * que dejar pasar una mentira, porque le dice al cliente «no hice nada» sobre algo que sí se hizo. Las dos versiones que
@@ -477,6 +500,127 @@ export function sinLoQueMaKoNoDice(texto: string, { escuchoUnAudio = false }: { 
   return { texto: [queda, ...verdades].filter(Boolean).join('\n\n'), borrar, producto, audios, ticket: borrar.length + producto.length > 0 };
 }
 
+// ── LAS MULETILLAS Y EL RELLENO (29/10/2026, Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp») ──────────
+// Medido en los grupos reales del 21 al 29/10: «Te voy a ser directo, Martín: …», «Seamos honestos: tienes razón en que…», «Te entiendo
+// perfecto y tienes toda la razón en cada punto», «Mira… …», y oraciones que son SÓLO relleno: «te agradezco que lo estés tomando»,
+// «Ya tomé nota para barrer…» (sin nada que lo respalde), «MaKo ya tiene tu contexto», «Bien ahí por la velocidad», «Tiene todo el
+// sentido…», «Quedo atento». El prompt las prohíbe; esto las saca igual, porque el modelo las vuelve a meter.
+
+/** La muletilla de la PUNTA de una oración, hasta su puntuación: «Te voy a ser directo, Martín:», «Mira…», «Perfecto.», «Entendido,». */
+const MULETILLA_AL_PRINCIPIO = new RegExp(String.raw`^[\s¡]*(?:` + [
+  String.raw`te\s+(?:voy\s+a\s+ser|soy)\s+(?:directo|directa|sincero|sincera|honesto|honesta|clar[oa])(?:\s*,?\s*\p{L}+)?`,
+  String.raw`(?:seamos|siendo|para\s+ser)\s+(?:honest[oa]s?|sincer[oa]s?|direct[oa]s?|clar[oa]s?)`,
+  String.raw`mira`,
+  String.raw`ojo(?:\s+con\s+esto)?`,
+  String.raw`(?:te\s+)?entiendo(?:\s+perfect(?:o|amente))?`,
+  String.raw`entendido(?:\s+perfectamente)?(?:\s*,?\s*\p{L}+)?`,
+  String.raw`(?:perfecto|excelente|genial|buen[ií]simo|de\s+una|dale)`,
+].join('|') + String.raw`)\s*(?:…|\.{3}|[:,.!—-])+\s*`, 'iu');
+
+/** La oración que es SÓLO relleno, aunque arranque con «te entiendo (perfecto) y …». Se va entera. */
+const ORACION_DE_RELLENO = new RegExp(String.raw`^[\s¡]*(?:(?:te\s+)?entiendo(?:\s+perfect(?:o|amente))?\s*,?\s*y\s+)?(?:` + [
+  String.raw`(?:tienes|ten[eé]s|tiene)\s+(?:toda\s+la\s+)?raz[oó]n`,
+  String.raw`te\s+agradezco`,
+  String.raw`gracias\s+por\s+(?:avisar|contarme|la\s+paciencia|tu\s+paciencia|tomarte)`,
+  String.raw`es\s+una\s+clave\s+(?:gigante|enorme|important[ei]s?)`,
+  String.raw`tiene\s+todo\s+el\s+sentido`,
+  String.raw`quedo\s+atent[oa]`,
+  String.raw`seguimos\s+firmes`,
+  String.raw`(?:ya\s+)?tom[eé]\s+nota`,
+  String.raw`(?:mako\s+)?ya\s+tiene\s+tu\s+contexto`,
+  String.raw`arrancamos\s+con\s+todo`,
+  String.raw`bien\s+ah[ií](?!\p{L})`,
+  String.raw`buen\s+ritmo`,
+].join('|') + ')', 'iu');
+
+export type SinMuletillas = { texto: string | null; muletillas: string[] };
+
+/**
+ * La respuesta sin las muletillas de la punta de cada oración ni las oraciones de puro relleno. `texto` es null si no queda nada
+ * que valga la pena mandar (menos de 15 letras): para un acuse, eso es lo correcto (va la reacción). Una marca de ticket no se toca.
+ */
+export function sinMuletillas(texto: string): SinMuletillas {
+  const muletillas: string[] = [];
+  // Lo que queda arranca con mayúscula, como lo escribiría quien no puso la muletilla («Mira…» suele ser su propia oración).
+  const mayuscula = (s: string): string => s.replace(/^(\s*[¡¿«"“(]*)(\p{Ll})/u, (_x, a: string, b: string) => a + b.toUpperCase());
+  const lineas = oraciones(texto).map((ors) => {
+    const quedan = ors.map((o) => {
+      if (esMarca(o)) return o;
+      let r = o;
+      // Puede haber dos seguidas («Mira, te voy a ser directo: …»).
+      for (let i = 0; i < 3; i++) {
+        const m = MULETILLA_AL_PRINCIPIO.exec(r);
+        if (!m) break;
+        muletillas.push(m[0].trim());
+        r = r.slice(m[0].length);
+      }
+      if (ORACION_DE_RELLENO.test(r)) { muletillas.push(r.trim()); return ''; }
+      return r === o ? o : mayuscula(r);
+    }).filter((o) => o.trim());
+    const linea = quedan.join(' ').trimEnd();
+    return quedan.length && quedan[0] !== ors[0] ? mayuscula(linea) : linea;
+  });
+  if (!muletillas.length) return { texto, muletillas };
+  const limpio = lineas.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return { texto: (limpio.match(/\p{L}/gu) ?? []).length >= 15 ? limpio : null, muletillas };
+}
+
+// ── NO INVENTAR UN DATO (29/10/2026; la investigación del Cerebro: «una regla sólo en el prompt no es regla») ─────────────────
+// El prompt dice «no te apoyes en lo que crees saber»; esto lo chequea: una consulta que afirma un NÚMERO (una cantidad, un monto, una
+// fecha, una hora) que no está en nada de lo que el modelo recibió —el system con el catálogo y la memoria, el mensaje, lo que
+// devolvieron sus herramientas— no sale. Es el `context_used` del customer-support-agent de Anthropic (MIT), hecho sobre los números:
+// los nombres no se pueden chequear así sin ruido. Las marcas de ticket, los links y la numeración de una lista no cuentan.
+
+const NUMERO = /\d+(?:[.,:/-]\d+)*/g;
+/** El número como se compara: sólo sus dígitos, sin ceros adelante («12,000» = «12000», «09» = «9»). */
+const digitos = (s: string): string => s.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+const partes = (s: string): string[] => s.split(/[.,:/-]/).map((p) => p.replace(/^0+(?=\d)/, '')).filter(Boolean);
+/** Una hora («13:00», «9:30»): la herramienta la da en UTC y el modelo la pasa a la zona del negocio, así que sus dígitos no
+ *  calzan con nada y no se pueden chequear así. Va sin chequear (una hora inventada la ataja el resumen que confirma el dueño). */
+const HORA = /^\d{1,2}:\d{2}$/;
+/** Una fecha corta («29/10», «29/10/2026»): el modelo reescribe la de la herramienta («2026-10-29»), así que se comparan sus partes. */
+const FECHA = /^\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?$/;
+/** Un teléfono, con sus espacios y guiones: se compara por sus dígitos, y vale si uno contiene al otro (el +54 y el 9 de Argentina). */
+const TELEFONO = /\+?\d[\d\s().-]{6,}\d/g;
+/** El mismo número largo: uno contiene al otro, o terminan en los mismos 8 dígitos (el 9 que agrega WhatsApp en Argentina). */
+const mismoNumeroLargo = (a: string, b: string): boolean => a.includes(b) || b.includes(a) || (a.length >= 8 && b.length >= 8 && a.slice(-8) === b.slice(-8));
+
+/** Los números de la respuesta que no aparecen en ninguna de las fuentes. */
+export function numerosSinFuente(respuesta: string, fuentes: readonly string[]): string[] {
+  const conocidos = new Set<string>();
+  const sueltos = new Set<string>();
+  const largos: string[] = [];
+  for (const f of fuentes) {
+    for (const m of (f || '').matchAll(TELEFONO)) { const d = digitos(m[0]); if (d.length >= 7) largos.push(d); }
+    for (const m of (f || '').matchAll(NUMERO)) {
+      const d = digitos(m[0]);
+      conocidos.add(d);
+      if (d.length >= 7) largos.push(d);
+      for (const p of partes(m[0])) sueltos.add(p);
+    }
+  }
+  const propio = (respuesta || '')
+    .replace(/\[\[[^\]]*\]\]/g, ' ')               // las marcas de ticket
+    .replace(/https?:\/\/\S+/g, ' ')                // los links
+    .replace(/\b(?:ticket|pedido)\s+#\d+/gi, ' ')   // la línea del ticket o del pedido (la escribe el código)
+    .replace(/(^|\n)\s*\d+[.)]\s/g, '$1')           // la numeración de una lista
+    .replace(TELEFONO, (t) => { const d = digitos(t); return d.length >= 7 && largos.some((k) => mismoNumeroLargo(k, d)) ? ' ' : t; });
+  const fuera: string[] = [];
+  for (const m of propio.matchAll(NUMERO)) {
+    const n = m[0];
+    if (HORA.test(n)) continue;
+    const d = digitos(n);
+    if (!d || conocidos.has(d)) continue;
+    // Suelto («el 09 de noviembre»), o una fecha corta: vale si sus partes están en alguna fuente («9/11», «2026-11-09»).
+    if ((/^\d+$/.test(n) || FECHA.test(n)) && partes(n).every((p) => sueltos.has(p))) continue;
+    if (!fuera.includes(n)) fuera.push(n);
+  }
+  return fuera;
+}
+
+/** Lo que dice MaKo en vez de un dato que no vio. El ticket lo abre el código (la marca). */
+export const SIN_EL_DATO = 'Ese dato no lo vi en lo que tengo a mano, así que no te lo doy inventado.';
+
 /** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
 export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 
@@ -547,11 +691,12 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
   const sinRespaldoGrupo = enElGrupo && !enElGrupo.respaldado ? afirmacionesDeHecho(textoEntero, { enElGrupo: delGrupo }) : [];
   if (sinRespaldoGrupo.length) {
     const queda = sinOraciones(textoEntero, (o) => afirmacionesDeHecho(o, { enElGrupo: delGrupo }).length > 0);
-    const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : SIN_HACER;
+    // Lo que MaKo no puede hacer no lleva «pídemelo otra vez y lo hago» (`SIN_HACER_SIN_PROMESA`, el #30).
+    const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : laVerdad(textoEntero, SIN_HACER);
     const resto = queda ? sanearSalida(queda, { corrioHerramientas, bloquesDebajo, finDeTurno }) : null;
     const yaLoDice = !!resto && (resto.texto.includes(SIN_HACER) || resto.texto.includes(SIN_HACER_LO_DEMAS));
     return {
-      texto: resto ? (yaLoDice ? resto.texto : `${resto.texto}\n\n${verdad}`) : verdad,
+      texto: resto ? (yaLoDice || !verdad ? resto.texto : `${resto.texto}\n\n${verdad}`) : verdad ?? SIN_HACER_SIN_PROMESA,
       promesas: resto?.promesas ?? [], groserias: resto?.groserias ?? groseriasDe(textoEntero), sinRespaldo: sinRespaldoGrupo,
     };
   }
@@ -567,7 +712,8 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
     // Con respaldo, ninguna nota de promesa: «Sí, ya te la agendé. Dame un segundo…» con «Esto no lo hice» pegado se lee
     // como que no se agendó.
     const prometidas = corrioHerramientas || hecho.respaldado ? [] : promesasFirmesDe(salida, { bloquesDebajo });
-    const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length ? NOTA_SIN_HACER : null;
+    // «si lo necesitas, pídemelo» tampoco ante lo que MaKo no puede hacer (el #30 de Leandro, `SIN_HACER_SIN_PROMESA`).
+    const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length && !noLoPuedeHacer(salida) ? NOTA_SIN_HACER : null;
     if (nota) salida = `${salida}\n\n${nota}`;
     return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
   }
@@ -582,9 +728,13 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
     const sinEspera = prometidas.length ? sinLaUltima(texto, prometidas[0]) : texto;
     const queda = sinOraciones(sinEspera, (o) => groseriasDe(o).length > 0);
     if (!prometidas.length) return { texto: queda ?? SIN_GROSERIA, promesas: prometidas, groserias };
-    return { texto: queda ? `${queda}\n\n${SIN_HACER_LO_DEMAS}` : SIN_HACER, promesas: prometidas, groserias };
+    const demas = laVerdad(texto, SIN_HACER_LO_DEMAS);
+    return { texto: queda ? (demas ? `${queda}\n\n${demas}` : queda) : laVerdad(texto, SIN_HACER) ?? SIN_HACER_SIN_PROMESA, promesas: prometidas, groserias };
   }
   const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
-  if (prometidas.length) return { texto: sacada ? `${sacada}\n\n${SIN_HACER}` : SIN_HACER, promesas: prometidas, groserias };
+  if (prometidas.length) {
+    const verdad = laVerdad(texto, SIN_HACER);
+    return { texto: sacada ? (verdad ? `${sacada}\n\n${verdad}` : sacada) : verdad ?? SIN_HACER_SIN_PROMESA, promesas: prometidas, groserias };
+  }
   return { texto: sacada ?? SIN_GROSERIA, promesas: prometidas, groserias };
 }

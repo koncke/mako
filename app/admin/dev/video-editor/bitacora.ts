@@ -316,4 +316,66 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '29 oct', hora: '23:20', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Borrar silencios» busca en todo el video, y si no encuentra pausas dice dónde buscó y qué pedir (tickets #31 y #32)',
+    puntos: [
+      '**El ticket #31** (Leila: «Quiero borrar silencios y me dice que no hay cuando sobran»): el chat buscó en UN pedazo de 0,9 segundos de su video, no en el video entero, y ahí no entra ninguna pausa. Ahora, si no nombras un clip, busca en todo el video.',
+      'Si no encuentra pausas, el aviso dice en qué clip buscó y cuánto duraba, y la frase para pedir lo que sigue: «borra los silencios de todo el video» o «borra las pausas de 0,2 s o más».',
+      'Se pueden pedir pausas más cortas o más largas (de 0,2 a 2 segundos), desde el chat y desde la API de MaKo.',
+      'El botón «Borrar silencios» de la barra ya no dice sólo «Sin silencios»: dice en qué clip buscó, y si hay más clips donde buscar.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/silencios-aviso.ts — el aviso y el rango de la pausa, puros',
+      'app/video-editor/_opencut/audio/borrar-silencios.ts · chat/aplicar.ts · chat/linea.ts — la pausa pedida y dónde se buscó',
+      'lib/editor-video/chat-catalogo.ts · chat-api.ts — el ejemplo sin clip y el parámetro pausa_min',
+      'tests/video-editor-chat.test.ts (test 53) y tests/video-editor-silencios.test.ts — 11 roturas',
+    ],
+    revisar: '/video-editor',
+    tickets: [31, 32],
+  },
+  {
+    fecha: '30 oct', hora: '02:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de abajo del reproductor ya no se encima a ningún ancho',
+    puntos: [
+      'Con el reproductor angosto (un video vertical, o el chat abierto), el tiempo, el botón de reproducir, «Completa», la lupa, «Relación» y pantalla completa se encimaban. Ahora la barra se acomoda a su ancho.',
+      'Ancha, como siempre. Más angosta, el tiempo se acorta (00:12 / 01:00) y los botones pasan a íconos que dicen su valor al pasar el mouse. Si tampoco entra, va en dos o tres filas.',
+      'Probado de 120 a 700 px de panel, con un video de un minuto y otro de más de una hora: nada encimado ni cortado.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/preview/barra-niveles.ts — los niveles por ancho, puros',
+      'app/video-editor/_opencut/preview/components/toolbar.tsx — la barra, que mide su ancho',
+      'app/m/video-editor/video-editor.css — el teléfono la sigue escondiendo, por su marca',
+      'tests/video-editor-barra-reproductor.test.ts — 5 roturas',
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '30 oct', hora: '03:45', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de herramientas de la línea de tiempo ya no esconde herramientas',
+    puntos: [
+      'Con el chat abierto, en pantallas de 1366 o menos, las últimas herramientas de la barra de la línea de tiempo (el zoom, «Acercar») quedaban fuera de la vista. Ahora, si falta lugar, primero se esconde el deslizador del zoom (− y + siguen) y, si aun así no entra, la barra pasa a dos filas.',
+      'Probado a 1280, 1366 y 1440, con el chat abierto y plegado: todas las herramientas a la vista.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/timeline/components/timeline-toolbar.tsx — la barra, que se parte',
+      'app/video-editor/_opencut/timeline/barra-ancho.ts — desde qué ancho entra lo prescindible',
+      'tests/video-editor-barra-linea.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '30 oct', hora: '04:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los paneles del editor ya no se achican hasta no leerse',
+    puntos: [
+      'Arrastrando los divisores, la biblioteca y el panel de la derecha podían quedar tan angostos que «Importar» y los datos del proyecto se cortaban. Ahora cada panel tiene un ancho mínimo en el que todo se lee.',
+      'En los datos del proyecto, los nombres largos («Cuadros por segundo») pasan a dos renglones en vez de cortarse.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/components/editor/minimos-paneles.ts — los mínimos en píxeles',
+      'app/video-editor/_opencut/editor-page.tsx · panels/properties/detalles.tsx',
+      'tests/video-editor-paneles-minimos.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

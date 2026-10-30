@@ -79,7 +79,8 @@ test('4. ningún texto de estos módulos manda a «/integraciones» a secas', ()
   for (const f of archivos) {
     const lineas = sinComentarios(leer(f)).split('\n');
     lineas.forEach((l, i) => {
-      if (/^\s*(import|export \* from)\b/.test(l) || /\bfrom ['"]/.test(l)) return;
+      // Un import (también el dinámico: `await import('./integraciones.run')`, diagnosticar_negocio, 29/10/2026) es una ruta, no un texto.
+      if (/^\s*(import|export \* from)\b/.test(l) || /\bfrom ['"]/.test(l) || /\bimport\(['"]/.test(l)) return;
       // Un texto (entre comillas o backticks) con «/integraciones» que no abre un modal (`?abrir=`, `?servicio=`).
       for (const m of l.matchAll(/(['"`])((?:(?!\1).)*?)\/integraciones(?![?\w/-])/g)) {
         if (/lib$|@$/.test(m[2])) continue;

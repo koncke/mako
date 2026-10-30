@@ -3162,4 +3162,22 @@ FEEDBACK PROBAR:
     revisar: "/automations",
     tickets: [25],
   },
+  {
+    fecha: "30 oct", hora: "10:34", chat: "Automations", cuenta: "claude3",
+    sesion: "local_7f005343-1a2d-43ee-a797-24ad2b8fbaf0",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Automations: el botón de un DM viejo anda y no frena lo demás",
+    puntos: [
+      "Leandro: con varias automatizaciones copiadas de la misma, el botón de un DM viejo no hacía nada y frenaba todas las del lead.",
+      "Ahora el toque mueve su automatización, y un toque nunca se toma como una respuesta escrita: lo demás queda como estaba.",
+      "Si varias esperan el mismo botón y no se sabe cuál se tocó, se atiende la más vieja; tocar los otros atiende a las otras.",
+    ],
+    archivos: [
+      "lib/nutricion.ts — el toque: el payload que no se lee se resuelve por el título",
+      "app/api/webhooks/zernio/route.ts — un toque nunca va a la pausa",
+      "tests/boton-dm-viejo.test.ts — por el webhook de verdad, probado rompiéndolo",
+    ],
+    revisar: "/automations",
+    tickets: [33],
+  },
 ];

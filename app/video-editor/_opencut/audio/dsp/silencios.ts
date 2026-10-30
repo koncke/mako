@@ -43,7 +43,10 @@ export type OpcionesSilencio = {
 	relativoDb?: number;
 };
 
-const DEFAULTS: Required<OpcionesSilencio> = { umbralDb: -40, minSilencioS: 0.4, margenS: 0.08, relativoDb: 25 };
+/** La pausa más corta que se saca si no se pide otra (s). La persona puede pedir otra desde el chat (ticket 31). */
+export const PAUSA_MIN_S = 0.4;
+
+const DEFAULTS: Required<OpcionesSilencio> = { umbralDb: -40, minSilencioS: PAUSA_MIN_S, margenS: 0.08, relativoDb: 25 };
 const PISO_DB = -100;
 
 /** Acumula trozos y los convierte en ventanas de nivel. Mono: promedio de canales. */

@@ -41,7 +41,8 @@ import { SIN_TITULO, type GuionAbierto, type JsonNodo, type PaginaCopy, type Pro
 import { escondida } from '@/lib/copywriter/arbol';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { aplicarTodo, cuadrosDeConstruccion, sanearOperaciones, type Descartada } from '@/lib/copywriter/operaciones';
-import { plantillaPorId, restosDelEjemplo } from '@/lib/copywriter/plantillas';
+import { plantillaPorId } from '@/lib/copywriter/plantillas';
+import { pasoPendiente, pasosDeIniciativa, pedidoDeIniciativa, textoDeRespuesta, type OfertaCorta, type RespuestasIniciativa } from '@/lib/copywriter/iniciativa';
 import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type Referencia } from '@/lib/copywriter/referencias-reglas';
 import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
@@ -63,7 +64,7 @@ type Propuesta = {
   refs: Referencia[];
   descartadas: Descartada[];
   avisos: string[];
-  /** Salió de «Adaptar a mi negocio» (reintentar vuelve a adaptar). */
+  /** Salió de adaptar la plantilla (las preguntas de MaKo al crear): reintentar vuelve a adaptar. */
   adaptar?: boolean;
 };
 type EstadoPropuesta = 'construyendo' | 'pendiente' | 'aceptada' | 'descartada';
@@ -77,6 +78,8 @@ export type GuionVivo = { titulo: string; props: PropsGuion };
 
 let ultimoId = 0;
 const nuevoId = () => ++ultimoId;
+/** Sin ofertas: una sola lista vacía, para que no cambie en cada render. */
+const SIN_OFERTAS: readonly OfertaCorta[] = [];
 
 /** Lo que se ofrece para empezar: en «Discutir», PREGUNTAS; en «Editar», PEDIDOS (los del encargo de Martín). */
 // Las de «Editar» son las de Notion AI sobre una página («Mejorar la escritura», «Acortar», «Alargar», «Cambiar el tono»,
@@ -92,7 +95,7 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver, adaptarRef }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver, ofertas = SIN_OFERTAS }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
@@ -114,14 +117,24 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   citarRef?: MutableRefObject<((seleccion?: string) => void) | null>;
   /** La «←» del shell de Create (app/_crear/PantallaCrear.tsx): da vuelta la tarjeta a la lista de páginas. */
   volver?: ReactNode;
-  /** «Adaptar con MaKo» de la franja de la página (EditorGuion): pide lo mismo que el botón del primer mensaje. */
-  adaptarRef?: MutableRefObject<(() => void) | null>;
+  /**
+   * Las ofertas del negocio (`listarOfertas`, la principal primero): los botones de «¿Lo adapto a tu oferta? ¿A cuál?» al
+   * crear desde una plantilla (lib/copywriter/iniciativa.ts).
+   */
+  ofertas?: readonly OfertaCorta[];
 }) {
   const id = guion?.pagina.id ?? null;
   // La plantilla de la que nació la página, si traía un ejemplo (docs/plantillas-reales/copywriter.md, 3.5).
   const plantilla = useMemo(() => { const pl = plantillaPorId(catalogos, guion?.doc.props.plantilla); return pl?.ejemplo ? pl : null; }, [catalogos, guion]);
   /** MaKo preguntó un dato para adaptar: lo próximo que escriba la persona también va como «adaptar». */
   const [adaptando, setAdaptando] = useState(false);
+  /**
+   * MaKo toma la iniciativa (Martín, 29/10/2026: «cuando se crea un copy, MaKo le pregunta: "¿cuál es el objetivo de
+   * esto? ¿quieres que lo adapte?"»): con la página recién nacida de una plantilla y el chat vacío, pregunta para qué es y
+   * a qué oferta adaptarla, con botones. Las preguntas no llaman a la IA; la última respuesta, sí (`pedidoDeIniciativa`).
+   */
+  const [respIni, setRespIni] = useState<RespuestasIniciativa>({});
+  const pasosIni = useMemo(() => (plantilla ? pasosDeIniciativa(plantilla, ofertas) : []), [plantilla, ofertas]);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [corriendo, setCorriendo] = useState(false);
   const [texto, setTexto] = useState('');
@@ -149,6 +162,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     setCita(null);
     setRefs([]);
     setAdaptando(false);
+    setRespIni({});
     corte.current?.abort();
     setCorriendo(false);
     onPausa(false);
@@ -231,8 +245,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
 
   /**
    * «Editar»: MaKo devuelve herramientas; acá se vuelven a validar contra el guion de AHORA, se construyen a la vista y
-   * quedan como propuesta. Nada se guarda hasta «Aceptar». Con `adaptar`, es «Adaptar a mi negocio» (la página nació de
-   * una plantilla con un ejemplo): si MaKo contesta con una pregunta, el panel queda «adaptando».
+   * quedan como propuesta. Nada se guarda hasta «Aceptar». Con `adaptar`, es adaptar la plantilla (la última respuesta a
+   * las preguntas de MaKo al crear): si MaKo contesta con una pregunta, el panel queda «adaptando».
    */
   const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = [], adaptar = false) => {
     const { id: idG, editor: ed } = vivo.current;
@@ -320,22 +334,33 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   };
 
   const puede = !!id && !!editor && !corriendo && !conPropuestaAbierta && !appEscritorio.bloqueada;
-  const puedeRef = useRef(puede);
-  puedeRef.current = puede;
 
-  /** Lo escrito, a «Discutir» o a «Editar» según el selector (o a «adaptar», si MaKo preguntó un dato para adaptar). */
-  const pedir = (t: string, archivos: File[] = [], citadas: Referencia[] = []) => (adaptando ? pedirEdicion(t, archivos, citadas, true)
-    : intencion === 'discutir' ? pedirDiscusion(t, archivos, citadas) : pedirEdicion(t, archivos, citadas));
+  // La pregunta de la iniciativa que sigue (sólo con el chat vacío), y contestarla: con la última, el pedido a la IA.
+  const pasoIni = mensajes.length === 0 && id ? pasoPendiente(pasosIni, respIni) : null;
+  const responderIni = (valor: string) => {
+    if (!pasoIni) return;
+    const r = { ...respIni, [pasoIni.id]: valor };
+    setRespIni(r);
+    if (pasoPendiente(pasosIni, r)) return;
+    const pedido = pedidoDeIniciativa(pasosIni, r, ofertas);
+    if (pedido.adaptar) { void pedirEdicion(pedido.texto, [], [], true); return; }
+    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto }, { id: nuevoId(), de: 'mako', texto: 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
+  };
+  /** Esa respuesta cierra las preguntas y pide a la IA: espera a que se pueda (editor listo, sin otro pedido corriendo). */
+  const llamaALaIA = (valor: string) => {
+    if (!pasoIni) return false;
+    const r = { ...respIni, [pasoIni.id]: valor };
+    return !pasoPendiente(pasosIni, r) && pedidoDeIniciativa(pasosIni, r, ofertas).adaptar;
+  };
+
+  /** Lo escrito: a la pregunta de MaKo si hay una; si no, a «Discutir» o «Editar» (o a «adaptar», si MaKo preguntó un dato). */
+  const pedir = (t: string, archivos: File[] = [], citadas: Referencia[] = []) => {
+    if (pasoIni) { responderIni(t.trim()); return Promise.resolve(true); }
+    return adaptando ? pedirEdicion(t, archivos, citadas, true)
+      : intencion === 'discutir' ? pedirDiscusion(t, archivos, citadas) : pedirEdicion(t, archivos, citadas);
+  };
   /** Una sugerencia o el selector: salen de «adaptando». */
   const pedirSugerencia = (s: string) => { setAdaptando(false); void (intencion === 'discutir' ? pedirDiscusion(s) : pedirEdicion(s)); };
-  const adaptar = () => { setAdaptando(false); void pedirEdicion('Adaptar a mi negocio', [], [], true); };
-
-  // «Adaptar con MaKo» de la franja de la página llama a lo mismo que el botón del primer mensaje.
-  useEffect(() => {
-    if (!adaptarRef) return;
-    adaptarRef.current = () => { if (puedeRef.current) adaptar(); };
-    return () => { adaptarRef.current = null; };
-  });
 
   // El pedido de la caja grande del inicio sale SOLO, en «Editar», apenas el editor está listo.
   useEffect(() => {
@@ -480,17 +505,26 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
             {errorCaja && <p className="nt-mako-estado" role="alert">{errorCaja}<ReportarASoporte /></p>}
           </div>
         )}>
-        {mensajes.length === 0 && id && plantilla && editor && restosDelEjemplo(editor.leer(), plantilla).bloques > 0 ? (
-          // La página nació de una plantilla y todavía es el ejemplo: el primer mensaje de MaKo es LOCAL (no llama a la IA,
-          // no gasta la del negocio) y ofrece adaptarlo o dejar solo la estructura (docs/plantillas-reales/README.md, 2.3).
+        {/* Lo que MaKo ya preguntó y la persona contestó: queda arriba de la charla que sigue. */}
+        {id && pasosIni.filter((x) => x.id in respIni).map((x) => (
+          <div key={x.id} className="nt-mako-par">
+            <div className="nt-mako-bienvenida">{x.pregunta}</div>
+            <div className="nt-mako-respuesta">{textoDeRespuesta(x, respIni[x.id])}</div>
+          </div>
+        ))}
+        {pasoIni ? (
+          // La página nació de una plantilla: MaKo pregunta, de a una y con botones, sin llamar a la IA (se ve aunque no esté
+          // la app de escritorio). El botón que cierra las preguntas y pide a la IA espera a que se pueda.
           <>
-            <div className="nt-mako-bienvenida">Es un ejemplo de {plantilla.ejemplo!.negocio}, un negocio ficticio. ¿Lo adapto a tu negocio?</div>
+            <div className="nt-mako-bienvenida">{pasoIni.pregunta}{pasoIni.libre ? ' Toca una opción o escríbelo.' : ''}</div>
             <div className="nt-mako-pildoras">
-              <button type="button" className="nt-mako-pildora" data-principal="" disabled={!puede} onClick={adaptar}>Adaptar a mi negocio</button>
-              <button type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => vivo.current.leerApi()?.soloLaEstructura()}>Solo la estructura</button>
+              {pasoIni.opciones.map((o, i) => (
+                <button key={o.valor} type="button" className="nt-mako-pildora" {...(i === 0 ? { 'data-principal': '' } : {})}
+                  disabled={llamaALaIA(o.valor) && !puede} onClick={() => responderIni(o.valor)}>{o.texto}</button>
+              ))}
             </div>
           </>
-        ) : mensajes.length === 0 && (
+        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && (
           <>
             <div className="nt-mako-bienvenida">
               {!id ? 'Elige una página, o crea una con «Nueva página».'

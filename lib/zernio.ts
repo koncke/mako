@@ -484,10 +484,11 @@ async function asegurarWebhookEn(ws: number, c: ZernioCfg, maestro: string): Pro
  * `leads_retrieval`, el evento puede estar suscripto y no llegar nunca. Existe porque `asegurarWebhook` deja los leads afuera SIN
  * error cuando Zernio los rechaza, y alguien tiene que poder decirle al negocio por qué no le entran.
  */
-export async function leadsEnElWebhook(ws: number): Promise<boolean | null> {
+export async function leadsEnElWebhook(ws: number, cuentaAnuncios?: string | null): Promise<boolean | null> {
   const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
   if (!maestro) return null;
-  const c = await cfg(ws);
+  // Con varias claves (29/10/2026), la de la conexión de anuncios: sus leads llegan por el webhook de ESA cuenta de Zernio.
+  const c = cuentaAnuncios ? await cfgDeCuenta(ws, cuentaAnuncios) : await cfg(ws);
   const { ruta } = webhookDeLaCuenta(maestro, ws, c.byok);
   const url = linkApp(ruta, null);
   const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(c.apiKey, '/webhooks/settings');

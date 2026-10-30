@@ -9,9 +9,10 @@ import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
-  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
+  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, FEATURE_DE_LOS_GRUPOS, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
+import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import type { ProvName } from './ai-cheap';
 import { PROVS_SU_IA, conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
 
@@ -76,8 +77,11 @@ async function esClaveAnthropicDeLaPlataforma(key: string): Promise<boolean | nu
  * crédito de Max de la plataforma (el ws10, `esCredito`), es del CRÉDITO: el panel lo muestra aparte, no como del negocio
  * (revisión del lote 2 de IA: si no, ese gasto no se veía en ningún lado).
  */
+// El crédito de los GRUPOS lleva su cuenta, como `conCreditoDeLaPlataforma`: «(su clave es el crédito)» no trae el número, y
+// `creditoQuePago` (lib/credito-api.ts) lo mandaba a la cuenta 1 (28/10/2026).
 const marcaDelGasto = (permiso: PermisoClaveDelNegocio): string =>
-  permiso.esCredito ? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;
+  permiso.cuentaDelCredito ? `${MOTIVO_CREDITO_PLATAFORMA} (cuenta ${permiso.cuentaDelCredito})`
+    : permiso.esCredito ? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;
 
 /** Lo que dice una función cuando no se pudo comprobar la clave de Claude del negocio: se reintenta, no se paga otra. */
 // Sin la causa: puede ser la base que no contestó o una fila de la plataforma que no se descifra (revisión del lote 2), y
@@ -122,17 +126,24 @@ async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise
  * turno con herramientas del chat (`chatClaudeTools`): un negocio que conectó SÓLO su Claude no tenía ninguna IA para el
  * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
-export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { modelo?: string } = {}): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
+export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { modelo?: string; cuentaDeLosGrupos?: string } = {}): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   let clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   // EL CRÉDITO ASIGNADO AL NEGOCIO (22/10/2026, Martín: «habilita los tokens de la API de la cuenta de Mauricio… para su Ops
   // Center»; lib/credito-negocio.ts): sin su clave propia —o con una copia de la de MaKo, como el ws1—, la del crédito que le
   // asignó Martín, prendido en SuperAdmin › Uso. Sigue por esta misma puerta como el crédito del ws10: el barato, nunca el Plan,
   // y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
+  // Y EL DE LOS GRUPOS (28/10/2026, `CLAVES_CREDITO_DE_LOS_GRUPOS`): sólo el turno de un grupo de WhatsApp, con la cuenta que eligió
+  // el doer (`cuentasDelCreditoDeLosGrupos`), por la misma puerta y con las mismas reglas.
   let asignada = false;
-  const delCredito = await (await import('@/lib/credito-negocio')).claveDelCreditoAsignado().catch(() => null);
+  let delGrupo: string | null = null;
+  const credito = await import('@/lib/credito-negocio');
+  const asignadoAlNegocio = await credito.claveDelCreditoAsignado().catch(() => null);
+  const cuentaDelGrupo = !asignadoAlNegocio && opts.cuentaDeLosGrupos && (feature ?? '').trim() === FEATURE_DE_LOS_GRUPOS ? opts.cuentaDeLosGrupos : null;
+  const delCredito = asignadoAlNegocio ?? (cuentaDelGrupo ? await credito.claveDeLaCuentaDeLosGrupos(cuentaDelGrupo).catch(() => null) : null);
   if (delCredito && (!clave || (await esClaveAnthropicDeLaPlataforma(clave)) !== false)) {
     clave = delCredito;
     asignada = true;
+    delGrupo = asignadoAlNegocio ? null : cuentaDelGrupo;
   }
   if (!clave) return null;
   // ⚠️ EL PLAN, SÓLO CON LA DECISIÓN DEL PLAN EN «SÍ» Y CIERTA (revisión adversarial de IA15, 22/10/2026). La cascada prueba
@@ -162,8 +173,8 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
     const wsSA = await wsSuperAdmin();
     creditosPlataforma = [];
     // Las DOS fuentes, siempre: con el entorno puesto, la fila no se leía, y una clave rotada en la fila (o un entorno que
-    // no coincide) dejaba al ws10 elegir Sonnet sobre el crédito de Martín.
-    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
+    // no coincide) dejaba al ws10 elegir Sonnet sobre el crédito de Martín. Con las de los grupos: también son de Martín.
+    for (const nombre of new Set<string>([...CLAVES_CREDITO_PLATAFORMA, ...CLAVES_CREDITO_DE_LOS_GRUPOS])) {
       const env = process.env[nombre]?.trim() || null;
       const fila = await credWsEstricta(nombre, wsSA, { ilegibleTira: true });
       creditosPlataforma.push(env, fila);
@@ -186,7 +197,9 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
   } catch { creditosPlataforma = null; }
   const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
-  return { permiso: v.permiso };
+  // La cuenta del crédito de los grupos que paga (ANTHROPIC_CREDITO_CUENTA3 → 3): sin ella, el Uso se lo anotaba a la cuenta 1.
+  const n = delGrupo ? Number(/(\d+)$/.exec(delGrupo)?.[1]) : NaN;
+  return { permiso: Number.isInteger(n) && n > 0 ? { ...v.permiso, cuentaDelCredito: n } : v.permiso };
 }
 
 /**
@@ -633,6 +646,9 @@ export async function chatClaudeTools(
     /** WA1 (22/10/2026): DIRECTO a la clave de Claude del negocio (la puerta 2 del veto), sin la cascada: el que llama ya
      *  probó su OpenAI (el doer de WhatsApp). Sin su clave, tira «falló la IA (…)». Nunca el Claude de MaKo. */
     soloSuClaude?: boolean;
+    /** El turno de un grupo de WhatsApp con el crédito de los planes 200 (28/10/2026): la cuenta que eligió el doer
+     *  (`cuentasDelCreditoDeLosGrupos`, lib/credito-negocio.ts). Sólo con `soloSuClaude` y la feature del grupo. */
+    cuentaDeLosGrupos?: string;
     /** 8b (23/10/2026): con `soloSuClaude`, el modelo que eligió la persona para ese chat («haiku» o «sonnet»). */
     modeloSuClaude?: string;
     /** 8b (23/10/2026): DIRECTO a la clave de OpenAI del negocio, sin la cascada y sin caer a Claude. Sin su clave, tira. */
@@ -675,7 +691,7 @@ export async function chatClaudeTools(
   /** La clave de Claude del NEGOCIO, cuando ninguna IA barata suya contestó (abajo). */
   let delNegocio: PermisoClaveDelNegocio | null = null;
   if (opts.soloSuClaude) {
-    const n = await permisoDeLaClaveDelNegocio(opts.feature, { modelo: opts.modeloSuClaude }).catch(() => null);
+    const n = await permisoDeLaClaveDelNegocio(opts.feature, { modelo: opts.modeloSuClaude, cuentaDeLosGrupos: opts.cuentaDeLosGrupos }).catch(() => null);
     if (n && 'permiso' in n) delNegocio = n.permiso;
     else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : n && 'noPudeLeer' in n ? NO_PUDE_COMPROBAR_SU_CLAUDE : 'el negocio no tiene su clave de Claude'})`);
   } else if (!opts.model && opts.feature) {
@@ -792,8 +808,10 @@ export async function chatClaudeTools(
     if (!res.ok || body.error) {
       const m = body?.error?.message ?? `Anthropic ${res.status}`;
       // Con su clave, el fallo queda escrito (IA3): es lo que la tarjeta de «Tus cuentas de IA» le muestra al negocio.
-      if (delNegocio) await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${m}`, feature: permiso.feature, modelo: String(model) });
-      throw new Error(delNegocio ? `falló la IA (tu clave de Claude: ${m})` : m);
+      // El crédito de los grupos no es SU clave: su fallo no va a la tarjeta del negocio (lo ve el Uso de SuperAdmin).
+      if (delNegocio && !delNegocio.cuentaDelCredito) await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${m}`, feature: permiso.feature, modelo: String(model) });
+      // «tu clave de Claude: …» le dice al negocio que la SUYA no tiene crédito (lib/errores-app-reglas.ts): el de los grupos es nuestro.
+      throw new Error(delNegocio ? `falló la IA (${delNegocio.cuentaDelCredito ? `el crédito de Claude de MaKo, cuenta ${delNegocio.cuentaDelCredito}` : 'tu clave de Claude'}: ${m})` : m);
     }
 
     // Lo que paga el negocio lleva su marca PRIMERO: lib/costos-ia.ts lo saca del gasto de MaKo.

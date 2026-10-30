@@ -330,13 +330,39 @@ Martín: «Elimina esto "Copy Method · Angles & Structures", no quiero ninguna 
 **Vive en:** app/_components/nav.ts · app/copywriter/Copywriter.tsx · app/admin/{copywriting,guiones}/page.tsx ·
 lib/movil-creacion.ts · lib/movil-rutas.ts · tests/barra-sin-dev.test.ts
 
+## Sacar el ejemplo de la página apagaba a MaKo y dejaba a la IA sin modelo (29/10/2026)
+
+- **Crear con el esqueleto parecía un cambio de una línea, y no lo era.** El primer mensaje de MaKo («¿Lo adapto?») salía
+  sólo si `restosDelEjemplo(página) > 0`, o sea, si la página todavía era el ejemplo. Con la página naciendo vacía, esa
+  condición da 0 siempre: el mensaje no volvía a salir, y sin un error. Las preguntas nuevas dependen de que la página
+  recuerde su plantilla (`props.plantilla`) y de que el chat esté vacío, no de lo que tenga escrito.
+- **La IA de «adaptar» leía el ejemplo de la página.** Con el esqueleto, el modelo recibía secciones vacías y nada que
+  imitar. El ejemplo va ahora dentro del slot `estructura` de `copywriter.adaptar.user`, marcado como forma y no como
+  dato. No se agrega un slot: un override guardado desde /configuraciones-prompts no lo tendría.
+- **Una guía con la etiqueta mal escrita no se ve nunca.** `GUIAS` se busca por la etiqueta de la sección
+  (`attrs.seccion`). Si la clave no coincide (un acento, un plural), esa sección queda sin guía y sin error. El test exige
+  una guía debajo de cada sección y que cada clave sea una sección real.
+- **`ofertas = []` como default de una prop rehace los `useMemo` en cada render**: es un arreglo nuevo cada vez. Va una
+  constante fija (`SIN_OFERTAS`).
+- **En el teléfono se ve una vista por vez**: las preguntas en la vista de MaKo quedaban detrás de «Página». La página
+  recién creada desde una plantilla abre en MaKo (`?mako`).
+- **Trampa del entorno:** un heredoc de Bash con un script de Node que lleva comillas simples y backticks se cortó
+  («unexpected EOF while looking for matching `''»). Los scripts de edición van a un archivo con Write y se corren con
+  `node archivo.cjs`.
+
+**Vive en:** lib/copywriter/iniciativa.ts · lib/copywriter/plantillas-guias.ts · lib/copywriter/plantillas.ts
+(`conGuias`) · lib/copywriter/ia.ts · app/copywriter/PanelMaKo.tsx · app/copywriter/editor/EditorGuion.tsx ·
+app/m/copywriter/GuionM.tsx
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
-- La tarjeta con contenido real (el extracto, los chips, la insignia y el «cuándo usarla» como `title`): `extractoDe`,
-  `chipsDe` e `insignia` ya están (lib/copywriter/plantillas.ts); falta pasarlos a `PlantillaCrear` cuando la tanda 0 de
-  Create sume esos campos (app/_crear/reglas.ts), en app/copywriter/Copywriter.tsx. Hoy la insignia va en el `rotulo`.
+- Mudar las preguntas de MaKo al patrón común «MaKo toma la iniciativa» cuando el Cerebro lo arme: hoy los pasos salen de
+  lib/copywriter/iniciativa.ts y PanelMaKo los dibuja. Y app/_crear/ejemplo.ts (de Create) todavía dice que el
+  Copywriter abre con «Adaptar a mi negocio» y «Solo la estructura»: el Copywriter ya no lo usa.
+- La calidad de las guías de cada sección (lib/copywriter/plantillas-guias.ts) se revisó a ojo: el test fija que estén,
+  que sean cortas y sin voseo, no que digan lo correcto.
 - Los `evals` del experto (un pedido, la salida esperada y sus verificaciones): la calidad de «adaptar» no tiene prueba
   automática. Y los ejemplos de las VSL ocultas (`vsl-anti-solucion`, `vsl-diagnostico`, `vsl-historia-fundador`).
 - Las cifras de los ejemplos contra la tabla del elenco (docs/plantillas-reales/README.md, 2.2) se revisaron a ojo: no

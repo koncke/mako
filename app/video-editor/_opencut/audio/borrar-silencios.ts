@@ -35,6 +35,7 @@ import { tramosQueQuedan } from "./dsp/silencios";
 import { JuntadorDeTrozos, silenciosSinRuido } from "./dsp/silencios-sin-ruido";
 import { motorRnnoise } from "./dsp/rnnoise";
 import { quedaAlgo, quedaAlgoEnLaLinea, silenciosEnLaLinea } from "./silencios-plan";
+import { PAUSA_MIN_S, avisoBotonSinSilencios, clipsConSonido } from "./silencios-aviso";
 
 /**
  * Sobre qué clips actúa «Borrar silencios»: los ELEGIDOS que tienen audio; sin
@@ -81,15 +82,23 @@ export type PasoSilencios =
 
 export type ResultadoSilencios =
 	| { ok: true; segundos: number; silencios: number }
-	| { ok: false; motivo: "sin-clip" | "ocupado" | "sin-audio" | "todo-silencio" | "sin-silencios" | "error" };
+	| { ok: false; motivo: "sin-clip" | "ocupado" | "sin-audio" | "todo-silencio" | "error" }
+	// Sin pausas: DÓNDE se buscó, para que el aviso lo diga (ticket 31: el chat había buscado en un clip de 0,9 s).
+	| { ok: false; motivo: "sin-silencios"; clips: number; titulo?: string; segundos: number; minimoS: number };
 
 /**
  * Lee el audio de cada clip, decide dónde cortar y corta, en UN comando (un Deshacer). Sin
  * avisos: quien llama dice lo que corresponde. `seleccion`/`cabezal`: ver `objetivosDeSilencios`.
+ * `minimoS`: la pausa más corta que se saca (la del chat; sin ella, la de siempre).
  */
 export async function quitarSilencios(
 	editor: EditorCore,
-	{ seleccion, cabezal = true, alPaso }: { seleccion?: ElementRef[]; cabezal?: boolean; alPaso?: (paso: PasoSilencios) => void } = {},
+	{
+		seleccion,
+		cabezal = true,
+		minimoS = PAUSA_MIN_S,
+		alPaso,
+	}: { seleccion?: ElementRef[]; cabezal?: boolean; minimoS?: number; alPaso?: (paso: PasoSilencios) => void } = {},
 ): Promise<ResultadoSilencios> {
 	if (enCurso) return { ok: false, motivo: "ocupado" };
 	const objetivos = objetivosDeSilencios({ editor, seleccion, cabezal });
@@ -102,6 +111,9 @@ export async function quitarSilencios(
 		let todoSilencio = 0;
 		let sinAudio = 0;
 		let cuantos = 0;
+		// Lo que se escuchó (los clips con audio), para decir dónde no hubo pausas.
+		let escuchados = 0;
+		let segundosEscuchados = 0;
 		for (const { ref, element } of objetivos) {
 			alPaso?.({ tipo: "escuchando", elementId: element.id, nombre: element.name });
 			// El tramo de la FUENTE que el clip muestra (el mismo cálculo que Normalizar).
@@ -126,7 +138,9 @@ export async function quitarSilencios(
 				sinAudio++;
 				continue;
 			}
-			const silencios = await silenciosSinRuido({ audio, motor });
+			escuchados++;
+			segundosEscuchados += duracion;
+			const silencios = await silenciosSinRuido({ audio, motor, opciones: { minSilencioS: minimoS } });
 			if (silencios.length === 0) continue;
 			if (!quedaAlgo(tramosQueQuedan({ desde, hasta, silencios }))) {
 				todoSilencio++;
@@ -146,7 +160,10 @@ export async function quitarSilencios(
 		}
 
 		if (planes.length === 0) {
-			return { ok: false, motivo: todoSilencio > 0 ? "todo-silencio" : sinAudio === objetivos.length ? "sin-audio" : "sin-silencios" };
+			if (todoSilencio > 0) return { ok: false, motivo: "todo-silencio" };
+			if (sinAudio === objetivos.length) return { ok: false, motivo: "sin-audio" };
+			const unico = objetivos.length === 1 ? objetivos[0].element.name : undefined;
+			return { ok: false, motivo: "sin-silencios", clips: escuchados, ...(unico ? { titulo: unico } : {}), segundos: segundosEscuchados, minimoS };
 		}
 
 		alPaso?.({ tipo: "cortando" });
@@ -177,7 +194,12 @@ export async function borrarSilencios(editor: EditorCore): Promise<void> {
 	toast.dismiss(idAviso);
 	if (r.motivo === "todo-silencio") toast.error("El clip es todo silencio");
 	else if (r.motivo === "sin-audio") toast.error("El clip no tiene audio");
-	else if (r.motivo === "sin-silencios") toast("Sin silencios");
+	else if (r.motivo === "sin-silencios") {
+		// Dice DÓNDE buscó (sin nada elegido, sólo el clip bajo el cabezal), y si hay más video donde buscar (ticket 31).
+		const tracks = editor.scenes.getActiveSceneOrNull()?.tracks;
+		const aviso = avisoBotonSinSilencios(r, (tracks ? clipsConSonido(tracks) : 0) > r.clips);
+		toast(aviso.titulo, { description: aviso.descripcion, duration: 6000 });
+	}
 	else if (r.motivo === "sin-clip") toast.error("Elige un clip con audio");
 	else if (r.motivo === "error") toast.error("No se pudieron borrar", { duration: 5000 });
 }

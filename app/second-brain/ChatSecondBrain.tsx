@@ -81,11 +81,11 @@ import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
-import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 // Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
 import { CargandoMako } from '@/app/_ui/CargandoMako';
-import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
-import { PASOS_INICIO } from './recorrido-inicio';
+import { useGuiaDeLaTab } from '@/app/_ui/guia/useGuiaDeLaTab';
+import { ancla } from '@/app/_ui/guia/ancla';
+import { useAperturaDelCerebro } from './PiezasCliente';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 
@@ -118,8 +118,6 @@ const anotarParam = (k: string, v: string | null) => {
 };
 
 type Props = {
-  /** Al terminar el onboarding (`?recorrido=sb-inicio`): arranca el tutorial del Ops Center (20/10/2026). */
-  tutorialInicio?: boolean;
   /** El admin con la tab en su capa: ve el acceso «Mapa». */
   veMapa: boolean;
   /** El Mapa ya armado por el servidor (la URL lo pidió); null = la conversación. */
@@ -167,10 +165,8 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', tutorialInicio = false }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   const router = useRouter();
-  // El tutorial del Ops Center al terminar el onboarding (20/10/2026): se abre solo si lo pide la URL y la persona no lo vio.
-  const tutorial = useRecorrido(RECORRIDO_INICIO, { autoabrir: tutorialInicio });
   /** La página en la que se está (/second-brain o /admin/operaciones): los links del Mapa vuelven a ella. */
   const base = usePathname() || '/second-brain';
   /** Ops Center: el super admin, con sus chats de Claude Code (el servidor mandó el Centro). */
@@ -265,6 +261,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   /** `anotar: false` cuando sigue un `router.push`: la URL nueva ya no la trae, y reescribirla en medio de la navegación la pisa. */
   const cerrarTicketera = (anotar = true) => { setTicketera(null); if (anotar) anotarParam('ticketera', null); };
 
+  // LA GUÍA DE LA PESTAÑA (29/10/2026, reemplaza al recorrido `sb-inicio`, que sólo se abría con `?recorrido=` al terminar el
+  // onboarding): la primera vez de la persona en el Ops Center, entre por donde entre, MaKo pregunta en el hilo del Cerebro si le
+  // enseña; el «?» la vuelve a ofrecer. Su catálogo: ./guia-ops-center.ts. Sólo la del cliente: la del super admin es la de sus
+  // chats de Claude Code, donde no habla MaKo.
+  const conGuia = !ops && !ticketera && !verMapa;
+  const guia = useGuiaDeLaTab(ops ? '' : 'mako', { listo: conGuia && k.cargado && k.esJefe && k.app != null, hechos: { sinApp: k.app === 'bloquea', sinIA: k.iaConectada === false } });
+  // Lo que MaKo dice primero en el Cerebro (la guía, o la escalera del primer ingreso: lib/aperturas/ops.ts).
+  const apertura = useAperturaDelCerebro(k, { libre: conGuia });
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer]);
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
@@ -352,16 +356,18 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       {/* La criatura de MaKo mientras entra (feedback 5b, 23/10/2026): tapa el Ops Center hasta que la conversación se
           dibujó y vuela a su lugar, la criatura de la cabecera. Una vez por documento. */}
       <EntradaOps />
-      <Recorrido id={RECORRIDO_INICIO} pasos={PASOS_INICIO} abierto={tutorial.abierto} onCerrar={tutorial.onCerrar} />
-      <aside className="co-barra" aria-label="Chats" data-recorrido="sb-chats">
-        {/* ARRIBA, COMO LA LISTA DE AUTOMATIONS (feedback 4, 22/10/2026: «parecida a lo que tenemos en Automations»): el tutorial,
+      <aside className="co-barra" aria-label="Chats" {...ancla('sb-chats')}>
+        {/* ARRIBA, COMO LA LISTA DE AUTOMATIONS (feedback 4, 22/10/2026: «parecida a lo que tenemos en Automations»): la guía,
             la búsqueda y el filtro en una fila. «Ticketera» y «Second Brain» bajaron, junto al Uso. */}
         <div className="co-barra__arriba">
           <div className="co-barra__fila">
-            <button type="button" className="co-ayuda" onClick={tutorial.reabrir} aria-label="Ver el tutorial" title="Tutorial">
-              <Icon name="help" size={16} />
-            </button>
-            <label className="co-buscar">
+            {/* El «?»: la guía de la pestaña, «¿Qué quieres hacer?» en el hilo del Cerebro (sin repreguntar la primera vez). */}
+            {!ops && (
+              <button type="button" className="co-ayuda" onClick={() => guia.ofrecer()} aria-label="Que MaKo te enseñe esta pestaña" title="Guía">
+                <Icon name="help" size={16} />
+              </button>
+            )}
+            <label className="co-buscar" {...ancla('sb-buscar')}>
               <Icon name="search" size={16} />
               <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
             </label>
@@ -419,7 +425,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {/* La del cliente: el mismo botón, con los suyos (los que esperan su respuesta, en el número). */}
           {!centro && !misTickets.fueraDelPlan && (
             <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
-              onClick={() => tocar('ticketera')}>
+              onClick={() => tocar('ticketera')} {...ancla('sb-ticketera')}>
               <Icon name="ticket" size={17} />Ticketera
               {misTickets.esperanTuRespuesta > 0 && <span className="co-acceso__n">{misTickets.esperanTuRespuesta}</span>}
             </button>
@@ -484,7 +490,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             <div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>
           </>}
           estado={estadoDelCliente(k)}>
-          <HiloDelCliente k={k} />
+          <HiloDelCliente k={k} apertura={apertura} />
         </PanelDeChat>
       )}
       {centro && <MenusCentro centro={centro} />}

@@ -2,7 +2,78 @@
 
 **Cuenta:** claude3 (desde el 29/10 03:00; antes claude4). **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los
 merges de main son merge commits, nunca rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le
-devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 10:30 (AR) este archivo está al día.
+devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 ~15:00 (AR) este archivo está al día.
+
+## ⚡ LO QUE ESTÁ EN CURSO (29/10, desde las 13:30): MaKo en el grupo es un DESPACHANTE
+
+Martín, por el Cerebro: «Es una verdadera desgracia cómo está respondiendo MaKo… Que sepa cuándo es un ticket, cuándo es una
+pregunta, o una acción dentro de MaKo». Decisiones del Cerebro (con Martín): **sigue Haiku, no se toca el veto**; MaKo es un
+despachante: ACCIÓN simple (`ACCIONES_SIMPLES`, lib/despacho-grupo.ts) la hace él; la compleja se DELEGA como «pedido delegado» a la
+Ticketera (el Runner 1.24.0 se la lleva al Cerebro como «Pedido delegado #N»; el «listo» corto vuelve al grupo al cerrarla; uno del
+ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo con lecturas, voz corta y números chequeados; DEBUG
+(sólo ws9) con `diagnosticar_negocio` y el ticket al Cerebro con la evidencia; CHARLA el 👍; NO_REPLY silencio.
+- Commiteado: 953f9610e (el crédito de los grupos), 687bc14d0 (`sinMuletillas`, links), 61ae98de2 (`diagnosticar_negocio`),
+  ffc63aced (REENVIADO + imágenes del lote), fd7b00a45 (el clasificador IA, el TICKET por código, el banco en `tests/fixtures/`).
+- **La llamada con Thiago (29/10 ~19:00, decidido por el Cerebro): db1c0fd1e.** Directo desde el grupo: replicar/analizar landing,
+  pausar/prender campaña o anuncio; presupuesto por pantalla; WhatsApp a un lead se aprueba en la app (`SE_APRUEBAN_EN_LA_APP`);
+  pedido compuesto delega lo que no hizo; delegado sin tomar en 30 min avisa (cron de tickets). Banco con el prompt nuevo: 75/77,
+  0 escrituras en la clase equivocada. La lista: `git show promesas-thiago-2910:docs/promesas/2910-llamada-thiago.md`.
+- **«Súbeme este anuncio»: b860ef8f8 (29/10 ~22:00).** `proponer_anuncio_desde_archivo` (ads), detrás de ZERNIO_ANUNCIOS_PROBADO
+  (sigue en false: lo prende la prueba de Martín); el doer lee el videoMessage; la regla de una guarda ya no se delega. Roturas D2 y
+  D23–D27 cazadas. Verificación final en `C:/dev/verif-b860ef8f8` (sacarlo después: `cmd /c rmdir` del junction primero).
+- **La revisión de privacidad de Integración (29/10 ~23:00 y 30/10 ~01:00): d30862b59 y 3f3b23eda.** El despachante SALIÓ del
+  tren-ae por dos ALTA. d30862b59 fue la primera vuelta; el Cerebro pidió lo estricto y está en 3f3b23eda. A1: un hito va al turno
+  de un negocio sólo si TODOS sus tickets son de ese negocio (`hitosDelNegocio`). A2: `crearTicket` manda a la decisión de Martín
+  todo pedido delegado con plata, envíos o borrados, o de quien no es admin del negocio (`delegadoQueDecideMartin`, guarda dura en
+  `clasificar`). Quién escribe sale de `participantAlt` en los grupos de `@lid` (antes, todo con el pushName). M1: el «listo» es
+  fijo. M3: el DEBUG por persona, y el modelo sin `diagnosticar_negocio`. Roturas D28–D37 (en el scratchpad,
+  `roturas-despacho.mjs`). Sin hacer: el tope de crédito por negocio (M2, plata: Martín), B1, B2 y B4. El informe:
+  `C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`. Va en el tren-af, con una revisión nueva (también de
+  plata: desde el grupo se pausan y prenden campañas y anuncios). **Verificación (30/10 ~02:00):** roturas D3, D6, D8, D15 y
+  D28–D37 cazadas (D37 sólo por el cableado, el 15 del despacho), sin respaldos; despacho-grupo 15/15, clase-del-grupo 11/11, tsc
+  acotado 0 propios (sobre 3f3b23eda antes del commit); tests-afectados `--rapido` de 3f3b23eda en `C:/dev/verif-3f3b23eda`: 11
+  tandas verdes, barredoras con los 2 `todo` de siempre y `mako-en-whatsapp-pablo` (fijaba el actor viejo: arreglado en el commit
+  siguiente, 8ab517c12, que además lleva `participantAlt` y el lote de varios al rescate del cron; su tsc acotado: 0 propios).
+  **Entregado (30/10 ~03:30):** Integración recibió 8ab517c12 con el tsc; lo re-verifica (arreglo por arreglo, más la plata de
+  pausar/prender campañas y subir anuncios) y, si da bien, va en el tren-ah. Si Integración devuelve algo, se arregla acá y se le
+  pasa el sha nuevo. El worktree de verificación ya se sacó. El VERDE está en la carpeta compartida del Cerebro.
+- **La re-verificación de d49539722 (30/10 ~04:00, C:/dev/revisiones/3010-reverificacion-wa-despachante-d49539722.md): «entra con
+  bajas», sin ALTA.** Pidió dos cosas, hechas en fa0ad711a: N1, el «hazlo» del delegado sólo con una lista CERRADA de lo seguro
+  (`DELEGADO_SEGURO`; las 23 frases de la re-verificación van a Martín), y N2, lo del Cerebro filtrado también en el bloque del turno
+  y en /tickets (más «Nombre Apellido» en `sinLoInterno`). Roturas D38–D42. Cosecha en hallazgos-ticketera y hallazgos-comunicacion.
+  NO tocar (lo decide Martín, N3): pausar o prender campañas desde el grupo lo pide cualquiera (`rol: 'admin'` fijo). Integración
+  recibió cc2aaa6ce con los tests afectados VERDES (4515): va en el tren-ai.
+- **El ticket #35 (Código Inmobiliario, ws13, 30/10, pedido del Cerebro): 8319854ec.** «La reunión es a las 11 y MaKo dice 10». La
+  base estaba bien; `resumenLead` (lib/mako-tools.ts) pasaba sólo `fecha_junta_1` (un DATE) y el modelo completaba «10:00». Ahora
+  `horasDeLasReuniones` (lib/mako-ficha-lead.ts) lleva la hora en la zona del negocio, o la nota de que no hay. Test con los datos
+  reales y 2 roturas cazadas; hito en mako-doer con `tickets: [35]`; cosecha en docs/hallazgos-ia.md. FALTA al escribir esto: el
+  tsc y los tests afectados (corriendo en `C:/dev/verif-8319854ec`: sacarlo con `cmd /c rmdir` del junction primero) y mandarle el
+  sha al Cerebro (local_428051c1-…). Sin escrituras en producción (sólo se leyó la base).
+- **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
+  mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
+  `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
+  token), el camino de Zernio apagado por `ZERNIO_ANUNCIOS_PROBADO = false` (lib/zernio-ads-cuerpo.ts; la prueba es
+  scripts/prueba-zernio-anuncio.mts y el clic es de Martín), y lib/drive-acceso.ts para Drive. Falta: una operación que baje el
+  archivo y lo suba (por Zernio, detrás de la bandera), que el doer acepte `videoMessage` además de `imageMessage` (hoy
+  `adjuntoDe` es imagen o PDF), y que el despachante la PROPONGA (no la delegue). Con la bandera apagada: decir que falta la prueba.
+- **El ticket #30 de Leandro (29/10 ~17:30, pedido del Cerebro): 9ac30e8c8.** «pídemelo otra vez y lo hago» ya no sale ante lo que
+  MaKo no puede (`noLoPuedeHacer`, lib/doer-salida.ts); el turno ve lo que salió en producción para cada pedido resuelto
+  (`hitosDesplegados`); el hito de mako-doer lleva `tickets: [30]`; el caso al banco (conv:1728, retenido): PREGUNTA con Haiku.
+  Roturas D1–D15: 15/15 cazadas (base verde). tsc acotado `--rama`: 0 propios. tests-afectados: en el worktree de verificación
+  `C:/dev/verif-9ac30e8c8` (junction a node_modules: para sacarlo, `cmd /c rmdir` del junction ANTES de `git worktree remove`).
+  El VERDE va a Integración para el tren-ad o el tren-ae (borrador en la carpeta compartida del Cerebro,
+  `mako-whatsapp-despachante-verde.md`).
+- **Lo de esta tanda: 4a15d0775** (el despachante), **de5778615** y **6af2bb1e0** (los rojos de tests-afectados: cableado de la
+  forma vieja, el test que importaba un `server-only`, «acá», el hijo de Leandro con la pregunta del equipo viva). tsc acotado de
+  la rama: 0 propios. La app se cayó a las 15:31 en medio de la verificación; se retomó igual. En detalle: `lib/despacho-grupo.ts`, el cableado en `procesarDoer` (DEBUG, delegación,
+  `VOZ_DE_LA_CONSULTA`, `numerosSinFuente`), cartero 1.24.0 y los tests que fijan la versión, `textoDelAviso` del delegado, los
+  ejemplos fijos del clasificador (sólo del 60 % de ajuste), `tests/despacho-grupo.test.ts` y las escenas 5–7 de
+  `tests/clase-del-grupo.test.ts`. Roturas: `roturas-despacho.mjs` (D1–D9) en el scratchpad.
+- **El banco:** `node --env-file=<.env.local del clon> --import tsx --conditions=react-server scripts/banco-clases.mts --modelo
+  claude-haiku-4-5 --salida <json>` (con tope: una llamada por caso). Antes con reglas: 49/76 (64 %), TICKET 0/11. Con Haiku, la
+  corrida que vale (la 2ª: la 1ª, 89 %, tenía dos errores del banco): 75/76 (99 %), retenido 31/31, difíciles 22/24, 2 escrituras
+  en la clase equivocada (conv:1712 y derivado:7). Las salidas, en el scratchpad: `banco/haiku-2910*.{txt,json}`.
+- Después del deploy, el Cerebro corre `cartero.mjs instalar` (el Runner a 1.24.0).
 
 ## Cómo se trabaja acá (lo que pidió el Cerebro, y no se negocia)
 
@@ -26,9 +97,11 @@ devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 1
   `conMemoria`, del lote y de `eraDePlan`). tests/grupo-leandro-2910.test.ts 6/6, 14 roturas cazadas (`roturas.mjs` del scratchpad).
 - **COMMITEADO (29/10 ~11:30): 1540681ca (los tickets) y 2d961c1ee (la ALTA 2).** Roturas: tickets T1–T15 cazadas (base 6/6);
   ALTA 2 A1–A4 cazadas (respuesta-al-equipo base 4/4; el 7 de grupo-leandro caza A1). tsc acotado `--rama --heap=4096`: 0
-  errores propios (los 14 de `_opencut`). **El VERDE de la punta corre en `C:/dev/verif-<sha de la punta>`**; logs `verde4-*.log`
-  en el scratchpad. Al terminar: VERDE al Cerebro y a Integración, con que el Runner pase al cartero 1.23.0 (`cartero.mjs
-  instalar` desde main: lo corre el Cerebro) y sacar el worktree (junction primero).
+  errores propios (los 14 de `_opencut`).
+- **VERDE MANDADO (29/10 ~12:15) al Cerebro y a Integración, punta final ac593ce1d:** tests-afectados de 43605fd59 con las 13
+  tandas verdes (76 archivos, 847 tests) y las barredoras con un solo rojo real (rutas de Windows en mi test de tickets,
+  arreglado en ac593ce1d); doer-recetas-video-imagen y chats-mako-envio son sus `todo` de siempre. El worktree de verificación
+  ya se sacó. Después del deploy, el Cerebro corre `cartero.mjs instalar` desde main (el Runner a 1.23.0).
 - Lo que había en el árbol antes de esos dos commits: (a) **la ALTA 2** de la verificación de c358fd0c4, que frenó
   Integración: `lib/doer-equipo.ts` (`PIDE_O_SE_QUEJA`, `esSoloUnPedidoAMaKo`), la guarda en `lib/mako-doer-in.ts`, la escena 10d
   de `tests/_respuesta-equipo-hijo.ts` y el test 7 de `tests/grupo-leandro-2910.test.ts` (turno entero: MaKo contesta). Las dos
@@ -46,20 +119,11 @@ devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 1
 
 ## Lo que falta, en orden (el plan del Cerebro)
 
-1. El VERDE de la punta con la ALTA 2 y los tickets (arriba).
-2. **Los tickets al Cerebro al INSTANTE** (el Cerebro, 29/10): el Runner le entrega al Cerebro TODO ticket nuevo (hoy sólo
-   `despacho='runner'` + `en_curso`, `lib/tickets-runner.ts`, `ticketsParaElCartero`), con texto fijo y el número, sin cambiar
-   el triage ni la aprobación ni los `aviso_*`: otra marca de entrega y un cartero nuevo (subir su versión y su lista de textos
-   fijos). Y que el hito de un deploy cierre también los `esperando_decision` (`cerrarLosDesplegados`, `lib/tickets-cierre.ts`,
-   sólo mira `en_curso`: pasó con el #15). Cosecha en `docs/hallazgos-ticketera.md`. **El diseño, con borradores en el
-   scratchpad (`borrador/`):** columnas `cerebro_*` (estado `not null default 'pendiente'`, para filtrar con `in` sin el null de
-   `<>`; el número de la migración lo da el Cerebro: 0340/0341/0342/0346 ya están tomados); `ticketsNuevosParaElCartero` y
-   `ticketsNuevosSinEntregar` (sólo `despacho is null` y `nuevo`/`esperando_decision`), `acusarTicketNuevo` (renglón «llegó al
-   Cerebro»), un array APARTE `ticketsNuevos` sólo para el cartero ≥ 1.23.0 con `mensajeTicketNuevo` en los dos lados y en la
-   lista de textos que no se suben como conversación; el cierre toma todo lo ABIERTO. Sin la migración no se cae
-   (`ticketsNuevosError`). Test por la vuelta REAL (`cicloCartero` dentro de un `workAsyncStorage` de mentira, por `after`) y
-   por `cartero.mjs ciclo` de verdad (el molde de tests/cartero-carpetas.test.ts). El PostgREST de mentira necesita `orCompleto`
-   (el `or` de `ticketsSinEntregar` trae `in.(…)` y `and(…)`).
+1. ~~El VERDE de la punta~~ y ~~los tickets al Cerebro~~: hechos (arriba). Lo que queda de los tickets, en
+   `docs/hallazgos-ticketera.md` → «Lo que quedó sin hacer»: que la bandeja dibuje «Entregado al Cerebro» para los nuevos (la 0343
+   ya está), y que el Runner pase a 1.23.0 después del deploy (lo corre el Cerebro). De la ALTA 2, en `docs/hallazgos-comunicacion.md`:
+   después de que MaKo contesta el pedido, la respuesta al equipo sin citar va a MaKo (`ultimaDeMaKo`).
+2. Si Integración o el refutador devuelven algo de esta punta (ac593ce1d), eso va primero.
 3. **A:** Claude PRIMERO con el crédito Max, desde la rama `wa-credito-grupos-2810`, «armalo para N cuentas»; el banco de
    casos de nivel 2 (con modelo) va en esa tanda.
 4. **F4** completo. **G3:** lo que llega durante un turno queda huérfano hasta el cron. **F5** y **F6**.

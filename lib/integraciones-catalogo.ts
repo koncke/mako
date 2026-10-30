@@ -51,6 +51,12 @@ export const DEFS: Def[] = [
   // negocio con SU key de Zernio. Desde esa fecha también conecta Facebook y los anuncios de Meta (lib/zernio-conectar.ts).
   // 25/10/2026, Martín: «Zernio no debe decir (Facebook, Instagram...), el nombre real de las apps en integraciones». Lo que
   // conecta lo dice la descripción.
+  // WhatsApp por QR (29/10/2026, Martín: «En Integraciones falta el logo de WhatsApp para que aparezca eso también, con el QR obvio,
+  // con las múltiples líneas, claro»). Es el NO oficial (Evolution): cada línea se vincula con su QR, y puede haber varias (una por
+  // setter). Sin `envs`: el estado sale de las líneas del negocio (lib/integraciones.ts, `estadoWhatsApp`), sin la de MaKo. ⚠️ NO entra a
+  // lib/metodo-catalogo.ts: `integracionConectada('whatsapp')` es la pregunta del OFICIAL (el de Chatwoot, que se fue el 09/10) en la
+  // API de MaKo, y tiene que seguir dando false.
+  { key: 'whatsapp', nombre: 'WhatsApp', categoria: 'Mensajería', descripcion: 'Tus números de WhatsApp, cada uno con su QR. Pueden ser varios: uno por setter.', envs: [] },
   { key: 'zernio', nombre: 'Zernio', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
   // UNA TARJETA POR RED SOCIAL (29/10/2026, Martín: «aprovechar todas las conexiones que tiene [Zernio]... Y que aparezcan en
   // integraciones»). Sin `envs`: el estado sale de las cuentas conectadas en Zernio (lib/integraciones.ts, `estadoDeRedZernio`), y

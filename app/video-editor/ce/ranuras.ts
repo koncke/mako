@@ -117,6 +117,9 @@ export type HerramientaLinea = {
   /** Si está, la barra dibuja ESTO en lugar del botón: el deslizador del zoom,
    *  «Vinculación ▾», «Eje de vista previa ▾» (botón + menú propio). */
   Control?: ComponentType<ContextoHerramienta & { herramienta: HerramientaLinea }>;
+  /** Se esconde primero cuando la barra no entra (_opencut/timeline/barra-ancho.ts): lo que otra herramienta ya hace
+   *  (el deslizador del zoom, con − y + al lado). */
+  prescindible?: boolean;
 };
 
 // La barra (timeline/components/timeline-toolbar.tsx) separa las herramientas

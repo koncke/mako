@@ -41,6 +41,8 @@ import { usePanelStore } from "@/app/video-editor/_opencut/editor/panel-store";
 import { usePasteMedia } from "@/app/video-editor/_opencut/media/use-paste-media";
 import { MobileGate } from "@/app/video-editor/_opencut/components/editor/mobile-gate";
 import { tamanosDe, useDisenoStore } from "@/app/video-editor/_opencut/components/editor/diseno-paneles";
+import { minimosDePaneles } from "@/app/video-editor/_opencut/components/editor/minimos-paneles";
+import { useAncho } from "@/app/video-editor/_opencut/hooks/use-ancho";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { StoragePersistenceDialog } from "@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog";
 import { iniciarEspejo } from "@/app/video-editor/_opencut/chat/espejo";
@@ -163,6 +165,9 @@ function EditorLayout() {
 	const diseno = useDisenoStore((s) => s.diseno);
 	const grupoVertical = useRef<ImperativePanelGroupHandle>(null);
 	const grupoHorizontal = useRef<ImperativePanelGroupHandle>(null);
+	// Los mínimos de los paneles de arriba en PÍXELES (components/editor/minimos-paneles.ts), pasados a % con el ancho medido.
+	const zona = useRef<HTMLDivElement>(null);
+	const minimos = minimosDePaneles(useAncho(zona));
 
 	// «Diseño ▾» / «Restablecer diseño actual»: mueve los divisores a la plantilla.
 	// `pedido` arranca en 0 y sólo sube con un clic: al montar manda lo guardado.
@@ -218,6 +223,7 @@ function EditorLayout() {
 	);
 
 	return (
+		<div ref={zona} className="size-full">
 		<ResizablePanelGroup
 			ref={grupoVertical}
 			direction="vertical"
@@ -243,7 +249,7 @@ function EditorLayout() {
 						setPanel({ panel: "properties", size: sizes[2] ?? panels.properties });
 					}}
 				>
-					<ResizablePanel defaultSize={panels.tools} minSize={15} maxSize={55} className="min-w-0">
+					<ResizablePanel defaultSize={panels.tools} minSize={minimos.tools} maxSize={55} className="min-w-0">
 						<Marco>
 							<AssetsPanel />
 						</Marco>
@@ -251,7 +257,7 @@ function EditorLayout() {
 
 					<ResizableHandle className={DIVISOR_VERTICAL} />
 
-					<ResizablePanel defaultSize={panels.preview} minSize={18} className="min-h-0 min-w-0 flex-1">
+					<ResizablePanel defaultSize={panels.preview} minSize={minimos.preview} className="min-h-0 min-w-0 flex-1">
 						<Marco>
 							<PreviewPanel
 								overlayControls={overlayControls}
@@ -263,7 +269,7 @@ function EditorLayout() {
 
 					<ResizableHandle className={DIVISOR_VERTICAL} />
 
-					<ResizablePanel defaultSize={panels.properties} minSize={15} maxSize={55} className="min-w-0">
+					<ResizablePanel defaultSize={panels.properties} minSize={minimos.properties} maxSize={55} className="min-w-0">
 						<Marco>
 							<PropertiesPanel />
 						</Marco>
@@ -284,5 +290,6 @@ function EditorLayout() {
 				</Marco>
 			</ResizablePanel>
 		</ResizablePanelGroup>
+		</div>
 	);
 }

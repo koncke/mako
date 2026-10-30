@@ -161,6 +161,8 @@ test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', ()
 const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, ${string}`> = {
   'app/crm/lead-view/MakoAnalystLead.tsx': 'panel único',
   'app/second-brain/PiezasCliente.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
+  // La apertura (29/10/2026, MaKo habla primero): sus mensajes van en el hilo del Cerebro, adentro de su panel.
+  'app/_chat/AperturaMako.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
   'app/tickets/soporte/PiezasSoporte.tsx': 'pieza de app/tickets/soporte/ChatSoporte.tsx',
   'app/automations/ChatMakoVista.tsx': 'panel único',
   'app/dashboard/PanelEditarMako.tsx': 'panel único',

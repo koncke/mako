@@ -110,7 +110,8 @@ test('6. el texto fijo de un ticket nuevo es el MISMO en el cartero y en el serv
   // Lo que un chat dijo de verdad no se confunde con el aviso.
   assert.equal(cartero.esAvisoDeTicketNuevo('Entró el ticket #12, ¿lo miro?'), false);
   const c = sinComentarios(leer('scripts/operaciones/cartero.mjs'));
-  assert.match(c, /\|\| esAvisoDeRegla\(cuerpo\) \|\| esAvisoDeTicketNuevo\(cuerpo\)\) continue;/, 'el aviso al Cerebro se sube como una conversación');
+  // (Y desde la 1.24.0, el del pedido delegado: tests/despacho-grupo.test.ts.)
+  assert.match(c, /\|\| esAvisoDeRegla\(cuerpo\) \|\| esAvisoDeTicketNuevo\(cuerpo\)(?: \|\| esAvisoDeDelegado\(cuerpo\))?\) continue;/, 'el aviso al Cerebro se sube como una conversación');
 });
 
 /** Procesos que duran lo que el test: sus pids son las sesiones «vivas» (el molde de tests/cartero-carpetas.test.ts). */

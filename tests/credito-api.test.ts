@@ -69,8 +69,8 @@ test('2: lo gastado por cuenta en su ciclo, con la parte del negocio, sin vetos 
     fila({ workspace_id: 10, motivo: 'Analizar', model: 'vetado:claude-sonnet-5', cost_usd: 0 }),
     fila({ motivo: `${MOTIVO_CREDITO_PLATAFORMA} (cuenta 2) · sin crédito hasta el próximo ciclo`, cost_usd: 0, created_at: '2026-10-20T10:00:00Z' }),
   ];
-  const filas = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false }, gastos, wsConClave: WS10, ahora: AHORA });
-  assert.deepEqual(filas.map((f) => f.cuenta), ['claude1', 'claude2', 'claude3', 'claude4']);
+  const filas = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false, claude5: false }, gastos, wsConClave: WS10, ahora: AHORA });
+  assert.deepEqual(filas.map((f) => f.cuenta), ['claude1', 'claude2', 'claude3', 'claude4', 'claude5']);
   const [uno, dos, tres] = filas;
   assert.equal(uno.gastadoUsd, 0.1723);
   assert.equal(uno.llamadas, 2);
@@ -88,12 +88,12 @@ test('3: nunca un número inventado: sin registro, null; sin saber si está vinc
   const filas = resumenCredito({ vinculadas: { claude1: true, claude2: null }, gastos: null, wsConClave: new Map(), ahora: AHORA });
   assert.equal(filas[0].gastadoUsd, null);
   assert.equal(filas[1].vinculada, null, 'no se pudo leer no es «falta vincular»');
-  assert.deepEqual(totalCredito(filas), { gastadoUsd: null, vinculadas: 1, rindeUsd: 200, totalUsd: 800 });
-  const ok = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false }, gastos: [fila({ cost_usd: 0.25 })], wsConClave: new Map(), ahora: AHORA });
-  assert.deepEqual(totalCredito(ok), { gastadoUsd: 0.25, vinculadas: 2, rindeUsd: 400, totalUsd: 800 });
+  assert.deepEqual(totalCredito(filas), { gastadoUsd: null, vinculadas: 1, rindeUsd: 200, totalUsd: 1000 });
+  const ok = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false, claude5: false }, gastos: [fila({ cost_usd: 0.25 })], wsConClave: new Map(), ahora: AHORA });
+  assert.deepEqual(totalCredito(ok), { gastadoUsd: 0.25, vinculadas: 2, rindeUsd: 400, totalUsd: 1000 });
   // Con el registro leído pero la clave de una cuenta sin leer: el total tiene un hueco (lo de esa cuenta). Rotura: el total
   // sin mirar `vinculada == null` → 1 fallo.
-  const hueco = resumenCredito({ vinculadas: { claude1: true, claude2: null, claude3: false, claude4: false }, gastos: [fila({ cost_usd: 0.25 })], wsConClave: new Map(), ahora: AHORA });
+  const hueco = resumenCredito({ vinculadas: { claude1: true, claude2: null, claude3: false, claude4: false, claude5: false }, gastos: [fila({ cost_usd: 0.25 })], wsConClave: new Map(), ahora: AHORA });
   assert.equal(totalCredito(hueco).gastadoUsd, null, 'una cuenta en «No pude leerlo»: el total no es un dato');
 });
 
@@ -111,6 +111,10 @@ test('4: el ciclo, de cobro a cobro, a la medianoche de Argentina (y los meses c
   assert.equal(CUENTAS_DEL_CREDITO.find((c) => c.cuenta === 'claude4')?.suscripta, '2026-10-16');
   const [, , , cuatro] = resumenCredito({ vinculadas: {}, gastos: [], wsConClave: new Map(), ahora: AHORA });
   assert.equal(cuatro.vinculableDesde, '2026-10-23T03:00:00.000Z');
+  // La cuenta 5 (Ananda, 24/10; Martín, 28/10/2026: «todas mis cuentas son x20»): se puede vincular desde el 31/10, y su clave
+  // es la de los grupos también (lib/credito-api.ts, `CLAVES_CREDITO_DE_LOS_GRUPOS`).
+  assert.deepEqual(CUENTAS_DEL_CREDITO.find((c) => c.cuenta === 'claude5'), { cuenta: 'claude5', clave: 'ANTHROPIC_CREDITO_CUENTA5', suscripta: '2026-10-24' });
+  assert.equal(new Date(vinculableDesde('2026-10-24')!).toISOString(), '2026-10-31T03:00:00.000Z');
   const [, , , despues] = resumenCredito({ vinculadas: {}, gastos: [], wsConClave: new Map(), ahora: Date.parse('2026-10-24T12:00:00Z') });
   assert.equal(despues.vinculableDesde, null, 'pasados los 7 días ya se puede');
 });
@@ -125,17 +129,18 @@ const CUENTAS = [
 
 test('5: lo que se dibuja: el total de los cuatro planes, cada cuenta, y lo que falta vincular', () => {
   const gastos = [fila({ cost_usd: 0.2528 }), fila({ workspace_id: 10, motivo: null, cost_usd: 0.1 })];
-  const filas = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false }, gastos, wsConClave: WS10, ahora: AHORA });
+  const filas = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false, claude5: false }, gastos, wsConClave: WS10, ahora: AHORA });
   const lectura: LecturaCredito = { ok: true, filas, total: totalCredito(filas), negociosSinLeer: false };
   const t = plano(renderToStaticMarkup(createElement(VistaCredito, { lectura, cuentas: CUENTAS })));
-  assert.match(t, /^API US\$0,35 de US\$800 este mes 2 de 4 vinculadas: hoy rinden US\$400 /);
+  // Cinco planes desde el 28/10/2026 (la cuenta 5, Ananda): US$1.000.
+  assert.match(t, /^API US\$0,35 de US\$1\.000 este mes 2 de 5 vinculadas: hoy rinden US\$400 /);
   assert.match(t, /Mauricio Bustos US\$0,25 de US\$200 Quedan US\$199,75 · se renueva con el cobro del plan/);
   assert.match(t, /Leandro Tejado US\$0,10 de US\$200 Quedan US\$199,90 · se renueva con el cobro del plan Incluye US\$0,10 del negocio 10, que la usa como su Claude/);
   assert.match(t, /Martin Koncke Falta vincular claude\.ai → Configuración → Facturación → Créditos de API, y su clave a MaKo/);
   assert.match(t, /Leandro Tejado 2 Falta vincular Se puede desde el 23\/10 \(7 días después de suscribirse\)/);
   assert.match(t, /El saldo real, en platform\.claude\.com → Billing/);
   // Sin el registro: ningún «US$0» inventado.
-  const sin = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false }, gastos: null, wsConClave: WS10, ahora: AHORA });
+  const sin = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false, claude5: false }, gastos: null, wsConClave: WS10, ahora: AHORA });
   const ts = plano(renderToStaticMarkup(createElement(VistaCredito, { lectura: { ok: true, filas: sin, total: totalCredito(sin), negociosSinLeer: true }, cuentas: CUENTAS })));
   assert.match(ts, /^API Sin dato de lo gastado /);
   assert.match(ts, /Mauricio Bustos No pude leer lo gastado/);

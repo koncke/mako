@@ -72,8 +72,13 @@ test('una red recién conectada con la clave 2 sale con la 2 sin esperar la cach
 test('conectar va a la primera clave con lugar, sin aviso', () => {
   assert.deepEqual(R.e.r, { ok: true, tipo: 'url', url: 'https://zernio.com/oauth/twitter?con=sk_dos' });
   assert.deepEqual(R.e.connect, ['sk_dos GET /connect/twitter']);
-  // Volver a entrar con una red que una clave ya tiene no suma: va a esa clave.
-  assert.deepEqual(R.h, { ok: true, connect: ['sk_dos GET /connect/linkedin'] });
+  // «Conectar otra» de una red que una clave ya tiene es OTRA cuenta: con las dos llenas, el aviso (la de la llamada con Thiago).
+  assert.equal(R.h.r.ok, false);
+  assert.equal(R.h.r.motivo, 'cobro');
+  assert.match(R.h.r.error, /^Otra cuenta de LinkedIn cuenta como una red más\. Esta clave de Zernio ya tiene 2 redes\./);
+  assert.deepEqual(R.h.connect, [], 'ningún login antes del aviso');
+  // Reconectar ESA cuenta no suma: entra sin aviso, en su clave.
+  assert.deepEqual(R.h.reconectar, { ok: true, connect: ['sk_dos GET /connect/linkedin'] });
 });
 
 test('con todas las claves llenas, el aviso ANTES del login ofrece otra clave; «Conectar igual» va a la 1', () => {
@@ -84,6 +89,14 @@ test('con todas las claves llenas, el aviso ANTES del login ofrece otra clave; �
   assert.match(R.f.r.error, /Para no pagar, agrega otra clave de Zernio \(de otra cuenta tuya, con otro Gmail\)\./);
   assert.deepEqual(R.f.connect, [], 'ningún login antes de que la persona elija');
   assert.deepEqual(R.g, ['sk_uno GET /connect/youtube']);
+});
+
+test('un 2.º Instagram: con la clave llena avisa ANTES del login y dice por qué; con lugar, entra gratis', () => {
+  assert.equal(R.otroInstagram.r.ok, false);
+  assert.equal(R.otroInstagram.r.motivo, 'cobro');
+  assert.match(R.otroInstagram.r.error, /^Otra cuenta de Instagram cuenta como una red más\. Esta clave de Zernio ya tiene 2 redes\. Si conectas otra, Zernio te empieza a cobrar \(US\$6 por mes/);
+  assert.deepEqual(R.otroInstagram.connect, []);
+  assert.deepEqual(R.otroInstagramGratis, { ok: true, connect: ['sk_uno GET /connect/instagram'] });
 });
 
 test('con las 5 claves llenas, el aviso no ofrece otra: dice la salida que queda', () => {
@@ -150,3 +163,6 @@ test('el catálogo: claves 2 a 5 opcionales con su número, y ninguna puede ser 
 //   · el webhook sólo en la clave 1                                                          → 12 / 1
 //   · el aviso sin [Agregar otra clave]                                                      → 12 / 1
 //   · el email de la clave cuenta como otra clave                                            → 12 / 1
+// Y el 2.º Instagram (29/10/2026, la llamada con la agencia; corrido junto con el barrido y las recurrentes, 29 / 0):
+//   · el 2.º Instagram se da por «volver a entrar» (sin aviso)                                → 27 / 2
+//   · el aviso no dice que otra cuenta de la misma red cuenta                                 → 27 / 2

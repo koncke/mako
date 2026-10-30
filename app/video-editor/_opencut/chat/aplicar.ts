@@ -42,6 +42,7 @@ import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/elem
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
 import { quitarSilencios, type ResultadoSilencios } from "@/app/video-editor/_opencut/audio/borrar-silencios";
+import { NO_ENCONTRE, textoSinSilencios } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { NORMALIZAR_OBJETIVO } from "@/app/video-editor/_opencut/audio/claves";
 import type { ClipConAudio } from "@/app/video-editor/_opencut/audio/decodificar";
 import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
@@ -81,15 +82,19 @@ const NO_SE_ARMO: Record<Extract<ResultadoUsar, { ok: false }>["motivo"], string
 	error: "no se pudo cargar la plantilla",
 };
 
-/** Por qué no se borraron los silencios (audio/borrar-silencios.ts), para la persona. */
-const SIN_SILENCIOS: Record<Extract<ResultadoSilencios, { ok: false }>["motivo"], string> = {
+/** Por qué no se borraron los silencios (audio/borrar-silencios.ts), para la persona. «Sin pausas» tiene su aviso
+ *  propio, que dice dónde se buscó y qué pedir (audio/silencios-aviso.ts, ticket 31). */
+const SIN_SILENCIOS: Record<Exclude<Extract<ResultadoSilencios, { ok: false }>["motivo"], "sin-silencios">, string> = {
 	"sin-clip": "el clip para borrarle los silencios ya no está",
 	ocupado: "ya se están borrando silencios",
 	"sin-audio": "el clip no tiene audio",
 	"todo-silencio": "el clip es todo silencio: no se borra entero",
-	"sin-silencios": "no hay silencios de 0,4 s o más",
 	error: "no se pudo leer el audio",
 };
+
+/** El aviso de un pedido que no cambió nada. «No se aplica: …», salvo el que ya dice qué pasó y qué pedir (ticket 31). */
+const noSeAplica = (descarte: string | undefined, sinNada: string) =>
+	!descarte ? sinNada : descarte.startsWith(NO_ENCONTRE) ? descarte : `No se aplica: ${descarte}`;
 
 /**
  * Una operación larga, contra el elemento de AHORA (el lote pudo moverlo). Devuelve lo que
@@ -102,11 +107,16 @@ async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (
 		const hecho = await quitarSilencios(editor, {
 			seleccion: r.els.map((el) => ({ trackId: el.trackId, elementId: el.elementId })),
 			cabezal: false,
+			minimoS: r.minimoS,
 			alPaso: (paso) =>
 				alProgreso?.(paso.tipo === "cortando" ? paso : { ...paso, titulo: titulos.get(paso.elementId) ?? paso.nombre }),
 		});
 		alProgreso?.(hecho.ok ? { tipo: "listo", segundos: hecho.segundos } : { tipo: "fallo" });
-		return hecho.ok ? [] : [SIN_SILENCIOS[hecho.motivo]];
+		if (hecho.ok) return [];
+		if (hecho.motivo !== "sin-silencios") return [SIN_SILENCIOS[hecho.motivo]];
+		// Dónde se buscó y qué pedir: a Leila le dijo «no hay» de un clip de 0,9 s cuando pedía el video (ticket 31).
+		const titulo = r.els.length === 1 ? r.els[0].titulo : hecho.titulo;
+		return [textoSinSilencios({ clips: hecho.clips, ...(titulo ? { titulo } : {}), segundos: hecho.segundos, minimoS: hecho.minimoS, todoElVideo: r.todo })];
 	}
 	if (r.op === "generar_subtitulos") {
 		// generarSubtitulos no lanza: sin leer lo que devuelve, el chat sólo ve que la línea no
@@ -217,7 +227,7 @@ export async function aceptarPropuesta(
 		medios: datos.medios,
 	});
 	const { resueltas, descartes } = revisarOperaciones({ operaciones: p.operaciones, vista, alcance: p.alcance, transcripcion: datos.transcripcion });
-	if (!resueltas.length) return { ok: false, error: descartes[0] ? `No se aplica: ${descartes[0]}` : "Ya no hay nada que cambiar" };
+	if (!resueltas.length) return { ok: false, error: noSeAplica(descartes[0], "Ya no hay nada que cambiar") };
 
 	// 3. Un paso de deshacer para lo que se arma en el momento.
 	const lote = armarLote(resueltas, { idioma: datos.transcripcion.idioma });
@@ -254,7 +264,7 @@ export async function aceptarPropuesta(
 	}
 	const despues = actuales();
 	// Si la línea de tiempo no cambió, no se aplicó: decir «Aplicado» sería mentir.
-	if (!despues || despues === antes || pasos === 0) return { ok: false, error: descartes[0] ? `No se aplica: ${descartes[0]}` : "No se aplicó el cambio" };
+	if (!despues || despues === antes || pasos === 0) return { ok: false, error: noSeAplica(descartes[0], "No se aplicó el cambio") };
 	return { ok: true, aplicada: { escenaId: p.escenaId, antes, despues, pasos }, descartes };
 }
 

@@ -410,6 +410,10 @@ export type Ctx = {
    *  contestó MaKo y los errores que registró el código al correr las herramientas. Lo pone el chat que corre el turno
    *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
   contextoTicket?: () => Record<string, unknown>;
+  /** La imagen o el video que mandaron en el MENSAJE de este turno (29/10/2026, «súbeme este anuncio» desde el grupo,
+   *  `proponer_anuncio_desde_archivo`): lo pone el turno del grupo (lib/mako-doer-in.ts) y lo baja recién cuando se pide. null si
+   *  el mensaje no trae ninguno o no se pudo bajar. */
+  archivoDelMensaje?: () => Promise<{ base64: string; mime: string; nombre: string } | null>;
 };
 
 /** La persona que chatea, sólo en la app (`Ctx.quien`). En WhatsApp, por HTTP o en un flujo no hay nadie «mío». */

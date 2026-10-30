@@ -18,7 +18,9 @@
 // ⚠️ ABRIRLO PLIEGA LA BARRA (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar
 //    espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): ./mako-abierto.ts. Es un pliegue
 //    temporal, como el del Ops Center: no pisa lo que la persona guardó.
-// ⚠️ EL MOTOR SE MONTA SÓLO CON EL PANEL ABIERTO: una tab que nunca abre a MaKo no le pide nada al servidor.
+// ⚠️ EL MOTOR SE MONTA SÓLO CON EL PANEL ABIERTO. Cerrada, desde el 29/10/2026 la estrella pide DOS cosas livianas, una vez por
+//    página: la memoria de las aperturas (/api/aperturas) y si hay app y IA (`?suIA=1`), para su corto y su primera visita. Nada
+//    del motor (la lista de chats, el hilo) hasta que se abre.
 // ⚠️ ABIERTO, LA TAB LE DEJA EL LUGAR: el panel publica su ancho en `--ancho-panel-mako` (en <html>) y la tab lo usa de margen
 //    izquierdo (el CRM, en su <main>); cerrado vuelve a 0. Lo que cada tab suma arriba del hilo (las sugerencias del CRM) va
 //    en `arriba`, y su número en la estrella plegada, en `aviso` (pedido del chat CRM, 22/10/2026).
@@ -27,6 +29,15 @@
 // ⚠️ LO QUE MAKO TERMINÓ EN OTRA TAB (chat Automations, 22/10/2026) suma al globito y, abierta, va arriba del hilo con su link
 //    (TrabajosDeMako.tsx). El globito es lo que espera en la tab (`aviso`) más eso.
 // ⚠️ La caja es la única: este archivo no arma ninguna (tests/chat-unico.test.ts).
+// MAKO TOMA LA INICIATIVA (29/10/2026, docs/mako-iniciativa/): abierto, el hilo lleva la apertura del Cerebro o la de la tab
+// (`apertura`), y la pregunta de la guía de la pestaña. CERRADA, la estrella también habla, sin montar el motor: pide UNA vez
+// la memoria (/api/aperturas) y la app y la IA (`?suIA=1`), y con eso
+//   · la PRIMERA VISITA de la persona a la tab, con algo que decir y nada encima, se abre sola UNA vez (D3 del plan);
+//   · si no, dice el `corto` de la apertura en un globo a su lado, como mucho uno por día en toda la app;
+//   · la primera vez con la guía de la tab, el globo trae su pregunta («¿Quieres que te ayude…?») con sus botones.
+// Las tabs con su propio arranque a la vista (el checklist de Clientes, la charla del Media Buyer, el modal del Calendario, la
+// hoja en blanco del Dashboard) no se abren solas ni dicen el corto: serían dos guías en una pantalla.
+// `data-mako-chat` en la estrella y en el panel: el velo de la guía les deja un hueco (el chat se sigue viendo).
 
 import '@/app/admin/operaciones/centro.css';
 import './chat.css';
@@ -39,7 +50,13 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
-import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
+import { CajaDelCliente, HiloDelCliente, estadoDelCliente, useAperturaDelCerebro } from '@/app/second-brain/PiezasCliente';
+import { useGuia, useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { GloboDeLaEstrella } from './GloboDeLaEstrella';
+import { anotarApertura, appYIAReciente, leerAppYIA, useMemoriaAperturas } from './aperturas-memoria';
+import { aperturaOps, type HechosOps } from '@/lib/aperturas/ops';
+import { CLAVE_CORTO, claveApertura, claveEstrella, puedeHablar, respuestasDeMemoria } from '@/lib/aperturas/reglas';
+import { ESPERA_PREGUNTA_MS } from '@/lib/guia/reglas';
 import { JEFE_SECOND_BRAIN, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/lib/chat-desde';
 import { ModosMako } from '@/app/dashboard/ModosMako';
@@ -79,9 +96,47 @@ function useBordeDeLaBarra(visible = false): number {
   return borde;
 }
 
-export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, pantalla = null, encimaDeModales = false }: {
+/** Las tabs con su propio arranque a la vista (plan.md D3): ahí la estrella no se abre sola ni dice su corto. */
+const CON_SU_ARRANQUE: ReadonlySet<string> = new Set(['Media Buyer', 'Calendario', 'Clientes', 'Dashboard', 'General']);
+
+/**
+ * Lo que la estrella CERRADA tiene para decir (lib/aperturas/ops.ts, la escalera del Cerebro): sin el motor, con la memoria de la
+ * página y UNA pregunta por la app y la IA. `abrirSola`: la primera visita a esta tab, con algo que decir. `corto`: si no, lo que
+ * dice el globo (uno por día en toda la app; una vez a la vista, se queda en esta visita).
+ */
+function useEstrellaCerrada(tab: string, cerrada: boolean): { corto: string | null; abrirSola: boolean; dijo: () => void; callar: () => void } {
+  const propio = CON_SU_ARRANQUE.has(tab);
+  const mem = useMemoriaAperturas();
+  const [hechos, setHechos] = useState<HechosOps | null>(appYIAReciente);
+  useEffect(() => {
+    if (!cerrada || propio || hechos) return;
+    let vivo = true;
+    void leerAppYIA().then((h) => { if (vivo && h) setHechos(h); });
+    return () => { vivo = false; };
+  }, [cerrada, propio, hechos]);
+  const [ahora] = useState(() => Date.now());
+  const [mostrado, setMostrado] = useState<string | null>(null);
+  const [callado, setCallado] = useState(false);
+  const m = mem.memoria;
+  const a = m && hechos ? aperturaOps(hechos, respuestasDeMemoria(m, 'ops')) : null;
+  const habla = !!a && !!m && !propio && puedeHablar(m[claveApertura(a.id)], a.alcance, ahora);
+  const abrirSola = habla && !m![claveEstrella(tab)];
+  const corto = callado ? null : mostrado ?? (habla && !abrirSola && a!.corto && puedeHablar(m![CLAVE_CORTO], 'negocio', ahora) ? a!.corto : null);
+  return {
+    corto: cerrada ? corto : null,
+    abrirSola: cerrada && abrirSola,
+    // A la vista por primera vez en esta visita: cuenta como el corto del día.
+    dijo: () => { if (corto && !mostrado) { setMostrado(corto); anotarApertura(CLAVE_CORTO, 'vista'); } },
+    callar: () => setCallado(true),
+  };
+}
+
+export function MakoEnLaTab({ tab, apertura = null, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, pantalla = null, encimaDeModales = false }: {
   /** El nombre de la tab («CRM», «Automations»): el `aria-label` y desde dónde va lo que se escribe al Cerebro, que reparte. */
   tab: string;
+  /** Lo que la TAB dice primero en el hilo (su apertura, con `useApertura` y `AperturaMako`: plan.md §4): gana sobre la del
+   *  Cerebro. Una por pantalla. */
+  apertura?: ReactNode | null;
   /** Lo que la pantalla tiene abierto (OC6, lib/chat-desde.ts): el lead de la ficha, la automatización del lienzo. El turno lo
    *  toma por defecto («movelo a Ganado» es ESE lead) y el mensaje lleva su chip «desde CRM › Ana». */
   entidad?: EntidadChat | null;
@@ -142,24 +197,73 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
     marcarMakoAbierto(abierto);
     return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
+
+  // ── La iniciativa con la estrella cerrada ──
+  const guia = useGuia();
+  const enElChat = useGuiaEnElChat();
+  const cerrada = useEstrellaCerrada(tab, !abierto);
+  // La guía empezó a señalar (o se pidió el «?»): el chat se abre (guia.md §3.3, «abre el chat si estaba cerrado»).
+  const abrirVisto = useRef(guia.abrirChat);
+  useEffect(() => {
+    if (guia.abrirChat === abrirVisto.current) return;
+    abrirVisto.current = guia.abrirChat;
+    if (guia.guia) abrir();
+  }, [guia.abrirChat]); // eslint-disable-line react-hooks/exhaustive-deps
+  // La primera visita a la tab, con algo que decir y nada encima: se abre sola, UNA vez (D3), después de que la tab se dibujó.
+  const nadaEncima = prof === 0 && !guia.dice && !guia.objetivo && !guia.esperando;
+  useEffect(() => {
+    if (!cerrada.abrirSola || !nadaEncima) return;
+    const t = window.setTimeout(() => {
+      if (profundidadModales() > 0) return;
+      anotarApertura(claveEstrella(tab), 'vista');
+      abrir();
+    }, ESPERA_PREGUNTA_MS);
+    return () => window.clearTimeout(t);
+  }, [cerrada.abrirSola, nadaEncima]); // eslint-disable-line react-hooks/exhaustive-deps
+  // El globo: la pregunta de la guía (la primera vez en la tab) o el corto de la apertura.
+  const pregunta = !abierto && guia.guia && enElChat.pregunta && !enElChat.senalando ? enElChat.pregunta : null;
+  const corto = !abierto && !pregunta && nadaEncima ? cerrada.corto : null;
+  useEffect(() => { if (corto) cerrada.dijo(); }, [corto]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Abierto una vez, ya leyó la pregunta entera en el hilo: el corto no vuelve al cerrar.
+  useEffect(() => { if (abierto) cerrada.callar(); }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
+  const zEstrella = encimaDeModales && prof > 0 ? zEncimaDeModales(prof) : undefined;
+
   const enBarra = ranura != null && !(encimaDeModales && prof > 0);
   const rotulo = espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`;
+  // El globo va a la derecha de la estrella (`left` + 66, GloboDeLaEstrella). En la barra, pegado a su borde: la estrella ya no
+  // flota al lado, y a 66 px quedaba suelto en el medio de la tab (el merge del 30/10/2026 con la guía).
+  const leftGlobo = enBarra ? bordeVisible - 56 : bordeVisible + 16;
+  const globos = (
+    <>
+      {pregunta?.apertura && (
+        <GloboDeLaEstrella left={leftGlobo} texto={pregunta.apertura.texto} apertura={pregunta.apertura} onElegir={pregunta.elegir}
+          onAbrir={abrir} onCerrar={() => pregunta.elegir({ tipo: 'callar', rotulo: 'Ahora no' })} zIndex={zEstrella} />
+      )}
+      {corto && <GloboDeLaEstrella left={leftGlobo} texto={corto} onAbrir={abrir} onCerrar={cerrada.callar} zIndex={zEstrella} />}
+    </>
+  );
   if (!abierto && enBarra) {
-    return createPortal(
-      <button type="button" className="ch-tab-mako ch-tab-mako--en-barra" aria-label={rotulo} title="MaKo" onClick={abrir}>
-        <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={34} espera={espera} />
-      </button>,
-      ranura,
+    return (
+      <>
+        {createPortal(
+          <button type="button" className="ch-tab-mako ch-tab-mako--en-barra" aria-label={rotulo} title="MaKo" onClick={abrir} data-mako-chat="">
+            <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={34} espera={espera} />
+          </button>,
+          ranura,
+        )}
+        {globos}
+      </>
     );
   }
   return abierto
-    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} />
-    : (
+    ? <PanelDelCerebro tab={tab} izquierda={borde} apertura={apertura} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} apartado={guia.apartar} />
+    : (<>
       <button type="button" className="ch-tab-mako" style={{ left: bordeVisible + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
-        title="MaKo" onClick={abrir}>
+        title="MaKo" onClick={abrir} data-mako-chat="">
         <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={espera} />
       </button>
-    );
+      {globos}
+    </>);
 }
 
 /**
@@ -181,19 +285,21 @@ function useRanuraDeLaBarra(): HTMLElement | null {
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center, flotando al lado de la barra. */
-function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, pantalla, onCerrar, sobre }: {
-  tab: string; izquierda: number; arriba: ReactNode; trabajos: readonly TrabajoTerminado[]; preguntas: readonly PreguntaDeLaTab[] | null;
+function PanelDelCerebro({ tab, izquierda, apertura, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, pantalla, onCerrar, sobre, apartado = false }: {
+  tab: string; izquierda: number; apertura: ReactNode | null; arriba: ReactNode; trabajos: readonly TrabajoTerminado[]; preguntas: readonly PreguntaDeLaTab[] | null;
   pedido: { texto: string; vez: number } | null; onMandado: () => void;
   entidad: EntidadChat | null; modo: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla: string | null; onCerrar: () => void;
   /** Abierto encima de un modal de la tab: es una capa más de la pila (anidada: la de abajo se sigue viendo). */
   sobre: boolean;
+  /** La guía señala algo de la tab en una ventana angosta: el panel se aparta SIN desmontarse, y vuelve solo. */
+  apartado?: boolean;
 }) {
   const capa = useCapaModal(sobre, { anidada: true });
   // Encima de un modal, el Escape sólo si el panel es la capa de arriba: si no, una tecla cerraba el panel Y la tarjeta de abajo.
   const esDeArriba = useCallback(() => !sobre || capa.esElDeArriba(), [sobre, capa]);
   return (
-    <div className="ch-tab-panel" style={{ left: izquierda, ...(sobre ? { zIndex: capa.z } : {}) }} role="dialog" aria-label={`MaKo en ${tab}`}>
-      <ConversacionCerebro tab={tab} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={pedido} onMandado={onMandado}
+    <div className={apartado ? 'ch-tab-panel ch-tab-panel--apartado' : 'ch-tab-panel'} style={{ left: izquierda, ...(sobre ? { zIndex: capa.z } : {}) }} role="dialog" aria-label={`MaKo en ${tab}`} data-mako-chat="">
+      <ConversacionCerebro tab={tab} apertura={apertura} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={pedido} onMandado={onMandado}
         entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={onCerrar} esDeArriba={esDeArriba} />
       <button type="button" className="ch-tab-panel__cerrar" aria-label="Cerrar MaKo" title="Cerrar (Esc)" onClick={onCerrar}>×</button>
     </div>
@@ -207,9 +313,9 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
  *   · `onCerrar`: el «volver» de la ventana angosta y el Escape. Sin esto (la tarjeta fija), no se cierra.
  *   · `antes`: lo que va antes de la criatura en la cabecera (la «←» a la lista de proyectos de Create).
  */
-export function ConversacionCerebro({ tab, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
+export function ConversacionCerebro({ tab, apertura: aperturaDeLaTab = null, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
   pantalla = null, onCerrar, esDeArriba, antes, titulo }: {
-  tab: string; arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
+  tab: string; apertura?: ReactNode | null; arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
   pedido?: { texto: string; vez: number } | null; onMandado?: () => void;
   entidad?: EntidadChat | null; modo?: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla?: string | null;
   onCerrar?: () => void; esDeArriba?: () => boolean; antes?: ReactNode;
@@ -246,6 +352,8 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
   // Como un chat: abre en lo último y baja con lo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
+  // Lo que MaKo dice primero: la de la tab, la de la guía o la del Cerebro. Con algo de la tab en el bloque de preguntas, calla.
+  const apertura = useAperturaDelCerebro(k, { libre: !(preguntas && preguntas.length > 0), propia: aperturaDeLaTab });
 
   return (
     <>
@@ -271,7 +379,7 @@ export function ConversacionCerebro({ tab, arriba = null, trabajos = [], pregunt
           </div>
         </>}
         estado={estadoDelCliente(k)}>
-        <HiloDelCliente k={k} />
+        <HiloDelCliente k={k} apertura={apertura} />
       </PanelDeChat>
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
