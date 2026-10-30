@@ -521,7 +521,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'cta_type', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'SUBSCRIBE', 'GET_OFFER', 'CONTACT_US', 'APPLY_NOW', 'SHOP_NOW', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE', 'NO_BUTTON'], descripcion: 'el botón.' },
       { nombre: 'destination_url', tipo: 'string', max: 1000, descripcion: 'URL de destino (landing), exacta con https.' },
     ],
-    canales: TODOS, costo: 'dinero', gating: G_META_ADMIN,
+    // Sin HTTP: el archivo es el del MENSAJE (o un link pegado en el grupo); por la API, proponer_agregar_anuncio con el creativo ya subido.
+    canales: SIN_HTTP, costo: 'dinero', gating: G_META_ADMIN,
   },
   {
     id: 'proponer_editar_textos_anuncio', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,

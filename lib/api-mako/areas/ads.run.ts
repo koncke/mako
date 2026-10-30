@@ -865,7 +865,8 @@ export const RUNNERS: Runners = {
         if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
         try {
           const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
-          if (!r.ok) return { error: `No pude bajar el archivo (${r.status}). Si es de Drive, compártelo con «cualquiera con el enlace».` };
+          // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
+          if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
           const mime = (r.headers.get('content-type') || '').split(';')[0];
           const largo = Number(r.headers.get('content-length') || 0);
           if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };

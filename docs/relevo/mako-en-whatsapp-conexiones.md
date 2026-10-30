@@ -18,7 +18,10 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
   pausar/prender campaña o anuncio; presupuesto por pantalla; WhatsApp a un lead se aprueba en la app (`SE_APRUEBAN_EN_LA_APP`);
   pedido compuesto delega lo que no hizo; delegado sin tomar en 30 min avisa (cron de tickets). Banco con el prompt nuevo: 75/77,
   0 escrituras en la clase equivocada. La lista: `git show promesas-thiago-2910:docs/promesas/2910-llamada-thiago.md`.
-- **LA TANDA SIGUIENTE (pedida por el Cerebro, todavía sin empezar):** «subime este anuncio» con un Drive, o un video o una imagen
+- **«Súbeme este anuncio»: b860ef8f8 (29/10 ~22:00).** `proponer_anuncio_desde_archivo` (ads), detrás de ZERNIO_ANUNCIOS_PROBADO
+  (sigue en false: lo prende la prueba de Martín); el doer lee el videoMessage; la regla de una guarda ya no se delega. Roturas D2 y
+  D23–D27 cazadas. Verificación final en `C:/dev/verif-b860ef8f8` (sacarlo después: `cmd /c rmdir` del junction primero).
+- **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
   mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
   `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
   token), el camino de Zernio apagado por `ZERNIO_ANUNCIOS_PROBADO = false` (lib/zernio-ads-cuerpo.ts; la prueba es
