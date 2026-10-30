@@ -17,6 +17,8 @@ tabla se leyó en el código; lo marcado «1.ª vuelta» se vio en pantalla y no
 
 Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** detalle.
 
+**Lo más grave es AD1:** no es visual, la app afirma algo que no midió. Sin campañas tiene que decir que no hay datos.
+
 | Chat dueño | # | Sev. | Dónde | Qué pasa | Dónde vive / verificado |
 |---|---|---|---|---|---|
 | **Ads Manager** | AD1 | **A** | Ads Manager, «Hoy» | Dice «Hoy no hay cambios. Todo anda dentro de tu objetivo» sobre una cuenta con 0 campañas y $0 gastados (la pestaña Campañas sí lo dice bien). | app/ads-manager/MediaBuyer.tsx:276-277 y app/m/ads/MediaBuyerM.tsx:84-85: sólo mira `hoy.length` y `config.encendido`. Leído en el código. |
@@ -24,7 +26,7 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | **Create** (el shell) | CR1 | M | Video, Image (las primeras 7), Offer | Plantillas con un rectángulo vacío y las medidas. Regla de Martín del 29/10: «No pueden haber miniaturas en blanco». | app/_crear/reglas.ts:49 (`el marco vacío`), app/_crear/TarjetaPlantilla.tsx |
 | Create / Offer | OF1 | M | Offer | Dos plantillas se llaman igual, «Crear una oferta nueva»: lo que las distingue es un texto chiquito adentro del cuadro. | app/offer/arbol.ts:242: una por funnel, con el mismo `nombre` y el funnel en `rotulo` |
 | **AI Avatar** | AV1 | M | AI Avatar | 26 de 28 presets sin imagen: sólo un fondo de color (misma regla). | lib/ai-avatar/plantillas.ts: 2 `ejemplo:` en 28 `id:`. Contado. |
-| AI Avatar | AV2 | M | AI Avatar | «Antes de generar» y la barra quedan fijos tapando casi la mitad de la pantalla, sin cerrarse, encima de los presets. | app/ai-avatar/Estudio.tsx (`hf-barra-*`) |
+| AI Avatar | AV2 | M | AI Avatar | «Antes de generar» y la barra quedan fijos tapando casi la mitad de la pantalla, sin cerrarse, encima de los presets. | app/ai-avatar/Estudio.tsx (`hf-barra-*`). Lo cubre T15 («Antes de generar» se pliega) |
 | **Sidebar** | U3 | M | Barra lateral, en todas las pantallas | A esta altura (730-811 px) el último ítem queda cortado detrás del avatar. Estando en AI Avatar o Copywriting, el activo no se ve. | app/_components/Sidebar.tsx; a confirmar si el ítem activo hace scroll hasta verse |
 | **CRM** | C1 | M | Tablero | Tarjetas con imagen rota en vez de las iniciales. | 1.ª vuelta |
 | CRM | C2 | M | Tablero | Nombres y teléfonos cortados con «…»: en un lead sin nombre, el teléfono no se lee entero. | 1.ª vuelta |
@@ -50,7 +52,50 @@ Severidad: **A** se rompe o miente; **M** se usa pero se ve o se lee mal; **B** 
 | **API** | AP1 | B | Índice | «Chatbot y secuencias» y «Ads (Manager y Analyst)»: nombres viejos. | lib/api-mako/tipos.ts:46 y :54 (también salen en docs/api-mako.md) |
 | **Web Generator** (este chat) | W1 | B | `/`, reproductor | El cartel «Continuar viendo» queda encima del título del video. | 1.ª vuelta |
 | Web Generator (este chat) | W2 | **A** | Landing copiada | Las 27 imágenes de una landing copiada daban 404. **Arreglado en esta rama, falta correr sus tests** (abajo). | lib/landing-fetch.ts, lib/editor-landing/replicar-reglas.ts |
-| Iniciativa (T4 a T8) | CH1 | M | Video, Image, AI Avatar | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo. **No es un bug suelto:** es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17) y su apertura es la tanda T4 de docs/mako-iniciativa/plan.md. | No repartir aparte |
+| Iniciativa (T4 a T8) | CH1 | M | AI Avatar siempre; Video e Image mientras no hay un proyecto abierto (Copywriting y Offer tienen chat propio) | El chat abre con la conversación del Cerebro (una del 11/10, ajena a la pantalla) y sin pregunta de MaKo: `PantallaCrear` no le pasa `apertura`. La conversación compartida es a propósito (`ConversacionCerebro`, app/_crear/PantallaCrear.tsx:17; regla «UN chat en toda la app»): el defecto es que no haya pregunta arriba. ⚠️ **T4 sola no lo arregla:** sólo agrega el reenvío de `apertura`, y hoy ninguna de las tres tabs pasa una. AI Avatar la recibe en T15 (última, sobre la tarjeta del Cerebro, sin chat propio). T11 y T12 son para Video e Image con un proyecto abierto: **sin proyecto abierto, ninguna tanda les da pregunta.** | docs/mako-iniciativa/plan.md:376, :383-384, :387 |
+
+## Las aperturas de Create: decisiones del Cerebro (30/10) y texto para el plan
+
+**Decidido:**
+
+- **Video e Image sin proyecto abierto: va una apertura nueva al plan.** Es donde Martín vio el problema y hoy no la cubre ninguna tanda. Hasta que exista, no se tacha CH1.
+- **AI Avatar queda en T15, la última: no se vende** (`AI_AVATAR_SE_VENDE = false`) y el plan la deja para cuando el motor genere un look en producción. **Vale hasta que entren a AI Avatar los
+  estudios de `open-generative-ai`,** que Martín pidió hoy y se están construyendo en la nube. Con eso la tab pasa a ser una pantalla que la gente usa, y T15 deja de poder ser la última: hay que
+  volver a decidir.
+- **No se le agrega un chat propio a AI Avatar:** va contra la regla de Martín «UN chat en toda la app» y contra el plan (:334).
+- **La tarjeta de Create abre SIEMPRE abajo del historial, sin condición de fecha.** Con pregunta, muestra la pregunta; sin pregunta, la caja vacía para escribir. Lo anterior se sube a leer. Hoy, con
+  historia, la pregunta va después del último mensaje (plan :109) y la charla de octubre se sigue viendo arriba de ella. No toca la regla del UN chat: la conversación es la misma, cambia dónde empieza la vista.
+  **Por qué sin fecha:** un corte por tiempo falla de los dos lados. «Es de hoy» deja a quien escribió a la mañana en el Ops Center justo en la charla ajena, que es la queja.
+- **Sólo en la tarjeta de Create.** `ConversacionCerebro` es también el de la estrella: cambiarlo para las dos es otra decisión, no un efecto.
+- **El proyecto de [Sí, lo subo] toma el tamaño del video que sube.** Si no se puede leer, 9:16, como la primera tarjeta de Nuevo video.
+
+**El texto para `docs/mako-iniciativa/plan.md`** (`plan.md` no es de este chat; lo reparte el Cerebro):
+
+Una tanda nueva después de T4, porque usa su reenvío de `apertura`:
+
+| Tanda | Chat | Qué | Archivos | Listo cuando |
+|---|---|---|---|---|
+| T4b | **Video Editor e Image** (después de T4) | La apertura de la portada, sin proyecto abierto. Sin `corto`: el centro ya dibuja «¿Qué vas a crear hoy?» (el mismo criterio que Dashboard, :326) | `app/video-editor/VideoEditorCliente.tsx` (:158-168), `app/image-editor/ImageEditorCliente.tsx` (:151-165), `lib/aperturas/video.ts` y `lib/aperturas/image.ts` (los de T11 y T12: los crea el que llegue primero) | En ws3, sin nada abierto, cada tab abre con su pregunta y sus botones andan sin la app; contestada en la portada, no se repite adentro del proyecto; también con la tarjeta plegada |
+
+Y dos filas en la tabla de aperturas:
+
+| Dónde | Cuándo | Pregunta | Botones | Se va |
+|---|---|---|---|---|
+| **Video** · portada de Create | Sin proyecto abierto | «¿Ya grabaste tu video?» (la de :328, misma clave) | [Sí, lo subo ★] (`hacer`: el proyecto nuevo y la biblioteca; el tamaño, abajo) · [Todavía no] → «Te escribo qué decir.» (`ir` /copywriter) | — |
+| **Image** · portada de Create | Sin diseño abierto | «¿Dónde lo vas a publicar?» (la de :329, misma clave) | [Historia] [Carrusel] [Anuncio] [Miniatura] → `hacer`: `crearDisenoNuevoAction` con `historia`, `carrusel_instagram`, `anuncio_facebook` o `miniatura_youtube` | — |
+
+**Para el que implemente la vista** (`ConversacionCerebro`, app/_chat/MakoEnLaTab.tsx:305):
+
+- ⚠️ **Hoy el hilo baja sólo cuando cambia `k.items.length` o `k.trabajo`, no cuando llega la apertura.** La apertura llega después, cuando carga la memoria: con historia larga puede quedar abajo, fuera de la vista.
+- **Dejar el historial fuera de la vista pide lugar abajo de él:** sin eso, el navegador no puede subirlo y la charla vieja sigue a la vista.
+- **Se ve bien con poco historial y falla con el largo:** probarlo con una conversación larga, como la de Martín.
+
+**Para el que implemente el tamaño:** el editor ya hace casi todo. Sin `relacion` fijada, el primer clip con medidas pone el lienzo (`_opencut/commands/timeline/element/insert-element.ts:90-107`).
+
+- ⚠️ **El 9:16 no se puede poner con la tarjeta `lienzo:reel`:** esa guarda `relacion: '9:16'`, y con una relación fija el primer clip ya no cambia el lienzo. Con eso nunca se usaría el tamaño del video.
+- **Lo que corresponde:** crear el proyecto con `canvasSize` 1080×1920 y sin `relacion`. Leído en el código, sin correr.
+
+**La prueba final, al desplegar:** Martín abre Video, Image y AI Avatar y no ve la charla de octubre, también después de contestar. Hasta entonces, CH1 sigue abierto.
 
 ## Cerrados o que esperan en otra rama
 
