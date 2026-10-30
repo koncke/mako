@@ -89,10 +89,8 @@ Integración. Misma prioridad que lo de Leila.
   los dos inventarios, el bug de la plantilla cifra (paso 1 redondea 4,5), el modelo de imágenes antes de subir, y en cola
   exportar → MP4 a Storage, «Mandar al grupo de MaKo» y «Programar publicación» (con el chat de Zernio).
 
-- **Barra del reproductor, para el VERDE:** las 5 roturas (`banco/roturas-barra.mjs`, encoladas por con-turno detrás de
-  la pausa del Cerebro; su log en el scratchpad de esta sesión, `roturas-barra.log`), anotar sus números al final de
-  tests/video-editor-barra-reproductor.test.ts, el tsc acotado (toolbar.tsx, barra-niveles.ts, los dos tests, con las
-  cuatro .d.ts de `_opencut`) y el VERDE al Cerebro con el sha.
+- **Barra del reproductor: VERDE mandado** con la punta `d121a5e6f` (rama `editor-pantalla-3010`): 5 roturas, cada una 2/1
+  (B1 también en el banco), y tsc acotado ✓ en 8 archivos (con las cuatro .d.ts de `_opencut`).
 - **La revisión del resto del editor, sin hacer:** la barra de la línea de tiempo va en un `ScrollArea` con la barra de
   scroll OCULTA: lo que no entra queda fuera de la vista. Estimado SIN MEDIR: ~990 px de herramientas (14 a la izquierda,
   grabar, imán, «Vinculación», eje y el zoom con su deslizador de 120 px); el centro mide 950 a 1366 con el chat abierto,
