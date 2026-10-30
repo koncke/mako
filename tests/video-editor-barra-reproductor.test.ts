@@ -48,8 +48,9 @@ test('el tiempo: con cuadros sólo en la ancha; compacto sin horas salvo que el 
 
 test('la pantalla: mide su ancho, no usa columnas que se desbordan, y cada botón tiene su forma compacta con el valor en el tooltip', () => {
   const src = sinComentarios(leer('app/video-editor/_opencut/preview/components/toolbar.tsx'));
-  // El ancho de la barra, antes de pintar y con cada cambio del panel.
-  assert.match(src, /useLayoutEffect\(\(\) => \{[\s\S]*?new ResizeObserver\(/);
+  // El ancho de la barra, antes de pintar y con cada cambio del panel (el hook lo comparte con la barra de la línea de tiempo).
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/hooks/use-ancho.ts')), /useLayoutEffect\(\(\) => \{[\s\S]*?new ResizeObserver\(/);
+  assert.match(src, /import \{ useAncho \} from "@\/app\/video-editor\/_opencut\/hooks\/use-ancho";/);
   assert.match(src, /const nivel = nivelDeBarra\(useAncho\(ref\)\);/);
   assert.match(src, /formato=\{formatoDelTiempo\(nivel, total \/ TICKS_PER_SECOND\)\}/);
   // `1fr` toma el mínimo de su contenido y la derecha se desbordaba sobre el ▶: va `minmax(0,1fr)`.

@@ -2074,6 +2074,44 @@ del editor (`editor-page.tsx`): ~155 px a 1280 con el chat abierto, ~124 con la 
 **Vive en:** `preview/barra-niveles.ts` (puro) · `preview/components/toolbar.tsx` · `app/m/video-editor/video-editor.css` ·
 tests/video-editor-barra-reproductor.test.ts · tests/m-creacion.test.ts.
 
+## La barra de la línea de tiempo escondía herramientas: un ScrollArea con la barra de scroll OCULTA (30/10/2026, claude3)
+
+Lo que no entraba quedaba fuera de la vista sin aviso. Medido en el banco (la barra real con las herramientas que registran
+los paquetes): ocupan 983 px; a 1366 con el chat abierto el centro mide 950 y «Acercar» no se veía; a 1280, el deslizador y
+«Acercar»; a 1280 con la barra lateral fija (688), siete.
+
+- ⚠️ **El ScrollArea de Radix no deja partir una fila:** su viewport mete el contenido en un `display: table` que crece con
+  lo que tiene adentro, así que un `flex-wrap` adentro nunca parte. Para que una barra se parta, va sin ScrollArea.
+- **La regla:** sin lugar, primero se esconde lo `prescindible` (una marca en la herramienta, `ce/ranuras.ts`; hoy sólo el
+  deslizador del zoom, que − y + repiten), por el ancho medido de la barra (`timeline/barra-ancho.ts`); si aun así no entra,
+  la barra se parte en dos filas (CSS: ninguna herramienta nueva puede volver a quedar afuera). La derecha, partida, queda
+  a la derecha; cada separador va con su bloque. El alto de la barra pasó a MÍNIMO (sólo lo usaba ella).
+- ⚠️ **En el banco, el `useEditor` falso tiene que comparar las listas por elemento**, como el de verdad: un selector que arma
+  una lista nueva en cada lectura hace que `useSyncExternalStore` re-dibuje sin fin (React #185). Y el índice del wasm
+  (`_opencut/wasm`, media-time.ts) va REAL: sólo el módulo crudo `wasm/opencut` se reemplaza (`banco/stubs/opencut-crudo.ts`).
+- Después: en los siete casos nada afuera; a 950 una fila sin el deslizador, a 864 y 688 dos filas (67 px). Capturas en
+  `C:/dev/revisiones/editor-pantalla-3010/barra-linea-*.png`.
+
+**Vive en:** `timeline/barra-ancho.ts` (puro) · `timeline/components/timeline-toolbar.tsx` · `hooks/use-ancho.ts` (el ancho,
+compartido con la barra del reproductor) · `ce/ranuras.ts` (`prescindible`) · tests/video-editor-barra-linea.test.ts.
+
+## Los paneles de arriba se achicaban hasta no leerse: mínimos en % del editor (30/10/2026, claude3)
+
+Los mínimos eran 15 % / 18 % / 15 % del ancho del editor: ~130 px con el chat abierto a 1280, ~103 con la barra lateral
+fija. Medido en el banco (los paneles reales; el stub del motor con un comodín y un proyecto inventado): la biblioteca
+aplasta «Importar» y la zona para arrastrar de 240 px para abajo y las corta de 160; en propiedades, de 160 para abajo no se
+lee nada, y el rótulo (`max-w-[45%] truncate`) cortaba «Cuadros por segundo:» aun a 300.
+
+- **La regla:** un panel que se redimensiona tiene un mínimo en PÍXELES, el de lo que tiene adentro. react-resizable-panels 2
+  sólo entiende %: se pasan con el ancho MEDIDO del grupo (`components/editor/minimos-paneles.ts`, 280 / 160 / 280), y si no
+  suman se achican parejo hasta el 96 %. La librería agranda al mínimo el panel que quedó más chico
+  (`reevaluatePanelConstraints`): cambiar `minSize` con el editor abierto funciona.
+- Un rótulo de una ficha de dos columnas se PARTE en renglones, no se corta (`detalles.tsx`).
+- Capturas: `C:/dev/revisiones/editor-pantalla-3010/paneles-antes.png` y `paneles-despues.png` (252, 280 y 320 px).
+
+**Vive en:** `components/editor/minimos-paneles.ts` (puro) · `editor-page.tsx` · `panels/properties/detalles.tsx` ·
+tests/video-editor-paneles-minimos.test.ts.
+
 ## SIN RESOLVER: el editor no carga en un Chrome sin ventana (el banco), se queda en «Cargando…» (29/10/2026)
 
 Para el QA visual se armó un banco (las pantallas reales compiladas con esbuild, sin `next dev`). El editor de Video crea el
