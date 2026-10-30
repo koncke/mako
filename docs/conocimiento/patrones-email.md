@@ -2,7 +2,7 @@
 
 **Qué es.** El conocimiento de email de marketing y de venta que MaKo usa para escribir y recomendar secuencias a negocios high ticket de LATAM.
 
-**De dónde sale.** Unos 4.300 emails de 40 remitentes (infoproductores, agencias, academias, una inmobiliaria, un SaaS y dos comercios), leídos el 29 y el 30/10/2026. Todo está destilado: son estructuras y reglas escritas con palabras propias. No hay remitentes, marcas ni texto copiado.
+**De dónde sale.** Unos 5.050 emails de 70 remitentes (infoproductores, agencias, academias, comunidades pagas y gratuitas, eventos presenciales, una inmobiliaria, cinco SaaS y dos comercios; 13 de ellos escriben en inglés), leídos el 29 y el 30/10/2026. Todo está destilado: son estructuras y reglas escritas con palabras propias. No hay remitentes, marcas ni texto copiado.
 
 **Cómo leerlo.** Casi nada de lo leído estaba abierto, así que esto enseña **estructura**, no rendimiento. Cuando algo es una observación de un solo buzón, se aclara.
 
@@ -27,6 +27,10 @@
 - La llamada se presenta como **evaluación**: «vemos si encaja; si no, te lo decimos». Siempre con duración, quién atiende y qué se lleva el lead aunque no compre.
 - El precio puede ir en el email solo si sirve de filtro: claro, con la forma de pago y con permiso para decir que no («te lo digo ahora porque respeto tu tiempo»). Nunca como descuento.
 - WhatsApp hace la logística (links, recordatorios, dudas), pero **el link importante va también en el email**. Si el mensaje de WhatsApp no llega, el lead se queda afuera.
+- **El cierre de doble camino:** el email de valor termina con «hazlo tú» (la tarea, el recurso o la entrada barata) y «lo hacemos contigo» (la llamada). El que no está listo no se va con las manos vacías, y la llamada no se abarata.
+- **La aplicación filtra y deriva.** Quien no califica no ve la agenda: recibe el escalón que le sirve (la entrada paga, el contenido). Solo el agendado que califica se informa como conversión a los anuncios, para que el algoritmo aprenda a buscar al cliente correcto.
+- **La seña reembolsable también califica:** aparta el lugar, se tiene la llamada y, si no es el momento, se devuelve.
+- **Los bonos suman, no restan.** Una sesión extra, un mes más de acompañamiento o dinero para los anuncios del cliente protegen el precio mejor que un descuento. A cada regalo se le pone su precio.
 
 ### 0.2 Una pieza, una idea, un pedido
 - Un email = una idea, una objeción o un caso, con un solo destino repetido 2 o 3 veces (arriba, al final y en la PD).
@@ -46,6 +50,10 @@
 | Una grabación que vence cuando dijiste | Excusas técnicas inventadas («la sala tiene un límite») |
 | Una condición que empeora («desde el lunes, sin pago en 2 partes») | «Ganaste un sorteo», dicho a toda la lista |
 | Un cierre natural: fin de mes o inicio de cohorte | «Mientras escribía esto, quedaban 19» |
+| Un bono que vence cada noche y, al día siguiente, decir que no hubo excepciones | El premio «solo para los que vengan en vivo» que después se manda a todos |
+| «El último evento gratis» cuando el formato de verdad termina, avisado con días de anticipación | Cerrar la inscripción y reabrirla a las horas «porque mucha gente se quedó afuera» |
+| Un lugar por rubro o por ciudad, si es verdad | «Se agotó» y «agenda aquí» en el mismo email, sin cupos que se hayan liberado de verdad |
+| Una edición al año, o el agotado anterior contado con su número | La oferta «única» que vuelve con descuento a los 3 meses; «cupos limitados» sin número; «reserva tu lugar» en una clase grabada |
 
 Reglas finas:
 - **«Lo que cambia el día X»**, con exactamente dos consecuencias concretas (el precio y el bono, o el precio y la fecha de inicio).
@@ -54,6 +62,8 @@ Reglas finas:
 - Si hay otra tanda, se llama «segunda tanda». Si se agota, se dice con el número y se abre la lista para la próxima.
 - **Explicar el porqué de la escasez** la convierte en beneficio: «son 12 porque reviso cada presentación una por una».
 - **Anti-urgencia** la víspera del cierre («no quiero que decidas por apuro, sino con claridad»): en venta consultiva da confianza.
+- **Una extensión, solo con una causa real** que confirme el dueño (se cayó el pago, hubo gente que no llegó), y avisando que no va a haber un email por día. «Nos equivocamos al cerrar», planeado de antemano, es urgencia falsa.
+- **Anticiparse a la queja por repetir** («ya sé que te lo dije en todos lados») baja la molestia de los últimos avisos.
 
 ### 0.4 Hora, zona y fechas
 - La hora del evento va siempre con su zona y en 2 o 3 países, **escritos con el nombre** (en texto plano las banderas desaparecen): «19:00 CDMX · 20:00 Bogotá y Lima · 22:00 Buenos Aires».
@@ -61,6 +71,10 @@ Reglas finas:
 - «Hoy», «mañana», «en 1 hora» y «ya empezó» se **calculan** desde la fecha del evento al programar. Nunca son texto fijo. El asunto, el preheader y el cuerpo de una pieza hablan del mismo momento.
 - **Una sola ficha por campaña** (fecha, hora, cupos, precio, bonos y plazo) de la que leen todos los emails. Los errores más vistos fueron horas que cambiaban a mitad de la secuencia, un «miércoles 13» que era jueves, un «faltan 24 h» enviado 31 h antes, un «ya empezamos» que salió 44 minutos antes de empezar y un último llamado enviado 52 minutos después del cierre.
 - Si algo cambia, se manda una corrección con el asunto explícito («Cambio de hora: empezamos a las 19:30»).
+- «Medianoche» o «6 p. m.» sin país no es una hora. Y el envío se programa en la zona del lector, no en la del remitente: un cierre «a medianoche» de Europa vence a las 19:00 en Buenos Aires.
+- Las palabras del día también se calculan: un «buen domingo» que sale el lunes o un «faltan 3 días» cuando faltan 2 delatan la plantilla.
+- **Cancelar un evento recurrente cancela todos sus recordatorios**, y un cambio de fecha o de link dispara un aviso. Si un envío programado sale después de la hora de inicio, pasa a «ya empezó» con el link; nunca pide «confirma tu asistencia».
+- Las fechas comerciales se traducen a cada país: Hot Sale y Cyber Monday en Argentina, Buen Fin en México, Black Friday en Chile o Colombia.
 
 ### 0.5 Asunto y preheader
 - **El preheader es el segundo asunto** y se escribe a mano. O completa la frase del asunto («Iba a mandarte otra cosa…» / «y terminé escribiendo esto»), o trae el dato duro (fecha, cupos, «2 minutos»). El asunto pone la emoción o la curiosidad; el preheader, el dato o la promesa.
@@ -75,6 +89,11 @@ Reglas finas:
   - **Serie numerada:** «[2/4] Por qué no vuelven a escribir».
   - **Etiqueta fija por tipo de email** para que el lector lo reconozca: «[EN VIVO]», «[GRABACIÓN]» o un emoji fijo por serie.
   - **Cuenta regresiva literal y corta:** «En 1 hora», «Quedan 5 horas».
+  - **Etiqueta de cuenta regresiva al principio**, que se ve en la bandeja y sale de la fecha real: «Quedan 3 días: …» → «48 h: …» → «Hoy: …».
+  - **Dos temas unidos con «+»** (valor y oferta): «Cómo contestar el "lo pienso" + 15 lugares en la cohorte».
+  - **«Caso real:» con un contraste «más X, menos Y»**, solo si el cuerpo trae el caso: «Caso real: más valoraciones, la misma inversión».
+  - **Pregunta con dos opciones o votación:** «¿Martes o jueves?».
+- **El preheader «Además: …»** lleva la segunda nota de la edición. En el último recordatorio de un evento, lleva día · hora · lugar.
 - **Prohibidos** (MaKo no los sugiere ni los deja pasar):
   - «Re:» o «Fwd:» falsos.
   - Imitar un pago, una notificación, una invitación de calendario o un mensaje nuevo.
@@ -82,23 +101,38 @@ Reglas finas:
   - Asuntos ilegibles a propósito y palabras disfrazadas para el filtro de spam.
   - El drama personal de cebo que el cuerpo abandona a las dos líneas.
   - El asunto que promete algo («el truco») que el cuerpo no da.
+  - «(foto adjunta)», «(video adjunto)» o «enviado desde el teléfono» en un envío masivo; «Seguimiento sobre tu…» cuando el lector no pidió nada; la personalización falsa («mi equipo me pasó tu correo»).
+  - El nombre y apellido completos, o el usuario del email, en el asunto o en el saludo.
+  - Letras «en negrita» hechas con caracteres especiales: los lectores de pantalla no las leen y los filtros desconfían.
+  - Nombres de famosos o de referentes del rubro como carnada.
 
 ### 0.6 Pedir respuesta: la palanca más barata
 - «Respóndeme con una palabra» (SÍ, INFO, un número del 1 al 3 o la palabra clave de la campaña) sirve tres veces: el proveedor de correo aprende que hay una conversación y el email entra mejor, se mide la intención y el setter recibe un tema para arrancar.
 - Una **palabra clave distinta por campaña** también dice de qué email vino el lead.
 - MaKo acepta la palabra aunque venga mal escrita. Al recibirla, etiqueta al lead y abre la tarea del setter o le escribe por WhatsApp.
 - Nunca se pide respuesta desde una dirección que no recibe correo, y «lo leo yo» solo vale si lo lee una persona.
+- **La encuesta de un clic:** de 2 a 5 botones con frases del lector («estoy buscando» / «hoy no»; el dolor A, B o C). Cada botón etiqueta al lead y decide qué secuencia recibe. Quien no hace clic igual recibe la apertura y el último llamado de la venta.
+- **La encuesta de 2 minutos con un regalo al final**, antes de un evento o de un lanzamiento (rubro, facturación, urgencia): precalifica y le dice al setter a quién llamar primero. Si promete personalizar, se personaliza.
+- **La PD de investigación** en la bienvenida («¿por qué te sumaste? ¿qué te frena hoy?»): la respuesta va a la ficha del lead.
+- **Al que responde, se le contesta en minutos:** MaKo le escribe por WhatsApp con su nombre.
 
 ### 0.7 Segmentar por estado, no por calendario
 - **La etapa del contacto define el mensaje.** El mismo evento se escribe distinto para el lead («regístrate») y para el cliente («ya está incluido, solo confirma»).
 - Ramas mínimas: inscrito / no inscrito; asistió / faltó; agendó / no agendó; compró / no compró; activo / dormido.
 - **Antes de cada toque se verifica el estado.** No se manda «completa tu inscripción» a quien ya pagó, ni «no te veo en la lista» a quien sí está.
 - **Un interruptor por lead:** mientras está en un lanzamiento o en un carrito, se pausan su nutrición y su reactivación. Dos secuencias a la vez se roban la atención.
-- **Deduplicar.** Una secuencia no se vuelve a disparar para quien ya la recibió. En el corpus, la misma serie de 4 emails le llegó 5 veces a la misma persona.
+- **Deduplicar.** Una secuencia no se vuelve a disparar para quien ya la recibió, y quien está en dos listas recibe una sola copia. En el corpus, la misma serie de 4 emails le llegó 5 veces a la misma persona.
+- **Toda oferta para un segmento lleva el segmento como dato obligatorio** (egresados, clientes, los que tuvieron la llamada). Y la membresía barata y el programa caro no van a la misma lista: lo barato devalúa lo caro.
+- **El texto sabe en qué paso está el lead.** Nada de «por si es la primera vez» al tercer día de su bienvenida, ni el «último aviso» a quien se sumó ayer (para él: «te sumaste justo a tiempo»). Solo se cita un email que figura en su historial.
+- **La nutrición sigue al imán:** quien bajó una guía sobre X recibe la nutrición de X.
 
 ### 0.8 Formato que llega a la bandeja
 - **Forma de carta:** texto llano, una frase por párrafo, firma de una persona con su rol y un link principal. Se lee en el celular.
-- Observación de un solo buzón, no una ley: los recordatorios cortos, sin imágenes y con solo el link del evento cayeron en Notificaciones o en Principal. Los de diseño de landing, con muchos links y mayúsculas, cayeron en Promociones.
+- Observación de un solo buzón, no una ley: los recordatorios cortos, sin imágenes y con solo el link del evento cayeron en Notificaciones o en Principal. Los de diseño de landing, con muchos links y mayúsculas, cayeron en Promociones. En la segunda pasada se repitió: los remitentes de texto casi plano firmados por una persona cayeron en Notificaciones, también con los emails de venta. El «Re:» falso no sacó a nadie de Promociones.
+- **Un solo remitente:** el dominio del negocio, autenticado, una sola dirección y el nombre de la persona que firma (el nombre del remitente y la firma coinciden). Una cuenta personal gratuita mandada por una plataforma masiva, o dominios parecidos que rotan, terminan en Promociones o en spam.
+- **No depender de los avisos automáticos de una plataforma de comunidad** para un evento: el asunto lo arma la plataforma, el preheader se pierde y llegan tarde (un «ya empezó» llegó 24 h después). El negocio guarda el email y el WhatsApp propios de cada miembro y manda sus recordatorios.
+- **Dos carriles:** los avisos operativos (confirmación, recordatorio, «no pudiste venir») van en texto plano, firmados por una persona y a hora fija. El contenido y la venta, aparte.
+- **El mensaje va en el texto.** Un contador hecho con una imagen, una prueba que solo está en una captura o un email hecho de imágenes no dicen nada en la versión de texto plano. Los links van como texto con la acción («Reservar mi auditoría»), no pegados en crudo.
 - El texto alternativo de la primera imagen se convierte en la vista previa. Si hay imagen arriba, ese texto se redacta.
 - Pie corto y en español: firma de 2 líneas y la baja con un clic. Nada de pies legales de 2.000 palabras ni de plantillas del proveedor en inglés.
 - De 1 a 3 emojis como mucho. Si medio email va en negrita, nada destaca.
@@ -107,6 +141,7 @@ Reglas finas:
 - El mismo cuerpo con **otro asunto** que use otra palanca (de ligero a importante, o de invitación a «no te lo pierdas»), solo a quien no abrió y entre 12 y 72 horas después.
 - Si el momento cambió, se reescribe la primera línea: el reenvío del último día no puede decir «desde hoy».
 - Una vez por pieza. Un cuerpo que funcionó se puede reciclar meses después como plantilla: cambia la oferta y queda el esqueleto.
+- El asunto nuevo tiene que seguir siendo verdad para el cuerpo que reenvía: en el corpus, uno anunciaba una fecha que el cuerpo contradecía. Los dos asuntos, con ángulos distintos (pregunta y confesión, regalo y sorteo), sirven de prueba A/B natural.
 
 ### 0.10 Control antes de enviar (bloquea el envío si…)
 1. Quedan marcadores: corchetes sin llenar, «FALTA», «TODO», texto de relleno, la línea «Asunto:» pegada en el cuerpo, notas internas o instrucciones a la IA.
@@ -119,10 +154,18 @@ Reglas finas:
 8. La hora local del contacto cae fuera de 8 a 21.
 9. La plantilla tiene el género fijo, mezcla «tú» y «usted» o trae partes en otro idioma.
 10. El preheader está vacío o repite el relleno de la plantilla.
+11. El asunto o el preheader prometen algo que el cuerpo no da (una fórmula, un caso, un adjunto, «link adentro»), o la cifra del asunto no es la del cuerpo.
+12. Un «mañana te cuento» o «en el próximo email» no tiene un email detrás, o ese asunto ya le llegó a esa persona en la secuencia.
+13. El link no se puede tocar en el email que llega, lleva el email del lead en la dirección (se usa un identificador opaco) o le falta su propio parámetro de seguimiento.
+14. La versión de texto plano muestra el andamiaje: etiquetas, «[testimonio 3]», texto alternativo automático o una frase que depende de una imagen.
+15. Hay promesas de ingreso, rendimientos garantizados o cifras de facturación sin contexto: chocan con las políticas de anuncios y de defensa del consumidor.
 
 ### 0.11 Volumen para listas de high ticket
 - Las cadencias de 22 emails en 4 días o de 10 emails el día del evento funcionan con listas de cientos de miles. Con listas de 2.000 a 20.000 personas solo generan bajas.
 - La pauta: **1 por día solo dentro de una ventana** (lanzamiento, clase o carrito), **de 1 a 3 por semana fuera de ella** y, el día de un evento, **3 emails como mucho**, con el resto por WhatsApp.
+- **El piso:** fuera de una ventana, no menos de 1 email cada 1 o 2 semanas. Los silencios de 7 a 15 meses del corpus terminaron en listas que ya no abrían, y volver vendiendo sin recalentar no funcionó.
+- **La regla de inactividad:** después de N emails sin abrir, un intento de reactivación y después la pausa. En el corpus, un remitente mandó 30 emails en 10 meses a alguien que no abrió ninguno, y otro tenía 96 de 100 sin abrir. Eso le pega a la reputación del dominio con todos los demás.
+- **Pausar el contenido en las semanas saturadas** (Black Friday, fiestas), salvo que esa semana se esté vendiendo algo.
 
 ---
 
@@ -140,6 +183,14 @@ Reglas finas:
 - En un relanzamiento: **«qué cambió y qué se mantuvo»**, a partir de lo que dijo la cohorte anterior.
 - **Las cuotas van en un email propio**, con la cuota en el asunto. En LATAM, la cuota fija desarma la objeción del precio sin bajarlo.
 - **El cierre no se reabre.** Lo que se ofrece después es la lista de la próxima cohorte.
+- **La lista prioritaria:** antes de anunciar, «respóndeme y te pongo en prioridad», o una lista con la fecha en que se revela lo que viene. El beneficio tiene que ser real: un día antes que el resto, el precio anterior o elegir horario primero.
+- **Un caso por email, y cada caso rompe una objeción distinta** (no tengo tiempo, mi rubro es raro, ya lo hago bien). Los testimonios se eligen por la objeción que responden, no por el tamaño de la cifra. Antes del cierre, el email de **«las 3 excusas»**, cada una con su respuesta corta.
+- **La escalera completa, con fechas:** contenido gratis → entrada barata → programa → **el escalón de abajo para quien no entró «por tiempo o por inversión»**, con su propia fecha. Ofrecer las opciones en escalera (hazlo tú / con ayuda / lo hacemos por ti) evita perder al que no llega al escalón alto.
+- **«Bóveda abierta»:** liberar por unos días una parte del programa, con el vencimiento atado a la apertura de la inscripción. Calienta sin webinar y deja dos plazos encadenados.
+- **Lo que pasa después de comprar es un argumento de venta:** la primera sesión y la primera entrega, con sus fechas.
+- **Contar por qué falló la versión anterior** antes de presentar la nueva da credibilidad.
+- **La garantía, en proporción:** «15 días son casi un tercio del programa» baja el riesgo mejor que el número solo.
+- **El evento como puerta de entrada:** la entrada (gratis o paga) lleva al programa, y un **crédito por haber asistido**, con vencimiento, la convierte en un adelanto. Las entradas se venden **por tandas** que suben al llenarse, con una primera tanda para la lista caliente. El agotado de una edición, con su número, es la prueba de la siguiente.
 
 ### Arco paso a paso (ventana de 7 días; T = día del cierre)
 
@@ -170,9 +221,10 @@ Reglas finas:
 - Lo que cambia: «Lo que cambia el viernes (son dos cosas)».
 - La cuota en el asunto: «El programa en 2 pagos de USD 650».
 - Preguntas frecuentes: «Las 5 preguntas que más me hicieron».
+- Las excusas: «Las 3 excusas que más escucho (y qué les contesto)».
 
 ### Qué no copiar
-Reabrir después del cierre; mover la fecha del «primer precio» de un email al siguiente; repetir el bloque completo de la oferta en cada email (alarga sin decir nada nuevo); abrir dos años seguidos con la misma frase; el descuento grande (en high ticket se suma un bono, no se baja el precio); y los catálogos de tres puertas en el mismo email (va una oferta clara, y la opción menor queda para después).
+Reabrir después del cierre; mover la fecha del «primer precio» de un email al siguiente; repetir el bloque completo de la oferta en cada email (alarga sin decir nada nuevo); abrir dos años seguidos con la misma frase; el descuento grande (en high ticket se suma un bono, no se baja el precio); los catálogos de tres puertas en el mismo email (va una oferta clara, y la opción menor queda para después); el falso reenvío interno con un código «que no se pase»; los descuentos «más grandes de la historia» cada 2 o 3 meses, que enseñan a esperar el próximo; y la misma anécdota contada con cifras distintas en dos lanzamientos.
 
 ### Ejemplos
 
@@ -242,9 +294,27 @@ Reabrir después del cierre; mover la fecha del «primer precio» de un email al
 >
 > PD: En total quedan 46 de 96 departamentos.
 
+**1D. Voz de Líder: «las 3 excusas» (T−2)**
+
+> **Asunto:** Las 3 excusas que más escucho (y qué les contesto)
+> **Preheader:** La inscripción cierra el viernes a las 11:59 p. m. (hora de Lima)
+>
+> Esta semana me escribieron muchos gerentes. Casi todos frenan en una de estas tres:
+>
+> **«No tengo tiempo.»** Son 10 martes en vivo y 3 semanas de práctica con una presentación que igual vas a tener que preparar. No te sumo trabajo: cambio cómo lo haces.
+>
+> **«Mi empresa no lo va a pagar.»** Puedes hacerlo en 2 pagos de USD 1,050. Y si quieres proponérselo a Recursos Humanos para tu equipo de 5, respóndeme «EQUIPO» y te paso la propuesta con factura.
+>
+> **«No tengo una presentación importante cerca.»** Entonces espera a la próxima cohorte: sin una presentación real, no tendrías con qué practicar.
+>
+> Si ninguna de las tres es la tuya, quedan {lugares_libres} de 12 lugares:
+> **[Quiero mi lugar]**
+>
+> Rodrigo
+
 ---
 
-## 2. Webinar o clase gratuita
+## 2. Webinar, clase gratuita o evento (en línea o presencial)
 
 **Para qué sirve:** reunir en vivo a los leads correctos y pasar de la clase a la llamada (o a la aplicación) esa misma noche.
 
@@ -258,6 +328,14 @@ Reabrir después del cierre; mover la fecha del «primer precio» de un email al
 - **El link directo a la sala** en los últimos 3 envíos, sin pasar por una página. Además: «guarda este email» y «el link también te llega por WhatsApp».
 - **Hora con zona y en 3 países** en cada pieza. Clase a las 19 o 20 hora local del público principal; si el público está repartido, dos sesiones.
 - El mejor momento para vender es **esa misma noche**, unas 2 horas después de terminar.
+- **Pedir el caso en el registro** («completa la frase: cuando un paciente me dice ___, no sé qué contestar»): sube el compromiso y le arma el temario a quien da la clase. Su variante, «analizamos tu caso en vivo», da prioridad a quien lo manda antes.
+- **La fase preparatoria con contador** («[Día 3/7]») entre el registro y el evento: un recurso por día, un «mañana te doy X» que se cumple y, a mitad de semana, **una encuesta de 4 preguntas** que precalifica. La gente llega más caliente y el setter sabe a quién llamar primero.
+- **Un bonus inmediato por registrarse y otro por ir en vivo**, y se cumplen: lo que era solo para los que fueron no se manda después a todos.
+- **El carril de los no inscritos** abre con «si ves esto, todavía no te anotaste» y cierra con la hora exacta en que se cierra la inscripción. El día del evento, ellos también reciben un último «es hoy».
+- **En un evento de varios días,** la mañana del día 2 usa el día 1 como prueba (cuántos estuvieron, qué pidieron) y convierte el pedido más repetido en un regalo. Cada día trae su motivo para llegar puntual («hoy no hay introducción», «es el último»).
+- **Un vivo fijo** (semanal o mensual, mismo día y hora) funciona como newsletter y como motor de captación: no hay que vender cada evento, la gente ya sabe cuándo es. El motor gratis no se apaga hasta que la oferta nueva tenga fecha, precio y link: en el corpus, una comunidad pasó de unos 340 miembros nuevos por semana a cero.
+- **Encuesta antes de producir** («¿hacemos la clase el jueves?»), con opciones útiles (qué día, qué tema) y no un sí o un no. Quien vota es la lista exacta a la que hay que recordarle.
+- **Variante presencial:** confirmación con lo práctico (lugar, horario, qué llevar) → T−7 días → T−1 con la agenda → la mañana del día con cómo llegar. Al día siguiente, **gracias y una encuesta de 2 minutos**; a los 2 días, la oferta con el beneficio de asistente; después, 3 o 4 emails de cierre. Agradecer y vender en el mismo minuto, no.
 
 ### Arco paso a paso (T = inicio de la clase)
 
@@ -265,7 +343,7 @@ Reabrir después del cierre; mover la fecha del «primer precio» de un email al
 |---|---|---|
 | T−7 a T−5 | Invitación | El dolor en una línea, 3 promesas concretas, ficha (día, hora en 3 países, duración, gratis), para quién sí y para quién no, el incentivo en vivo y «al final te cuento cómo trabajamos» |
 | Al registrarse | Confirmación inmediata | «Ya tienes tu lugar (guarda este email)», botón de calendario, grupo o WhatsApp donde llega el link, un link de respaldo y la tarea previa |
-| T−5 a T−2 | 1 pieza de calentamiento por día | Una historia, una enseñanza, un caso y la tarea («abre tu agenda y cuenta…; respóndeme con el número»). Al no abierto se le reenvía con otro asunto |
+| T−5 a T−2 | 1 pieza de calentamiento por día | Una historia, una enseñanza, un caso y la tarea («abre tu agenda y cuenta…; respóndeme con el número»). A mitad de semana, la encuesta de 4 preguntas que precalifica. Al no abierto se le reenvía con otro asunto |
 | T−1 | «Mañana» | La mecánica (qué vas a hacer tú), qué traer, la razón para ir en vivo y un microcompromiso: «confírmame que vienes, son diez segundos» |
 | T, mañana | «Hoy» | Hora en 3 países, link y «guárdalo ahora». La escena del olvido: «se te complica la tarde y te acuerdas a las 19:15» |
 | T−1 h | Preparación | Lugar tranquilo, computadora, tus números a mano y «conéctate 5 minutos antes» + link |
@@ -284,7 +362,7 @@ Reabrir después del cierre; mover la fecha del «primer precio» de un email al
 - Grabación con plazo: «[GRABACIÓN] La clase, hasta el domingo».
 
 ### Qué no copiar
-Cinco emails en las últimas 3 horas; el link solo por el grupo; recordatorios que repiten el mismo bloque sin un dato nuevo; las fechas relativas escritas a mano; la excusa de «la sala tiene un límite, voy a tener que cobrar»; terminar la serie el día de la clase sin seguimiento por email; y mandar a toda la lista el email de la oferta durante la transmisión.
+Cinco emails en las últimas 3 horas; el link solo por el grupo; recordatorios que repiten el mismo bloque sin un dato nuevo; las fechas relativas escritas a mano; la excusa de «la sala tiene un límite, voy a tener que cobrar»; terminar la serie el día de la clase sin seguimiento por email; mandar a toda la lista el email de la oferta durante la transmisión; dejar el aviso del día en manos de la plataforma de video o del grupo; anunciar «el último» 47 minutos antes, o «el último webinar» dos semanas seguidas; y decir «100 % gratis, sin ventas» cuando la entrada es la prueba de algo pago.
 
 ### Ejemplos
 
@@ -364,11 +442,35 @@ A quienes faltaron:
 >
 > Diego
 
+**2D. Consulta Rentable: la encuesta de la fase preparatoria (T−3)**
+
+> **Asunto:** [Día 3/5] Antes del jueves, quiero saber con quién estoy
+> **Preheader:** 4 preguntas, 2 minutos, sin venta
+>
+> La clase del jueves ya está lista. Antes de darla siempre hago lo mismo: pregunto quién va a estar.
+> No es lo mismo una nutrióloga que ya atiende 15 pacientes por semana que una que está por abrir su consulta.
+>
+> Son 4 preguntas y 2 minutos:
+> 1. ¿Cuántos pacientes atiendes por semana?
+> 2. ¿Cuánto cobras la consulta?
+> 3. ¿De dónde te llegan hoy los pacientes?
+> 4. ¿Qué te cuesta más: conseguir mensajes, convertirlos en valoraciones o que la persona siga después?
+>
+> **[Responder las 4 preguntas]**
+>
+> Con tus respuestas elijo los 3 casos que reviso en vivo al final.
+>
+> Mariana
+>
+> PD: Mañana te mando el primero de 2 videos cortos, para que llegues al jueves con el vocabulario de la clase.
+
+Cada respuesta etiqueta a la lead en el CRM. Las que ya atienden y cobran por encima de {umbral_calificacion} pasan primero a la lista del setter para la noche de la clase.
+
 ---
 
-## 3. Recordatorios de llamada agendada y seguimiento si no se presenta
+## 3. Recordatorios de llamada agendada y seguimiento si no se presenta o no compra
 
-**Para qué sirve:** que quien agendó **se presente**, llegue preparado y, si falta, reagende el mismo día.
+**Para qué sirve:** que quien agendó **se presente**, llegue preparado y, si falta, reagende el mismo día. Y que quien tuvo la llamada y no compró siga en la conversación.
 
 ### Reglas
 - **Compromiso escalonado:** confirmar con un «SÍ» por WhatsApp → una tarea corta antes de la llamada (un video de 10 minutos, tus números) → un entorno (lugar tranquilo, computadora).
@@ -380,8 +482,12 @@ A quienes faltaron:
 - **Qué traer:** los números del último mes, la presentación que viene y **a la persona que decide**, si es otra.
 - **La llamada de adelanto:** escribir o llamar en menos de 5 minutos desde que el lead agendó. Si hay un horario libre hoy, ofrecerlo: la motivación es máxima al agendar y cae con cada hora.
 - **Todo en la zona horaria del lead** y en dos canales (email y WhatsApp).
+- **La gente falta por falta de información.** Entre la agenda y la llamada: una **victoria rápida** (algo que se hace en 5 a 10 minutos y da un resultado que se ve) y **una objeción por mensaje**, repartidas hasta la llamada. En LATAM, una cada 8 a 12 horas y con WhatsApp como canal principal (los 16 emails en 72 horas que se ven en el corpus queman la lista). La mañana de la llamada, quien atiende confirma con un caso del mismo rubro del lead.
+- **Si aplicó y todavía no hay llamada:** el email de la «ventana de espera» (cómo está su solicitud, el plazo real, por qué canal le van a escribir y un video para ver mientras tanto). Si no atiende el WhatsApp, un email a las 48 o 72 h: «no pudimos hablar; respóndeme aquí o elige un horario». El plazo que se promete sale del tiempo real de respuesta del setter.
+- **Un calendario por campaña**, con un beneficio que solo vale si agenda por ahí: así se sabe de dónde salió cada llamada. Quien agenda varias veces se marca como el más comprometido.
 - **Si no se presenta:** el mismo día, sin culpa, con dos horarios propuestos y algo de valor. Después, un caso parecido y una pregunta de sí o no. Recién ahí, la nutrición mensual.
-- **Si se presentó y no compró:** resumen de la llamada, un caso parecido, la objeción principal respondida y una fecha límite real. Después, la nutrición mensual. Espaciarlo meses es perderlo.
+- **Si se presentó y no compró:** primero, un email corto en texto plano que solo pregunta qué pasó y pide una frase: saca la objeción real y reabre la conversación. Después, el arco de 45 días de abajo y, recién ahí, la nutrición mensual. Espaciarlo meses es perderlo.
+- **El seguimiento después de la llamada es una secuencia fija, no la memoria de cada closer.** Se dispara sola cuando la etapa del lead queda en «llamada hecha, sin cierre». A ese lead se le habla como a alguien conocido: si se abre un lugar, se entera antes.
 
 ### Arco paso a paso (L = hora de la llamada)
 
@@ -400,6 +506,18 @@ A quienes faltaron:
 | No-show, +24 h | Email | Un caso de alguien en su misma situación y reagendar |
 | No-show, +72 h | Email | «¿Sigue siendo un tema? Con un sí o un no me alcanza» |
 
+### Arco después de la llamada sin compra (C = día de la llamada)
+
+| Momento | Pieza | Qué dice |
+|---|---|---|
+| C+1 o C+2 | «¿Qué pasó?», en texto plano y sin link | «Hablamos y no avanzamos; está bien. ¿Fue el momento, la inversión u otra cosa? Una frase me alcanza.» Si responde, sigue una persona por WhatsApp |
+| C+3 | Caso 1 | El caso más grande en volumen o en dinero |
+| C+4 | Caso 2 | El caso con la mejora más grande en porcentaje |
+| C+5 | Observación del rubro | El dato más fuerte que tenga el negocio |
+| Semana 2: lunes, miércoles y viernes | Objeciones | La objeción 1, la 2 y la 3, una por email |
+| Días 15 a 45 | 2 por semana | Lunes, un caso; jueves, una observación del rubro |
+| Cuando hay una ventana real | Prioridad | «Como ya hablamos, te aviso antes»: un calendario propio y la fecha |
+
 ### Asuntos (patrón y ejemplo propio)
 - Confirmación con instrucción: «Listo: tu diagnóstico es el martes a las 11:00 (CDMX)».
 - Aprobación: «Leí lo que contaste».
@@ -407,9 +525,11 @@ A quienes faltaron:
 - Tiempo que falta + automático: «Tu diagnóstico en 1 hora (recordatorio automático)».
 - En la sala: «Ya estoy en la sala».
 - No-show: «¿Lo pasamos a otro día?».
+- Ventana de espera: «Recibimos tu aplicación: te escribimos por WhatsApp en 48 h».
+- Después de la llamada sin compra: «una pregunta», en minúsculas.
 
 ### Qué no copiar
-El recordatorio que dice «entra al link que te mandó el asesor» sin el link; seis recordatorios iguales en 3 horas; la «aprobación» que no filtra nada y se presenta como filtro; el rescate de una aplicación abandonada a los 19 días; los enlaces que vencen; y los envíos fuera del horario del lead.
+El recordatorio que dice «entra al link que te mandó el asesor» sin el link; seis recordatorios iguales en 3 horas; la «aprobación» que no filtra nada y se presenta como filtro; el rescate de una aplicación abandonada a los 19 días; los enlaces que vencen; los envíos fuera del horario del lead; el «no tomamos más clientes» junto al «agenda aquí» sin cupos que se liberaron de verdad; y llamar dos veces seguidas para saltar el «no molestar» o escribir a números de listas compradas.
 
 ### Ejemplos
 
@@ -511,6 +631,31 @@ A las 72 horas: «Cuando agendaste querías más pacientes de implantes. ¿Sigue
 >
 > Rodrigo
 
+**3D. Pulso Dental: tuvo la auditoría y no firmó**
+
+Al día siguiente, en texto plano y sin link:
+
+> **Asunto:** una pregunta
+>
+> Hola, soy Diego.
+> Ayer miramos tu clínica y no avanzamos. Está bien.
+> Solo quiero entender qué pasó: ¿fue el momento, la inversión o algo que no te cerró?
+> Una frase me alcanza. Lo leo yo.
+>
+> Diego
+
+Si responde, la frase va a la ficha y sigue una persona por WhatsApp. Si no responde, sigue el arco:
+
+| Momento | Asunto | Qué dice |
+|---|---|---|
+| C+3 | De 6 a 23 valoraciones al mes | El caso de la Clínica Dental Altamira, con la misma inversión en anuncios |
+| C+5 | 43 de 50 anuncios no traen pacientes | La observación del rubro y la regla: primero la respuesta, después el anuncio |
+| Semana 2, lunes | "Ya invierto en anuncios" | Antes de invertir más, mide cuánto tardas en contestar: el promedio fue de 3 h 40 min |
+| Semana 2, miércoles | "Tres meses es mucho" | Por qué el contrato es de 3 meses: el resultado de Altamira se midió en el mes 3 |
+| Semana 2, viernes | "Lo veo más adelante" | Tomamos 2 clínicas nuevas por mes; el próximo lugar es el de {mes_proximo_lugar} |
+
+Después, 2 por semana hasta el día 45 (lunes, un caso; jueves, una observación del rubro), y la nutrición mensual.
+
 ---
 
 ## 4. Newsletter
@@ -528,10 +673,19 @@ A las 72 horas: «Cuando agendaste querías más pacientes de implantes. ¿Sigue
   - Se alterna el pedido («mira», «responde», «agenda») para no gastar la oferta.
   - Casos de rubros distintos, para que cada segmento se reconozca sin segmentar la lista.
   - Mientras hay una ventana abierta, la newsletter se pausa o se suma al lanzamiento: no dos pedidos a la vez.
+  - **La venta entra por tres puertas fijas:** un aviso corto antes del contenido, un bloque propio dentro de la edición y la PD. Los envíos especiales, a mitad de semana, quedan para anunciar, abrir y cerrar. Así la lista no siente que solo le venden.
+  - **Una PD fija con 3 formas de ayudar** (el contenido gratis, el recurso o la clase, y la llamada), o el **cierre de doble camino** (hazlo tú / lo hacemos contigo). Cada edición vende sin ser un email de venta. El bloque de oferta rota según la etapa: el pie fijo durante meses se vuelve invisible.
+  - **El lanzamiento se anuncia dentro de la cita fija:** arriba de todo, en la edición que la gente ya espera.
 - **Pedir respuesta seguido** («respóndeme cuál es el tuyo») mantiene viva la entregabilidad y trae las frases de los clientes.
 - **Ritual de marca:** la misma apertura o el mismo cierre en cada edición, una firma de persona y las secciones fijas cortas.
 - **Mantenimiento de la lista:** un email de «por qué te escribo y por qué a veces te vendo» cada 3 a 6 meses; re-permiso a quien no abre; un resumen con links de las últimas ediciones antes de un cierre; y, si desapareciste, volver con una historia que explique la ausencia (nunca hacer como que no pasó nada).
 - **Reenvío a quien no abrió**, solo para las ediciones clave.
+- **Formatos que se producen cada semana sin pensar:** problema → ejemplo → qué hacer (de 300 a 500 palabras); tesis en paradoja → caso con números propios → analogía → regla de una línea → tarea para hoy; o secciones fijas con etiqueta («Caso de la semana», «Consejo», «Novedad»), con la llamada siempre en el último bloque. Un ensayo largo se recicla en 3 o 4 ediciones cortas.
+- **Los datos propios del rubro son contenido:** «las 3 campañas que más llamadas trajeron este mes, y por qué» solo lo puede escribir quien ve muchos casos. Remate: «si quieres que miremos el tuyo…».
+- **Premio por leer hasta el final:** una palabra clave escondida al final para escribir por WhatsApp a cambio de un recurso. Entrena la lectura completa y junta teléfonos.
+- **La bienvenida al newsletter** (qué vas a recibir, cada cuánto y por qué te llega) y **dos niveles de baja** (solo el newsletter o todo): menos bajas totales y menos reportes de spam.
+- **Pie de referidos:** «reenvíaselo a quien le sirva» y «si te lo reenviaron, suscríbete aquí».
+- **Prometer menos y cumplir:** el «cada domingo» que se corta al quinto número, o el «diario» que son 2 por semana, gastan la confianza. Si falta una semana, se dice por qué.
 
 ### Estructura de una edición (7 pasos)
 1. **Preheader con tensión** que completa el asunto.
@@ -552,9 +706,11 @@ Antes, con el punto de partida medible → el punto de giro concreto → lo que 
 - Error del lector: «Estás haciendo el seguimiento el día equivocado».
 - Analogía cotidiana: «Tu consulta es una sala de espera vacía».
 - Frase partida entre asunto y preheader: «Treinta mensajes y cero valoraciones» / «El problema no fue el anuncio».
+- Serie numerada con tema: «Nota #37: el paciente que no te conviene».
+- Tres cosas en una línea: «Un dato, una plantilla y una advertencia».
 
 ### Qué no copiar
-Ensayos de 800 palabras todos los días; el mismo cierre copiado y pegado en todas las ediciones; párrafos que suenan a texto generado sin editar; la hora de envío que se corre sola; y silencios de meses sin una vuelta que los explique.
+Ensayos de 800 palabras todos los días; el mismo cierre copiado y pegado en todas las ediciones; párrafos que suenan a texto generado sin editar; la hora de envío que se corre sola; silencios de meses sin una vuelta que los explique; más de 10 links y 8 temas en una edición; el índice o las secciones de la plantilla sin limpiar; y el saludo («Buen domingo») como preheader.
 
 ### Ejemplos
 
@@ -619,6 +775,26 @@ Ensayos de 800 palabras todos los días; el mismo cierre copiado y pegado en tod
 >
 > PD: Gabriel lo hizo en su primer comité y le aprobaron el proyecto. Si quieres trabajarlo con tu presentación real, respóndeme «LISTA» y te aviso antes que a nadie cuando abra la próxima cohorte.
 
+**4D. Cierre Consultivo: problema → ejemplo → qué hacer, con cierre de doble camino**
+
+> **Asunto:** No es el precio: es tu segunda pregunta
+> **Preheader:** Y las 3 preguntas que van antes de hablar del programa
+>
+> Tiempo de lectura: 1 minuto.
+>
+> **El problema.** La primera pregunta de tu llamada es buena («¿qué te trajo aquí?»). La segunda ya es tu programa. La persona nunca llegó a decir cuánto le cuesta seguir igual.
+>
+> **Un ejemplo.** Lo veo en casi todos los diagnósticos: a los pocos minutos la coach ya está explicando sus sesiones, y al final escucha «lo voy a pensar».
+>
+> **Qué hacer.** Antes de hablar de tu programa, haz tres preguntas en este orden: qué quieres lograr, qué te lo impide hoy y qué te cuesta seguir igual.
+>
+> Si quieres hacerlo sola: en tu próxima llamada, anota en qué minuto llegas a la tercera.
+> Si quieres que lo miremos juntas: la Revisión de 3 llamadas te devuelve, minuto por minuto, dónde se fue cada venta. **[Quiero mi revisión]**
+>
+> Andrea
+>
+> PD: Respóndeme con la segunda pregunta que haces hoy y te digo si la cambiaría.
+
 ---
 
 ## 5. Bienvenida y nutrición (incluye el onboarding y la reactivación)
@@ -632,6 +808,13 @@ Ensayos de 800 palabras todos los días; el mismo cierre copiado y pegado en tod
 - **Un hilo entre emails:** cada uno abre con «ayer te conté…» y cierra con «mañana te cuento…». Si prometes algo para mañana, lo entregas.
 - **La serie numerada** («[1/4]») crea compromiso de lectura. La primera pieza no lleva link de venta; las siguientes, uno suave al final.
 - **Una sola voz** y una persona que firma. Si escribe otra persona del equipo, se presenta con su nombre y su rol.
+- **La entrega del regalo y la bienvenida van por separado**, las dos al instante. La entrega es corta (gracias, un botón y un link de respaldo) y tiene más chances de caer en Principal; la bienvenida pone las reglas. Así el regalo no queda enterrado.
+- **Una sola pregunta en la bienvenida** (el rubro o el objetivo) segmenta todo lo que viene. Sin ella, la nutrición se llena de temas que no son del lector.
+- **Mientras dura la bienvenida, se pausa el resto.** En el corpus, un recién llegado recibió 3 emails el primer día, con temas que se pisaban.
+- **El chequeo a las 24 o 36 horas** («¿cómo vas con la guía?»): las dudas típicas en renglones sueltos (el lector se reconoce) → una credencial → «hay un método» → la llamada. Es barato de escribir y sale de las objeciones del brief del negocio.
+- **La historia va primero:** el origen con detalles concretos (la edad, el monto, el momento exacto) → el error que costó caro → el método. En el corpus, fue el único email abierto de su secuencia.
+- **El imán que deja un hueco a la vista:** una plantilla o una herramienta útil y, en la bienvenida, «para sacarle todo el jugo te falta X». Eso que falta es lo que llena la clase o la llamada.
+- **Todo «mañana te cuento» se cierra de forma explícita** al día siguiente: «ayer te pregunté…; la respuesta es…».
 
 ### Nutrición después de un evento (4 piezas, una por día)
 Quién soy → mi caída y mi remontada (con cifras) → tu dolor y el mecanismo → casos con antes y después en métricas de negocio + la llamada. Para quien no se conectó, va una rama aparte: no dar por hecho que estuvo.
@@ -641,11 +824,17 @@ Quién soy → mi caída y mi remontada (con cifras) → tu dolor y el mecanismo
 - **e1, al día siguiente: verificación con bifurcación.** «¿Ya lo hiciste? Si sí, el siguiente paso es…; si no, son 3 pasos».
 - **e2: caso de uso.** Cómo lo aplicó alguien parecido.
 - Un **premio para quien acaba de comprar** (una sesión con el fundador) baja el arrepentimiento.
+- **La bienvenida es propia, no la genérica de la plataforma de cobro:** qué empieza y cuándo, dónde está el grupo y qué hacer hoy. La primera semana después de pagar define el reembolso y la recompra. Se promete solo lo que ya está listo; si algo llega después, se dice la fecha el día de la compra.
+- **El momento de mayor intención es justo después de pagar:** ahí va la mejora, si existe (el nivel superior, la sesión extra).
+- **El email disparado por lo que la persona NO hizo** («vi que todavía no subiste tu presentación; lo hacemos contigo») ayuda y no lleva PD de venta.
+- **El reporte que convierte los ceros en tareas:** por cada número en cero, un consejo concreto para moverlo.
+- **La máquina de testimonios:** un concurso con un premio para todos los que participan y otro para el mejor, instrucciones concretas (un video con el celular, el antes y el después por escrito) y de 5 a 7 días de plazo, con un último aviso. Activa a los que compraron y no usan, y junta prueba social con permiso.
 
 ### Reactivación y limpieza
 - **4 toques semanales** de 30 a 60 palabras, cada uno con la respuesta más chica posible: «¿Sigues ahí? Una palabra» → «Si pudieras arreglar una sola cosa: A, B o C» → «¿Sigue siendo un tema? Sí o no» → «Es el último: te saco de la lista salvo que toques aquí». El segundo, además, segmenta por dolor.
 - **Recuperar a quien se fue** con sus motivos reales: «leí por qué no seguiste; esto cambiamos» y cada cambio unido a una queja. A quien dijo que no en la llamada: «revisé por qué no avanzaron; ahora hay pago en 2 partes y…».
 - **El que vuelve a escribir después de un silencio** reconoce el silencio y da una razón concreta para volver. Ese primer email no pide nada grande.
+- **Recordar de dónde viene el lead** («hace unos meses bajaste el análisis de…») y **segmentar con un clic antes de vender** («sí, este trimestre» / «hoy no»). El «sí» dispara la secuencia hacia la llamada; el resto vuelve al newsletter, y si hay una ventana de venta, igual recibe la apertura y el último llamado.
 
 ### Arco paso a paso (bienvenida de 10 días hacia la llamada)
 
@@ -718,6 +907,24 @@ Quién soy → mi caída y mi remontada (con cifras) → tu dolor y el mecanismo
 
 Al día siguiente, la bifurcación: «¿Ya subiste tu presentación? Si sí, el lunes recibes tu plan. Si no, son 3 pasos y 5 minutos».
 
+**5D. Pulso Dental: reactivación que recuerda el origen y segmenta con un clic**
+
+> **Asunto:** El análisis de los 50 anuncios (y una pregunta)
+> **Preheader:** Un clic y sé qué mandarte
+>
+> Hola, soy Diego, de Pulso Dental.
+> Hace unos meses bajaste nuestro análisis de 50 anuncios de clínicas dentales. Desde entonces te escribí poco.
+>
+> Te recuerdo el dato central: la respuesta promedio a un mensaje fue de 3 horas y 40 minutos, y 11 clínicas nunca contestaron.
+>
+> Una pregunta, para saber qué mandarte:
+> **[Sí, quiero más pacientes de implantes este trimestre]**
+> **[Hoy no es prioridad]**
+>
+> Si eliges «sí», te escribo con los horarios de auditoría de este mes. Si eliges «hoy no», solo te llega el newsletter de los martes.
+>
+> Diego
+
 ---
 
 ## 6. Carrito y último llamado
@@ -743,7 +950,12 @@ No es un carrito de tienda. Es un proceso que quedó a medias:
 - **Una línea para quien ya compró:** «si ya te inscribiste, no tienes que hacer nada». Evita el «¿me van a cobrar de nuevo?».
 - **«Es el último email sobre esto»** solo si lo es. Puede cerrar con un resumen de todo lo que diste en la ventana (reciprocidad a la vista).
 - **El CTA final lleva a una persona** (WhatsApp o llamada), no a un checkout.
-- **Después del cierre:** un email de gracias sin reapertura (lista de la próxima), una encuesta a los 2 días a quienes no compraron y, si existe, una oferta menor presentada como respuesta a esa encuesta. Ningún email de urgencia sale después de la hora de cierre.
+- **Después del cierre:** un email de gracias sin reapertura (lista de la próxima), una encuesta a los 2 días a quienes no compraron y, si existe, una oferta menor presentada como respuesta a esa encuesta (el escalón de abajo para quien no entró «por tiempo o por inversión»). Ningún email de urgencia sale después de la hora de cierre.
+- **El último día les llega a todos los segmentos** (la lista general, la de espera, los interesados), no solo a los que abrieron la apertura.
+- **Un bono que vence cada noche:** un email a la mañana (contenido y el bono del día) y otro a la tarde (vence hoy). Al día siguiente, la prueba de que no hubo excepciones.
+- **La lista de lo que no va a pasar** (no se repite, no hay prórroga, los bonos desaparecen) y «no hay más emails después de este» en el último, solo si se cumple.
+- **La despedida humilde:** el último email agradece, pide disculpas si sonó insistente y deja toda la venta en la PD. Cierra sin quemar la lista.
+- **La oferta corta después de un vivo** (de 12 a 24 h) lleva bonos en vez de descuento, cada uno en una viñeta con su beneficio resumido entre paréntesis, y manda a la llamada, no al checkout. Necesita al menos un «quedan pocas horas» (email y WhatsApp) y un aviso de cierre: si no, la urgencia no se cobra.
 
 ### Arco paso a paso
 
@@ -766,7 +978,7 @@ No es un carrito de tienda. Es un proceso que quedó a medias:
 - Cierre: «Cerramos. Gracias a los que dijeron que sí».
 
 ### Qué no copiar
-Los tres emails de carrito disparados en el mismo segundo; la recuperación a quien ya pagó; un carrito una semana después del abandono; un 40 % y después un 50 % a la misma persona; un «último aviso» seguido de una extensión; la letra chica larga en el cuerpo del cierre; y el último email enviado después del cierre.
+Los tres emails de carrito disparados en el mismo segundo; la recuperación a quien ya pagó; un carrito una semana después del abandono; un 40 % y después un 50 % a la misma persona; un «último aviso» seguido de una extensión; la letra chica larga en el cuerpo del cierre; el último email enviado después del cierre; un «cierra hoy a medianoche» enviado el primer día de una ventana que cierra el domingo; el «último email» 4 días antes del cierre y después silencio; y la «suba de precio considerable» sin número ni fecha.
 
 ### Ejemplos
 
@@ -832,6 +1044,20 @@ Cinco horas antes del cierre:
 
 Al día siguiente: «Cerramos la cohorte con {inscritos} gerentes. Si no era tu momento, está bien. Respóndeme "LISTA" y te aviso antes que a nadie cuando abra la próxima». Sin reapertura.
 
+**6D. Cierre Consultivo: el escalón de abajo, a quien no entró (después de la encuesta, cierre + 4 días)**
+
+> **Asunto:** Cerramos la cohorte (y un paso más chico)
+> **Preheader:** No la reabrimos: esto es otra cosa
+>
+> Ya cerró la inscripción de «Cierre Consultivo: 90 días». No la vamos a reabrir.
+>
+> Si no entraste por tiempo o por inversión, hay un paso más chico: la Revisión de 3 llamadas. Me mandas 3 grabaciones y en 5 días hábiles te devuelvo, minuto por minuto, dónde se fue cada venta.
+> Cuesta USD 150 y, si entras en la próxima cohorte, se te acredita.
+>
+> **[Quiero mi revisión]**
+>
+> Andrea
+
 ---
 
 ## 7. Qué usa cada experto de MaKo
@@ -848,15 +1074,22 @@ Al día siguiente: «Cerramos la cohorte con {inscritos} gerentes. Si no era tu 
   - preguntas frecuentes como carta de venta (6C);
   - la cuenta del costo de no actuar;
   - el último llamado;
-  - la reactivación en 4 toques.
+  - la reactivación en 4 toques;
+  - «las 3 excusas» antes del cierre (1D);
+  - la encuesta de la fase preparatoria (2D);
+  - el «¿qué pasó?» y el arco de 45 días después de la llamada sin compra (3D);
+  - el newsletter problema → ejemplo → qué hacer, con doble camino (4D);
+  - la reactivación que recuerda el origen y segmenta con un clic (5D);
+  - el escalón de abajo después del cierre (6D).
 - **Cómo redacta:**
   - asunto y preheader como una frase partida (0.5), con el banco de patrones y la lista de prohibidos;
   - un solo CTA y la PD como segundo email;
-  - español neutro con «tú»;
+  - español neutro con «tú» por defecto, «vos» si el negocio es rioplatense y nunca «vosotros»; al traducir del inglés, «billion» es «mil millones»;
+  - la voz del remitente que inspiró un patrón (insultos, malas palabras, hype en mayúsculas) no se copia: se copia la estructura;
   - las cifras como caso, nunca como promesa;
   - la escasez solo con un dato real;
   - firma de una persona.
-- **Qué le pide al negocio:** la oferta, los cupos, la fecha de cierre, los casos con permiso, las frases textuales de los clientes y las objeciones que escucha en las llamadas. Si un dato no existe, quita la línea en vez de inventarlo.
+- **Qué le pide al negocio:** la oferta, los cupos, la fecha de cierre, los casos con permiso (clasificados por la objeción que responden), las frases textuales de los clientes, las objeciones que escucha en las llamadas y el tiempo real de respuesta del setter. Si un dato no existe, quita la línea en vez de inventarlo.
 
 ### El Newsletter
 - **Por defecto:** 1 o 2 por semana, con día y hora fijos en la hora local del lector y una grilla con un rol por día (sección 4).
@@ -864,7 +1097,9 @@ Al día siguiente: «Cerramos la cohorte con {inscritos} gerentes. Si no era tu 
 - **La venta:** 1 de cada 3 o 4 ediciones sin CTA, y el puente siempre sobre el mismo tema.
 - **Mantenimiento:** reenvío a quien no abrió en las ediciones clave, un email de «por qué te escribo» cada 3 a 6 meses y re-permiso a los dormidos.
 - **Durante una ventana de venta**, se pausa o se suma al lanzamiento.
-- **Con los datos del CRM del cliente** arma casos y diagnósticos por etapa («5 síntomas que se sienten igual, cada uno con su causa»).
+- **Con los datos del CRM del cliente** arma casos y diagnósticos por etapa («5 síntomas que se sienten igual, cada uno con su causa») y el resumen del mes del rubro («lo que más llamadas trajo y por qué»).
+- **La venta por tres puertas fijas** (aviso, bloque y PD) y la PD de 3 formas de ayudar, con el bloque de oferta que rota según la etapa.
+- **Cadencia vigilada:** el piso de 1 cada 1 o 2 semanas, el aviso al dueño cuando las aperturas caen o la cadencia se corta, y la regla de inactividad (0.11).
 
 ### La nutrición y las automatizaciones (incluidos los recordatorios de llamada)
 - **Secuencias disparadas por el estado del lead:**
@@ -873,7 +1108,10 @@ Al día siguiente: «Cerramos la cohorte con {inscritos} gerentes. Si no era tu 
   - recordatorios de clase (sección 2);
   - carrito y pago rechazado (sección 6);
   - onboarding y reactivación (sección 5);
-  - después de una llamada sin compra.
+  - aplicó y no agendó, y la ventana de espera después de aplicar (sección 3);
+  - el tramo entre la agenda y la llamada: victoria rápida y una objeción por mensaje (sección 3);
+  - después de una llamada sin compra: el arco de 45 días (sección 3);
+  - la fase preparatoria de un evento, con su encuesta (sección 2).
 - **Reglas técnicas:**
   - los tiempos son relativos al evento y se calculan, no se escriben;
   - el envío sale en la zona horaria del lead;
@@ -881,9 +1119,16 @@ Al día siguiente: «Cerramos la cohorte con {inscritos} gerentes. Si no era tu 
   - un interruptor pausa las otras secuencias;
   - deduplicación y tope de frecuencia;
   - la urgencia se apaga sola después del cierre;
+  - cancelar un evento cancela todos sus recordatorios, y lo que sale después de la hora de inicio pasa a «ya empezó»;
+  - la regla de inactividad;
+  - la versión de texto plano se genera limpia desde el HTML;
   - el control antes de enviar (0.10).
 - **Alertas al cliente** (por ejemplo, «3 leads sin respuesta hace 24 h»): solo cuando algo cambia. La misma recomendación todos los días se vuelve ruido. Si no se atiende, se resume una vez por semana con su costo.
-- **Medición:** un parámetro de seguimiento distinto por pieza, para saber cuál trae agendas.
+- **Medición:** un parámetro de seguimiento distinto por pieza y por canal (nunca el de otro email ni el de otra red), para saber cuál trae agendas, y un calendario por campaña. El lead se identifica con un código opaco, nunca con su email en la dirección del link.
+
+### El Media Buyer
+- **Solo el agendado que califica se informa como conversión** a la plataforma de anuncios. Si se informa todo, el algoritmo aprende a traer peores leads.
+- **Los anuncios se eligen por la ganancia que dejan**, cruzando las ventas del CRM con cada anuncio, y no por el costo por llamada. Se distingue el anuncio que trae gente nueva del que cierra.
 
 ### MaKo en WhatsApp
 - **Es el canal de la presencia:**
@@ -892,8 +1137,11 @@ Al día siguiente: «Cerramos la cohorte con {inscritos} gerentes. Si no era tu 
   - el rescate del no-show con dos horarios;
   - el primer toque del carrito, a la hora;
   - el pago rechazado, atendido por una persona;
-  - el link de la clase y el «ya empezamos».
-- **Recibe las palabras clave de los emails**, aunque vengan mal escritas, etiqueta de qué campaña vino el lead y abre la conversación con el tema del email.
+  - el link de la clase y el «ya empezamos»;
+  - la ventana de espera después de aplicar («te escribimos en 48 h»), con el plazo real del setter;
+  - el audio o el video personal a los pocos minutos de agendar, y una objeción por mensaje hasta la llamada.
+- **Al que responde un email o hace clic en «sí»,** le escribe en minutos y con su nombre. Si no contesta por WhatsApp, el rescate va por email a las 48 o 72 horas.
+- **Recibe las palabras clave de los emails** (también la escondida al final del newsletter), aunque vengan mal escritas, etiqueta de qué campaña vino el lead y abre la conversación con el tema del email.
 - **La llamada de adelanto:** escribe en menos de 5 minutos después de que el lead agenda y ofrece un horario de hoy si lo hay. La respuesta se mide en minutos, no en horas.
 - **El email la respalda:** todo lo que va por WhatsApp también está en el email, por si el mensaje no llega.
 - **El mismo tono que el email:** una persona con nombre, sin apodos ni mayúsculas gritonas y con la hora siempre en la zona del lead.
