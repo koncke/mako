@@ -21,6 +21,7 @@
 // ejecutar, y un error en ejecutar() consume la pendiente.
 // =============================================================================
 
+import { pedidosPendientes } from '@/lib/pedidos-ingreso';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { getLead, logLeadEvent } from '@/lib/leads';
@@ -709,6 +710,22 @@ export const RUNNERS: Runners = {
         para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
         avisos: v.avisos,
         nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
+      });
+    },
+  },
+
+  ver_quieren_entrar: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Quién quiere entrar a MaKo es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Quién quiere entrar a MaKo es sólo del super admin.');
+      const { pedidos, hayMas } = await pedidosPendientes();
+      return json({
+        pedidos: pedidos.map((p) => ({
+          email: p.email, nombre: p.nombre, correo_verificado: p.correo_verificado, detalle: p.detalle, whatsapp: p.whatsapp,
+          lead_id: p.lead_id, intentos: p.intentos, primer_intento: p.primer_at, ultimo_intento: p.ultimo_at,
+        })),
+        hay_mas: hayMas,
+        nota: 'Para darle de alta: Customers › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
       });
     },
   },

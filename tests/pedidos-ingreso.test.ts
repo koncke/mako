@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { altaDelPedido, detalleDelPedido, pedidoQueVuelve } from '../lib/pedidos-ingreso-reglas';
+import { RUTA_QUIEREN_ENTRAR, altaDelPedido, detalleDelPedido, pedidoQueVuelve, textoDelCartel } from '../lib/pedidos-ingreso-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -101,6 +101,21 @@ test('el cableado: la pantalla de login lo dice, sólo si quedó; la bandeja abr
   const bandeja = fuente('app/admin/PedidosDeIngreso.tsx');
   assert.match(bandeja, /if \(!pedidos\.length && !error\) return null;/, 'sin nadie no se dibuja, pero un error sí');
   assert.doesNotMatch(bandeja, /dangerouslySetInnerHTML/, 'los datos los escribe quien pide');
+});
+
+test('lo que espera a Martín se ve sin abrir Accounts: el cartel de Customers, el teléfono y el link del aviso', () => {
+  assert.equal(textoDelCartel(0, 0), null, 'sin nada, no se dibuja');
+  assert.equal(textoDelCartel(1, 0), '1 quiere entrar');
+  assert.equal(textoDelCartel(2, 1), '2 quieren entrar · 1 pedido de agencia');
+  assert.equal(textoDelCartel(0, 3), '3 pedidos de agencia');
+  assert.equal(RUTA_QUIEREN_ENTRAR, '/customers?tab=accounts');
+  const pag = fuente('app/customers/page.tsx');
+  assert.match(pag, /\{tab !== 'accounts' && <CartelQueEspera \/>\}\s*<PestanasCustomers/);
+  assert.match(pag, /<Link href=\{RUTA_QUIEREN_ENTRAR\}/);
+  assert.match(fuente('app/m/customers/page.tsx'), /<CustomersM vista=\{vista\} arriba=\{bandeja\} \/>/);
+  assert.match(fuente('app/m/customers/CustomersM.tsx'), /padre=\{\{ href: RUTA_MAS, label: 'More' \}\} \/>\s*\{arriba\}/);
+  assert.equal(R.linkDelAviso, true, 'el aviso lleva a Accounts, no a /admin (que redirige a otra pestaña)');
+  assert.deepEqual(R.espera, { quierenEntrar: 1, deAgencias: 2 });
 });
 
 test('las reglas de la fila', () => {

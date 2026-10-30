@@ -19,7 +19,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'clave-de-prueba';
 process.env.SUPABASE_SERVICE_KEY = 'clave-de-prueba';
 
 const pg = crearPostgrest({
-  tablas: ['pedidos_ingreso', 'usuarios', 'leads', 'lead_audit', 'app_settings', 'workspaces', 'credenciales', 'funnels', 'cobros'],
+  tablas: ['pedidos_ingreso', 'usuarios', 'leads', 'lead_audit', 'app_settings', 'workspaces', 'credenciales', 'funnels', 'cobros', 'agencia_clientes', 'agencia_altas'],
   defaults: (tabla, f) => {
     const n = (pg.db[tabla]?.length ?? 0) + 1;
     return { id: n, ...(tabla === 'pedidos_ingreso' ? { intentos: 1, estado: 'pendiente' } : {}), ...f };
@@ -132,6 +132,13 @@ async function main() {
   esAdmin = true;
   const g = await ruta.GET();
   out.getConAdmin = { status: g.status, emails: ((await g.json()).pedidos as Array<{ email: string }>).map((f) => f.email) };
+
+  // ── Lo que espera a Martín, y a dónde lleva el aviso ──
+  out.linkDelAviso = mails.some((m) => m.tag === 'pedido-ingreso' && m.cuerpo.includes('/customers?tab=accounts'));
+  db.agencia_clientes = [{ agencia_ws: 10, cliente_ws: 20, estado: 'pendiente' }];
+  db.agencia_altas = [{ id: 1, agencia_ws: 10, cliente_ws: 20, email: 'x@ejemplo.com', estado: 'pendiente' }];
+  const { cuantoEspera } = await import('../lib/pedidos-ingreso');
+  out.espera = await cuantoEspera();
 
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }

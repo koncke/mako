@@ -20,9 +20,10 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { buscarUsuarioPorEmail } from './usuarios';
+import { altasPendientes, pendientesDeAprobar } from './agencia';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { pedidoQueVuelve, type FilaPedido, type PedidoNuevo } from './pedidos-ingreso-reglas';
+import { RUTA_QUIEREN_ENTRAR, pedidoQueVuelve, type FilaPedido, type PedidoNuevo } from './pedidos-ingreso-reglas';
 
 const COLS = 'id, email, nombre, origen, correo_verificado, detalle, whatsapp, lead_id, intentos, primer_at, ultimo_at, estado';
 const TOPE_BANDEJA = 50;
@@ -31,7 +32,7 @@ const TOPE_BANDEJA = 50;
 async function avisarPedidoNuevo(p: PedidoNuevo): Promise<void> {
   await avisarDePlataforma({
     to: EMAIL_MAKO, tag: 'pedido-ingreso', asunto: `${p.nombre ?? p.email} quiere entrar a MaKo`, preheader: 'Intentó entrar con Google y no tiene cuenta.',
-    cuerpo: [`${p.nombre ?? 'Alguien'} (${p.email}) intentó entrar a MaKo con Google y no tiene cuenta.`, '', 'Para darle de alta, en «Quieren entrar»:', linkApp('/admin', null)].join('\n'),
+    cuerpo: [`${p.nombre ?? 'Alguien'} (${p.email}) intentó entrar a MaKo con Google y no tiene cuenta.`, '', 'Para darle de alta, en «Quieren entrar»:', linkApp(RUTA_QUIEREN_ENTRAR, null)].join('\n'),
   });
 }
 
@@ -85,6 +86,16 @@ export async function pedidosPendientes(): Promise<{ pedidos: FilaPedido[]; hayM
   if (eCon) throw new Error(eCon.message);
   const conCuenta = new Set(((con ?? []) as Array<{ email: string }>).map((u) => u.email.toLowerCase()));
   return { pedidos: vistas.filter((f) => !conCuenta.has(f.email)), hayMas };
+}
+
+/** Cuánto espera a Martín, para el cartel de Customers. Sin poder leerlo, 0: el cartel es un atajo, y la bandeja de Accounts dice el error. */
+export async function cuantoEspera(): Promise<{ quierenEntrar: number; deAgencias: number }> {
+  const [quierenEntrar, carteras, altas] = await Promise.all([
+    pedidosPendientes().then((r) => r.pedidos.length).catch(() => 0),
+    pendientesDeAprobar().then((l) => l.length).catch(() => 0),
+    altasPendientes().then((l) => l.length).catch(() => 0),
+  ]);
+  return { quierenEntrar, deAgencias: carteras + altas };
 }
 
 /** Lo saca de la bandeja. Queda guardado: si insiste, no vuelve ni manda otro aviso. */

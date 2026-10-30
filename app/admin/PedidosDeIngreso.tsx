@@ -3,7 +3,8 @@
 // =============================================================================
 // PedidosDeIngreso — «Quieren entrar»: quien pidió entrar a MaKo y todavía no tiene cuenta (30/10/2026)
 // =============================================================================
-// Va arriba de /admin, junto a lo que espera la firma de las agencias, y con sus mismas dos reglas:
+// Va arriba de Customers › Accounts, junto a lo que espera la firma de las agencias, y con sus mismas dos reglas (el cartel de
+// app/customers/page.tsx lo avisa desde las otras pestañas):
 //   · NO SE DIBUJA SI NO HAY NADIE.
 //   · UN ERROR DE LECTURA NO ES «NO HAY NADIE»: lo dice. Desaparecer dejaría a una persona esperando sin que nadie lo sepa.
 // «Dar de alta» NO crea nada: abre el «Nuevo cliente» de siempre ya cargado, para elegir el plan y mirar el correo antes. Al

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0354_pedidos_ingreso — la bandeja «Quieren entrar» del super admin (30/10/2026)
+-- 0354_pedidos_ingreso — la bandeja «Quieren entrar» de Customers › Accounts (30/10/2026)
 -- =============================================================================
 -- Martín, 30/10: «Me llegó una solicitud de ingreso de Gabriela González por la landing, eso como en agencia debería
 -- aparecerme en super admin para aceptarla». Medido ese día: quien entraba con Google sin tener cuenta veía «no autorizada» y
@@ -39,6 +39,6 @@ create index if not exists pedidos_ingreso_pendientes_idx on pedidos_ingreso (ul
 
 alter table pedidos_ingreso enable row level security;
 
-comment on table pedidos_ingreso is 'Quienes quieren entrar a MaKo y todavía no tienen cuenta: la bandeja «Quieren entrar» de /admin. De la plataforma. Mig 0354.';
+comment on table pedidos_ingreso is 'Quienes quieren entrar a MaKo y todavía no tienen cuenta: la bandeja «Quieren entrar» de Customers › Accounts. De la plataforma. Mig 0354.';
 comment on column pedidos_ingreso.correo_verificado is 'true sólo si el correo lo confirmó Google. Los pedidos de /planes traen el que escribió la persona. Mig 0354.';
 comment on column pedidos_ingreso.lead_id is 'Su ficha en el CRM de la plataforma, si la hay (los pedidos de /planes). Mig 0354.';

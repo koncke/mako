@@ -67,6 +67,21 @@ export function detalleDelPedido(f: Pick<FilaPedido, 'origen' | 'correo_verifica
   ].join(' · ');
 }
 
+/** Donde se aceptan: la pestaña Accounts de Customers. `/admin` redirige a la pestaña Customers, donde NO están. */
+export const RUTA_QUIEREN_ENTRAR = '/customers?tab=accounts';
+
+/**
+ * El cartel arriba de las pestañas de Customers: lo que espera a Martín se ve sin abrir Accounts (30/10/2026). También lo de las
+ * agencias, que tenía el mismo punto ciego. null = no hay nada: no se dibuja.
+ */
+export function textoDelCartel(quierenEntrar: number, deAgencias: number): string | null {
+  const partes = [
+    ...(quierenEntrar > 0 ? [`${quierenEntrar} ${quierenEntrar === 1 ? 'quiere' : 'quieren'} entrar`] : []),
+    ...(deAgencias > 0 ? [`${deAgencias} ${deAgencias === 1 ? 'pedido' : 'pedidos'} de agencia`] : []),
+  ];
+  return partes.length ? partes.join(' · ') : null;
+}
+
 /** El alta a mano arranca con esto: el negocio se llama como la persona hasta que Martín lo cambie. */
 export function altaDelPedido(f: Pick<FilaPedido, 'email' | 'nombre'>): { nombre: string; adminEmail: string; adminNombre: string } {
   const nombre = f.nombre?.trim() || f.email.split('@')[0];
