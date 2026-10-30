@@ -7,9 +7,12 @@
 // DESDE EL 29/10/2026 CADA PLANTILLA TRAE UN EJEMPLO COMPLETO (Martín: «Los templates tienen que ser reales… deben ser
 // ejemplos reales»): `contenido()` es el ejemplo de un negocio ficticio (./plantillas-ejemplos.ts) y `esqueleto()` sus
 // secciones vacías. El plan: docs/plantillas-reales/copywriter.md.
-//   · La GALERÍA abre el ejemplo (`contenido`), y MaKo ofrece adaptarlo al negocio (./experto.ts).
-//   · La API de MaKo y «Solo la estructura» usan el ESQUELETO: un agente externo nunca le deja a un cliente el anuncio de
-//     un negocio ficticio (trampa 4 del plan).
+//   · La página NACE CON EL ESQUELETO, con una guía por sección (./plantillas-guias.ts): en la galería, en el teléfono y
+//     en la API de MaKo. Martín (29/10/2026): «al crear un template ya te crea un guion de ejemplo; eso es confuso porque
+//     el usuario piensa que es el guion que MaKo le creó para su negocio». El ejemplo se ve aparte («Ver ejemplo», con
+//     «Usar como base») y MaKo pregunta para qué es y a qué oferta adaptarlo (./iniciativa.ts).
+//   · La TARJETA de la galería sí muestra el ejemplo (`extractoDe`, `chipsDe`, la insignia y la cinta «Ejemplo»): que se
+//     vea lo que se va a crear. Martín: «No pueden haber miniaturas en blanco».
 //   · Las de una estructura FIJAN su id (`pas`, `youtube-retencion`…): un ejemplo escrito con esas etiquetas no puede
 //     seguir a la primera de la biblioteca editable. Si el super admin la cambió o la apagó, la página nace con el ejemplo
 //     y sin estructura elegida (trampa 5).
@@ -29,6 +32,7 @@ import { bloquesDelDoc, docDeEstructura, docVacio, nombreDeSeccion, parrafo, tit
 import type { CatalogosCopy } from './catalogos';
 import type { DatoNegocio } from './experto';
 import { EJEMPLOS } from './plantillas-ejemplos';
+import { GUIAS, OBJETIVOS } from './plantillas-guias';
 import { docDeEjemplo } from './texto';
 import { INFO_TIPO, type JsonNodo, type TipoGuion } from './tipos';
 
@@ -51,13 +55,18 @@ export type Plantilla = {
   ejemplo?: { negocio: string; rubro: string };
   /** Lo que el ejemplo usa del negocio, en orden: MaKo pregunta lo que falte. */
   pide?: readonly DatoNegocio[];
-  /** El formato y la duración, para la tarjeta («📣 Anuncio · 45 s»). */
+  /** El formato y la duración, para la tarjeta («📣 Anuncio · 45 s»): 18 caracteres como máximo, o se corta. */
   insignia?: string;
+  /** Para qué suele ser (./plantillas-guias.ts): los botones de la primera pregunta de MaKo (./iniciativa.ts). */
+  objetivos?: readonly string[];
   /** false = no sale en la galería (sigue resolviendo por id). */
   visible?: boolean;
-  /** El cuerpo con el que nace la página desde la galería: el ejemplo (o el esqueleto, si no tiene). */
+  /** El ejemplo completo de un negocio ficticio (o el esqueleto, si no tiene): lo que muestra «Ver ejemplo». */
   contenido: () => JsonNodo;
-  /** Las secciones vacías: lo que crean la API de MaKo y «Solo la estructura». */
+  /**
+   * Las secciones del ejemplo, vacías, con una línea de guía en cada una (./plantillas-guias.ts): con esto NACE la página
+   * (la galería, el teléfono y la API de MaKo). El ejemplo nunca entra solo (Martín, 29/10/2026).
+   */
   esqueleto: () => JsonNodo;
 };
 
@@ -120,7 +129,7 @@ function testimonio(c: CatalogosCopy): Plantilla {
   );
   return {
     id: 'testimonio', grupo: 'Anuncios', nombre: 'Testimonio de cliente', emoji: '🗣️', tipo: 'ad', estructura: fija(c, 'gancho-historia-cta'),
-    descripcion: 'Un cliente cuenta su antes y después, grabado con su celular.', duracion: 40, insignia: '📣 Testimonio · 40 s',
+    descripcion: 'Un cliente cuenta su antes y después, grabado con su celular.', duracion: 40, insignia: '🗣️ Cliente · 40 s',
     ejemplo: { negocio: 'Pulso Dental', rubro: 'agencia de pacientes para clínicas dentales' }, pide: ['prueba', 'accion', 'avatar'],
     contenido: ejemploO('testimonio', esqueleto), esqueleto,
   };
@@ -129,7 +138,7 @@ function testimonio(c: CatalogosCopy): Plantilla {
 /** 3 · Copy de anuncio: 3 ángulos · Consulta Rentable. Las secciones del Media Buyer (1 a 1). */
 const COPY_ANUNCIO: Plantilla = {
   id: 'copy-anuncio', grupo: 'Anuncios', nombre: 'Copy de anuncio: 3 ángulos', emoji: '🪧', tipo: 'ad', estructura: null,
-  descripcion: 'Tres textos con ángulos distintos para probar en una campaña.', insignia: '🪧 Meta · 3 versiones',
+  descripcion: 'Tres textos con ángulos distintos para probar en una campaña.', insignia: '🪧 Meta · 3 textos',
   ejemplo: { negocio: 'Consulta Rentable', rubro: 'programa para nutriólogas' }, pide: ['oferta', 'accion', 'prueba'],
   esqueleto: () => doc(
     tituloDeSeccion('TEXTO PRINCIPAL'), parrafo(),
@@ -143,7 +152,7 @@ const COPY_ANUNCIO: Plantilla = {
 /** 4 · 10 ganchos para un anuncio · Torre Alameda. */
 const BANCO_GANCHOS: Plantilla = {
   id: 'banco-ganchos', grupo: 'Anuncios', nombre: '10 ganchos para un anuncio', emoji: '🪝', tipo: 'ad', estructura: null,
-  descripcion: 'Diez aperturas para el mismo anuncio: gana la que frena el scroll.', insignia: '📣 Anuncio · 10 aperturas',
+  descripcion: 'Diez aperturas para el mismo anuncio: gana la que frena el scroll.', insignia: '🪝 10 ganchos',
   ejemplo: { negocio: 'Torre Alameda', rubro: 'preventa inmobiliaria en Querétaro' }, pide: ['oferta', 'avatar', 'prueba', 'accion'],
   esqueleto: () => doc(
     tituloDeSeccion('GANCHOS'), tabla(['Tipo', 'Se ve (0-3 s)', 'Se dice', 'Texto en pantalla'], 10),
@@ -217,7 +226,7 @@ const EMAIL: Plantilla = {
 /** 9 · 5 emails tras una descarga · Consulta Rentable. La secuencia de nutrición de marketingskills, en 5 correos. */
 const SECUENCIA: Plantilla = {
   id: 'secuencia-nutricion', grupo: 'Email', nombre: '5 emails tras una descarga', emoji: '📬', tipo: 'email', estructura: null,
-  descripcion: 'Lleva a quien descargó tu guía hasta agendar, en 10 días.', insignia: '✉️ Email · 5 en 10 días',
+  descripcion: 'Lleva a quien descargó tu guía hasta agendar, en 10 días.', insignia: '📬 5 emails',
   ejemplo: { negocio: 'Consulta Rentable', rubro: 'programa para nutriólogas' }, pide: ['recurso', 'historia', 'prueba', 'oferta', 'objecion'],
   esqueleto: () => doc(...[1, 2, 3, 4, 5].flatMap((n) => [
     tituloDeSeccion(`EMAIL ${n}`), vinetas(campo('Día'), campo('Asunto'), campo('Vista previa')), parrafo(), vinetas(campo('Botón')),
@@ -257,7 +266,7 @@ function youtube(c: CatalogosCopy): Plantilla {
   const esqueleto = () => docDeEstructura(etiquetasDe('youtube-retencion'));
   return {
     id: 'youtube', grupo: 'Video largo', nombre: 'YouTube de 12 minutos', emoji: INFO_TIPO.youtube.emoji, tipo: 'youtube', estructura: fija(c, 'youtube-retencion'),
-    descripcion: 'Un video largo que sostiene la atención y trae clientes.', duracion: 720, insignia: '▶️ YouTube · 12 min',
+    descripcion: 'Un video largo que sostiene la atención y trae clientes.', duracion: 720, insignia: '▶️ Video · 12 min',
     ejemplo: { negocio: 'Pulso Dental', rubro: 'agencia de pacientes para clínicas dentales' }, pide: ['avatar', 'prueba', 'recurso', 'accion'],
     contenido: ejemploO('youtube', esqueleto), esqueleto,
   };
@@ -265,13 +274,32 @@ function youtube(c: CatalogosCopy): Plantilla {
 
 const BLANCO: Plantilla = {
   id: 'blanco', grupo: 'Básicos', nombre: 'Página en blanco', emoji: INFO_TIPO.pagina.emoji, tipo: 'pagina', estructura: null,
-  descripcion: 'Una página vacía, como en Notion.',
+  descripcion: 'Una página vacía, como en Notion.', insignia: '📄 Página',
   contenido: () => docVacio(), esqueleto: () => docVacio(),
+};
+
+/** La guía de cada sección, debajo de su título: una línea en itálica (la persona la reemplaza; MaKo, al escribir la sección). */
+function conGuias(d: JsonNodo, guias: Readonly<Record<string, string>> | undefined): JsonNodo {
+  if (!guias) return d;
+  const content: JsonNodo[] = [];
+  for (const b of d.content ?? []) {
+    content.push(b);
+    const etiqueta = b.type === 'heading' && typeof b.attrs?.seccion === 'string' ? b.attrs.seccion : null;
+    const guia = etiqueta ? guias[etiqueta] : undefined;
+    if (guia) content.push({ ...parrafo(), content: [{ type: 'text', text: guia, marks: [{ type: 'italic' }] }] });
+  }
+  return { ...d, content };
+}
+
+/** Lo común a todas: la guía en el esqueleto y los objetivos de la primera pregunta. */
+const conLoComun = (p: Plantilla): Plantilla => {
+  const esqueleto = p.esqueleto;
+  return { ...p, esqueleto: () => conGuias(esqueleto(), GUIAS[p.id]), ...(OBJETIVOS[p.id] ? { objetivos: OBJETIVOS[p.id] } : {}) };
 };
 
 /** Todas las plantillas, en el orden de la galería (también las que no salen en ella: `visible: false`). */
 export function plantillasDe(c: CatalogosCopy): Plantilla[] {
-  return [guionAnuncio(c), testimonio(c), COPY_ANUNCIO, BANCO_GANCHOS, reel(c), stories(c), CARRUSEL, EMAIL, SECUENCIA, ...vsls(c), youtube(c), BLANCO];
+  return [guionAnuncio(c), testimonio(c), COPY_ANUNCIO, BANCO_GANCHOS, reel(c), stories(c), CARRUSEL, EMAIL, SECUENCIA, ...vsls(c), youtube(c), BLANCO].map(conLoComun);
 }
 
 /** Las que se ven en «¿Qué vas a crear hoy?». */

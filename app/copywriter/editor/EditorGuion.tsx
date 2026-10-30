@@ -31,6 +31,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { Modal } from '@/app/_ui/Modal';
+import { Button } from '@/app/_ui/Button';
 import { plantillaPorId, restosDelEjemplo } from '@/lib/copywriter/plantillas';
 import { INFO_TIPO, SIN_TITULO, TIPOS_GUION, tieneMetodo, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion } from '@/lib/copywriter/tipos';
 import { docDeEstructura, sinTexto, textoDelDoc } from '@/lib/copywriter/doc';
@@ -89,8 +91,6 @@ export type PropsEditorGuion = {
   onDesplegarArbol?: () => void;
   /** Avisar algo corto (el toast del armazón), con «Deshacer» si se pasa. */
   avisar: (texto: string, deshacer?: () => void) => void;
-  /** «Adaptar con MaKo» de la franja de lo que queda del ejemplo (el chat de MaKo lo pide). Sin esto, no se ofrece. */
-  onAdaptar?: () => void;
   /** El título y las propiedades de ahora, para el chat (que los manda con cada pedido aunque no se hayan guardado). */
   onVivo?: (v: { titulo: string; props: PropsGuion }) => void;
   /** Lo que el chat puede cambiar de la página al ACEPTAR una propuesta de MaKo (el título y las propiedades). */
@@ -101,11 +101,8 @@ export type PropsEditorGuion = {
   compartido?: { guardar: GuardarGuion };
 };
 
-/**
- * Lo que el chat cambia de la página (no del cuerpo: el cuerpo lo escribe en el editor). `soloLaEstructura` es el
- * segundo botón del primer mensaje de MaKo en una página que nació de una plantilla (deja las secciones vacías).
- */
-export type ApiPagina = { cambiarTitulo: (t: string) => void; cambiarProps: (c: Partial<PropsGuion>) => void; soloLaEstructura: () => void };
+/** Lo que el chat cambia de la página (no del cuerpo: el cuerpo lo escribe en el editor). */
+export type ApiPagina = { cambiarTitulo: (t: string) => void; cambiarProps: (c: Partial<PropsGuion>) => void };
 
 export function EditorGuion(p: PropsEditorGuion) {
   const { guion, catalogos, movil = false, pausa = false } = p;
@@ -243,24 +240,27 @@ export function EditorGuion(p: PropsEditorGuion) {
   const cambiarTituloRef = useRef(cambiarTitulo);
   cambiarTituloRef.current = cambiarTitulo;
 
-  /**
-   * «Solo la estructura»: las secciones vacías de la plantilla (su esqueleto) en lugar del ejemplo, en UN paso de deshacer
-   * (Ctrl+Z, o «Deshacer» en el aviso). No llama a la IA.
-   */
-  const soloLaEstructura = () => {
-    if (!doc || !plantilla || pausaRef.current) return;
-    const antes = doc.leer();
-    if (!doc.poner(plantilla.esqueleto(), { historial: true })) { p.avisar('No se pudo cambiar la página'); return; }
-    marcar({ contenido: doc.leer() });
-    contarRestos(doc.leer());
-    p.avisar('Quedó solo la estructura', () => { if (doc.poner(antes, { historial: true })) { marcar({ contenido: doc.leer() }); contarRestos(doc.leer()); } });
-  };
-  const soloLaEstructuraRef = useRef(soloLaEstructura);
-  soloLaEstructuraRef.current = soloLaEstructura;
   useEffect(() => {
-    vivo.current.onApi?.({ cambiarTitulo: (t) => cambiarTituloRef.current(t), cambiarProps: (c) => cambiarPropsRef.current(c), soloLaEstructura: () => soloLaEstructuraRef.current() });
+    vivo.current.onApi?.({ cambiarTitulo: (t) => cambiarTituloRef.current(t), cambiarProps: (c) => cambiarPropsRef.current(c) });
     return () => { vivo.current.onApi?.(null); };
   }, []);
+
+  /**
+   * «Ver ejemplo» (Martín, 29/10/2026: «Poné la estructura, la misma, y en algún lado un botón de "ver ejemplo" para que se
+   * entienda que es un ejemplo»): el ejemplo de la plantilla se ve APARTE, en una caja que dice que el negocio es ficticio.
+   * Nunca entra solo a la página: sólo con «Usar como base», en UN paso de deshacer (Ctrl+Z, o «Deshacer» en el aviso).
+   */
+  const [verEjemplo, setVerEjemplo] = useState(false);
+  const ejemploDoc = useMemo(() => (verEjemplo && plantilla ? plantilla.contenido() : null), [verEjemplo, plantilla]);
+  const usarComoBase = () => {
+    setVerEjemplo(false);
+    if (!doc || !plantilla || pausaRef.current) return;
+    const antes = doc.leer();
+    if (!doc.poner(plantilla.contenido(), { historial: true })) { p.avisar('No se pudo cambiar la página'); return; }
+    marcar({ contenido: doc.leer() });
+    contarRestos(doc.leer());
+    p.avisar('El ejemplo quedó como base', () => { if (doc.poner(antes, { historial: true })) { marcar({ contenido: doc.leer() }); contarRestos(doc.leer()); } });
+  };
 
   const { estructuras, propias } = estructurasDelTipo(catalogos, props.tipo);
   const estructura = catalogos.estructuras.find((e) => e.id === props.estructura) ?? null;
@@ -364,15 +364,31 @@ export function EditorGuion(p: PropsEditorGuion) {
             <ReportarASoporte />
           </div>
         )}
-        {!compartido && plantilla && (restos.bloques > 0 || restos.datos > 0) && (
-          // La franja de lo que queda del ejemplo (texto corto: una línea y dos botones).
+        {!compartido && plantilla && (
+          // De qué plantilla nació y su ejemplo, aparte. Lo que adapta lo ofrece MaKo en el chat, no esta franja (Martín,
+          // 29/10/2026: «EN LUGAR de que esté en la top bar arriba "adaptar con MaKo"»).
           <div className="nt-aviso nt-restos" role="status">
             <span>
-              {[restos.bloques ? `Quedan ${restos.bloques === 1 ? '1 bloque' : `${restos.bloques} bloques`} del ejemplo` : '', restos.datos ? `${restos.datos === 1 ? '1 dato' : `${restos.datos} datos`} por completar` : ''].filter(Boolean).join(' · ')}
+              {restos.bloques || restos.datos
+                ? [restos.bloques ? `Quedan ${restos.bloques === 1 ? '1 bloque' : `${restos.bloques} bloques`} del ejemplo` : '', restos.datos ? `${restos.datos === 1 ? '1 dato' : `${restos.datos} datos`} por completar` : ''].filter(Boolean).join(' · ')
+                : `Plantilla: ${plantilla.nombre}`}
             </span>
-            {p.onAdaptar && <button type="button" className="nt-miga" disabled={pausa} onClick={p.onAdaptar}>Adaptar con MaKo</button>}
-            {restos.bloques > 0 && <button type="button" className="nt-miga" disabled={pausa} onClick={soloLaEstructura}>Solo la estructura</button>}
+            <button type="button" className="nt-miga" onClick={() => setVerEjemplo(true)}>Ver ejemplo</button>
           </div>
+        )}
+        {verEjemplo && plantilla && ejemploDoc && (
+          <Modal titulo={`Ejemplo: ${plantilla.ejemplo!.negocio}`} encabezado="Negocio ficticio" ancho={760} onCerrar={() => setVerEjemplo(false)}
+            pie={(
+              <>
+                <Button variant="tertiary" onClick={() => setVerEjemplo(false)}>Cerrar</Button>
+                <Button variant="primary" disabled={pausa || !doc} onClick={usarComoBase}>Usar como base</Button>
+              </>
+            )}>
+            <p className="nt-ejemplo-nota">Un ejemplo para ver la forma. El negocio, las cifras y los nombres son inventados: no son tuyos.</p>
+            <div className="nt nt-ejemplo" data-en-crear="">
+              <CuerpoNotion inicial={ejemploDoc} editable={false} etiquetas={[]} conMako={false} onCambio={() => {}} onMako={() => {}} movil={movil} />
+            </div>
+          </Modal>
         )}
         <div className="nt-pagina" style={{ position: 'relative' }}>
           <div className="nt-portada" />

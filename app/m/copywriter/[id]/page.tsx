@@ -12,7 +12,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { CabeceraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { abrir } from '@/lib/copywriter/server';
-import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
+import { catalogosDelCopywriter, ofertasDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { esIdPagina } from '@/lib/copywriter/tipos';
 import { requireCopywriterM } from '../puerta';
 import { GuionM } from '../GuionM';
@@ -22,12 +22,12 @@ export const dynamic = 'force-dynamic';
 const VOLVER = { rotulo: 'Volver a los guiones', href: '/m/copywriter' };
 const PADRE = { href: '/m/copywriter', label: 'Guiones' };
 
-export default async function GuionMovil({ params }: { params: Promise<{ id: string }> }) {
+export default async function GuionMovil({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireMovil({ navKey: 'copywriter' });
   await requireCopywriterM();
   const { id } = await params;
   if (!esIdPagina(id)) return <PantallaM refrescable={false}><CabeceraM padre={PADRE} trabajo /><VacioM frase="Ese guion no está en esta cuenta." accion={VOLVER} /></PantallaM>;
-  const [r, catalogos, ws] = await Promise.all([abrir(id), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null)]);
+  const [r, catalogos, ws, ofertas] = await Promise.all([abrir(id), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter()]);
   if (!r.ok) {
     return (
       <PantallaM refrescable={false}>
@@ -39,7 +39,7 @@ export default async function GuionMovil({ params }: { params: Promise<{ id: str
   return (
     <PantallaM refrescable={false}>
       <CabeceraM titulo={r.pagina.titulo} padre={PADRE} trabajo />
-      <GuionM ws={ws} guion={{ pagina: r.pagina, doc: r.doc }} catalogos={catalogos} />
+      <GuionM ws={ws} guion={{ pagina: r.pagina, doc: r.doc }} catalogos={catalogos} ofertas={ofertas} enMako={(await searchParams).mako !== undefined} />
     </PantallaM>
   );
 }

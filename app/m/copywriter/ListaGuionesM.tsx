@@ -32,10 +32,11 @@ export function ListaGuionesM({ paginas, catalogos, tipoInicial = null }: { pagi
     if (creando) return;
     setCreando(true);
     const props = propsNuevas(pl.tipo, pl.estructura, { plantilla: pl.ejemplo ? pl.id : null, duracion: pl.duracion });
-    const r = await pedirCrear({ tipo: pl.tipo, props, contenido: pl.contenido() });
+    const r = await pedirCrear({ tipo: pl.tipo, props, contenido: pl.esqueleto() });
     setCreando(false);
     if (!r.ok) { toast(`No se pudo crear: ${r.error}`); return; }
-    router.push(`/m/copywriter/${r.pagina.id}`);
+    // Con un ejemplo, MaKo pregunta para qué es y a qué oferta adaptarlo: la página abre en su vista (GuionM).
+    router.push(`/m/copywriter/${r.pagina.id}${pl.ejemplo ? '?mako=1' : ''}`);
   };
 
   return (

@@ -62,25 +62,32 @@ test('el experto y «Adaptar»: keys NUEVAS en el registro (sin slots nuevos en 
   assert.match(PROMPTS_EXPERTO.adaptarUser.tpl, /NINGUNO puede quedar en la versión nueva/);
 });
 
-test('«Adaptar a mi negocio» en la pantalla: el primer mensaje es LOCAL, la pregunta deja el panel adaptando y «Solo la estructura» se deshace', () => {
-  const panel = sinComentarios(leer('app/copywriter/PanelMaKo.tsx'));
-  // El primer mensaje no llama a la IA (no gasta la del negocio sin que lo pida): sale sólo si la página todavía es el ejemplo.
-  assert.match(panel, /mensajes\.length === 0 && id && plantilla && editor && restosDelEjemplo\(editor\.leer\(\), plantilla\)\.bloques > 0 \?/);
-  assert.match(panel, /Es un ejemplo de \{plantilla\.ejemplo!\.negocio\}, un negocio ficticio\. ¿Lo adapto a tu negocio\?/);
-  assert.match(panel, /onClick=\{adaptar\}>Adaptar a mi negocio</);
-  assert.match(panel, /leerApi\(\)\?\.soloLaEstructura\(\)\}>Solo la estructura</);
-  assert.match(panel, /accion: adaptar \? 'adaptar' : 'editar'/);
-  assert.match(panel, /setAdaptando\(adaptar && !cambiaAlgo\)/, 'una pregunta de MaKo deja el panel adaptando');
-  assert.match(panel, /const pedir = \(t: string, archivos: File\[\] = \[\], citadas: Referencia\[\] = \[\]\) => \(adaptando \? pedirEdicion\(t, archivos, citadas, true\)/);
-  assert.match(panel, /void pedirEdicion\(instruccion, \[\], citadas, !!adaptar\)/, 'reintentar una adaptación vuelve a adaptar');
-  const editor = sinComentarios(leer('app/copywriter/editor/EditorGuion.tsx'));
-  assert.match(editor, /doc\.poner\(plantilla\.esqueleto\(\), \{ historial: true \}\)/, 'solo la estructura, en un paso de deshacer');
-  assert.match(editor, /p\.avisar\('Quedó solo la estructura', \(\) => \{ if \(doc\.poner\(antes, \{ historial: true \}\)\)/, 'con «Deshacer»');
-  assert.match(editor, /Todavía tiene \$\{queda\.bloques === 1/, 'copiar avisa lo que queda del ejemplo');
-  assert.match(editor, /\{p\.onAdaptar && <button type="button" className="nt-miga" disabled=\{pausa\} onClick=\{p\.onAdaptar\}>Adaptar con MaKo<\/button>\}/);
+test('la página nace con la ESTRUCTURA y el ejemplo se ve aparte («Ver ejemplo»): nunca entra solo', () => {
+  // Martín (29/10/2026): «al crear un template ya te crea un guion de ejemplo; eso es confuso… Poné la estructura, la
+  // misma, y en algún lado un botón de "ver ejemplo"».
+  assert.match(leer('app/copywriter/Copywriter.tsx'), /pedirCrear\(\{ tipo, padre, titulo, props, contenido: plantilla\.esqueleto\(\) \}\)/);
+  assert.match(leer('app/m/copywriter/ListaGuionesM.tsx'), /pedirCrear\(\{ tipo: pl\.tipo, props, contenido: pl\.esqueleto\(\) \}\)/);
   // La página recuerda de qué plantilla nació (sólo las que traen un ejemplo).
   assert.match(leer('app/copywriter/Copywriter.tsx'), /plantilla: plantilla\.ejemplo \? plantilla\.id : null, duracion: plantilla\.duracion/);
   assert.match(leer('app/m/copywriter/ListaGuionesM.tsx'), /plantilla: pl\.ejemplo \? pl\.id : null, duracion: pl\.duracion/);
+  const editor = sinComentarios(leer('app/copywriter/editor/EditorGuion.tsx'));
+  assert.match(editor, /onClick=\{\(\) => setVerEjemplo\(true\)\}>Ver ejemplo<\/button>/);
+  assert.match(editor, /encabezado="Negocio ficticio"/, 'el ejemplo dice que el negocio es ficticio');
+  assert.match(editor, /<CuerpoNotion inicial=\{ejemploDoc\} editable=\{false\}/, 'el ejemplo no se edita: se lee');
+  // Al documento, sólo con «Usar como base», en UN paso de deshacer y con «Deshacer» en el aviso.
+  assert.match(editor, /onClick=\{usarComoBase\}>Usar como base<\/Button>/);
+  assert.match(editor, /if \(!doc\.poner\(plantilla\.contenido\(\), \{ historial: true \}\)\)/);
+  assert.match(editor, /p\.avisar\('El ejemplo quedó como base', \(\) => \{ if \(doc\.poner\(antes, \{ historial: true \}\)\)/);
+  assert.match(editor, /Todavía tiene \$\{queda\.bloques === 1/, 'copiar avisa lo que queda del ejemplo');
+  // Adaptar lo ofrece MaKo en el chat, no la barra (Martín: «EN LUGAR de que esté en la top bar arriba»).
+  assert.doesNotMatch(editor, /Adaptar con MaKo|onAdaptar|soloLaEstructura/);
+  const panel = sinComentarios(leer('app/copywriter/PanelMaKo.tsx'));
+  assert.match(panel, /accion: adaptar \? 'adaptar' : 'editar'/);
+  assert.match(panel, /setAdaptando\(adaptar && !cambiaAlgo\)/, 'una pregunta de MaKo deja el panel adaptando');
+  assert.match(panel, /return adaptando \? pedirEdicion\(t, archivos, citadas, true\)/);
+  assert.match(panel, /void pedirEdicion\(instruccion, \[\], citadas, !!adaptar\)/, 'reintentar una adaptación vuelve a adaptar');
+  // Como la página ya no trae el ejemplo, la IA lo recibe aparte, como forma y nunca como dato.
+  assert.match(sinComentarios(leer('lib/copywriter/ia.ts')), /EL EJEMPLO COMPLETO \(de \$\{pl\.ejemplo\.negocio\}, un negocio FICTICIO: sólo la forma, ningún dato\):\\n\$\{textoDelDoc\(pl\.contenido\(\)\)\}/);
 });
 
 test('«Editar» le pasa al modelo las herramientas (el {{formato}}) y el catálogo entero está en el formato', () => {
