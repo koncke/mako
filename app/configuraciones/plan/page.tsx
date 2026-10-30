@@ -22,7 +22,7 @@ import { planesMako } from '@/lib/compra-plan';
 import { precioEn } from '@/lib/planes-mako';
 import { PLAN_PRO, proPorLlamada } from '@/lib/subir-plan-reglas';
 import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
-import { agenciaDeCliente } from '@/lib/agencia';
+import { esClienteDeAgencia } from '@/lib/agencia';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -60,7 +60,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   const porLlamada = pro && proPorLlamada({ capa, subidaEnLinea: subir != null })
     ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Pídelo y te lo activamos.`, href: `/planes/${pro.id}` }
     : null;
-  const deAgencia = (await agenciaDeCliente(ws).catch(() => null)) != null;
+  const deAgencia = await esClienteDeAgencia(ws);
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}

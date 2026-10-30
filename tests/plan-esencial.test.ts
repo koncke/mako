@@ -60,7 +60,7 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
   assert.match(sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx')), /label: pro && !deAgencia \? ROTULO_PASAR_A_PRO : 'Ver mi plan'/);
   // Desde el 23/10/2026 se lee junto con lo demás (un Promise.all: tests/rendimiento-pedido.test.ts) y viaja tal cual.
   const me = sinComentarios(leer('app/api/auth/me/route.ts'));
-  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial\] = await Promise\.all\(\[\n\s*getWorkspaceActual\(\), estaImpersonando\(\), vistaDeOtro\(\), getRolWsEfectivo\(\), getCapaActual\(\), esEsencialDeLaSesion\(\),/);
+  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia\] = await Promise\.all\(\[\n\s*getWorkspaceActual\(\), estaImpersonando\(\), vistaDeOtro\(\), getRolWsEfectivo\(\), getCapaActual\(\), esEsencialDeLaSesion\(\),/);
   assert.match(me, /\n\s*planEsencial,\n/);
   const barra = sinComentarios(leer('app/_components/Sidebar.tsx'));
   assert.match(barra, /const esPro = \(key: string\): boolean \| 'agencia' => \(planEsencial && esNavSoloPro\(key\) \? \(clienteDeAgencia \? 'agencia' : true\) : false\);/);

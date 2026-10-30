@@ -24,7 +24,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
-import { agenciaDeCliente } from './agencia';
+import { esClienteDeAgencia } from './agencia';
 import { APP_BASE_URL, linkApp } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
 import { formatoMonto } from './pasarela-moneda';
@@ -215,7 +215,7 @@ export async function hacermePartner(ws: number, respuestas: unknown): Promise<R
   try {
     if (ws === (await wsSuperAdmin())) return { ok: false, error: 'MaKo no es partner de sí mismo.' };
     // El cliente de una AGENCIA no ve el programa (29/10/2026), y tampoco se hace partner por la API (revisión de plata, hallazgo 13).
-    if (await agenciaDeCliente(ws)) return { ok: false, error: 'Tu cuenta la maneja tu agencia: MaKo Partners no está para tu cuenta.' };
+    if (await esClienteDeAgencia(ws)) return { ok: false, error: 'Tu cuenta la maneja tu agencia: MaKo Partners no está para tu cuenta.' };
     const antes = await altaDePartner(ws).catch(() => null);
     // CUALQUIERA ES PARTNER (29/10/2026, alineado con las landings: «gratis», «cualquier plan»): ya no se frena al Esencial.
     const codigo = await codigoDe(ws);

@@ -5,12 +5,11 @@
 // (b) pintar el banner de impersonación "estás viendo a <cliente>".
 
 import { NextResponse } from 'next/server';
-import { agenciaDeCliente } from '@/lib/agencia';
 import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { rutaDeSalida } from '@/lib/agencia-cartera';
-import { vistaDeOtro } from '@/lib/vista-de-otro';
+import { cuentaActualEsDeAgencia, vistaDeOtro } from '@/lib/vista-de-otro';
 import { marcarUso } from '@/lib/ultimo-uso';
 
 export const dynamic = 'force-dynamic';
@@ -33,11 +32,10 @@ export async function GET() {
   // ⚠️ A LA VEZ (23/10/2026, «Rendimiento y loaders»): eran siete esperas en serie y esta ruta corre en CADA carga de pantalla
   // (4,5 s medidos con la función caliente). Ninguna depende de otra: la sesión se lee una vez por pedido
   // (lib/sesion-por-pedido.ts) y cada una arma lo suyo.
-  const [ws, impersonando, vista, rolWs, capa, planEsencial] = await Promise.all([
-    getWorkspaceActual(), estaImpersonando(), vistaDeOtro(), getRolWsEfectivo(), getCapaActual(), esEsencialDeLaSesion(),
+  // `clienteDeAgencia`: la cuenta de un cliente de una AGENCIA (29/10/2026): la barra le esconde MaKo Partners (lib/nav-visibilidad.ts).
+  const [ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia] = await Promise.all([
+    getWorkspaceActual(), estaImpersonando(), vistaDeOtro(), getRolWsEfectivo(), getCapaActual(), esEsencialDeLaSesion(), cuentaActualEsDeAgencia(),
   ]);
-  // La cuenta de un cliente de una AGENCIA (29/10/2026): la barra le esconde MaKo Partners (lib/nav-visibilidad.ts).
-  const clienteDeAgencia = ws != null && (await agenciaDeCliente(ws).catch(() => null)) != null;
 
   // ⚠️ LA SALIDA ES UN DATO, NO UNA CONSTANTE. El botón «Salir de la vista»
   // apuntaba hardcodeado a '/admin' en tres lugares, y '/admin' está en

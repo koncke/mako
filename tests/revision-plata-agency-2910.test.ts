@@ -169,7 +169,7 @@ test('el país por la zona (8): sólo si el negocio la guardó (la de por defect
 test('Partners (13): el cliente de una agencia no se hace partner, tampoco por la API', () => {
   const pp = fuente('lib/partners-programa.ts');
   const f = pp.slice(pp.indexOf('export async function hacermePartner('));
-  assert.ok(f.indexOf('if (await agenciaDeCliente(ws)) return { ok: false') < f.indexOf('await codigoDe(ws)'));
+  assert.ok(f.indexOf('if (await esClienteDeAgencia(ws)) return { ok: false') < f.indexOf('await codigoDe(ws)'));
 });
 
 test('la pantalla: cambiar el plan pide confirmación y dice qué se cobra', () => {

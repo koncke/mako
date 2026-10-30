@@ -25,7 +25,7 @@ import { carteraDeAgencia, altasDeAgencia, esAgencia, agenciasHabilitadas, type 
 import { clientesAprobados, ESTADOS_CARTERA, type EstadoCartera } from './agencia-cartera';
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
 import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia } from './agencia-cobro';
-import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, paisDeZona, planCuentaDe, planDeCapa, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
+import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, leerCambioDePlan, paisDeZona, planCuentaDe, planQueVeLaAgencia, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
 import { CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO } from './plan-esencial-reglas';
 import { zonaDelNegocioDetalle } from './timezone';
 import { caraDeUsuario } from './gravatar';
@@ -47,7 +47,7 @@ export type CuentaPartner = {
   estado: EstadoCartera;
   /** Cuándo se abrió (la fila de la cartera). */
   desde: string;
-  /** El plan de MaKo de la cuenta (MaKo Esencial o MaKo Pro). */
+  /** El plan de MaKo de la cuenta: de las aprobadas, su capa; de las pendientes, lo que eligió la agencia; de las dadas de baja, nada (`planQueVeLaAgencia`). */
   plan: string | null;
   planId: PlanCuenta;
   /** ¿La agencia ya le eligió el plan? Las de antes del 29/10, no: siguen como Pro (H1, lib/plan-esencial-reglas.ts). */
@@ -97,9 +97,9 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
     precioClienteDeAgencia().catch(() => ({ usd: 47, mp: null }) as PrecioClienteAgencia),
     quienPagaDeClientes([...todos]),
   ]);
-  // Qué cuentas ya tienen el plan elegido (la marca `agency.plan_cambiado`). Sin poder leerlo, todas «elegidas»: se muestra su capa.
-  const elegidas = await getSupabaseServer().from('app_settings').select('workspace_id').eq('key', KEY_PLAN_CAMBIADO).in('workspace_id', [...todos])
-    .then(({ data, error }) => (error ? null : new Set(((data ?? []) as Array<{ workspace_id: number }>).map((x) => Number(x.workspace_id)))), () => null);
+  // Qué cuentas ya tienen el plan elegido, y cuál (la marca `agency.plan_cambiado`). Sin poder leerlo, todas «elegidas»: de las aprobadas se muestra su capa.
+  const elegidas = await getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', KEY_PLAN_CAMBIADO).in('workspace_id', [...todos])
+    .then(({ data, error }) => (error ? null : new Map(((data ?? []) as Array<{ workspace_id: number; value: unknown }>).map((x) => [Number(x.workspace_id), leerCambioDePlan(x.value)?.plan ?? null]))), () => null);
   const nombreWs = new Map(wss.filter((w) => todos.has(w.id)).map((w) => [w.id, w]));
   const equipoPorWs = new Map<number, MiembroCuenta[]>();
   // Cada aprobada arranca con su lista vacía SÓLO si la lectura anduvo: así se distingue «cero personas» (nadie puede
@@ -129,10 +129,8 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
       nombre: w?.nombre?.trim() || leads.get(ws)?.nombre || `Cliente ${ws}`,
       estado: estadoValido(f.estado),
       desde: f.created_at,
-      // El plan de MaKo de la cuenta (29/10/2026: «son los mismos planes, de 47 y 97»), por su capa: Esencial o Pro.
-      plan: w ? (sinElegir(ws) ? 'Sin elegir (tiene todo lo de Pro)' : planDeCapa(w.capa) === 'pro' ? 'MaKo Pro' : 'MaKo Esencial') : null,
-      planId: w ? planDeCapa(w.capa) : 'esencial',
-      planElegido: !sinElegir(ws),
+      // El plan de MaKo de la cuenta (29/10/2026: «son los mismos planes, de 47 y 97»). La capa, SÓLO de las aprobadas.
+      ...planQueVeLaAgencia({ estado: estadoValido(f.estado), capa: aprobada ? w?.capa : null, hayCuenta: !!w, elegido: elegidas?.get(ws) ?? null, sinElegir: sinElegir(ws) }),
       equipo: aprobada ? (equipoPorWs.get(ws) ?? null) : null,
       altas: altasPorWs.get(ws) ?? [],
       cobro: (cobros as Record<number, CobroCuenta>)[ws] ?? null,

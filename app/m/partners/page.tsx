@@ -15,7 +15,7 @@ import './partners.css';
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
-import { agenciaDeCliente } from '@/lib/agencia';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -42,7 +42,7 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
   // Sólo el admin, como en la computadora (app/partners/page.tsx).
   if ((await adminDeWorkspaceActual()) == null && !esSuper) redirect(await rutaConWs('/m/cs'));
   // El cliente de una AGENCIA no ve MaKo Partners (29/10/2026), como en la computadora.
-  if (!esSuper && ws != null && (await agenciaDeCliente(ws).catch(() => null))) redirect(await rutaConWs('/m'));
+  if (!esSuper && (await esClienteDeAgencia(ws))) redirect(await rutaConWs('/m'));
   // Un link viejo de la cartera de una agencia: a su pantalla (/m/agency).
   if (sp.cuenta) redirect(await rutaConWs('/m/agency'));
   const cabecera = <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />;

@@ -20,7 +20,7 @@ import { redirect } from 'next/navigation';
 import { requireSesion, guardOnboarding } from '@/lib/tab-access';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
-import { agenciaDeCliente, esAgencia } from '@/lib/agencia';
+import { esAgencia, esClienteDeAgencia } from '@/lib/agencia';
 import { getSupabaseServer } from '@/lib/supabase';
 import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
@@ -77,7 +77,7 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/clients'));
   if ((await adminDeWorkspaceActual()) == null) redirect(await rutaConWs('/clients'));
   // El cliente de una AGENCIA no ve MaKo Partners (29/10/2026, Thiago: «yo no me meto con ese cliente»).
-  if (await agenciaDeCliente(ws).catch(() => null)) redirect(await rutaConWs('/inicio'));
+  if (await esClienteDeAgencia(ws)) redirect(await rutaConWs('/inicio'));
   // Como toda tab: con el onboarding sin terminar, primero el onboarding (lib/tab-access.ts).
   await guardOnboarding();
 

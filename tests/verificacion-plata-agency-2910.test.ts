@@ -54,7 +54,8 @@ test('H1: abrir una cuenta deja el plan elegido, y la ficha ofrece elegirlo a la
   const marca = p.indexOf("const { error: eMarca } = await getSupabaseServer().from('app_settings').upsert({ workspace_id: ws.id, key: KEY_PLAN_CAMBIADO");
   assert.ok(marca > 0 && marca < p.indexOf('const cobro = await linkPrimerMes({'), 'la marca, al abrirla y antes del primer mes');
   assert.match(p, /if \(eMarca\) return \{ ok: false/);
-  assert.match(p, /planElegido: !sinElegir\(ws\),/);
+  assert.match(p, /\.\.\.planQueVeLaAgencia\(\{[^}]*sinElegir: sinElegir\(ws\) \}\),/);
+  assert.match(fuente('lib/agencia-cobro-reglas.ts'), /planElegido: !p\.sinElegir \};/);
   const app = fuente('app/agency/AgencyApp.tsx');
   assert.match(app, /!abierta\.planElegido && \(\['esencial', 'pro'\] as const\)\.map\(/);
   assert.match(app, /pl === 'pro' \? 'Elegir Pro' : 'Elegir Esencial'/);

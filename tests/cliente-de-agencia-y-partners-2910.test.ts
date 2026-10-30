@@ -40,9 +40,9 @@ test('la barra: MaKo Partners no se le ve al cliente de una agencia, y al resto 
   assert.ok(otra && puedeVerItem(otra, { ...v, clienteDeAgencia: true }));
 });
 
-test('el dato sale de la base: /api/auth/me lo deriva de `agenciaDeCliente` y la barra lo pasa a la vista', () => {
+test('el dato sale de la base: /api/auth/me lo lee de lib/vista-de-otro.ts y la barra lo pasa a la vista', () => {
   const me = fuente('app/api/auth/me/route.ts');
-  assert.match(me, /const clienteDeAgencia = ws != null && \(await agenciaDeCliente\(ws\)/);
+  assert.match(me, /\bcuentaActualEsDeAgencia\(\),?\s*\]\);/);
   assert.match(me, /\n\s+clienteDeAgencia,\n/);
   const bar = fuente('app/_components/Sidebar.tsx');
   assert.match(bar, /setClienteDeAgencia\(j\.clienteDeAgencia === true\)/);
@@ -51,7 +51,7 @@ test('el dato sale de la base: /api/auth/me lo deriva de `agenciaDeCliente` y la
 
 test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomienda MaKo», y dice que lo maneja su agencia', () => {
   const page = fuente('app/configuraciones/plan/page.tsx');
-  assert.match(page, /const deAgencia = \(await agenciaDeCliente\(ws\)/);
+  assert.match(page, /const deAgencia = await esClienteDeAgencia\(ws\);/);
   assert.match(page, /subir=\{deAgencia \? null : subir\} porLlamada=\{deAgencia \? null : porLlamada\} clienteDeAgencia=\{deAgencia\}/);
   const panel = fuente('app/configuraciones/plan/PlanPanel.tsx');
   const recomienda = panel.indexOf('titulo="Recomienda MaKo"');
@@ -62,8 +62,8 @@ test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomiend
 });
 
 test('/partners y /m/partners: el cliente de una agencia vuelve al inicio', () => {
-  assert.match(fuente('app/partners/page.tsx'), /if \(await agenciaDeCliente\(ws\)\.catch\(\(\) => null\)\) redirect\(await rutaConWs\('\/inicio'\)\)/);
-  assert.match(fuente('app/m/partners/page.tsx'), /agenciaDeCliente\(ws\)\.catch\(\(\) => null\)\)\) redirect\(await rutaConWs\('\/m'\)\)/);
+  assert.match(fuente('app/partners/page.tsx'), /if \(await esClienteDeAgencia\(ws\)\) redirect\(await rutaConWs\('\/inicio'\)\)/);
+  assert.match(fuente('app/m/partners/page.tsx'), /esClienteDeAgencia\(ws\)\)\) redirect\(await rutaConWs\('\/m'\)\)/);
 });
 
 test('la venta a mano: el código de partner se limpia, uno mal escrito se frena, y sin código queda null', () => {

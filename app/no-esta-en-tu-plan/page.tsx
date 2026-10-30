@@ -11,7 +11,7 @@ import { requireSesion } from '@/lib/tab-access';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { PermissionState } from '@/app/_ui/Estados';
-import { agenciaDeCliente } from '@/lib/agencia';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
@@ -37,7 +37,7 @@ export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParam
   const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs(RUTA_CAMBIAR_PLAN)]);
   // El cliente de una agencia (29/10/2026): «Ver mi plan», no «Pasar a Pro» (su plan lo cambia su agencia; «Tu plan» lo dice).
   const ws = pro ? await getWorkspaceActual() : null;
-  const deAgencia = ws != null && (await agenciaDeCliente(ws).catch(() => null)) != null;
+  const deAgencia = await esClienteDeAgencia(ws);
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
       <div style={{ width: '100%', maxWidth: 520 }}>

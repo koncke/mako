@@ -39,7 +39,7 @@ import { getWorkspace } from '@/lib/workspace';
 import { leerPerfil } from '@/lib/perfil';
 import { Icon } from '@/app/_components/icons';
 import { FAMILIAS_MAS, RUTA_CENTRO_M, barraMovil, masCompleto, type FilaMas } from '@/lib/movil-rutas';
-import { agenciaDeCliente } from '@/lib/agencia';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { Criatura } from '@/app/_components/Criatura';
@@ -73,7 +73,7 @@ export default async function MasPagina() {
   // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, con «Pasar a Pro» debajo (lib/plan-esencial-reglas.ts).
   const esencial = await esEsencialDeLaSesion();
   // El cliente de una agencia (29/10/2026): el candado sin «Pasar a Pro»; su plan lo cambia su agencia.
-  const deAgencia = esencial && ctx.ws != null && (await agenciaDeCliente(ctx.ws).catch(() => null)) != null;
+  const deAgencia = esencial && (await esClienteDeAgencia(ctx.ws));
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
   // LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): el cartel de la barra lateral, en el menú del teléfono.
   const prueba = ctx.ws != null ? await estadoDePrueba(ctx.ws) : null;

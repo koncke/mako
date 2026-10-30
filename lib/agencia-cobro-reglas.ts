@@ -153,6 +153,24 @@ export function cobroDeLaCuenta(p: { pais: string | null; opciones: readonly Opc
   return stripe;
 }
 
+/**
+ * El plan que la agencia ve de una cuenta de su cartera (30/10/2026). `cuentasDePartner` cruza de inquilino, y la regla de esa
+ * lectura es que la capa, como el equipo, se lee SÓLO de las APROBADAS:
+ *   · DADA DE BAJA: nada. Ya no es su cuenta: el cliente puede haber elegido su plan, y a su ex agencia no le incumbe.
+ *   · PENDIENTE: lo que ELIGIÓ la propia agencia al abrirla (`agency.plan_cambiado`), que es un dato suyo y hace falta para
+ *     pagar el primer mes y corregirlo antes de pagar. Nunca la capa. Sin esa marca, nada.
+ *   · APROBADA: su capa. Sin el plan elegido (`sinElegir`, las de antes del 29/10), lo dice.
+ */
+export function planQueVeLaAgencia(p: { estado: string; capa: string | null | undefined; hayCuenta: boolean; elegido: PlanCuenta | null; sinElegir: boolean }): { plan: string | null; planId: PlanCuenta; planElegido: boolean } {
+  const nombre = (x: PlanCuenta) => (x === 'pro' ? 'MaKo Pro' : 'MaKo Esencial');
+  if (p.estado === 'aprobado' && p.hayCuenta) {
+    const planId = planDeCapa(p.capa);
+    return { plan: p.sinElegir ? 'Sin elegir (tiene todo lo de Pro)' : nombre(planId), planId, planElegido: !p.sinElegir };
+  }
+  if (p.estado === 'pendiente' && p.elegido) return { plan: nombre(p.elegido), planId: p.elegido, planElegido: true };
+  return { plan: null, planId: 'esencial', planElegido: true };
+}
+
 /** El país de una zona horaria (el respaldo cuando no hay encabezado, como en la API): sólo las que se saben sin dudar. */
 export function paisDeZona(tz: string | null | undefined): string | null {
   const z = String(tz ?? '');
